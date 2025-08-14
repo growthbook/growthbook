@@ -85,6 +85,7 @@ import {
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
   VariationPeriodWeight,
+  DimensionColumnData,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -1252,9 +1253,16 @@ export default abstract class SqlIntegration
           };
         }
 
+        const dimensionData: Record<string, string> = {};
+        Object.entries(row)
+          .filter(([key, _]) => key.startsWith("dim_") || key === "dimension")
+          .forEach(([key, value]) => {
+            dimensionData[key] = value;
+          });
+
         return {
           variation: row.variation ?? "",
-          dimension: row.dimension || "",
+          ...dimensionData,
           users: parseInt(row.users) || 0,
           count: parseInt(row.users) || 0,
           ...metricData,
@@ -1277,9 +1285,15 @@ export default abstract class SqlIntegration
     const { rows, statistics } = await this.runQuery(query, setExternalId);
     return {
       rows: rows.map((row) => {
+        const dimensionData: Record<string, string> = {};
+        Object.entries(row)
+          .filter(([key, _]) => key.startsWith("dim_") || key === "dimension")
+          .forEach(([key, value]) => {
+            dimensionData[key] = value;
+          });
         return {
           variation: row.variation ?? "",
-          dimension: row.dimension || "",
+          ...dimensionData,
           users: parseInt(row.users) || 0,
           count: parseInt(row.users) || 0,
           main_sum: parseFloat(row.main_sum) || 0,
@@ -1528,6 +1542,7 @@ export default abstract class SqlIntegration
     baseIdType: string,
     metrics: ExperimentMetricInterface[],
     endDate: Date,
+    dimensionCols: DimensionColumnData[],
     regressionAdjusted: boolean = false,
     cumulativeDate: boolean = false,
     overrideConversionWindows: boolean = false,
@@ -1540,7 +1555,9 @@ export default abstract class SqlIntegration
       -- one row per user
       SELECT
         initial.${baseIdType} AS ${baseIdType}
-        , MIN(initial.dimension) AS dimension
+        ${dimensionCols
+          .map((c) => `, MIN(initial.${c.alias}) AS ${c.alias}`)
+          .join("")}
         , MIN(initial.variation) AS variation
         , MIN(initial.first_exposure_date) AS first_exposure_date
         ${
@@ -2624,36 +2641,35 @@ export default abstract class SqlIntegration
       maxHoursToConvert
     );
 
-    if (params.dimensions.length > 1) {
-      throw new Error(
-        "Multiple dimensions not supported in metric analysis yet. Please contact GrowthBook."
-      );
-    }
-    const dimension = params.dimensions[0];
-    let dimensionCol = this.castToString("''");
-    if (dimension?.type === "experiment") {
-      dimensionCol = `dim_exp_${dimension.id}`;
-    } else if (dimension?.type === "user") {
-      dimensionCol = `dim_unit_${dimension.dimension.id}`;
-    } else if (dimension?.type === "date") {
-      dimensionCol = `${this.formatDate(
-        this.dateTrunc("first_exposure_timestamp")
-      )}`;
-    } else if (dimension?.type === "activation") {
-      dimensionCol = this.ifElse(
-        `first_activation_timestamp IS NULL`,
-        "'Not Activated'",
-        "'Activated'"
-      );
+    const banditDates = settings.banditSettings?.historicalWeights.map(
+      (w) => w.date
+    );
+
+    const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
+      this.getDimensionCol(d)
+    );
+    // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
+    // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
+    // column specified. See `BANDIT_DIMENSION` in gbstats.py.
+    if (banditDates?.length && dimensionCols.length === 0) {
+      dimensionCols.push({
+        alias: "dimension",
+        value: this.castToString("'All'"),
+      });
     }
 
-    const timestampColumn =
-      activationMetric && dimension?.type !== "activation"
-        ? "first_activation_timestamp"
-        : "first_exposure_timestamp";
+    const computeOnActivatedUsersOnly =
+      activationMetric !== null &&
+      !params.dimensions.some((d) => d.type === "activation");
+    const timestampColumn = computeOnActivatedUsersOnly
+      ? "first_activation_timestamp"
+      : "first_exposure_timestamp";
 
     const distinctUsersWhere: string[] = [];
-    if (activationMetric && dimension?.type !== "activation") {
+
+    // If activation metric, drop non-activated users unless doing
+    // splits by activation metric
+    if (computeOnActivatedUsersOnly) {
       distinctUsersWhere.push("first_activation_timestamp IS NOT NULL");
     }
     if (settings.skipPartialData) {
@@ -2663,9 +2679,6 @@ export default abstract class SqlIntegration
     }
 
     const cumulativeDate = false; // TODO enable flag for time series
-    const banditDates = settings.banditSettings?.historicalWeights.map(
-      (w) => w.date
-    );
 
     const percentileData: {
       valueCol: string;
@@ -2697,6 +2710,15 @@ export default abstract class SqlIntegration
       "event"
     );
 
+    if (
+      params.dimensions.length > 1 &&
+      metricData.some((m) => !!m.quantileMetric)
+    ) {
+      throw new Error(
+        "ImplementationError: quantile metrics are not supported with pre-computed dimension breakdowns"
+      );
+    }
+
     const regressionAdjustedMetrics = metricData.filter(
       (m) => m.regressionAdjusted
     );
@@ -2717,11 +2739,11 @@ export default abstract class SqlIntegration
       }
       __distinctUsers AS (
         SELECT
-          ${baseIdType},
-          ${dimensionCol} AS dimension,
-          variation,
-          ${timestampColumn} AS timestamp,
-          ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
+          ${baseIdType}
+          ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
+          , variation
+          , ${timestampColumn} AS timestamp
+          , ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
           ${banditDates?.length ? this.getBanditCaseWhen(banditDates) : ""}
           ${
             raMetricSettings.length > 0
@@ -2781,15 +2803,15 @@ export default abstract class SqlIntegration
       }
       , __userMetricJoin as (
         SELECT
-          d.variation AS variation,
-          d.dimension AS dimension,
-          ${banditDates?.length ? `d.bandit_period AS bandit_period,` : ""}
-          ${cumulativeDate ? `dr.day AS day,` : ""}
-          d.${baseIdType} AS ${baseIdType},
+          d.variation AS variation
+          ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
+          ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
+          ${cumulativeDate ? `, dr.day AS day` : ""}
+          , d.${baseIdType} AS ${baseIdType}
           ${metricData
             .map(
               (data) =>
-                `${this.addCaseWhenTimeFilter(
+                `, ${this.addCaseWhenTimeFilter(
                   `m.${data.alias}_value`,
                   data.metric,
                   data.overrideConversionWindows,
@@ -2810,8 +2832,7 @@ export default abstract class SqlIntegration
                 }
                 `
             )
-            .join(",")}
-          
+            .join("\n")}
         FROM
           __distinctUsers d
         LEFT JOIN __factTable m ON (
@@ -2831,8 +2852,8 @@ export default abstract class SqlIntegration
           ? `
         , __eventQuantileMetric AS (
           SELECT
-          m.variation
-          , m.dimension
+          m.variation AS variation
+          ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
           ${eventQuantileData
             .map((data) =>
               this.getQuantileGridColumns(
@@ -2845,22 +2866,22 @@ export default abstract class SqlIntegration
           __userMetricJoin m
         GROUP BY
           m.variation
-          , m.dimension
+          ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
         )`
           : ""
       }
       , __userMetricAgg as (
         -- Add in the aggregate metric value for each user
         SELECT
-          umj.variation,
-          umj.dimension,
-          ${banditDates?.length ? `umj.bandit_period AS bandit_period,` : ""}
-          ${cumulativeDate ? "umj.day," : ""}
-          umj.${baseIdType},
+          umj.variation
+          ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
+          ${banditDates?.length ? `, umj.bandit_period` : ""}
+          ${cumulativeDate ? `, umj.day` : ""}
+          , umj.${baseIdType}
           ${metricData
             .map(
               (data) =>
-                `${this.getAggregateMetricColumn({
+                `, ${this.getAggregateMetricColumn({
                   metric: data.metric,
                   useDenominator: false,
                   valueColumn: `umj.${data.alias}_value`,
@@ -2877,7 +2898,7 @@ export default abstract class SqlIntegration
                     : ""
                 }`
             )
-            .join(",\n")}
+            .join("\n")}
           ${eventQuantileData
             .map(
               (data) =>
@@ -2890,15 +2911,17 @@ export default abstract class SqlIntegration
           eventQuantileData.length
             ? `
         LEFT JOIN __eventQuantileMetric qm
-        ON (qm.dimension = umj.dimension AND qm.variation = umj.variation)`
+        ON (qm.variation = umj.variation ${dimensionCols
+          .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
+          .join("\n")})`
             : ""
         }
         GROUP BY
-          umj.variation,
-          umj.dimension,
-          ${cumulativeDate ? "umj.day," : ""}
-          ${banditDates?.length ? `umj.bandit_period,` : ""}
-          umj.${baseIdType}
+          umj.variation
+          ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
+          ${cumulativeDate ? `, umj.day` : ""}
+          ${banditDates?.length ? `, umj.bandit_period` : ""}
+          , umj.${baseIdType}
       )
       ${
         percentileData.length > 0
@@ -2913,11 +2936,11 @@ export default abstract class SqlIntegration
         regressionAdjustedMetrics.length > 0
           ? `
         , __userCovariateMetric as (
-          SELECT
-            d.variation AS variation,
-            d.dimension AS dimension,
-            d.${baseIdType} AS ${baseIdType},
-            ${regressionAdjustedMetrics
+          SELECT 
+            d.variation AS variation
+            ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
+            , d.${baseIdType} AS ${baseIdType}
+            , ${regressionAdjustedMetrics
               .map(
                 (metric) =>
                   `${this.getAggregateMetricColumn({
@@ -2953,9 +2976,9 @@ export default abstract class SqlIntegration
             m.timestamp >= d.min_preexposure_start
             AND m.timestamp < d.max_preexposure_end
           GROUP BY
-            d.variation,
-            d.dimension,
-            d.${baseIdType}
+            d.variation
+            ${dimensionCols.map((c) => `, d.${c.alias}`).join("")}
+            , d.${baseIdType}
         )
         `
           : ""
@@ -2966,29 +2989,29 @@ export default abstract class SqlIntegration
               baseIdType,
               factMetrics: true,
               metricData,
+              dimensionCols,
               hasRegressionAdjustment: regressionAdjustedMetrics.length > 0,
               hasCapping: percentileData.length > 0,
             })
           : `
       -- One row per variation/dimension with aggregations
       SELECT
-        m.variation AS variation,
-        ${
-          cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
-        } AS dimension,
-        COUNT(*) AS users,
-        ${metricData.map((data) => {
-          return `
-           ${this.castToString(`'${data.id}'`)} as ${data.alias}_id,
+        m.variation AS variation
+        ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
+        , COUNT(*) AS users
+        ${metricData
+          .map((data) => {
+            return `
+           , ${this.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
               data.isPercentileCapped
-                ? `MAX(COALESCE(cap.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value,`
+                ? `, MAX(COALESCE(cap.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
                 : ""
             }
-            SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum,
-            SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
-            data.alias
-          }_main_sum_squares
+            , SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum
+            , SUM(POWER(${data.capCoalesceMetric}, 2)) AS ${
+              data.alias
+            }_main_sum_squares
             ${
               data.quantileMetric === "event"
                 ? `
@@ -3024,54 +3047,58 @@ export default abstract class SqlIntegration
             }
             ${
               data.ratioMetric
-                ? `,
+                ? `
                 ${
                   data.isPercentileCapped
-                    ? `MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value,`
+                    ? `, MAX(COALESCE(cap.${data.alias}_denominator_cap, 0)) as ${data.alias}_denominator_cap_value`
                     : ""
                 }
-                SUM(${data.capCoalesceDenominator}) AS 
-                  ${data.alias}_denominator_sum,
-                SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
+                , SUM(${data.capCoalesceDenominator}) AS 
+                  ${data.alias}_denominator_sum
+                , SUM(POWER(${data.capCoalesceDenominator}, 2)) AS 
                   ${data.alias}_denominator_sum_squares
                 ${
                   data.regressionAdjusted
-                    ? `, 
-                  SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
-                  SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
-                  SUM(${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum,
-                  SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares,              
-                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product, 
-                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product, 
-                  SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product, 
-                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product,
-                  SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product, 
-                  SUM(${data.capCoalesceDenominator} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product
+                    ? `
+                  , SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum
+                  , SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares
+                  , SUM(${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_pre_sum
+                  , SUM(POWER(${data.capCoalesceDenominatorCovariate}, 2)) AS ${data.alias}_denominator_pre_sum_squares
+                  , SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_denominator_sum_product
+                  , SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
+                  , SUM(${data.capCoalesceMetric} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_post_denominator_pre_sum_product
+                  , SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominator}) AS ${data.alias}_main_pre_denominator_post_sum_product
+                  , SUM(${data.capCoalesceCovariate} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_main_pre_denominator_pre_sum_product
+                  , SUM(${data.capCoalesceDenominator} * ${data.capCoalesceDenominatorCovariate}) AS ${data.alias}_denominator_post_denominator_pre_sum_product
                   `
-                    : `,
-                    SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric}) AS ${data.alias}_main_denominator_sum_product
+                    : `
+                    , SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric}) AS ${data.alias}_main_denominator_sum_product
                   `
                 }` /*ends ifelse regressionAdjusted*/
                 : ` 
               ${
                 data.regressionAdjusted
-                  ? `,
-                SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum,
-                SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares,
-                SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
+                  ? `
+                , SUM(${data.capCoalesceCovariate}) AS ${data.alias}_covariate_sum
+                , SUM(POWER(${data.capCoalesceCovariate}, 2)) AS ${data.alias}_covariate_sum_squares
+                , SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate}) AS ${data.alias}_main_covariate_sum_product
                 `
                   : ""
               }
             `
             }
           `; /*ends ifelse ratioMetric*/
-        })}
+          })
+          .join("\n")}
       FROM
         __userMetricAgg m
         ${
           eventQuantileData.length
             ? `LEFT JOIN __eventQuantileMetric qm ON (
-          qm.dimension = m.dimension AND qm.variation = m.variation
+          qm.variation = m.variation 
+          ${dimensionCols
+            .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
+            .join("\n")}
             )`
             : ""
         }
@@ -3086,13 +3113,44 @@ export default abstract class SqlIntegration
       ${percentileData.length > 0 ? `CROSS JOIN __capValue cap` : ""}
       GROUP BY
         m.variation
-        , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+        ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
     `
       }`,
       this.getFormatDialect()
     );
-    // TODO cumulativeDate in more places
   }
+
+  getDimensionCol(dimension: Dimension): DimensionColumnData {
+    switch (dimension.type) {
+      case "experiment":
+        return {
+          value: `dim_exp_${dimension.id}`,
+          alias: `dim_exp_${dimension.id}`,
+        };
+      case "user":
+        return {
+          value: `dim_unit_${dimension.dimension.id}`,
+          alias: `dim_unit_${dimension.dimension.id}`,
+        };
+      case "date":
+        return {
+          value: `${this.formatDate(
+            this.dateTrunc("first_exposure_timestamp")
+          )}`,
+          alias: "dim_pre_date",
+        };
+      case "activation":
+        return {
+          value: this.ifElse(
+            `first_activation_timestamp IS NULL`,
+            "'Not Activated'",
+            "'Activated'"
+          ),
+          alias: "dim_activation",
+        };
+    }
+  }
+
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,
@@ -3260,36 +3318,27 @@ export default abstract class SqlIntegration
       )
     );
 
-    if (params.dimensions.length > 1) {
-      throw new Error(
-        "Multiple dimensions not supported in metric analysis yet. Please contact GrowthBook."
-      );
-    }
-    const dimension = params.dimensions[0];
-    let dimensionCol = this.castToString("''");
-    if (dimension?.type === "experiment") {
-      dimensionCol = `dim_exp_${dimension.id}`;
-    } else if (dimension?.type === "user") {
-      dimensionCol = `dim_unit_${dimension.dimension.id}`;
-    } else if (dimension?.type === "date") {
-      dimensionCol = `${this.formatDate(
-        this.dateTrunc("first_exposure_timestamp")
-      )}`;
-    } else if (dimension?.type === "activation") {
-      dimensionCol = this.ifElse(
-        `first_activation_timestamp IS NULL`,
-        "'Not Activated'",
-        "'Activated'"
-      );
+    const dimensionCols = params.dimensions.map((d) => this.getDimensionCol(d));
+    // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
+    // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
+    // column specified. See `BANDIT_DIMENSION` in gbstats.py.
+    if (banditDates?.length && dimensionCols.length === 0) {
+      dimensionCols.push({
+        alias: "dimension",
+        value: this.castToString("'All'"),
+      });
     }
 
-    const timestampColumn =
-      activationMetric && dimension?.type !== "activation"
-        ? "first_activation_timestamp"
-        : "first_exposure_timestamp";
+    const computeOnActivatedUsersOnly =
+      activationMetric !== null &&
+      !params.dimensions.some((d) => d.type === "activation");
+    const timestampColumn = computeOnActivatedUsersOnly
+      ? "first_activation_timestamp"
+      : "first_exposure_timestamp";
 
     const distinctUsersWhere: string[] = [];
-    if (activationMetric && dimension?.type !== "activation") {
+
+    if (computeOnActivatedUsersOnly) {
       distinctUsersWhere.push("first_activation_timestamp IS NOT NULL");
     }
     if (settings.skipPartialData) {
@@ -3316,11 +3365,11 @@ export default abstract class SqlIntegration
       }
       __distinctUsers AS (
         SELECT
-          ${baseIdType},
-          ${dimensionCol} AS dimension,
-          variation,
-          ${timestampColumn} AS timestamp,
-          ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
+          ${baseIdType}
+          ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
+          , variation
+          , ${timestampColumn} AS timestamp
+          , ${this.dateTrunc("first_exposure_timestamp")} AS first_exposure_date
           ${banditDates?.length ? this.getBanditCaseWhen(banditDates) : ""}
           ${
             regressionAdjusted
@@ -3374,6 +3423,7 @@ export default abstract class SqlIntegration
               baseIdType,
               denominatorMetrics,
               settings.endDate,
+              dimensionCols,
               regressionAdjusted,
               cumulativeDate,
               overrideConversionWindows,
@@ -3394,12 +3444,12 @@ export default abstract class SqlIntegration
       }
       , __userMetricJoin as (
         SELECT
-          d.variation AS variation,
-          d.dimension AS dimension,
-          ${banditDates?.length ? `d.bandit_period AS bandit_period,` : ""}
-          ${cumulativeDate ? `dr.day AS day,` : ""}
-          d.${baseIdType} AS ${baseIdType},
-          ${this.addCaseWhenTimeFilter(
+          d.variation AS variation
+          ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
+          ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
+          ${cumulativeDate ? `, dr.day AS day` : ""}
+          , d.${baseIdType} AS ${baseIdType}
+          , ${this.addCaseWhenTimeFilter(
             "m.value",
             metric,
             overrideConversionWindows,
@@ -3422,30 +3472,32 @@ export default abstract class SqlIntegration
         }
       )
       ${
-        quantileMetric === "event"
+        quantileMetric === "event" // TODO(sql): put quantiles in their own query
           ? `
           , __quantileMetric AS (
             SELECT
-              m.variation,
-              m.dimension
+              m.variation
+              ${dimensionCols
+                .map((c) => `, m.${c.alias} AS ${c.alias}`)
+                .join("")}
               ${this.getQuantileGridColumns(metricQuantileSettings, "")}
           FROM
             __userMetricJoin m
           GROUP BY
-            m.variation,
-            m.dimension
+            m.variation
+            ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
           )`
           : ""
       }
       , __userMetricAgg as (
         -- Add in the aggregate metric value for each user
         SELECT
-          umj.variation AS variation,
-          umj.dimension AS dimension,
-          ${banditDates?.length ? `umj.bandit_period AS bandit_period,` : ""}
-          ${cumulativeDate ? "umj.day AS day," : ""}
-          umj.${baseIdType},
-          ${this.getAggregateMetricColumn({
+          umj.variation AS variation
+          ${dimensionCols.map((c) => `, umj.${c.alias} AS ${c.alias}`).join("")}
+          ${banditDates?.length ? `, umj.bandit_period AS bandit_period` : ""}
+          ${cumulativeDate ? `, umj.day AS day` : ""}
+          , umj.${baseIdType}
+          , ${this.getAggregateMetricColumn({
             metric,
             valueColumn: "umj.value",
           })} as value
@@ -3456,15 +3508,17 @@ export default abstract class SqlIntegration
           quantileMetric === "event"
             ? `
         LEFT JOIN __quantileMetric qm
-        ON (qm.dimension = umj.dimension AND qm.variation = umj.variation)`
+        ON (qm.variation = umj.variation ${dimensionCols
+          .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
+          .join("\n")})`
             : ""
         }
         GROUP BY
-          umj.variation,
-          umj.dimension,
-          ${cumulativeDate ? "umj.day," : ""}
-          ${banditDates?.length ? `umj.bandit_period,` : ""}
-          umj.${baseIdType}
+          umj.variation
+          ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
+          ${cumulativeDate ? ", umj.day" : ""}
+          ${banditDates?.length ? `, umj.bandit_period` : ""}
+          , umj.${baseIdType}
       )
       ${
         isPercentileCapped
@@ -3492,14 +3546,18 @@ export default abstract class SqlIntegration
         ratioMetric
           ? `, __userDenominatorAgg AS (
               SELECT
-                d.variation AS variation,
-                d.dimension AS dimension,
+                d.variation AS variation
+                ${dimensionCols
+                  .map((c) => `, d.${c.alias} AS ${c.alias}`)
+                  .join("")}
                 ${
-                  banditDates?.length ? `d.bandit_period AS bandit_period,` : ""
+                  banditDates?.length
+                    ? `, d.bandit_period AS bandit_period`
+                    : ""
                 }
-                ${cumulativeDate ? `dr.day AS day,` : ""}
-                d.${baseIdType} AS ${baseIdType},
-                ${this.getAggregateMetricColumn({
+                ${cumulativeDate ? `, dr.day AS day` : ""}
+                , d.${baseIdType} AS ${baseIdType}
+                , ${this.getAggregateMetricColumn({
                   metric: denominator,
                   useDenominator: true,
                 })} as value
@@ -3526,11 +3584,11 @@ export default abstract class SqlIntegration
                     : ""
                 }
               GROUP BY
-                d.variation,
-                d.dimension,
-                ${banditDates?.length ? `d.bandit_period,` : ""}
-                ${cumulativeDate ? `dr.day,` : ""}
-                d.${baseIdType}
+                d.variation
+                ${dimensionCols.map((c) => `, d.${c.alias}`).join("")}
+                ${banditDates?.length ? `, d.bandit_period` : ""}
+                ${cumulativeDate ? `, dr.day` : ""}
+                , d.${baseIdType}
             )
             ${
               denominatorIsPercentileCapped
@@ -3564,10 +3622,10 @@ export default abstract class SqlIntegration
           ? `
         , __userCovariateMetric as (
           SELECT
-            d.variation AS variation,
-            d.dimension AS dimension,
-            d.${baseIdType} AS ${baseIdType},
-            ${this.getAggregateMetricColumn({ metric })} as value
+            d.variation AS variation
+            ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
+            , d.${baseIdType} AS ${baseIdType}
+            , ${this.getAggregateMetricColumn({ metric })} as value
           FROM
             __distinctUsers d
           JOIN __metric m ON (
@@ -3577,9 +3635,9 @@ export default abstract class SqlIntegration
             m.timestamp >= d.preexposure_start
             AND m.timestamp < d.preexposure_end
           GROUP BY
-            d.variation,
-            d.dimension,
-            d.${baseIdType}
+            d.variation
+            ${dimensionCols.map((c) => `, d.${c.alias}`).join("")}
+            , d.${baseIdType}
         )
         `
           : ""
@@ -3601,6 +3659,7 @@ export default abstract class SqlIntegration
               capCoalesceDenominator,
             },
           ],
+          dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
           hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
@@ -3609,18 +3668,16 @@ export default abstract class SqlIntegration
       : `
   -- One row per variation/dimension with aggregations
   SELECT
-    m.variation AS variation,
-    ${
-      cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
-    } AS dimension,
-    COUNT(*) AS users,
+    m.variation AS variation
+    ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
+    , COUNT(*) AS users
     ${
       isPercentileCapped
-        ? "MAX(COALESCE(cap.value_cap, 0)) as main_cap_value,"
+        ? ", MAX(COALESCE(cap.value_cap, 0)) as main_cap_value"
         : ""
     }
-    SUM(${capCoalesceMetric}) AS main_sum,
-    SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
+    , SUM(${capCoalesceMetric}) AS main_sum
+    , SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
     ${
       quantileMetric === "event"
         ? `, SUM(COALESCE(m.n_events, 0)) AS denominator_sum
@@ -3642,24 +3699,24 @@ export default abstract class SqlIntegration
     }
     ${
       ratioMetric
-        ? `,
+        ? `
       ${
         denominatorIsPercentileCapped
-          ? "MAX(COALESCE(capd.value_cap, 0)) as denominator_cap_value,"
+          ? ", MAX(COALESCE(capd.value_cap, 0)) as denominator_cap_value"
           : ""
       }
-      SUM(${capCoalesceDenominator}) AS denominator_sum,
-      SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares,
-      SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
+      , SUM(${capCoalesceDenominator}) AS denominator_sum
+      , SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares
+      , SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
     `
         : ""
     }
     ${
       regressionAdjusted
-        ? `,
-      SUM(${capCoalesceCovariate}) AS covariate_sum,
-      SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
-      SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
+        ? `
+      , SUM(${capCoalesceCovariate}) AS covariate_sum
+      , SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares
+      , SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
       `
         : ""
     }
@@ -3668,7 +3725,9 @@ export default abstract class SqlIntegration
     ${
       quantileMetric === "event"
         ? `LEFT JOIN __quantileMetric qm ON (
-      qm.dimension = m.dimension AND qm.variation = m.variation
+      qm.variation = m.variation ${dimensionCols
+        .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
+        .join("\n")}
         )`
         : ""
     }
@@ -3697,7 +3756,7 @@ export default abstract class SqlIntegration
   ${"ignoreNulls" in metric && metric.ignoreNulls ? `WHERE m.value != 0` : ""}
   GROUP BY
     m.variation
-    , ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
+    ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
   `
   }`,
       this.getFormatDialect()
@@ -3708,6 +3767,7 @@ export default abstract class SqlIntegration
     baseIdType,
     factMetrics,
     metricData,
+    dimensionCols,
     hasRegressionAdjustment,
     hasCapping,
     ignoreNulls,
@@ -3716,6 +3776,7 @@ export default abstract class SqlIntegration
     baseIdType: string;
     factMetrics: boolean;
     metricData: BanditMetricData[];
+    dimensionCols: DimensionColumnData[];
     hasRegressionAdjustment: boolean;
     hasCapping: boolean;
     // legacy metric settings
@@ -3726,7 +3787,7 @@ export default abstract class SqlIntegration
   , __banditPeriodStatistics AS (
     SELECT
       m.variation AS variation
-      , m.dimension AS dimension
+      ${dimensionCols.map((d) => `, m.${d.alias} AS ${d.alias}`).join("")}
       , m.bandit_period AS bandit_period
       , ${this.ensureFloat(`COUNT(*)`)} AS users
       ${metricData
@@ -3809,21 +3870,21 @@ export default abstract class SqlIntegration
     GROUP BY
       m.variation
       , m.bandit_period
-      , m.dimension
+      ${dimensionCols.map((d) => `, m.${d.alias}`).join("")}
   ),
   __dimensionTotals AS (
     SELECT
-      dimension
-      , ${this.ensureFloat(`SUM(users)`)} AS total_users
+      ${this.ensureFloat(`SUM(users)`)} AS total_users
+      ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
     FROM 
       __banditPeriodStatistics
     GROUP BY
-      dimension
+      ${dimensionCols.map((d) => `${d.alias}`).join(" AND ")}
   ),
   __banditPeriodWeights AS (
     SELECT
-      bps.bandit_period
-      , bps.dimension
+      bps.bandit_period AS bandit_period
+      ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
       , SUM(bps.users) / MAX(dt.total_users) AS weight
       ${metricData
         .map((data) => {
@@ -3855,19 +3916,20 @@ export default abstract class SqlIntegration
         .join("\n")}
     FROM 
       __banditPeriodStatistics bps
-    LEFT JOIN
-      __dimensionTotals dt 
-      ON (bps.dimension = dt.dimension)
+    LEFT JOIN __dimensionTotals dt ON
+      (${dimensionCols
+        .map((d) => `bps.${d.alias} = dt.${d.alias}`)
+        .join(" AND ")})
     GROUP BY
       bps.bandit_period
-      , bps.dimension
+      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
   )
   ${
     hasRegressionAdjustment
       ? `
       , __theta AS (
       SELECT
-        dimension
+        ${dimensionCols.map((d) => `${d.alias} AS ${d.alias}`).join(", ")}
       ${metricData
         .map((data) => {
           const alias = data.alias + (factMetrics ? "_" : "");
@@ -3890,14 +3952,14 @@ export default abstract class SqlIntegration
       FROM
         __banditPeriodWeights
       GROUP BY
-        dimension
+        ${dimensionCols.map((d) => `${d.alias}`).join(", ")}  
       )
     `
       : ""
   }
   SELECT
     bps.variation
-    , bps.dimension
+    ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
     , SUM(bps.users) AS users
     ${metricData
       .map((data) => {
@@ -3986,20 +4048,24 @@ export default abstract class SqlIntegration
     __banditPeriodWeights bpw
     ON (
       bps.bandit_period = bpw.bandit_period 
-      AND bps.dimension = bpw.dimension
+      ${dimensionCols
+        .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
+        .join("\n")}
     )
   ${
     hasRegressionAdjustment
       ? `
     LEFT JOIN
       __theta t
-      ON (bps.dimension = t.dimension)
+      ON (${dimensionCols
+        .map((d) => `bps.${d.alias} = t.${d.alias}`)
+        .join(" AND ")})
     `
       : ""
   }
   GROUP BY
     bps.variation
-    , bps.dimension
+    ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
   `;
   }
 

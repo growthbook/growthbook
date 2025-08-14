@@ -134,7 +134,6 @@ export default function ExperimentMetricBlock({
           } Metrics`}
           renderLabelColumn={(label) => label}
           dateCreated={new Date()}
-          hasRisk={false}
           statsEngine={statsEngine}
           pValueCorrection={pValueCorrection}
           differenceType={analysis?.settings?.differenceType || "relative"}

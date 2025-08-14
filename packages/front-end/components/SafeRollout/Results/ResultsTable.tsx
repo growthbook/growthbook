@@ -71,7 +71,6 @@ export type ResultsTableProps = {
     maxRows?: number
   ) => string | ReactElement;
   dateCreated: Date;
-  hasRisk: boolean;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;

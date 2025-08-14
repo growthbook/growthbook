@@ -19,6 +19,7 @@ const snapshotContext = React.createContext<{
   mutateSnapshot: () => void;
   phase: number;
   dimension: string;
+  precomputedDimensions: string[];
   analysisSettings?: ExperimentSnapshotAnalysisSettings | null;
   setPhase: (phase: number) => void;
   setDimension: (dimension: string) => void;
@@ -31,6 +32,7 @@ const snapshotContext = React.createContext<{
 }>({
   phase: 0,
   dimension: "",
+  precomputedDimensions: [],
   setPhase: () => {
     // do nothing
   },
@@ -47,6 +49,23 @@ const snapshotContext = React.createContext<{
     // do nothing
   },
 });
+
+export function getPrecomputedDimensions(
+  snapshot: ExperimentSnapshotInterface | undefined,
+  dimensionless: ExperimentSnapshotInterface | undefined
+): string[] {
+  if (snapshot?.type === "standard" && !snapshot?.dimension) {
+    return snapshot?.settings.dimensions.map((d) => d.id) ?? [];
+  }
+
+  // if snapshot is not the latest standard, then show dimensions from
+  // the dimensionless snapshot
+  if (snapshot?.type !== "standard" && dimensionless?.type === "standard") {
+    return dimensionless?.settings.dimensions.map((d) => d.id) ?? [];
+  }
+
+  return [];
+}
 
 export default function SnapshotProvider({
   experiment,
@@ -100,6 +119,10 @@ export default function SnapshotProvider({
         phase,
         dimension,
         analysisSettings,
+        precomputedDimensions: getPrecomputedDimensions(
+          data?.snapshot,
+          data?.dimensionless
+        ),
         setPhase,
         setDimension,
         setAnalysisSettings,

@@ -243,6 +243,7 @@ export const experimentAnalysisSummary = z
     snapshotId: z.string(),
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
+    precomputedDimensions: z.array(z.string()).optional(),
   })
   .strict();
 
