@@ -73,14 +73,9 @@ export function getCustomLogProps(req: Request) {
 }
 
 const isValidLevel = (input: unknown): input is Level => {
-  return ([
-    "fatal",
-    "error",
-    "warn",
-    "info",
-    "debug",
-    "trace",
-  ] as const).includes(input as Level);
+  return (
+    ["fatal", "error", "warn", "info", "debug", "trace"] as const
+  ).includes(input as Level);
 };
 
 const logBase = parseProcessLogBase();

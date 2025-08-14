@@ -66,27 +66,22 @@ const ReportsPage = (): React.ReactElement => {
     },
     [onlyMyReports, userId]
   );
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    pagination,
-  } = useSearch({
-    items: reports,
-    localStorageKey: "reports",
-    defaultSortField: "dateUpdated",
-    defaultSortDir: -1,
-    searchFields: [
-      "title",
-      "description",
-      "experimentName",
-      "userName",
-      "dateUpdated",
-    ],
-    filterResults,
-    pageSize: 20,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: reports,
+      localStorageKey: "reports",
+      defaultSortField: "dateUpdated",
+      defaultSortDir: -1,
+      searchFields: [
+        "title",
+        "description",
+        "experimentName",
+        "userName",
+        "dateUpdated",
+      ],
+      filterResults,
+      pageSize: 20,
+    });
 
   if (error) {
     return (

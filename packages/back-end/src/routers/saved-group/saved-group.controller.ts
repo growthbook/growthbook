@@ -393,14 +393,8 @@ export const putSavedGroup = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const {
-    groupName,
-    owner,
-    values,
-    condition,
-    description,
-    projects,
-  } = req.body;
+  const { groupName, owner, values, condition, description, projects } =
+    req.body;
   const { id } = req.params;
 
   if (!id) {

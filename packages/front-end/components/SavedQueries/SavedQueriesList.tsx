@@ -33,20 +33,14 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   >();
   const [showReferences, setShowReferences] = useState<number | null>(null);
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    clear,
-    pagination,
-  } = useSearch({
-    items: savedQueries,
-    defaultSortField: "dateUpdated",
-    localStorageKey: "savedqueries",
-    searchFields: ["name^3", "sql"],
-    pageSize: 20,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
+    useSearch({
+      items: savedQueries,
+      defaultSortField: "dateUpdated",
+      localStorageKey: "savedqueries",
+      searchFields: ["name^3", "sql"],
+      pageSize: 20,
+    });
 
   const handleDelete = useCallback(
     async (query: SavedQuery) => {
@@ -195,9 +189,8 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                       <ul className="pl-3 mb-0">
                                         {linkedDashboardIds.map(
                                           (dashboardId, j) => {
-                                            const dashboard = dashboardsMap.get(
-                                              dashboardId
-                                            );
+                                            const dashboard =
+                                              dashboardsMap.get(dashboardId);
                                             if (!dashboard) return null;
                                             return (
                                               <Fragment key={"dashboard-" + j}>
@@ -312,9 +305,8 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                     }. If deleted, linked SQL Explorer blocks will lose their visualizations.`}</Callout>
                                     <ul>
                                       {dashboardIds.map((dashId) => {
-                                        const dashboard = dashboardsMap.get(
-                                          dashId
-                                        );
+                                        const dashboard =
+                                          dashboardsMap.get(dashId);
                                         if (!dashboard) return null;
                                         if (!dashboard.experimentId)
                                           return (

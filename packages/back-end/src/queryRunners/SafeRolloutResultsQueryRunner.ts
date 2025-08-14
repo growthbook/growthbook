@@ -72,10 +72,8 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SafeRolloutSnapshotResult> {
-    const {
-      snapshotSettings,
-      analysisSettings,
-    } = getSnapshotSettingsFromSafeRolloutArgs(this.model);
+    const { snapshotSettings, analysisSettings } =
+      getSnapshotSettingsFromSafeRolloutArgs(this.model);
 
     const { results: analysesResults } = await analyzeExperimentResults({
       queryData: queryMap,
@@ -121,7 +119,8 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
-      const rows = healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
+      const rows =
+        healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
       const trafficHealth = analyzeExperimentTraffic({
         rows: rows,
         error: healthQuery.error,

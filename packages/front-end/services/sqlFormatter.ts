@@ -28,9 +28,10 @@ function getSqlDialect(datasourceType: DataSourceType): FormatDialect | "" {
 }
 
 // The formatter doesn't support template variables, so we need to replace them with placeholders
-function replaceTemplateVariables(
-  sql: string
-): { sql: string; placeholders: string[] } {
+function replaceTemplateVariables(sql: string): {
+  sql: string;
+  placeholders: string[];
+} {
   const templateRegex = /{{[^}]+}}/g;
   const placeholders: string[] = [];
   const sqlWithoutTemplates = sql.replace(templateRegex, (match) => {
@@ -65,9 +66,8 @@ export function formatSql(
   }
 
   // Format the SQL - using shared format function
-  const { sql: sqlWithoutTemplates, placeholders } = replaceTemplateVariables(
-    sql
-  );
+  const { sql: sqlWithoutTemplates, placeholders } =
+    replaceTemplateVariables(sql);
 
   let formatError: string | null = null;
   const formatted = format(sqlWithoutTemplates, dialect, ({ error }) => {

@@ -78,15 +78,11 @@ const ExperimentsPage = (): React.ReactElement => {
     [showMineOnly, userId, tagsFilter.tags, watchedExperiments]
   );
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-  } = useExperimentSearch({
-    allExperiments,
-    filterResults,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH } =
+    useExperimentSearch({
+      allExperiments,
+      filterResults,
+    });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};

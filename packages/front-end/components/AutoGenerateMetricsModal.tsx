@@ -380,9 +380,8 @@ export default function AutoGenerateMetricsModal({
               <Button
                 color="link"
                 onClick={async () => {
-                  const updates: AutoMetricTrackedEvent[] = cloneDeep(
-                    trackedEvents
-                  );
+                  const updates: AutoMetricTrackedEvent[] =
+                    cloneDeep(trackedEvents);
                   updates.forEach((event) => {
                     event.metricsToCreate.forEach((metric) => {
                       if (!metric.shouldCreate && !metric.alreadyExists) {
@@ -398,9 +397,8 @@ export default function AutoGenerateMetricsModal({
               <Button
                 color="link"
                 onClick={async () => {
-                  const updates: AutoMetricTrackedEvent[] = cloneDeep(
-                    trackedEvents
-                  );
+                  const updates: AutoMetricTrackedEvent[] =
+                    cloneDeep(trackedEvents);
                   updates.forEach((event) => {
                     event.metricsToCreate.forEach((metric) => {
                       if (metric.shouldCreate && !metric.alreadyExists) {

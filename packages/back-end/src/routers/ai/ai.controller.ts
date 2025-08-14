@@ -89,10 +89,8 @@ export async function postReformat(
     });
   }
 
-  const {
-    prompt,
-    isDefaultPrompt,
-  } = await context.models.aiPrompts.getAIPrompt(req.body.type);
+  const { prompt, isDefaultPrompt } =
+    await context.models.aiPrompts.getAIPrompt(req.body.type);
   if (!prompt) {
     return res.status(400).json({
       status: 400,

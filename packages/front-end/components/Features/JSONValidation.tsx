@@ -25,9 +25,8 @@ export default function JSONValidation({ feature, mutate }: Props) {
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    feature
-  );
+  const { jsonSchema, validationEnabled, schemaDateUpdated } =
+    getValidation(feature);
 
   const hasJsonValidator = hasCommercialFeature("json-validation");
 

@@ -374,7 +374,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             analysis={analysis}
             mutate={mutate}
             // objectProps should be validated above to actually contain all the keys and not be Partial
-            {...((objectProps as unknown) as ObjectProps<T>)}
+            {...(objectProps as unknown as ObjectProps<T>)}
           />
         </ErrorBoundary>
       )}

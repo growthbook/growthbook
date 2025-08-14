@@ -115,9 +115,9 @@ export async function getReportsByOrg(
   context: ReqContext | ApiReqContext,
   project: string
 ): Promise<ReportInterface[]> {
-  let reports = (
-    await ReportModel.find({ organization: context.org.id })
-  ).map((r) => toInterface(r));
+  let reports = (await ReportModel.find({ organization: context.org.id })).map(
+    (r) => toInterface(r)
+  );
   // filter by project assigned to the experiment:
   if (reports.length > 0 && project) {
     const allExperiments = await getAllExperiments(context, {

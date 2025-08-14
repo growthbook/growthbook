@@ -101,9 +101,8 @@ class PythonStatsServer<Input, Output> {
         try {
           const parsed:
             | PythonServerResponse<Output>
-            | { id: string; error: string; stack_trace?: string } = JSON.parse(
-            output
-          );
+            | { id: string; error: string; stack_trace?: string } =
+            JSON.parse(output);
 
           if (!parsed.id) {
             logger.error(

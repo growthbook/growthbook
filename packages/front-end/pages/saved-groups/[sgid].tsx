@@ -75,15 +75,11 @@ export default function EditSavedGroupPage() {
   const { attributeSchema } = useOrgSettings();
   const { projects } = useDefinitions();
 
-  const {
-    hasLargeSavedGroupFeature,
-    unsupportedConnections,
-  } = useLargeSavedGroupSupport();
+  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+    useLargeSavedGroupSupport();
 
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 

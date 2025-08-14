@@ -26,9 +26,8 @@ export function PowerCard({
   const { mutate } = useSWRConfig();
   const { hasCommercialFeature } = useUser();
   const snapshotPower = snapshot.health?.power;
-  const hasMidExperimentPowerFeature = hasCommercialFeature(
-    "decision-framework"
-  );
+  const hasMidExperimentPowerFeature =
+    hasCommercialFeature("decision-framework");
 
   const phase = experiment.phases[snapshot.phase];
   const hasPowerData = snapshotPower !== undefined;

@@ -61,7 +61,11 @@ const IdeaPage = (): ReactElement => {
 
   const { push } = useRouter();
 
-  const { data, error: dataError, mutate } = useApi<{
+  const {
+    data,
+    error: dataError,
+    mutate,
+  } = useApi<{
     status: number;
     message: string;
     idea: IdeaInterface;
@@ -105,9 +109,8 @@ const IdeaPage = (): ReactElement => {
   const estimate = data.estimate;
 
   const canEdit = permissionsUtil.canUpdateIdea(idea, {});
-  const canCreateIdeasInCurrentProject = permissionsUtil.canViewIdeaModal(
-    project
-  );
+  const canCreateIdeasInCurrentProject =
+    permissionsUtil.canViewIdeaModal(project);
 
   const metric = getMetricById(estimate?.metric || "");
   const datasource = getDatasourceById(metric?.datasource || "");

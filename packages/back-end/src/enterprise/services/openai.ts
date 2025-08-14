@@ -87,11 +87,8 @@ const numTokensFromMessages = (
 export const secondsUntilAICanBeUsedAgain = async (
   organization: OrganizationInterface
 ) => {
-  const {
-    numTokensUsed,
-    dailyLimit,
-    nextResetAt,
-  } = await getTokensUsedByOrganization(organization);
+  const { numTokensUsed, dailyLimit, nextResetAt } =
+    await getTokensUsedByOrganization(organization);
   return numTokensUsed > dailyLimit
     ? (nextResetAt - new Date().getTime()) / 1000
     : 0;

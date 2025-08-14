@@ -7,9 +7,8 @@ export default function JSONSchemaDescription({
 }: {
   jsonSchema: unknown;
 }) {
-  const { jsonSchemaDescription, jsonSchemaFields } = getJSONSchemaSummary(
-    jsonSchema
-  );
+  const { jsonSchemaDescription, jsonSchemaFields } =
+    getJSONSchemaSummary(jsonSchema);
 
   return (
     <div className="d-flex align-items-center">

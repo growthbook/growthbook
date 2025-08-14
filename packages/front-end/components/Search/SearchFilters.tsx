@@ -106,9 +106,10 @@ export const FilterDropdown: FC<{
   heading,
 }) => {
   const [filterSearch, setFilterSearch] = useState<string>("");
-  const showSearchFilter = useMemo(() => USE_SEARCH_BOX && items.length > 10, [
-    items,
-  ]);
+  const showSearchFilter = useMemo(
+    () => USE_SEARCH_BOX && items.length > 10,
+    [items]
+  );
   const filteredItems = useMemo(
     () =>
       filterSearch

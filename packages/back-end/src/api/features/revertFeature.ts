@@ -115,7 +115,8 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       req.context,
       feature.id
     );
-    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const safeRolloutMap =
+      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
 
     return {
       feature: getApiFeatureObj({

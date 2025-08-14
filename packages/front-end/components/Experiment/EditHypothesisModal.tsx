@@ -192,19 +192,20 @@ export default function EditHypothesisModal({
                       </Button>
                     </Tooltip>
                   )}
-                  {revertValue && form.getValues("hypothesis") == aiResponse && (
-                    <Tooltip body="Revert to previous content.">
-                      <Button
-                        variant="soft"
-                        onClick={() => {
-                          form.setValue("hypothesis", revertValue);
-                          setRevertValue(null);
-                        }}
-                      >
-                        Revert
-                      </Button>
-                    </Tooltip>
-                  )}
+                  {revertValue &&
+                    form.getValues("hypothesis") == aiResponse && (
+                      <Tooltip body="Revert to previous content.">
+                        <Button
+                          variant="soft"
+                          onClick={() => {
+                            form.setValue("hypothesis", revertValue);
+                            setRevertValue(null);
+                          }}
+                        >
+                          Revert
+                        </Button>
+                      </Tooltip>
+                    )}
                 </Flex>
               </Flex>
               <Box>

@@ -19,9 +19,10 @@ import Checkbox from "../Radix/Checkbox";
 import Callout from "../Radix/Callout";
 import Link from "../Radix/Link";
 
-function validateUrl(
-  urlString: string
-): { isValid: boolean; message?: string } {
+function validateUrl(urlString: string): {
+  isValid: boolean;
+  message?: string;
+} {
   try {
     const url = new URL(urlString);
     if (url.pathname.includes("*")) {

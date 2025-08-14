@@ -84,9 +84,8 @@ export default function ConfigureLegacyReport({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     report.args,
@@ -294,8 +293,9 @@ export default function ConfigureLegacyReport({
             };
           })}
           formatOptionLabel={({ label, value }) => {
-            const userIdType = exposureQueries?.find((e) => e.id === value)
-              ?.userIdType;
+            const userIdType = exposureQueries?.find(
+              (e) => e.id === value
+            )?.userIdType;
             return (
               <>
                 {label}

@@ -196,7 +196,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
 
-  const { data, mutate: mutateUser, error } = useApi<UserResponse>(`/user`, {
+  const {
+    data,
+    mutate: mutateUser,
+    error,
+  } = useApi<UserResponse>(`/user`, {
     shouldRun: () => isAuthenticated,
     orgScoped: false,
   });

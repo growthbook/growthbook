@@ -134,21 +134,22 @@ export const notificationEventResources = Object.keys(
 ) as NotificationEventResource[];
 
 // Only use this for zod validations!
-export const zodNotificationEventResources = notificationEventResources as UnionToTuple<NotificationEventResource>;
+export const zodNotificationEventResources =
+  notificationEventResources as UnionToTuple<NotificationEventResource>;
 
-export type ResourceEvents<
-  R extends NotificationEventResource
-> = keyof NotificationEvents[R] & string;
+export type ResourceEvents<R extends NotificationEventResource> =
+  keyof NotificationEvents[R] & string;
 
 export type NotificationEventNames<R> = R extends NotificationEventResource
   ? `${R}.${ResourceEvents<R>}`
   : never;
 
-export type NotificationEventName = NotificationEventNames<NotificationEventResource>;
+export type NotificationEventName =
+  NotificationEventNames<NotificationEventResource>;
 
-export const notificationEventNames = (Object.keys(notificationEvents) as [
-  NotificationEventResource
-]).reduce<NotificationEventName[]>(
+export const notificationEventNames = (
+  Object.keys(notificationEvents) as [NotificationEventResource]
+).reduce<NotificationEventName[]>(
   (names, key) => [
     ...names,
     ...Object.keys(notificationEvents[key]).map(
@@ -159,7 +160,8 @@ export const notificationEventNames = (Object.keys(notificationEvents) as [
 );
 
 // Only use this for zod validations!
-export const zodNotificationEventNamesEnum = notificationEventNames as UnionToTuple<NotificationEventName>;
+export const zodNotificationEventNamesEnum =
+  notificationEventNames as UnionToTuple<NotificationEventName>;
 
 /**
  * Legacy Event Notification payload
@@ -278,19 +280,17 @@ export const notificationEventPayload = <
     containsSecrets: z.boolean(),
   });
 
-type NotificationEventForResourceAndEvent<
-  Resource,
-  Event
-> = Resource extends NotificationEventResource
-  ? Event extends ResourceEvents<Resource>
-    ? NotificationEventPayload<Resource, Event>
-    : never
-  : never;
+type NotificationEventForResourceAndEvent<Resource, Event> =
+  Resource extends NotificationEventResource
+    ? Event extends ResourceEvents<Resource>
+      ? NotificationEventPayload<Resource, Event>
+      : never
+    : never;
 
-type NotificationEventForResource<
-  Resource
-> = Resource extends NotificationEventResource
-  ? NotificationEventForResourceAndEvent<Resource, ResourceEvents<Resource>>
-  : never;
+type NotificationEventForResource<Resource> =
+  Resource extends NotificationEventResource
+    ? NotificationEventForResourceAndEvent<Resource, ResourceEvents<Resource>>
+    : never;
 
-export type NotificationEvent = NotificationEventForResource<NotificationEventResource>;
+export type NotificationEvent =
+  NotificationEventForResource<NotificationEventResource>;

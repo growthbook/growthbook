@@ -430,9 +430,8 @@ export function upgradeOrganizationDoc(
   // Change old `implementationTypes` field to new `visualEditorEnabled` field
   if (org.settings.implementationTypes) {
     if (!("visualEditorEnabled" in org.settings)) {
-      org.settings.visualEditorEnabled = org.settings.implementationTypes.includes(
-        "visual"
-      );
+      org.settings.visualEditorEnabled =
+        org.settings.implementationTypes.includes("visual");
     }
     delete org.settings.implementationTypes;
   }
@@ -633,7 +632,8 @@ export function upgradeExperimentDoc(
     experiment.sequentialTestingEnabled = false;
   }
   if (!("sequentialTestingTuningParameter" in experiment)) {
-    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+    experiment.sequentialTestingTuningParameter =
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
   if (!("shareLevel" in experiment)) {
@@ -815,7 +815,8 @@ export function migrateSnapshot(
             regressionAdjustmentEnabled &&
             regressionSettings?.regressionAdjustmentEnabled
           ),
-          regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
+          regressionAdjustmentAvailable:
+            !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
           targetMDE: undefined,
         },

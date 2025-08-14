@@ -328,10 +328,8 @@ export async function getMetricsFromTrackedEvents(
       integration.datasource.id
     );
 
-    const trackedEvents: AutoMetricTrackedEvent[] = await integration.getAutoMetricsToCreate(
-      existingMetrics,
-      schema
-    );
+    const trackedEvents: AutoMetricTrackedEvent[] =
+      await integration.getAutoMetricsToCreate(existingMetrics, schema);
 
     return res.status(200).json({
       status: 200,
@@ -740,10 +738,8 @@ export const getGeneratedDescription = async (
   }
 
   const type = "metric-description";
-  const {
-    isDefaultPrompt,
-    prompt,
-  } = await context.models.aiPrompts.getAIPrompt(type);
+  const { isDefaultPrompt, prompt } =
+    await context.models.aiPrompts.getAIPrompt(type);
 
   // try to see if this id is a fact metric id:
   if (isFactMetricId(id)) {

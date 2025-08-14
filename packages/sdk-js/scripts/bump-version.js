@@ -175,4 +175,3 @@ exec("cd ../../docs && yarn gen-sdk-resources", (err, stdout, stderr) => {
   }
   console.log(stdout);
 });
-

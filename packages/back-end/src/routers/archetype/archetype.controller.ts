@@ -119,7 +119,8 @@ export const getArchetypeAndEval = async (
     const experimentMap = await getAllPayloadExperiments(context);
     const allEnvironments = getEnvironments(org);
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-    const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
+    const safeRolloutMap =
+      await context.models.safeRollout.getAllPayloadSafeRollouts();
 
     archetype.forEach((arch) => {
       try {

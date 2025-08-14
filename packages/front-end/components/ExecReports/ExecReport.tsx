@@ -99,11 +99,11 @@ export default function ExecReport() {
     [...projects, ...disallowedProjects]
   );
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    "",
-    true,
-    "standard"
-  );
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+  } = useExperiments("", true, "standard");
 
   //const tagsFilter = useTagsFilter("experiments");
 

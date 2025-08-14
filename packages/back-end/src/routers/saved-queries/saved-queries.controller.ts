@@ -86,14 +86,8 @@ export async function postSavedQuery(
   req: AuthRequest<SavedQueryCreateProps>,
   res: Response
 ) {
-  const {
-    name,
-    sql,
-    datasourceId,
-    results,
-    dateLastRan,
-    dataVizConfig,
-  } = req.body;
+  const { name, sql, datasourceId, results, dateLastRan, dataVizConfig } =
+    req.body;
   const context = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {

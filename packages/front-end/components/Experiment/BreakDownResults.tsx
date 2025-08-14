@@ -77,7 +77,7 @@ const BreakDownResults: FC<{
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
-  columnsFilter?: Array<typeof RESULTS_TABLE_COLUMNS[number]>;
+  columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
@@ -144,12 +144,8 @@ const BreakDownResults: FC<{
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
-  const {
-    getDimensionById,
-    getExperimentMetricById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getDimensionById, getExperimentMetricById, metricGroups, ready } =
+    useDefinitions();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -174,32 +170,29 @@ const BreakDownResults: FC<{
     return totalUsers;
   }, [results, dimensionValuesFilter]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
-      goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups
+      );
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    goalMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-    secondaryMetrics,
-    guardrailMetrics,
-  ]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
+      goalMetrics,
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+      secondaryMetrics,
+      guardrailMetrics,
+    ]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();

@@ -772,9 +772,8 @@ export function evaluatePrerequisiteState(
         value = null;
         break;
       }
-      const { state: prerequisiteState, value: prerequisiteValue } = visit(
-        prerequisiteFeature
-      );
+      const { state: prerequisiteState, value: prerequisiteValue } =
+        visit(prerequisiteFeature);
       if (prerequisiteState === "deterministic") {
         const evaled = evalDeterministicPrereqValue(
           prerequisiteValue ?? null,

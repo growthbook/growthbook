@@ -51,13 +51,8 @@ export function ExperimentStatusDetailsWithDot({
 }: {
   statusIndicatorData: StatusIndicatorData;
 }) {
-  const {
-    color,
-    status,
-    detailedStatus,
-    needsAttention,
-    tooltip,
-  } = statusIndicatorData;
+  const { color, status, detailedStatus, needsAttention, tooltip } =
+    statusIndicatorData;
 
   if (!detailedStatus) return null;
 

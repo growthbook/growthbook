@@ -263,18 +263,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const metricAnalysis = data?.metricAnalysis;
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   // get latest full object or add reset to default?
-  const {
-    reset,
-    watch,
-    getValues,
-    setValue,
-    register,
-  } = useForm<MetricAnalysisFormFields>({
-    defaultValues: getAnalysisSettingsForm(
-      metricAnalysis?.settings,
-      factTable?.userIdTypes
-    ),
-  });
+  const { reset, watch, getValues, setValue, register } =
+    useForm<MetricAnalysisFormFields>({
+      defaultValues: getAnalysisSettingsForm(
+        metricAnalysis?.settings,
+        factTable?.userIdTypes
+      ),
+    });
   const populationValue: string | undefined = watch("populationType");
 
   // TODO better way to populate form/fields than the following

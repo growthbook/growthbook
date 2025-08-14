@@ -248,7 +248,8 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
       // only apply RA fields if doing an override
       newMetric.regressionAdjustmentOverride =
         metricOverride.regressionAdjustmentOverride;
-      newMetric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      newMetric.regressionAdjustmentEnabled =
+        !!metricOverride.regressionAdjustmentEnabled;
       overrideFields.push(
         "regressionAdjustmentOverride",
         "regressionAdjustmentEnabled"
@@ -660,10 +661,10 @@ export function getRowResults({
 
   // TODO: support formatted risk for fact metrics
   if (!isBinomial) {
-    riskFormatted = `${getExperimentMetricFormatter(
-      metric,
-      getFactTableById
-    )(risk, { currency: displayCurrency })} / user`;
+    riskFormatted = `${getExperimentMetricFormatter(metric, getFactTableById)(
+      risk,
+      { currency: displayCurrency }
+    )} / user`;
   }
   const riskMeta: RiskMeta = {
     riskStatus,
@@ -825,9 +826,8 @@ export function convertTemplateToExperimentRule({
   ]);
   if ("skipPartialData" in templateWithoutTemplateFields) {
     // @ts-expect-error Mangled types
-    templateWithoutTemplateFields.skipPartialData = templateWithoutTemplateFields.skipPartialData
-      ? "strict"
-      : "loose";
+    templateWithoutTemplateFields.skipPartialData =
+      templateWithoutTemplateFields.skipPartialData ? "strict" : "loose";
   }
   return {
     ...(getDefaultRuleValue({

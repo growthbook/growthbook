@@ -78,10 +78,10 @@ const SafeRolloutResults: FC<{
         m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled: !!m.computedSettings
-        ?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable: !!m.computedSettings
-        ?.regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
   const showCompactResults = !draftMode && hasData && snapshot && analysis;

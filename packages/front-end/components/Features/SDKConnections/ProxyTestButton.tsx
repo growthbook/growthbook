@@ -17,10 +17,8 @@ export default function ProxyTestButton({
   showButton: boolean;
   mutate: () => void;
 }) {
-  const [
-    proxyTestResult,
-    setProxyTestResult,
-  ] = useState<null | ProxyTestResult>(null);
+  const [proxyTestResult, setProxyTestResult] =
+    useState<null | ProxyTestResult>(null);
 
   const { apiCall } = useAuth();
 

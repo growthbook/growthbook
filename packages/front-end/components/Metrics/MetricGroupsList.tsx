@@ -21,11 +21,8 @@ const MetricGroupsList: FC = () => {
   const [archiveModal, setArchiveModal] = useState<MetricGroupInterface | null>(
     null
   );
-  const {
-    metricGroups,
-    mutateDefinitions,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metricGroups, mutateDefinitions, getDatasourceById } =
+    useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasGroupsFeature = hasCommercialFeature("metric-groups");
 

@@ -123,9 +123,8 @@ export default function ConfigureReport({
     !form.watch("experimentAnalysisSettings.dateEnded")
   );
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
 
   const { data: experimentData } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -150,9 +149,8 @@ export default function ConfigureReport({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
   const isBandit = experiment?.type === "multi-armed-bandit";

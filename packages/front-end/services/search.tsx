@@ -40,7 +40,7 @@ export type SyntaxFilter = {
   negated: boolean;
 };
 
-export type SearchTermFilterOperator = typeof searchTermOperators[number];
+export type SearchTermFilterOperator = (typeof searchTermOperators)[number];
 
 export interface SearchProps<T> {
   items: T[];

@@ -416,7 +416,8 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
     // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled =
+        !!metricOverride?.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {

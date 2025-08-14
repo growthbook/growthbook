@@ -28,21 +28,13 @@ export interface Props {
 export default function SafeRolloutAnalysisSettingsSummary({
   safeRollout,
 }: Props) {
-  const {
-    getDatasourceById,
-    getExperimentMetricById,
-    metricGroups,
-  } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById, metricGroups } =
+    useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
 
-  const {
-    snapshot,
-    feature,
-    latest,
-    analysis,
-    mutateSnapshot,
-  } = useSafeRolloutSnapshot();
+  const { snapshot, feature, latest, analysis, mutateSnapshot } =
+    useSafeRolloutSnapshot();
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const [refreshError, setRefreshError] = useState("");

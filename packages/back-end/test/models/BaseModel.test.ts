@@ -122,10 +122,10 @@ class TestModel extends BaseModel<WriteOptions> {
 
 const auditLogMock = jest.fn();
 
-const defaultContext = ({
+const defaultContext = {
   org: { id: "a" },
   auditLog: auditLogMock,
-} as unknown) as Context;
+} as unknown as Context;
 
 describe("BaseModel", () => {
   it("adds indexes", () => {

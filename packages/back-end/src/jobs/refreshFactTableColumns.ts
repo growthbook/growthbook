@@ -37,9 +37,8 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) return;
 
-  const updates: Partial<
-    Pick<FactTableInterface, "columns" | "columnsError">
-  > = {};
+  const updates: Partial<Pick<FactTableInterface, "columns" | "columnsError">> =
+    {};
 
   try {
     const columns = await runRefreshColumnsQuery(

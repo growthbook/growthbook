@@ -49,12 +49,8 @@ const DataSourcePage: FC = () => {
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const router = useRouter();
 
-  const {
-    getDatasourceById,
-    mutateDefinitions,
-    ready,
-    error,
-  } = useDefinitions();
+  const { getDatasourceById, mutateDefinitions, ready, error } =
+    useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
 

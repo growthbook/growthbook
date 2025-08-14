@@ -599,8 +599,7 @@ describe("Hashing secureString types", () => {
     expect(condition).toEqual({
       ids: {
         $elemMatch: {
-          $eq:
-            "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
+          $eq: "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
         },
       },
       id: {
@@ -674,8 +673,7 @@ describe("Hashing secureString types", () => {
             },
             {
               $not: {
-                id:
-                  "29532748527922fa2c4b8b02388d1fe3dedc42c86ba021265cfc693c622c0ad3",
+                id: "29532748527922fa2c4b8b02388d1fe3dedc42c86ba021265cfc693c622c0ad3",
               },
             },
           ],

@@ -64,8 +64,8 @@ export default function SRMCard({
   );
 
   function onResize() {
-    const childHeight = document.getElementById("child-container")
-      ?.clientHeight;
+    const childHeight =
+      document.getElementById("child-container")?.clientHeight;
     const parentElement = document.getElementById("parent-container");
 
     parentElement && (parentElement.style.height = `${childHeight}px`);
@@ -116,9 +116,8 @@ export default function SRMCard({
             ref={(node) => {
               if (node) {
                 const childHeight = node.clientHeight;
-                const parentElement = document.getElementById(
-                  "parent-container"
-                );
+                const parentElement =
+                  document.getElementById("parent-container");
 
                 parentElement &&
                   (parentElement.style.height = `${childHeight}px`);

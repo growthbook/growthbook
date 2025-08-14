@@ -35,11 +35,11 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     window.history.pushState({}, "", newUrl);
   }, [startDate, endDate]);
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    project,
-    false,
-    "standard"
-  );
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+  } = useExperiments(project, false, "standard");
 
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
@@ -57,15 +57,11 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     [endDate, startDate]
   );
 
-  const {
-    items,
-    searchInputProps,
-    syntaxFilters,
-    setSearchValue,
-  } = useExperimentSearch({
-    allExperiments,
-    filterResults,
-  });
+  const { items, searchInputProps, syntaxFilters, setSearchValue } =
+    useExperimentSearch({
+      allExperiments,
+      filterResults,
+    });
 
   if (error) {
     return (

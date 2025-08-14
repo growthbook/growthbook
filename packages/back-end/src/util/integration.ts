@@ -8,8 +8,9 @@ export function applyMetricOverrides(
 ): void {
   if (!metric) return;
 
-  const computed = settings.metricSettings.find((s) => s.id === metric.id)
-    ?.computedSettings;
+  const computed = settings.metricSettings.find(
+    (s) => s.id === metric.id
+  )?.computedSettings;
   if (!computed) return;
 
   metric.windowSettings = computed.windowSettings;

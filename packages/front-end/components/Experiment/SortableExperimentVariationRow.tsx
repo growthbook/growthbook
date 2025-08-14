@@ -232,13 +232,8 @@ export const ExperimentVariationRow = forwardRef<
 ExperimentVariationRow.displayName = "ExperimentVariationRow";
 
 export function SortableExperimentVariationRow(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: props.variation.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

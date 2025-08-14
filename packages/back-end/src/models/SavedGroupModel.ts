@@ -44,10 +44,10 @@ const SavedGroupModel = mongoose.model<LegacySavedGroupInterface>(
 );
 
 const toInterface = (doc: SavedGroupDocument): SavedGroupInterface => {
-  const legacy = omit(
-    doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  const legacy = omit(doc.toJSON<SavedGroupDocument>({ flattenMaps: true }), [
+    "__v",
+    "_id",
+  ]);
 
   return migrateSavedGroup(legacy);
 };

@@ -1236,7 +1236,8 @@ describe("Experiment Migration", () => {
       },
     ],
     sequentialTestingEnabled: false,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingTuningParameter:
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     uid: "1234",
     shareLevel: "organization",
     decisionFrameworkSettings: {},

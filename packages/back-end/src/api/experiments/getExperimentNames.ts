@@ -5,14 +5,12 @@ import { GetExperimentNamesResponse } from "back-end/types/openapi";
 
 export const getExperimentNames = createApiRequestHandler(
   getExperimentNamesValidator
-)(
-  async (req): Promise<GetExperimentNamesResponse> => {
-    const experiments = await getAllExperiments(req.context, {
-      project: req.query.projectId,
-    });
+)(async (req): Promise<GetExperimentNamesResponse> => {
+  const experiments = await getAllExperiments(req.context, {
+    project: req.query.projectId,
+  });
 
-    return {
-      experiments: experiments.map((e) => ({ id: e.id, name: e.name })),
-    };
-  }
-);
+  return {
+    experiments: experiments.map((e) => ({ id: e.id, name: e.name })),
+  };
+});

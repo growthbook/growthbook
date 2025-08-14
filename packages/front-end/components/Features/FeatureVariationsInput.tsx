@@ -402,9 +402,8 @@ export default function FeatureVariationsInput({
                                   const newValues = [
                                     ...variations,
                                     {
-                                      value: getDefaultVariationValue(
-                                        defaultValue
-                                      ),
+                                      value:
+                                        getDefaultVariationValue(defaultValue),
                                       name: `Variation ${variations.length}`,
                                       weight: 0,
                                       id: generateVariationId(),
@@ -415,9 +414,9 @@ export default function FeatureVariationsInput({
                                   });
                                   setVariations(newValues);
                                   if (isEqualWeights) {
-                                    getEqualWeights(
-                                      newValues.length
-                                    ).forEach((w, i) => setWeight(i, w));
+                                    getEqualWeights(newValues.length).forEach(
+                                      (w, i) => setWeight(i, w)
+                                    );
                                   }
                                 }}
                               >

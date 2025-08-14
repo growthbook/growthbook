@@ -56,10 +56,11 @@ export const postPopulationData = async (
   }
 
   // see if one exists from the last 7 days
-  const populationData = await context.models.populationData.getRecentUsingSettings(
-    data.sourceId,
-    data.userIdType
-  );
+  const populationData =
+    await context.models.populationData.getRecentUsingSettings(
+      data.sourceId,
+      data.userIdType
+    );
 
   const snapshotSettings: ExperimentSnapshotSettings = {
     manual: false,

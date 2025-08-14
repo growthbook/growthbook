@@ -103,7 +103,11 @@ export default function DashboardBlockEditDrawer({
     getExperimentMetricById,
     getDatasourceById,
   } = useDefinitions();
-  const { data: savedQueriesData, mutate: mutateQuery, isLoading } = useApi<{
+  const {
+    data: savedQueriesData,
+    mutate: mutateQuery,
+    isLoading,
+  } = useApi<{
     status: number;
     savedQueries: SavedQuery[];
   }>(`/saved-queries/`);
@@ -226,9 +230,10 @@ export default function DashboardBlockEditDrawer({
   const baselineVariation =
     experiment.variations.find((_, i) => i === baselineIndex) ||
     experiment.variations[0];
-  const variationOptions = (requireBaselineVariation
-    ? experiment.variations.filter((_, i) => i !== baselineIndex)
-    : experiment.variations
+  const variationOptions = (
+    requireBaselineVariation
+      ? experiment.variations.filter((_, i) => i !== baselineIndex)
+      : experiment.variations
   ).map((variation) => ({
     label: variation.name,
     value: variation.id,
@@ -565,7 +570,7 @@ export default function DashboardBlockEditDrawer({
                   setBlock({
                     ...block,
                     columnsFilter: value as Array<
-                      typeof RESULTS_TABLE_COLUMNS[number]
+                      (typeof RESULTS_TABLE_COLUMNS)[number]
                     >,
                   })
                 }

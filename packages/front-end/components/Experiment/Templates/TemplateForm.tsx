@@ -56,21 +56,15 @@ const TemplateForm: FC<Props> = ({
   const router = useRouter();
   const [step, setStep] = useState(0);
 
-  const {
-    getDatasourceById,
-    refreshTags,
-    project,
-    projects,
-  } = useDefinitions();
+  const { getDatasourceById, refreshTags, project, projects } =
+    useDefinitions();
   const { hasCommercialFeature } = useUser();
 
   const environments = useEnvironments();
   const envs = environments.map((e) => e.id);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const { useStickyBucketing, statsEngine: orgStatsEngine } = useOrgSettings();
@@ -321,19 +315,20 @@ const TemplateForm: FC<Props> = ({
               />
             </div>
 
-            {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
-              <div className="form-group">
-                <CustomFieldInput
-                  customFields={customFields}
-                  setCustomFields={(value) => {
-                    form.setValue("customFields", value);
-                  }}
-                  currentCustomFields={form.watch("customFields") || {}}
-                  section={"experiment"}
-                  project={form.watch("project")}
-                />
-              </div>
-            )}
+            {hasCommercialFeature("custom-metadata") &&
+              !!customFields?.length && (
+                <div className="form-group">
+                  <CustomFieldInput
+                    customFields={customFields}
+                    setCustomFields={(value) => {
+                      form.setValue("customFields", value);
+                    }}
+                    currentCustomFields={form.watch("customFields") || {}}
+                    section={"experiment"}
+                    project={form.watch("project")}
+                  />
+                </div>
+              )}
           </div>
         </Page>
 

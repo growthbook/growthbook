@@ -248,10 +248,8 @@ const MetricForm: FC<MetricFormProps> = ({
     !current?.queryFormat && !current?.sql
   );
 
-  const [
-    showSqlResetConfirmationModal,
-    setShowSqlResetConfirmationModal,
-  ] = useState(false);
+  const [showSqlResetConfirmationModal, setShowSqlResetConfirmationModal] =
+    useState(false);
 
   const displayCurrency = useCurrency();
 
@@ -1411,9 +1409,10 @@ const MetricForm: FC<MetricFormProps> = ({
                           type="number"
                           style={{
                             borderColor: regressionAdjustmentDaysHighlightColor,
-                            backgroundColor: regressionAdjustmentDaysHighlightColor
-                              ? regressionAdjustmentDaysHighlightColor + "15"
-                              : "",
+                            backgroundColor:
+                              regressionAdjustmentDaysHighlightColor
+                                ? regressionAdjustmentDaysHighlightColor + "15"
+                                : "",
                           }}
                           className="ml-2"
                           containerClassName="mb-0 form-inline"

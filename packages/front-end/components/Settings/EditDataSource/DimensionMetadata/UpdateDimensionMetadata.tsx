@@ -23,12 +23,9 @@ type UpdateDimensionMetadataModalProps = {
   ) => Promise<void>;
 };
 
-export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps> = ({
-  exposureQuery,
-  datasourceId,
-  close,
-  onSave,
-}) => {
+export const UpdateDimensionMetadataModal: FC<
+  UpdateDimensionMetadataModalProps
+> = ({ exposureQuery, datasourceId, close, onSave }) => {
   const [dimensionSlicesId, setDimensionSlicesId] = useState<
     string | undefined
   >(exposureQuery.dimensionSlicesId);

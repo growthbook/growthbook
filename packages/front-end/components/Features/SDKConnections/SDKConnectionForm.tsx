@@ -201,9 +201,8 @@ export default function SDKConnectionForm({
     form.getValues(),
     "min-ver-intersection"
   );
-  const showVisualEditorSettings = latestSdkCapabilities.includes(
-    "visualEditor"
-  );
+  const showVisualEditorSettings =
+    latestSdkCapabilities.includes("visualEditor");
   const showRedirectSettings = latestSdkCapabilities.includes("redirects");
   const showEncryption = currentSdkCapabilities.includes("encryption");
   const showRemoteEval = currentSdkCapabilities.includes("remoteEval");
@@ -475,9 +474,9 @@ export default function SDKConnectionForm({
                       placeholder="0.0.0"
                       autoComplete="off"
                       sort={false}
-                      options={getSDKVersions(
-                        form.watch("languages")[0]
-                      ).map((ver) => ({ label: ver, value: ver }))}
+                      options={getSDKVersions(form.watch("languages")[0]).map(
+                        (ver) => ({ label: ver, value: ver })
+                      )}
                       createable={true}
                       isClearable={false}
                       value={

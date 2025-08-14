@@ -37,32 +37,24 @@ export default function UpgradeModal({
   const { apiCall } = useAuth();
 
   const [loading, setLoading] = useState(false);
-  const [
-    trialAndUpgradePreference,
-    setTrialAndUpgradePreference,
-  ] = useState<string>("upgrade");
+  const [trialAndUpgradePreference, setTrialAndUpgradePreference] =
+    useState<string>("upgrade");
   const [showSHProTrial, setShowSHProTrial] = useState(false);
   const [showSHProTrialSuccess, setShowSHProTrialSuccess] = useState(false);
   const [showSHEnterpriseTrial, setShowSHEnterpriseTrial] = useState(false);
-  const [
-    showSHEnterpriseTrialSuccess,
-    setShowSHEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showSHEnterpriseTrialSuccess, setShowSHEnterpriseTrialSuccess] =
+    useState(false);
 
-  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] = useState(
-    false
-  );
-  const [
-    showCloudEnterpriseTrialSuccess,
-    setShowCloudEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] =
+    useState(false);
+  const [showCloudEnterpriseTrialSuccess, setShowCloudEnterpriseTrialSuccess] =
+    useState(false);
   const [cloudProUpgradeSetup, setCloudProUpgradeSetup] = useState<{
     clientSecret: string;
   } | null>(null);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
-  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
-    false
-  );
+  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] =
+    useState(false);
   const {
     name,
     email,

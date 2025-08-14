@@ -47,10 +47,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   );
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
-  const {
-    projectId: demoDataSourceProjectId,
-    demoExperimentId,
-  } = useDemoDataSourceProject();
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 

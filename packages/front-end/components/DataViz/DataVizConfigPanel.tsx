@@ -36,7 +36,8 @@ export default function DataVizConfigPanel({
       }
 
       if (typeof value === "string") {
-        const datePattern = /^(\d{4}-\d{2}-\d{2}(T.*)?|\d{2}\/\d{2}\/\d{4}|[A-Za-z]{3,9} \d{1,2}, \d{4})$/;
+        const datePattern =
+          /^(\d{4}-\d{2}-\d{2}(T.*)?|\d{2}\/\d{2}\/\d{4}|[A-Za-z]{3,9} \d{1,2}, \d{4})$/;
         if (datePattern.test(value)) {
           const date = new Date(value);
           if (!isNaN(date.getTime())) {

@@ -91,8 +91,8 @@ export async function updateSafeRolloutTimeSeries({
     analysis.settings
   );
 
-  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = metricsIds.map(
-    (metricId) => ({
+  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
+    metricsIds.map((metricId) => ({
       source: "safe-rollout",
       sourceId: safeRollout.id,
       metricId,
@@ -110,8 +110,7 @@ export async function updateSafeRolloutTimeSeries({
         variations: timeSeriesVariationsPerMetricId[metricId],
         ...(notificationTriggered && { tags: ["triggered-alert"] }),
       },
-    })
-  );
+    }));
 
   await context.models.metricTimeSeries.upsertMultipleSingleDataPoint(
     metricTimeSeriesSingleDataPoints

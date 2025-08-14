@@ -59,14 +59,14 @@ export type CreateZodObject<T> = T extends z.ZodObject<
   : never;
 
 export const createSchema = <T extends BaseSchema>(schema: T) =>
-  (schema
+  schema
     .omit({
       organization: true,
       dateCreated: true,
       dateUpdated: true,
     })
     .extend({ id: z.string().optional() })
-    .strict() as unknown) as CreateZodObject<T>;
+    .strict() as unknown as CreateZodObject<T>;
 
 export type UpdateProps<T extends object> = Partial<
   Omit<T, "id" | "organization" | "dateCreated" | "dateUpdated">
@@ -88,14 +88,14 @@ export type UpdateZodObject<T> = T extends z.ZodObject<
   : never;
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>
-  (schema
+  schema
     .omit({
       organization: true,
       dateCreated: true,
       dateUpdated: true,
     })
     .partial()
-    .strict() as unknown) as UpdateZodObject<T>;
+    .strict() as unknown as UpdateZodObject<T>;
 
 type AuditLogConfig<Entity extends EntityType> = {
   entity: Entity;
@@ -113,11 +113,9 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   skipDateUpdatedFields?: (keyof z.infer<T>)[];
   readonlyFields?: (keyof z.infer<T>)[];
   additionalIndexes?: {
-    fields: Partial<
-      {
-        [key in keyof z.infer<T>]: 1 | -1;
-      }
-    >;
+    fields: Partial<{
+      [key in keyof z.infer<T>]: 1 | -1;
+    }>;
     unique?: boolean;
   }[];
   // NB: Names of indexes to remove
@@ -372,11 +370,9 @@ export abstract class BaseModel<
       skip,
       bypassReadPermissionChecks,
     }: {
-      sort?: Partial<
-        {
-          [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
-        }
-      >;
+      sort?: Partial<{
+        [key in keyof Omit<z.infer<T>, "organization">]: 1 | -1;
+      }>;
       limit?: number;
       skip?: number;
       bypassReadPermissionChecks?: boolean;

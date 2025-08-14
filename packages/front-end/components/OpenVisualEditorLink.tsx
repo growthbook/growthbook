@@ -278,9 +278,10 @@ const OpenVisualEditorLink: FC<{
 
 export default OpenVisualEditorLink;
 
-export function getBrowserDevice(
-  ua: string
-): { browser: string; deviceType: string } {
+export function getBrowserDevice(ua: string): {
+  browser: string;
+  deviceType: string;
+} {
   const browser = ua.match(/Edg/)
     ? "edge"
     : ua.match(/Chrome/)

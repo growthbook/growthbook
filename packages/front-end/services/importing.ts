@@ -345,9 +345,8 @@ export const transformLDFeatureFlag = (
 
   const envKeys = Object.keys(environments);
 
-  const { type: valueType, variations: variationValues } = getTypeAndVariations(
-    data
-  );
+  const { type: valueType, variations: variationValues } =
+    getTypeAndVariations(data);
 
   function getFallthroughForEnvironments(envKey: string): number | null {
     const envData = environments[envKey];

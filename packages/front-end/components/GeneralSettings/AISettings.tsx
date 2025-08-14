@@ -17,9 +17,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/components/Radix/Callout";
 
 // create a temp function which is passed a project and returns an array of prompts (promptId, promptName, promptDescription, promptValue)
-function getPrompts(data: {
-  prompts: AIPromptInterface[];
-}): Array<{
+function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
   promptType: string;
   promptName: string;
   promptDescription: string;

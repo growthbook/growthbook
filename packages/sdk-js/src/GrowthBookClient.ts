@@ -305,8 +305,10 @@ export class GrowthBookClient<
     V extends AppFeatures[K],
     K extends string & keyof AppFeatures = string
   >(key: K, defaultValue: V, userContext: UserContext): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(key, userContext)
-      .value;
+    const value = this.evalFeature<WidenPrimitives<V>, K>(
+      key,
+      userContext
+    ).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 

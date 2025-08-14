@@ -672,10 +672,8 @@ export async function updateMaterializedColumns({
     let viewColumns = originalColumns;
 
     // First update the main events table
-    const {
-      tableName: eventsTableName,
-      viewName: eventsViewName,
-    } = getEventsSQL(orgId, []);
+    const { tableName: eventsTableName, viewName: eventsViewName } =
+      getEventsSQL(orgId, []);
     logger.info(
       `Updating materialized columns; dropping view ${eventsViewName}`
     );
@@ -698,10 +696,8 @@ export async function updateMaterializedColumns({
     }
 
     // Now update the experiment views table
-    const {
-      tableName: exposureTableName,
-      viewName: exposureViewName,
-    } = getExperimentViewSQL(orgId, []);
+    const { tableName: exposureTableName, viewName: exposureViewName } =
+      getExperimentViewSQL(orgId, []);
     logger.info(
       `Updating materialized columns; dropping view ${exposureViewName}`
     );

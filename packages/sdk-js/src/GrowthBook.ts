@@ -238,10 +238,11 @@ export class GrowthBook<
       this._options.stickyBucketService &&
       !this._options.stickyBucketAssignmentDocs
     ) {
-      this._options.stickyBucketAssignmentDocs = this.generateStickyBucketAssignmentDocsSync(
-        this._options.stickyBucketService as StickyBucketServiceSync,
-        payload
-      );
+      this._options.stickyBucketAssignmentDocs =
+        this.generateStickyBucketAssignmentDocsSync(
+          this._options.stickyBucketService as StickyBucketServiceSync,
+          payload
+        );
     }
 
     this._payload = payload;

@@ -208,12 +208,8 @@ function generateSDKConnectionKey() {
 }
 
 export async function createSDKConnection(params: CreateSDKConnectionParams) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    languages,
-    ...otherParams
-  } = createSDKConnectionValidator.parse(params);
+  const { proxyEnabled, proxyHost, languages, ...otherParams } =
+    createSDKConnectionValidator.parse(params);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
@@ -285,12 +281,8 @@ export async function editSDKConnection(
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams
 ) {
-  const {
-    proxyEnabled,
-    proxyHost,
-    languages,
-    ...rest
-  } = editSDKConnectionValidator.parse(updates);
+  const { proxyEnabled, proxyHost, languages, ...rest } =
+    editSDKConnectionValidator.parse(updates);
 
   const otherChanges = {
     ...rest,

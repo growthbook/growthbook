@@ -102,7 +102,7 @@ export type ResultsTableProps = {
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
   disableTimeSeriesButton?: boolean;
-  columnsFilter?: Array<typeof RESULTS_TABLE_COLUMNS[number]>;
+  columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
 };
 
 const ROW_HEIGHT = 56;
@@ -246,22 +246,23 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive, columnsFilter]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
-    const sorted = variations
-      .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-      .sort((a, b) => {
-        if (a.index === baselineRow) return -1;
-        return a.index - b.index;
-      });
-    // fix browser .sort() quirks. manually move the control row to top:
-    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-    if (baselineIndex > -1) {
-      const baseline = sorted[baselineIndex];
-      sorted.splice(baselineIndex, 1);
-      sorted.unshift(baseline);
-    }
-    return sorted;
-  }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariationWithIndex[] =
+    useMemo(() => {
+      const sorted = variations
+        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
+        .sort((a, b) => {
+          if (a.index === baselineRow) return -1;
+          return a.index - b.index;
+        });
+      // fix browser .sort() quirks. manually move the control row to top:
+      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+      if (baselineIndex > -1) {
+        const baseline = sorted[baselineIndex];
+        sorted.splice(baselineIndex, 1);
+        sorted.unshift(baseline);
+      }
+      return sorted;
+    }, [variations, baselineRow]);
 
   const showVariations = orderedVariations.map(
     (v) => !variationFilter?.includes(v.index)
@@ -273,105 +274,102 @@ export default function ResultsTable({
 
   const domain = useDomain(filteredVariations, rows, differenceType);
 
-  const rowsResults: (
-    | RowResults
-    | "query error"
-    | RowError
-    | null
-  )[][] = useMemo(() => {
-    const rr: (RowResults | "query error" | RowError | null)[][] = [];
-    rows.map((row, i) => {
-      rr.push([]);
-      const baseline = row.variations[baselineRow] || {
-        value: 0,
-        cr: 0,
-        users: 0,
-      };
-      orderedVariations.map((v) => {
-        let skipVariation = false;
-        if (variationFilter?.length && variationFilter?.includes(v.index)) {
-          skipVariation = true;
-        }
-        if (v.index === baselineRow) {
-          skipVariation = true;
-        }
-        if (skipVariation) {
-          rr[i].push(null);
-          return;
-        }
-        if (
-          queryStatusData?.status === "partially-succeeded" &&
-          queryStatusData?.failedNames?.includes(row.metric.id)
-        ) {
-          rr[i].push("query error");
-          return;
-        }
-
-        if (row.error) {
-          rr[i].push(row.error);
-          return;
-        }
-
-        const stats = row.variations[v.index] || {
+  const rowsResults: (RowResults | "query error" | RowError | null)[][] =
+    useMemo(() => {
+      const rr: (RowResults | "query error" | RowError | null)[][] = [];
+      rows.map((row, i) => {
+        rr.push([]);
+        const baseline = row.variations[baselineRow] || {
           value: 0,
           cr: 0,
           users: 0,
         };
+        orderedVariations.map((v) => {
+          let skipVariation = false;
+          if (variationFilter?.length && variationFilter?.includes(v.index)) {
+            skipVariation = true;
+          }
+          if (v.index === baselineRow) {
+            skipVariation = true;
+          }
+          if (skipVariation) {
+            rr[i].push(null);
+            return;
+          }
+          if (
+            queryStatusData?.status === "partially-succeeded" &&
+            queryStatusData?.failedNames?.includes(row.metric.id)
+          ) {
+            rr[i].push("query error");
+            return;
+          }
 
-        const denominator =
-          !isFactMetric(row.metric) && row.metric.denominator
-            ? (ssrPolyfills?.getExperimentMetricById?.(
-                row.metric.denominator
-              ) ||
-                getExperimentMetricById(row.metric.denominator)) ??
-              undefined
-            : undefined;
-        const rowResults = getRowResults({
-          stats,
-          baseline,
-          metric: row.metric,
-          denominator,
-          metricDefaults,
-          isGuardrail: row.resultGroup === "guardrail",
-          minSampleSize: getMinSampleSizeForMetric(row.metric),
-          statsEngine,
-          differenceType,
-          ciUpper,
-          ciLower,
-          pValueThreshold,
-          snapshotDate: getValidDate(dateCreated),
-          phaseStartDate: getValidDate(startDate),
-          isLatestPhase,
-          experimentStatus: status,
-          displayCurrency,
-          getFactTableById: ssrPolyfills?.getFactTableById || getFactTableById,
+          if (row.error) {
+            rr[i].push(row.error);
+            return;
+          }
+
+          const stats = row.variations[v.index] || {
+            value: 0,
+            cr: 0,
+            users: 0,
+          };
+
+          const denominator =
+            !isFactMetric(row.metric) && row.metric.denominator
+              ? (ssrPolyfills?.getExperimentMetricById?.(
+                  row.metric.denominator
+                ) ||
+                  getExperimentMetricById(row.metric.denominator)) ??
+                undefined
+              : undefined;
+          const rowResults = getRowResults({
+            stats,
+            baseline,
+            metric: row.metric,
+            denominator,
+            metricDefaults,
+            isGuardrail: row.resultGroup === "guardrail",
+            minSampleSize: getMinSampleSizeForMetric(row.metric),
+            statsEngine,
+            differenceType,
+            ciUpper,
+            ciLower,
+            pValueThreshold,
+            snapshotDate: getValidDate(dateCreated),
+            phaseStartDate: getValidDate(startDate),
+            isLatestPhase,
+            experimentStatus: status,
+            displayCurrency,
+            getFactTableById:
+              ssrPolyfills?.getFactTableById || getFactTableById,
+          });
+          rr[i].push(rowResults);
         });
-        rr[i].push(rowResults);
       });
-    });
-    return rr;
-  }, [
-    rows,
-    orderedVariations,
-    baselineRow,
-    variationFilter,
-    metricDefaults,
-    getMinSampleSizeForMetric,
-    statsEngine,
-    differenceType,
-    ciUpper,
-    ciLower,
-    pValueThreshold,
-    dateCreated,
-    startDate,
-    isLatestPhase,
-    status,
-    displayCurrency,
-    queryStatusData,
-    ssrPolyfills,
-    getFactTableById,
-    getExperimentMetricById,
-  ]);
+      return rr;
+    }, [
+      rows,
+      orderedVariations,
+      baselineRow,
+      variationFilter,
+      metricDefaults,
+      getMinSampleSizeForMetric,
+      statsEngine,
+      differenceType,
+      ciUpper,
+      ciLower,
+      pValueThreshold,
+      dateCreated,
+      startDate,
+      isLatestPhase,
+      status,
+      displayCurrency,
+      queryStatusData,
+      ssrPolyfills,
+      getFactTableById,
+      getExperimentMetricById,
+    ]);
 
   const {
     containerRef,

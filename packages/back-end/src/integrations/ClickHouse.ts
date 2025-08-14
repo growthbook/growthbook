@@ -15,9 +15,8 @@ export default class ClickHouse extends SqlIntegration {
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<ClickHouseConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<ClickHouseConnectionParams>(encryptedParams);
 
     if (this.params.user) {
       this.params.username = this.params.user;

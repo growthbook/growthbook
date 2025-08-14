@@ -81,7 +81,7 @@ export const findVercelInstallationByInstallationId = async (
 
   if (!model) throw "Installation not found!";
 
-  return (model as unknown) as VercelNativeIntegration;
+  return model as unknown as VercelNativeIntegration;
 };
 
 export class VercelIntallationNotFound extends Error {}
@@ -98,5 +98,5 @@ export const findVercelInstallationByOrganization = async (
       `Vercel installation not found for org ${organization}!`
     );
 
-  return (model as unknown) as VercelNativeIntegration;
+  return model as unknown as VercelNativeIntegration;
 };

@@ -131,8 +131,8 @@ export async function updateExperimentTimeSeries({
     experiment.analysisSummary
   );
 
-  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = metricsIds.map(
-    (metricId) => ({
+  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
+    metricsIds.map((metricId) => ({
       source: "experiment",
       sourceId: experiment.id,
       sourcePhase: experimentSnapshot.phase,
@@ -154,8 +154,7 @@ export async function updateExperimentTimeSeries({
         notificationsTriggered.length > 0 || hasSignificantDifference
           ? ["triggered-alert"]
           : undefined,
-    })
-  );
+    }));
 
   await context.models.metricTimeSeries.upsertMultipleSingleDataPoint(
     metricTimeSeriesSingleDataPoints
@@ -286,12 +285,12 @@ function getHasSignificantDifference(
             ])
           : []),
         ...(variation?.guardrailMetrics
-          ? Object.entries(
-              variation.guardrailMetrics
-            ).map(([metricId, metric]) => [
-              `${variation.variationId}-${metricId}`,
-              metric.status,
-            ])
+          ? Object.entries(variation.guardrailMetrics).map(
+              ([metricId, metric]) => [
+                `${variation.variationId}-${metricId}`,
+                metric.status,
+              ]
+            )
           : []),
       }))
     );

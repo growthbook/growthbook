@@ -46,9 +46,7 @@ function parseString(value: unknown): null | string {
   return typeof value === "string" ? value : null;
 }
 
-function parseAttributes(
-  attributes: Attributes
-): {
+function parseAttributes(attributes: Attributes): {
   nested: Attributes;
   topLevel: {
     user_id: string | null;

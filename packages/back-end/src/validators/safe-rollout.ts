@@ -11,7 +11,7 @@ export const safeRolloutStatusArray = [
   "released",
   "stopped",
 ] as const;
-export type SafeRolloutStatus = typeof safeRolloutStatusArray[number];
+export type SafeRolloutStatus = (typeof safeRolloutStatusArray)[number];
 
 export const MaxDuration = z.object({
   amount: z.number(),
@@ -52,7 +52,7 @@ const safeRolloutNotification = [
   "ship",
   "rollback",
 ] as const;
-export type SafeRolloutNotification = typeof safeRolloutNotification[number];
+export type SafeRolloutNotification = (typeof safeRolloutNotification)[number];
 
 const safeRollout = createSafeRolloutValidator.extend({
   // Refs

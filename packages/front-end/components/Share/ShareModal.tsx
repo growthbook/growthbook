@@ -225,7 +225,11 @@ const ShareModal = ({
     }
   }, [existing?.slides]);
 
-  const { items: experiments, searchInputProps, isFiltered } = useSearch({
+  const {
+    items: experiments,
+    searchInputProps,
+    isFiltered,
+  } = useSearch({
     items: allExperiments || [],
     defaultSortField: "id",
     localStorageKey: "experiments-share",

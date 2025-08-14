@@ -173,23 +173,20 @@ export default function ExecExperimentImpact({
   }, [experiments]);
 
   // 2 check for snapshots w/o impact and update data
-  const {
-    summaryObj,
-    nExpsUsedForAdjustment,
-    experimentsWithNoImpact,
-  } = useMemo(
-    () =>
-      scaleImpactAndSetMissingExperiments({
-        experiments,
-        snapshots,
-        metric,
-        selectedProjects: projects,
-        startDate: startDate?.toISOString() || "",
-        endDate: endDate?.toISOString() || "",
-        adjusted,
-      }),
-    [experiments, snapshots, metric, projects, startDate, endDate, adjusted]
-  );
+  const { summaryObj, nExpsUsedForAdjustment, experimentsWithNoImpact } =
+    useMemo(
+      () =>
+        scaleImpactAndSetMissingExperiments({
+          experiments,
+          snapshots,
+          metric,
+          selectedProjects: projects,
+          startDate: startDate?.toISOString() || "",
+          endDate: endDate?.toISOString() || "",
+          adjusted,
+        }),
+      [experiments, snapshots, metric, projects, startDate, endDate, adjusted]
+    );
 
   // top winning experiments by scaled impact:
   const topWinningExperiments = useMemo(() => {

@@ -729,7 +729,11 @@ export function runExperiment<T>(
     ctx.user.saveStickyBucketAssignmentDoc &&
     !experiment.disableStickyBucketing
   ) {
-    const { changed, key: attrKey, doc } = generateStickyBucketAssignmentDoc(
+    const {
+      changed,
+      key: attrKey,
+      doc,
+    } = generateStickyBucketAssignmentDoc(
       ctx,
       hashAttribute,
       toString(hashValue),
@@ -1058,10 +1062,8 @@ function getStickyBucketAssignments(
     toString(hashValue)
   );
 
-  const {
-    hashAttribute: fallbackAttribute,
-    hashValue: fallbackValue,
-  } = getHashAttribute(ctx, expFallbackAttribute);
+  const { hashAttribute: fallbackAttribute, hashValue: fallbackValue } =
+    getHashAttribute(ctx, expFallbackAttribute);
   const fallbackKey = fallbackValue
     ? getStickyBucketAttributeKey(fallbackAttribute, toString(fallbackValue))
     : null;
@@ -1158,10 +1160,8 @@ export function getStickyBucketAttributes(
   data?: FeatureApiResponse
 ): Record<string, string> {
   const attributes: Record<string, string> = {};
-  const stickyBucketIdentifierAttributes = deriveStickyBucketIdentifierAttributes(
-    ctx,
-    data
-  );
+  const stickyBucketIdentifierAttributes =
+    deriveStickyBucketIdentifierAttributes(ctx, data);
   stickyBucketIdentifierAttributes.forEach((attr) => {
     const { hashValue } = getHashAttribute(ctx, attr);
     attributes[attr] = toString(hashValue);
@@ -1208,9 +1208,7 @@ export async function decryptPayload(
   return data;
 }
 
-export function getApiHosts(
-  options: Options | ClientOptions
-): {
+export function getApiHosts(options: Options | ClientOptions): {
   apiHost: string;
   streamingHost: string;
   apiRequestHeaders?: Record<string, string>;

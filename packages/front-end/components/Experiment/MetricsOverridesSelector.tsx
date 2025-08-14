@@ -742,11 +742,13 @@ export default function MetricsOverridesSelector({
                               label="Pre-exposure lookback period (days)"
                               type="number"
                               style={{
-                                borderColor: regressionAdjustmentDaysHighlightColor,
-                                backgroundColor: regressionAdjustmentDaysHighlightColor
-                                  ? regressionAdjustmentDaysHighlightColor +
-                                    "15"
-                                  : "",
+                                borderColor:
+                                  regressionAdjustmentDaysHighlightColor,
+                                backgroundColor:
+                                  regressionAdjustmentDaysHighlightColor
+                                    ? regressionAdjustmentDaysHighlightColor +
+                                      "15"
+                                    : "",
                               }}
                               className="ml-2"
                               containerClassName="mb-0 small form-inline"

@@ -79,7 +79,8 @@ const ViewAsyncQueriesButton: FC<{
             {icon !== null && (
               <span
                 className={clsx("h4", {
-                  "position-relative d-flex m-0 d-inline-block align-top": condensed,
+                  "position-relative d-flex m-0 d-inline-block align-top":
+                    condensed,
                   "pr-2": !hideQueryCount,
                 })}
               >

@@ -16,11 +16,10 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
     const refsByFeature = groupBy(req.body.refs, "flagKey");
     // convert deleteMissing to boolean
     const deleteMissing = deleteMissingString === "true";
-    const allExistingCodeRefs: FeatureCodeRefsInterface[] = await getAllCodeRefsForOrg(
-      {
+    const allExistingCodeRefs: FeatureCodeRefsInterface[] =
+      await getAllCodeRefsForOrg({
         context: req.context,
-      }
-    );
+      });
 
     const existingCodeRefsForRepoBranch = allExistingCodeRefs.filter(
       (codeRef) => codeRef.repo === repo && codeRef.branch === branch

@@ -9,14 +9,12 @@ import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/Edit
 import { DataSourceEditExperimentEventPropertiesModal } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceEditExperimentEventPropertiesModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
-type DataSourceViewEditExperimentPropertiesProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceViewEditExperimentPropertiesProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceViewEditExperimentProperties: FC<DataSourceViewEditExperimentPropertiesProps> = ({
-  onSave,
-  onCancel,
-  dataSource,
-  canEdit = true,
-}) => {
+export const DataSourceViewEditExperimentProperties: FC<
+  DataSourceViewEditExperimentPropertiesProps
+> = ({ onSave, onCancel, dataSource, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
 
   const permissionsUtil = usePermissionsUtil();

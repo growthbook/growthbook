@@ -20,23 +20,24 @@ import {
   updateExperiment,
 } from "./ExperimentModel";
 
-const visualChangesetURLPatternSchema = new mongoose.Schema<VisualChangesetURLPattern>(
-  {
-    include: Boolean,
-    type: {
-      type: String,
-      enum: ["simple", "regex"],
-      required: true,
+const visualChangesetURLPatternSchema =
+  new mongoose.Schema<VisualChangesetURLPattern>(
+    {
+      include: Boolean,
+      type: {
+        type: String,
+        enum: ["simple", "regex"],
+        required: true,
+      },
+      pattern: {
+        type: String,
+        required: true,
+      },
     },
-    pattern: {
-      type: String,
-      required: true,
-    },
-  },
-  {
-    _id: false,
-  }
-);
+    {
+      _id: false,
+    }
+  );
 
 /**
  * VisualChangeset is a collection of visual changes that are grouped together
@@ -114,10 +115,10 @@ export const VisualChangesetModel = mongoose.model<VisualChangesetInterface>(
 );
 
 const toInterface = (doc: VisualChangesetDocument): VisualChangesetInterface =>
-  omit(
-    doc.toJSON<VisualChangesetDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  omit(doc.toJSON<VisualChangesetDocument>({ flattenMaps: true }), [
+    "__v",
+    "_id",
+  ]);
 
 export function toVisualChangesetApiInterface(
   visualChangeset: VisualChangesetInterface

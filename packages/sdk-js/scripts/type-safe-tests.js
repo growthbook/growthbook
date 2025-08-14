@@ -60,14 +60,8 @@ feature.forEach((testCase) => {
 });
 
 run.forEach((testCase) => {
-  const [
-    name,
-    context,
-    experiment,
-    variationId,
-    inExperiment,
-    hashUsed,
-  ] = testCase;
+  const [name, context, experiment, variationId, inExperiment, hashUsed] =
+    testCase;
   const { attributes, enabled, forcedVariations, qaMode, url } = context;
 
   const value = experiment.variations?.[0];

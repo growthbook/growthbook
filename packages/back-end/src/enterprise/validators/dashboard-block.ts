@@ -238,9 +238,8 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .required({ type: true }),
 ]);
 
-export type DashboardBlockData<
-  T extends DashboardBlockInterface
-> = DistributiveOmit<T, "id" | "uid" | "organization">;
+export type DashboardBlockData<T extends DashboardBlockInterface> =
+  DistributiveOmit<T, "id" | "uid" | "organization">;
 
 export type DashboardBlockInterfaceOrData<T extends DashboardBlockInterface> =
   | T

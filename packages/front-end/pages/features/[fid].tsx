@@ -28,7 +28,7 @@ import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import { useExperiments } from "@/hooks/useExperiments";
 
 const featureTabs = ["overview", "stats", "test"] as const;
-export type FeatureTab = typeof featureTabs[number];
+export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
   const router = useRouter();

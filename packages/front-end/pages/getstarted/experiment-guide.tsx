@@ -29,10 +29,8 @@ const ExperimentGuide = (): React.ReactElement => {
   const router = useRouter();
   const params = router.query;
   const { apiCall } = useAuth();
-  const [
-    generatedHypothesis,
-    setGeneratedHypothesis,
-  ] = useState<GeneratedHypothesisInterface | null>(null);
+  const [generatedHypothesis, setGeneratedHypothesis] =
+    useState<GeneratedHypothesisInterface | null>(null);
   const [loadingHypothesis, setLoadingHypothesis] = useState(false);
 
   useEffect(() => {

@@ -728,12 +728,14 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                           item.variation !== undefined
                       );
 
-                    const previousSettingsDataPoints = sortedDataForVariation.filter(
-                      (_, idx) => idx <= lastDataPointIndexWithHelperText
-                    );
-                    const currentSettingsDataPoints = sortedDataForVariation.filter(
-                      (_, idx) => idx >= lastDataPointIndexWithHelperText
-                    );
+                    const previousSettingsDataPoints =
+                      sortedDataForVariation.filter(
+                        (_, idx) => idx <= lastDataPointIndexWithHelperText
+                      );
+                    const currentSettingsDataPoints =
+                      sortedDataForVariation.filter(
+                        (_, idx) => idx >= lastDataPointIndexWithHelperText
+                      );
 
                     return (
                       <>

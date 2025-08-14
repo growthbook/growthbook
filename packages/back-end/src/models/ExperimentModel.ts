@@ -323,7 +323,7 @@ export const ExperimentModel = mongoose.model<ExperimentInterface>(
 const toInterface: ToInterface<ExperimentInterface> = (doc) => {
   const experiment = removeMongooseFields(doc);
   return upgradeExperimentDoc(
-    (experiment as unknown) as LegacyExperimentInterface
+    experiment as unknown as LegacyExperimentInterface
   );
 };
 

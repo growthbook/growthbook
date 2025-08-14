@@ -52,7 +52,7 @@ const experimentTabs = [
   "dashboards",
   "health",
 ] as const;
-type ExperimentTabName = typeof experimentTabs[number];
+type ExperimentTabName = (typeof experimentTabs)[number];
 export type ExperimentTab =
   | ExperimentTabName
   | `${ExperimentTabName}/${string}`;

@@ -16,9 +16,8 @@ const EditDOMMutationsModal: FC<{
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
 }> = ({ experiment, close, visualChange, onSave }) => {
-  const [newVisualChange, setNewVisualChange] = useState<VisualChange>(
-    visualChange
-  );
+  const [newVisualChange, setNewVisualChange] =
+    useState<VisualChange>(visualChange);
   const [useAdvanced, setUseAdvanced] = useState(false);
 
   const [newDOMMutationErrors, setNewDOMMutationErrors] = useState<string[]>(

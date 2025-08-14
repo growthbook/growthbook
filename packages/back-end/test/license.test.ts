@@ -182,10 +182,10 @@ describe("src/license", () => {
         "XFbpDLvayp71avE47pYNPTW5MKQWl1qqhTo6Cm4mEj5ipejjhnpfoPmInxwKFK0xjnpNkGnr25NW_d0XthgotnZPKV7KMzSZ6DRe7fIRRaTP6H10e3iashAsuRX_KNlHsZgaPdbxSWYw0_vQE9bxJVLTINPog7HEf-ZQONZ6Wod4vUf91MRu8d8NK6LVp9e1OVY7HOm-klKWfrE-3jx3aloDnfGq17B0uU0NbvRfj2FyxL-vkAgUPXmRUk64RnCB2mRqkFspT1Rm-kTvRsJxbWw_sA4ZPeSGYA7SPyUl-roUlD-g-CXUwLoLOdJB2WusAu9E2EXyy9w-d9E6N1nBtEGim2X2JKXTe2aN6BMmPK6jtWFa1D1iAO4lyjxbbaH8oNZlNtb9D78c6rdrLZuWfoAgoRXEINTAIBYo0wBFLb8Wu5f0dNUvkRXdDg8RQvtaXJ0VfGwZ4cw9SVeRElwME9m4Kc8CTqKbk0HG41sDlY3ACWJalxh7xWEzH0u_LXIfllV5Sq-7YDGtGnykwXBHl7m_rQ3qi5bX7WHYBu1hdMf3gIiUwKln9U3eW4nT7D8GJlSE1kj9_6n57KhkvkqoLBsqGhncsE2C8rkdUQYB9xlja_H6k0mupNCxEnciZiRftJpLSznzyV4AdLGgiX78l1gU-Iwy28XOaMeo5Ess8W8";
 
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -243,10 +243,10 @@ describe("src/license", () => {
           "KmcsuAwjrSNRe-9fdBxL9e33D3dmkTaU9YH2d4KqnBS87IK_bDEXEEQFOR2fovHZS0FJ6r4OrbcncDGlv2BiO7s78M3BepEyBwCeVQJ5hMTCtEhvGgkbODf0aPJmUHhxthvAk-jMUljsgHKaftR9ocYBkzuFCl12vxAHAJ3q28YAk4OmOHV6Wak0N_PF_B1qkK2VUa80gAS0HDU0qiwZXcXusbN7GMe2n3sEh_M261-i0UBTwfEBM_tI1xoWKWkdjbyAtitMBxMk4llx6A_bnb3mno35s_lhQBbevQAj-Gcc91sJh5BGNBOrssieByU1CePXpnG3VKvjCKl-jFm68b-N-s2D6kWazhg0Q5mUDjCfZQI35Ma4iiQGIqVV0kSxrstTHjKUGZJkbyum9Mmu4GahuqOrVLys_e1ialotrKsRgnvM4UKzfx0sabwXdo17fKVCZDqEciU1Wl8oqSZiENydbKasjxjcDk3esB_PX-ZLH9D-YYb7qiKwh19PEx1kbdCuxuDwwWfji2tzVLsgIuySjETu3oOZyfFEwJkPaNQUUPm5DGRhgq4Q0X_455n09K6HnMPAj4YJfT4-4PyTxJrbCGUzh-kRxN63xr8AdT3jQpoije8MClE-xt-LR8LFh40x31DoNXjPRw8RkABmwcHnNFaUfR-_OQhtnEZ771U",
       };
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -268,10 +268,10 @@ describe("src/license", () => {
           "KmcsuAwjrSNRe-9fdBxL9e33D3dmkTaU9YH2d4KqnBS87IK_bDEXEEQFOR2fovHZS0FJ6r4OrbcncDGlv2BiO7s78M3BepEyBwCeVQJ5hMTCtEhvGgkbODf0aPJmUHhxthvAk-jMUljsgHKaftR9ocYBkzuFCl12vxAHAJ3q28YAk4OmOHV6Wak0N_PF_B1qkK2VUa80gAS0HDU0qiwZXcXusbN7GMe2n3sEh_M261-i0UBTwfEBM_tI1xoWKWkdjbyAtitMBxMk4llx6A_bnb3mno35s_lhQBbevQAj-Gcc91sJh5BGNBOrssieByU1CePXpnG3VKvjCKl-jFm68b-N-s2D6kWazhg0Q5mUDjCfZQI35Ma4iiQGIqVV0kSxrstTHjKUGZJkbyum9Mmu4GahuqOrVLys_e1ialotrKsRgnvM4UKzfx0sabwXdo17fKVCZDqEciU1Wl8oqSZiENydbKasjxjcDk3esB_PX-ZLH9D-YYb7qiKwh19PEx1kbdCuxuDwwWfji2tzVLsgIuySjETu3oOZyfFEwJkPaNQUUPm5DGRhgq4Q0X_455n09K6HnMPAj4YJfT4-4PyTxJrbCGUzh-kRxN63xr8AdT3jQpoije8MClE-xt-LR8LFh40x31DoNXjPRw8RkABmwcHnNFaUfR-_OQhtnEZ771U",
       };
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseDataNoPlan),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -294,10 +294,10 @@ describe("src/license", () => {
       };
 
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -319,10 +319,10 @@ describe("src/license", () => {
       };
 
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -343,10 +343,10 @@ describe("src/license", () => {
       };
 
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -369,10 +369,10 @@ describe("src/license", () => {
       };
 
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseDataTooOld),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -393,10 +393,10 @@ describe("src/license", () => {
       expiredLicense.signedChecksum =
         "dmFmZdVbiR3Ed-s9lyHys2hqmu_fMYMS7EreU4g6FKipPatQL-dsrC-vvUo3DYhEWZzC72T5mPoRcsUWPUWNp_wtpuYnozDbLCVs4nzbr0yQJ32eSFlO3qvTkzElVWCipILDKHKmzs6JXUSerljxOAI0TtXxkXkWMdTuOvxEwwO0KMTazz9c-rLg4P4iuFhSvZmnE82kecLvf0ZeRImQuW_8Ts7dT1L-5uzVH0eQjz2S0e3xdwYFE5F0vBufxkizg-68RG_AFmJ8sqO53Ys316Q3S2dwNFlA-dmAGc3TVJKis9D-TZCkHENuSdKfbj4nKwql3Uye8Vj9LxMHI2Vps-R6RXr2f-r2IKk6aqqUGl9A3p2FFvrf1QhFrmyQBKOeyvRI_tojd0F7rh4-FptLV8_Z46KUblGSSdhjg79JZV-KpH4h_uH0HwVtyFoi-deI4A-4cRynYJEu2IWvDCc5XJr6tspC_tuNX37D_Nw17uxC1Gy9a7vk832zkUdQlwOtzt2GV23QUSSOYFjSkOgoCAybbcWNSeZuaE3sEsso_Gwq9aqPrN1FlcNuyIVlmXWJt-0rI9uUD5hmpcTeH01m3AmNOu8es4yjTz1JmJY3TTQ4JgZqRyMvasxgZcEUCF_4p9Qn58l1kWo4AHkvlbHAHEHovwPX1YdiacBux82ORIk";
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(expiredLicense),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -411,10 +411,10 @@ describe("src/license", () => {
       const licenseWithUnverifiedEmail = cloneDeep(licenseData);
       licenseWithUnverifiedEmail.emailVerified = false;
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseWithUnverifiedEmail),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -451,10 +451,10 @@ describe("src/license", () => {
         "TKz09mcJa0411s0VYJEJ5-nkmJY13LIQapY4-t1-4C9CbK4m4FTzGlLC4kee163bqisRcinfq10TLXgUHTYaPW2WbUfMIz57iVhN5QoXpGBVGVNIqBHS4jiVvrLfUoV_Ms-9GBvvYb-KfxkkPqizn5bE27BrIpasVXJg8RbYfN7rNc3cYPTD5rKhZaIyeDjyHtff1_M9GVTHRV1-F9_mzoE1znZ_ln0-JRWtAaISeY6gzXOW84LcQusx_O--7i_1hJxQlnsJ6qZ1XTcCbmfgWi3wbYI1815BU9UvnMC1qcLh3ALpN918NXhyMMeLEql6W71ftZaM4i_LLjKPzXb39bC9okc1tVoisGs2burhWK0DxVM6TWcv7QDd2q9u48bv3bIIxJ1Aw94ob6DHOmr3klFk9_5mwFPTzx4Y34uVX0gUgCo0ndPi5RLf3NHAm8f6OZ-h-9hrSEv_uqwfBWaSlmc7193lBzKssvbvDYHLLWnqI0iRs4usHPlyttqVSyHwTBF2omqGsx5ggvujT2e1wFsQTjWDBGzAG37ruJglCGFrozHiDhT-NyOtRTxjFcMJr13CevQ8BPiyKtQE_lguvbw-eB6BZsXDxsMXzwi1sxc31xJ4e0kpJdwUvn5G_XKKCcgYugHzDZieeuzYDoWF3ITr3eFnXuVp6cYsK5xRpU8";
 
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseWithWrongOrg),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -472,10 +472,10 @@ describe("src/license", () => {
         "QZ3S5mm_sCcUA5z1zIJdRpveNkmwKzf15zlFf_8sMqflKsWpzKw9R1-xUItQ8l6AXdgA5_ohdBglfTvNu4efkS8DdT3oavN0o2XVx_ZmIUkSWyudmqv6HOFba6r9vidaQ6Qhyvu7vVIL2RwLnOlFTaud1pD0OZolKW8iut1PV9QSo1upUO50DTbJ3PGZQcDBNUN8EfExcG7K-gfeaRYud9LFVKU0kd_xM4hg9XhgCQuEvtfblbXB56uFRm9Gbm9KdlV6APZFmOm8DTqkUqvJCdV3ySuEmmAqLW2K6unQRQBJy7pYFV0rXhSYVB6DtmUPlq4k-8BwCvYGO5DDZpsj3k0pGW5BIE90QrdgnqbuB8xXTnAm5YwVCAv0fWxjoRi00RhjKDpEEgwNxX2qzYDQMU5SbUJLJcWRoijyWrmOOzBPfvUxg8FiU_hIVAAmPYO3JxYgBrleaetYZu7hcSPYIOk7It1OWYCuVfFfHiYtwvBc_--Bg4rUitGZu7OxSJYvTPC3THJmc8_UgXNe9hImMLRvA4y-BdZrDXRDPhZSKPuymla8yMFEM0FoXdm6PBlTK2f5tCkyduQptxTibk9pQ8GBkeDmvM0qTfJp3So8OnriYowJyqQL8rSo__oVzyp5TZ5cQAsj0HvQXe5W9aqgd4VJFrvlk7tGPKFKUp4aq6E";
 
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseWithWrongOrg),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -488,10 +488,10 @@ describe("src/license", () => {
 
     describe("when there is a valid license on the org", () => {
       beforeEach(async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseData),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
         await licenseInit(org, getUserCodesForOrg, getLicenseMetaData);
@@ -556,10 +556,10 @@ describe("src/license", () => {
     describe("new style licenses where licenseKey starts with 'license_'", () => {
       describe("and when the license server is up", () => {
         beforeEach(() => {
-          const mockedResponse: Response = ({
+          const mockedResponse: Response = {
             ok: true,
             json: jest.fn().mockResolvedValueOnce(licenseData),
-          } as unknown) as Response;
+          } as unknown as Response;
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
 
@@ -697,10 +697,10 @@ describe("src/license", () => {
           const twoDaysFromNow = now.getTime() + 8 * 24 * 60 * 60 * 1000;
           jest.setSystemTime(twoDaysFromNow);
 
-          const mockedResponse2: Response = ({
+          const mockedResponse2: Response = {
             ok: true,
             json: jest.fn().mockResolvedValueOnce(licenseData2),
-          } as unknown) as Response; // Create a mock Response object
+          } as unknown as Response; // Create a mock Response object
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
 
@@ -712,19 +712,19 @@ describe("src/license", () => {
         it("should call fetch once for each key when called with multiple keys simultaneously, and getLicense should return correct licenseData for each key", async () => {
           mockedFetch.mockReset(); // this test is different from the others
 
-          const mockedResponse: Response = ({
+          const mockedResponse: Response = {
             ok: true,
             json: jest.fn().mockResolvedValueOnce(licenseData),
-          } as unknown) as Response;
+          } as unknown as Response;
 
           const licenseKey2 = "license_19exntswvlosvp1dasdfads";
           const licenseData3 = cloneDeep(licenseData2);
           licenseData3.id = licenseKey2;
 
-          const mockedResponse2: Response = ({
+          const mockedResponse2: Response = {
             ok: true,
             json: jest.fn().mockResolvedValueOnce(licenseData3),
-          } as unknown) as Response;
+          } as unknown as Response;
 
           mockedFetch.mockImplementation((url) => {
             const urlString = String(url);
@@ -794,10 +794,10 @@ describe("src/license", () => {
           const tenDaysFromNow = now.getTime() + 10 * 24 * 60 * 60 * 1000;
           jest.setSystemTime(tenDaysFromNow);
 
-          const mockedResponse2: Response = ({
+          const mockedResponse2: Response = {
             ok: true,
             json: jest.fn().mockResolvedValueOnce(licenseData2),
-          } as unknown) as Response; // Create a mock Response object
+          } as unknown as Response; // Create a mock Response object
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse2));
 
@@ -811,10 +811,10 @@ describe("src/license", () => {
 
           expect(getLicense(licenseKey)).toEqual(licenseData);
 
-          const mockedResponse2: Response = ({
+          const mockedResponse2: Response = {
             ok: true,
             json: jest.fn().mockResolvedValueOnce(licenseData2),
-          } as unknown) as Response; // Create a mock Response object
+          } as unknown as Response; // Create a mock Response object
 
           jest.spyOn(LicenseModel, "findOne").mockResolvedValue({
             ...licenseData,
@@ -835,10 +835,10 @@ describe("src/license", () => {
           jest.spyOn(LicenseModelModule, "getLicenseByKey").mockRestore(); // this test should expect there to be something in mongo cache
           const licenseDateWithBadSignature = cloneDeep(licenseData);
           licenseDateWithBadSignature.signedChecksum = "bad signature";
-          const mockedResponse3: Response = ({
+          const mockedResponse3: Response = {
             ok: true,
             json: jest.fn().mockResolvedValueOnce(licenseDateWithBadSignature),
-          } as unknown) as Response; // Create a mock Response object
+          } as unknown as Response; // Create a mock Response object
 
           mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
 
@@ -876,11 +876,11 @@ describe("src/license", () => {
 
       describe("and when the license server is down", () => {
         beforeEach(() => {
-          const mockedResponse: Response = ({
+          const mockedResponse: Response = {
             ok: false,
             statusText: "internal server error",
             text: jest.fn().mockResolvedValue("internal server error"),
-          } as unknown) as Response;
+          } as unknown as Response;
 
           mockedFetch.mockResolvedValue(Promise.resolve(mockedResponse));
         });
@@ -989,11 +989,11 @@ describe("src/license", () => {
               { upsert: true }
             );
 
-            const mockedResponse: Response = ({
+            const mockedResponse: Response = {
               ok: false,
               statusText: "different error",
               text: jest.fn().mockResolvedValueOnce("different error"),
-            } as unknown) as Response;
+            } as unknown as Response;
 
             mockedFetch.mockResolvedValue(Promise.resolve(mockedResponse));
 
@@ -1092,10 +1092,10 @@ describe("src/license", () => {
         licenseData3.dateExpires = tenDaysAgo.toISOString();
         licenseData3.signedChecksum =
           "O8U7fSZb2eA_NIi6N5MJSxqsHNZ98E_nkoyBK7tQ_0pIGhXpQCrAy04ec_l_YLiNCVR8UKeZVQuf58_bdgBCXVQsEZSWDRSpmf_8lw3NjwHEBgh9KdDzsZVIN-bzywA27sQIsR4MS6kmZOgm2ml91WfRblCUf9q6kbXfXFBKgtt-afGUZDqYVnC-bPbZvoRKmyREpnw3u-CMlTvMPrxkpUuRCCWWcQe6o5S7LUW_L3Z9e-9kEEYC3mh2ERnjojSblR_sdSa_mDgLA20p9w0_Amhrw-6zKIi6ZyMUHHz3iUKXjvEpp4OqqHhm5Fooax07Hn4e18Om9ZisaZ22IRKeJyjjuZdGMnK3cfNhUaHkWW_FSHaDnTouQRdtA-hBP5l4ktauLKKVKuomvwunDq5-MHrcENfcUedV6eB68R0OGEi8bQVCGSnLrO48gTrQzbwVem5EAgr1n7PwpCdzZntUZfQ9QnoPhRRBPNFPGcCJih4ZlOsuDpYRpie7ritAupI7sRbuw_vk00fEBb0NAqA5pNBH7JMjUPhsUwYtXJumkbHZt8p1gz1U5A9UIgZT8rjiwHifqgOyo435M2xcHDHqPahjRDq8K11NZATNAf9AFlnIPPiYg-hHMIhugArpG-EuOsEekVQqjzGfm6CC24f6cyllhRYk22ae04cdbcm4iaA";
-        const mockedResponse3: Response = ({
+        const mockedResponse3: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseData3),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse3));
 
@@ -1111,10 +1111,10 @@ describe("src/license", () => {
       });
 
       it("should not use the env variable if the licenseKey argument does not reference an expired license", async () => {
-        const mockedResponse: Response = ({
+        const mockedResponse: Response = {
           ok: true,
           json: jest.fn().mockResolvedValueOnce(licenseData),
-        } as unknown) as Response;
+        } as unknown as Response;
 
         mockedFetch.mockResolvedValueOnce(Promise.resolve(mockedResponse));
 

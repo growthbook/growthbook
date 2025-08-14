@@ -21,10 +21,8 @@ export default function SavedGroupTargetingField({
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const {
-    unsupportedConnections,
-    hasLargeSavedGroupFeature,
-  } = useLargeSavedGroupSupport(project);
+  const { unsupportedConnections, hasLargeSavedGroupFeature } =
+    useLargeSavedGroupSupport(project);
 
   if (!savedGroups.length)
     return (

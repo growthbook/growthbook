@@ -448,10 +448,8 @@ export async function createSafeRolloutSnapshot({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const {
-    settingsForSnapshotMetrics,
-    regressionAdjustmentEnabled,
-  } = await getSettingsForSnapshotMetrics(context, safeRollout);
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    await getSettingsForSnapshotMetrics(context, safeRollout);
 
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,

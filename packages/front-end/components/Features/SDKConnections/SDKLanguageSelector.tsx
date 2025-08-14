@@ -296,20 +296,21 @@ export default function SDKLanguageSelector({
             </div>
           </div>
         )}
-        {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
-          <div className="col-auto mb-1">
-            {renderLabels && (
-              <div className="small mb-2">
-                <strong>Other</strong>
-              </div>
-            )}
-            <SDKLanguageOption
-              language={"other"}
-              onClick={() => handleLanguageOptionClick("other")}
-              selected={selected.has("other")}
-            />
-          </div>
-        )}
+        {includeOther &&
+          (!limitLanguages || limitLanguages.includes("other")) && (
+            <div className="col-auto mb-1">
+              {renderLabels && (
+                <div className="small mb-2">
+                  <strong>Other</strong>
+                </div>
+              )}
+              <SDKLanguageOption
+                language={"other"}
+                onClick={() => handleLanguageOptionClick("other")}
+                selected={selected.has("other")}
+              />
+            </div>
+          )}
         {!includeAll && limitLanguages && !hideShowAllLanguages && (
           <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
             <a

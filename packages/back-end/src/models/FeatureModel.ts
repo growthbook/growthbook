@@ -420,7 +420,8 @@ export const createFeatureEvent = async <
       version: eventData.data.object.version,
     });
 
-    const safeRolloutMap = await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const safeRolloutMap =
+      await eventData.context.models.safeRollout.getAllPayloadSafeRollouts();
 
     const currentApiFeature = getApiFeatureObj({
       feature: eventData.data.object,
@@ -588,7 +589,8 @@ export async function onFeatureUpdate(
   updatedFeature: FeatureInterface,
   skipRefreshForProject?: string
 ) {
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const safeRolloutMap =
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
   await refreshSDKPayloadCache(
     context,
     getSDKPayloadKeysByDiff(
@@ -990,10 +992,8 @@ const updateSafeRolloutStatuses = async (
     };
     if (!safeRollout.startedAt && safeRolloutUpdates.status === "running") {
       safeRolloutUpdates["startedAt"] = new Date();
-      const {
-        nextSnapshot,
-        nextRampUp,
-      } = determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
+      const { nextSnapshot, nextRampUp } =
+        determineNextSafeRolloutSnapshotAttempt(safeRollout, context.org);
       safeRolloutUpdates["nextSnapshotAttempt"] = nextSnapshot;
       safeRolloutUpdates["rampUpSchedule"] = {
         ...safeRollout.rampUpSchedule,

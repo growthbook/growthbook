@@ -180,44 +180,42 @@ import metricConfigData from "./json/metrics.json";
 const metricConfigs = metricConfigData as TestMetricConfig[];
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig
-const baseMetric: Omit<
-  MetricInterface,
-  "id" | "type" | "ignoreNulls" | "sql"
-> = {
-  organization: "",
-  owner: "",
-  datasource: "",
-  name: "",
-  windowSettings: {
-    type: "conversion",
-    delayHours: 0,
-    windowValue: 72,
-    windowUnit: "hours",
-  },
-  cappingSettings: {
-    type: "",
-    value: 0,
-  },
-  priorSettings: {
-    override: false,
-    proper: false,
-    mean: 0,
-    stddev: 0,
-  },
-  description: "",
-  inverse: false,
-  dateCreated: null,
-  dateUpdated: null,
-  runStarted: null,
-  userIdColumns: { user_id: "user_id", anonymous_id: "anonymous_id" },
-  queries: [],
-  aggregation: "",
-  table: "",
-  column: "",
-  timestampColumn: "",
-  conditions: [],
-  queryFormat: "sql" as const,
-};
+const baseMetric: Omit<MetricInterface, "id" | "type" | "ignoreNulls" | "sql"> =
+  {
+    organization: "",
+    owner: "",
+    datasource: "",
+    name: "",
+    windowSettings: {
+      type: "conversion",
+      delayHours: 0,
+      windowValue: 72,
+      windowUnit: "hours",
+    },
+    cappingSettings: {
+      type: "",
+      value: 0,
+    },
+    priorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 0,
+    },
+    description: "",
+    inverse: false,
+    dateCreated: null,
+    dateUpdated: null,
+    runStarted: null,
+    userIdColumns: { user_id: "user_id", anonymous_id: "anonymous_id" },
+    queries: [],
+    aggregation: "",
+    table: "",
+    column: "",
+    timestampColumn: "",
+    conditions: [],
+    queryFormat: "sql" as const,
+  };
 
 const allActivationMetrics: MetricInterface[] = [
   {
@@ -225,8 +223,7 @@ const allActivationMetrics: MetricInterface[] = [
     id: "cart_loaded",
     type: "binomial",
     ignoreNulls: false,
-    sql:
-      "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
+    sql: "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
   },
   {
     ...baseMetric,
@@ -234,8 +231,7 @@ const allActivationMetrics: MetricInterface[] = [
     userIdTypes: ["anonymous_id"],
     type: "binomial",
     ignoreNulls: false,
-    sql:
-      "SELECT\nanonymousId as anonymous_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
+    sql: "SELECT\nanonymousId as anonymous_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Cart Loaded'",
   },
 ];
 
@@ -338,24 +334,24 @@ const analysisFactMetrics: FactMetricInterface[] = factMetricConfigs.map(
 
 type FactTableConfig = Pick<FactTableInterface, "id" | "sql">;
 import factTableConfigData from "./json/fact-tables.json";
-const factTables: FactTableInterface[] = (factTableConfigData as FactTableConfig[]).map(
-  (partialFactTable) => ({
-    organization: "",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    name: partialFactTable.id,
-    description: "",
-    owner: "",
-    projects: [],
-    tags: [],
-    datasource: "",
-    eventName: "",
-    userIdTypes: ["user_id", "anonymous_id"],
-    columns: columns.filter((f) => f.name.startsWith(partialFactTable.id)),
-    filters: filters.filter((f) => f.id.startsWith(partialFactTable.id)),
-    ...partialFactTable,
-  })
-);
+const factTables: FactTableInterface[] = (
+  factTableConfigData as FactTableConfig[]
+).map((partialFactTable) => ({
+  organization: "",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  name: partialFactTable.id,
+  description: "",
+  owner: "",
+  projects: [],
+  tags: [],
+  datasource: "",
+  eventName: "",
+  userIdTypes: ["user_id", "anonymous_id"],
+  columns: columns.filter((f) => f.name.startsWith(partialFactTable.id)),
+  filters: filters.filter((f) => f.id.startsWith(partialFactTable.id)),
+  ...partialFactTable,
+}));
 
 // BUILD METRIC MAPS
 const baseMetricMap = new Map<string, MetricInterface>();
@@ -363,11 +359,9 @@ analysisMetrics.forEach((m) => baseMetricMap.set(m.id, m));
 allActivationMetrics.forEach((m) => baseMetricMap.set(m.id, m));
 
 const allMetricMap: Map<string, ExperimentMetricInterface> = new Map(
-  [
-    ...analysisMetrics,
-    ...allActivationMetrics,
-    ...analysisFactMetrics,
-  ].map((m) => [m.id, m])
+  [...analysisMetrics, ...allActivationMetrics, ...analysisFactMetrics].map(
+    (m) => [m.id, m]
+  )
 );
 
 const metricRegressionAdjustmentStatuses = [
@@ -469,8 +463,8 @@ const testCases: { name: string; engine: string; sql: string }[] = [];
 engines.forEach((engine) => {
   const engineInterface = buildInterface(engine);
   const integration = getSourceIntegrationObject(engineInterface);
-  const pipelineEnabled = integration.getSourceProperties()
-    .supportsWritingTables;
+  const pipelineEnabled =
+    integration.getSourceProperties().supportsWritingTables;
 
   const factTablesCopy = cloneDeep<FactTableInterface[]>(factTables);
   factTablesCopy.forEach(

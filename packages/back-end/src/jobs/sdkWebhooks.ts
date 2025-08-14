@@ -254,9 +254,8 @@ async function runWebhookFetch({
 
   try {
     const origin = new URL(url).origin;
-    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer(
-      origin
-    );
+    const applySecrets =
+      await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
 
     let customHeaders: Record<string, string> | undefined;
     if (headers) {
@@ -347,43 +346,41 @@ export async function fireSdkWebhook(
     return;
   }
 
-  const payloads: [
-    string,
-    Record<string, unknown>
-  ][] = await BluebirdPromise.reduce(
-    connections,
-    async (payloads: [string, Record<string, unknown>][], connection) => {
-      if (!sendPayload) return [[connection.key, {}], ...payloads];
+  const payloads: [string, Record<string, unknown>][] =
+    await BluebirdPromise.reduce(
+      connections,
+      async (payloads: [string, Record<string, unknown>][], connection) => {
+        if (!sendPayload) return [[connection.key, {}], ...payloads];
 
-      const environmentDoc = webhookContext.org?.settings?.environments?.find(
-        (e) => e.id === connection.environment
-      );
-      const filteredProjects = filterProjectsByEnvironmentWithNull(
-        connection.projects,
-        environmentDoc,
-        true
-      );
+        const environmentDoc = webhookContext.org?.settings?.environments?.find(
+          (e) => e.id === connection.environment
+        );
+        const filteredProjects = filterProjectsByEnvironmentWithNull(
+          connection.projects,
+          environmentDoc,
+          true
+        );
 
-      const defs = await getFeatureDefinitions({
-        context: webhookContext,
-        capabilities: getConnectionSDKCapabilities(connection),
-        environment: connection.environment,
-        projects: filteredProjects,
-        encryptionKey: connection.encryptPayload
-          ? connection.encryptionKey
-          : undefined,
-        includeVisualExperiments: connection.includeVisualExperiments,
-        includeDraftExperiments: connection.includeDraftExperiments,
-        includeExperimentNames: connection.includeExperimentNames,
-        includeRedirectExperiments: connection.includeRedirectExperiments,
-        includeRuleIds: connection.includeRuleIds,
-        hashSecureAttributes: connection.hashSecureAttributes,
-      });
+        const defs = await getFeatureDefinitions({
+          context: webhookContext,
+          capabilities: getConnectionSDKCapabilities(connection),
+          environment: connection.environment,
+          projects: filteredProjects,
+          encryptionKey: connection.encryptPayload
+            ? connection.encryptionKey
+            : undefined,
+          includeVisualExperiments: connection.includeVisualExperiments,
+          includeDraftExperiments: connection.includeDraftExperiments,
+          includeExperimentNames: connection.includeExperimentNames,
+          includeRedirectExperiments: connection.includeRedirectExperiments,
+          includeRuleIds: connection.includeRuleIds,
+          hashSecureAttributes: connection.hashSecureAttributes,
+        });
 
-      return [[connection.key, defs], ...payloads];
-    },
-    []
-  );
+        return [[connection.key, defs], ...payloads];
+      },
+      []
+    );
 
   await BluebirdPromise.each(payloads, ([key, payload]) =>
     runWebhookFetch({

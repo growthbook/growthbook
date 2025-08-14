@@ -150,10 +150,10 @@ describe("getUsage", () => {
           limits: { requests: "1000", bandwidth: "10GB" },
           cdn: { lastUpdated: new Date(), status: "under" },
         };
-        mockedFetch.mockResolvedValueOnce(({
+        mockedFetch.mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValueOnce(mockResponse),
-        } as unknown) as Response);
+        } as unknown as Response);
 
         const usage = await getUsage(mockOrganization);
         expect(usage).toEqual(mockResponse);
@@ -165,10 +165,10 @@ describe("getUsage", () => {
           limits: { requests: "1000", bandwidth: "10GB" },
           cdn: { lastUpdated: new Date(), status: "under" },
         };
-        mockedFetch.mockResolvedValueOnce(({
+        mockedFetch.mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValueOnce(mockResponse),
-        } as unknown) as Response);
+        } as unknown as Response);
 
         const usage = await getUsage(mockOrganization);
         const usage2 = await getUsage(mockOrganization);
@@ -187,14 +187,14 @@ describe("getUsage", () => {
           limits: { requests: "2000", bandwidth: "20GB" },
           cdn: { lastUpdated: new Date(), status: "over" },
         };
-        mockedFetch.mockResolvedValueOnce(({
+        mockedFetch.mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValueOnce(mockResponse),
-        } as unknown) as Response);
-        mockedFetch.mockResolvedValueOnce(({
+        } as unknown as Response);
+        mockedFetch.mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValueOnce(mockResponse2),
-        } as unknown) as Response);
+        } as unknown as Response);
 
         const usage = await getUsage(mockOrganization);
         expect(usage).toEqual(mockResponse);
@@ -217,10 +217,10 @@ describe("getUsage", () => {
           limits: { requests: "1000", bandwidth: "10GB" },
           cdn: { lastUpdated: new Date(), status: "under" },
         };
-        mockedFetch.mockResolvedValueOnce(({
+        mockedFetch.mockResolvedValueOnce({
           ok: true,
           json: jest.fn().mockResolvedValueOnce(mockResponse),
-        } as unknown) as Response);
+        } as unknown as Response);
 
         const usage = await getUsageFromCache(mockOrganization);
         expect(usage).toEqual(UNLIMITED_USAGE);

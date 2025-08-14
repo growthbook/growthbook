@@ -22,8 +22,8 @@ const regressionAdjustmentResolver = (
 
     // metric settings
     if (ctx.scopes?.metric?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!ctx.scopes.metric
-        .regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled =
+        !!ctx.scopes.metric.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         ctx.scopes.metric.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
@@ -36,7 +36,8 @@ const regressionAdjustmentResolver = (
       (mo) => mo.id === ctx.scopes?.metric?.id
     );
     if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled =
+        !!metricOverride.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         metricOverride.regressionAdjustmentDays ?? regressionAdjustmentDays;
       reason = !regressionAdjustmentEnabled

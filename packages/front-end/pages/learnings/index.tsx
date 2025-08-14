@@ -45,11 +45,11 @@ const LearningsPage = (): React.ReactElement => {
     router.replace(newUrl, undefined, { shallow: true });
   }
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    project,
-    true,
-    "standard"
-  );
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+  } = useExperiments(project, true, "standard");
   const allStoppedExperiments = React.useMemo(
     () => allExperiments.filter((e) => e.status === "stopped"),
     [allExperiments]
@@ -70,15 +70,11 @@ const LearningsPage = (): React.ReactElement => {
     [endDate, startDate]
   );
 
-  const {
-    items,
-    searchInputProps,
-    syntaxFilters,
-    setSearchValue,
-  } = useExperimentSearch({
-    allExperiments,
-    filterResults,
-  });
+  const { items, searchInputProps, syntaxFilters, setSearchValue } =
+    useExperimentSearch({
+      allExperiments,
+      filterResults,
+    });
 
   const stoppedExperiments = React.useMemo(
     () => items.filter((e) => e.status === "stopped"),

@@ -1566,12 +1566,10 @@ export default function FactMetricModal({
 
   const quantileMetricsAvailableForDatasource =
     selectedDataSource?.properties?.hasQuantileTesting;
-  const hasQuantileMetricCommercialFeature = hasCommercialFeature(
-    "quantile-metrics"
-  );
-  const hasRetentionMetricCommercialFeature = hasCommercialFeature(
-    "retention-metrics"
-  );
+  const hasQuantileMetricCommercialFeature =
+    hasCommercialFeature("quantile-metrics");
+  const hasRetentionMetricCommercialFeature =
+    hasCommercialFeature("retention-metrics");
 
   const numerator = form.watch("numerator");
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
@@ -2059,9 +2057,8 @@ export default function FactMetricModal({
                       setValue={(unit) => {
                         // Event-level quantiles must select a numeric column
                         if (!unit && numerator?.column?.startsWith("$$")) {
-                          const column = getNumericColumns(
-                            numeratorFactTable
-                          )[0];
+                          const column =
+                            getNumericColumns(numeratorFactTable)[0];
                           form.setValue("numerator", {
                             ...numerator,
                             column: column?.column || "",
@@ -2370,11 +2367,13 @@ export default function FactMetricModal({
                                   label="Pre-exposure lookback period (days)"
                                   type="number"
                                   style={{
-                                    borderColor: regressionAdjustmentDaysHighlightColor,
-                                    backgroundColor: regressionAdjustmentDaysHighlightColor
-                                      ? regressionAdjustmentDaysHighlightColor +
-                                        "15"
-                                      : "",
+                                    borderColor:
+                                      regressionAdjustmentDaysHighlightColor,
+                                    backgroundColor:
+                                      regressionAdjustmentDaysHighlightColor
+                                        ? regressionAdjustmentDaysHighlightColor +
+                                          "15"
+                                        : "",
                                   }}
                                   className="ml-2"
                                   containerClassName="mb-0 form-inline"
@@ -2407,7 +2406,8 @@ export default function FactMetricModal({
                                 {regressionAdjustmentDaysWarningMsg && (
                                   <small
                                     style={{
-                                      color: regressionAdjustmentDaysHighlightColor,
+                                      color:
+                                        regressionAdjustmentDaysHighlightColor,
                                     }}
                                   >
                                     {regressionAdjustmentDaysWarningMsg}

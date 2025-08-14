@@ -52,12 +52,11 @@ export class SavedQueryDataModel extends BaseClass {
     }
 
     // Get the datasource from the combined object
-    const {
-      datasource: newDatasource = existingDatasource,
-    } = this.getForeignRefs({
-      ...existing,
-      ...updates,
-    });
+    const { datasource: newDatasource = existingDatasource } =
+      this.getForeignRefs({
+        ...existing,
+        ...updates,
+      });
 
     if (!newDatasource) {
       throw new Error("New datasource not found");

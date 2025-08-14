@@ -56,10 +56,11 @@ informationSchemaTablesSchema.index(
 type InformationSchemaTablesDocument = mongoose.Document &
   InformationSchemaTablesInterface;
 
-const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesInterface>(
-  "InformationSchemaTables",
-  informationSchemaTablesSchema
-);
+const InformationSchemaTablesModel =
+  mongoose.model<InformationSchemaTablesInterface>(
+    "InformationSchemaTables",
+    informationSchemaTablesSchema
+  );
 
 /**
  * Convert the Mongo document to an InformationSourceInterface, omitting Mongo default fields __v, _id

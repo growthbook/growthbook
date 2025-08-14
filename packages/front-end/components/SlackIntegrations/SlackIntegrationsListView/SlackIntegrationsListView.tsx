@@ -143,10 +143,8 @@ const SlackIntegrationsEmptyState: FC<PropsWithChildren> = ({ children }) => (
 export const SlackIntegrationsListViewContainer = () => {
   const { apiCall } = useAuth();
 
-  const [
-    modalMode,
-    setModalMode,
-  ] = useState<SlackIntegrationModalMode | null>();
+  const [modalMode, setModalMode] =
+    useState<SlackIntegrationModalMode | null>();
 
   const handleOnEditModalOpen = useCallback(
     (id: string, data: SlackIntegrationEditParams) => {
@@ -167,7 +165,11 @@ export const SlackIntegrationsListViewContainer = () => {
 
   const [addEditError, setAddEditError] = useState<null | string>(null);
 
-  const { data, mutate, error: loadError } = useApi<{
+  const {
+    data,
+    mutate,
+    error: loadError,
+  } = useApi<{
     slackIntegrations: SlackIntegrationInterface[];
   }>("/integrations/slack");
 

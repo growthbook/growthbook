@@ -43,12 +43,8 @@ const MetricSelector: FC<
   onPaste,
   ...selectProps
 }) => {
-  const {
-    metrics,
-    factMetrics,
-    factTables,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metrics, factMetrics, factTables, getDatasourceById } =
+    useDefinitions();
 
   const options: MetricOption[] = [
     ...metrics.map((m) => ({

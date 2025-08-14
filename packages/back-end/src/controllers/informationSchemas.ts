@@ -103,13 +103,8 @@ export async function getTableData(
   }
 
   // Otherwise, the table doesn't exist yet, so we need to create it.
-  const {
-    tableData,
-    refreshMS,
-    databaseName,
-    tableSchema,
-    tableName,
-  } = await fetchTableData(context, datasource, informationSchema, tableId);
+  const { tableData, refreshMS, databaseName, tableSchema, tableName } =
+    await fetchTableData(context, datasource, informationSchema, tableId);
 
   if (!tableData) {
     res

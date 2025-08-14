@@ -160,7 +160,8 @@ describe("autoAttributesPlugin", () => {
       writable: true,
     });
     const originalSessionStorage = window.sessionStorage;
-    window.sessionStorage = (sessionStorage as unknown) as typeof window.sessionStorage;
+    window.sessionStorage =
+      sessionStorage as unknown as typeof window.sessionStorage;
 
     // Make getItem throw to test fault tolerance
     sessionStorage.getItem.mockImplementationOnce(() => {

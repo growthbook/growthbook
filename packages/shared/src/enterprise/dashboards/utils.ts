@@ -35,7 +35,7 @@ export function isPersistedDashboardBlock<T extends DashboardBlockInterface>(
 
 export function isDifferenceType(
   value: string
-): value is typeof differenceTypes[number] {
+): value is (typeof differenceTypes)[number] {
   return (differenceTypes as readonly string[]).includes(value);
 }
 

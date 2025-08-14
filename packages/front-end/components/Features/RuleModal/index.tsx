@@ -119,7 +119,7 @@ export default function RuleModal({
   const attributeSchema = useAttributeSchema(false, feature.project);
 
   const rules = getRules(feature, environment);
-  const rule: typeof rules[number] | undefined = rules[i];
+  const rule: (typeof rules)[number] | undefined = rules[i];
   const isNewRule = !rule;
   const safeRollout =
     rule?.type === "safe-rollout"
@@ -130,9 +130,8 @@ export default function RuleModal({
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates();
 
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
@@ -165,13 +164,10 @@ export default function RuleModal({
   };
 
   // Overview Page
-  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
-    isNewRule
-  );
-  const [
-    overviewRadioSelectorRuleType,
-    setOverviewRadioSelectorRuleType,
-  ] = useState<RadioSelectorRuleType | "">("");
+  const [newRuleOverviewPage, setNewRuleOverviewPage] =
+    useState<boolean>(isNewRule);
+  const [overviewRadioSelectorRuleType, setOverviewRadioSelectorRuleType] =
+    useState<RadioSelectorRuleType | "">("");
   const [overviewRuleType, setOverviewRuleType] = useState<
     OverviewRuleType | ""
   >("");
@@ -190,9 +186,8 @@ export default function RuleModal({
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
     (scheduleRule) => scheduleRule.timestamp !== null
   );
-  const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
-    defaultHasSchedule
-  );
+  const [scheduleToggleEnabled, setScheduleToggleEnabled] =
+    useState(defaultHasSchedule);
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
@@ -263,10 +258,8 @@ export default function RuleModal({
     i,
   ]);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues;
   }, [isCyclic, prerequisiteTargetingSdkIssues]);

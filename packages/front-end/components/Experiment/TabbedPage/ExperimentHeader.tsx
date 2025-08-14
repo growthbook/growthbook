@@ -153,10 +153,8 @@ export default function ExperimentHeader({
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
-  const [
-    editInfoFocusSelector,
-    setEditInfoFocusSelector,
-  ] = useState<FocusSelector>("name");
+  const [editInfoFocusSelector, setEditInfoFocusSelector] =
+    useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const isWatching = watchedExperiments.includes(experiment.id);
@@ -245,10 +243,8 @@ export default function ExperimentHeader({
   const isBandit = experiment.type === "multi-armed-bandit";
   const hasResults = !!analysis?.results?.[0];
 
-  const {
-    getDecisionCriteria,
-    getRunningExperimentResultStatus,
-  } = useRunningExperimentStatus();
+  const { getDecisionCriteria, getRunningExperimentResultStatus } =
+    useRunningExperimentStatus();
 
   const decisionCriteria = getDecisionCriteria(
     experiment.decisionFrameworkSettings?.decisionCriteriaId

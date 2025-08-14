@@ -19,10 +19,8 @@ export const ArchetypeList: FC<{
   archetypeErrors: Error | undefined;
   mutate: () => void;
 }> = ({ archetypes, archetypeErrors, mutate }) => {
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
   const permissionsUtil = usePermissionsUtil();
   const { project, getProjectById } = useDefinitions();
   const { getUserDisplay, hasCommercialFeature } = useUser();

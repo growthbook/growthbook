@@ -37,10 +37,8 @@ export interface Props {
 }
 
 export default function IdLists({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const { project } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
@@ -66,10 +64,8 @@ export default function IdLists({ groups, mutate }: Props) {
 
   const environments = useEnvironments();
 
-  const {
-    hasLargeSavedGroupFeature,
-    unsupportedConnections,
-  } = useLargeSavedGroupSupport();
+  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+    useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
   // Get a list of feature ids for every saved group

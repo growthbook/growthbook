@@ -131,10 +131,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-    const [
-      safeRolloutStatusModalOpen,
-      setSafeRolloutStatusModalOpen,
-    ] = useState(false);
+    const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
+      useState(false);
     let title: string | ReactElement =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -487,14 +485,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 );
 
 export function SortableRule(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    active,
-  } = useSortable({ id: props.rule.id });
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
+    useSortable({ id: props.rule.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

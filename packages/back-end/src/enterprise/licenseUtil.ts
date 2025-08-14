@@ -83,9 +83,8 @@ type MinimalOrganization = {
 export function getLowestPlanPerFeature(
   accountFeatures: CommercialFeaturesMap
 ): Partial<Record<CommercialFeature, AccountPlan>> {
-  const lowestPlanPerFeature: Partial<
-    Record<CommercialFeature, AccountPlan>
-  > = {};
+  const lowestPlanPerFeature: Partial<Record<CommercialFeature, AccountPlan>> =
+    {};
 
   // evaluate in order from highest to lowest plan
   const plansFromHighToLow: AccountPlan[] = [

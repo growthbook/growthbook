@@ -19,70 +19,65 @@ interface AceEditorProps extends IAceEditorProps {
 
 const AceEditor = dynamic(
   async () => {
-    const [
-      ace,
-      reactAce,
-      jsonWorkerUrl,
-      jsWorkerUrl,
-      yamlWorkerUrl,
-    ] = await Promise.all([
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/ace"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "react-ace"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/worker-json"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/worker-javascript"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/worker-yaml"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/ext-language_tools"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/ext-searchbox"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/mode-sql"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/mode-javascript"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/mode-python"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/mode-yaml"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/mode-json"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/theme-textmate"
-      ),
-      import(
-        /* webpackChunkName: "ace-editor" */
-        "ace-builds/src-min-noconflict/theme-tomorrow_night"
-      ),
-    ]);
+    const [ace, reactAce, jsonWorkerUrl, jsWorkerUrl, yamlWorkerUrl] =
+      await Promise.all([
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/ace"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "react-ace"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/worker-json"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/worker-javascript"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/worker-yaml"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/ext-language_tools"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/ext-searchbox"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-sql"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-javascript"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-python"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-yaml"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-json"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/theme-textmate"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/theme-tomorrow_night"
+        ),
+      ]);
 
     ace.config.setModuleUrl("ace/mode/json_worker", jsonWorkerUrl.default);
     ace.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl.default);

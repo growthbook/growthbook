@@ -38,10 +38,8 @@ type ExperimentDimensionItem = {
 function getExperimentDimensions(
   datasources: DataSourceInterfaceWithParams[]
 ): ExperimentDimensionItem[] {
-  const collapsedExperimentDimensions: Record<
-    string,
-    ExperimentDimensionItem
-  > = {};
+  const collapsedExperimentDimensions: Record<string, ExperimentDimensionItem> =
+    {};
 
   datasources.forEach((ds) => {
     ds.settings.queries?.exposure?.forEach((eq) => {
@@ -89,10 +87,8 @@ const DimensionsPage: FC = () => {
     ? envAllowsCreatingDimensions()
     : true;
 
-  const [
-    dimensionForm,
-    setDimensionForm,
-  ] = useState<null | Partial<DimensionInterface>>(null);
+  const [dimensionForm, setDimensionForm] =
+    useState<null | Partial<DimensionInterface>>(null);
 
   const { apiCall } = useAuth();
 

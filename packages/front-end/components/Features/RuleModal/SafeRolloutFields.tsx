@@ -220,8 +220,9 @@ export default function SafeRolloutFields({
                 form.setValue("safeRolloutFields.exposureQueryId", v)
               }
               formatOptionLabel={({ label, value }) => {
-                const userIdType = exposureQueries?.find((e) => e.id === value)
-                  ?.userIdType;
+                const userIdType = exposureQueries?.find(
+                  (e) => e.id === value
+                )?.userIdType;
                 return (
                   <>
                     {label}

@@ -256,13 +256,15 @@ export const isValidPowerCalculationParams = (
     const binomialParams = ["conversionRate"] as const;
     const meanParams = ["mean", "standardDeviation"] as const;
 
-    return ([
-      ...commonParams,
-      ...(engineType === "bayesian" ? bayesianEngineParams : []),
-      // In separate statements to help the type checker.
-      ...(params.type === "binomial" ? binomialParams : []),
-      ...(params.type === "mean" ? meanParams : []),
-    ] as const).every((k) => validEntry(k, params[k]));
+    return (
+      [
+        ...commonParams,
+        ...(engineType === "bayesian" ? bayesianEngineParams : []),
+        // In separate statements to help the type checker.
+        ...(params.type === "binomial" ? binomialParams : []),
+        ...(params.type === "mean" ? meanParams : []),
+      ] as const
+    ).every((k) => validEntry(k, params[k]));
   });
 
 export const ensureAndReturnPowerCalculationParams = (
@@ -497,9 +499,8 @@ export function powerEstFrequentist(
   sequentialTesting: false | number
 ): number {
   let standardError = 0;
-  const sequentialTuningParameter = getSequentialTuningParameter(
-    sequentialTesting
-  );
+  const sequentialTuningParameter =
+    getSequentialTuningParameter(sequentialTesting);
   if (sequentialTuningParameter > 0) {
     standardError = sequentialPowerStandardError(
       metric,
@@ -568,9 +569,8 @@ export function findMdeFrequentist(
     normal.quantile(1.0 - power, 0, 1);
   const m = getMetricMean(metric);
   let v = getMetricVariance(metric);
-  const sequentialTuningParameter = getSequentialTuningParameter(
-    sequentialTesting
-  );
+  const sequentialTuningParameter =
+    getSequentialTuningParameter(sequentialTesting);
   if (sequentialTuningParameter > 0) {
     v = sequentialPowerSequentialVariance(
       getMetricVariance(metric),

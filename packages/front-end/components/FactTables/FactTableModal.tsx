@@ -33,21 +33,15 @@ export default function FactTableModal({
   close,
   duplicate = false,
 }: Props) {
-  const {
-    datasources,
-    project,
-    getDatasourceById,
-    mutateDefinitions,
-  } = useDefinitions();
+  const { datasources, project, getDatasourceById, mutateDefinitions } =
+    useDefinitions();
   const settings = useOrgSettings();
   const router = useRouter();
 
   const [sqlOpen, setSqlOpen] = useState(false);
 
-  const [
-    showAdditionalColumnMessage,
-    setShowAdditionalColumnMessage,
-  ] = useState(false);
+  const [showAdditionalColumnMessage, setShowAdditionalColumnMessage] =
+    useState(false);
 
   const [showIdentifierTypes, setShowIdentifierTypes] = useState(false);
 

@@ -98,9 +98,8 @@ export default function DashboardsTab({
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
-  const [editLevel, setEditLevel] = useState<DashboardInterface["editLevel"]>(
-    "private"
-  );
+  const [editLevel, setEditLevel] =
+    useState<DashboardInterface["editLevel"]>("private");
   const [enableAutoUpdates, setEnableAutoUpdates] = useState(true);
   const [editDrawerOpen, setEditDrawerOpen] = useState<boolean>(false);
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({

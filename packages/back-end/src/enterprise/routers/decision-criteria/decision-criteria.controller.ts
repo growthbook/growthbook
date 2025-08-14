@@ -126,19 +126,16 @@ export const putDecisionCriteria = async (
   const context = getContextFromReq(req);
   const updates = req.body;
 
-  const existingDecisionCriteria = await context.models.decisionCriteria.getById(
-    req.params.id
-  );
+  const existingDecisionCriteria =
+    await context.models.decisionCriteria.getById(req.params.id);
 
   if (!existingDecisionCriteria) {
     throw new Error("Could not find decision criteria with that id");
   }
 
   // Update the decision criteria
-  const updatedDecisionCriteria = await context.models.decisionCriteria.updateById(
-    req.params.id,
-    updates
-  );
+  const updatedDecisionCriteria =
+    await context.models.decisionCriteria.updateById(req.params.id, updates);
 
   res.status(200).json({
     status: 200,

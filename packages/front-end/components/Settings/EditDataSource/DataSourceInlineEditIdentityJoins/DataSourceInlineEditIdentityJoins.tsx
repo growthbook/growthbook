@@ -14,14 +14,12 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/components/Radix/Badge";
 import Button from "@/components/Radix/Button";
 
-type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
+type DataSourceInlineEditIdentityJoinsProps =
+  DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJoinsProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
+export const DataSourceInlineEditIdentityJoins: FC<
+  DataSourceInlineEditIdentityJoinsProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit" | "add">("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
 
@@ -47,9 +45,10 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
     [openIndexes]
   );
 
-  const userIdTypes = useMemo(() => dataSource.settings?.userIdTypes || [], [
-    dataSource.settings?.userIdTypes,
-  ]);
+  const userIdTypes = useMemo(
+    () => dataSource.settings?.userIdTypes || [],
+    [dataSource.settings?.userIdTypes]
+  );
   const addIsDisabled = userIdTypes.length < 2;
   const identityJoins = useMemo(
     () => dataSource?.settings?.queries?.identityJoins || [],

@@ -33,10 +33,8 @@ export const IdListItemInput: FC<{
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const {
-    unsupportedConnections,
-    hasLargeSavedGroupFeature,
-  } = useLargeSavedGroupSupport();
+  const { unsupportedConnections, hasLargeSavedGroupFeature } =
+    useLargeSavedGroupSupport();
 
   const resetFile = () => {
     setValues([]);

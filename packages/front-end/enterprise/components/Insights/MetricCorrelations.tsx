@@ -239,12 +239,8 @@ const MetricCorrelationCard = ({
 }): React.ReactElement => {
   const { apiCall } = useAuth();
 
-  const {
-    project,
-    getExperimentMetricById,
-    getFactTableById,
-    metricGroups,
-  } = useDefinitions();
+  const { project, getExperimentMetricById, getFactTableById, metricGroups } =
+    useDefinitions();
   const { theme } = useAppearanceUITheme();
   const computedTheme = theme === "light" ? "light" : "dark";
   const displayCurrency = useCurrency();
@@ -267,12 +263,10 @@ const MetricCorrelationCard = ({
   const [filteredExperiments, setFilteredExperiments] = useState<
     ExperimentWithSnapshot[]
   >([]);
-  const [
-    excludedExperimentVariations,
-    setExcludedExperimentVariations,
-  ] = useState<{ experimentId: string; variationIndex: number }[]>(
-    params?.excludedExperimentVariations || []
-  );
+  const [excludedExperimentVariations, setExcludedExperimentVariations] =
+    useState<{ experimentId: string; variationIndex: number }[]>(
+      params?.excludedExperimentVariations || []
+    );
 
   const metric1OptionCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -389,7 +383,8 @@ const MetricCorrelationCard = ({
       });
 
       if (snapshots && snapshots.length > 0) {
-        const newCorrelationData: ScatterPointData<MetricCorrelationTooltipData>[] = [];
+        const newCorrelationData: ScatterPointData<MetricCorrelationTooltipData>[] =
+          [];
         snapshots.forEach((snapshot) => {
           const experiment = filteredExperiments.find(
             (exp) => exp.id === snapshot.experiment

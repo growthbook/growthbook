@@ -77,9 +77,8 @@ export default function AutoMetricCard({
                 id={`${event}-${event.metricsToCreate[binomialIndex].name}`}
                 setValue={(value) => {
                   const updates = cloneDeep(trackedEvents);
-                  updates[i].metricsToCreate[
-                    binomialIndex
-                  ].shouldCreate = value;
+                  updates[i].metricsToCreate[binomialIndex].shouldCreate =
+                    value;
                   setTrackedEvents(updates);
                 }}
               />

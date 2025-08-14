@@ -10,10 +10,8 @@ import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 
 const DecisionHelpText = ({ rule }: { rule: SafeRolloutRule }) => {
-  const {
-    safeRollout,
-    snapshot: snapshotWithResults,
-  } = useSafeRolloutSnapshot();
+  const { safeRollout, snapshot: snapshotWithResults } =
+    useSafeRolloutSnapshot();
 
   const { hasCommercialFeature, organization } = useUser();
   const settings = organization?.settings;

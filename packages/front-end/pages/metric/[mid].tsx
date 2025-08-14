@@ -1151,32 +1151,33 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.cappingSettings.type && metric.cappingSettings.value && (
-                    <>
-                      <li className="mb-2">
-                        <span className="uppercase-title lg">
-                          {capitalizeFirstLetter(metric.cappingSettings.type)}
-                          {" capping"}
-                        </span>
-                      </li>
-                      <li>
-                        <span className="font-weight-bold">
-                          {metric.cappingSettings.value}
-                        </span>{" "}
-                        {metric.cappingSettings.type === "percentile" ? (
-                          <span className="text-gray">{`(${
-                            100 * metric.cappingSettings.value
-                          } pctile${
-                            metric.cappingSettings.ignoreZeros
-                              ? ", ignoring zeros"
-                              : ""
-                          })`}</span>
-                        ) : (
-                          ""
-                        )}{" "}
-                      </li>
-                    </>
-                  )}
+                  {metric.cappingSettings.type &&
+                    metric.cappingSettings.value && (
+                      <>
+                        <li className="mb-2">
+                          <span className="uppercase-title lg">
+                            {capitalizeFirstLetter(metric.cappingSettings.type)}
+                            {" capping"}
+                          </span>
+                        </li>
+                        <li>
+                          <span className="font-weight-bold">
+                            {metric.cappingSettings.value}
+                          </span>{" "}
+                          {metric.cappingSettings.type === "percentile" ? (
+                            <span className="text-gray">{`(${
+                              100 * metric.cappingSettings.value
+                            } pctile${
+                              metric.cappingSettings.ignoreZeros
+                                ? ", ignoring zeros"
+                                : ""
+                            })`}</span>
+                          ) : (
+                            ""
+                          )}{" "}
+                        </li>
+                      </>
+                    )}
                   {metric.ignoreNulls && (
                     <li className="mb-2">
                       <span className="text-gray">Converted users only:</span>{" "}

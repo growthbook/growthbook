@@ -69,9 +69,8 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
       open={true}
       header="Edit Target MDEs"
       submit={() => {
-        const newOverrides: DecisionFrameworkMetricOverrides[] = Object.values(
-          overrides
-        );
+        const newOverrides: DecisionFrameworkMetricOverrides[] =
+          Object.values(overrides);
         apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({

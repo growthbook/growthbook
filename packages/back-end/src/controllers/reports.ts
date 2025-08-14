@@ -372,8 +372,8 @@ export async function refreshReport(
     }
   } else if (report.type === "experiment") {
     report.args.statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
-    report.args.regressionAdjustmentEnabled = !!report.args
-      ?.regressionAdjustmentEnabled;
+    report.args.regressionAdjustmentEnabled =
+      !!report.args?.regressionAdjustmentEnabled;
 
     const integration = await getIntegrationFromDatasourceId(
       context,
@@ -529,8 +529,8 @@ export async function putReport(
         updates.args.endDate = getValidDate(updates.args.endDate || new Date());
       }
       updates.args.statsEngine = statsEngine;
-      updates.args.regressionAdjustmentEnabled = !!updates.args
-        ?.regressionAdjustmentEnabled;
+      updates.args.regressionAdjustmentEnabled =
+        !!updates.args?.regressionAdjustmentEnabled;
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
 

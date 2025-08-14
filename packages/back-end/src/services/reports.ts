@@ -233,9 +233,10 @@ export function getMetricForSnapshot({
   const metric = metricMap.get(id);
   if (!metric) return null;
   const overrides = metricOverrides?.find((o) => o.id === id);
-  const decisionFrameworkMetricOverride = decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
-    (o) => o.id === id
-  );
+  const decisionFrameworkMetricOverride =
+    decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
+      (o) => o.id === id
+    );
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
     (s) => s.metric === id
   );
@@ -367,20 +368,18 @@ export async function createReportSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-  const {
-    settingsForSnapshotMetrics,
-    regressionAdjustmentEnabled,
-  } = getAllMetricSettingsForSnapshot({
-    allExperimentMetrics: allReportMetrics,
-    denominatorMetrics,
-    orgSettings,
-    experimentRegressionAdjustmentEnabled:
-      report.experimentAnalysisSettings.regressionAdjustmentEnabled,
-    experimentMetricOverrides:
-      report.experimentAnalysisSettings.metricOverrides,
-    datasourceType: datasource?.type,
-    hasRegressionAdjustmentFeature: true,
-  });
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics: allReportMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        report.experimentAnalysisSettings.regressionAdjustmentEnabled,
+      experimentMetricOverrides:
+        report.experimentAnalysisSettings.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+    });
 
   const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,

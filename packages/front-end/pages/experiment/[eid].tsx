@@ -54,10 +54,8 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${eid}`);
 
-  const {
-    getDecisionCriteria,
-    getRunningExperimentResultStatus,
-  } = useRunningExperimentStatus();
+  const { getDecisionCriteria, getRunningExperimentResultStatus } =
+    useRunningExperimentStatus();
 
   const decisionCriteria = getDecisionCriteria(
     data?.experiment?.decisionFrameworkSettings?.decisionCriteriaId

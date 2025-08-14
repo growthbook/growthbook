@@ -1307,13 +1307,8 @@ export async function createSnapshotAnalyses(
 export async function createSnapshotAnalysis(
   params: SnapshotAnalysisParams
 ): Promise<void> {
-  const {
-    snapshot,
-    analysisSettings,
-    organization,
-    experiment,
-    metricMap,
-  } = params;
+  const { snapshot, analysisSettings, organization, experiment, metricMap } =
+    params;
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     throw new Error("Analysis not allowed with this snapshot");
@@ -2572,7 +2567,7 @@ export function postExperimentApiPayloadToInterface(
     Object.assign(
       obj,
       resetExperimentBanditSettings({
-        experiment: (obj as unknown) as ExperimentInterface,
+        experiment: obj as unknown as ExperimentInterface,
         settings,
       })
     );

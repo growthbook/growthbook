@@ -77,9 +77,8 @@ export default function BanditSummaryTable({
   const [variationsSort, setVariationsSort] = useState<"default" | "ranked">(
     "default"
   );
-  const [showVariationsFilter, setShowVariationsFilter] = useState<boolean>(
-    false
-  );
+  const [showVariationsFilter, setShowVariationsFilter] =
+    useState<boolean>(false);
 
   useEffect(() => {
     if (!isTabActive) {

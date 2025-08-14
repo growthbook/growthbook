@@ -51,10 +51,8 @@ export default function SdkWebhooks({
 
   const [createWebhookModalOpen, setCreateWebhookModalOpen] = useState(false);
 
-  const [
-    editWebhookData,
-    setEditWebhookData,
-  ] = useState<null | Partial<WebhookInterface>>(null);
+  const [editWebhookData, setEditWebhookData] =
+    useState<null | Partial<WebhookInterface>>(null);
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();

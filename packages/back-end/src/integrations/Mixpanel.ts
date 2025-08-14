@@ -290,11 +290,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
             ${metrics
               .map((metric, i) => {
-                const conversionWindowCondition = this.getConversionWindowCondition(
-                  metric,
-                  snapshotSettings.endDate,
-                  "state.start"
-                );
+                const conversionWindowCondition =
+                  this.getConversionWindowCondition(
+                    metric,
+                    snapshotSettings.endDate,
+                    "state.start"
+                  );
 
                 return `// Metric - ${metric.name}
                     if(isMetric${i}(event) ${

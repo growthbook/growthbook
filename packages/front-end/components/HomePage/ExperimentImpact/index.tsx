@@ -420,13 +420,19 @@ export default function ExperimentImpact({
   }, []);
 
   // 2 check for snapshots w/o impact and update data
-  const {
-    summaryObj,
-    nExpsUsedForAdjustment,
-    experimentsWithNoImpact,
-  } = useMemo(
-    () =>
-      scaleImpactAndSetMissingExperiments({
+  const { summaryObj, nExpsUsedForAdjustment, experimentsWithNoImpact } =
+    useMemo(
+      () =>
+        scaleImpactAndSetMissingExperiments({
+          experiments,
+          snapshots,
+          metric,
+          selectedProjects,
+          startDate,
+          endDate,
+          adjusted,
+        }),
+      [
         experiments,
         snapshots,
         metric,
@@ -434,17 +440,8 @@ export default function ExperimentImpact({
         startDate,
         endDate,
         adjusted,
-      }),
-    [
-      experiments,
-      snapshots,
-      metric,
-      selectedProjects,
-      startDate,
-      endDate,
-      adjusted,
-    ]
-  );
+      ]
+    );
 
   return (
     <div className="pt-2">

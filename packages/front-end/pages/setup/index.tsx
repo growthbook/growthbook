@@ -181,9 +181,8 @@ export default function SetupFlow() {
 
             const sdkCapabilities = getSDKCapabilities(value.languages[0]);
 
-            const canUseVisualEditor = sdkCapabilities.includes(
-              "visualEditorJS"
-            );
+            const canUseVisualEditor =
+              sdkCapabilities.includes("visualEditorJS");
 
             const canUseUrlRedirects = sdkCapabilities.includes("redirects");
 

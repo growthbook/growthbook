@@ -352,10 +352,8 @@ export async function postAIExperimentAnalysis(
     releasedVariationName;
 
   const type = "experiment-analysis";
-  const {
-    isDefaultPrompt,
-    prompt,
-  } = await context.models.aiPrompts.getAIPrompt(type);
+  const { isDefaultPrompt, prompt } =
+    await context.models.aiPrompts.getAIPrompt(type);
 
   const aiResults = await simpleCompletion({
     context,
@@ -1542,24 +1540,26 @@ export async function postExperiment(
   }
 
   // Only some fields affect production SDK payloads
-  const needsRunExperimentsPermission = ([
-    "phases",
-    "variations",
-    "project",
-    "name",
-    "trackingKey",
-    "archived",
-    "status",
-    "releasedVariationId",
-    "excludeFromPayload",
-    "type",
-    "banditStage",
-    "banditStageDateStarted",
-    "banditScheduleValue",
-    "banditScheduleUnit",
-    "banditBurnInValue",
-    "banditBurnInUnit",
-  ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
+  const needsRunExperimentsPermission = (
+    [
+      "phases",
+      "variations",
+      "project",
+      "name",
+      "trackingKey",
+      "archived",
+      "status",
+      "releasedVariationId",
+      "excludeFromPayload",
+      "type",
+      "banditStage",
+      "banditStageDateStarted",
+      "banditScheduleValue",
+      "banditScheduleUnit",
+      "banditBurnInValue",
+      "banditBurnInUnit",
+    ] as (keyof ExperimentInterfaceStringDates)[]
+  ).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
     const linkedFeatureIds = experiment.linkedFeatures || [];
 
@@ -2699,7 +2699,8 @@ export async function createExperimentSnapshot({
   }
 
   const { org } = context;
-  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
+  const orgSettings: OrganizationSettings =
+    org.settings as OrganizationSettings;
   const { settings } = getScopedSettings({
     organization: org,
     project: project ?? undefined,
@@ -2719,19 +2720,17 @@ export async function createExperimentSnapshot({
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-  const {
-    settingsForSnapshotMetrics,
-    regressionAdjustmentEnabled,
-  } = getAllMetricSettingsForSnapshot({
-    allExperimentMetrics,
-    denominatorMetrics,
-    orgSettings,
-    experimentRegressionAdjustmentEnabled:
-      experiment.regressionAdjustmentEnabled,
-    experimentMetricOverrides: experiment.metricOverrides,
-    datasourceType: datasource?.type,
-    hasRegressionAdjustmentFeature: true,
-  });
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+    });
 
   const analysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
@@ -2749,9 +2748,8 @@ export async function createExperimentSnapshot({
     phaseIndex: phase,
     useCache,
     defaultAnalysisSettings: analysisSettings,
-    additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-      analysisSettings
-    ),
+    additionalAnalysisSettings:
+      getAdditionalExperimentAnalysisSettings(analysisSettings),
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
@@ -3667,14 +3665,13 @@ export async function getExperimentTimeSeries(
     throw new Error("Invalid phase");
   }
 
-  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
-    {
+  const timeSeries =
+    await context.models.metricTimeSeries.getBySourceAndMetricIds({
       source: "experiment",
       sourceId: id,
       sourcePhase: phaseIndex,
       metricIds,
-    }
-  );
+    });
 
   res.status(200).json({
     status: 200,

@@ -100,25 +100,23 @@ export default function PrerequisiteTargetingField({
     }
   }, [valueStr]);
 
-  const prereqStatesArr: (Record<
-    string,
-    PrerequisiteStateResult
-  > | null)[] = useMemo(() => {
-    const featuresMap = new Map(features.map((f) => [f.id, f]));
-    return value.map((v) => {
-      const parentFeature = featuresMap.get(v.id);
-      if (!parentFeature) return null;
-      const states: Record<string, PrerequisiteStateResult> = {};
-      environments.forEach((env) => {
-        states[env] = evaluatePrerequisiteState(
-          parentFeature,
-          featuresMap,
-          env
-        );
+  const prereqStatesArr: (Record<string, PrerequisiteStateResult> | null)[] =
+    useMemo(() => {
+      const featuresMap = new Map(features.map((f) => [f.id, f]));
+      return value.map((v) => {
+        const parentFeature = featuresMap.get(v.id);
+        if (!parentFeature) return null;
+        const states: Record<string, PrerequisiteStateResult> = {};
+        environments.forEach((env) => {
+          states[env] = evaluatePrerequisiteState(
+            parentFeature,
+            featuresMap,
+            env
+          );
+        });
+        return states;
       });
-      return states;
-    });
-  }, [valueStr, features, envsStr]);
+    }, [valueStr, features, envsStr]);
 
   const [featuresStates, wouldBeCyclicStates] = useMemo(() => {
     const featuresStates: Record<
@@ -270,8 +268,9 @@ export default function PrerequisiteTargetingField({
                       }))}
                       value={v.id}
                       onChange={(v) => {
-                        const meta = featureOptions.find((o) => o.value === v)
-                          ?.meta;
+                        const meta = featureOptions.find(
+                          (o) => o.value === v
+                        )?.meta;
                         if (meta?.disabled) return;
                         setValue([
                           ...value.slice(0, i),

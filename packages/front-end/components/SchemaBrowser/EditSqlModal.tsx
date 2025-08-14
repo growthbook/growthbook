@@ -75,10 +75,8 @@ export default function EditSqlModal({
   templateVariables,
   setTemplateVariables,
 }: Props) {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const [apply5RowLimit, setApply5RowLimit] = useState(true);
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);

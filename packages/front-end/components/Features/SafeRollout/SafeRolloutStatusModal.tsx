@@ -51,8 +51,7 @@ function getDefaultStatusAndText(
     case "unhealthy":
       return {
         defaultStatus: "rolled-back",
-        text:
-          "The Safe Rollout is marked as unhealthy. We recommend reverting to Control.",
+        text: "The Safe Rollout is marked as unhealthy. We recommend reverting to Control.",
       };
     case "ship-now":
       return {
@@ -62,22 +61,19 @@ function getDefaultStatusAndText(
     case "rollback-now":
       return {
         defaultStatus: "rolled-back",
-        text:
-          "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
+        text: "The Safe Rollout has failing guardrails. We recommend reverting to Control.",
       };
     case "before-min-duration":
     case "days-left":
     case "no-data":
       return {
         defaultStatus: "",
-        text:
-          "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
+        text: "The Safe Rollout is still collecting data. Are you sure you want to stop early?",
       };
     case "ready-for-review":
       return {
         defaultStatus: "",
-        text:
-          "The Safe Rollout is ready for review. Are you sure you want to stop early?",
+        text: "The Safe Rollout is ready for review. Are you sure you want to stop early?",
       };
   }
 }

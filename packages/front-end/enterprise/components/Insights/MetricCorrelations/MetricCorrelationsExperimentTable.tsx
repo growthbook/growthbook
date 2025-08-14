@@ -146,21 +146,18 @@ const ExperimentWithMetricsTable: FC<Props> = ({
           baseline?.[metricIndex] &&
           variationResults[variationIndex][metricIndex]
         ) {
-          const {
-            significant,
-            resultsStatus,
-            directionalStatus,
-          } = getMetricResultStatus({
-            metric: m,
-            metricDefaults,
-            baseline: baseline[metricIndex],
-            stats: variationResults[variationIndex][metricIndex],
-            ciLower,
-            ciUpper,
-            pValueThreshold,
-            statsEngine,
-            differenceType,
-          });
+          const { significant, resultsStatus, directionalStatus } =
+            getMetricResultStatus({
+              metric: m,
+              metricDefaults,
+              baseline: baseline[metricIndex],
+              stats: variationResults[variationIndex][metricIndex],
+              ciLower,
+              ciUpper,
+              pValueThreshold,
+              statsEngine,
+              differenceType,
+            });
           expVariationData.metricResults.push({
             results: variationResults[variationIndex][metricIndex],
             significant,

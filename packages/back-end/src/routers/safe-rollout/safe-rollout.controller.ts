@@ -32,18 +32,16 @@ export const getLatestSafeRolloutSnapshot = async (
 ) => {
   const context = getContextFromReq(req);
 
-  const snapshot = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
-    {
+  const snapshot =
+    await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout({
       safeRolloutId: req.params.id,
-    }
-  );
+    });
 
-  const latest = await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout(
-    {
+  const latest =
+    await context.models.safeRolloutSnapshots.getSnapshotForSafeRollout({
       safeRolloutId: req.params.id,
       withResults: false,
-    }
-  );
+    });
 
   res.status(200).json({
     status: 200,
@@ -245,14 +243,13 @@ export const getSafeRolloutTimeSeries = async (
     throw new Error("Safe rollout not found");
   }
 
-  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
-    {
+  const timeSeries =
+    await context.models.metricTimeSeries.getBySourceAndMetricIds({
       source: "safe-rollout",
       sourceId: id,
       sourcePhase: undefined, // Safe rollouts don't have phases at the moment
       metricIds,
-    }
-  );
+    });
 
   res.status(200).json({
     status: 200,

@@ -65,10 +65,8 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   }
   async runAnalysis(queryMap: QueryMap): Promise<ExperimentReportResults> {
     if (this.model.type === "experiment") {
-      const {
-        snapshotSettings,
-        analysisSettings,
-      } = getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
+      const { snapshotSettings, analysisSettings } =
+        getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
 
       // todo: bandits? (probably not needed)
       const { results } = await analyzeExperimentResults({

@@ -14,13 +14,13 @@ import {
 const { webcrypto } = require("node:crypto");
 import { TextEncoder, TextDecoder } from "util";
 import { ApiHost, ClientKey } from "../src/types/growthbook";
-import {evaluateFeatures, remoteEvalRedis} from "./helpers/evaluateFeatures";
+import { evaluateFeatures, remoteEvalRedis } from "./helpers/evaluateFeatures";
 global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 const { MockEvent, EventSource } = require("mocksse");
 require("jest-localstorage-mock");
 const Cookie = require("js-cookie");
-const Redis = require('ioredis-mock');
+const Redis = require("ioredis-mock");
 /* eslint-enable */
 
 setPolyfills({

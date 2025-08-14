@@ -432,13 +432,8 @@ export async function deleteInstallation(req: Request, res: Response) {
 }
 
 export async function provisionResource(req: Request, res: Response) {
-  const {
-    user,
-    org,
-    context,
-    integrationModel,
-    integration,
-  } = await authContext(req, res);
+  const { user, org, context, integrationModel, integration } =
+    await authContext(req, res);
 
   const {
     externalId: _externalId,
@@ -574,12 +569,8 @@ async function removeManagedBy(
 }
 
 export async function deleteResource(req: Request, res: Response) {
-  const {
-    context,
-    integrationModel,
-    integration,
-    resource,
-  } = await authContext(req, res);
+  const { context, integrationModel, integration, resource } =
+    await authContext(req, res);
 
   if (!resource) return res.status(400).send("Resource not found!");
 

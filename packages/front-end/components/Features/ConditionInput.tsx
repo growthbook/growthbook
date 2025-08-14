@@ -400,9 +400,8 @@ export default function ConditionInput(props: Props) {
                             !!attribute.disableEqualityConditions;
 
                         if (hasAttrChanged && newAttribute) {
-                          newConds[i]["operator"] = getDefaultOperator(
-                            newAttribute
-                          );
+                          newConds[i]["operator"] =
+                            getDefaultOperator(newAttribute);
                           newConds[i]["value"] = newConds[i]["value"] || "";
                         }
                         setConds(newConds);

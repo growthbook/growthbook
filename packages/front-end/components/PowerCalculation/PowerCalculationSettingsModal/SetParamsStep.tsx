@@ -187,7 +187,11 @@ const PopulationDataQueryInput = ({
     projects: datasourceProjects ?? [],
   });
 
-  const { data, error: getError, mutate } = useApi<{
+  const {
+    data,
+    error: getError,
+    mutate,
+  } = useApi<{
     populationData: PopulationDataInterface;
   }>(`/population-data/${metricValuesPopulationId}`, {
     shouldRun: () => !!metricValuesPopulationId,

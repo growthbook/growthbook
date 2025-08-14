@@ -89,11 +89,8 @@ const SafeRolloutTimeSeriesGraphContent = ({
 
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
-  const {
-    getMetricById,
-    getFactMetricById,
-    getFactTableById,
-  } = useDefinitions();
+  const { getMetricById, getFactMetricById, getFactTableById } =
+    useDefinitions();
 
   // NB: Hard coded for absolute here as it is the only analysis we have for Safe Rollouts
   const metric = isFactMetricId(data.metricId)
@@ -371,21 +368,24 @@ const SafeRolloutTimeSeriesGraphContent = ({
         </Group>
       </svg>
 
-      {tooltipOpen && tooltipData && tooltipLeft != null && tooltipTop != null && (
-        <TooltipInPortal
-          key={Math.random()} // Force update on each render
-          top={tooltipTop}
-          left={tooltipLeft}
-          unstyled={true}
-          className={styles.tooltip}
-        >
-          <RadixTheme>
-            <div className={styles.tooltipContent}>
-              {getTooltipContent(tooltipData, formatter, formatterOptions)}
-            </div>
-          </RadixTheme>
-        </TooltipInPortal>
-      )}
+      {tooltipOpen &&
+        tooltipData &&
+        tooltipLeft != null &&
+        tooltipTop != null && (
+          <TooltipInPortal
+            key={Math.random()} // Force update on each render
+            top={tooltipTop}
+            left={tooltipLeft}
+            unstyled={true}
+            className={styles.tooltip}
+          >
+            <RadixTheme>
+              <div className={styles.tooltipContent}>
+                {getTooltipContent(tooltipData, formatter, formatterOptions)}
+              </div>
+            </RadixTheme>
+          </TooltipInPortal>
+        )}
     </>
   );
 };

@@ -170,9 +170,8 @@ const MetricEffects = (): React.ReactElement => {
   );
 
   const { hasCommercialFeature } = useUser();
-  const hasMetricEffectsCommercialFeature = hasCommercialFeature(
-    "metric-effects"
-  );
+  const hasMetricEffectsCommercialFeature =
+    hasCommercialFeature("metric-effects");
 
   const { theme } = useAppearanceUITheme();
   const computedTheme = theme === "light" ? "light" : "dark";
@@ -254,11 +253,8 @@ const MetricEffectCard = ({
 }): React.ReactElement => {
   const { apiCall } = useAuth();
 
-  const {
-    project,
-    getExperimentMetricById,
-    getFactTableById,
-  } = useDefinitions();
+  const { project, getExperimentMetricById, getFactTableById } =
+    useDefinitions();
 
   const metricExpCounts = useMetricExpCounts(experiments);
 

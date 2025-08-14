@@ -71,14 +71,10 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
-  const [
-    featureToDuplicate,
-    setFeatureToDuplicate,
-  ] = useState<FeatureInterface | null>(null);
-  const [
-    featureToToggleStaleDetection,
-    setFeatureToToggleStaleDetection,
-  ] = useState<FeatureInterface | null>(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
+  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -394,17 +390,12 @@ export default function FeaturesPage() {
     );
   };
 
-  const {
-    searchInputProps,
-    items,
-    SortableTH,
-    setSearchValue,
-    syntaxFilters,
-  } = useFeatureSearch({
-    allFeatures,
-    environments,
-    staleFeatures,
-  });
+  const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
+    useFeatureSearch({
+      allFeatures,
+      environments,
+      staleFeatures,
+    });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;

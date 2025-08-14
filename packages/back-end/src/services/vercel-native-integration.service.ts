@@ -139,11 +139,8 @@ const createVercelExperimentationItem = async ({
   projectId: string;
 }) => {
   try {
-    const {
-      installationId,
-      resourceId,
-      accessToken,
-    } = await getVercelInstallationData(organization.id, projectId);
+    const { installationId, resourceId, accessToken } =
+      await getVercelInstallationData(organization.id, projectId);
 
     const ret = await fetch(
       `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items`,
@@ -207,11 +204,8 @@ const updateVercelExperimentationItem = async ({
   projectId: string;
 }) => {
   try {
-    const {
-      installationId,
-      resourceId,
-      accessToken,
-    } = await getVercelInstallationData(organization.id, projectId);
+    const { installationId, resourceId, accessToken } =
+      await getVercelInstallationData(organization.id, projectId);
 
     const { id: _id, ...updatedItem } = experimentationItem;
 
@@ -275,11 +269,8 @@ const deleteVercelExperimentationItem = async ({
   projectId: string;
 }) => {
   try {
-    const {
-      installationId,
-      resourceId,
-      accessToken,
-    } = await getVercelInstallationData(organization.id, projectId);
+    const { installationId, resourceId, accessToken } =
+      await getVercelInstallationData(organization.id, projectId);
 
     const ret = await fetch(
       `${VERCEL_URL}/v1/installations/${installationId}/resources/${resourceId}/experimentation/items/${experimentationItem.id}`,

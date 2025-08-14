@@ -182,8 +182,8 @@ function getTrackingPropsFromSnapshot(
     experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
     engine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
     datasource_type: datasourceType,
-    regression_adjustment_enabled: !!snapshot.settings
-      .regressionAdjustmentEnabled,
+    regression_adjustment_enabled:
+      !!snapshot.settings.regressionAdjustmentEnabled,
     sequential_testing_enabled: !!analysis?.settings?.sequentialTesting,
     sequential_testing_tuning_parameter:
       analysis?.settings?.sequentialTestingTuningParameter ?? -99,
@@ -221,9 +221,7 @@ function getTrackingPropsFromReport(
   };
 }
 
-export function parseSnapshotDimension(
-  dimension: string
-): {
+export function parseSnapshotDimension(dimension: string): {
   type: string;
   id: string;
 } {

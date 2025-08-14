@@ -2310,7 +2310,8 @@ export async function postFeatureEvaluate(
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const safeRolloutMap =
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
   const results = evaluateFeature({
     feature,
     revision,
@@ -2367,7 +2368,8 @@ export async function postFeaturesEvaluate(
     environment !== ""
       ? [allEnvironments.find((obj) => obj.id === environment)]
       : getEnvironments(context.org);
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const safeRolloutMap =
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
   const featureResults = await evaluateAllFeatures({
     features,
     context,
@@ -2492,12 +2494,11 @@ export async function getRevisionLog(
   }
 
   // But now we store logs in a separate table as they are too large
-  const revisionLogs = await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion(
-    {
+  const revisionLogs =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
       featureId: id,
       version: parseInt(version),
-    }
-  );
+    });
 
   // revisionLogs use dateCreated as the timestamp, so we need to convert it to a RevisionLog as that is what the front end expects
   const revisionLogsFormatted: RevisionLog[] = revisionLogs.map((log) => ({

@@ -37,12 +37,8 @@ export function useResultsTableTooltip({
   pValueCorrection?: PValueCorrection;
   noTooltip?: boolean;
 }) {
-  const {
-    showTooltip,
-    hideTooltip,
-    tooltipOpen,
-    tooltipData,
-  } = useTooltip<TooltipData>();
+  const { showTooltip, hideTooltip, tooltipOpen, tooltipData } =
+    useTooltip<TooltipData>();
 
   const { containerRef, containerBounds, TooltipInPortal } = useTooltipInPortal(
     {

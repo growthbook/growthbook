@@ -63,10 +63,11 @@ const toLegacyInterface = (
 const toInterface = (doc: EventWebHookLogDocument): EventWebHookLogDocument =>
   omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookLogDocument;
 
-const EventWebHookLegacyLogModel = mongoose.model<EventWebHookLegacyLogInterface>(
-  "EventWebHookLog",
-  eventWebHookLogSchema
-);
+const EventWebHookLegacyLogModel =
+  mongoose.model<EventWebHookLegacyLogInterface>(
+    "EventWebHookLog",
+    eventWebHookLogSchema
+  );
 
 const EventWebHookLogModel = mongoose.model<EventWebHookLogInterface>(
   "EventWebHookLog",

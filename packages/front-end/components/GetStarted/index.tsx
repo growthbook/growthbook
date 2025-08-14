@@ -118,9 +118,8 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
   const { organization } = useUser();
-  const [openNewExperimentModal, setOpenNewExperimentModal] = useState<boolean>(
-    false
-  );
+  const [openNewExperimentModal, setOpenNewExperimentModal] =
+    useState<boolean>(false);
   const canUseSetupFlow =
     permissionsUtils.canCreateSDKConnection({
       projects: [project],
@@ -140,10 +139,8 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
     !orgIsUsingFeatureOrExperiment
   );
-  const [
-    openNewFeatureFlagModal,
-    setOpenNewFeatureFlagModal,
-  ] = useState<boolean>(false);
+  const [openNewFeatureFlagModal, setOpenNewFeatureFlagModal] =
+    useState<boolean>(false);
 
   useEffect(() => {
     setShowGettingStarted(!orgIsUsingFeatureOrExperiment);

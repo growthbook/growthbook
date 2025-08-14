@@ -107,12 +107,10 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         safeRolloutSnapshot: updatedDoc,
       });
 
-      const updatedSafeRollout = await this.context.models.safeRollout.updateById(
-        safeRollout.id,
-        {
+      const updatedSafeRollout =
+        await this.context.models.safeRollout.updateById(safeRollout.id, {
           analysisSummary: safeRolloutAnalysisSummary,
-        }
-      );
+        });
 
       const notificationTriggered = await notifySafeRolloutChange({
         context: this.context,

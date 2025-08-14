@@ -25,7 +25,8 @@ export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
 >;
 
-export type ApiFeatureEnvSettingsRules = ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
+export type ApiFeatureEnvSettingsRules =
+  ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
 
 export const validateEnvKeys = (
   orgEnvKeys: string[],
@@ -214,7 +215,8 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       req.context,
       feature.id
     );
-    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const safeRolloutMap =
+      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
     const revision = await getRevision({
       context: req.context,
       organization: feature.organization,

@@ -81,9 +81,8 @@ export default function DifferenceTypeChooser({
 
   const [postLoading, setPostLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [desiredDifferenceType, setDesiredDifferenceType] = useState(
-    differenceType
-  );
+  const [desiredDifferenceType, setDesiredDifferenceType] =
+    useState(differenceType);
   const differenceTypeMap = new Map<DifferenceType, string>([
     ["relative", "Relative"],
     ["absolute", "Absolute"],

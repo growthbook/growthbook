@@ -171,18 +171,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
 
-  const {
-    datasources,
-    getDatasourceById,
-    refreshTags,
-    project,
-    projects,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, refreshTags, project, projects } =
+    useDefinitions();
   const { aiEnabled } = useAISettings();
   const gb = useGrowthBook<AppFeatures>();
   const useCheckForSimilar = gb?.isOn("similar-experiments") || true;
@@ -201,10 +195,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   } = useTemplates();
   const envs = environments.map((e) => e.id);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
   const minWordsForSimilarityCheck = 4;
 
@@ -643,9 +635,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       const template = templatesMap.get(t);
                       if (!template) return;
 
-                      const templateAsExperiment = convertTemplateToExperiment(
-                        template
-                      );
+                      const templateAsExperiment =
+                        convertTemplateToExperiment(template);
                       form.reset(templateAsExperiment, {
                         keepDefaultValues: true,
                       });
@@ -963,17 +954,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
-              <CustomFieldInput
-                customFields={customFields}
-                currentCustomFields={form.watch("customFields") || {}}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                section={"experiment"}
-                project={selectedProject}
-              />
-            )}
+            {hasCommercialFeature("custom-metadata") &&
+              !!customFields?.length && (
+                <CustomFieldInput
+                  customFields={customFields}
+                  currentCustomFields={form.watch("customFields") || {}}
+                  setCustomFields={(value) => {
+                    form.setValue("customFields", value);
+                  }}
+                  section={"experiment"}
+                  project={selectedProject}
+                />
+              )}
           </div>
         </Page>
 

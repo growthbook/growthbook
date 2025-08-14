@@ -22,12 +22,9 @@ import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/Di
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
-export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> = ({
-  dataSource,
-  onSave,
-  onCancel,
-  canEdit = true,
-}) => {
+export const ExperimentAssignmentQueries: FC<
+  ExperimentAssignmentQueriesProps
+> = ({ dataSource, onSave, onCancel, canEdit = true }) => {
   const router = useRouter();
 
   let intitialOpenIndexes: boolean[] = [];
@@ -39,9 +36,8 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
-  const [openIndexes, setOpenIndexes] = useState<boolean[]>(
-    intitialOpenIndexes
-  );
+  const [openIndexes, setOpenIndexes] =
+    useState<boolean[]>(intitialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -319,66 +315,68 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   );
 };
 
-const handleSaveDimensionMetadata = (
-  editingIndex: number,
-  dataSource: DataSourceInterfaceWithParams,
-  onSave: (dataSource: DataSourceInterfaceWithParams) => void
-) => async (
-  customDimensionMetadata: CustomDimensionMetadata[],
-  dimensionSlices?: DimensionSlicesInterface
-) => {
-  const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-  const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
+const handleSaveDimensionMetadata =
+  (
+    editingIndex: number,
+    dataSource: DataSourceInterfaceWithParams,
+    onSave: (dataSource: DataSourceInterfaceWithParams) => void
+  ) =>
+  async (
+    customDimensionMetadata: CustomDimensionMetadata[],
+    dimensionSlices?: DimensionSlicesInterface
+  ) => {
+    const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+    const exposureQuery = copy.settings?.queries?.exposure?.[editingIndex];
 
-  if (!exposureQuery) {
-    throw new Error(
-      "Exposure queries out of sync. Refresh the page and try again."
-    );
-  }
+    if (!exposureQuery) {
+      throw new Error(
+        "Exposure queries out of sync. Refresh the page and try again."
+      );
+    }
 
-  exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
-    const existingMetadata = exposureQuery.dimensionMetadata?.find(
-      (m) => m.dimension === d
-    ) ?? {
-      dimension: d,
-      specifiedSlices: [],
-    };
+    exposureQuery.dimensionMetadata = exposureQuery.dimensions.map((d) => {
+      const existingMetadata = exposureQuery.dimensionMetadata?.find(
+        (m) => m.dimension === d
+      ) ?? {
+        dimension: d,
+        specifiedSlices: [],
+      };
 
-    const trafficSlices = dimensionSlices?.results
-      .find((r) => r.dimension === d)
-      ?.dimensionSlices.map((s) => s.name);
+      const trafficSlices = dimensionSlices?.results
+        .find((r) => r.dimension === d)
+        ?.dimensionSlices.map((s) => s.name);
 
-    const customDimension = customDimensionMetadata?.find(
-      (m) => m.dimension === d
-    );
+      const customDimension = customDimensionMetadata?.find(
+        (m) => m.dimension === d
+      );
 
-    // if custom slices are defined, use them, otherwise use the traffic slices.
-    // If neither are defined, use fall back to the existing values.
-    const specifiedSlices = customDimension?.customSlicesArray?.length
-      ? customDimension.customSlicesArray
-      : trafficSlices ?? existingMetadata.specifiedSlices;
+      // if custom slices are defined, use them, otherwise use the traffic slices.
+      // If neither are defined, use fall back to the existing values.
+      const specifiedSlices = customDimension?.customSlicesArray?.length
+        ? customDimension.customSlicesArray
+        : trafficSlices ?? existingMetadata.specifiedSlices;
 
-    return {
-      ...existingMetadata,
-      specifiedSlices,
-      customSlices: !!customDimension?.customSlicesArray?.length,
-    };
-  });
+      return {
+        ...existingMetadata,
+        specifiedSlices,
+        customSlices: !!customDimension?.customSlicesArray?.length,
+      };
+    });
 
-  // re-order the dimensions array based on the priority
-  exposureQuery.dimensions = exposureQuery.dimensions.sort((a, b) => {
-    const aMetadata = customDimensionMetadata?.find((m) => m.dimension === a);
-    const bMetadata = customDimensionMetadata?.find((m) => m.dimension === b);
-    // if missing metadata, put it at the end
-    if (!aMetadata) return 1;
-    if (!bMetadata) return -1;
-    return aMetadata.priority - bMetadata.priority;
-  });
+    // re-order the dimensions array based on the priority
+    exposureQuery.dimensions = exposureQuery.dimensions.sort((a, b) => {
+      const aMetadata = customDimensionMetadata?.find((m) => m.dimension === a);
+      const bMetadata = customDimensionMetadata?.find((m) => m.dimension === b);
+      // if missing metadata, put it at the end
+      if (!aMetadata) return 1;
+      if (!bMetadata) return -1;
+      return aMetadata.priority - bMetadata.priority;
+    });
 
-  // if dimension slices updated, update the dimension slices id
-  if (dimensionSlices) {
-    exposureQuery.dimensionSlicesId = dimensionSlices.id;
-  }
+    // if dimension slices updated, update the dimension slices id
+    if (dimensionSlices) {
+      exposureQuery.dimensionSlicesId = dimensionSlices.id;
+    }
 
-  await onSave(copy);
-};
+    await onSave(copy);
+  };

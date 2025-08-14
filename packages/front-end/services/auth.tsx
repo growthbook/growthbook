@@ -206,10 +206,8 @@ export const AuthProvider: React.FC<{
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [
-    specialOrg,
-    setSpecialOrg,
-  ] = useState<Partial<OrganizationInterface> | null>(null);
+  const [specialOrg, setSpecialOrg] =
+    useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);

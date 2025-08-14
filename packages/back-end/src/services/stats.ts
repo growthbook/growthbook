@@ -540,10 +540,8 @@ function parseStatsEngineResult({
   );
 
   analysisSettings.forEach((_, i) => {
-    const dimensionMap: Map<
-      string,
-      ExperimentReportResultDimension
-    > = new Map();
+    const dimensionMap: Map<string, ExperimentReportResultDimension> =
+      new Map();
     result.forEach(({ metric, analyses }) => {
       // each result can have multiple analyses (a set of computations that
       // use the same snapshot)
@@ -631,15 +629,14 @@ export async function writeSnapshotAnalyses(
       analysisObj.status = "error";
       analysisObj.error = result.error;
     } else {
-      const experimentReportResults: ExperimentReportResults[] = parseStatsEngineResult(
-        {
+      const experimentReportResults: ExperimentReportResults[] =
+        parseStatsEngineResult({
           analysisSettings: analyses,
           snapshotSettings,
           queryResults,
           unknownVariations,
           result: result.results,
-        }
-      );
+        });
 
       analysisObj.results = experimentReportResults[0]?.dimensions || [];
       analysisObj.status = "success";

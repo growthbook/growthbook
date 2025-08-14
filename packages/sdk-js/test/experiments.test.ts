@@ -829,9 +829,9 @@ describe("experiments", () => {
     const trackingCallback2 = jest.fn();
     const gb2 = new GrowthBook({ trackingCallback: trackingCallback2 });
     gb2.setDeferredTrackingCalls([
-      ({
+      {
         invalid: true,
-      } as unknown) as TrackingData,
+      } as unknown as TrackingData,
       {
         experiment: exp,
         result,
@@ -861,9 +861,9 @@ describe("experiments", () => {
     const trackingCallback = jest.fn();
     const gb2 = new GrowthBook();
     gb2.setDeferredTrackingCalls([
-      ({
+      {
         invalid: true,
-      } as unknown) as TrackingData,
+      } as unknown as TrackingData,
       {
         experiment: exp,
         result,

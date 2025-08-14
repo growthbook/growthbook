@@ -180,7 +180,7 @@ describe("backend", () => {
         getBaseIdTypeAndJoins([
           ["user_id"],
           [],
-          ([null, null, null] as unknown) as string[],
+          [null, null, null] as unknown as string[],
         ])
       ).toEqual({
         baseIdType: "user_id",

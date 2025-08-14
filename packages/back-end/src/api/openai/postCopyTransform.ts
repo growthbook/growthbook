@@ -37,7 +37,7 @@ const instructions = `You are an assistant whose job is to take a sentence from 
 
 const getPrompt = (
   text: string,
-  mode: typeof transformModes[number]
+  mode: (typeof transformModes)[number]
 ) => `Improve the following text, delimited by hypens, into a version that is more ${mode}. Keep the length of the sentence same.
 ---
 ${text}

@@ -450,16 +450,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const {
-      results: analysesResults,
-      banditResult,
-    } = await analyzeExperimentResults({
-      queryData: queryMap,
-      snapshotSettings: this.model.settings,
-      analysisSettings: this.model.analyses.map((a) => a.settings),
-      variationNames: this.variationNames,
-      metricMap: this.metricMap,
-    });
+    const { results: analysesResults, banditResult } =
+      await analyzeExperimentResults({
+        queryData: queryMap,
+        snapshotSettings: this.model.settings,
+        analysisSettings: this.model.analyses.map((a) => a.settings),
+        variationNames: this.variationNames,
+        metricMap: this.metricMap,
+      });
 
     const result: SnapshotResult = {
       analyses: this.model.analyses,
@@ -484,7 +482,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
-      const rows = healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
+      const rows =
+        healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
       const trafficHealth = analyzeExperimentTraffic({
         rows: rows,
         error: healthQuery.error,
@@ -508,8 +507,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
         const phaseStartDate = this.model.settings.startDate;
-        const experimentMaxLengthDays = this.context.org.settings
-          ?.experimentMaxLengthDays;
+        const experimentMaxLengthDays =
+          this.context.org.settings?.experimentMaxLengthDays;
 
         const experimentTargetEndDate = addDays(
           phaseStartDate,

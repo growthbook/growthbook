@@ -145,10 +145,8 @@ export function useFeatureSearch({
       environments,
     });
     // Invert the map from groupId->featureList to featureId->groupList
-    const savedGroupReferencesByFeature: Record<
-      string,
-      SavedGroupInterface[]
-    > = {};
+    const savedGroupReferencesByFeature: Record<string, SavedGroupInterface[]> =
+      {};
     Object.keys(savedGroupReferencesByGroup).forEach((groupId) => {
       const savedGroup = getSavedGroupById(groupId);
       if (!savedGroup) return;

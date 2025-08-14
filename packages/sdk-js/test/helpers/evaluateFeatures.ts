@@ -1,6 +1,6 @@
 import { GrowthBook, Context, RedisStickyBucketService } from "../../src";
 /* eslint-disable */
-const Redis = require('ioredis-mock');
+const Redis = require("ioredis-mock");
 /* eslint-enable */
 
 export const remoteEvalRedis = new Redis();

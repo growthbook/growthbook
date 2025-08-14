@@ -510,9 +510,8 @@ export function analyzeExperimentPower({
 
   // Be extra safe and validate it so it doesn't fail when saving to the DB
   // We had this issue with NaN
-  const parsedPower = MidExperimentPowerCalculationResultValidator.safeParse(
-    power
-  );
+  const parsedPower =
+    MidExperimentPowerCalculationResultValidator.safeParse(power);
 
   return parsedPower.success ? parsedPower.data : undefined;
 }

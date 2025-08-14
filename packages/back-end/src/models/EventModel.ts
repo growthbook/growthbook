@@ -92,10 +92,10 @@ type EventDocument<T, V> = mongoose.Document & BaseEventInterface<T, V>;
 const toInterface = <T, V>(
   doc: EventDocument<T, V>
 ): BaseEventInterface<T, V> =>
-  omit(
-    doc.toJSON<BaseEventInterface<T, V>>({ flattenMaps: true }),
-    ["__v", "_id"]
-  ) as BaseEventInterface<T, V>;
+  omit(doc.toJSON<BaseEventInterface<T, V>>({ flattenMaps: true }), [
+    "__v",
+    "_id",
+  ]) as BaseEventInterface<T, V>;
 
 export const EventModel = mongoose.model<BaseEventInterface<unknown, unknown>>(
   "Event",
@@ -180,7 +180,7 @@ const diffData = <
   data: CreateEventData<Resource, Event, Payload>
 ): NotificationEventPayloadDataType<Resource, Event, Payload> => {
   if (!hasPreviousObject(data))
-    return (data as unknown) as NotificationEventPayloadDataType<
+    return data as unknown as NotificationEventPayloadDataType<
       Resource,
       Event,
       Payload
@@ -191,7 +191,7 @@ const diffData = <
     previous_object: Record<string, unknown>;
   };
 
-  return ({
+  return {
     ...remainingData,
     object,
     previous_attributes: [
@@ -208,7 +208,7 @@ const diffData = <
       }),
       {}
     ),
-  } as unknown) as NotificationEventPayloadDataType<Resource, Event, Payload>;
+  } as unknown as NotificationEventPayloadDataType<Resource, Event, Payload>;
 };
 
 export type CreateEventParams<

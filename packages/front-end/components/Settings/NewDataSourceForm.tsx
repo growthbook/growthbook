@@ -127,10 +127,8 @@ const NewDataSourceForm: FC<{
   const [creatingResources, setCreatingResources] = useState(false);
 
   // Holds the final data source object
-  const [
-    createdDatasource,
-    setCreatedDatasource,
-  ] = useState<DataSourceInterfaceWithParams | null>(null);
+  const [createdDatasource, setCreatedDatasource] =
+    useState<DataSourceInterfaceWithParams | null>(null);
 
   const possibleSchemas = eventSchemas
     .filter(
@@ -213,79 +211,80 @@ const NewDataSourceForm: FC<{
     disabledMessage = "You don't have permission to create data sources.";
   }
 
-  const saveConnectionInfo = async (): Promise<DataSourceInterfaceWithParams> => {
-    setLastError("");
+  const saveConnectionInfo =
+    async (): Promise<DataSourceInterfaceWithParams> => {
+      setLastError("");
 
-    try {
-      if (!connectionInfo.type || !connectionInfo.params) {
-        throw new Error("Please select a data source type");
-      }
+      try {
+        if (!connectionInfo.type || !connectionInfo.params) {
+          throw new Error("Please select a data source type");
+        }
 
-      if (connectionInfo.settings && eventTracker) {
-        connectionInfo.settings.schemaFormat = eventTracker;
-      }
+        if (connectionInfo.settings && eventTracker) {
+          connectionInfo.settings.schemaFormat = eventTracker;
+        }
 
-      // Update
-      // Used if someone goes back to this step after already submitting
-      if (createdDatasource) {
-        const res = await apiCall<{
-          datasource: DataSourceInterfaceWithParams;
-        }>(`/datasource/${createdDatasource.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
+        // Update
+        // Used if someone goes back to this step after already submitting
+        if (createdDatasource) {
+          const res = await apiCall<{
+            datasource: DataSourceInterfaceWithParams;
+          }>(`/datasource/${createdDatasource.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              ...connectionInfo,
+            }),
+          });
+          track("Updating Datasource Form", {
+            source,
+            type: connectionInfo.type,
+            schema: eventTracker,
+            newDatasourceForm: true,
+          });
+
+          setCreatedDatasource(res.datasource);
+          return res.datasource;
+        }
+        // Create
+        else {
+          const data: Partial<DataSourceInterfaceWithParams> = {
             ...connectionInfo,
-          }),
-        });
-        track("Updating Datasource Form", {
+            settings: {
+              ...getInitialSettings(
+                selectedSchema.value,
+                connectionInfo.params,
+                {}
+              ),
+              ...(connectionInfo.settings || {}),
+            },
+          };
+          const res = await apiCall<{
+            datasource: DataSourceInterfaceWithParams;
+          }>(`/datasources`, {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+          track("Submit Datasource Form", {
+            source,
+            type: connectionInfo.type,
+            schema: eventTracker,
+            newDatasourceForm: true,
+          });
+
+          setCreatedDatasource(res.datasource);
+          return res.datasource;
+        }
+      } catch (e) {
+        track("Data Source Form Error", {
           source,
           type: connectionInfo.type,
-          schema: eventTracker,
+          error: e.message.substr(0, 32) + "...",
           newDatasourceForm: true,
         });
-
-        setCreatedDatasource(res.datasource);
-        return res.datasource;
+        setLastError(e.message);
+        throw e;
       }
-      // Create
-      else {
-        const data: Partial<DataSourceInterfaceWithParams> = {
-          ...connectionInfo,
-          settings: {
-            ...getInitialSettings(
-              selectedSchema.value,
-              connectionInfo.params,
-              {}
-            ),
-            ...(connectionInfo.settings || {}),
-          },
-        };
-        const res = await apiCall<{
-          datasource: DataSourceInterfaceWithParams;
-        }>(`/datasources`, {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
-        track("Submit Datasource Form", {
-          source,
-          type: connectionInfo.type,
-          schema: eventTracker,
-          newDatasourceForm: true,
-        });
-
-        setCreatedDatasource(res.datasource);
-        return res.datasource;
-      }
-    } catch (e) {
-      track("Data Source Form Error", {
-        source,
-        type: connectionInfo.type,
-        error: e.message.substr(0, 32) + "...",
-        newDatasourceForm: true,
-      });
-      setLastError(e.message);
-      throw e;
-    }
-  };
+    };
 
   const saveSchemaOptions = async (values: Record<string, string | number>) => {
     if (!createdDatasource) {

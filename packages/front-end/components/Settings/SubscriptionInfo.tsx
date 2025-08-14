@@ -24,9 +24,8 @@ export default function SubscriptionInfo() {
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const [cancelSubscriptionModal, setCancelSubscriptionModal] = useState(false);
-  const [updateOrbSubscriptionModal, setUpdateOrbSubscriptionModal] = useState(
-    false
-  );
+  const [updateOrbSubscriptionModal, setUpdateOrbSubscriptionModal] =
+    useState(false);
 
   // Orb subscriptions only count members, not members + invites like Stripe Subscriptions
   const subscriptionSeats =

@@ -37,10 +37,8 @@ const MemberList: FC<{
   const { apiCall } = useAuth();
   const { userId, users, organization } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
-  const [
-    passwordResetModal,
-    setPasswordResetModal,
-  ] = useState<ExpandedMember | null>(null);
+  const [passwordResetModal, setPasswordResetModal] =
+    useState<ExpandedMember | null>(null);
   const { projects } = useDefinitions();
   const environments = useEnvironments();
 
@@ -68,22 +66,17 @@ const MemberList: FC<{
       } as ExpandedMember;
     }) || [];
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    pagination,
-  } = useSearch({
-    items: membersList || [],
-    localStorageKey: "members",
-    defaultSortField: "name",
-    searchFields: ["name", "email"],
-    pageSize: 20,
-    defaultMappings: {
-      lastLoginDate: new Date(0).toISOString(),
-    },
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: membersList || [],
+      localStorageKey: "members",
+      defaultSortField: "name",
+      searchFields: ["name", "email"],
+      pageSize: 20,
+      defaultMappings: {
+        lastLoginDate: new Date(0).toISOString(),
+      },
+    });
   return (
     <>
       {canInviteMembers && inviting && (

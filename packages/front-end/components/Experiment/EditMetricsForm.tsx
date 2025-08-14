@@ -133,9 +133,8 @@ const EditMetricsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");

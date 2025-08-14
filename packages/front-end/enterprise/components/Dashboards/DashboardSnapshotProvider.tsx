@@ -192,10 +192,8 @@ export function useDashboardSnapshot(
   } = useContext(DashboardSnapshotContext);
 
   const { apiCall } = useAuth();
-  const [
-    postSnapshotAnalysisLoading,
-    setPostSnapshotAnalysisLoading,
-  ] = useState(false);
+  const [postSnapshotAnalysisLoading, setPostSnapshotAnalysisLoading] =
+    useState(false);
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
 
   const blockSnapshotId = block?.snapshotId;

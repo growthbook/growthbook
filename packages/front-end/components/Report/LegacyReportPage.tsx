@@ -103,9 +103,8 @@ export default function LegacyReportPage({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   const form = useForm({
     defaultValues: {
@@ -233,40 +232,42 @@ export default function LegacyReportPage({
               Go to experiment results
             </Link>
           )}
-          {canDeleteReport && (userId === report?.userId || !report?.userId) && (
-            <DeleteButton
-              displayName="Custom Report"
-              link={false}
-              className="float-right btn-sm"
-              text="delete"
-              useIcon={true}
-              onClick={async () => {
-                await apiCall<{ status: number; message?: string }>(
-                  `/report/${report.id}`,
-                  {
-                    method: "DELETE",
-                  }
-                );
-                trackReport(
-                  "delete",
-                  "DeleteButton",
-                  datasource?.type || null,
-                  report
-                );
-                router.push(`/experiment/${report.experimentId}#results`);
-              }}
-            />
-          )}
+          {canDeleteReport &&
+            (userId === report?.userId || !report?.userId) && (
+              <DeleteButton
+                displayName="Custom Report"
+                link={false}
+                className="float-right btn-sm"
+                text="delete"
+                useIcon={true}
+                onClick={async () => {
+                  await apiCall<{ status: number; message?: string }>(
+                    `/report/${report.id}`,
+                    {
+                      method: "DELETE",
+                    }
+                  );
+                  trackReport(
+                    "delete",
+                    "DeleteButton",
+                    datasource?.type || null,
+                    report
+                  );
+                  router.push(`/experiment/${report.experimentId}#results`);
+                }}
+              />
+            )}
           <h1 className="mb-0 mt-2">
             {report.title}{" "}
-            {canUpdateReport && (userId === report?.userId || !report?.userId) && (
-              <a
-                className="ml-2 cursor-pointer"
-                onClick={() => setEditModalOpen(true)}
-              >
-                <GBEdit />
-              </a>
-            )}
+            {canUpdateReport &&
+              (userId === report?.userId || !report?.userId) && (
+                <a
+                  className="ml-2 cursor-pointer"
+                  onClick={() => setEditModalOpen(true)}
+                >
+                  <GBEdit />
+                </a>
+              )}
           </h1>
           <div className="mb-1">
             <small className="text-muted">

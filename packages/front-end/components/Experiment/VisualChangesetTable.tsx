@@ -273,10 +273,8 @@ export const VisualChangesetTable: FC<Props> = ({
   const { apiCall } = useAuth();
   const [showChangeset, setShowChangeset] = useState<number[]>([]);
 
-  const [
-    editingVisualChangeset,
-    setEditingVisualChangeset,
-  ] = useState<VisualChangesetInterface | null>(null);
+  const [editingVisualChangeset, setEditingVisualChangeset] =
+    useState<VisualChangesetInterface | null>(null);
 
   const [editingVisualChange, setEditingVisualChange] = useState<{
     visualChangeset: VisualChangesetInterface;

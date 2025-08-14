@@ -21,7 +21,7 @@ const capabilityParams = [
   ["redirects", "includeRedirectExperiments"],
 ] as const;
 
-type CapabilitiesParamKey = typeof capabilityParams[number][1];
+type CapabilitiesParamKey = (typeof capabilityParams)[number][1];
 type CapabilitiesParams = { [k in CapabilitiesParamKey]?: boolean };
 
 // Redirects and Visual Editor are premium features, but they are blocked
@@ -34,8 +34,8 @@ const premiumFeatures = [
   ["cloud-proxy", "proxyEnabled"],
 ] as const;
 
-type PremiumFeatureName = typeof premiumFeatures[number][0];
-type PremiumFeatureParam = typeof premiumFeatures[number][1];
+type PremiumFeatureName = (typeof premiumFeatures)[number][0];
+type PremiumFeatureParam = (typeof premiumFeatures)[number][1];
 type PremiumFeatures = { [k in PremiumFeatureParam]?: boolean };
 type CreateSdkConnectionPayload = Omit<
   CreateSDKConnectionParams,

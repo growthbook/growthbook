@@ -178,10 +178,11 @@ experimentSnapshotSchema.index({
 export type ExperimentSnapshotDocument = mongoose.Document &
   LegacyExperimentSnapshotInterface;
 
-const ExperimentSnapshotModel = mongoose.model<LegacyExperimentSnapshotInterface>(
-  "ExperimentSnapshot",
-  experimentSnapshotSchema
-);
+const ExperimentSnapshotModel =
+  mongoose.model<LegacyExperimentSnapshotInterface>(
+    "ExperimentSnapshot",
+    experimentSnapshotSchema
+  );
 
 const toInterface = (
   doc: ExperimentSnapshotDocument
@@ -535,9 +536,10 @@ export async function getLatestSnapshotMultipleExperiments(
     },
   ];
 
-  const all = await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
-    aggregatePipeline
-  ).exec();
+  const all =
+    await ExperimentSnapshotModel.aggregate<ExperimentSnapshotDocument>(
+      aggregatePipeline
+    ).exec();
 
   const snapshots: ExperimentSnapshotInterface[] = [];
   if (all[0]) {

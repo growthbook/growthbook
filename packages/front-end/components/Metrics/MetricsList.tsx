@@ -216,10 +216,8 @@ export function useCombinedMetrics({
 const MetricsList = (): React.ReactElement => {
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
 
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
+  const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
+    useState(false);
 
   const {
     getDatasourceById,

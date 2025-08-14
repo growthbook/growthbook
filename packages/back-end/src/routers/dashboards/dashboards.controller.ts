@@ -67,13 +67,8 @@ export async function createDashboard(
     throw new Error("Must have a commercial License Key to create Dashboards");
   }
 
-  const {
-    experimentId,
-    editLevel,
-    enableAutoUpdates,
-    title,
-    blocks,
-  } = req.body;
+  const { experimentId, editLevel, enableAutoUpdates, title, blocks } =
+    req.body;
 
   // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
   const experiment = await getExperimentById(context, experimentId);

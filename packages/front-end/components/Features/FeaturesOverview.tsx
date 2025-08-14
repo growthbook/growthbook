@@ -203,12 +203,8 @@ export default function FeaturesOverview({
     return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
   }, [safeRollouts]);
 
-  const {
-    showFeatureUsage,
-    featureUsage,
-    lookback,
-    setLookback,
-  } = useFeatureUsage();
+  const { showFeatureUsage, featureUsage, lookback, setLookback } =
+    useFeatureUsage();
 
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
@@ -218,9 +214,8 @@ export default function FeaturesOverview({
     prereqStates &&
     Object.values(prereqStates).some((s) => s.state === "conditional");
 
-  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisites"
-  );
+  const hasPrerequisitesCommercialFeature =
+    hasCommercialFeature("prerequisites");
 
   const currentVersion = version || baseFeature.version;
 

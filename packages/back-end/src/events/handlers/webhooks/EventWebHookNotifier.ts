@@ -125,11 +125,10 @@ export class EventWebHookNotifier implements Notifier {
         }
 
         case "raw": {
-          const legacyPayload:
-            | LegacyNotificationEvent
-            | undefined = event.version
-            ? getLegacyMessageForNotificationEvent(event.data)
-            : event.data;
+          const legacyPayload: LegacyNotificationEvent | undefined =
+            event.version
+              ? getLegacyMessageForNotificationEvent(event.data)
+              : event.data;
           return legacyPayload;
         }
 
@@ -168,9 +167,8 @@ export class EventWebHookNotifier implements Notifier {
 
     const origin = new URL(eventWebHook.url).origin;
 
-    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer(
-      origin
-    );
+    const applySecrets =
+      await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
 
     const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
       payload,

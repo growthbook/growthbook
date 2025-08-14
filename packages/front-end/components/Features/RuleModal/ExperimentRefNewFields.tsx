@@ -201,15 +201,14 @@ export default function ExperimentRefNewFields({
                   const template = templatesMap.get(t);
                   if (!template) return;
 
-                  const templateAsExperimentRule = convertTemplateToExperimentRule(
-                    {
+                  const templateAsExperimentRule =
+                    convertTemplateToExperimentRule({
                       template,
                       defaultValue: feature
                         ? getFeatureDefaultValue(feature)
                         : "",
                       attributeSchema,
-                    }
-                  );
+                    });
                   form.reset(templateAsExperimentRule, {
                     keepDefaultValues: true,
                   });

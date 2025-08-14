@@ -19,9 +19,8 @@ export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
   requiresEscapingPath = true;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<BigQueryConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);
   }
   isWritingTablesSupported(): boolean {
     return true;

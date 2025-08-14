@@ -59,19 +59,16 @@ export const SimulateFeatureValues: FC<{
   const [featureResultsMap, setFeatureResultsMap] = useState<
     Map<string, FeatureTestResult>
   >(new Map());
-  const [
-    evaluatedAttributes,
-    setEvaluatedAttributes,
-  ] = useState<ArchetypeAttributeValues>({});
+  const [evaluatedAttributes, setEvaluatedAttributes] =
+    useState<ArchetypeAttributeValues>({});
   const [evaluatedFeatures, setEvaluatedFeatures] = useState<string[]>([]);
   const environments = useEnvironments();
   const showAllEnv = environments.length <= maxEnvironments;
   const [selectedEnvironment, setSelectedEnvironment] = useState<string>(
     showAllEnv ? "all" : environments[0].id
   );
-  const [evaluatedEnvironment, setEvaluatedEnvironment] = useState(
-    selectedEnvironment
-  );
+  const [evaluatedEnvironment, setEvaluatedEnvironment] =
+    useState(selectedEnvironment);
   const { apiCall } = useAuth();
 
   const { features: allFeatures, loading } = useFeaturesList(true, false);

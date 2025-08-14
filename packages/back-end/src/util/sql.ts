@@ -243,9 +243,7 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
   return fields;
 }
 
-export function determineColumnTypes(
-  rows: Record<string, unknown>[]
-): {
+export function determineColumnTypes(rows: Record<string, unknown>[]): {
   column: string;
   datatype: FactTableColumnType;
   jsonFields?: JSONColumnFields;

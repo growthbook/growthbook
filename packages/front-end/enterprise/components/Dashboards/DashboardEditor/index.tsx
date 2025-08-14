@@ -314,19 +314,20 @@ function DashboardEditor({
         />
         {isEditing && (
           <Flex justify="center" mb="1em" position="relative">
-            {isDefined(i) && (hoverAddBlock === i || addBlockDropdown === i) && (
-              <div
-                style={{
-                  pointerEvents: "none",
-                  position: "absolute",
-                  top: "0",
-                  width: "100%",
-                  height: "9px",
-                  borderBottom: "1px solid var(--violet-a9)",
-                  zIndex: -1,
-                }}
-              />
-            )}
+            {isDefined(i) &&
+              (hoverAddBlock === i || addBlockDropdown === i) && (
+                <div
+                  style={{
+                    pointerEvents: "none",
+                    position: "absolute",
+                    top: "0",
+                    width: "100%",
+                    height: "9px",
+                    borderBottom: "1px solid var(--violet-a9)",
+                    zIndex: -1,
+                  }}
+                />
+              )}
             <AddBlockDropdown
               onDropdownOpen={() => setAddBlockDropdown(i)}
               onDropdownClose={() => setAddBlockDropdown(undefined)}

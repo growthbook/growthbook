@@ -57,9 +57,8 @@ export default function SDKConnectionsList() {
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
 
-  const canCreateSDKConnections = permissionsUtil.canViewCreateSDKConnectionModal(
-    project
-  );
+  const canCreateSDKConnections =
+    permissionsUtil.canViewCreateSDKConnectionModal(project);
 
   const gb = useGrowthBook();
 
@@ -68,10 +67,8 @@ export default function SDKConnectionsList() {
     useNewEmptyStateLayout = gb.isOn("sdk-connections-new-empty-state");
   }
 
-  const [
-    initialModalSelectedLanguage,
-    setInitialModalSelectedLanguage,
-  ] = useState<SDKLanguage | null>(null);
+  const [initialModalSelectedLanguage, setInitialModalSelectedLanguage] =
+    useState<SDKLanguage | null>(null);
   const [showAllSdkLanguages, setShowAllSdkLanguages] = useState(false);
   const sdkLanguagesToShow = getLanguagesByFilter(
     showAllSdkLanguages ? "all" : "popular"
