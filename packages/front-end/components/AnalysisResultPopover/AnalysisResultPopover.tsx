@@ -134,7 +134,7 @@ export default function AnalysisResultPopover({
 
   const variationColor = getVariationColor(data.variation.index, true);
 
-  const maybeRenderLiftWarning = () => {
+  const maybeRenderRegressionAdjustmentInfo = () => {
     const cupedUsed = data.metricSnapshotSettings?.regressionAdjustmentEnabled;
     const priorUsed =
       data.statsEngine === "bayesian" &&
@@ -419,7 +419,7 @@ export default function AnalysisResultPopover({
       </Table>
 
       <Flex direction="column" gap="2">
-        {maybeRenderLiftWarning()}
+        {maybeRenderRegressionAdjustmentInfo()}
       </Flex>
     </Box>
   );
