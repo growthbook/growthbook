@@ -292,17 +292,17 @@ export const DimensionSlicesResults: FC<{
         .find((d) => d.dimension === dimension)
         ?.dimensionSlices.map((s) => s.name) || [];
 
-    const newMetadata: CustomDimensionMetadata[] = [];
-    customDimensionMetadata.forEach((v) => {
+    const newMetadata = customDimensionMetadata.map((v) => {
       if (v.dimension === dimension) {
-        newMetadata.push({
+        return {
           dimension,
-          customSlicesArray: trafficValues,
+          customSlicesArray:
+            v.customSlicesArray === undefined ? trafficValues : undefined,
           priority: v.priority,
-        });
-      } else {
-        newMetadata.push(v);
+        };
       }
+
+      return v;
     });
 
     setCustomDimensionMetadata(newMetadata);
