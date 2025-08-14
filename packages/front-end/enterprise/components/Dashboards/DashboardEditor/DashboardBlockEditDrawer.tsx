@@ -281,12 +281,7 @@ export default function DashboardBlockEditDrawer({
         />
       )}
       <PanelGroup direction="vertical">
-        <Panel
-          order={1}
-          defaultSize={25}
-          minSize={0}
-          style={{ pointerEvents: "none" }}
-        ></Panel>
+        <Panel order={1} minSize={0} style={{ pointerEvents: "none" }}></Panel>
         <PanelResizeHandle
           style={{
             background: "var(--background-color)",
@@ -296,7 +291,7 @@ export default function DashboardBlockEditDrawer({
         />
         <Panel
           order={2}
-          defaultSize={60}
+          defaultSize={50}
           minSize={40}
           style={{ background: "var(--background-color)" }}
         >

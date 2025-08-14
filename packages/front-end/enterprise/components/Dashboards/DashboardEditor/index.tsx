@@ -328,7 +328,7 @@ function DashboardEditor({
                     position: "absolute",
                     top: "0",
                     width: "100%",
-                    height: "9px",
+                    height: "50%",
                     borderBottom: "1px solid var(--violet-a9)",
                     zIndex: -1,
                   }}
