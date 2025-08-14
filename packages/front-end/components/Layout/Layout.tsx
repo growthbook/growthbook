@@ -18,6 +18,7 @@ import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AppFeatures } from "@/types/app-features";
 import { WhiteButton } from "@/components/Radix/Button";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -394,7 +395,8 @@ const backgroundShade = (color: string) => {
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
   const settings = useOrgSettings();
-  const { accountPlan, license, subscription } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  const { organization, canSubscribe } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
   // holdout aa-test, dogfooding
@@ -404,10 +406,9 @@ const Layout = (): React.ReactElement => {
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
-    ["oss", "starter"].includes(accountPlan || "") ||
-    (license?.isTrial && !subscription?.hasPaymentMethod) ||
-    (["pro", "pro_sso"].includes(accountPlan || "") &&
-      subscription?.status === "canceled");
+    canSubscribe &&
+    permissionsUtil.canManageBilling() &&
+    !organization.isVercelIntegration;
 
   // hacky:
   const router = useRouter();
