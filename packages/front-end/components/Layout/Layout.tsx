@@ -208,11 +208,6 @@ const navlinks: SidebarLinkProps[] = [
         path: /^attributes/,
       },
       {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
-      },
-      {
         name: "Environments",
         href: "/environments",
         path: /^environments/,
