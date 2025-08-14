@@ -110,40 +110,6 @@ export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
   bigValueChartValidator,
 ]);
 
-// Helper function to check if a chart type requires xAxis by introspecting the schema
-export function requiresXAxis(chartType: string): boolean {
-  // Create a minimal config with just the chartType to test
-  const testConfig = { chartType };
-
-  // Try to parse it and see if it requires xAxis
-  const result = dataVizConfigValidator.safeParse(testConfig);
-  if (!result.success) return false;
-
-  // If parsing succeeds, check if xAxis is required by trying to parse without it
-  const resultWithoutXAxis = dataVizConfigValidator.safeParse({
-    ...testConfig,
-    xAxis: undefined,
-  });
-  return !resultWithoutXAxis.success;
-}
-
-// Helper function to check if a chart type supports dimensions by introspecting the schema
-export function supportsDimensions(chartType: string): boolean {
-  // Create a minimal config with just the chartType to test
-  const testConfig = { chartType };
-
-  // Try to parse it and see if it supports dimensions
-  const result = dataVizConfigValidator.safeParse(testConfig);
-  if (!result.success) return false;
-
-  // If parsing succeeds, check if dimension is supported by trying to parse with it
-  const resultWithDimension = dataVizConfigValidator.safeParse({
-    ...testConfig,
-    dimension: [{ fieldName: "test", display: "grouped" }],
-  });
-  return resultWithDimension.success;
-}
-
 // Type helpers for better TypeScript inference
 export type BarChart = z.infer<typeof barChartValidator>;
 export type LineChart = z.infer<typeof lineChartValidator>;

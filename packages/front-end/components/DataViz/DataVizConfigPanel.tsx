@@ -7,8 +7,8 @@ import {
   yAxisAggregationType,
   BigValueFormat,
 } from "back-end/src/validators/saved-queries";
-import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
 import { Select, SelectItem } from "@/components/Radix/Select";
+import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
 
 export default function DataVizConfigPanel({
   sampleRow,
@@ -112,6 +112,15 @@ export default function DataVizConfigPanel({
         value={dataVizConfig.chartType}
         placeholder="Select graph type"
         setValue={(v) => {
+          if (v === "big-value") {
+            // If graph type is big value - set defaults
+            onDataVizConfigChange({
+              ...dataVizConfig,
+              chartType: "big-value",
+              format: "shortNumber",
+            });
+            return;
+          }
           onDataVizConfigChange({
             ...dataVizConfig,
             chartType: v as DataVizConfig["chartType"],
@@ -150,11 +159,7 @@ export default function DataVizConfigPanel({
             placeholder="Select Value Column"
           >
             {axisKeys
-              .filter(
-                (key) =>
-                  typeof sampleRow[key] === "number" ||
-                  typeof sampleRow[key] === "string"
-              )
+              .filter((key) => getInferredFieldType(key) === "number")
               .map((key) => (
                 <SelectItem key={key} value={key}>
                   {key}
