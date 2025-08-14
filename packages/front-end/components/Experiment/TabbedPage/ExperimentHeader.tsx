@@ -645,64 +645,72 @@ export default function ExperimentHeader({
         </Modal>
       )}
 
-      <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3">
-        <div className="d-flex align-items-center flex-wrap">
-          <Flex direction="row" align="center" wrap="wrap" overflow="auto">
-            <h1 className="mb-0">{experiment.name}</h1>
-            <Box ml="2">
+      <div className="container-fluid pagecontents position-relative px-3 pt-3">
+        <Flex direction="row" align="start" justify="between" gap="5">
+          <Box>
+            <h1
+              className="mb-0"
+              style={{ display: "inline", verticalAlign: "middle" }}
+            >
+              {experiment.name}
+            </h1>
+            <Box ml="2" mt="1" display="inline-block">
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
-          </Flex>
-          <div className="ml-auto flex-1"></div>
-          {canRunExperiment ? (
-            <div className="ml-2 flex-shrink-0">
-              {experiment.status === "running" ? (
-                <ExperimentActionButtons
-                  editResult={editResult}
-                  editTargeting={editTargeting}
-                  isBandit={isBandit}
-                  runningExperimentStatus={runningExperimentStatus}
-                />
-              ) : experiment.status === "draft" ? (
-                <Tooltip
-                  shouldDisplay={
-                    isBandit &&
-                    !experimentHasLiveLinkedChanges(experiment, linkedFeatures)
-                  }
-                  body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
-                >
-                  <button
-                    className="btn btn-teal"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowStartExperiment(true);
-                    }}
-                    disabled={
+          </Box>
+
+          <Flex direction="row" align="center" gap="2" flexShrink="0">
+            {canRunExperiment ? (
+              <div>
+                {experiment.status === "running" ? (
+                  <ExperimentActionButtons
+                    editResult={editResult}
+                    editTargeting={editTargeting}
+                    isBandit={isBandit}
+                    runningExperimentStatus={runningExperimentStatus}
+                  />
+                ) : experiment.status === "draft" ? (
+                  <Tooltip
+                    shouldDisplay={
                       isBandit &&
                       !experimentHasLiveLinkedChanges(
                         experiment,
                         linkedFeatures
                       )
                     }
+                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
-                    Start Experiment <MdRocketLaunch />
-                  </button>
-                </Tooltip>
-              ) : null}
-              {experiment.status === "stopped" && experiment.results ? (
-                <>
-                  {canEditExperiment ? (
-                    <Button onClick={() => setShareModalOpen(true)}>
-                      Share...
-                    </Button>
-                  ) : shareLevel === "public" ? (
-                    shareLinkButton
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="ml-2">
+                    <button
+                      className="btn btn-teal"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowStartExperiment(true);
+                      }}
+                      disabled={
+                        isBandit &&
+                        !experimentHasLiveLinkedChanges(
+                          experiment,
+                          linkedFeatures
+                        )
+                      }
+                    >
+                      Start Experiment <MdRocketLaunch />
+                    </button>
+                  </Tooltip>
+                ) : null}
+                {experiment.status === "stopped" && experiment.results ? (
+                  <>
+                    {canEditExperiment ? (
+                      <Button onClick={() => setShareModalOpen(true)}>
+                        Share...
+                      </Button>
+                    ) : shareLevel === "public" ? (
+                      shareLinkButton
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             <DropdownMenu
               trigger={
                 <IconButton
@@ -711,6 +719,7 @@ export default function ExperimentHeader({
                   radius="full"
                   size="3"
                   highContrast
+                  ml="2"
                 >
                   <BsThreeDotsVertical size={18} />
                 </IconButton>
@@ -927,8 +936,8 @@ export default function ExperimentHeader({
                 )}
               </DropdownMenuGroup>
             </DropdownMenu>
-          </div>
-        </div>
+          </Flex>
+        </Flex>
         <ProjectTagBar
           experiment={experiment}
           setShowEditInfoModal={setShowEditInfoModal}
