@@ -189,23 +189,6 @@ export default function AnalysisResultPopover({
     );
   };
 
-  const maybeRenderSuspiciousChange = () => {
-    if (data.isGuardrail || !data.rowResults.suspiciousChange) {
-      return null;
-    }
-
-    return (
-      <Callout size="sm" status="info" icon={null}>
-        A suspicious change was detected in this metric.{" "}
-        <Tooltip content={data.rowResults.suspiciousChangeReason}>
-          <span>
-            <PiInfo size={16} />
-          </span>
-        </Tooltip>
-      </Callout>
-    );
-  };
-
   return (
     <Box p="2">
       {data.isGuardrail ? (
@@ -437,7 +420,6 @@ export default function AnalysisResultPopover({
 
       <Flex direction="column" gap="2">
         {maybeRenderLiftWarning()}
-        {maybeRenderSuspiciousChange()}
       </Flex>
     </Box>
   );

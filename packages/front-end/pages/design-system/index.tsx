@@ -49,6 +49,7 @@ import SplitButton from "@/components/Radix/SplitButton";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { UserContext } from "@/services/UserContext";
 import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
+import Frame from "@/components/Radix/Frame";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -1186,226 +1187,252 @@ export default function DesignSystemPage() {
           <div>
             <b>Frequentist, Relative, Significant Win (p-value adjusted)</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsWin,
-                  baseline: baselineMetric,
-                  rowResults: rowResultsWin,
-                  statsEngine: "frequentist",
-                  pValueCorrection: "benjamini-hochberg",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                    pValueCorrection: "benjamini-hochberg",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Frequentist, Relative, Not Enough Data</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsNotEnough,
-                  baseline: baselineMetric,
-                  rowResults: rowResultsNotEnough,
-                  statsEngine: "frequentist",
-                })}
-              />
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsNotEnough,
-                  baseline: baselineMetric,
-                  rowResults: rowResultsBaselineZero,
-                  statsEngine: "frequentist",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsNotEnough,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsNotEnough,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsNotEnough,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsBaselineZero,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Frequentist, Relative, Suspicious Change</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsWin,
-                  baseline: baselineMetric,
-                  rowResults: rowResultsSuspicious,
-                  statsEngine: "frequentist",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsSuspicious,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Frequentist, Absolute, Insignificant</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="absolute"
-                data={makeData({
-                  metric: metricWithDenominator,
-                  stats: { ...statsWin, expected: 0.02, denominator: 2000 },
-                  baseline: { ...baselineMetric, denominator: 2000 },
-                  rowResults: rowResultsInsig,
-                  statsEngine: "frequentist",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="absolute"
+                  data={makeData({
+                    metric: metricWithDenominator,
+                    stats: { ...statsWin, expected: 0.02, denominator: 2000 },
+                    baseline: { ...baselineMetric, denominator: 2000 },
+                    rowResults: rowResultsInsig,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Frequentist, Scaled Impact</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="scaled"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsWin,
-                  baseline: baselineMetric,
-                  rowResults: rowResultsWin,
-                  statsEngine: "frequentist",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="scaled"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Bayesian, Relative, CUPED + Prior (lift warning)</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsWin,
-                  baseline: baselineMetric,
-                  rowResults: rowResultsWin,
-                  statsEngine: "bayesian",
-                  metricSnapshotSettings: {
-                    metric: "m_bin",
-                    properPrior: true,
-                    properPriorMean: 0,
-                    properPriorStdDev: 0.1,
-                    regressionAdjustmentEnabled: true,
-                    regressionAdjustmentReason: "enabled",
-                    regressionAdjustmentAvailable: true,
-                    regressionAdjustmentDays: 14,
-                  },
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsWin,
+                    statsEngine: "bayesian",
+                    metricSnapshotSettings: {
+                      metric: "m_bin",
+                      properPrior: true,
+                      properPriorMean: 0,
+                      properPriorStdDev: 0.1,
+                      regressionAdjustmentEnabled: true,
+                      regressionAdjustmentReason: "enabled",
+                      regressionAdjustmentAvailable: true,
+                      regressionAdjustmentDays: 14,
+                    },
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Guardrail Metric with Warning</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsLose,
-                  baseline: baselineMetric,
-                  rowResults: {
-                    ...rowResultsLose,
-                    guardrailWarning: "Upward trend in bounce rate",
-                  },
-                  statsEngine: "frequentist",
-                  isGuardrail: true,
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsLose,
+                    baseline: baselineMetric,
+                    rowResults: {
+                      ...rowResultsLose,
+                      guardrailWarning: "Upward trend in bounce rate",
+                    },
+                    statsEngine: "frequentist",
+                    isGuardrail: true,
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Inverse Metric (losing)</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: metricInverse,
-                  stats: statsLose,
-                  baseline: baselineMetric,
-                  rowResults: rowResultsLose,
-                  statsEngine: "frequentist",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricInverse,
+                    stats: statsLose,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsLose,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Quantile Metrics</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: factQuantileUnit,
-                  stats: {
-                    ...statsWin,
-                    stats: { users: 1000, count: 800, stddev: 1, mean: 1 },
-                  },
-                  baseline: {
-                    ...baselineMetric,
-                    stats: { users: 1000, count: 750, stddev: 1, mean: 1 },
-                  },
-                  rowResults: rowResultsWin,
-                  statsEngine: "frequentist",
-                })}
-              />
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: factQuantileEvent,
-                  stats: {
-                    ...statsWin,
-                    stats: { users: 1000, count: 2200, stddev: 1, mean: 1 },
-                  },
-                  baseline: {
-                    ...baselineMetric,
-                    stats: { users: 1000, count: 2000, stddev: 1, mean: 1 },
-                  },
-                  rowResults: rowResultsWin,
-                  statsEngine: "frequentist",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: factQuantileUnit,
+                    stats: {
+                      ...statsWin,
+                      stats: { users: 1000, count: 800, stddev: 1, mean: 1 },
+                    },
+                    baseline: {
+                      ...baselineMetric,
+                      stats: { users: 1000, count: 750, stddev: 1, mean: 1 },
+                    },
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: factQuantileEvent,
+                    stats: {
+                      ...statsWin,
+                      stats: { users: 1000, count: 2200, stddev: 1, mean: 1 },
+                    },
+                    baseline: {
+                      ...baselineMetric,
+                      stats: { users: 1000, count: 2000, stddev: 1, mean: 1 },
+                    },
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>Ratio (Fact) and Bandit (shows adjusted label)</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                isBandit
-                data={makeData({
-                  metric: factRatioMetric,
-                  stats: { ...statsWin, denominator: 5000 },
-                  baseline: { ...baselineMetric, denominator: 4800 },
-                  rowResults: rowResultsWin,
-                  statsEngine: "frequentist",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  isBandit
+                  data={makeData({
+                    metric: factRatioMetric,
+                    stats: { ...statsWin, denominator: 5000 },
+                    baseline: { ...baselineMetric, denominator: 4800 },
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
 
           <div>
             <b>With Dimension</b>
             <Flex gap="3" mt="2">
-              <AnalysisResultPopover
-                differenceType="relative"
-                data={makeData({
-                  metric: metricBinomial,
-                  stats: statsWin,
-                  baseline: baselineMetric,
-                  rowResults: rowResultsWin,
-                  statsEngine: "frequentist",
-                  dimensionName: "Country",
-                  dimensionValue: "United States",
-                })}
-              />
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                    dimensionName: "Country",
+                    dimensionValue: "United States",
+                  })}
+                />
+              </Frame>
             </Flex>
           </div>
         </Flex>
