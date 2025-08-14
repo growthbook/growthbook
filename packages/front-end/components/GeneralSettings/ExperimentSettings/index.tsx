@@ -333,7 +333,8 @@ export default function ExperimentSettings({
                       description: (
                         <>
                           <Text mb="2" as="p">
-                            Enter cron string to specify frequency
+                            Enter cron string to specify frequency. Minimum once
+                            an hour.
                           </Text>
                           <Field
                             disabled={

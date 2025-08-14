@@ -1255,8 +1255,8 @@ export default abstract class SqlIntegration
 
         const dimensionData: Record<string, string> = {};
         Object.entries(row)
-          .filter(([key, _]) => key.startsWith("dim_"))
-          .map(([key, value]) => {
+          .filter(([key, _]) => key.startsWith("dim_") || key === "dimension")
+          .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
 
@@ -1287,8 +1287,8 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         const dimensionData: Record<string, string> = {};
         Object.entries(row)
-          .filter(([key, _]) => key.startsWith("dim"))
-          .map(([key, value]) => {
+          .filter(([key, _]) => key.startsWith("dim_") || key === "dimension")
+          .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
         return {
@@ -1542,7 +1542,7 @@ export default abstract class SqlIntegration
     baseIdType: string,
     metrics: ExperimentMetricInterface[],
     endDate: Date,
-    dimensionCols: { value: string; alias: string }[],
+    dimensionCols: DimensionColumnData[],
     regressionAdjusted: boolean = false,
     overrideConversionWindows: boolean = false,
     banditDates: Date[] | undefined = undefined,
@@ -2637,13 +2637,26 @@ export default abstract class SqlIntegration
       maxHoursToConvert
     );
 
+    const banditDates = settings.banditSettings?.historicalWeights.map(
+      (w) => w.date
+    );
+
     const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
       this.getDimensionCol(d)
     );
+    // if bandit and there is no dimension column, we need to create a dummy column to make some of the joins
+    // work later on. `"dimension"` is a special column that gbstats can handle if there is no dimension
+    // column specified. See `BANDIT_DIMENSION` in gbstats.py.
+    if (banditDates?.length && dimensionCols.length === 0) {
+      dimensionCols.push({
+        alias: "dimension",
+        value: this.castToString("'All'"),
+      });
+    }
 
     const computeOnActivatedUsersOnly =
-      activationMetric &&
-      !params.dimensions.find((d) => d.type === "activation");
+      activationMetric !== null &&
+      !params.dimensions.some((d) => d.type === "activation");
     const timestampColumn = computeOnActivatedUsersOnly
       ? "first_activation_timestamp"
       : "first_exposure_timestamp";
@@ -2660,10 +2673,6 @@ export default abstract class SqlIntegration
         `${timestampColumn} <= ${this.toTimestamp(endDate)}`
       );
     }
-
-    const banditDates = settings.banditSettings?.historicalWeights.map(
-      (w) => w.date
-    );
 
     const percentileData: {
       valueCol: string;
@@ -2877,7 +2886,7 @@ export default abstract class SqlIntegration
         LEFT JOIN __eventQuantileMetric qm
         ON (qm.variation = umj.variation ${dimensionCols
           .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
-          .join("")})`
+          .join("\n")})`
             : ""
         }
         GROUP BY
@@ -3061,7 +3070,7 @@ export default abstract class SqlIntegration
           qm.variation = m.variation 
           ${dimensionCols
             .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
-            .join("")}
+            .join("\n")}
             )`
             : ""
         }
@@ -3291,8 +3300,8 @@ export default abstract class SqlIntegration
     }
 
     const computeOnActivatedUsersOnly =
-      activationMetric &&
-      !params.dimensions.find((d) => d.type === "activation");
+      activationMetric !== null &&
+      !params.dimensions.some((d) => d.type === "activation");
     const timestampColumn = computeOnActivatedUsersOnly
       ? "first_activation_timestamp"
       : "first_exposure_timestamp";
@@ -3450,7 +3459,7 @@ export default abstract class SqlIntegration
         LEFT JOIN __quantileMetric qm
         ON (qm.variation = umj.variation ${dimensionCols
           .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
-          .join("")})`
+          .join("\n")})`
             : ""
         }
         GROUP BY
@@ -3655,7 +3664,7 @@ export default abstract class SqlIntegration
         ? `LEFT JOIN __quantileMetric qm ON (
       qm.variation = m.variation ${dimensionCols
         .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
-        .join("")}
+        .join("\n")}
         )`
         : ""
     }
@@ -3802,11 +3811,11 @@ export default abstract class SqlIntegration
   __dimensionTotals AS (
     SELECT
       ${this.ensureFloat(`SUM(users)`)} AS total_users
-      ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join(", ")}
+      ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
     FROM 
       __banditPeriodStatistics
     GROUP BY
-      ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
+      ${dimensionCols.map((d) => `${d.alias}`).join(" AND ")}
   ),
   __banditPeriodWeights AS (
     SELECT
@@ -3843,14 +3852,13 @@ export default abstract class SqlIntegration
         .join("\n")}
     FROM 
       __banditPeriodStatistics bps
-    LEFT JOIN
-      __dimensionTotals dt 
-      ON (${dimensionCols
+    LEFT JOIN __dimensionTotals dt ON
+      (${dimensionCols
         .map((d) => `bps.${d.alias} = dt.${d.alias}`)
         .join(" AND ")})
     GROUP BY
       bps.bandit_period
-      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
+      ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
   )
   ${
     hasRegressionAdjustment
@@ -3978,7 +3986,7 @@ export default abstract class SqlIntegration
       bps.bandit_period = bpw.bandit_period 
       ${dimensionCols
         .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
-        .join(" AND ")}
+        .join("\n")}
     )
   ${
     hasRegressionAdjustment

@@ -284,6 +284,13 @@
 }
 
 // Select
+.rt-SelectTrigger.disable-dropdown {
+  pointer-events: none;
+  .rt-SelectIcon {
+    display: none;
+  }
+}
+
 .rt-SelectTrigger {
   &.error {
     box-shadow: inset 0 0 0 1px var(--red-8);

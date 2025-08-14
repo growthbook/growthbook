@@ -105,4 +105,7 @@ router.delete("/custom-roles/:id", organizationsController.deleteCustomRole);
 router.post("/role/:id/deactivate", organizationsController.deactivateRole);
 router.post("/role/:id/activate", organizationsController.activateRole);
 
+// Agreements:
+router.post("/agreements/agree", organizationsController.postAgreeToAgreement);
+
 export { router as organizationsRouter };

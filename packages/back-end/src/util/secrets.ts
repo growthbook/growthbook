@@ -1,6 +1,4 @@
-import fs from "fs";
 import Handlebars from "handlebars";
-import dotenv from "dotenv";
 import trimEnd from "lodash/trimEnd";
 import { stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
@@ -8,10 +6,6 @@ import { z } from "zod";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
-
-if (fs.existsSync(".env.local")) {
-  dotenv.config({ path: ".env.local" });
-}
 
 export const LOG_LEVEL = process.env.LOG_LEVEL;
 
@@ -166,6 +160,11 @@ export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
 // If set to false AND using a config file, don't allow creating metric via the UI
 export const ALLOW_CREATE_METRICS = stringToBoolean(
   process.env.ALLOW_CREATE_METRICS
+);
+
+// If set to false AND using a config file, don't allow creating dimension via the UI
+export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
+  process.env.ALLOW_CREATE_DIMENSIONS
 );
 
 // Defines the User-Agent header for all requests made by the API

@@ -213,6 +213,7 @@ export function getConfigDimensions(
       organization,
       dateCreated: null,
       dateUpdated: null,
+      managedBy: "config",
     };
   });
 }
@@ -236,6 +237,7 @@ export function getConfigSegments(organization: string): SegmentInterface[] {
       organization,
       dateCreated: new Date(),
       dateUpdated: new Date(),
+      managedBy: "config",
     };
   });
 }

@@ -31,7 +31,7 @@ import { Resource } from "@opentelemetry/resources";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
-import { getBuild } from "./util/handler";
+import { getBuild } from "./util/build";
 import { setMetrics, Attributes } from "./util/metrics";
 
 diag.setLogger(

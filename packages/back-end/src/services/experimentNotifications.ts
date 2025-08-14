@@ -1,4 +1,8 @@
-import { includeExperimentInPayload, getSnapshotAnalysis } from "shared/util";
+import {
+  includeExperimentInPayload,
+  getSnapshotAnalysis,
+  ensureAndReturn,
+} from "shared/util";
 import { getMetricResultStatus } from "shared/experiments";
 import {
   PRESET_DECISION_CRITERIA,
@@ -24,7 +28,6 @@ import {
   ExperimentResultStatusData,
 } from "back-end/types/experiment";
 import { ResourceEvents } from "back-end/src/events/base-types";
-import { ensureAndReturn } from "back-end/src/util/types";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { ExperimentAnalysisSummary } from "back-end/src/validators/experiments";
 import {

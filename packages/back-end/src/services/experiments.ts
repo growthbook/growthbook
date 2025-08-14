@@ -503,8 +503,8 @@ export function getSnapshotSettings({
   if (precomputeDimensions) {
     // if standard snapshot with no dimension set, we should pre-compute dimensions
     const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      exposureQuery?.dimensionMetadata ?? [],
-      experiment.variations.length || 2
+      exposureQuery.dimensionMetadata ?? [],
+      experiment.variations.length
     );
     dimensions =
       predefinedDimensions.map((d) => ({
@@ -1139,7 +1139,7 @@ export async function createSnapshot({
     useCache
   );
   await queryRunner.startAnalysis({
-    snapshotType: snapshot.type ?? "standard",
+    snapshotType: type,
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
