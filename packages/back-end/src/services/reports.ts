@@ -408,11 +408,12 @@ export async function createReportSnapshot({
     datasource,
   });
 
+  const snapshotType = "report";
   // Fill in and sanitize the model
   snapshotData = {
     ...snapshotData,
     id: uniqid("snp_"),
-    type: "report",
+    type: snapshotType,
     report: report.id,
     triggeredBy: "manual",
     error: "",
@@ -456,6 +457,7 @@ export async function createReportSnapshot({
     useCache
   );
   await queryRunner.startAnalysis({
+    snapshotType,
     snapshotSettings: snapshot.settings,
     variationNames: report.experimentMetadata.variations.map((v) => v.name),
     metricMap,

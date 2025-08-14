@@ -40,33 +40,36 @@ import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
 import DifferenceTypeChooser from "./DifferenceTypeChooser";
 
+export type AnalysisBarSettings = {
+  dimension: string;
+  baselineRow: number;
+  differenceType: DifferenceType;
+  variationFilter: number[];
+};
+
 export default function AnalysisSettingsBar({
   mutateExperiment,
-  setAnalysisSettings,
   editMetrics,
   editPhases,
   variations,
+  analysisBarSettings,
+  setAnalysisBarSettings,
+  setAnalysisSettings,
   alwaysShowPhaseSelector = false,
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
   regressionAdjustmentHasValidMetrics,
   onRegressionAdjustmentChange,
   showMoreMenu = true,
-  variationFilter,
-  setVariationFilter,
-  baselineRow,
-  setBaselineRow,
-  differenceType,
-  setDifferenceType,
   envs,
 }: {
   mutateExperiment: () => void;
-  setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
-  ) => void;
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
+  analysisBarSettings: AnalysisBarSettings;
+  setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  setAnalysisSettings: (s: ExperimentSnapshotAnalysisSettings | null) => void;
   envs: string[];
   alwaysShowPhaseSelector?: boolean;
   regressionAdjustmentAvailable?: boolean;
@@ -74,21 +77,16 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentHasValidMetrics?: boolean;
   onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   showMoreMenu?: boolean;
-  variationFilter?: number[];
-  setVariationFilter?: (variationFilter: number[]) => void;
-  baselineRow?: number;
-  setBaselineRow?: (baselineRow: number) => void;
-  differenceType?: DifferenceType;
-  setDifferenceType?: (differenceType: DifferenceType) => void;
 }) {
   const {
     experiment,
     snapshot,
     analysis,
     dimension,
+    precomputedDimensions,
     mutateSnapshot: mutate,
     phase,
-    setDimension,
+    setDimension: setSnapshotDimension,
     setSnapshotType,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
@@ -130,14 +128,20 @@ export default function AnalysisSettingsBar({
 
       {experiment && (
         <div className="row align-items-center p-3 analysis-settings-bar">
-          {setVariationFilter && setBaselineRow ? (
+          {setAnalysisBarSettings ? (
             <>
               <div className="col-auto form-inline pr-5">
                 <BaselineChooser
                   variations={experiment.variations}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
-                  setBaselineRow={setBaselineRow}
+                  baselineRow={analysisBarSettings.baselineRow ?? 0}
+                  setBaselineRow={(r: number) =>
+                    setAnalysisBarSettings({
+                      ...analysisBarSettings,
+                      baselineRow: r,
+                      // always reset variation filter when changing baseline
+                      variationFilter: [],
+                    })
+                  }
                   snapshot={snapshot}
                   analysis={analysis}
                   setAnalysisSettings={setAnalysisSettings}
@@ -151,9 +155,14 @@ export default function AnalysisSettingsBar({
                 </em>
                 <VariationChooser
                   variations={experiment.variations}
-                  variationFilter={variationFilter ?? []}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
+                  variationFilter={analysisBarSettings.variationFilter ?? []}
+                  setVariationFilter={(v: number[]) =>
+                    setAnalysisBarSettings({
+                      ...analysisBarSettings,
+                      variationFilter: v,
+                    })
+                  }
+                  baselineRow={analysisBarSettings.baselineRow ?? 0}
                   dropdownEnabled={snapshot?.dimension !== "pre:date"}
                 />
               </div>
@@ -161,24 +170,41 @@ export default function AnalysisSettingsBar({
           ) : null}
           <div className="col-auto form-inline pr-5">
             <DimensionChooser
-              value={dimension}
-              setValue={setDimension}
+              value={analysisBarSettings.dimension}
+              setValue={(d: string) =>
+                setAnalysisBarSettings({ ...analysisBarSettings, dimension: d })
+              }
+              precomputedDimensions={precomputedDimensions}
               activationMetric={!!experiment.activationMetric}
               datasourceId={experiment.datasource}
               exposureQueryId={experiment.exposureQueryId}
               userIdType={experiment.userIdType}
+              resetAnalysisBarSettings={() =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  baselineRow: 0,
+                  differenceType: "relative",
+                  variationFilter: [],
+                })
+              }
               labelClassName="mr-2"
-              setVariationFilter={setVariationFilter}
-              setBaselineRow={setBaselineRow}
-              setDifferenceType={setDifferenceType}
+              analysis={analysis}
+              snapshot={snapshot}
+              mutate={mutate}
               setAnalysisSettings={setAnalysisSettings}
+              setSnapshotDimension={setSnapshotDimension}
             />
           </div>
-          {!manualSnapshot && setDifferenceType ? (
+          {!manualSnapshot && setAnalysisBarSettings ? (
             <div className="col-auto form-inline pr-5">
               <DifferenceTypeChooser
-                differenceType={differenceType ?? "relative"}
-                setDifferenceType={setDifferenceType}
+                differenceType={analysisBarSettings.differenceType}
+                setDifferenceType={(d: DifferenceType) =>
+                  setAnalysisBarSettings({
+                    ...analysisBarSettings,
+                    differenceType: d,
+                  })
+                }
                 snapshot={snapshot}
                 analysis={analysis}
                 setAnalysisSettings={setAnalysisSettings}
@@ -319,7 +345,9 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={differenceType ?? "relative"}
+                differenceType={
+                  analysis?.settings?.differenceType ?? "relative"
+                }
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {

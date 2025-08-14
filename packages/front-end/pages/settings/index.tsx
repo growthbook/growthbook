@@ -145,6 +145,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disableMultiMetricQueries: false,
+      disablePrecomputedDimensions:
+        settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
       useFallbackAttributes: false,
       codeReferencesEnabled: false,

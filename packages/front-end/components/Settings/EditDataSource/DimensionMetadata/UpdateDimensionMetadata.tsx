@@ -4,6 +4,7 @@ import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { Flex, Text } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
+import Button from "@/components/Radix/Button";
 import {
   CustomDimensionMetadata,
   DimensionSlicesRunner,
@@ -19,7 +20,7 @@ type UpdateDimensionMetadataModalProps = {
   onSave: (
     customDimensionMetadata: CustomDimensionMetadata[],
     dimensionSlices?: DimensionSlicesInterface
-  ) => void;
+  ) => Promise<void>;
 };
 
 export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps> = ({
@@ -57,8 +58,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
   );
 
   const secondaryCTA = (
-    <button
-      className={`btn btn-primary`}
+    <Button
       type="submit"
       onClick={async () => {
         await onSave(customDimensionMetadata, dimensionSlices);
@@ -66,7 +66,7 @@ export const UpdateDimensionMetadataModal: FC<UpdateDimensionMetadataModalProps>
       }}
     >
       Save Dimension Values
-    </button>
+    </Button>
   );
 
   if (!exposureQuery) {
