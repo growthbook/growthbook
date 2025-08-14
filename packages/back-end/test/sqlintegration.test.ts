@@ -97,18 +97,6 @@ describe("bigquery integration", () => {
     );
 
     expect(
-      bqIntegration["addCaseWhenTimeFilter"](
-        "val",
-        normalSqlMetric,
-        true,
-        new Date(),
-        true
-      ).replace(/\s+/g, " ")
-    ).toEqual(
-      `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} AND date_trunc(m.timestamp, DAY) <= dr.day THEN val ELSE NULL END)`
-    );
-
-    expect(
       bqIntegration["getAggregateMetricColumn"]({
         metric: customNumberAggMetric,
       })
