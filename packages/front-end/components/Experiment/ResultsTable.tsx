@@ -820,27 +820,6 @@ export default function ResultsTable({
                         return null;
                       }
                     }
-                    if (rowResults === RowError.QUANTILE_AGGREGATION_ERROR) {
-                      return drawEmptyRow({
-                        key: j,
-                        className:
-                          "results-variation-row align-items-center error-row",
-                        label: (
-                          <div className="alert alert-danger px-2 py-1">
-                            <FaExclamationTriangle className="mr-1" />
-                            Quantile metrics not available for pre-computed
-                            dimensions. Use a custom report instead.
-                          </div>
-                        ),
-                        graphCellWidth,
-                        rowHeight: compactResults
-                          ? ROW_HEIGHT + 20
-                          : ROW_HEIGHT,
-                        id,
-                        domain,
-                        ssrPolyfills,
-                      });
-                    }
 
                     const hideScaledImpact =
                       !rowResults.hasScaledImpact &&
