@@ -49,6 +49,34 @@ const dimensionAxisConfigurationValidator = z.object({
 export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
+const filterConfigurationValidator = z.object({
+  column: z.string(),
+  type: z.enum(["string", "number", "date"]),
+  filterType: z.enum([
+    // Date filters
+    "dateRange",
+    "today",
+    "last7Days",
+    "last30Days",
+    "thisWeek",
+    "thisMonth",
+    "thisYear",
+    // Number filters
+    "numberRange",
+    "greaterThan",
+    "lessThan",
+    "equals",
+    // String filters
+    "includes", // Multi-select from unique values
+    "contains", // Text search/substring match
+  ]),
+  // Static configuration values (e.g., for custom ranges)
+  config: z
+    .record(z.union([z.string(), z.number(), z.array(z.string())]))
+    .optional(),
+});
+
+export type FilterConfiguration = z.infer<typeof filterConfigurationValidator>;
 
 const formatEnum = z.enum([
   "shortNumber",
@@ -62,6 +90,7 @@ const formatEnum = z.enum([
 const baseChartConfig = z.object({
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  filter: z.array(filterConfigurationValidator).optional(),
 });
 
 const withXAxis = z.object({
