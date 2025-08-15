@@ -40,6 +40,8 @@ export class DataSourceNotSupportedError extends Error {
   }
 }
 
+export type DataType = "string" | "number" | "boolean" | "date" | "timestamp";
+
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
 export type FactMetricData = {
@@ -190,6 +192,29 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
   incrementalOldUnitsTableFullName?: string;
   incrementalStartDate?: Date;
+}
+
+export interface CreateExperimentIncrementalUnitsQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  dimensions: Dimension[];
+  unitsTableFullName: string;
+}
+
+export interface UpdateExperimentIncrementalUnitsQueryParams extends CreateExperimentIncrementalUnitsQueryParams {
+  lastMaxTimestamp: Date;
+}
+
+export interface DropOldIncrementalUnitsQueryParams {
+  unitsTableFullName: string;
+}
+
+export interface AlterNewIncrementalUnitsQueryParams {
+  unitsTableFullName: string;
+}
+
+export interface MaxTimestampIncrementalUnitsQueryParams {
+  unitsTableFullName: string;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
@@ -425,6 +450,11 @@ export type DimensionSlicesQueryResponseRows = {
   total_units: number;
 }[];
 
+export type MaxTimestampIncrementalUnitsQueryResponseRow = {
+  max_timestamp: string;
+};
+
+
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
@@ -440,6 +470,9 @@ export type ExperimentUnitsQueryResponse = QueryResponse;
 export type ExperimentAggregateUnitsQueryResponse = QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse = QueryResponse<DimensionSlicesQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
+export type IncrementalWithNoOutputQueryResponse = QueryResponse;
+export type MaxTimestampIncrementalUnitsQueryResponse = QueryResponse<MaxTimestampIncrementalUnitsQueryResponseRow>;
+
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
 >;
@@ -609,12 +642,25 @@ export interface SourceIntegrationInterface {
     params: ExperimentAggregateUnitsQueryParams
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
-  getExperimentIncrementalUnitsTableQuery(
-    params: ExperimentUnitsQueryParams & {
-      previousUnitsTableFullName: string;
-      lastScannedTimestamp: Date;
-    }
+  getCreateExperimentIncrementalUnitsQuery(
+    params: CreateExperimentIncrementalUnitsQueryParams
   ): string;
+  getUpdateExperimentIncrementalUnitsQuery(
+    params: UpdateExperimentIncrementalUnitsQueryParams
+  ): string;
+  getDropOldIncrementalUnitsQuery(
+    params: DropOldIncrementalUnitsQueryParams
+  ): string;
+  getAlterNewIncrementalUnitsQuery(
+    params: AlterNewIncrementalUnitsQueryParams
+  ): string;
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams
+  ): string;
+  runIncrementalWithNoOutputQuery(
+    query: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<IncrementalWithNoOutputQueryResponse>;
   getPastExperimentQuery(params: PastExperimentParams): string;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(

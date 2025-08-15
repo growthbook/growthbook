@@ -138,6 +138,7 @@ export interface DataSourceProperties {
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
   hasCountDistinctHLL?: boolean;
+  hasIncrementalRefresh?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {

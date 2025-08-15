@@ -18,6 +18,7 @@ import {
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
@@ -26,12 +27,13 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { parseDimensionId } from "back-end/src/services/experiments";
+import { parseDimension } from "back-end/src/services/experiments";
 import {
   analyzeExperimentResults,
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import {
+  Dimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExperimentDimension,
   ExperimentFactMetricsQueryParams,
@@ -66,6 +68,7 @@ export type SnapshotResult = {
 };
 
 export type ExperimentResultsQueryParams = {
+  snapshotType: SnapshotType;
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -88,6 +91,7 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   }
 
   // Quantile metrics get their own group to prevent slowing down the main query
+  // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
     return metric.numerator.factTableId
       ? `${metric.numerator.factTableId} (quantile metrics)`
@@ -116,6 +120,7 @@ export function getFactMetricGroups(
   if (settings.skipPartialData) {
     return defaultReturn;
   }
+
   // Combining metrics in a single query is an Enterprise-only feature
   if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
     return defaultReturn;
@@ -176,6 +181,7 @@ export const startExperimentResultQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
+  const snapshotType = params.snapshotType;
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
@@ -212,10 +218,13 @@ export const startExperimentResultQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId
   );
 
-  const dimensionObj = await parseDimensionId(
-    snapshotSettings.dimensions[0]?.id,
-    org.id
-  );
+  const dimensionObjs: Dimension[] = (
+    await Promise.all(
+      snapshotSettings.dimensions.map(
+        async (d) => await parseDimension(d.id, d.slices, org.id)
+      )
+    )
+  ).filter((d): d is Dimension => d !== null);
 
   const queries: Queries = [];
 
@@ -238,7 +247,8 @@ export const startExperimentResultQueries = async (
       : "";
 
   // Settings for health query
-  const runTrafficQuery = !dimensionObj && org.settings?.runHealthTrafficQuery;
+  const runTrafficQuery =
+    snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
   let dimensionsForTraffic: ExperimentDimension[] = [];
   if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
     dimensionsForTraffic = exposureQuery.dimensionMetadata
@@ -250,12 +260,9 @@ export const startExperimentResultQueries = async (
       }));
   }
 
-  // TODO: Need to take into consideration other stuff (see SqlIntegration.getExperimentEndDate)
-  const unitsQueryEndDate = snapshotSettings.endDate;
-
   const unitQueryParams: ExperimentUnitsQueryParams = {
     activationMetric: activationMetric,
-    dimensions: dimensionObj ? [dimensionObj] : dimensionsForTraffic,
+    dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
     segment: segmentObj,
     settings: snapshotSettings,
     unitsTableFullName: unitsTableFullName,
@@ -263,11 +270,6 @@ export const startExperimentResultQueries = async (
     factTableMap: params.factTableMap,
   };
 
-  // TODO: Do we really need unitsTable / pipeline mode or can it work independently?
-  const incrementalRefreshEnabled =
-    useUnitsTable && settings.incrementalRefresh?.enabled;
-
-  let oldUnitsTableToDrop: string | null = null;
   if (useUnitsTable) {
     // The Mixpanel integration does not support writing tables
     if (!integration.generateTablePath) {
@@ -275,61 +277,16 @@ export const startExperimentResultQueries = async (
         "Unable to generate table; table path generator not specified."
       );
     }
-
-    // If incremental refresh is enabled and we have a previous scan, build incremental table query creating a new table name
-    let unitsTableSql = "";
-    if (incrementalRefreshEnabled) {
-      const existing = await context.models.incrementalRefresh.getByExperimentId(
-        snapshotSettings.experimentId
-      );
-      if (existing) {
-        const previousUnitsTableFullName = existing.unitsTableFullName;
-        unitsTableSql = integration.getExperimentIncrementalUnitsTableQuery({
-          ...unitQueryParams,
-          previousUnitsTableFullName,
-          lastScannedTimestamp: existing.lastScannedTimestamp,
-        });
-        oldUnitsTableToDrop = previousUnitsTableFullName;
-      }
-    }
-
-    // Fallback to full rebuild if not incremental or no previous state
-    if (!unitsTableSql) {
-      unitsTableSql = integration.getExperimentUnitsTableQuery(unitQueryParams);
-    }
-
     unitQuery = await startQuery({
       name: queryParentId,
-      query: unitsTableSql,
+      query: integration.getExperimentUnitsTableQuery(unitQueryParams),
       dependencies: [],
       run: (query, setExternalId) =>
         integration.runExperimentUnitsQuery(query, setExternalId),
-      process: (rows) => {
-        // Persist units table metadata for incremental refresh only if enabled
-        if (incrementalRefreshEnabled) {
-          context.models.incrementalRefresh
-            .upsertByExperimentId(snapshotSettings.experimentId, {
-              unitsTableFullName: unitsTableFullName,
-              lastScannedTimestamp: unitsQueryEndDate,
-            })
-            .catch((e) => context.logger.error(e));
-        }
-        return rows;
-      },
+      process: (rows) => rows,
       queryType: "experimentUnits",
     });
     queries.push(unitQuery);
-
-    // NB: AI added this, but unsure if it's needed
-    // If the query was reused from cache and already succeeded, persist immediately
-    // if (unitQuery.status === "succeeded") {
-    //   context.models.incrementalRefresh
-    //     .upsertByExperimentId(snapshotSettings.experimentId, {
-    //       unitsTableFullName,
-    //       lastScannedTimestamp: unitsQueryEndDate,
-    //     })
-    //     .catch((e) => context.logger.error(e));
-    // }
   }
 
   const { groups, singles } = getFactMetricGroups(
@@ -351,10 +308,15 @@ export const startExperimentResultQueries = async (
           .filter(Boolean)
       );
     }
+    // Only run overall quantile analysis for standard snapshots
+    // regardless of how many dimensions are requested
+    const runOverallQuantileAnalysis =
+      snapshotType === "standard" && quantileMetricType(m);
+
     const queryParams: ExperimentMetricQueryParams = {
       activationMetric,
       denominatorMetrics,
-      dimensions: dimensionObj ? [dimensionObj] : [],
+      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -376,9 +338,14 @@ export const startExperimentResultQueries = async (
   }
 
   for (const [i, m] of groups.entries()) {
+    // Only run overall quantile analysis for standard snapshots
+    // regardless of how many dimensions are requested
+    const runOverallQuantileAnalysis =
+      snapshotType === "standard" && m.some(quantileMetricType);
+
     const queryParams: ExperimentFactMetricsQueryParams = {
       activationMetric,
-      dimensions: dimensionObj ? [dimensionObj] : [],
+      dimensions: runOverallQuantileAnalysis ? [] : dimensionObjs,
       metrics: m,
       segment: segmentObj,
       settings: snapshotSettings,
@@ -416,7 +383,7 @@ export const startExperimentResultQueries = async (
       name: TRAFFIC_QUERY_NAME,
       query: integration.getExperimentAggregateUnitsQuery({
         ...unitQueryParams,
-        dimensions: dimensionsForTraffic,
+        dimensions: dimensionObjs.length ? dimensionObjs : dimensionsForTraffic,
         useUnitsTable: !!unitQuery,
       }),
       dependencies: unitQuery ? [unitQuery.query] : [],
@@ -428,29 +395,9 @@ export const startExperimentResultQueries = async (
     queries.push(trafficQuery);
   }
 
-  // Schedule a drop of the old units table at the end if we created a new one
-  if (oldUnitsTableToDrop) {
-    const dropOldUnitsTableQuery = await startQuery({
-      name: `drop_${queryParentId}_old`,
-      query: integration.getDropUnitsTableQuery({
-        fullTablePath: oldUnitsTableToDrop,
-      }),
-      dependencies: [],
-      runAtEnd: true,
-      run: (query, setExternalId) =>
-        integration.runDropTableQuery(query, setExternalId),
-      process: (rows) => rows,
-      queryType: "experimentDropUnitsTable",
-    });
-    queries.push(dropOldUnitsTableQuery);
-  }
-
   const dropUnitsTable =
     integration.getSourceProperties().dropUnitsTable &&
-    settings.pipelineSettings?.unitsTableDeletion &&
-    // TODO: This is not entirely true because we might want to drop the old table or when would we clean it up?
-    // Never drop the units table when incremental refresh is enabled for this refresh
-    !incrementalRefreshEnabled;
+    settings.pipelineSettings?.unitsTableDeletion;
   if (useUnitsTable && dropUnitsTable) {
     const dropUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}`,
@@ -658,8 +605,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       throw new Error("Experiment must have at least 1 metric selected.");
     }
 
-    const dimensionObj = await parseDimensionId(
+    const dimensionObj = await parseDimension(
       snapshotSettings.dimensions[0]?.id,
+      snapshotSettings.dimensions[0]?.slices,
       this.model.organization
     );
 

@@ -61,7 +61,8 @@ export type CommercialFeature =
   | "saveSqlExplorerQueries"
   | "metric-effects"
   | "metric-correlations"
-  | "dashboards";
+  | "dashboards"
+  | "incremental-refresh";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 

@@ -65,8 +65,8 @@ import {
   UserDimension,
   ExperimentDimension,
   ExternalIdCallback,
-  DimensionSlicesQueryResponse,
   DimensionSlicesQueryParams,
+  DimensionSlicesQueryResponse,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
   FactMetricData,
@@ -77,14 +77,21 @@ import {
   TrackedEventData,
   AutoMetricTrackedEvent,
   AutoMetricToCreate,
-  DropTableQueryResponse,
   DropTableQueryParams,
+  DropTableQueryResponse,
   TestQueryParams,
   ColumnTopValuesParams,
   ColumnTopValuesResponse,
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
   VariationPeriodWeight,
+  DataType,
+  IncrementalWithNoOutputQueryResponse,
+  CreateExperimentIncrementalUnitsQueryParams,
+  UpdateExperimentIncrementalUnitsQueryParams,
+  DropOldIncrementalUnitsQueryParams,
+  AlterNewIncrementalUnitsQueryParams,
+  MaxTimestampIncrementalUnitsQueryParams,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -111,6 +118,7 @@ import {
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
 import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
+import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -193,7 +201,13 @@ export default abstract class SqlIntegration
       hasQuantileTesting: this.hasQuantileTesting(),
       hasEfficientPercentiles: this.hasEfficientPercentile(),
       hasCountDistinctHLL: this.hasCountDistinctHLL(),
+      hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
     };
+  }
+
+  // TODO: set for other engines
+  canRunIncrementalRefreshQueries(): boolean {
+    return true;
   }
 
   async testConnection(): Promise<boolean> {
@@ -352,7 +366,6 @@ export default abstract class SqlIntegration
   private getExposureQuery(
     exposureQueryId: string,
     userIdType?: "anonymous" | "user",
-    incrementalStartDate?: Date
   ): ExposureQuery {
     if (!exposureQueryId) {
       exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
@@ -366,12 +379,6 @@ export default abstract class SqlIntegration
       throw new Error(
         "Unknown experiment assignment table - " + exposureQueryId
       );
-    }
-
-    if (incrementalStartDate) {
-      match.query = `${match.query} WHERE timestamp >= ${this.toTimestamp(
-        incrementalStartDate
-      )}`;
     }
 
     return match;
@@ -1594,8 +1601,8 @@ export default abstract class SqlIntegration
   }
 
   private getDimensionColumn(
-    baseIdType: string,
-    dimension: UserDimension | ExperimentDimension | null
+    dimension: UserDimension | ExperimentDimension | null,
+    experimentDimensionPrefix?: string
   ) {
     const missingDimString = "__NULL_DIMENSION";
     if (!dimension) {
@@ -1609,7 +1616,7 @@ export default abstract class SqlIntegration
         MIN(
           CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
             coalesce(${this.castToString(
-              `e.dim_${dimension.id}`
+              `e.${experimentDimensionPrefix ?? "dim_"}${dimension.id}`
             )}, ${this.castToString(`'${missingDimString}'`)})
           )
         ),
@@ -1809,258 +1816,6 @@ export default abstract class SqlIntegration
     );
   }
 
-  getExperimentIncrementalUnitsTableQuery(
-    params: ExperimentUnitsQueryParams & {
-      previousUnitsTableFullName: string;
-      lastScannedTimestamp: Date;
-    }
-  ): string {
-    return format(
-      `
-    CREATE TABLE ${params.unitsTableFullName}
-    ${this.createUnitsTableOptions()}
-    AS (
-      WITH
-        ${this.getExperimentIncrementalUnitsQuery(params)}
-      SELECT * FROM __experimentUnits
-    )
-    `,
-      this.getFormatDialect()
-    );
-  }
-
-  getExperimentIncrementalUnitsQuery(
-    params: ExperimentUnitsQueryParams & {
-      previousUnitsTableFullName: string;
-      lastScannedTimestamp: Date;
-    }
-  ): string {
-    const {
-      settings,
-      segment,
-      activationMetric: activationMetricDoc,
-      factTableMap,
-    } = params;
-
-    const activationMetric = this.processActivationMetric(
-      activationMetricDoc,
-      settings
-    );
-
-    const { experimentDimensions, unitDimensions } = this.processDimensions(
-      params.dimensions,
-      settings,
-      activationMetric
-    );
-
-    const exposureQuery = this.getExposureQuery(
-      settings.exposureQueryId || "",
-      undefined,
-      params.lastScannedTimestamp
-    );
-
-    // Get any required identity join queries
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
-      objects: [
-        [exposureQuery.userIdType],
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-        segment ? [segment.userIdType || "user_id"] : [],
-      ],
-      from: settings.startDate,
-      to: settings.endDate,
-      forcedBaseIdType: exposureQuery.userIdType,
-      experimentId: settings.experimentId,
-    });
-
-    // Get date range for experiment
-    const startDate: Date = settings.startDate;
-    const endDate: Date = this.getExperimentEndDate(settings, 0);
-
-    const timestampColumn = "e.timestamp";
-    // BQ datetime cast for SELECT statements (do not use for where)
-    const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
-    const overrideConversionWindows =
-      settings.attributionModel === "experimentDuration";
-
-    // TODO: need to add dimensions columns to the old stuff too
-    return `
-    ${params.includeIdJoins ? idJoinSQL : ""}
-    __oldExposures AS (
-      SELECT 
-        user_id,
-        variation AS variation_id,
-        first_exposure_timestamp AS timestamp,
-        '${settings.experimentId}' AS experiment_id
-      FROM ${params.previousUnitsTableFullName}
-    ),
-    __newExposures AS (
-      ${compileSqlTemplate(exposureQuery.query, {
-        startDate: settings.startDate,
-        endDate: settings.endDate,
-        experimentId: settings.experimentId,
-      })}
-    ),
-    __rawExperiment AS (
-        SELECT
-          user_id,
-          variation_id,
-          timestamp,
-          experiment_id
-        FROM
-          __newExposures
-        UNION ALL
-        SELECT
-          user_id,
-          variation_id,
-          timestamp,
-          experiment_id
-        FROM __oldExposures
-    ),
-    __experimentExposures AS (
-      -- Viewed Experiment
-      SELECT
-        e.${baseIdType} as ${baseIdType}
-        , ${this.castToString("e.variation_id")} as variation
-        , ${timestampDateTimeColumn} as timestamp
-        ${experimentDimensions
-          .map((d) => {
-            if (d.specifiedSlices?.length) {
-              return `, ${this.getDimensionInStatement(
-                d.id,
-                d.specifiedSlices
-              )} AS dim_${d.id}`;
-            }
-            return `, e.${d.id} AS dim_${d.id}`;
-          })
-          .join("\n")}
-      FROM
-          __rawExperiment e
-      WHERE
-          e.experiment_id = '${settings.experimentId}'
-          AND ${timestampColumn} >= ${this.toTimestamp(startDate)}
-          ${
-            endDate
-              ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`
-              : ""
-          }
-          ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
-    )
-    ${
-      activationMetric
-        ? `, __activationMetric as (${this.getMetricCTE({
-            metric: activationMetric,
-            baseIdType,
-            idJoinMap,
-            startDate: this.getMetricStart(
-              settings.startDate,
-              getDelayWindowHours(activationMetric.windowSettings),
-              0
-            ),
-            endDate: this.getMetricEnd(
-              [activationMetric],
-              settings.endDate,
-              overrideConversionWindows
-            ),
-            experimentId: settings.experimentId,
-            factTableMap,
-          })})
-        `
-        : ""
-    }
-    ${
-      segment
-        ? `, __segment as (${this.getSegmentCTE(
-            segment,
-            baseIdType,
-            idJoinMap,
-            factTableMap,
-            {
-              startDate: settings.startDate,
-              endDate: settings.endDate,
-              experimentId: settings.experimentId,
-            }
-          )})`
-        : ""
-    }
-    ${unitDimensions
-      .map(
-        (d) =>
-          `, __dim_unit_${d.dimension.id} as (${this.getDimensionCTE(
-            d.dimension,
-            baseIdType,
-            idJoinMap
-          )})`
-      )
-      .join("\n")}
-      , __experimentUnits AS (
-      -- One row per user
-      SELECT
-        e.${baseIdType} AS ${baseIdType}
-        , ${this.ifElse(
-          "count(distinct e.variation) > 1",
-          "'__multiple__'",
-          "max(e.variation)"
-        )} AS variation
-        , MIN(${timestampColumn}) AS first_exposure_timestamp
-        ${unitDimensions
-          .map(
-            (d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_unit_${
-              d.dimension.id
-            }`
-          )
-          .join("\n")}
-        ${experimentDimensions
-          .map(
-            (d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
-          )
-          .join("\n")}
-        ${
-          activationMetric
-            ? `, MIN(${this.ifElse(
-                this.getConversionWindowClause(
-                  "e.timestamp",
-                  "a.timestamp",
-                  activationMetric,
-                  settings.endDate,
-                  false,
-                  overrideConversionWindows
-                ),
-                "a.timestamp",
-                "NULL"
-              )}) AS first_activation_timestamp
-            `
-            : ""
-        }
-      FROM
-        __experimentExposures e
-        ${
-          segment
-            ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
-            : ""
-        }
-        ${unitDimensions
-          .map(
-            (d) => `
-            LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-              __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
-            )
-          `
-          )
-          .join("\n")}
-        ${
-          activationMetric
-            ? `LEFT JOIN __activationMetric a ON (a.${baseIdType} = e.${baseIdType})`
-            : ""
-        }
-      ${segment ? `WHERE s.date <= e.timestamp` : ""}
-      GROUP BY
-        e.${baseIdType}
-    )`;
-  }
-
   processActivationMetric(
     activationMetricDoc: null | ExperimentMetricInterface,
     settings: ExperimentSnapshotSettings
@@ -2142,7 +1897,6 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(
       settings.exposureQueryId || "",
       undefined,
-      params.incrementalStartDate
     );
 
     // For testing of the start from scratch example
@@ -2274,7 +2028,7 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_unit_${
+          , ${this.getDimensionColumn(d)} AS dim_unit_${
               d.dimension.id
             }`
           )
@@ -2282,7 +2036,7 @@ export default abstract class SqlIntegration
         ${experimentDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+          , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`
           )
           .join("\n")}
         ${
@@ -2598,7 +2352,7 @@ export default abstract class SqlIntegration
           ${params.dimensions
             .map(
               (d) => `
-            , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`
+            , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`
             )
             .join("\n")}
           , 1 AS variation
@@ -5768,5 +5522,247 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
 
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
+  }
+
+
+  // Incremental Refresh Queries
+
+  // Data Types used for table creation
+
+  // TODO: customize per engine, or break it into `getStringDataType` methods to override just one
+  // although I think the full mapping is file
+getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "VARCHAR";
+      case "number":
+        return "FLOAT";
+      case "boolean":
+        return "BOOLEAN";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+    }
+  }
+
+  // Incremental Units
+  // Separate "if use old table" vs "not"
+  // If restarting/no old table: getCreateExperimentIncrementalUnitsQuery
+  // Then: getUpdateExperimentIncrementalUnitsQuery
+
+  // Then housekeeping
+  // getDropOldIncrementalUnitsQuery
+  // getAlterNewIncrementalUnitsQuery
+  // getMaxTimestampIncrementalUnitsQuery
+
+  // Incremental Metrics
+  // Per fact table...
+  // If restarting/no old table: getCreateExperimentIncrementalMetricsQuery
+  // Else: nothing
+
+  // getUpdateExperimentIncrementalMetricsQuery
+  // Then housekeeping
+  // getMaxTimestampIncrementalMetricsQuery
+
+  // TODO
+  // If restarting/no old table + CUPED: getCreateExperimentIncrementalMetricsCupedQuery
+  // Else: nothing
+  // Then: getUpdateExperimentIncrementalMetricsCupedQuery
+  
+  // Finally, one per fact table for now:
+  // getExperimentIncrementalStatisticsQuery
+
+  parseExperimentParams(params: {
+    settings: ExperimentSnapshotSettings;
+    activationMetric: ExperimentMetricInterface | null;
+    dimensions: Dimension[];
+    unitsTableFullName: string;
+  }): {
+    exposureQuery: ExposureQuery;
+    activationMetric: ExperimentMetricInterface | null;
+    experimentDimensions: ExperimentDimension[];
+    unitDimensions: Dimension[];
+  } {
+    const {
+      settings,
+      activationMetric: activationMetricDoc,
+    } = params;
+
+    const exposureQuery = this.getExposureQuery(
+      settings.exposureQueryId || "",
+      undefined,
+    );
+
+    const activationMetric = this.processActivationMetric(
+      activationMetricDoc,
+      settings
+    );
+
+    const { experimentDimensions } = this.processDimensions(
+      params.dimensions,
+      settings,
+      activationMetric
+    );
+
+    return {
+      activationMetric,
+      experimentDimensions,
+      exposureQuery,
+      unitDimensions: params.dimensions,
+    };
+  }
+
+  getCreateExperimentIncrementalUnitsQuery(
+    params: CreateExperimentIncrementalUnitsQueryParams
+  ): string {
+
+    const { exposureQuery, activationMetric, experimentDimensions } = this.parseExperimentParams(params);
+    
+    // TODO : partition on `max_timestamp` for faster retrieval of the maximum timestamp for last scanned
+    return format(
+      `
+    CREATE TABLE ${params.unitsTableFullName}
+    ${this.createUnitsTableOptions()}
+    (
+      ${exposureQuery.userIdType} ${this.getDataType("string")}
+      , variation ${this.getDataType("string")},
+      , first_exposure_timestamp ${this.getDataType("timestamp")}
+      ${activationMetric ? `, first_activation_timestamp ${this.getDataType("timestamp")}` : ""}
+      ${experimentDimensions.map((d) => `, dim_exp_${d.id} ${this.getDataType("string")}`).join("\n")}
+      , max_timestamp ${this.getDataType("timestamp")}
+    )
+    `,
+      this.getFormatDialect()
+    );
+  }
+
+  getUpdateExperimentIncrementalUnitsQuery(
+    params: UpdateExperimentIncrementalUnitsQueryParams
+  ): string {
+
+    const { settings } = params;
+    const { exposureQuery, activationMetric, experimentDimensions } = this.parseExperimentParams(params);
+
+    // TODO: id joins
+    // TODO: sql filter and segments
+    // TODO: activation metric
+    // TODO: partitioning for quick max timestamp retrieval
+    return format(
+      `
+      CREATE TABLE ${params.unitsTableFullName}_tmp AS (
+        WITH __existingUnits AS (
+          SELECT 
+            ${exposureQuery.userIdType}
+            , variation
+            , first_exposure_timestamp AS timestamp
+            ${activationMetric ? `, first_activation_timestamp AS activation_timestamp` : ""}
+            ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
+          FROM ${params.unitsTableFullName}
+          -- Redundant where statement could be used for safety to prevent counting units twice
+          -- WHERE max_timestamp < ${this.toTimestamp(params.lastMaxTimestamp)}
+        ),
+        __newExposures AS (
+          ${compileSqlTemplate(exposureQuery.query, {
+            startDate: settings.startDate,
+            endDate: settings.endDate,
+            experimentId: settings.experimentId,
+            // TODO add incremental start data as template variable
+          })}
+        ),
+        __filteredNewExposures AS (
+          SELECT 
+            ${exposureQuery.userIdType}
+            , variation_id AS variation
+            , ${this.castUserDateCol("timestamp")} AS timestamp
+            -- TODO activation metric timestamp
+            ${activationMetric ? `, NULL AS activation_timestamp` : ""}
+            ${experimentDimensions.map((d) => `, ${d.id} AS dim_exp_${d.id}`).join(",\n")}
+          FROM __newExposures
+          -- TODO pass this up to __newExposures directly
+          WHERE timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}
+        ),
+        __jointExposures AS (
+          SELECT * FROM __existingUnits
+          UNION ALL
+          SELECT * FROM __filteredNewExposures
+        ),
+        __experimentUnits AS (
+          SELECT
+            e.${exposureQuery.userIdType} AS ${exposureQuery.userIdType}
+            , ${this.ifElse(
+              "COUNT(DISTINCT e.variation) > 1",
+              "'__multiple__'",
+              "MAX(e.variation)"
+            )} AS variation
+            , MIN(e.timestamp) AS first_exposure_timestamp
+            ${activationMetric ? `, MIN(e.activation_timestamp) AS first_activation_timestamp` : ""}
+            ${experimentDimensions
+              .map(
+                (d) => `
+              , ${this.getDimensionColumn(d, "dim_exp_")} AS dim_exp_${d.id}`
+              )
+              .join("\n")}
+          FROM __jointExposures e
+          GROUP BY
+            ${exposureQuery.userIdType}
+        )
+        SELECT 
+          ${exposureQuery.userIdType}
+          , variation
+          , first_exposure_timestamp
+          ${activationMetric ? `, first_activation_timestamp` : ""}
+          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
+          , MAX(timestamp) OVER () AS max_timestamp
+        FROM __experimentUnits
+      )
+      `, this.getFormatDialect()
+    );
+  }
+
+  getDropOldIncrementalUnitsQuery(params: DropOldIncrementalUnitsQueryParams): string {
+    if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
+      throw new Error(
+        "Unable to drop table that is not temporary units table."
+      );
+    }
+    return format(
+      `
+      DROP TABLE IF EXISTS ${params.unitsTableFullName}
+      `, this.getFormatDialect()
+    );
+  }
+
+  getAlterNewIncrementalUnitsQuery(params: AlterNewIncrementalUnitsQueryParams): string {
+    return format(
+      `
+      ALTER TABLE ${params.unitsTableFullName}_tmp RENAME TO ${params.unitsTableFullName}
+      `, this.getFormatDialect()
+    );
+  }
+
+  getMaxTimestampIncrementalUnitsQuery(params: MaxTimestampIncrementalUnitsQueryParams): string {
+    // TODO: partitioning for quick max timestamp retrieval
+    return format(
+      `
+      SELECT MAX(max_timestamp) FROM ${params.unitsTableFullName}
+      `, this.getFormatDialect()
+    );
+  }
+
+  async runMaxTimestampIncrementalUnitsQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
+    const results = await this.runQuery(sql, setExternalId);
+    return results;
+  }
+
+  async runIncrementalWithNoOutputQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
+    const results = await this.runQuery(sql, setExternalId);
+    return results;
   }
 }
