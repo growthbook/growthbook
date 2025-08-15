@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { v4 as uuid4 } from "uuid";
 import { ExperimentDimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import {
@@ -6,6 +7,8 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { expandMetricGroups } from "shared/experiments";
+import { blockHasFieldOfType } from "shared/enterprise";
+import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -13,8 +16,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { BlockProps } from ".";
 
 export default function ExperimentDimensionBlock({
-  block: {
-    id,
+  block,
+  experiment,
+  snapshot,
+  analysis,
+  ssrPolyfills,
+}: BlockProps<ExperimentDimensionBlockInterface>) {
+  const {
     metricIds,
     baselineRow,
     columnsFilter,
@@ -22,14 +30,11 @@ export default function ExperimentDimensionBlock({
     dimensionId,
     dimensionValues,
     differenceType,
-  },
-  experiment,
-  snapshot,
-  analysis,
-  ssrPolyfills,
-}: BlockProps<ExperimentDimensionBlockInterface> & { block: { id?: string } }) {
-  // todo?: assign stable temp ID when creating new block
-  id = id || "" + Math.floor(Math.random() * 10000);
+  } = block;
+  const blockId = useMemo(
+    () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
+    [block]
+  );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
@@ -106,7 +111,7 @@ export default function ExperimentDimensionBlock({
 
   return (
     <BreakDownResults
-      idPrefix={id}
+      idPrefix={blockId}
       key={snapshot.dimension}
       results={analysis.results}
       queryStatusData={queryStatusData}
