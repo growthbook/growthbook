@@ -25,7 +25,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  hasRisk,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
@@ -242,7 +241,6 @@ const CompactResults: FC<{
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.resultGroup === "guardrail")}
             id={id}
-            hasRisk={hasRisk(rows)}
             editMetrics={editMetrics}
             statsEngine="frequentist"
             pValueCorrection={pValueCorrection}

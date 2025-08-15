@@ -4,6 +4,14 @@ import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { PiCaretDownFill, PiHourglassMedium, PiInfoFill } from "react-icons/pi";
 import { Permissions } from "shared/permissions";
+import {
+  ExperimentReportVariationWithIndex,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
+import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import { ExperimentMetricInterface } from "shared/experiments";
+import { RowResults } from "@/services/experiments";
 import HelperText from "@/components/Radix/HelperText";
 import Checkbox from "@/components/Radix/Checkbox";
 import RadioGroup from "@/components/Radix/RadioGroup";
@@ -40,6 +48,8 @@ import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import SplitButton from "@/components/Radix/SplitButton";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import { UserContext } from "@/services/UserContext";
+import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
+import Frame from "@/components/Radix/Frame";
 
 export default function DesignSystemPage() {
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
@@ -56,6 +66,251 @@ export default function DesignSystemPage() {
   const [stepperStep, setStepperStep] = useState(0);
   const [selectValue, setSelectValue] = useState("carrot");
   const [activeControlledTab, setActiveControlledTab] = useState("tab1");
+
+  // Mock data for AnalysisResultPopover scenarios
+  const variationA = {
+    id: "v0",
+    name: "Control",
+    weight: 0.5,
+    index: 0,
+  } as ExperimentReportVariationWithIndex;
+  const variationB = {
+    id: "v1",
+    name: "Variation",
+    weight: 0.5,
+    index: 1,
+  } as ExperimentReportVariationWithIndex;
+
+  const baselineMetric: SnapshotMetric = {
+    value: 1000,
+    cr: 1.0,
+    users: 1000,
+    ci: [-0.01, 0.01],
+  };
+
+  const statsWin: SnapshotMetric = {
+    value: 1100,
+    cr: 1.1,
+    users: 1000,
+    expected: 0.1,
+    ci: [0.02, 0.18],
+    ciAdjusted: [0.015, 0.175],
+    pValue: 0.02,
+    pValueAdjusted: 0.025,
+    chanceToWin: 0.92,
+  };
+
+  const statsLose: SnapshotMetric = {
+    value: 900,
+    cr: 0.9,
+    users: 1000,
+    expected: -0.08,
+    ci: [-0.15, -0.01],
+    pValue: 0.03,
+    chanceToWin: 0.08,
+  };
+
+  const statsNotEnough: SnapshotMetric = {
+    value: 10,
+    cr: 0.01,
+    users: 20,
+    expected: 0,
+  };
+
+  const baseRowResults: RowResults = {
+    hasData: true,
+    enoughData: true,
+    enoughDataMeta: {
+      reason: "notEnoughData",
+      reasonText: "Collect more data to reach minimum sample size",
+      percentComplete: 1,
+      percentCompleteNumerator: 1,
+      percentCompleteDenominator: 1,
+      timeRemainingMs: 0,
+      showTimeRemaining: false,
+    },
+    hasScaledImpact: true,
+    significant: true,
+    significantUnadjusted: true,
+    significantReason: "p < 0.05",
+    suspiciousChange: false,
+    suspiciousThreshold: 0.25,
+    suspiciousChangeReason: "",
+    belowMinChange: false,
+    risk: 0.01,
+    relativeRisk: 0.01,
+    riskMeta: {
+      riskStatus: "ok",
+      showRisk: false,
+      riskFormatted: "1%",
+      relativeRiskFormatted: "1%",
+      riskReason: "",
+    },
+    guardrailWarning: "",
+    directionalStatus: "winning",
+    resultsStatus: "won",
+    resultsReason: "",
+  };
+
+  const rowResultsWin: RowResults = {
+    ...baseRowResults,
+    directionalStatus: "winning",
+    resultsStatus: "won",
+    resultsReason: "Significant improvement",
+  };
+
+  const rowResultsLose: RowResults = {
+    ...baseRowResults,
+    directionalStatus: "losing",
+    resultsStatus: "lost",
+    resultsReason: "Significant regression",
+  };
+
+  const rowResultsInsig: RowResults = {
+    ...baseRowResults,
+    significant: false,
+    significantUnadjusted: false,
+    directionalStatus: "winning",
+    resultsStatus: "draw",
+    resultsReason: "Not significant",
+  };
+
+  const rowResultsNotEnough: RowResults = {
+    ...baseRowResults,
+    hasData: true,
+    enoughData: false,
+    significant: false,
+    enoughDataMeta: {
+      reason: "notEnoughData",
+      reasonText: "Need 1,000 users per variation",
+      percentComplete: 0.12,
+      percentCompleteNumerator: 120,
+      percentCompleteDenominator: 1000,
+      timeRemainingMs: null,
+      showTimeRemaining: false,
+    },
+  };
+
+  const rowResultsBaselineZero: RowResults = {
+    ...rowResultsNotEnough,
+    enoughDataMeta: {
+      reason: "baselineZero",
+      reasonText: "Baseline has zero value",
+    },
+  };
+
+  const rowResultsSuspicious: RowResults = {
+    ...rowResultsWin,
+    suspiciousChange: true,
+    suspiciousThreshold: 0.3,
+    suspiciousChangeReason:
+      "Observed change exceeds historical variability threshold",
+  };
+
+  const metricBinomial = ({
+    id: "m_bin",
+    name: "Signup Rate",
+    type: "binomial",
+    inverse: false,
+  } as unknown) as ExperimentMetricInterface;
+
+  const metricInverse = ({
+    id: "m_inv",
+    name: "Bounce Rate",
+    type: "binomial",
+    inverse: true,
+  } as unknown) as ExperimentMetricInterface;
+
+  const metricWithDenominator = ({
+    id: "m_ratio_like",
+    name: "Purchases per User",
+    type: "count",
+    denominator: "m_users",
+    inverse: false,
+  } as unknown) as ExperimentMetricInterface;
+
+  const factRatioMetric = ({
+    id: "fact_ratio",
+    name: "ARPU (Fact Ratio)",
+    metricType: "ratio",
+    numerator: { factTableId: "ft1", column: "revenue", filters: [] },
+    denominator: { factTableId: "ft1", column: "sessions", filters: [] },
+    inverse: false,
+  } as unknown) as ExperimentMetricInterface;
+
+  const factQuantileUnit = ({
+    id: "fact_quantile_unit",
+    name: "p90 Session Duration (Unit)",
+    metricType: "quantile",
+    numerator: { factTableId: "ft1", column: "session_duration", filters: [] },
+    quantileSettings: { type: "unit", quantile: 0.9, ignoreZeros: true },
+    inverse: false,
+  } as unknown) as ExperimentMetricInterface;
+
+  const factQuantileEvent = ({
+    id: "fact_quantile_event",
+    name: "p90 Event Value (Event)",
+    metricType: "quantile",
+    numerator: { factTableId: "ft1", column: "event_value", filters: [] },
+    quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
+    inverse: false,
+  } as unknown) as ExperimentMetricInterface;
+
+  type ARPData = {
+    metricRow: number;
+    metric: ExperimentMetricInterface;
+    metricSnapshotSettings?: MetricSnapshotSettings;
+    dimensionName?: string;
+    dimensionValue?: string;
+    variation: ExperimentReportVariationWithIndex;
+    stats: SnapshotMetric;
+    baseline: SnapshotMetric;
+    baselineVariation: ExperimentReportVariationWithIndex;
+    rowResults: RowResults;
+    statsEngine: StatsEngine;
+    pValueCorrection?: PValueCorrection;
+    isGuardrail: boolean;
+  };
+
+  function makeData({
+    metric,
+    stats,
+    baseline,
+    rowResults,
+    statsEngine = "frequentist",
+    pValueCorrection = null,
+    isGuardrail = false,
+    dimensionName,
+    dimensionValue,
+    metricSnapshotSettings,
+  }: {
+    metric: ExperimentMetricInterface;
+    stats: SnapshotMetric;
+    baseline: SnapshotMetric;
+    rowResults: RowResults;
+    statsEngine?: StatsEngine;
+    pValueCorrection?: PValueCorrection | null;
+    isGuardrail?: boolean;
+    dimensionName?: string;
+    dimensionValue?: string;
+    metricSnapshotSettings?: MetricSnapshotSettings;
+  }): ARPData {
+    return {
+      metricRow: 0,
+      metric,
+      metricSnapshotSettings,
+      dimensionName,
+      dimensionValue,
+      variation: variationB,
+      stats,
+      baseline,
+      baselineVariation: variationA,
+      rowResults,
+      statsEngine,
+      pValueCorrection,
+      isGuardrail,
+    };
+  }
 
   return (
     <div className="pagecontents container-fluid pt-4 pb-3">
@@ -923,6 +1178,263 @@ export default function DesignSystemPage() {
           <ResultsIndicator results="inconclusive" />
           <ResultsIndicator results="won" />
           <ResultsIndicator results="lost" />
+        </Flex>
+      </div>
+
+      <div className="appbox p-3">
+        <h3>Analysis Result</h3>
+        <Flex direction="column" gap="4">
+          <div>
+            <b>Frequentist, Relative, Significant Win (p-value adjusted)</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                    pValueCorrection: "benjamini-hochberg",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Frequentist, Relative, Not Enough Data</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsNotEnough,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsNotEnough,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsNotEnough,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsBaselineZero,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Frequentist, Relative, Suspicious Change</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsSuspicious,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Frequentist, Absolute, Insignificant</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="absolute"
+                  data={makeData({
+                    metric: metricWithDenominator,
+                    stats: { ...statsWin, expected: 0.02, denominator: 2000 },
+                    baseline: { ...baselineMetric, denominator: 2000 },
+                    rowResults: rowResultsInsig,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Frequentist, Scaled Impact</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="scaled"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Bayesian, Relative, CUPED + Prior (lift warning)</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsWin,
+                    statsEngine: "bayesian",
+                    metricSnapshotSettings: {
+                      metric: "m_bin",
+                      properPrior: true,
+                      properPriorMean: 0,
+                      properPriorStdDev: 0.1,
+                      regressionAdjustmentEnabled: true,
+                      regressionAdjustmentReason: "enabled",
+                      regressionAdjustmentAvailable: true,
+                      regressionAdjustmentDays: 14,
+                    },
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Guardrail Metric with Warning</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsLose,
+                    baseline: baselineMetric,
+                    rowResults: {
+                      ...rowResultsLose,
+                      guardrailWarning: "Upward trend in bounce rate",
+                    },
+                    statsEngine: "frequentist",
+                    isGuardrail: true,
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Inverse Metric (losing)</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricInverse,
+                    stats: statsLose,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsLose,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Quantile Metrics</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: factQuantileUnit,
+                    stats: {
+                      ...statsWin,
+                      stats: { users: 1000, count: 800, stddev: 1, mean: 1 },
+                    },
+                    baseline: {
+                      ...baselineMetric,
+                      stats: { users: 1000, count: 750, stddev: 1, mean: 1 },
+                    },
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: factQuantileEvent,
+                    stats: {
+                      ...statsWin,
+                      stats: { users: 1000, count: 2200, stddev: 1, mean: 1 },
+                    },
+                    baseline: {
+                      ...baselineMetric,
+                      stats: { users: 1000, count: 2000, stddev: 1, mean: 1 },
+                    },
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>Ratio (Fact) and Bandit (shows adjusted label)</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  isBandit
+                  data={makeData({
+                    metric: factRatioMetric,
+                    stats: { ...statsWin, denominator: 5000 },
+                    baseline: { ...baselineMetric, denominator: 4800 },
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
+
+          <div>
+            <b>With Dimension</b>
+            <Flex gap="3" mt="2">
+              <Frame py="2" px="2">
+                <AnalysisResultPopover
+                  differenceType="relative"
+                  data={makeData({
+                    metric: metricBinomial,
+                    stats: statsWin,
+                    baseline: baselineMetric,
+                    rowResults: rowResultsWin,
+                    statsEngine: "frequentist",
+                    dimensionName: "Country",
+                    dimensionValue: "United States",
+                  })}
+                />
+              </Frame>
+            </Flex>
+          </div>
         </Flex>
       </div>
     </div>

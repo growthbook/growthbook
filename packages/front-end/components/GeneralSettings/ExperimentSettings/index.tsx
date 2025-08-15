@@ -196,6 +196,68 @@ export default function ExperimentSettings({
               </Flex>
             </Box>
 
+            {/* Pre-computed dimension breakdowns */}
+            <Box mb="6">
+              <Flex align="start" justify="start" gap="3">
+                <Box>
+                  <Checkbox
+                    disabled={!hasCommercialFeature("precomputed-dimensions")}
+                    value={
+                      hasCommercialFeature("precomputed-dimensions") &&
+                      !form.watch("disablePrecomputedDimensions")
+                    }
+                    setValue={(v) =>
+                      form.setValue("disablePrecomputedDimensions", !v)
+                    }
+                    id="toggle-precomputed-dimensions"
+                    mt="1"
+                  />
+                </Box>
+                <Flex direction="column" justify="start">
+                  <Box>
+                    <label
+                      htmlFor="toggle-precomputed-dimensions"
+                      className="mb-2"
+                    >
+                      <PremiumTooltip
+                        commercialFeature="precomputed-dimensions"
+                        body={
+                          <>
+                            <p>
+                              If your exposure queries have dimension columns,
+                              this will pre-compute the breakdowns for those
+                              dimensions for faster slicing-and-dicing in
+                              experiments.
+                            </p>
+                            <p>
+                              This setting will also enable post-stratification,
+                              a forthcoming variance reduction technique.
+                            </p>
+                          </>
+                        }
+                      >
+                        <Text size="3" className="font-weight-semibold">
+                          Pre-computed Dimension Breakdowns
+                        </Text>{" "}
+                        <GBInfo />
+                      </PremiumTooltip>
+                    </label>
+                  </Box>
+                  <Box>
+                    <Text>
+                      Pre-compute dimension breakdowns using dimension columns
+                      in your exposure queries (does not pre-compute dimension
+                      breakdowns for standalone unit dimensions). This enables
+                      faster dimension slicing-and-dicing without additional
+                      queries or joins at the cost of more aggregation steps in
+                      the main analysis queries. Navigate to your Data Source
+                      page to configure the dimension slices.
+                    </Text>
+                  </Box>
+                </Flex>
+              </Flex>
+            </Box>
+
             {/* Conversion window override */}
             <Box mb="4" width="100%">
               <Box className="appbox p-3">
@@ -271,7 +333,8 @@ export default function ExperimentSettings({
                       description: (
                         <>
                           <Text mb="2" as="p">
-                            Enter cron string to specify frequency
+                            Enter cron string to specify frequency. Minimum once
+                            an hour.
                           </Text>
                           <Field
                             disabled={

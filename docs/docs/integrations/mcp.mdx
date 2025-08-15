@@ -26,12 +26,12 @@ We cover how to connect the GrowthBook MCP server for the most popular tools bel
 
 Configuration includes 4 environment variables. Here's what they mean:
 
-| Variable Name | Status   | Description                                                       |
-| ------------- | -------- | ----------------------------------------------------------------- |
-| GB_API_KEY    | Required | A GrowthBook API key.                                             |
-| GB_USER       | Required | The name attached to any created flags.                           |
-| GB_API_URL    | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`. |
-| GB_APP_ORIGIN | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.  |
+| Variable Name | Status   | Description                                                                                |
+| ------------- | -------- | ------------------------------------------------------------------------------------------ |
+| GB_API_KEY    | Required | A GrowthBook API key.                                                                      |
+| GB_EMAIL      | Required | Your email address used with GrowthBook. Used when creating feature flags and experiments. |
+| GB_API_URL    | Optional | Your GrowthBook API URL. Defaults to `https://api.growthbook.io`.                          |
+| GB_APP_ORIGIN | Optional | Your GrowthBook app URL Defaults to `https://app.growthbook.io`.                           |
 
 <br />
 
@@ -58,7 +58,7 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -78,7 +78,7 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -98,7 +98,7 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -118,7 +118,7 @@ GrowthBook Cloud users only need to configure `GB_API_KEY` and `GB_USER`.
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -152,7 +152,7 @@ You should now see a green active status after the server successfully connects!
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -172,7 +172,7 @@ You should now see a green active status after the server successfully connects!
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -192,7 +192,7 @@ You should now see a green active status after the server successfully connects!
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -212,7 +212,7 @@ You should now see a green active status after the server successfully connects!
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -248,7 +248,7 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -268,7 +268,7 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
           "GB_API_KEY": "YOUR_API_KEY",
           "GB_API_URL": "YOUR_API_URL",
           "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-          "GB_USER": "YOUR_NAME"
+          "GB_EMAIL": "YOUR_EMAIL"
         }
       }
     }
@@ -288,7 +288,7 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -308,7 +308,7 @@ In CoPilot Chat, you'll see a tool icon, indicating the server is connected succ
         "GB_API_KEY": "YOUR_API_KEY",
         "GB_API_URL": "YOUR_API_URL",
         "GB_APP_ORIGIN": "YOUR_APP_ORIGIN",
-        "GB_USER": "YOUR_NAME"
+        "GB_EMAIL": "YOUR_EMAIL"
       }
     }
   }
@@ -343,6 +343,9 @@ A hammer icon will appear in the chat window, indicating that your GrowthBook MC
 - `get_experiment`: Fetch details for a specific experiment by ID.
 - `get_attributes`: List all user attributes tracked in GrowthBook (useful for targeting).
 - `create_experiment`: Creates a feature-flag linked experiment. Note that this tool calls `get_defaults`, which provides a sampling of previous experiments to help the AI agent create the experiment correctly. For better performance, these defaults are saved to the local file system and periodically updated.
+- `get_defaults`: Get default values for experiments including hypothesis, description, datasource, and assignment query. (Runs automatically when the create experiment tool is called.)
+- `create_defaults`: Set custom default values for experiments that will be used when creating new experiments.
+- `clear_user_defaults`: Clear user-defined defaults and revert to automatic defaults.
 
 ### Environments
 

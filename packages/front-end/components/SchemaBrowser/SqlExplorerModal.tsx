@@ -42,6 +42,7 @@ import {
 } from "@/components/ResizablePanels";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { VisualizationAddIcon } from "@/components/Icons";
+import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import Field from "@/components/Forms/Field";
@@ -220,7 +221,8 @@ export default function SqlExplorerModal({
     const dataVizConfig = form.watch("dataVizConfig") || [];
     // Validate each dataVizConfig object
     dataVizConfig.forEach((config, index) => {
-      if (!config.xAxis) {
+      // Check if chart type requires xAxis but doesn't have one
+      if (requiresXAxis(config) && !config.xAxis) {
         setTab(`visualization-${index}`);
         throw new Error(
           `X axis is required for Visualization ${

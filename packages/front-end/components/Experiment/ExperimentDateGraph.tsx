@@ -199,7 +199,7 @@ const getTooltipData = (
 
   const d = datapoints[closestIndex];
   const x = xCoords[closestIndex];
-  const y = d.variations
+  const y = d?.variations
     ? d.variations.map(
         (variation) => yScale(getYVal(variation, yaxis) ?? 0) ?? 0
       )

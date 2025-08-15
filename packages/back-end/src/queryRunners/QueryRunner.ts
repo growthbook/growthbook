@@ -43,7 +43,10 @@ export type QueryStatusEndpointResponse = {
   total: number;
 };
 
-export type RowsType = Record<string, string | boolean | number | object>[];
+export type RowsType = Record<
+  string,
+  string | boolean | number | object | undefined
+>[];
 // eslint-disable-next-line
 export type ProcessedRowsType = Record<string, any>;
 

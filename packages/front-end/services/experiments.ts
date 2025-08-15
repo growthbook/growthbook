@@ -42,6 +42,7 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
@@ -64,6 +65,7 @@ export type ExperimentTableRow = {
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
+  error?: RowError;
 };
 
 export function getRisk(
@@ -153,10 +155,6 @@ export function getRiskByVariation(
       showRisk,
     };
   }
-}
-
-export function hasRisk(rows: ExperimentTableRow[]) {
-  return rows.filter((row) => row.variations[1]?.risk?.length).length > 0;
 }
 
 export function useDomain(
@@ -455,6 +453,7 @@ export type RowResults = {
   significantUnadjusted: boolean;
   significantReason: string;
   suspiciousChange: boolean;
+  suspiciousThreshold: number;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
   risk: number;
@@ -620,9 +619,11 @@ export function getRowResults({
     metricDefaults,
     differenceType
   );
+  const suspiciousThreshold =
+    metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
+        suspiciousThreshold
       )}).`
     : "";
 
@@ -754,6 +755,7 @@ export function getRowResults({
     significantUnadjusted,
     significantReason,
     suspiciousChange,
+    suspiciousThreshold,
     suspiciousChangeReason,
     belowMinChange,
     risk,
