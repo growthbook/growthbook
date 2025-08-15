@@ -1,7 +1,6 @@
 import { FC, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { isProjectListValidForProject } from "shared/util";
 import { useRouter } from "next/router";
 import { PiCursor, PiCursorClick } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
@@ -25,6 +24,7 @@ import Badge from "@/components/Radix/Badge";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import ManagedWarehouseModal from "@/components/InitialSetup/ManagedWarehouseModal";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 function ManagedWarehouseDriver() {
   const { hasCommercialFeature } = useUser();
@@ -130,23 +130,16 @@ const DataSourcesPage: FC = () => {
     currentProjectIsDemo,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const {
-    mutateDefinitions,
-    setProject,
-    project,
-    datasources,
-  } = useDefinitions();
+  const { mutateDefinitions, setProject, project } = useDefinitions();
+  const { projectDataSources: datasources } = useProjectDefinitions(project);
 
   const gb = useGrowthBook();
 
   const router = useRouter();
 
-  const filteredDatasources = (project
-    ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
-      )
-    : datasources
-  ).filter((ds) => !ds.projects?.includes(demoProjectId || ""));
+  const filteredDatasources = datasources.filter(
+    (ds) => !ds.projects?.includes(demoProjectId || "")
+  );
 
   const [
     newModalData,
