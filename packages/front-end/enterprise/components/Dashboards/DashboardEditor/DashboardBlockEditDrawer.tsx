@@ -293,29 +293,25 @@ export default function DashboardBlockEditDrawer({
           order={2}
           defaultSize={50}
           minSize={40}
-          style={{ background: "var(--background-color)" }}
+          style={{
+            background: "var(--background-color)",
+            position: "relative",
+          }}
         >
+          <div
+            style={{
+              position: "absolute",
+              bottom: "0px",
+              width: "100%",
+              height: "20px",
+              background:
+                "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 100%)",
+              zIndex: 10000,
+              pointerEvents: "none",
+            }}
+          />
           {block && (
-            <Flex
-              direction="column"
-              pt="5"
-              px="4"
-              gap="2"
-              height="100%"
-              position="relative"
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "0px",
-                  width: "calc(100% - 32px)",
-                  height: "20px",
-                  background:
-                    "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 100%)",
-                  zIndex: 10000,
-                  pointerEvents: "none",
-                }}
-              ></div>
+            <Flex direction="column" pt="5" px="4" gap="2" height="100%">
               <Flex justify="between" align="center" px="2">
                 <span>
                   <Text weight="light">{BLOCK_TYPE_INFO[block.type].name}</Text>
