@@ -48,6 +48,7 @@ export class ExperimentReportQueryRunner extends QueryRunner<
     );
 
     const experimentParams: ExperimentResultsQueryParams = {
+      snapshotType: "report",
       metricMap: params.metricMap,
       snapshotSettings,
       variationNames: this.model.args.variations.map((v) => v.name),

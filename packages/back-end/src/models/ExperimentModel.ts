@@ -40,6 +40,10 @@ import {
   updateVercelExperimentationItemFromExperiment,
   deleteVercelExperimentationItemFromExperiment,
 } from "back-end/src/services/vercel-native-integration.service";
+import {
+  generateEmbeddings,
+  simpleCompletion,
+} from "back-end/src/enterprise/services/openai";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -300,6 +304,7 @@ const experimentSchema = new mongoose.Schema({
         },
       ],
     },
+    precomputedDimensions: [String],
   },
   dismissedWarnings: [String],
 });
@@ -1423,6 +1428,63 @@ export const getAllURLRedirectExperiments = async (
 
   return exps;
 };
+
+const getTextForEmbedding = (exp: ExperimentInterface): string => {
+  return `Name: ${exp.name}\nHypothesis: ${exp.hypothesis}\nDescription: ${
+    exp.description
+  }\n${exp.analysis ? "\nAnalysis: " + exp.analysis : ""}`;
+};
+
+export async function generateExperimentEmbeddings(
+  context: ReqContext | ApiReqContext,
+  experimentsToGenerateEmbeddings: ExperimentInterface[]
+) {
+  const batchSize = 15;
+  for (let i = 0; i < experimentsToGenerateEmbeddings.length; i += batchSize) {
+    const batch = experimentsToGenerateEmbeddings.slice(i, i + batchSize);
+    const input = batch.map((exp) => getTextForEmbedding(exp));
+    const embeddings = await generateEmbeddings({
+      context,
+      input,
+    });
+
+    for (let j = 0; j < batch.length; j++) {
+      const exp = batch[j];
+      // save the embeddings back to the experiment:
+      try {
+        await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
+          embeddings: embeddings.data[j].embedding,
+        });
+      } catch (error) {
+        throw new Error("Error updating embeddings");
+      }
+    }
+  }
+}
+
+export async function generateExperimentKeywords(
+  context: ReqContext | ApiReqContext,
+  exp: ExperimentInterface
+) {
+  const keywords = await simpleCompletion({
+    context,
+    prompt: `Generate a list of keywords for the following experiment.\nname: ${
+      exp.name
+    }\nhypothesis: ${exp.hypothesis}\n description: ${
+      exp.description || ""
+    }\nanalysisSummary: ${
+      exp.analysisSummary
+    }\n\nThe keywords should be related to the experiments intent, goal metrics, and area of the product. It will be used to help identify similar experiments. Return just the keywords, comma seperated.`,
+    type: "generate-experiment-keywords",
+    isDefaultPrompt: true,
+    temperature: 0.1,
+  });
+  const keywordsArr = keywords.split(",").map((k) => k.trim());
+  // save the keywords back to the experiment:
+  await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
+    keywords: keywordsArr,
+  });
+}
 
 export function getPayloadKeysForAllEnvs(
   context: ReqContext | ApiReqContext,

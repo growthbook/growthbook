@@ -131,15 +131,6 @@ export default function UpgradeModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (
-      ["enterprise"].includes(effectiveAccountPlan || "") &&
-      !license?.isTrial
-    ) {
-      close();
-    }
-  }, [effectiveAccountPlan, license, close]);
-
   const startPro = async () => {
     setError("");
     setLoading(true);
@@ -684,6 +675,28 @@ export default function UpgradeModal({
         await startProTrial(name, email);
       }
     }
+  }
+
+  // Safety check in case an Enterprise org found themselves here
+  if (accountPlan === "enterprise") {
+    return (
+      <Modal
+        trackingEventModalType="upgrade-modal"
+        allowlistedTrackingEventProps={trackContext}
+        open={true}
+        includeCloseCta={true}
+        closeCta="Close"
+        close={close}
+        size="lg"
+        header={null}
+        showHeaderCloseButton={false}
+        ctaEnabled={permissionsUtil.canManageBilling()}
+      >
+        <Callout status="info" mr="5" mb="2">
+          Your organization is already on GrowthBook&apos;s highest plan.
+        </Callout>
+      </Modal>
+    );
   }
 
   return (

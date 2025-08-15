@@ -1,4 +1,6 @@
 export const entityEvents = {
+  agreement: ["create", "update", "delete"],
+  aiPrompt: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [
     "create",
@@ -58,6 +60,7 @@ export const entityEvents = {
   dashboard: ["create", "update", "delete"],
   dashboardTemplate: ["create", "update", "delete"],
   incrementalRefresh: ["create", "update", "delete"],
+  vector: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

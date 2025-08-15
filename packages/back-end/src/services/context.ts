@@ -46,6 +46,9 @@ import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
 import { FeatureInterface } from "back-end/types/feature";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
+import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
+import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -58,6 +61,8 @@ export type ForeignRefTypes = {
 export class ReqContextClass {
   // Models
   public models!: {
+    agreements: AgreementModel;
+    aiPrompts: AiPromptModel;
     customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
     featureRevisionLogs: FeatureRevisionLogModel;
@@ -69,6 +74,7 @@ export class ReqContextClass {
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
     experimentTemplates: ExperimentTemplatesModel;
+    vectors: VectorsModel;
     safeRollout: SafeRolloutModel;
     safeRolloutSnapshots: SafeRolloutSnapshotModel;
     decisionCriteria: DecisionCriteriaModel;
@@ -79,6 +85,8 @@ export class ReqContextClass {
   };
   private initModels() {
     this.models = {
+      agreements: new AgreementModel(this),
+      aiPrompts: new AiPromptModel(this),
       customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
       featureRevisionLogs: new FeatureRevisionLogModel(this),
@@ -90,6 +98,7 @@ export class ReqContextClass {
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
       experimentTemplates: new ExperimentTemplatesModel(this),
+      vectors: new VectorsModel(this),
       safeRollout: new SafeRolloutModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),

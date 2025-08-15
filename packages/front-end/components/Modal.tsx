@@ -223,7 +223,9 @@ const Modal: FC<ModalProps> = ({
         </>
       )}
       <div
-        className={`modal-body ${bodyClassName}`}
+        className={`modal-body ${bodyClassName} ${
+          !header && (!close || !showHeaderCloseButton) ? "ml-4 mt-2" : ""
+        }`}
         ref={bodyRef}
         style={
           overflowAuto

@@ -13,16 +13,16 @@ import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
-  block: { baselineRow, columnsFilter, variationIds },
+  block: { id, baselineRow, columnsFilter, variationIds },
   experiment,
   analysis,
   ssrPolyfills,
   metrics,
-}: BlockProps<ExperimentMetricBlockInterface>) {
-  const {
-    pValueCorrection: hookPValueCorrection,
-    statsEngine: hookStatsEngine,
-  } = useOrgSettings();
+}: BlockProps<ExperimentMetricBlockInterface> & { block: { id?: string } }) {
+  // todo?: assign stable temp ID when creating new block
+  id = id || "" + Math.floor(Math.random() * 10000);
+
+  const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const goalMetrics = useMemo(
     () => expandMetricGroups(experiment.goalMetrics, metricGroups),
@@ -37,10 +37,7 @@ export default function ExperimentMetricBlock({
     [experiment, metricGroups]
   );
 
-  const statsEngine =
-    ssrPolyfills?.useOrgSettings()?.statsEngine ||
-    hookStatsEngine ||
-    "frequentist";
+  const statsEngine = analysis.settings.statsEngine;
 
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
@@ -120,7 +117,7 @@ export default function ExperimentMetricBlock({
       {Object.entries(rowGroups).map(([resultGroup, rows]) => (
         <ResultsTable
           key={resultGroup}
-          id={experiment.id}
+          id={id}
           phase={experiment.phases.length - 1}
           variations={variations}
           variationFilter={variationFilter}
@@ -137,7 +134,6 @@ export default function ExperimentMetricBlock({
           } Metrics`}
           renderLabelColumn={(label) => label}
           dateCreated={new Date()}
-          hasRisk={false}
           statsEngine={statsEngine}
           pValueCorrection={pValueCorrection}
           differenceType={analysis?.settings?.differenceType || "relative"}

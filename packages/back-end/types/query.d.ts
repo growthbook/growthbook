@@ -54,7 +54,8 @@ export interface QueryInterface {
   // eslint-disable-next-line
   result?: Record<string, any>;
   queryType?: QueryType;
-  rawResult?: Record<string, number | string | boolean | object>[];
+  // eslint-disable-next-line
+  rawResult?: Record<string, any>[];
   error?: string;
   dependencies?: string[]; // must succeed before running query
   runAtEnd?: boolean; // only run when all other queries in model finish
