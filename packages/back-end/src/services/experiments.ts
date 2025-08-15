@@ -165,6 +165,7 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
+import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -1040,7 +1041,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-}): Promise<ExperimentResultsQueryRunner> {
+}): Promise<ExperimentResultsQueryRunner | ExperimentIncrementalRefreshQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
@@ -1131,6 +1132,24 @@ export async function createSnapshot({
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
+  if (datasource.settings.incrementalRefresh?.enabled) {
+    const queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+      context,
+      snapshot,
+      integration,
+      useCache
+    );
+    await queryRunner.startAnalysis({
+      snapshotSettings: data.settings,
+      variationNames: experiment.variations.map((v) => v.name),
+      metricMap,
+      queryParentId: snapshot.id,
+      factTableMap,
+      recreateUnitsTable: false, // TODO recreate units table logic?
+    });
+    return queryRunner;
+  }
+  
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
     snapshot,

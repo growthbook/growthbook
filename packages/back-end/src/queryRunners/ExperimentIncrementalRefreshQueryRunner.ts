@@ -1,54 +1,22 @@
-import { analyzeExperimentPower } from "shared/enterprise";
-import { addDays } from "date-fns";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
-  isFactMetric,
-  isRatioMetric,
-  quantileMetricType,
 } from "shared/experiments";
-import { FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS } from "shared/constants";
-import { date, daysBetween } from "shared/dates";
-import chunk from "lodash/chunk";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
-import { SegmentInterface } from "back-end/types/segment";
 import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { parseDimensionId } from "back-end/src/services/experiments";
-import {
-  analyzeExperimentResults,
-  analyzeExperimentTraffic,
-} from "back-end/src/services/stats";
-import {
-  ExperimentAggregateUnitsQueryResponseRows,
-  ExperimentDimension,
-  ExperimentFactMetricsQueryParams,
-  ExperimentMetricQueryParams,
-  ExperimentMetricStats,
-  ExperimentQueryResponses,
-  ExperimentResults,
-  ExperimentUnitsQueryParams,
-  SourceIntegrationInterface,
-} from "back-end/src/types/Integration";
-import { expandDenominatorMetrics } from "back-end/src/util/sql";
+import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { OrganizationInterface } from "back-end/types/organization";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { BanditResult } from "back-end/types/experiment";
 import {
   QueryRunner,
   QueryMap,
@@ -56,11 +24,7 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { 
-  SnapshotResult, 
-  TRAFFIC_QUERY_NAME,
-  getFactMetricGroups
-} from "./ExperimentResultsQueryRunner";
+import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "growthbook_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "growthbook_metrics";
@@ -83,31 +47,28 @@ export const startExperimentIncrementalRefreshQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
-
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
   const { org } = context;
-  const hasIncrementalRefreshFeature = orgHasPremiumFeature(org, "incremental-refresh");
+  const hasIncrementalRefreshFeature = orgHasPremiumFeature(
+    org,
+    "incremental-refresh"
+  );
 
   const activationMetric = snapshotSettings.activationMetric
     ? metricMap.get(snapshotSettings.activationMetric) ?? null
     : null;
 
-
-  let segmentObj: SegmentInterface | null = null;
-  if (snapshotSettings.segment) {
-    segmentObj = await context.models.segments.getById(
-      snapshotSettings.segment
-    );
-  }
+  // let segmentObj: SegmentInterface | null = null;
+  // if (snapshotSettings.segment) {
+  //   segmentObj = await context.models.segments.getById(
+  //     snapshotSettings.segment
+  //   );
+  // }
 
   const settings = integration.datasource.settings;
-
-  const exposureQuery = (settings?.queries?.exposure || []).find(
-    (q) => q.id === snapshotSettings.exposureQueryId
-  );
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const allMetricGroups = await context.models.metricGroups.getAll();
@@ -120,33 +81,32 @@ export const startExperimentIncrementalRefreshQueries = async (
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");
   }
-  
+
   // TODO Metric updates
   // TODO health query
   // TODO validate that incremental refresh is enabled
 
-  const canRunIncrementalRefreshQueries = 
-    hasIncrementalRefreshFeature &&
-    settings.incrementalRefresh?.enabled;
+  const canRunIncrementalRefreshQueries =
+    hasIncrementalRefreshFeature && settings.incrementalRefresh?.enabled;
 
   const queries: Queries = [];
 
-  if (
-    !canRunIncrementalRefreshQueries
-  ) {
+  if (!canRunIncrementalRefreshQueries) {
     throw new Error("Integration does not support incremental refresh queries");
   }
 
-  const unitsTableFullName = integration.generateTablePath && integration.generateTablePath(
+  const unitsTableFullName =
+    integration.generateTablePath &&
+    integration.generateTablePath(
       `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}`,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
       true
-    )
-  ;
-
+    );
   if (!unitsTableFullName) {
-    throw new Error("Unable to generate table; table path generator not specified.");
+    throw new Error(
+      "Unable to generate table; table path generator not specified."
+    );
   }
 
   // queries to run
@@ -174,7 +134,8 @@ export const startExperimentIncrementalRefreshQueries = async (
         dimensions: [], // TODO experiment dimensions
       }),
       dependencies: [dropOldUnitsTableQuery.query],
-      run: (query, setExternalId) => integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+      run: (query, setExternalId) =>
+        integration.runIncrementalWithNoOutputQuery(query, setExternalId),
       process: (rows) => rows,
       queryType: "experimentIncrementalRefreshCreateUnitsTable",
     });
@@ -182,7 +143,9 @@ export const startExperimentIncrementalRefreshQueries = async (
   }
 
   // TODO get from model
-  const lastMaxTimestamp = params.recreateUnitsTable ? snapshotSettings.startDate : new Date();
+  const lastMaxTimestamp = params.recreateUnitsTable
+    ? snapshotSettings.startDate
+    : new Date();
   const updateUnitsTableQuery = await startQuery({
     name: `update_${queryParentId}`,
     query: integration.getUpdateExperimentIncrementalUnitsQuery({
@@ -193,7 +156,8 @@ export const startExperimentIncrementalRefreshQueries = async (
       lastMaxTimestamp: lastMaxTimestamp,
     }),
     dependencies: createUnitsTableQuery ? [createUnitsTableQuery.query] : [],
-    run: (query, setExternalId) => integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+    run: (query, setExternalId) =>
+      integration.runIncrementalWithNoOutputQuery(query, setExternalId),
     process: (rows) => rows,
     queryType: "experimentIncrementalRefreshUpdateUnitsTable",
   });
@@ -204,7 +168,8 @@ export const startExperimentIncrementalRefreshQueries = async (
     query: integration.getDropOldIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
     }),
-    run: (query, setExternalId) => integration.runDropTableQuery(query, setExternalId),
+    run: (query, setExternalId) =>
+      integration.runDropTableQuery(query, setExternalId),
     dependencies: [updateUnitsTableQuery.query],
     process: (rows) => rows,
     queryType: "experimentIncrementalRefreshDropUnitsTable",
@@ -217,12 +182,12 @@ export const startExperimentIncrementalRefreshQueries = async (
       unitsTableFullName: unitsTableFullName,
     }),
     dependencies: [dropUnitsTableQuery.query],
-    run: (query, setExternalId) => integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+    run: (query, setExternalId) =>
+      integration.runIncrementalWithNoOutputQuery(query, setExternalId),
     process: (rows) => rows,
     queryType: "experimentIncrementalRefreshAlterUnitsTable",
   });
   queries.push(alterUnitsTableQuery);
-
 
   const maxTimestampQuery = await startQuery({
     name: `max_timestamp_${queryParentId}`,
@@ -230,7 +195,8 @@ export const startExperimentIncrementalRefreshQueries = async (
       unitsTableFullName: unitsTableFullName,
     }),
     dependencies: [alterUnitsTableQuery.query],
-    run: (query, setExternalId) => integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+    run: (query, setExternalId) =>
+      integration.runIncrementalWithNoOutputQuery(query, setExternalId),
     process: (rows) => {
       // TODO: is this the right place to do this
       // TODO can we type max_timestamp better?
@@ -252,7 +218,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   return queries;
 };
 
-export class ExperimentResultsQueryRunner extends QueryRunner<
+export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   ExperimentSnapshotInterface,
   ExperimentIncrementalRefreshQueryParams,
   SnapshotResult
@@ -266,12 +232,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     );
   }
 
-  async startQueries(params: ExperimentIncrementalRefreshQueryParams): Promise<Queries> {
+  async startQueries(
+    params: ExperimentIncrementalRefreshQueryParams
+  ): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
-    
+
     if (!this.integration.getSourceProperties().hasIncrementalRefresh) {
-      throw new Error("Integration does not support incremental refresh queries");
+      throw new Error(
+        "Integration does not support incremental refresh queries"
+      );
     }
 
     return startExperimentIncrementalRefreshQueries(
@@ -284,8 +254,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
     return {
+      // TODO This is nonsense
       analyses: [],
-      multipleExposures: 0,
+      multipleExposures: queryMap.size,
       unknownVariations: [],
     };
     // const {
@@ -377,7 +348,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     return obj;
   }
 
-  
   async updateModel({
     status,
     queries,
