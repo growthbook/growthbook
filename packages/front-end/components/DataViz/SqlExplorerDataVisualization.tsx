@@ -10,8 +10,10 @@ import {
 } from "back-end/src/validators/saved-queries";
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
+import BigValueChart from "../SqlExplorer/BigValueChart";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 
 // We need to use any here because the rows are defined only in runtime
@@ -128,7 +130,7 @@ export function DataVisualizationDisplay({
   dataVizConfig: Partial<DataVizConfig>;
 }) {
   const isConfigValid = useMemo(() => {
-    const parsed = dataVizConfigValidator.strip().safeParse(dataVizConfig);
+    const parsed = dataVizConfigValidator.safeParse(dataVizConfig);
     return parsed.success;
   }, [dataVizConfig]);
 
@@ -271,16 +273,19 @@ export function DataVisualizationDisplay({
   }, [dataVizConfig.filter, rows]);
 
   // TODO: Support multiple y-axis and dimension fields
-  const xConfig = dataVizConfig.xAxis;
+  const xConfig = requiresXAxis(dataVizConfig)
+    ? dataVizConfig.xAxis
+    : undefined;
   const xField = xConfig?.fieldName;
   const yConfig = dataVizConfig.yAxis?.[0];
   const yField = yConfig?.fieldName;
   const aggregation = yConfig?.aggregation || "sum";
-  const dimensionConfig = dataVizConfig.dimension?.[0];
+  const dimensionConfig = supportsDimension(dataVizConfig)
+    ? dataVizConfig.dimension?.[0]
+    : undefined;
   const dimensionField = dimensionConfig?.fieldName;
 
   const { theme } = useAppearanceUITheme();
-
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
   // If using a dimension, get top X dimension values
@@ -654,6 +659,24 @@ export function DataVisualizationDisplay({
     textColor,
   ]);
 
+  if (dataVizConfig.chartType === "big-value") {
+    const yField = dataVizConfig.yAxis?.[0]?.fieldName ?? "";
+    const aggregation = dataVizConfig.yAxis?.[0]?.aggregation ?? "sum";
+    const format = dataVizConfig.format ?? "shortNumber";
+    const yConfig = dataVizConfig.yAxis?.[0];
+    const values = rows
+      .map((row) => parseYValue(row, yField, yConfig?.type || "number"))
+      .filter((v) => v !== undefined && v !== null);
+    const value = aggregate(values, aggregation);
+    return (
+      <BigValueChart
+        value={value}
+        label={dataVizConfig.title}
+        format={format}
+      />
+    );
+  }
+
   if (isConfigValid) {
     return (
       <Flex justify="center" align="center" height="100%" overflowY="auto">
@@ -678,7 +701,7 @@ export function SqlExplorerDataVisualization({
   dataVizConfig,
   onDataVizConfigChange,
   showPanel = true,
-  graphTitle = "Graph",
+  graphTitle = "Visualization",
 }: {
   rows: Rows;
   dataVizConfig: Partial<DataVizConfig>;

@@ -132,13 +132,6 @@ export type ExperimentDimension = {
 export type DateDimension = {
   type: "date";
 };
-
-export type DateCumulativeDimension = {
-  type: "datecumulative";
-};
-export type DateDailyDimension = {
-  type: "datedaily";
-};
 export type ActivationDimension = {
   type: "activation";
 };
@@ -146,8 +139,6 @@ export type Dimension =
   | UserDimension
   | ExperimentDimension
   | DateDimension
-  | DateCumulativeDimension
-  | DateDailyDimension
   | ActivationDimension;
 
 export type ProcessedDimensions = {
@@ -250,6 +241,13 @@ export type MetricAnalysisParams = {
   metric: FactMetricInterface;
   factTableMap: FactTableMap;
   segment: SegmentInterface | null;
+};
+
+export type DimensionColumnData = {
+  // the column or expression coming from the units table
+  value: string;
+  // the final alias for analysis in the rest of the SQL query
+  alias: string;
 };
 
 export type MetricValueResultDate = {
@@ -377,7 +375,6 @@ export type PastExperimentResponseRows = {
 }[];
 
 export type ExperimentMetricQueryResponseRows = {
-  dimension: string;
   variation: string;
   users: number;
   count: number;
@@ -399,10 +396,12 @@ export type ExperimentMetricQueryResponseRows = {
   quantile_lower?: number;
   quantile_upper?: number;
   quantile_nstar?: number;
+
+  // This is used to store dimensions of unknown keys (e.g. dim_exp_country)
+  [key: string]: number | string | undefined;
 }[];
 
 export type ExperimentFactMetricsQueryResponseRows = {
-  dimension: string;
   variation: string;
   users: number;
   count: number;

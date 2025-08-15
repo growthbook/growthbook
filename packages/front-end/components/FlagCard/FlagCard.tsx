@@ -9,6 +9,7 @@ import {
   MetricSnapshotSettings,
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
+import React from "react";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import styles from "./FlagCard.module.scss";
 
@@ -136,13 +137,11 @@ export default function FlagCard({
               align="center"
               gap="1"
               style={{
-                color:
-                  (data.rowResults.directionalStatus === "winning" &&
-                    !data.metric.inverse) ||
-                  (data.rowResults.directionalStatus === "losing" &&
-                    data.metric.inverse)
-                    ? "var(--green-11)"
-                    : "var(--red-a11)",
+                color: !data.rowResults.significant
+                  ? undefined
+                  : data.rowResults.directionalStatus === "winning"
+                  ? "var(--green-11)"
+                  : "var(--red-a12)",
               }}
             >
               {deltaFormatter(data.stats.expected ?? 0, deltaFormatterOptions)}
@@ -214,6 +213,31 @@ export default function FlagCard({
                 {data.rowResults.riskMeta.riskFormatted ? (
                   <>, {data.rowResults.riskMeta.riskFormatted}</>
                 ) : null}
+              </span>
+            }
+          />
+        ) : null}
+
+        {!data.isGuardrail && data.rowResults.suspiciousChange ? (
+          <CardItem
+            label="Suspicious"
+            tooltip={data.rowResults.suspiciousChangeReason}
+            value={
+              <span style={{ color: "var(--pink-a11)" }}>
+                % change &gt;{" "}
+                {percentFormatter.format(data.rowResults.suspiciousThreshold)}
+              </span>
+            }
+          />
+        ) : null}
+
+        {data.rowResults.guardrailWarning ? (
+          <CardItem
+            label="Guardrail trend"
+            tooltip={data.rowResults.guardrailWarning}
+            value={
+              <span style={{ color: "var(--red-a12)" }}>
+                Bad guardrail trend
               </span>
             }
           />
