@@ -36,12 +36,10 @@ type ExperimentDimensionItem = {
 };
 
 function getExperimentDimensions(
-  datasources: DataSourceInterfaceWithParams[]
+  datasources: DataSourceInterfaceWithParams[],
 ): ExperimentDimensionItem[] {
-  const collapsedExperimentDimensions: Record<
-    string,
-    ExperimentDimensionItem
-  > = {};
+  const collapsedExperimentDimensions: Record<string, ExperimentDimensionItem> =
+    {};
 
   datasources.forEach((ds) => {
     ds.settings.queries?.exposure?.forEach((eq) => {
@@ -56,11 +54,11 @@ function getExperimentDimensions(
           };
         } else if (
           !collapsedExperimentDimensions[key].identifierTypes.includes(
-            eq.userIdType
+            eq.userIdType,
           )
         ) {
           collapsedExperimentDimensions[key].identifierTypes.push(
-            eq.userIdType
+            eq.userIdType,
           );
         }
       });
@@ -89,10 +87,8 @@ const DimensionsPage: FC = () => {
     ? envAllowsCreatingDimensions()
     : true;
 
-  const [
-    dimensionForm,
-    setDimensionForm,
-  ] = useState<null | Partial<DimensionInterface>>(null);
+  const [dimensionForm, setDimensionForm] =
+    useState<null | Partial<DimensionInterface>>(null);
 
   const { apiCall } = useAuth();
 
@@ -117,7 +113,7 @@ const DimensionsPage: FC = () => {
   }
 
   const hasValidDataSources = !!datasources.filter(
-    (d) => d.properties?.dimensions
+    (d) => d.properties?.dimensions,
   )[0];
 
   if (!hasValidDataSources) {

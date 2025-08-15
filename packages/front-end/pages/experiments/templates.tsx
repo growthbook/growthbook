@@ -20,9 +20,8 @@ const ExperimentTemplatesPage: React.FC = () => {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const hasTemplatesFeature = hasCommercialFeature("templates");
-  const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
-    project
-  );
+  const canAddTemplate =
+    permissionsUtil.canViewExperimentTemplateModal(project);
 
   return (
     <>

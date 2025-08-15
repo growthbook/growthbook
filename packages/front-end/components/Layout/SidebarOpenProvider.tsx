@@ -24,7 +24,7 @@ export const useSidebarOpen = () => {
 
   if (!context)
     throw new Error(
-      "SidebarOpen must be called from within the SidebarOpenProvider"
+      "SidebarOpen must be called from within the SidebarOpenProvider",
     );
 
   return context;

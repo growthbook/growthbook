@@ -34,7 +34,7 @@ function getExperimentDecisionCriteria({
   }
 
   const presetDecisionCriteria = PRESET_DECISION_CRITERIAS.find(
-    (dc) => dc.id === decisionCriteriaToGet
+    (dc) => dc.id === decisionCriteriaToGet,
   );
   // if decision criteria is one of the presets, use that
   if (presetDecisionCriteria) {
@@ -43,7 +43,7 @@ function getExperimentDecisionCriteria({
 
   // if the decision criteria is a custom one, use that
   const customDecisionCriteria = orgCustomDecisionCriterias.find(
-    (dc) => dc.id === decisionCriteriaToGet
+    (dc) => dc.id === decisionCriteriaToGet,
   );
   if (customDecisionCriteria) {
     return customDecisionCriteria;
@@ -59,7 +59,7 @@ export function useRunningExperimentStatus() {
   const settings = useOrgSettings();
   const healthSettings = getHealthSettings(
     settings,
-    hasCommercialFeature("decision-framework")
+    hasCommercialFeature("decision-framework"),
   );
 
   return {
@@ -70,7 +70,7 @@ export function useRunningExperimentStatus() {
         defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
       }),
     getRunningExperimentResultStatus: (
-      experimentData: ExperimentDataForStatusStringDates
+      experimentData: ExperimentDataForStatusStringDates,
     ) =>
       getRunningExperimentResultStatus({
         experimentData,
@@ -91,12 +91,12 @@ export function useExperimentStatusIndicator() {
   const settings = useOrgSettings();
   const healthSettings = getHealthSettings(
     settings,
-    hasCommercialFeature("decision-framework")
+    hasCommercialFeature("decision-framework"),
   );
 
   return (
     experimentData: ExperimentDataForStatusStringDates,
-    skipArchived: boolean = false
+    skipArchived: boolean = false,
   ) =>
     getStatusIndicatorData(
       experimentData,
@@ -107,7 +107,7 @@ export function useExperimentStatusIndicator() {
         experimentDecisionCriteriaId:
           experimentData.decisionFrameworkSettings?.decisionCriteriaId,
         defaultDecisionCriteriaId: settings?.defaultDecisionCriteriaId,
-      })
+      }),
     );
 }
 

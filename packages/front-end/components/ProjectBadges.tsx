@@ -56,7 +56,7 @@ export default function ProjectBadges({
   }
 
   let filteredProjects = projectIds.map((pid) =>
-    projects.find((p) => p.id === pid)
+    projects.find((p) => p.id === pid),
   );
   if (!filteredProjects.length) return null;
   if (sort) {

@@ -49,8 +49,8 @@ const PaidFeatureBadge = ({
         lowestPlanLevel === "pro"
           ? "Pro"
           : lowestPlanLevel === "enterprise"
-          ? "Enterprise"
-          : "Paid"
+            ? "Enterprise"
+            : "Paid"
       }
       color={badgeColor as RadixColor}
       variant={variant}

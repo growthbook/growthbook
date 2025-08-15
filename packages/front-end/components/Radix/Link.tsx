@@ -34,7 +34,7 @@ type Props = RadixProps & ConditionalProps;
 const Link = forwardRef<HTMLAnchorElement, Props>(
   (
     { children, className, color, href, type, ...props },
-    ref: ForwardedRef<HTMLAnchorElement>
+    ref: ForwardedRef<HTMLAnchorElement>,
   ) => {
     const isCustomDarkColor = color === "dark";
 
@@ -85,7 +85,7 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
         {childrenWrapper}
       </RadixLink>
     );
-  }
+  },
 );
 
 Link.displayName = "Link";

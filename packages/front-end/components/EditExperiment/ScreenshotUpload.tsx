@@ -54,7 +54,7 @@ const ScreenshotUpload = ({
               // TODO: allow customizing description
               description: "",
             }),
-          }
+          },
         );
 
         setLoading((previous) => previous - 1);

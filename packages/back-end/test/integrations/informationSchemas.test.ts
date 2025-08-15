@@ -90,10 +90,10 @@ describe("formatInformationSchema", () => {
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
     expect(formattedResults[0].schemas[0].schemaName).toEqual(
-      "a_second_data_set"
+      "a_second_data_set",
     );
     expect(formattedResults[0].schemas[0].tables[0].tableName).toEqual(
-      "experiment-assignments"
+      "experiment-assignments",
     );
     expect(formattedResults[0].schemas[0].tables[0].numOfColumns).toEqual(3);
     expect(formattedResults[0].schemas[0].tables[0].id).toBeDefined();
@@ -187,7 +187,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
       updatedInformationSchema,
-      "sample_org_id"
+      "sample_org_id",
     );
 
     expect(mergedInformationSchema).toEqual([
@@ -329,7 +329,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
       updatedInformationSchema,
-      "sample_org_id"
+      "sample_org_id",
     );
 
     expect(mergedInformationSchema).toEqual([
@@ -464,7 +464,7 @@ describe("mergeStaleInformationSchemaWithUpdated", () => {
     const mergedInformationSchema = await mergeStaleInformationSchemaWithUpdate(
       staleInformationSchema,
       updatedInformationSchema,
-      "sample_org_id"
+      "sample_org_id",
     );
 
     expect(mergedInformationSchema).toEqual([
@@ -592,7 +592,10 @@ describe("removeRecentlyDeletedTables", () => {
     ];
 
     expect(
-      getRecentlyDeletedTables(staleInformationSchema, updatedInformationSchema)
+      getRecentlyDeletedTables(
+        staleInformationSchema,
+        updatedInformationSchema,
+      ),
     ).toEqual(["table_id_to_be_deleted-1234"]);
   });
 });

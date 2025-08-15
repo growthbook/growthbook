@@ -54,7 +54,7 @@ export const scrubFeatures = (
   capabilities: SDKCapability[],
   savedGroups: SavedGroupInterface[],
   savedGroupReferencesEnabled: boolean,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): Record<string, FeatureDefinitionWithProject> => {
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
@@ -72,7 +72,7 @@ export const scrubFeatures = (
     !savedGroupReferencesEnabled
   ) {
     const savedGroupsMap = Object.fromEntries(
-      savedGroups.map((group) => [group.id, group])
+      savedGroups.map((group) => [group.id, group]),
     );
     Object.values(features).forEach((feature) => {
       if (!feature.rules) {
@@ -81,11 +81,11 @@ export const scrubFeatures = (
       feature.rules.forEach((rule) => {
         recursiveWalk(
           rule.condition,
-          replaceSavedGroups(savedGroupsMap, organization)
+          replaceSavedGroups(savedGroupsMap, organization),
         );
         recursiveWalk(
           rule.parentConditions,
-          replaceSavedGroups(savedGroupsMap, organization)
+          replaceSavedGroups(savedGroupsMap, organization),
         );
       });
     });
@@ -101,7 +101,7 @@ export const scrubFeatures = (
       // delete feature
       if (
         newFeatures[k]?.rules?.some((rule) =>
-          rule?.parentConditions?.some((pc) => !!pc.gate)
+          rule?.parentConditions?.some((pc) => !!pc.gate),
         )
       ) {
         delete newFeatures[k];
@@ -109,7 +109,7 @@ export const scrubFeatures = (
       }
       // delete rules
       newFeatures[k].rules = newFeatures[k].rules?.filter(
-        (rule) => (rule.parentConditions?.length ?? 0) === 0
+        (rule) => (rule.parentConditions?.length ?? 0) === 0,
       );
     }
   }
@@ -121,7 +121,7 @@ export const scrubFeatures = (
   for (const k in newFeatures) {
     newFeatures[k] = pick(
       newFeatures[k],
-      allowedFeatureKeys
+      allowedFeatureKeys,
     ) as FeatureDefinitionWithProject;
     if (newFeatures[k]?.rules) {
       newFeatures[k].rules = newFeatures[k].rules?.map((rule) => {
@@ -141,7 +141,7 @@ export const scrubExperiments = (
   capabilities: SDKCapability[],
   savedGroups: SavedGroupInterface[],
   savedGroupReferencesEnabled: boolean,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
@@ -152,16 +152,16 @@ export const scrubExperiments = (
     !savedGroupReferencesEnabled
   ) {
     const savedGroupsMap = Object.fromEntries(
-      savedGroups.map((group) => [group.id, group])
+      savedGroups.map((group) => [group.id, group]),
     );
     experiments.forEach((experimentDefinition) => {
       recursiveWalk(
         experimentDefinition.condition,
-        replaceSavedGroups(savedGroupsMap, organization)
+        replaceSavedGroups(savedGroupsMap, organization),
       );
       recursiveWalk(
         experimentDefinition.parentConditions,
-        replaceSavedGroups(savedGroupsMap, organization)
+        replaceSavedGroups(savedGroupsMap, organization),
       );
     });
   }
@@ -194,7 +194,7 @@ export const scrubExperiments = (
     // Scrub fields from the experiment
     experiment = omit(
       experiment,
-      removedExperimentKeys
+      removedExperimentKeys,
     ) as AutoExperimentWithProject;
 
     newExperiments.push(experiment);
@@ -205,7 +205,7 @@ export const scrubExperiments = (
 export const scrubSavedGroups = (
   savedGroupsValues: SavedGroupsValues,
   capabilities: SDKCapability[],
-  savedGroupReferencesEnabled: boolean
+  savedGroupReferencesEnabled: boolean,
 ): SavedGroupsValues | undefined => {
   if (
     !capabilities.includes("savedGroupReferences") ||
@@ -219,10 +219,10 @@ export const scrubSavedGroups = (
 // Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
 const replaceSavedGroups: (
   savedGroups: Record<string, SavedGroupInterface>,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ) => NodeHandler = (
   savedGroups: Record<string, SavedGroupInterface>,
-  organization
+  organization,
 ) => {
   return ([key, value], object) => {
     if (key === "$inGroup" || key === "$notInGroup") {
@@ -231,7 +231,7 @@ const replaceSavedGroups: (
       const values = group
         ? getTypedSavedGroupValues(
             group.values || [],
-            getSavedGroupValueType(group, organization)
+            getSavedGroupValueType(group, organization),
           )
         : [];
       object[savedGroupOperatorReplacements[key]] = values;

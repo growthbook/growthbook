@@ -106,13 +106,13 @@ const UsersTable: FC<{
                 <td className="border-left">
                   {formatTrafficSplit(
                     variations.map((v, i) => r.variations[i]?.users || 0),
-                    1
+                    1,
                   )}
                 </td>
                 <td>
                   {formatTrafficSplit(
                     variations.map((v) => v.weight),
-                    1
+                    1,
                   )}
                 </td>
 

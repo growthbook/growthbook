@@ -44,7 +44,7 @@ export default function BanditUpdateStatus({
   }
 
   const start = getValidDate(
-    experiment?.banditStageDateStarted ?? phase?.dateStarted
+    experiment?.banditStageDateStarted ?? phase?.dateStarted,
   ).getTime();
   const burnInHoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
   const burnInRunDate = getValidDate(
@@ -53,7 +53,7 @@ export default function BanditUpdateStatus({
         burnInHoursMultiple *
         60 *
         60 *
-        1000
+        1000,
   );
 
   const _error = !lastEvent?.banditResult
@@ -132,7 +132,7 @@ export default function BanditUpdateStatus({
               {experiment.status === "running" &&
                 !isPublic &&
                 ["explore", "exploit"].includes(
-                  experiment.banditStage ?? ""
+                  experiment.banditStage ?? "",
                 ) && (
                   <>
                     <tr>
@@ -217,7 +217,7 @@ export default function BanditUpdateStatus({
                   <ViewAsyncQueriesButton
                     queries={
                       (generatedSnapshot || latest)?.queries?.map(
-                        (q) => q.query
+                        (q) => q.query,
                       ) ?? []
                     }
                     error={(generatedSnapshot || latest)?.error}

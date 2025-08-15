@@ -21,7 +21,7 @@ export const getAgendaInstance = (): Agenda => {
       this: Agenda,
       name: string,
       options: DefineOptions | Processor<T>,
-      processor?: Processor<T>
+      processor?: Processor<T>,
     ): void {
       if (!processor) {
         processor = options as Processor<T>;
@@ -35,8 +35,8 @@ export const getAgendaInstance = (): Agenda => {
         trackJob(
           name,
           // @ts-expect-error Some weird typing going on with Agenda. T should extend JobAttributesData
-          addJobLifecycleChecks(processor)
-        )
+          addJobLifecycleChecks(processor),
+        ),
       );
     };
   }

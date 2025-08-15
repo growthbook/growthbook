@@ -30,8 +30,8 @@ export async function putUpload(req: AuthRequest<Buffer>, res: Response) {
   if (!(contentType in mimetypes)) {
     throw new Error(
       `Invalid image file type. Only ${Object.keys(mimetypes).join(
-        ", "
-      )} accepted.`
+        ", ",
+      )} accepted.`,
     );
   }
 

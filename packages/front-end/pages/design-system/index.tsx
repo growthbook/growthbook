@@ -207,54 +207,54 @@ export default function DesignSystemPage() {
       "Observed change exceeds historical variability threshold",
   };
 
-  const metricBinomial = ({
+  const metricBinomial = {
     id: "m_bin",
     name: "Signup Rate",
     type: "binomial",
     inverse: false,
-  } as unknown) as ExperimentMetricInterface;
+  } as unknown as ExperimentMetricInterface;
 
-  const metricInverse = ({
+  const metricInverse = {
     id: "m_inv",
     name: "Bounce Rate",
     type: "binomial",
     inverse: true,
-  } as unknown) as ExperimentMetricInterface;
+  } as unknown as ExperimentMetricInterface;
 
-  const metricWithDenominator = ({
+  const metricWithDenominator = {
     id: "m_ratio_like",
     name: "Purchases per User",
     type: "count",
     denominator: "m_users",
     inverse: false,
-  } as unknown) as ExperimentMetricInterface;
+  } as unknown as ExperimentMetricInterface;
 
-  const factRatioMetric = ({
+  const factRatioMetric = {
     id: "fact_ratio",
     name: "ARPU (Fact Ratio)",
     metricType: "ratio",
     numerator: { factTableId: "ft1", column: "revenue", filters: [] },
     denominator: { factTableId: "ft1", column: "sessions", filters: [] },
     inverse: false,
-  } as unknown) as ExperimentMetricInterface;
+  } as unknown as ExperimentMetricInterface;
 
-  const factQuantileUnit = ({
+  const factQuantileUnit = {
     id: "fact_quantile_unit",
     name: "p90 Session Duration (Unit)",
     metricType: "quantile",
     numerator: { factTableId: "ft1", column: "session_duration", filters: [] },
     quantileSettings: { type: "unit", quantile: 0.9, ignoreZeros: true },
     inverse: false,
-  } as unknown) as ExperimentMetricInterface;
+  } as unknown as ExperimentMetricInterface;
 
-  const factQuantileEvent = ({
+  const factQuantileEvent = {
     id: "fact_quantile_event",
     name: "p90 Event Value (Event)",
     metricType: "quantile",
     numerator: { factTableId: "ft1", column: "event_value", filters: [] },
     quantileSettings: { type: "event", quantile: 0.9, ignoreZeros: false },
     inverse: false,
-  } as unknown) as ExperimentMetricInterface;
+  } as unknown as ExperimentMetricInterface;
 
   type ARPData = {
     metricRow: number;
@@ -423,7 +423,7 @@ export default function DesignSystemPage() {
                     } else {
                       reject(new Error("Something went wrong."));
                     }
-                  }, 1000)
+                  }, 1000),
                 )
               }
               setError={setButtonLoadError}
@@ -1444,9 +1444,10 @@ DesignSystemPage.preAuth = true;
 DesignSystemPage.preAuthTopNav = true;
 
 function TabContentExample({ number }: { number: number }) {
-  useEffect(() => console.log(`Tab number ${number} content mounted`), [
-    number,
-  ]);
+  useEffect(
+    () => console.log(`Tab number ${number} content mounted`),
+    [number],
+  );
 
   return <>Tab number {number} content</>;
 }

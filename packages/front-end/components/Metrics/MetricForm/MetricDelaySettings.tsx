@@ -26,7 +26,7 @@ export function MetricDelaySettings({ form }) {
               onChange={(value) => {
                 form.setValue(
                   "windowSettings.delayUnit",
-                  value as "minutes" | "hours" | "days" | "weeks"
+                  value as "minutes" | "hours" | "days" | "weeks",
                 );
               }}
               sort={false}

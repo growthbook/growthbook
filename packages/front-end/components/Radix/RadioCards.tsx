@@ -49,7 +49,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     descriptionWeight = "regular",
     ...containerProps
   }: Props,
-  ref
+  ref,
 ) {
   return (
     <Flex {...containerProps} ref={ref}>
@@ -102,7 +102,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                   </Flex>
                 </RadixRadioCards.Item>
               );
-            }
+            },
           )}
         </RadixRadioCards.Root>
       </Text>

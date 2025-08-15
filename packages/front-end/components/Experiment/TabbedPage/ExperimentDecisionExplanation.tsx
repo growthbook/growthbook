@@ -20,7 +20,7 @@ interface Props {
 
 const getRecommendationText = (
   status: "ship-now" | "ready-for-review" | "rollback-now",
-  multipleVariations: boolean
+  multipleVariations: boolean,
 ) => {
   switch (status) {
     case "ship-now":
@@ -55,7 +55,7 @@ export default function ExperimentDecisionExplanation({
 
   // fix to get deciding rule
   const getConditionText = (
-    condition: DecisionCriteriaInterface["rules"][0]["conditions"][0]
+    condition: DecisionCriteriaInterface["rules"][0]["conditions"][0],
   ) => {
     const metricType = (() => {
       switch (condition.metrics) {
@@ -85,7 +85,7 @@ export default function ExperimentDecisionExplanation({
   }[] = [];
   variations.forEach((v) => {
     const existingRule = decidingRules.find(
-      (r) => r.decidingRule === v.decidingRule
+      (r) => r.decidingRule === v.decidingRule,
     );
     if (existingRule) {
       existingRule.variationIds.push(v.variationId);
@@ -163,8 +163,8 @@ export default function ExperimentDecisionExplanation({
                   {status.status === "ship-now"
                     ? "ship"
                     : status.status === "ready-for-review"
-                    ? "review"
-                    : "rollback"}{" "}
+                      ? "review"
+                      : "rollback"}{" "}
                   is the default action.
                 </Text>
               </Flex>

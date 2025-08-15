@@ -34,11 +34,11 @@ export default function CreateMetricFromTemplate() {
   const router = useRouter();
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project)
+    isProjectListValidForProject(d.projects, project),
   );
 
   const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project)
+    isProjectListValidForProject(f.projects, project),
   );
 
   const { hasCommercialFeature } = useUser();

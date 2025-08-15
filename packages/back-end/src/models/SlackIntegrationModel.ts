@@ -97,13 +97,13 @@ type SlackIntegrationDocument = mongoose.Document & SlackIntegrationInterface;
  * @returns
  */
 const toInterface = (
-  doc: SlackIntegrationDocument
+  doc: SlackIntegrationDocument,
 ): SlackIntegrationInterface =>
   omit(doc.toJSON<SlackIntegrationDocument>(), ["__v", "_id"]);
 
 const SlackIntegrationModel = mongoose.model<SlackIntegrationInterface>(
   "SlackIntegration",
-  slackIntegrationSchema
+  slackIntegrationSchema,
 );
 
 // region Create
@@ -162,7 +162,7 @@ export const createSlackIntegration = async ({
 // region Read
 
 export const getSlackIntegrations = async (
-  organizationId: string
+  organizationId: string,
 ): Promise<SlackIntegrationInterface[]> => {
   const docs = await SlackIntegrationModel.find({
     organizationId,
@@ -285,7 +285,7 @@ type UpdateAttributes = {
  */
 export const updateSlackIntegration = async (
   { slackIntegrationId, organizationId }: UpdateOptions,
-  updates: UpdateAttributes
+  updates: UpdateAttributes,
 ): Promise<boolean> => {
   const result = await SlackIntegrationModel.updateOne(
     { id: slackIntegrationId, organizationId },
@@ -304,7 +304,7 @@ export const updateSlackIntegration = async (
         ]),
         dateUpdated: new Date(),
       },
-    }
+    },
   );
 
   return result.modifiedCount === 1;
@@ -372,7 +372,7 @@ export const removeTagFromSlackIntegration = async ({
     { organizationId, tags: tag },
     {
       $pull: { tags: tag },
-    }
+    },
   );
 };
 
@@ -389,7 +389,7 @@ export const removeProjectFromSlackIntegration = async ({
     { organizationId, projects: projectId },
     {
       $pull: { projects: projectId },
-    }
+    },
   );
 };
 
@@ -406,7 +406,7 @@ export const removeEnvironmentFromSlackIntegration = async ({
     { organizationId, environments: envId },
     {
       $pull: { environments: envId },
-    }
+    },
   );
 };
 

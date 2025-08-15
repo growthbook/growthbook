@@ -27,7 +27,7 @@ export function useAnalysisResultPopover({
   noTooltip?: boolean;
 }) {
   const [openTooltipRowIndex, setOpenTooltipRowIndex] = useState<number | null>(
-    null
+    null,
   );
   const [openTooltipVariationIndex, setOpenTooltipVariationIndex] = useState<
     number | null
@@ -44,7 +44,7 @@ export function useAnalysisResultPopover({
 
   const handleRowTooltipMouseEnter = (
     rowIndex: number,
-    variationIndex: number
+    variationIndex: number,
   ) => {
     if (leaveTimeoutRef.current) {
       clearTimeout(leaveTimeoutRef.current);
@@ -56,7 +56,7 @@ export function useAnalysisResultPopover({
 
   const handleRowTooltipMouseLeave = (
     _rowIndex: number,
-    _variationIndex: number
+    _variationIndex: number,
   ) => {
     leaveTimeoutRef.current = setTimeout(() => {
       setOpenTooltipRowIndex(null);

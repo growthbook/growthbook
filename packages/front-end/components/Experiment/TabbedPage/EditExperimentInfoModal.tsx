@@ -102,7 +102,7 @@ export default function EditExperimentInfoModal({
         onChange={(v) => form.setValue("project", v)}
         options={useProjectOptions(
           (project) => canUpdateExperimentProject(project),
-          experiment.project ? [experiment.project] : []
+          experiment.project ? [experiment.project] : [],
         )}
         initialOption={initialProjectOption}
       />

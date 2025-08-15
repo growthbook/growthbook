@@ -26,7 +26,7 @@ type CreateTagResponse = {
  */
 export const postTag = async (
   req: CreateTagRequest,
-  res: Response<CreateTagResponse>
+  res: Response<CreateTagResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -61,7 +61,7 @@ export const deleteTag = async (
   res: Response<
     DeleteTagResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
 

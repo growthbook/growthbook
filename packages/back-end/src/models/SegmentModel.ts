@@ -31,7 +31,7 @@ export class SegmentModel extends BaseClass {
   }
   protected canUpdate(
     existing: SegmentInterface,
-    updates: SegmentInterface
+    updates: SegmentInterface,
   ): boolean {
     return this.context.permissions.canUpdateSegment(existing, updates);
   }
@@ -120,14 +120,14 @@ export class SegmentModel extends BaseClass {
   }
 
   public async getByDataSource(
-    datasourceId: string
+    datasourceId: string,
   ): Promise<SegmentInterface[]> {
     // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
     // we want to pull from both sources
     if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
       // Get config documents first
       const configSegments = getConfigSegments(this.context.org.id).filter(
-        (segment) => segment.datasource === datasourceId
+        (segment) => segment.datasource === datasourceId,
       );
 
       const mongoSegments = await super._find({ datasource: datasourceId });
@@ -138,14 +138,14 @@ export class SegmentModel extends BaseClass {
   }
 
   public async getByFactTableId(
-    factTableId: string
+    factTableId: string,
   ): Promise<SegmentInterface[]> {
     // Special case: If using config file AND STORE_SEGMENTS_IN_MONGO is true,
     // we want to pull from both sources
     if (usingFileConfig() && STORE_SEGMENTS_IN_MONGO) {
       // Get config documents first
       const configSegments = getConfigSegments(this.context.org.id).filter(
-        (segment) => segment.factTableId === factTableId
+        (segment) => segment.factTableId === factTableId,
       );
 
       const mongoSegments = await super._find({ factTableId });
@@ -165,7 +165,7 @@ export class SegmentModel extends BaseClass {
     if (segment.type === "SQL") {
       if (!segment.sql) {
         throw new Error(
-          `${segment.name} is a SQL type Segment, but contains no SQL value`
+          `${segment.name} is a SQL type Segment, but contains no SQL value`,
         );
       }
     }
@@ -173,7 +173,7 @@ export class SegmentModel extends BaseClass {
     if (segment.type === "FACT") {
       if (!segment.factTableId) {
         throw new Error(
-          `${segment.name} is a FACT type Segment, but contains no factTableId`
+          `${segment.name} is a FACT type Segment, but contains no factTableId`,
         );
       }
     }

@@ -18,7 +18,7 @@ export const getDataExportForEvents = async (
   res: Response<
     DataExportFileResponse | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;

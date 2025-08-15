@@ -6,7 +6,7 @@ import {
 export function getSafeRolloutRuleFromFeature(
   feature: FeatureInterface,
   safeRolloutId: string,
-  omitDisabledEnvironments: boolean = false
+  omitDisabledEnvironments: boolean = false,
 ): SafeRolloutRule | null {
   for (const env of Object.keys(feature.environmentSettings)) {
     const environment = feature.environmentSettings[env];

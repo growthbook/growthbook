@@ -35,12 +35,12 @@ export function validateAggregationSpecification({
   });
   if (column.aggregation === "count distinct" && datatype !== "string") {
     throw new Error(
-      `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`
+      `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`,
     );
   }
   if (datatype === "string" && column.aggregation !== "count distinct") {
     throw new Error(
-      `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`
+      `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`,
     );
   }
 }
@@ -48,7 +48,7 @@ export function validateAggregationSpecification({
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
   organization: OrganizationInterface,
-  getFactTable: (id: string) => Promise<FactTableInterface | null>
+  getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<CreateFactMetricProps> {
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -206,7 +206,7 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     const data = await getCreateMetricPropsFromBody(
       req.body,
       req.organization,
-      lookupFactTable
+      lookupFactTable,
     );
 
     const factMetric = await req.context.models.factMetrics.create(data);
@@ -214,5 +214,5 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     return {
       factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
-  }
+  },
 );

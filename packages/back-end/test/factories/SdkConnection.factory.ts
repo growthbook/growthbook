@@ -24,5 +24,5 @@ export const sdkConnectionFactory = Factory.define<SDKConnectionInterface>(
       error: "",
       lastError: null,
     },
-  })
+  }),
 );

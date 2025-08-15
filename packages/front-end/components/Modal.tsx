@@ -369,7 +369,7 @@ const Modal: FC<ModalProps> = ({
       trackingEventModalSource,
       allowlistedTrackingEventProps,
       modalUuid,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -397,8 +397,8 @@ const Modal: FC<ModalProps> = ({
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
             : size === "fill"
-            ? { width: "100%", maxWidth: "100%" }
-            : {}
+              ? { width: "100%", maxWidth: "100%" }
+              : {}
         }
       >
         {submit && !isSuccess ? (

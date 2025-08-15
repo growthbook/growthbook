@@ -22,7 +22,7 @@ import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/mode
 
 export async function getOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -35,7 +35,7 @@ export async function getOrganizations(
 
   const { organizations, total } = await findAllOrganizations(
     parseInt(page || "") || 1,
-    search || ""
+    search || "",
   );
 
   const rawSSOs = await getAllSSOConnections();
@@ -50,9 +50,8 @@ export async function getOrganizations(
 
   const orgIds = organizations.map((o) => o.id);
 
-  const datasources = await _dangerourslyGetAllDatasourcesByOrganizations(
-    orgIds
-  );
+  const datasources =
+    await _dangerourslyGetAllDatasourcesByOrganizations(orgIds);
 
   return res.status(200).json({
     status: 200,
@@ -75,7 +74,7 @@ export async function putOrganization(
     enterprise?: boolean;
     freeSeats?: number;
   }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -159,7 +158,7 @@ export async function putOrganization(
 // delete organization - For now, we're just marking the organization as deleted
 export async function disableOrganization(
   req: AuthRequest<{ orgId: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -201,7 +200,7 @@ export async function disableOrganization(
 
 export async function enableOrganization(
   req: AuthRequest<{ orgId: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -242,7 +241,7 @@ export async function enableOrganization(
 }
 export async function getMembers(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -256,11 +255,11 @@ export async function getMembers(
   const organizationInfo: Record<string, object> = {};
   const filteredUsers = await getAllUsersFiltered(
     parseInt(page ?? "1"),
-    search
+    search,
   );
   if (filteredUsers?.length > 0) {
     const memberOrgs = await findOrganizationsByMemberIds(
-      filteredUsers.map((u) => u.id)
+      filteredUsers.map((u) => u.id),
     );
     // create a map of all the orgs mapped to the member id to make the step below easier
     const orgMembers = new Map();
@@ -299,7 +298,7 @@ export async function getOrganizationMembers(
       orgId: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({
@@ -318,7 +317,7 @@ export async function getOrganizationMembers(
   }
 
   const members: UserInterface[] = await getUsersByIds(
-    org.members.map((m) => m.id)
+    org.members.map((m) => m.id),
   );
 
   return res.status(200).json({
@@ -334,7 +333,7 @@ export async function putMember(
     email: string;
     verified: boolean;
   }>,
-  res: Response
+  res: Response,
 ) {
   if (!req.superAdmin) {
     return res.status(403).json({

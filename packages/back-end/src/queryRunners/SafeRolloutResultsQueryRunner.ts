@@ -43,7 +43,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
   // TODO: Decide if we want more granular permissions here for safe rollouts
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -51,7 +51,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     this.metricMap = params.metricMap;
 
     const { snapshotSettings } = getSnapshotSettingsFromSafeRolloutArgs(
-      this.model
+      this.model,
     );
 
     const experimentParams: ExperimentResultsQueryParams = {
@@ -67,15 +67,13 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
       this.context,
       experimentParams,
       this.integration,
-      this.startQuery.bind(this)
+      this.startQuery.bind(this),
     );
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SafeRolloutSnapshotResult> {
-    const {
-      snapshotSettings,
-      analysisSettings,
-    } = getSnapshotSettingsFromSafeRolloutArgs(this.model);
+    const { snapshotSettings, analysisSettings } =
+      getSnapshotSettingsFromSafeRolloutArgs(this.model);
 
     const { results: analysesResults } = await analyzeExperimentResults({
       queryData: queryMap,
@@ -121,7 +119,8 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
-      const rows = healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
+      const rows =
+        healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
       const trafficHealth = analyzeExperimentTraffic({
         rows: rows,
         error: healthQuery.error,
@@ -138,7 +137,7 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
 
   async getLatestModel(): Promise<SafeRolloutSnapshotInterface> {
     const obj = await this.context.models.safeRolloutSnapshots.getById(
-      this.model.id
+      this.model.id,
     );
     if (!obj) throw new Error("Could not load safe rollout snapshot model");
     return obj;
@@ -170,12 +169,12 @@ export class SafeRolloutResultsQueryRunner extends QueryRunner<
         status === "running"
           ? "running"
           : status === "failed"
-          ? "error"
-          : "success",
+            ? "error"
+            : "success",
     };
     await this.context.models.safeRolloutSnapshots.updateById(
       this.model.id,
-      updates
+      updates,
     );
     return {
       ...this.model,

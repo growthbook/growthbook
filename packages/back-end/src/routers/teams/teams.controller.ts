@@ -44,7 +44,7 @@ type CreateTeamResponse = {
  */
 export const postTeam = async (
   req: CreateTeamRequest,
-  res: Response<CreateTeamResponse>
+  res: Response<CreateTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org, userName } = context;
@@ -131,7 +131,7 @@ type PutTeamResponse = {
  */
 export const updateTeam = async (
   req: PutTeamRequest,
-  res: Response<PutTeamResponse>
+  res: Response<PutTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -202,7 +202,7 @@ type DeleteTeamResponse = {
  */
 export const deleteTeamById = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<DeleteTeamResponse>
+  res: Response<DeleteTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -260,7 +260,7 @@ export const deleteTeamById = async (
  */
 export const addTeamMembers = async (
   req: AuthRequest<{ members: string[] }, { id: string }>,
-  res: Response<DeleteTeamResponse>
+  res: Response<DeleteTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -287,7 +287,7 @@ export const addTeamMembers = async (
   });
 
   const teamMembers = org.members.filter((member) =>
-    member.teams?.includes(id)
+    member.teams?.includes(id),
   );
 
   await req.audit({
@@ -319,7 +319,7 @@ export const addTeamMembers = async (
  */
 export const deleteTeamMember = async (
   req: AuthRequest<null, { id: string; memberId: string }>,
-  res: Response<DeleteTeamResponse>
+  res: Response<DeleteTeamResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -339,7 +339,7 @@ export const deleteTeamMember = async (
   }
 
   const member = org.members.find(
-    (member) => member.teams?.includes(id) && member.id === memberId
+    (member) => member.teams?.includes(id) && member.id === memberId,
   );
 
   if (!member) {

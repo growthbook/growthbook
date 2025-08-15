@@ -26,7 +26,7 @@ const safeRolloutParams = z.object({ id: z.string() }).strict();
 router.put(
   "/:id/status",
   validateRequestMiddleware({ body: statusBody }),
-  safeRolloutController.putSafeRolloutStatus
+  safeRolloutController.putSafeRolloutStatus,
 );
 
 // Get the latest snapshot for a safe rollout rule
@@ -35,7 +35,7 @@ router.get(
   validateRequestMiddleware({
     params: snapshotParams,
   }),
-  safeRolloutController.getLatestSafeRolloutSnapshot
+  safeRolloutController.getLatestSafeRolloutSnapshot,
 );
 
 // Create a snapshot for a safe rollout rule
@@ -45,7 +45,7 @@ router.post(
     params: snapshotParams,
     query: z.object({ force: z.string().optional() }).optional(),
   }),
-  safeRolloutController.postSafeRolloutSnapshot
+  safeRolloutController.postSafeRolloutSnapshot,
 );
 
 // Cancel a running snapshot for a safe rollout rule
@@ -54,7 +54,7 @@ router.post(
   validateRequestMiddleware({
     params: snapshotParams,
   }),
-  safeRolloutController.cancelSafeRolloutSnapshot
+  safeRolloutController.cancelSafeRolloutSnapshot,
 );
 router.put(
   "/:id",
@@ -62,7 +62,7 @@ router.put(
     params: safeRolloutParams,
     body: safeRolloutBody,
   }),
-  safeRolloutController.putSafeRollout
+  safeRolloutController.putSafeRollout,
 );
 
 // Get the latest snapshot for a safe rollout rule
@@ -71,7 +71,7 @@ router.get(
   validateRequestMiddleware({
     params: snapshotParams,
   }),
-  safeRolloutController.getSafeRolloutTimeSeries
+  safeRolloutController.getSafeRolloutTimeSeries,
 );
 router.get("/", safeRolloutController.getSafeRollouts);
 

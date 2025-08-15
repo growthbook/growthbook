@@ -35,7 +35,7 @@ export function getOauth2Client() {
   return new google.auth.OAuth2(
     GOOGLE_OAUTH_CLIENT_ID,
     GOOGLE_OAUTH_CLIENT_SECRET,
-    `${APP_ORIGIN}/oauth/google`
+    `${APP_ORIGIN}/oauth/google`,
   );
 }
 
@@ -68,7 +68,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     this.decryptionError = false;
     try {
       this.params = decryptDataSourceParams<GoogleAnalyticsParams>(
-        datasource.params
+        datasource.params,
       );
     } catch (e) {
       this.params = { customDimension: "", refreshToken: "", viewId: "" };
@@ -143,7 +143,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
         ],
       },
       null,
-      2
+      2,
     );
   }
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
@@ -160,7 +160,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
       const isDuration =
         metric &&
         ["ga:avgPageLoadTime", "avgSessionDuration", "avgTimeOnPage"].includes(
-          metric
+          metric,
         );
       rows.forEach((row) => {
         const date = convertDate(row.dimensions?.[0] || "");
@@ -195,7 +195,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
         const sum_squares = sumSquaresFromStats(
           sum,
           Math.pow(stddev, 2),
-          count
+          count,
         );
         dates.push({
           date,
@@ -252,7 +252,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
 
   getExperimentResultsQuery(
     snapshotSettings: ExperimentSnapshotSettings,
-    metricDocs: MetricInterface[]
+    metricDocs: MetricInterface[],
   ): string {
     const metrics = metricDocs.map((m) => {
       const mCopy = cloneDeep<MetricInterface>(m);
@@ -306,7 +306,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
 
   async getExperimentResults(
     snapshotSettings: ExperimentSnapshotSettings,
-    metrics: MetricInterface[]
+    metrics: MetricInterface[],
   ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(snapshotSettings, metrics);
 
@@ -349,10 +349,10 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
             metric.type === "duration"
               ? Math.pow(mean, 2)
               : metric.type === "count"
-              ? mean
-              : metric.type === "binomial"
-              ? mean * (1 - mean)
-              : 0;
+                ? mean
+                : metric.type === "binomial"
+                  ? mean * (1 - mean)
+                  : 0;
 
           // because of above guessing about stddev, we have to backout the implied sum_squares
           const sum_squares = sumSquaresFromStats(mean, variance, count);

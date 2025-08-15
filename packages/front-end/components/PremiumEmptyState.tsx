@@ -71,8 +71,8 @@ const PremiumEmptyState: FC<Props> = ({
                   {lowestPlanLevel === "enterprise"
                     ? "Enterprise"
                     : lowestPlanLevel === "pro"
-                    ? "Pro"
-                    : "access"}
+                      ? "Pro"
+                      : "access"}
                 </Button>
               </div>
               {image && (

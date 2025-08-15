@@ -21,5 +21,5 @@ export const deleteProject = createApiRequestHandler(deleteProjectValidator)(
     return {
       deletedId: project.id,
     };
-  }
+  },
 );

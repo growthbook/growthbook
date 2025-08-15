@@ -45,5 +45,5 @@ export type PresentationDocument = mongoose.Document & PresentationInterface;
 
 export const PresentationModel = mongoose.model<PresentationInterface>(
   "Presentation",
-  presentationSchema
+  presentationSchema,
 );

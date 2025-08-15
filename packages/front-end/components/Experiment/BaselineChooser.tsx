@@ -20,7 +20,7 @@ export interface Props {
   snapshot?: ExperimentSnapshotInterface;
   analysis?: ExperimentSnapshotAnalysis;
   setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   mutate: () => void;
   dropdownEnabled: boolean;
@@ -160,7 +160,7 @@ export default function BaselineChooser({
               analysis,
               snapshot,
               apiCall,
-              setPostLoading
+              setPostLoading,
             ).then((status) => {
               if (status === "success") {
                 setBaselineRow(variation.index);

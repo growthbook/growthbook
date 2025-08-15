@@ -43,7 +43,7 @@ export default function ExecExperimentsGraph({
     if (startDate && endDate) {
       const startMonth = new Date(
         startDate.getFullYear(),
-        startDate.getMonth()
+        startDate.getMonth(),
       );
       const endMonth = new Date(endDate.getFullYear(), endDate.getMonth());
       const currentMonth = new Date(startMonth);
@@ -96,7 +96,7 @@ export default function ExecExperimentsGraph({
         label: key,
         total: Object.values(values).reduce((a, b) => a + b, 0),
         ...values,
-      })
+      }),
     );
 
     return chartData;
@@ -161,7 +161,7 @@ export default function ExecExperimentsGraph({
             const yMax = height - margin.top - margin.bottom;
             const xMax = width - margin.right - margin.left;
             const maxYValue = Math.ceil(
-              Math.max(...chartDataMonthly.map((d) => d.total), 1)
+              Math.max(...chartDataMonthly.map((d) => d.total), 1),
             );
 
             const xScale = scaleBand({
@@ -201,7 +201,7 @@ export default function ExecExperimentsGraph({
                 Math.abs((curr?.xcord ?? 0) - xCoord) <
                 Math.abs((prev?.xcord ?? 0) - xCoord)
                   ? curr
-                  : prev
+                  : prev,
               );
 
               showTooltip({
@@ -237,15 +237,15 @@ export default function ExecExperimentsGraph({
                                   parseInt(
                                     tooltipData?.label
                                       ?.toString()
-                                      .split("-")[0] || "0"
+                                      .split("-")[0] || "0",
                                   ),
                                   parseInt(
                                     tooltipData?.label
                                       ?.toString()
-                                      .split("-")[1] || "0"
-                                  ) - 1 // Month keys are 1-indexed, Date constructor expects 0-indexed
+                                      .split("-")[1] || "0",
+                                  ) - 1, // Month keys are 1-indexed, Date constructor expects 0-indexed
                                 ),
-                                "LLL yyyy"
+                                "LLL yyyy",
                               )}
                             </h4>
                             {keys.map((k) => (
@@ -351,9 +351,9 @@ export default function ExecExperimentsGraph({
                           return format(
                             new Date(
                               parseInt(d.split("-")[0]),
-                              parseInt(d.split("-")[1]) - 1 // Month keys are 1-indexed, Date constructor expects 0-indexed
+                              parseInt(d.split("-")[1]) - 1, // Month keys are 1-indexed, Date constructor expects 0-indexed
                             ),
-                            "LLL yyyy"
+                            "LLL yyyy",
                           );
                         }}
                       />

@@ -354,7 +354,7 @@ export default function SDKLanguageLogo({
 }
 
 export function getLanguagesByFilter(
-  languageFilter: LanguageFilter = "all"
+  languageFilter: LanguageFilter = "all",
 ): SDKLanguage[] {
   return Object.entries(languageMapping)
     .filter(([_, language]) => {
@@ -365,7 +365,7 @@ export function getLanguagesByFilter(
 }
 
 export function getConnectionLanguageFilter(
-  languages: SDKLanguage[]
+  languages: SDKLanguage[],
 ): LanguageFilter {
   const languageFilters = new Set<LanguageFilter>();
   languages.forEach((language) => {
@@ -377,7 +377,7 @@ export function getConnectionLanguageFilter(
           .replace("frontend", "browser")
           .replace("nocode", "browser")
           .replace("backend", "server")
-          .replace("other", "all") as LanguageFilter
+          .replace("other", "all") as LanguageFilter,
       );
     }
   });

@@ -23,12 +23,12 @@ const LearningsPage = (): React.ReactElement => {
   const [startDate, setStartDate] = useState<Date>(
     router.query["startDate"]
       ? new Date(router.query["startDate"] as string)
-      : new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000) // 180 days ago
+      : new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000), // 180 days ago
   );
   const [endDate, setEndDate] = useState<Date>(
     router.query["endDate"]
       ? new Date(router.query["endDate"] as string)
-      : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days in the future
+      : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days in the future
   );
 
   function updateURL({
@@ -45,14 +45,14 @@ const LearningsPage = (): React.ReactElement => {
     router.replace(newUrl, undefined, { shallow: true });
   }
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    project,
-    true,
-    "standard"
-  );
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+  } = useExperiments(project, true, "standard");
   const allStoppedExperiments = React.useMemo(
     () => allExperiments.filter((e) => e.status === "stopped"),
-    [allExperiments]
+    [allExperiments],
   );
 
   const filterResults = useCallback(
@@ -67,22 +67,18 @@ const LearningsPage = (): React.ReactElement => {
       });
       return items;
     },
-    [endDate, startDate]
+    [endDate, startDate],
   );
 
-  const {
-    items,
-    searchInputProps,
-    syntaxFilters,
-    setSearchValue,
-  } = useExperimentSearch({
-    allExperiments,
-    filterResults,
-  });
+  const { items, searchInputProps, syntaxFilters, setSearchValue } =
+    useExperimentSearch({
+      allExperiments,
+      filterResults,
+    });
 
   const stoppedExperiments = React.useMemo(
     () => items.filter((e) => e.status === "stopped"),
-    [items]
+    [items],
   );
 
   if (error) {

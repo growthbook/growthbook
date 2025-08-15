@@ -35,7 +35,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
-  props: ExperimentMetricTimeSeriesGraphWrapperProps
+  props: ExperimentMetricTimeSeriesGraphWrapperProps,
 ) {
   return (
     <ErrorBoundary
@@ -70,11 +70,11 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const formatterOptions = { currency: displayCurrency };
   const metricValueFormatter = getExperimentMetricFormatter(
     metric,
-    getFactTableById
+    getFactTableById,
   );
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
-    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metric.id}`
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metric.id}`,
   );
 
   const filteredMetricTimeSeries = useMemo(() => {
@@ -127,7 +127,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const lastIndexInvalidConfiguration = timeSeries.dataPoints.findLastIndex(
     (point) =>
       point.tags?.includes("experiment-settings-changed") ||
-      point.tags?.includes("metric-settings-changed")
+      point.tags?.includes("metric-settings-changed"),
   );
 
   const dataPoints = [
@@ -156,7 +156,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
           v: variation.stats?.mean ?? 0,
           v_formatted: metricValueFormatter(
             variation.stats?.mean ?? 0,
-            formatterOptions
+            formatterOptions,
           ),
           users: variation.stats?.users ?? 0,
           up: variation[differenceType]?.expected ?? 0,
@@ -206,7 +206,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
           : getExperimentMetricFormatter(
               metric,
               getFactTableById,
-              differenceType === "absolute" ? "percentagePoints" : "number"
+              differenceType === "absolute" ? "percentagePoints" : "number",
             )
       }
       statsEngine={statsEngine}

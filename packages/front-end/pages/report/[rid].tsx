@@ -26,7 +26,7 @@ export default function ReportPage() {
 
   const { rid } = router.query;
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
-    `/report/${rid}`
+    `/report/${rid}`,
   );
   const report = data?.report;
   const loading = !data;
@@ -144,10 +144,10 @@ export default function ReportPage() {
           snapshotError
             ? snapshotError
             : snapshot?.error
-            ? new Error(snapshot.error)
-            : snapshot?.status === "error"
-            ? new Error("Report analysis failed")
-            : undefined
+              ? new Error(snapshot.error)
+              : snapshot?.status === "error"
+                ? new Error("Report analysis failed")
+                : undefined
         }
         mutateReport={mutate}
         mutateSnapshot={mutateSnapshot}

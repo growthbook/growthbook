@@ -8,7 +8,7 @@ type Controller<T extends string> = Record<T, Handler>;
 
 export function wrapController<T extends string>(
   // eslint-disable-next-line
-  controller: Record<T, any>
+  controller: Record<T, any>,
 ): Controller<T> {
   const newController = {} as Controller<T>;
   Object.keys(controller).forEach((key: T) => {

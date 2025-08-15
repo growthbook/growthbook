@@ -56,7 +56,7 @@ interface SdkWebhookInputs {
 
 function getWebhookFromType(
   type: WebhookType,
-  inputs: SdkWebhookInputs
+  inputs: SdkWebhookInputs,
 ): {
   endpoint: string;
   httpMethod: WebhookMethod;
@@ -137,8 +137,8 @@ export function CreateSDKWebhookModal({
     language === "edge-cloudflare"
       ? "cloudflare"
       : language === "edge-fastly"
-      ? "fastly"
-      : "http"
+        ? "fastly"
+        : "http",
   );
 
   const [validHeaders, setValidHeaders] = useState(true);

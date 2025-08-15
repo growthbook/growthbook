@@ -47,7 +47,7 @@ export function convertToCSV(rows: TestQueryRow[]): string {
           // Handle binary data (convert to base64)
           if (value instanceof Uint8Array || value instanceof ArrayBuffer) {
             const binaryStr = btoa(
-              String.fromCharCode.apply(null, new Uint8Array(value))
+              String.fromCharCode.apply(null, new Uint8Array(value)),
             );
             return `"${binaryStr}"`;
           }
@@ -56,7 +56,7 @@ export function convertToCSV(rows: TestQueryRow[]): string {
           const escaped = String(value).replace(/"/g, '""'); // escape double quotes
           return `"${escaped}"`; // quote everything
         })
-        .join(",")
+        .join(","),
     ),
   ].join("\n");
 

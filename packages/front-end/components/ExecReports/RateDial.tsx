@@ -53,7 +53,7 @@ const RateDial: React.FC<RateDialProps> = ({
             (width - margin.left - margin.right) / 2,
             (dialDegrees < 180 ? height : heightRadius) -
               margin.top -
-              margin.bottom
+              margin.bottom,
           );
 
           const innerRadius = radius * innerArcRatio;
@@ -91,7 +91,7 @@ const RateDial: React.FC<RateDialProps> = ({
                     strokeWidth={1}
                   />
                 )}
-              </React.Fragment>
+              </React.Fragment>,
             );
           }
           const percents: JSX.Element[] = [];
@@ -113,7 +113,7 @@ const RateDial: React.FC<RateDialProps> = ({
                     {(100 - i).toString() + "%"}
                   </Text>
                 )}
-              </React.Fragment>
+              </React.Fragment>,
             );
           }
 

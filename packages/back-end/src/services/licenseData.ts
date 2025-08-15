@@ -46,15 +46,15 @@ export async function getLicenseMetaData() {
         new Set(
           (await findAllSDKConnectionsAcrossAllOrgs())
             .map((connection) => connection.languages)
-            .flat()
-        )
+            .flat(),
+        ),
       );
 
       const dataSources = await getInstallationDatasources();
       dataSourceTypes = Array.from(new Set(dataSources.map((ds) => ds.type)));
 
       eventTrackers = Array.from(
-        new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom"))
+        new Set(dataSources.map((ds) => ds.settings?.schemaFormat ?? "custom")),
       );
     }
   } catch (e) {
@@ -81,7 +81,7 @@ function getMemberRoles(
   memberId: string,
   teamIdToTeamMap: {
     [key: string]: TeamInterface;
-  }
+  },
 ) {
   const roles: string[] = [];
 
@@ -117,7 +117,7 @@ function getMemberRoles(
 }
 
 export async function getUserCodesForOrg(
-  org: OrgMemberInfo
+  org: OrgMemberInfo,
 ): Promise<LicenseUserCodes> {
   const fullMembersSet: Set<string> = new Set([]);
   const readOnlyMembersSet: Set<string> = new Set([]);
@@ -144,7 +144,7 @@ export async function getUserCodesForOrg(
       acc[user.id] = md5(user.email).slice(0, 8);
       return acc;
     },
-    {}
+    {},
   );
 
   const teamIdToTeamMap = teams.reduce(
@@ -152,12 +152,12 @@ export async function getUserCodesForOrg(
       acc: {
         [key: string]: TeamInterface;
       },
-      team
+      team,
     ) => {
       acc[team.id] = team;
       return acc;
     },
-    {}
+    {},
   );
 
   for (const userId of Object.keys(userIdsToEmailHash)) {
@@ -179,20 +179,20 @@ export async function getUserCodesForOrg(
   invitesSet = new Set(
     organizations.reduce((emails: string[], organization) => {
       const inviteEmails = organization.invites.map((invite) =>
-        md5(invite.email).slice(0, 8)
+        md5(invite.email).slice(0, 8),
       );
       return emails.concat(inviteEmails);
-    }, [])
+    }, []),
   );
 
   const fullMembers = Array.from(fullMembersSet);
   // if a read only member is a full member in another organization, they should be counted as a full member and not appear as a read only member
   const readOnlyMembers = Array.from(readOnlyMembersSet).filter(
-    (readOnlyMember) => !fullMembersSet.has(readOnlyMember)
+    (readOnlyMember) => !fullMembersSet.has(readOnlyMember),
   );
   // if an invite is a full member or a readOnly Member in another organization, they should be counted as such and not as an invite
   const invites = Array.from(invitesSet).filter(
-    (invite) => !fullMembersSet.has(invite) && !readOnlyMembersSet.has(invite)
+    (invite) => !fullMembersSet.has(invite) && !readOnlyMembersSet.has(invite),
   );
 
   return {

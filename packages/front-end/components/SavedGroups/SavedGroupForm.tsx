@@ -132,10 +132,10 @@ const SavedGroupForm: FC<{
             (responseData) => {
               if (responseData.status === 413) {
                 setErrorMessage(
-                  "Cannot import such a large CSV. Try again with a smaller payload"
+                  "Cannot import such a large CSV. Try again with a smaller payload",
                 );
               }
-            }
+            },
           );
         }
         mutateDefinitions({});
@@ -219,7 +219,7 @@ const SavedGroupForm: FC<{
             }))}
             isOptionDisabled={({ label }) => {
               const attr = attributeSchema.find(
-                (attr) => attr.property === label
+                (attr) => attr.property === label,
               );
               if (!attr) return false;
               return !isIdListSupportedAttribute(attr);
@@ -227,7 +227,7 @@ const SavedGroupForm: FC<{
             sort={false}
             formatOptionLabel={({ label }) => {
               const attr = attributeSchema.find(
-                (attr) => attr.property === label
+                (attr) => attr.property === label,
               );
               if (!attr) return label;
               const unsupported = !isIdListSupportedAttribute(attr);

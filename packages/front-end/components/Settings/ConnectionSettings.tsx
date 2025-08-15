@@ -31,7 +31,7 @@ export default function ConnectionSettings({
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
     params: { [key: string]: string },
-    settings: { [key: string]: string } = {}
+    settings: { [key: string]: string } = {},
   ) => {
     const newVal = {
       ...datasource,

@@ -14,7 +14,7 @@ export async function createMetricAnalysis(
   metric: FactMetricInterface,
   metricAnalysisSettings: MetricAnalysisSettings,
   source: MetricAnalysisSource,
-  useCache: boolean = true
+  useCache: boolean = true,
 ): Promise<MetricAnalysisQueryRunner> {
   if (!metric.datasource) {
     throw new Error("Cannot analyze manual metrics");
@@ -26,7 +26,7 @@ export async function createMetricAnalysis(
     metricAnalysisSettings.populationId
   ) {
     segment = await context.models.segments.getById(
-      metricAnalysisSettings.populationId
+      metricAnalysisSettings.populationId,
     );
     if (!segment) {
       throw new Error("Segment not found");
@@ -36,7 +36,7 @@ export async function createMetricAnalysis(
   const integration = await getIntegrationFromDatasourceId(
     context,
     metric.datasource,
-    true
+    true,
   );
 
   const factTableMap = await getFactTableMap(context);
@@ -55,7 +55,7 @@ export async function createMetricAnalysis(
     context,
     model,
     integration,
-    useCache
+    useCache,
   );
 
   await queryRunner

@@ -148,18 +148,18 @@ export default function FeatureValueField({
             max: "any",
           }
         : valueType === "string"
-        ? {
-            textarea: true,
-            minRows: 1,
-          }
-        : {})}
+          ? {
+              textarea: true,
+              minRows: 1,
+            }
+          : {})}
       helpText={helpText}
       style={
         valueType === undefined
           ? { width: 80 }
           : valueType === "number"
-          ? { width: 120 }
-          : undefined
+            ? { width: 120 }
+            : undefined
       }
       disabled={disabled}
     />
@@ -203,8 +203,8 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
               (field.type === "boolean"
                 ? false
                 : field.type === "string"
-                ? ""
-                : 0) as T
+                  ? ""
+                  : 0) as T,
             );
           } else if (!e.target.checked) {
             setValue(undefined as T);
@@ -339,7 +339,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
             setValue(
               (e.target.value === ""
                 ? undefined
-                : parseFloat(e.target.value)) as T
+                : parseFloat(e.target.value)) as T,
             );
           }}
           type="number"
@@ -436,8 +436,8 @@ function SimpleSchemaEditor({
           if (field.type === "float" || field.type === "integer") {
             setValue(
               JSON.stringify(
-                v.map((v) => parseFloat(v)).filter((v) => !isNaN(v))
-              )
+                v.map((v) => parseFloat(v)).filter((v) => !isNaN(v)),
+              ),
             );
           } else {
             setValue(JSON.stringify(v));
@@ -684,7 +684,7 @@ function SimpleSchemaObjectArrayEditor({
                     JSON.stringify({
                       ...obj,
                       [field.key]: v,
-                    })
+                    }),
                   );
                 }}
                 showDescription={true}
@@ -804,13 +804,13 @@ function SimpleSchemaObjectArrayEditor({
                       field.default
                         ? JSON.parse(field.default)
                         : field.type === "boolean"
-                        ? false
-                        : field.type === "string"
-                        ? ""
-                        : 0,
-                    ])
+                          ? false
+                          : field.type === "string"
+                            ? ""
+                            : 0,
+                    ]),
                   ),
-                ])
+                ]),
               );
             }}
           >

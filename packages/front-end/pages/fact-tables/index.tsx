@@ -52,14 +52,14 @@ export default function FactTablesPage() {
     (d) =>
       d.properties?.queryLanguage === "sql" &&
       d.id !== demoDataSourceId &&
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const [autoGenerateError, setAutoGenerateError] = useState<string | null>(
-    null
+    null,
   );
   const initialFactTableData = useMemo(() => {
     if (factTables.length > 0) return null;
@@ -103,7 +103,7 @@ export default function FactTablesPage() {
 
   const filteredFactTables = project
     ? factTables.filter((t) =>
-        isProjectListValidForProject(t.projects, project)
+        isProjectListValidForProject(t.projects, project),
       )
     : factTables;
 
@@ -124,7 +124,7 @@ export default function FactTablesPage() {
         userIdTypes: sortedUserIdTypes,
       };
     },
-    [getDatasourceById]
+    [getDatasourceById],
   );
 
   const tagsFilter = useTagsFilter("facttables");
@@ -133,7 +133,7 @@ export default function FactTablesPage() {
       items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [tagsFilter.tags]
+    [tagsFilter.tags],
   );
 
   const { items, searchInputProps, isFiltered, SortableTH, clear } = useSearch({

@@ -25,11 +25,11 @@ jest.mock("back-end/src/api/sdk-connections/validations", () => ({
 }));
 
 const originalValidatePutPayload = jest.requireActual(
-  "back-end/src/api/sdk-connections/validations"
+  "back-end/src/api/sdk-connections/validations",
 ).validatePutPayload;
 
 const originalValidatePostPayload = jest.requireActual(
-  "back-end/src/api/sdk-connections/validations"
+  "back-end/src/api/sdk-connections/validations",
 ).validatePostPayload;
 
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
@@ -56,7 +56,7 @@ describe("sdk-connections API", () => {
     validatePostPayload.mockImplementation(originalValidatePostPayload);
     getSDKVersions.mockReturnValue(["old-version", "latest-version"]);
     toApiSDKConnectionInterface.mockImplementation(
-      mockApiSDKConnectionInterface
+      mockApiSDKConnectionInterface,
     );
   });
 
@@ -73,7 +73,7 @@ describe("sdk-connections API", () => {
       sdkConnectionFactory.build({
         organization: org.id,
         environments: org.environments[0],
-      })
+      }),
     );
 
     findSDKConnectionsByOrganization.mockReturnValue(connections);
@@ -101,7 +101,7 @@ describe("sdk-connections API", () => {
       sdkConnectionFactory.build({
         organization: org.id,
         environment: org.environments[0].id,
-      })
+      }),
     );
 
     findSDKConnectionsByOrganization.mockReturnValue(connections);
@@ -238,10 +238,10 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(getSDKCapabilities).toHaveBeenCalledWith(
       "javascript",
-      "latest-version"
+      "latest-version",
     );
     expect(hasPremiumFeatureMock).toHaveBeenCalledWith(
-      "encrypt-features-endpoint"
+      "encrypt-features-endpoint",
     );
     expect(response.body).toEqual({
       message:
@@ -303,7 +303,7 @@ describe("sdk-connections API", () => {
     expect(response.status).toBe(400);
     expect(getSDKCapabilities).toHaveBeenCalledWith(
       "javascript",
-      "latest-version"
+      "latest-version",
     );
     expect(response.body).toEqual({
       message: "SDK version latest-version does not support remoteEval",
@@ -313,7 +313,7 @@ describe("sdk-connections API", () => {
   it("checks for SDK cacapbilities for the latest version when creating new sdk-connections", async () => {
     getLatestSDKVersion.mockReturnValue("latest-version");
     getSDKCapabilities.mockImplementation((_, v) =>
-      v === "latest-version" ? ["remoteEval"] : []
+      v === "latest-version" ? ["remoteEval"] : [],
     );
 
     setReqContext({
@@ -434,7 +434,7 @@ describe("sdk-connections API", () => {
     expect(editSDKConnection).toHaveBeenCalledWith(
       context,
       existing,
-      await originalValidatePutPayload(context, update, existing)
+      await originalValidatePutPayload(context, update, existing),
     );
     expect(response.body).toEqual({
       sdkConnection: mockApiSDKConnectionInterface(updated),

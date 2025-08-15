@@ -16,13 +16,12 @@ const EditDOMMutationsModal: FC<{
   close: () => void;
   onSave: (newVisualChange: VisualChange) => void;
 }> = ({ experiment, close, visualChange, onSave }) => {
-  const [newVisualChange, setNewVisualChange] = useState<VisualChange>(
-    visualChange
-  );
+  const [newVisualChange, setNewVisualChange] =
+    useState<VisualChange>(visualChange);
   const [useAdvanced, setUseAdvanced] = useState(false);
 
   const [newDOMMutationErrors, setNewDOMMutationErrors] = useState<string[]>(
-    []
+    [],
   );
 
   const deleteCustomJS = useCallback(() => {
@@ -44,11 +43,11 @@ const EditDOMMutationsModal: FC<{
       setNewVisualChange({
         ...newVisualChange,
         domMutations: newVisualChange.domMutations.filter(
-          (_m, i) => i !== index
+          (_m, i) => i !== index,
         ),
       });
     },
-    [newVisualChange, setNewVisualChange]
+    [newVisualChange, setNewVisualChange],
   );
 
   const setDOMMutation = useCallback(
@@ -56,11 +55,11 @@ const EditDOMMutationsModal: FC<{
       setNewVisualChange((prevVisualChange) => ({
         ...prevVisualChange,
         domMutations: prevVisualChange.domMutations.map((m, i) =>
-          i === index ? updates : m
+          i === index ? updates : m,
         ),
       }));
     },
-    [setNewVisualChange]
+    [setNewVisualChange],
   );
 
   const addDOMMutation = useCallback(
@@ -70,7 +69,7 @@ const EditDOMMutationsModal: FC<{
         domMutations: [...prevVisualChange.domMutations, updates],
       }));
     },
-    [setNewVisualChange]
+    [setNewVisualChange],
   );
 
   const setDOMMutationErrors = useCallback(
@@ -81,7 +80,7 @@ const EditDOMMutationsModal: FC<{
         return newErrors;
       });
     },
-    [setNewDOMMutationErrors]
+    [setNewDOMMutationErrors],
   );
 
   const validateDOMMutations = useCallback(
@@ -134,7 +133,7 @@ const EditDOMMutationsModal: FC<{
         return false;
       }
     },
-    [setDOMMutation, setDOMMutationErrors]
+    [setDOMMutation, setDOMMutationErrors],
   );
 
   const checkValidDOMMutations = useCallback(() => {
@@ -318,7 +317,7 @@ const EditDOMMutationsModal: FC<{
         );
       }
     },
-    [deleteDOMMutation, newDOMMutationErrors, setDOMMutation, useAdvanced]
+    [deleteDOMMutation, newDOMMutationErrors, setDOMMutation, useAdvanced],
   );
 
   const onSubmit = () => {

@@ -50,7 +50,7 @@ export default function SafeRolloutSummary({
   const metricNames = guardrailMetricIds.flatMap((id) => {
     if (isMetricGroupId(id)) {
       return expandMetricGroups([id], metricGroups).map((metricId) =>
-        getMetricNameAndKey(metricId, id)
+        getMetricNameAndKey(metricId, id),
       );
     }
 

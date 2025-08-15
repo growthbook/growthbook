@@ -10,7 +10,7 @@ export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
   async (req): Promise<GetSavedGroupResponse> => {
     const savedGroup = await getSavedGroupById(
       req.params.id,
-      req.organization.id
+      req.organization.id,
     );
     if (!savedGroup) {
       throw new Error("Could not find savedGroup with that id");
@@ -19,5 +19,5 @@ export const getSavedGroup = createApiRequestHandler(getSavedGroupValidator)(
     return {
       savedGroup: toSavedGroupApiInterface(savedGroup),
     };
-  }
+  },
 );

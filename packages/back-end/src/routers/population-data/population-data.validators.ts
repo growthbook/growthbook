@@ -70,7 +70,7 @@ export const populationDataInterfaceValidator = z
       z.object({
         week: z.string(),
         count: z.number(),
-      })
+      }),
     ),
     metrics: z.array(populationDataMetricValidator),
   })

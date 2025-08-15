@@ -68,13 +68,13 @@ const RefreshBanditButton: FC<{
         },
         (responseData) => {
           res = responseData;
-        }
+        },
       );
       trackSnapshot(
         "create",
         "RefreshBanditButton",
         getDatasourceById(experiment.datasource)?.type || null,
-        res.snapshot
+        res.snapshot,
       );
       await mutate();
     } catch (e) {
@@ -106,10 +106,10 @@ const RefreshBanditButton: FC<{
               try {
                 const res = await refresh();
                 setGeneratedSnapshot(
-                  res?.snapshot as ExperimentSnapshotInterface | undefined
+                  res?.snapshot as ExperimentSnapshotInterface | undefined,
                 );
                 setOuterGeneratedSnapshot(
-                  res?.snapshot as ExperimentSnapshotInterface | undefined
+                  res?.snapshot as ExperimentSnapshotInterface | undefined,
                 );
                 const banditError = res?.snapshot?.banditResult?.error;
                 if (res.status >= 400) {

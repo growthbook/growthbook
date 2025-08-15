@@ -20,7 +20,7 @@ router.put(
   validateRequestMiddleware({
     body: updateEnvsValidator,
   }),
-  environmentController.putEnvironments
+  environmentController.putEnvironments,
 );
 
 router.put(
@@ -28,7 +28,7 @@ router.put(
   validateRequestMiddleware({
     body: updateEnvOrderValidator,
   }),
-  environmentController.putEnvironmentOrder
+  environmentController.putEnvironmentOrder,
 );
 
 router.post(
@@ -36,7 +36,7 @@ router.post(
   validateRequestMiddleware({
     body: createEnvValidator,
   }),
-  environmentController.postEnvironment
+  environmentController.postEnvironment,
 );
 
 router.put(
@@ -49,7 +49,7 @@ router.put(
       })
       .strict(),
   }),
-  environmentController.putEnvironment
+  environmentController.putEnvironment,
 );
 
 router.delete(
@@ -57,7 +57,7 @@ router.delete(
   validateRequestMiddleware({
     params: deleteEnvValidator,
   }),
-  environmentController.deleteEnvironment
+  environmentController.deleteEnvironment,
 );
 
 export { router as environmentRouter };

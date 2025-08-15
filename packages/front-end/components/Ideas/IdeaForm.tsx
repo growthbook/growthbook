@@ -35,7 +35,7 @@ const IdeaForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(body),
-      }
+      },
     );
     mutate();
     refreshTags(value.tags);

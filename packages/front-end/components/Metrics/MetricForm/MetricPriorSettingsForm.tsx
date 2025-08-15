@@ -127,11 +127,11 @@ export function MetricPriorSettingsForm({
               <div>
                 <small className="text-muted mt-1">
                   {`Your prior distribution specifies that the average lift is ${percentFormatter.format(
-                    priorSettings.mean
+                    priorSettings.mean,
                   )}, and that ~68% of experiment lifts lie between ${percentFormatter.format(
-                    -1 * priorSettings.stddev + priorSettings.mean
+                    -1 * priorSettings.stddev + priorSettings.mean,
                   )} and ${percentFormatter.format(
-                    priorSettings.stddev + priorSettings.mean
+                    priorSettings.stddev + priorSettings.mean,
                   )}`}
                 </small>
               </div>

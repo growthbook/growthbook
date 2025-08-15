@@ -68,13 +68,13 @@ import { computeResultsStatus, isJoinableMetric } from "./experiments";
 export function getMetricForSafeRolloutSnapshot(
   id: string | null | undefined,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settingsForSnapshotMetrics: MetricSnapshotSettings[]
+  settingsForSnapshotMetrics: MetricSnapshotSettings[],
 ): MetricForSafeRolloutSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
-    (s) => s.metric === id
+    (s) => s.metric === id,
   );
   return {
     id,
@@ -114,7 +114,7 @@ export function getMetricForSafeRolloutSnapshot(
 }
 
 export function getAnalysisSettingsFromSafeRolloutArgs(
-  args: SafeRolloutSnapshotAnalysisSettings
+  args: SafeRolloutSnapshotAnalysisSettings,
 ): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: [],
@@ -132,7 +132,7 @@ export function getAnalysisSettingsFromSafeRolloutArgs(
 }
 
 export function getSnapshotSettingsFromSafeRolloutArgs(
-  args: SafeRolloutSnapshotInterface
+  args: SafeRolloutSnapshotInterface,
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -173,14 +173,14 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
   };
 
   const analysisSettings = getAnalysisSettingsFromSafeRolloutArgs(
-    args.analyses[0].settings
+    args.analyses[0].settings,
   );
   return { snapshotSettings, analysisSettings };
 }
 
 export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
-  safeRollout: SafeRolloutInterface
+  safeRollout: SafeRolloutInterface,
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -192,7 +192,7 @@ export async function getSettingsForSnapshotMetrics(
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     { guardrailMetrics: safeRollout.guardrailMetricIds },
-    false
+    false,
   );
   const allExperimentMetrics = allExperimentMetricIds
     .map((id) => metricMap.get(id))
@@ -201,7 +201,7 @@ export async function getSettingsForSnapshotMetrics(
   const denominatorMetrics = allExperimentMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)
     .map((m: ExperimentMetricInterface) =>
-      metricMap.get(m.denominator as string)
+      metricMap.get(m.denominator as string),
     )
     .filter(Boolean) as MetricInterface[];
 
@@ -226,7 +226,7 @@ export async function getSettingsForSnapshotMetrics(
 
 export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   organization: OrganizationInterface,
-  regressionAdjustmentEnabled?: boolean
+  regressionAdjustmentEnabled?: boolean,
 ): ExperimentSnapshotAnalysisSettings {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
@@ -241,7 +241,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
       hasRegressionAdjustmentFeature &&
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
-        : organization.settings?.regressionAdjustmentEnabled ?? false),
+        : (organization.settings?.regressionAdjustmentEnabled ?? false)),
     sequentialTesting:
       hasSequentialTestingFeature &&
       !!organization.settings?.sequentialTestingEnabled,
@@ -286,13 +286,13 @@ function getSafeRolloutSnapshotSettings({
 
   const queries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = queries.find(
-    (q) => q.id === safeRollout.exposureQueryId
+    (q) => q.id === safeRollout.exposureQueryId,
   );
 
   // expand metric groups and scrub unjoinable metrics
   const guardrailMetrics = expandMetricGroups(
     safeRollout.guardrailMetricIds,
-    metricGroups
+    metricGroups,
   ).filter((m) =>
     isJoinableMetric({
       metricId: m,
@@ -300,17 +300,17 @@ function getSafeRolloutSnapshotSettings({
       factTableMap,
       exposureQuery,
       datasource,
-    })
+    }),
   );
 
   const metricSettings = expandMetricGroups(
     getAllMetricIdsFromExperiment({
       guardrailMetrics: safeRollout.guardrailMetricIds,
     }),
-    metricGroups
+    metricGroups,
   )
     .map((m) =>
-      getMetricForSafeRolloutSnapshot(m, metricMap, settingsForSnapshotMetrics)
+      getMetricForSafeRolloutSnapshot(m, metricMap, settingsForSnapshotMetrics),
     )
     .filter(isDefined);
 
@@ -361,7 +361,7 @@ export async function _createSafeRolloutSnapshot({
   }
   const safeRolloutRule = getSafeRolloutRuleFromFeature(
     feature,
-    safeRollout.id
+    safeRollout.id,
   );
   if (!safeRolloutRule) {
     throw new Error("Could not find safe rollout rule");
@@ -404,7 +404,7 @@ export async function _createSafeRolloutSnapshot({
 
   const { nextSnapshot } = determineNextSafeRolloutSnapshotAttempt(
     safeRollout,
-    organization
+    organization,
   );
   await context.models.safeRollout.update(safeRollout, {
     nextSnapshotAttempt: nextSnapshot,
@@ -418,7 +418,7 @@ export async function _createSafeRolloutSnapshot({
     context,
     snapshot,
     integration,
-    useCache
+    useCache,
   );
 
   await queryRunner.startAnalysis({
@@ -448,14 +448,12 @@ export async function createSafeRolloutSnapshot({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const {
-    settingsForSnapshotMetrics,
-    regressionAdjustmentEnabled,
-  } = await getSettingsForSnapshotMetrics(context, safeRollout);
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    await getSettingsForSnapshotMetrics(context, safeRollout);
 
   const analysisSettings = getDefaultExperimentAnalysisSettingsForSafeRollout(
     org,
-    regressionAdjustmentEnabled
+    regressionAdjustmentEnabled,
   );
 
   const queryRunner = await _createSafeRolloutSnapshot({
@@ -493,7 +491,7 @@ export async function getSafeRolloutAnalysisSummary({
       ? overallTraffic.variationUnits.reduce((acc, a) => acc + a, 0)
       : safeRolloutSnapshot?.analyses?.[0]?.results?.[0]?.variations?.reduce(
           (acc, a) => acc + a.users,
-          0
+          0,
         )) ?? null;
 
   const srm = getSafeRolloutSRMValue(safeRolloutSnapshot);
@@ -587,7 +585,7 @@ export async function notifySafeRolloutChange({
   });
   const healthSettings = getHealthSettings(
     context.org.settings,
-    orgHasPremiumFeature(context.org, "decision-framework")
+    orgHasPremiumFeature(context.org, "decision-framework"),
   );
   const safeRolloutStatus = getSafeRolloutResultStatus({
     safeRollout: updatedSafeRollout,

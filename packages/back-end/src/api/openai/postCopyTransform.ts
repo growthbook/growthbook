@@ -37,50 +37,50 @@ const instructions = `You are an assistant whose job is to take a sentence from 
 
 const getPrompt = (
   text: string,
-  mode: typeof transformModes[number]
+  mode: (typeof transformModes)[number],
 ) => `Improve the following text, delimited by hypens, into a version that is more ${mode}. Keep the length of the sentence same.
 ---
 ${text}
 ---
 `;
 
-export const postCopyTransform = createApiRequestHandler(validation)(
-  async (req): Promise<PostCopyTransformResponse> => {
-    if (!OPENAI_ENABLED) throw new Error("OPENAI_API_KEY not defined");
+export const postCopyTransform = createApiRequestHandler(validation)(async (
+  req,
+): Promise<PostCopyTransformResponse> => {
+  if (!OPENAI_ENABLED) throw new Error("OPENAI_API_KEY not defined");
 
-    const { copy, mode, visualChangesetId } = req.body;
+  const { copy, mode, visualChangesetId } = req.body;
 
-    const context = req.context;
-    const visualChangeset = await findVisualChangesetById(
-      visualChangesetId,
-      req.organization.id
-    );
+  const context = req.context;
+  const visualChangeset = await findVisualChangesetById(
+    visualChangesetId,
+    req.organization.id,
+  );
 
-    if (!visualChangeset) throw new Error("Visual Changeset not found");
+  if (!visualChangeset) throw new Error("Visual Changeset not found");
 
-    if (await secondsUntilAICanBeUsedAgain(req.organization)) {
-      return {
-        visualChangeset: toVisualChangesetApiInterface(visualChangeset),
-        original: copy,
-        transformed: undefined,
-        dailyLimitReached: true,
-      };
-    }
-
-    const transformed = await simpleCompletion({
-      context,
-      instructions,
-      prompt: getPrompt(copy, mode),
-      temperature: 0.8,
-      type: `visual-changeset-copy-transform-${mode}`,
-      isDefaultPrompt: true,
-    });
-
+  if (await secondsUntilAICanBeUsedAgain(req.organization)) {
     return {
       visualChangeset: toVisualChangesetApiInterface(visualChangeset),
       original: copy,
-      transformed,
-      dailyLimitReached: false,
+      transformed: undefined,
+      dailyLimitReached: true,
     };
   }
-);
+
+  const transformed = await simpleCompletion({
+    context,
+    instructions,
+    prompt: getPrompt(copy, mode),
+    temperature: 0.8,
+    type: `visual-changeset-copy-transform-${mode}`,
+    isDefaultPrompt: true,
+  });
+
+  return {
+    visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+    original: copy,
+    transformed,
+    dailyLimitReached: false,
+  };
+});

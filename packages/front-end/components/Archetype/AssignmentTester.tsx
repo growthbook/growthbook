@@ -46,13 +46,10 @@ export default function AssignmentTester({
   const [formValues, setFormValues] = useState({});
   const [results, setResults] = useState<null | FeatureTestResult[]>(null);
   const [expandResults, setExpandResults] = useState<number[]>([]);
-  const [
-    openArchetypeModal,
-    setOpenArchetypeModal,
-  ] = useState<null | Partial<ArchetypeInterface>>(null);
-  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] = useState(
-    false
-  );
+  const [openArchetypeModal, setOpenArchetypeModal] =
+    useState<null | Partial<ArchetypeInterface>>(null);
+  const [skipRulesWithPrerequisites, setSkipRulesWithPrerequisites] =
+    useState(false);
   const [evalDate, setEvalDate] = useState<Date | undefined>(new Date());
 
   const { data, mutate: mutateData } = useArchetype({
@@ -69,7 +66,7 @@ export default function AssignmentTester({
     if (feature?.prerequisites?.length) return true;
     if (
       Object.values(feature?.environmentSettings ?? {}).some((env) =>
-        env?.rules?.some((rule) => !!rule?.prerequisites?.length)
+        env?.rules?.some((rule) => !!rule?.prerequisites?.length),
       )
     )
       return true;
@@ -79,8 +76,9 @@ export default function AssignmentTester({
   const hasScheduled = useMemo(() => {
     return Object.values(feature?.environmentSettings ?? {}).some((env) =>
       env?.rules?.some(
-        (rule) => !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length
-      )
+        (rule) =>
+          !!rule?.scheduleRules?.length || !!rule?.prerequisites?.length,
+      ),
     );
   }, [feature]);
   const { hasCommercialFeature } = useUser();
@@ -125,7 +123,7 @@ export default function AssignmentTester({
           const debugLog: string[] = [];
           if (tr?.result?.ruleId && tr?.featureDefinition?.rules) {
             matchedRule = tr.featureDefinition.rules.find(
-              (r) => r.id === tr?.result?.ruleId
+              (r) => r.id === tr?.result?.ruleId,
             );
           }
           let matchedRuleName = "";
@@ -152,11 +150,11 @@ export default function AssignmentTester({
                 debugLog.push(
                   `Rule ${
                     n + 1
-                  }: Skipped because user did not match the rule conditions`
+                  }: Skipped because user did not match the rule conditions`,
                 );
               } else if (reason === "In experiment") {
                 debugLog.push(
-                  `Rule ${n + 1}: Included user in experiment rule`
+                  `Rule ${n + 1}: Included user in experiment rule`,
                 );
               } else if (reason === "Use default value") {
                 debugLog.push(`No rules matched, using default value`);
@@ -214,7 +212,7 @@ export default function AssignmentTester({
                       onClick={() => {
                         if (expandResults.includes(i)) {
                           setExpandResults(
-                            expandResults.filter((o) => o !== i)
+                            expandResults.filter((o) => o !== i),
                           );
                         } else {
                           setExpandResults([...expandResults, i]);
@@ -253,7 +251,7 @@ export default function AssignmentTester({
                               code={JSON.stringify(
                                 tr.result.experimentResult,
                                 null,
-                                2
+                                2,
                               )}
                             />
                           </div>

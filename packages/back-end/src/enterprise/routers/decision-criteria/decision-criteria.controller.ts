@@ -15,7 +15,7 @@ import {
  */
 export const getDecisionCriteria = async (
   req: AuthRequest,
-  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface[] }>
+  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -39,12 +39,12 @@ export const getDecisionCriteriaById = async (
   res: Response<
     | { status: 200; decisionCriteria: DecisionCriteriaInterface }
     | { status: 400; error: string }
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
 
   const decisionCriteria = await context.models.decisionCriteria.getById(
-    req.params.id
+    req.params.id,
   );
 
   if (!decisionCriteria) {
@@ -65,7 +65,7 @@ export const getDecisionCriteriaById = async (
  */
 export const postDecisionCriteria = async (
   req: AuthRequest<CreateDecisionCriteriaProps>,
-  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface }>
+  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const data = req.body;
@@ -94,12 +94,12 @@ export const postDecisionCriteria = async (
  */
 export const deleteDecisionCriteria = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
   const decisionCriteria = await context.models.decisionCriteria.getById(
-    req.params.id
+    req.params.id,
   );
 
   if (!decisionCriteria) {
@@ -121,24 +121,21 @@ export const deleteDecisionCriteria = async (
  */
 export const putDecisionCriteria = async (
   req: AuthRequest<UpdateDecisionCriteriaProps, { id: string }>,
-  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface }>
+  res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const updates = req.body;
 
-  const existingDecisionCriteria = await context.models.decisionCriteria.getById(
-    req.params.id
-  );
+  const existingDecisionCriteria =
+    await context.models.decisionCriteria.getById(req.params.id);
 
   if (!existingDecisionCriteria) {
     throw new Error("Could not find decision criteria with that id");
   }
 
   // Update the decision criteria
-  const updatedDecisionCriteria = await context.models.decisionCriteria.updateById(
-    req.params.id,
-    updates
-  );
+  const updatedDecisionCriteria =
+    await context.models.decisionCriteria.updateById(req.params.id, updates);
 
   res.status(200).json({
     status: 200,

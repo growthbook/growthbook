@@ -74,7 +74,8 @@ export default function genDefaultSettings(): Settings {
     regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
     sequentialTestingEnabled: DEFAULT_SEQUENTIAL_TESTING_ENABLED,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingTuningParameter:
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     sdkInstructionsViewed: DEFAULT_SDK_INSTRUCTIONS_VIEWED,
     statsEngine: DEFAULT_STATS_ENGINE,
     updateSchedule: DEFAULT_UPDATE_SCHEDULE,

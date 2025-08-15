@@ -115,13 +115,13 @@ const MetricsSelector: FC<{
   const { hasCommercialFeature } = useUser();
 
   const metricListContainsGroup = selected.some((metric) =>
-    isMetricGroupId(metric)
+    isMetricGroupId(metric),
   );
 
   const options: MetricOption[] = [
     ...metrics
       .filter((m) =>
-        noPercentile ? m.cappingSettings.type !== "percentile" : true
+        noPercentile ? m.cappingSettings.type !== "percentile" : true,
       )
       .filter((m) => (noManual ? m.datasource : true))
       .map((m) => ({
@@ -191,7 +191,7 @@ const MetricsSelector: FC<{
     : undefined;
   // todo: get specific exposure query from experiment?
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   )?.userIdType;
 
   const filteredOptions = options
@@ -199,7 +199,7 @@ const MetricsSelector: FC<{
     .filter((m) =>
       datasourceSettings && userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-        : true
+        : true,
     )
     .filter((m) => isProjectListValidForProject(m.projects, project));
 
@@ -254,7 +254,7 @@ const MetricsSelector: FC<{
                     ? isMetricJoinable(
                         userIdTypes,
                         userIdType,
-                        datasourceSettings
+                        datasourceSettings,
                       )
                     : true,
               };
@@ -280,7 +280,7 @@ const MetricsSelector: FC<{
               (d) =>
                 d.startsWith("met_") ||
                 d.startsWith("mg_") ||
-                d.startsWith("fact__")
+                d.startsWith("fact__"),
             )
           ) {
             e.preventDefault();
@@ -326,48 +326,50 @@ const MetricsSelector: FC<{
           ) : null}
           <div className="d-flex align-items-center justify-content-start mt-2 mb-2">
             <div>
-              {!forceSingleMetric && filteredOptions.length > 0 && !disabled && (
-                <div className="metric-from-tag text-muted form-inline">
-                  <span
-                    style={{
-                      color: "var(--violet-11)",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Select metric by tag:{" "}
-                    <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                      <GBInfo />
-                    </Tooltip>
-                  </span>
-                  <SelectField
-                    value="choose"
-                    placeholder="choose"
-                    className="ml-3"
-                    containerClassName="select-dropdown-underline"
-                    style={{ minWidth: 200 }}
-                    onChange={(v) => {
-                      const newValue = new Set(selected);
-                      const tag = v;
-                      filteredOptions.forEach((m) => {
-                        if (m.tags && m.tags.includes(tag)) {
-                          newValue.add(m.id);
-                        }
-                      });
-                      onChange(Array.from(newValue));
-                    }}
-                    options={[
-                      {
-                        value: "...",
-                        label: "...",
-                      },
-                      ...Object.keys(tagCounts).map((k) => ({
-                        value: k,
-                        label: `${k} (${tagCounts[k]})`,
-                      })),
-                    ]}
-                  />
-                </div>
-              )}
+              {!forceSingleMetric &&
+                filteredOptions.length > 0 &&
+                !disabled && (
+                  <div className="metric-from-tag text-muted form-inline">
+                    <span
+                      style={{
+                        color: "var(--violet-11)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Select metric by tag:{" "}
+                      <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
+                        <GBInfo />
+                      </Tooltip>
+                    </span>
+                    <SelectField
+                      value="choose"
+                      placeholder="choose"
+                      className="ml-3"
+                      containerClassName="select-dropdown-underline"
+                      style={{ minWidth: 200 }}
+                      onChange={(v) => {
+                        const newValue = new Set(selected);
+                        const tag = v;
+                        filteredOptions.forEach((m) => {
+                          if (m.tags && m.tags.includes(tag)) {
+                            newValue.add(m.id);
+                          }
+                        });
+                        onChange(Array.from(newValue));
+                      }}
+                      options={[
+                        {
+                          value: "...",
+                          label: "...",
+                        },
+                        ...Object.keys(tagCounts).map((k) => ({
+                          value: k,
+                          label: `${k} (${tagCounts[k]})`,
+                        })),
+                      ]}
+                    />
+                  </div>
+                )}
             </div>
           </div>
         </>

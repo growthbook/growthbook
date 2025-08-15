@@ -93,7 +93,7 @@ export default function LegacyReportPage({
     : false;
 
   const canDeleteReport = permissionsUtil.canDeleteReport(
-    experimentData?.experiment || {}
+    experimentData?.experiment || {},
   );
 
   // todo: move to report args
@@ -101,11 +101,10 @@ export default function LegacyReportPage({
   const pValueCorrection = orgSettings?.pValueCorrection;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   const form = useForm({
     defaultValues: {
@@ -233,40 +232,42 @@ export default function LegacyReportPage({
               Go to experiment results
             </Link>
           )}
-          {canDeleteReport && (userId === report?.userId || !report?.userId) && (
-            <DeleteButton
-              displayName="Custom Report"
-              link={false}
-              className="float-right btn-sm"
-              text="delete"
-              useIcon={true}
-              onClick={async () => {
-                await apiCall<{ status: number; message?: string }>(
-                  `/report/${report.id}`,
-                  {
-                    method: "DELETE",
-                  }
-                );
-                trackReport(
-                  "delete",
-                  "DeleteButton",
-                  datasource?.type || null,
-                  report
-                );
-                router.push(`/experiment/${report.experimentId}#results`);
-              }}
-            />
-          )}
+          {canDeleteReport &&
+            (userId === report?.userId || !report?.userId) && (
+              <DeleteButton
+                displayName="Custom Report"
+                link={false}
+                className="float-right btn-sm"
+                text="delete"
+                useIcon={true}
+                onClick={async () => {
+                  await apiCall<{ status: number; message?: string }>(
+                    `/report/${report.id}`,
+                    {
+                      method: "DELETE",
+                    },
+                  );
+                  trackReport(
+                    "delete",
+                    "DeleteButton",
+                    datasource?.type || null,
+                    report,
+                  );
+                  router.push(`/experiment/${report.experimentId}#results`);
+                }}
+              />
+            )}
           <h1 className="mb-0 mt-2">
             {report.title}{" "}
-            {canUpdateReport && (userId === report?.userId || !report?.userId) && (
-              <a
-                className="ml-2 cursor-pointer"
-                onClick={() => setEditModalOpen(true)}
-              >
-                <GBEdit />
-              </a>
-            )}
+            {canUpdateReport &&
+              (userId === report?.userId || !report?.userId) && (
+                <a
+                  className="ml-2 cursor-pointer"
+                  onClick={() => setEditModalOpen(true)}
+                >
+                  <GBEdit />
+                </a>
+              )}
           </h1>
           <div className="mb-1">
             <small className="text-muted">
@@ -380,7 +381,7 @@ export default function LegacyReportPage({
                               "update",
                               "RefreshData",
                               datasource?.type || null,
-                              res.report as ExperimentReportInterface
+                              res.report as ExperimentReportInterface,
                             );
                             mutate();
                             setRefreshError("");
@@ -415,7 +416,7 @@ export default function LegacyReportPage({
                             "update",
                             "ForceRefreshData",
                             datasource?.type || null,
-                            res.report as ExperimentReportInterface
+                            res.report as ExperimentReportInterface,
                           );
                           mutate();
                         } catch (e) {
@@ -438,7 +439,7 @@ export default function LegacyReportPage({
                       variations={variations}
                       metrics={getAllMetricIdsFromExperiment(
                         report.args,
-                        false
+                        false,
                       )}
                       differenceType={report.args.differenceType ?? "relative"}
                       trackingKey={report.title}
@@ -511,7 +512,7 @@ export default function LegacyReportPage({
                     queryStatusData={queryStatusData}
                     status={"stopped"}
                     startDate={getValidDate(
-                      report.args.startDate
+                      report.args.startDate,
                     ).toISOString()}
                     endDate={getValidDate(report.args.endDate).toISOString()}
                     dimensionId={report.args.dimension}
@@ -558,7 +559,7 @@ export default function LegacyReportPage({
                       "update",
                       "VariationIdWarning",
                       datasource?.type || null,
-                      res.updatedReport as ExperimentReportInterface
+                      res.updatedReport as ExperimentReportInterface,
                     );
                     mutate();
                   }}
@@ -578,7 +579,7 @@ export default function LegacyReportPage({
                       queryStatusData={queryStatusData}
                       reportDate={report.dateCreated}
                       startDate={getValidDate(
-                        report.args.startDate
+                        report.args.startDate,
                       ).toISOString()}
                       endDate={getValidDate(report.args.endDate).toISOString()}
                       isLatestPhase={true}

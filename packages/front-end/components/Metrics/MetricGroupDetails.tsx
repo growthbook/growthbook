@@ -60,7 +60,7 @@ export default function MetricGroupDetails({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
   function getMetricIndex(id: string) {
     if (!items || !items.length) return -1;
@@ -102,7 +102,7 @@ export default function MetricGroupDetails({
                 from: oldIndex,
                 to: newIndex,
               }),
-            }
+            },
           ).then(async () => {
             await mutate();
           });
@@ -277,7 +277,7 @@ function MetricRow({
               `/metric-group/${metricGroupId}/remove/${metric.id}`,
               {
                 method: "DELETE",
-              }
+              },
             ).then(async () => {
               if (mutate) {
                 await mutate();

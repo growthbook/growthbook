@@ -33,7 +33,7 @@ export const gbContext: Context = {
         experimentId: experiment.key,
         variationId: result.key,
       },
-      true
+      true,
     );
   },
   stickyBucketService: new BrowserCookieStickyBucketService({
@@ -62,19 +62,19 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
 // observed and expected weights
 export function getSRMNeededPrecisionP1(
   observed: number[],
-  expected: number[]
+  expected: number[],
 ): number {
   const observedpct = trafficSplitPercentages(observed);
   const expectedpct = trafficSplitPercentages(expected);
   const maxDiff = Math.max(
-    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0))
+    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0)),
   );
   return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
 }
 
 export function phaseSummary(
   phase: ExperimentPhaseStringDates,
-  skipWeights: boolean = false
+  skipWeights: boolean = false,
 ): ReactNode {
   if (!phase) {
     return null;
@@ -100,7 +100,7 @@ export function phaseSummary(
 
 export function distributeWeights(
   weights: number[],
-  customSplit: boolean
+  customSplit: boolean,
 ): number[] {
   // Always just use equal weights if we're not customizing them
   if (!customSplit) return getEqualWeights(weights.length);
@@ -124,7 +124,7 @@ export function distributeWeights(
 
 export function percentToDecimalForNumber(
   val: number,
-  precision: number = 4
+  precision: number = 4,
 ): number {
   return parseFloat((val / 100).toFixed(precision));
 }
@@ -145,7 +145,7 @@ export function rebalance(
   weights: number[],
   i: number,
   newValue: number,
-  precision: number = 4
+  precision: number = 4,
 ): number[] {
   // Clamp new value
   if (newValue > 1) newValue = 1;
@@ -158,7 +158,7 @@ export function rebalance(
   // Current sum of weights
   const currentTotal = floatRound(
     weights.reduce((sum, w) => sum + w, 0),
-    precision
+    precision,
   );
   // The sum is too low, increment the next variation's weight
   if (currentTotal < 1) {
@@ -166,7 +166,7 @@ export function rebalance(
     const nextValue = floatRound(weights[nextIndex], precision);
     weights[(i + 1) % weights.length] = floatRound(
       nextValue + (1 - currentTotal),
-      precision
+      precision,
     );
   } else if (currentTotal > 1) {
     // The sum is too high, loop through the other variations and decrement weights
@@ -196,7 +196,7 @@ export function isNullUndefinedOrEmpty(x): boolean {
 
 export function appendQueryParamsToURL(
   url: string,
-  params: Record<string, string | number | undefined>
+  params: Record<string, string | number | undefined>,
 ): string {
   const [_root, hash] = url.split("#");
   const [root, query] = _root.split("?");
@@ -205,7 +205,7 @@ export function appendQueryParamsToURL(
     { ...parsed, ...params },
     {
       sort: false,
-    }
+    },
   );
   return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
 }
@@ -254,7 +254,7 @@ function getOrGenerateSessionId() {
       now.getDate(),
       now.getHours(),
       now.getMinutes() + 30,
-      now.getSeconds()
+      now.getSeconds(),
     ),
     sameSite: "strict",
   });

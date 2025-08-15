@@ -26,7 +26,7 @@ const WebhooksPage: FC = () => {
 
   const queryParams = new URLSearchParams(window.location.search);
   const [newSecretOpen, setNewSecretOpen] = useState<boolean>(
-    queryParams.has("newSecret") || false
+    queryParams.has("newSecret") || false,
   );
 
   if (!canManageWebhooks) {

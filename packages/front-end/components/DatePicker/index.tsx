@@ -59,17 +59,17 @@ export default function DatePicker({
   const dateFormat =
     precision === "datetime" ? "yyyy-MM-dd'T'HH:mm" : "yyyy-MM-dd";
   const [bufferedDate, setBufferedDate] = useState(
-    date ? format(getValidDate(date), dateFormat) : ""
+    date ? format(getValidDate(date), dateFormat) : "",
   );
   const [bufferedDate2, setBufferedDate2] = useState(
-    date2 ? format(getValidDate(date2), dateFormat) : ""
+    date2 ? format(getValidDate(date2), dateFormat) : "",
   );
 
   const [calendarMonth, setCalendarMonth] = useState(
     new Date(
       getValidDate(date ?? new Date()).getUTCFullYear(),
-      getValidDate(date ?? new Date()).getUTCMonth()
-    )
+      getValidDate(date ?? new Date()).getUTCMonth(),
+    ),
   );
   const [open, setOpen] = useState(false);
   const fieldClickedTime = useRef(new Date());
@@ -118,7 +118,7 @@ export default function DatePicker({
         setBufferedDate2(format(finalDate, dateFormat));
       }
       setCalendarMonth(
-        new Date(finalDate.getUTCFullYear(), finalDate.getUTCMonth())
+        new Date(finalDate.getUTCFullYear(), finalDate.getUTCMonth()),
       );
     }, 500);
   }, [

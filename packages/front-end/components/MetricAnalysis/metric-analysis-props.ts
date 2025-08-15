@@ -17,7 +17,7 @@ export function getMetricAnalysisProps({
 }): CreateMetricAnalysisProps {
   const todayMinusLookback = new Date(endOfToday);
   todayMinusLookback.setDate(
-    todayMinusLookback.getDate() - (values.lookbackDays as number)
+    todayMinusLookback.getDate() - (values.lookbackDays as number),
   );
   todayMinusLookback.setHours(0, 0, 0, 0);
 

@@ -108,7 +108,7 @@ export default function ResultMoreMenu({
               {
                 method: "POST",
                 body: reportArgs ? JSON.stringify(reportArgs) : undefined,
-              }
+              },
             );
             if (!res.report) {
               throw new Error("Failed to create report");
@@ -139,7 +139,7 @@ export default function ResultMoreMenu({
             const url = URL.createObjectURL(
               new Blob([res.notebook], {
                 type: "application/json",
-              })
+              }),
             );
 
             const name = notebookFilename

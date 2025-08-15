@@ -69,7 +69,7 @@ export default function FeaturesDraftTable({ features }: Props) {
       }
       return result;
     },
-    []
+    [],
   );
 
   const revisions = useAddComputedFields(featuresAndRevisions, (revision) => {

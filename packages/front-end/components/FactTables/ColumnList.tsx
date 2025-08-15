@@ -40,20 +40,14 @@ export default function ColumnList({ factTable }: Props) {
         : column.datatype,
   }));
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    clear,
-    pagination,
-  } = useSearch({
-    items: columns,
-    defaultSortField: "dateCreated",
-    localStorageKey: "factColumns",
-    searchFields: ["name^3", "description", "column^2"],
-    pageSize: 5,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
+    useSearch({
+      items: columns,
+      defaultSortField: "dateCreated",
+      localStorageKey: "factColumns",
+      searchFields: ["name^3", "description", "column^2"],
+      pageSize: 5,
+    });
 
   const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
@@ -99,7 +93,7 @@ export default function ColumnList({ factTable }: Props) {
                 {
                   method: "PUT",
                   body: JSON.stringify({}),
-                }
+                },
               );
               mutateDefinitions();
             }}

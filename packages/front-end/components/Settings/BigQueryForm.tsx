@@ -32,7 +32,7 @@ const BigQueryForm: FC<{
             client_email: params.clientEmail,
             private_key: params.privateKey,
           }),
-        }
+        },
       );
       if (!datasets.length) {
         setTestConnectionResults({

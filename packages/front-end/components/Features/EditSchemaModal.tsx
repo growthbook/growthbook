@@ -445,7 +445,7 @@ export default function EditSchemaModal({
       schemaType: defaultSchemaType,
       simple: defaultSimpleSchema,
       schema: defaultJSONSchema,
-      enabled: defaultEnable ? true : feature.jsonSchema?.enabled ?? true,
+      enabled: defaultEnable ? true : (feature.jsonSchema?.enabled ?? true),
     },
   });
   const { apiCall } = useAuth();
@@ -477,14 +477,14 @@ export default function EditSchemaModal({
             }
           } catch (e) {
             throw new Error(
-              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+              `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
             );
           }
 
           if (schemaString !== value.schema) {
             form.setValue("schema", schemaString);
             throw new Error(
-              "We fixed some errors in the schema. If it looks correct, save again."
+              "We fixed some errors in the schema. If it looks correct, save again.",
             );
           }
         } else if (value.enabled && value.schemaType === "simple") {
@@ -496,7 +496,7 @@ export default function EditSchemaModal({
             ajv.compile(parsedSchema);
           } catch (e) {
             throw new Error(
-              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+              `The Simple Schema is invalid. Please check it and try again. Validator error: "${e.message}"`,
             );
           }
         }
@@ -559,11 +559,11 @@ export default function EditSchemaModal({
                     if (form.watch("schema") === "{}") {
                       try {
                         const schemaString = simpleToJSONSchema(
-                          form.watch("simple")
+                          form.watch("simple"),
                         );
                         form.setValue(
                           "schema",
-                          stringify(JSON.parse(schemaString))
+                          stringify(JSON.parse(schemaString)),
                         );
                       } catch (e) {
                         // Ignore errors, we just want to set the default value

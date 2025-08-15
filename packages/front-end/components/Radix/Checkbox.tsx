@@ -52,7 +52,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     containerClassName,
     ...containerProps
   }: Props,
-  ref
+  ref,
 ) {
   const checkboxColor = error ? getRadixColor(errorLevel) : "violet";
 
@@ -80,7 +80,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
             "rt-TextDisabled": disabled,
             disabled: disabled,
           },
-          containerClassName
+          containerClassName,
         )}
         {...containerProps}
       >

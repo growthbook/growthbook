@@ -31,7 +31,7 @@ export default function InlineCode({
   const { theme } = useAppearanceUITheme();
 
   const style = cloneDeep(
-    theme === "light" ? (inTooltip ? dark : light) : inTooltip ? light : dark
+    theme === "light" ? (inTooltip ? dark : light) : inTooltip ? light : dark,
   );
   style['code[class*="language-"]'].fontSize = "0.85rem";
   style['code[class*="language-"]'].lineHeight = 1.5;

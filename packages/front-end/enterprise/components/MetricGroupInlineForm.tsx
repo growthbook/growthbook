@@ -31,7 +31,7 @@ export default function MetricGroupInlineForm({
         datasource,
         metrics: selectedMetricIds,
       },
-    }
+    },
   );
 
   const submit = form.handleSubmit(async () => {
@@ -66,7 +66,7 @@ export default function MetricGroupInlineForm({
       setError(
         `Unable to save Metric Group. ${
           e.message ? `Reason:  ${e.message}` : ""
-        }`
+        }`,
       );
     }
     setLoading(false);

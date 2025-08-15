@@ -30,7 +30,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
 
   const [showDescription, setShowDescription] = useState(
-    !!existing?.description?.length
+    !!existing?.description?.length,
   );
 
   const { mutateDefinitions } = useDefinitions();
@@ -109,7 +109,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             const updatedFactTable = {
               ...factTable,
               columns: factTable.columns.map((c) =>
-                c.column === existing.column ? { ...c, ...data } : c
+                c.column === existing.column ? { ...c, ...data } : c,
               ),
             };
             if (!canInlineFilterColumn(updatedFactTable, existing.column)) {
@@ -126,7 +126,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             {
               method: "PUT",
               body: JSON.stringify(data),
-            }
+            },
           );
         } else {
           await apiCall(`/fact-tables/${factTable.id}/column`, {
@@ -249,7 +249,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                           </a>
                         </td>
                       </tr>
-                    )
+                    ),
                   )}
                   {newJSONField.adding ? (
                     <tr>
@@ -357,7 +357,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           ...factTable,
           columns: [updatedColumn],
         },
-        form.watch("column")
+        form.watch("column"),
       ) && (
         <Checkbox
           value={form.watch("alwaysInlineFilter") ?? false}

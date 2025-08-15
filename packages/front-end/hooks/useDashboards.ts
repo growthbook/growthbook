@@ -11,7 +11,7 @@ export function useAllDashboards() {
 
   const dashboardsMap = useMemo(
     () => new Map(dashboards.map((e) => [e.id, e])),
-    [dashboards]
+    [dashboards],
   );
 
   return {
@@ -32,7 +32,7 @@ export function useDashboards(experimentId: string) {
 
   const dashboardsMap = useMemo(
     () => new Map(dashboards.map((e) => [e.id, e])),
-    [dashboards]
+    [dashboards],
   );
 
   return {

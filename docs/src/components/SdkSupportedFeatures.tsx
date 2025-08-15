@@ -1,6 +1,6 @@
 import sdkInfo from "../data/SDKInfo";
 
-type SingleSdkInfoType = typeof sdkInfo[keyof typeof sdkInfo];
+type SingleSdkInfoType = (typeof sdkInfo)[keyof typeof sdkInfo];
 
 const capabilityDetails = {
   features: {

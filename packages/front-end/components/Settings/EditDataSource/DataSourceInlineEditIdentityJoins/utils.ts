@@ -10,7 +10,7 @@ import { IdentityJoinQuery } from "back-end/types/datasource";
  */
 export const isDuplicateIdentityJoin = (
   newIds: string[],
-  existingIdentityJoins: IdentityJoinQuery[]
+  existingIdentityJoins: IdentityJoinQuery[],
 ): boolean => {
   const existingElement = existingIdentityJoins.find((item) => {
     return isEqual(sortBy(item.ids), sortBy(newIds));

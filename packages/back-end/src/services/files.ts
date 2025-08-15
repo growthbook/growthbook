@@ -27,7 +27,7 @@ export function getUploadsDir() {
 export async function uploadFile(
   filePath: string,
   contentType: string,
-  contents: Buffer
+  contents: Buffer,
 ) {
   // Watch out for poison null bytes
   if (filePath.indexOf("\0") !== -1) {
@@ -60,7 +60,7 @@ export async function uploadFile(
     // Prevent directory traversal
     if (fullPath.indexOf(rootDirectory) !== 0) {
       throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory."
+        "Error: Path must not escape out of the 'uploads' directory.",
       );
     }
 
@@ -99,7 +99,7 @@ export function getImageData(filePath: string) {
     // Prevent directory traversal
     if (fullPath.indexOf(rootDirectory) !== 0) {
       throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory."
+        "Error: Path must not escape out of the 'uploads' directory.",
       );
     }
 

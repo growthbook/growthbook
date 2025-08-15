@@ -74,15 +74,15 @@ describe("bigquery integration", () => {
         normalSqlMetric,
         false,
         new Date(),
-        false
-      ).replace(/\s+/g, " ")
+        false,
+      ).replace(/\s+/g, " "),
     ).toEqual(
-      "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)"
+      "(CASE WHEN m.timestamp >= d.timestamp AND m.timestamp <= DATETIME_ADD(d.timestamp, INTERVAL 72 HOUR) THEN val ELSE NULL END)",
     );
 
     const date = new Date();
     const endDateFilter = `AND m.timestamp <= ${bqIntegration["toTimestamp"](
-      date
+      date,
     )}`;
     expect(
       bqIntegration["addCaseWhenTimeFilter"](
@@ -90,22 +90,22 @@ describe("bigquery integration", () => {
         normalSqlMetric,
         true,
         date,
-        false
-      ).replace(/\s+/g, " ")
+        false,
+      ).replace(/\s+/g, " "),
     ).toEqual(
-      `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} THEN val ELSE NULL END)`
+      `(CASE WHEN m.timestamp >= d.timestamp ${endDateFilter} THEN val ELSE NULL END)`,
     );
 
     expect(
       bqIntegration["getAggregateMetricColumn"]({
         metric: customNumberAggMetric,
-      })
+      }),
     ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(
-      bqIntegration["getAggregateMetricColumn"]({ metric: customCountAgg })
+      bqIntegration["getAggregateMetricColumn"]({ metric: customCountAgg }),
     ).toEqual("COUNT(value) / (5 + COUNT(value))");
     expect(
-      bqIntegration["getAggregateMetricColumn"]({ metric: normalSqlMetric })
+      bqIntegration["getAggregateMetricColumn"]({ metric: normalSqlMetric }),
     ).toEqual("SUM(COALESCE(value, 0))");
   });
   it("correctly picks date windows", () => {
@@ -193,7 +193,7 @@ describe("bigquery integration", () => {
 
     // standard metric
     expect(
-      bqIntegration["getMaxHoursToConvert"](false, [numeratorMetric], null)
+      bqIntegration["getMaxHoursToConvert"](false, [numeratorMetric], null),
     ).toEqual(20);
 
     // funnel metric
@@ -201,8 +201,8 @@ describe("bigquery integration", () => {
       bqIntegration["getMaxHoursToConvert"](
         true,
         [denominatorBinomialMetric].concat([numeratorMetric]),
-        null
-      )
+        null,
+      ),
     ).toEqual(21);
 
     // ratio metric
@@ -210,8 +210,8 @@ describe("bigquery integration", () => {
       bqIntegration["getMaxHoursToConvert"](
         false,
         [denominatorCountMetric].concat([numeratorMetric]),
-        null
-      )
+        null,
+      ),
     ).toEqual(20);
 
     // ratio metric activated
@@ -219,13 +219,13 @@ describe("bigquery integration", () => {
       bqIntegration["getMaxHoursToConvert"](
         false,
         [denominatorCountMetric].concat([numeratorMetric]),
-        activationMetric
-      )
+        activationMetric,
+      ),
     ).toEqual(92);
   });
   it("escape single quotes and backslash correctly", () => {
     expect(bqIntegration["escapeStringLiteral"](`test\\'string`)).toEqual(
-      `test\\\\\\'string`
+      `test\\\\\\'string`,
     );
   });
 });

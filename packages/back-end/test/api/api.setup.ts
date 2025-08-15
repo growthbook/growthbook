@@ -21,7 +21,7 @@ jest.mock("back-end/src/services/auth", () => ({
 
 jest.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
   ...jest.requireActual(
-    "back-end/src/middleware/authenticateApiRequestMiddleware"
+    "back-end/src/middleware/authenticateApiRequestMiddleware",
   ),
   __esModule: true,
   default: jest.fn(),

@@ -38,11 +38,11 @@ const informationSchema = new mongoose.Schema({
                     numOfColumns: z.number(),
                     dateCreated: z.date(),
                     dateUpdated: z.date(),
-                  })
+                  }),
                 ),
-              })
+              }),
             ),
-          })
+          }),
         );
 
         const result = zodSchema.safeParse(value);
@@ -54,7 +54,7 @@ const informationSchema = new mongoose.Schema({
               error: JSON.stringify(errorString, null, 2),
               result: JSON.stringify(result, null, 2),
             },
-            "Invalid database schema"
+            "Invalid database schema",
           );
         }
 
@@ -75,7 +75,7 @@ type InformationSchemaDocument = mongoose.Document & InformationSchemaInterface;
 
 const InformationSchemaModel = mongoose.model<InformationSchemaInterface>(
   "InformationSchema",
-  informationSchema
+  informationSchema,
 );
 
 /**
@@ -83,14 +83,14 @@ const InformationSchemaModel = mongoose.model<InformationSchemaInterface>(
  * @param doc
  */
 const toInterface = (
-  doc: InformationSchemaDocument
+  doc: InformationSchemaDocument,
 ): InformationSchemaInterface =>
   omit(doc.toJSON<InformationSchemaDocument>(), ["__v", "_id"]);
 
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
   organization: string,
-  datasourceId: string
+  datasourceId: string,
 ): Promise<InformationSchemaInterface> {
   const result = await InformationSchemaModel.create({
     id: uniqid("inf_"),
@@ -108,7 +108,7 @@ export async function createInformationSchema(
 export async function updateInformationSchemaById(
   organization: string,
   id: string,
-  updates: Partial<InformationSchemaInterface>
+  updates: Partial<InformationSchemaInterface>,
 ): Promise<void> {
   await InformationSchemaModel.updateOne(
     {
@@ -117,13 +117,13 @@ export async function updateInformationSchemaById(
     },
     {
       $set: updates,
-    }
+    },
   );
 }
 
 export async function getInformationSchemaByDatasourceId(
   datasourceId: string,
-  organization: string
+  organization: string,
 ): Promise<InformationSchemaInterface | null> {
   const result = await InformationSchemaModel.findOne({
     organization,
@@ -136,7 +136,7 @@ export async function getInformationSchemaByDatasourceId(
 }
 
 export async function getInformationSchemasByOrganization(
-  organization: string
+  organization: string,
 ): Promise<InformationSchemaInterface[] | null> {
   const results = await InformationSchemaModel.find({
     organization,
@@ -147,7 +147,7 @@ export async function getInformationSchemasByOrganization(
 
 export async function getInformationSchemaById(
   organization: string,
-  informationSchemaId: string
+  informationSchemaId: string,
 ): Promise<InformationSchemaInterface | null> {
   const result = await InformationSchemaModel.findOne({
     organization,
@@ -159,7 +159,7 @@ export async function getInformationSchemaById(
 
 export async function deleteInformationSchemaById(
   organization: string,
-  informationSchemaId: string
+  informationSchemaId: string,
 ): Promise<void> {
   await InformationSchemaModel.deleteOne({
     organization,

@@ -26,7 +26,7 @@ export const teamtoScimGroup = (team: TeamWithMembers): ScimGroup => {
 
 export async function getGroup(
   req: ScimGetRequest,
-  res: Response
+  res: Response,
 ): Promise<Response<ScimGroup | ScimError>> {
   const { id } = req.params;
 

@@ -28,16 +28,28 @@ const ExperimentWinRateByProject: React.FC<ExperimentWinRateByProjectProps> = ({
         losses: number;
         total: number;
       }
-    > = projects.reduce((map, project) => {
-      map[project.id] = {
-        id: project.id,
-        name: project.name,
-        wins: 0,
-        losses: 0,
-        total: 0,
-      };
-      return map;
-    }, {} as Record<string, { id: string; name: string; wins: number; losses: number; total: number }>);
+    > = projects.reduce(
+      (map, project) => {
+        map[project.id] = {
+          id: project.id,
+          name: project.name,
+          wins: 0,
+          losses: 0,
+          total: 0,
+        };
+        return map;
+      },
+      {} as Record<
+        string,
+        {
+          id: string;
+          name: string;
+          wins: number;
+          losses: number;
+          total: number;
+        }
+      >,
+    );
 
     let allWins = 0;
     let allLosses = 0;

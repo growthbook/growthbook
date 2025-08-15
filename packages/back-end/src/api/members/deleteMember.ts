@@ -10,7 +10,7 @@ export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
     }
 
     const orgUser = req.context.org.members.find(
-      (member) => member.id === req.params.id
+      (member) => member.id === req.params.id,
     );
 
     if (!orgUser) {
@@ -19,7 +19,7 @@ export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
 
     if (orgUser.managedByIdp) {
       throw new Error(
-        "This user is managed via an External Identity Provider (IDP) via SCIM 2.0 - User can only be updated via the IDP"
+        "This user is managed via an External Identity Provider (IDP) via SCIM 2.0 - User can only be updated via the IDP",
       );
     }
 
@@ -35,12 +35,12 @@ export const deleteMember = createApiRequestHandler(deleteMemberValidator)(
       });
     } catch (e) {
       throw new Error(
-        `Unable to remove ${req.params.id} from org: ${e.message}`
+        `Unable to remove ${req.params.id} from org: ${e.message}`,
       );
     }
 
     return {
       deletedId: req.params.id,
     };
-  }
+  },
 );

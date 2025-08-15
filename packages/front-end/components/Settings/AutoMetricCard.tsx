@@ -39,11 +39,11 @@ export default function AutoMetricCard({
     sqlPreview && event.metricsToCreate.findIndex((s) => s.sql === sqlPreview);
 
   const binomialIndex = event.metricsToCreate.findIndex(
-    (metric) => metric.type === "binomial"
+    (metric) => metric.type === "binomial",
   );
 
   const countIndex = event.metricsToCreate.findIndex(
-    (metric) => metric.type === "count"
+    (metric) => metric.type === "count",
   );
 
   return (
@@ -77,9 +77,8 @@ export default function AutoMetricCard({
                 id={`${event}-${event.metricsToCreate[binomialIndex].name}`}
                 setValue={(value) => {
                   const updates = cloneDeep(trackedEvents);
-                  updates[i].metricsToCreate[
-                    binomialIndex
-                  ].shouldCreate = value;
+                  updates[i].metricsToCreate[binomialIndex].shouldCreate =
+                    value;
                   setTrackedEvents(updates);
                 }}
               />

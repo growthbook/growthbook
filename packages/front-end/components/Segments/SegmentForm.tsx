@@ -59,11 +59,11 @@ const SegmentForm: FC<{
     .filter(
       (d) =>
         d.id === current.datasource ||
-        isProjectListValidForProject(d.projects, project)
+        isProjectListValidForProject(d.projects, project),
     );
 
   const currentOwner = memberUsernameOptions.find(
-    (member) => member.display === current.owner
+    (member) => member.display === current.owner,
   );
   const form = useForm({
     defaultValues: {
@@ -81,7 +81,7 @@ const SegmentForm: FC<{
   });
   const [sqlOpen, setSqlOpen] = useState(false);
   const [createFactSegment, setCreateFactSegment] = useState(
-    () => current?.type === "FACT"
+    () => current?.type === "FACT",
   );
 
   const userIdType = form.watch("userIdType");
@@ -101,7 +101,7 @@ const SegmentForm: FC<{
   const projectOptions = useProjectOptions(
     (project) => permissionsUtil.canCreateSegment({ projects: [project] }),
     form.watch("projects"),
-    filteredProjects.length ? filteredProjects : undefined
+    filteredProjects.length ? filteredProjects : undefined,
   );
 
   const dsProps = datasource?.properties;
@@ -157,7 +157,7 @@ const SegmentForm: FC<{
             !value.projects.length
           ) {
             throw new Error(
-              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`,
             );
           }
 
@@ -170,7 +170,7 @@ const SegmentForm: FC<{
             current.projects?.length
           ) {
             throw new Error(
-              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+              `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`,
             );
           }
 

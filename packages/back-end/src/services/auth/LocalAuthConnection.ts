@@ -29,7 +29,7 @@ export class LocalAuthConnection implements AuthConnection {
   async refresh(
     req: Request,
     res: Response,
-    refreshToken: string
+    refreshToken: string,
   ): Promise<TokensResponse> {
     const userId = await getUserIdFromAuthRefreshToken(refreshToken);
     if (!userId) {
@@ -57,7 +57,7 @@ export class LocalAuthConnection implements AuthConnection {
   async processCallback(
     req: Request,
     res: Response,
-    user: UserInterface
+    user: UserInterface,
   ): Promise<TokensResponse> {
     const idToken = this.generateJWT(user);
     const refreshToken = await createRefreshToken(req, user);
@@ -104,7 +104,7 @@ export class LocalAuthConnection implements AuthConnection {
         subject: user.id,
         // 30 minutes
         expiresIn: 1800,
-      }
+      },
     );
   }
 }

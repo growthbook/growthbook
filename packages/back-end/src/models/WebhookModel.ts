@@ -58,13 +58,13 @@ const WebhookModel = mongoose.model<WebhookInterface>("Webhook", webhookSchema);
 
 function toInterface(doc: WebhookDocument): WebhookInterface {
   return migrateWebhookModel(
-    omit(doc.toJSON<WebhookDocument>(), ["__v", "_id"])
+    omit(doc.toJSON<WebhookDocument>(), ["__v", "_id"]),
   );
 }
 
 export async function findAllSdkWebhooksByConnectionIds(
   context: ReqContext,
-  sdkConnectionIds: string[]
+  sdkConnectionIds: string[],
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({
@@ -77,7 +77,7 @@ export async function findAllSdkWebhooksByConnectionIds(
 
 export async function findAllSdkWebhooksByPayloadFormat(
   context: ReqContext,
-  payloadFormat: string
+  payloadFormat: string,
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({
@@ -90,7 +90,7 @@ export async function findAllSdkWebhooksByPayloadFormat(
 
 export async function findAllSdkWebhooksByConnection(
   context: ReqContext,
-  sdkConnectionId: string
+  sdkConnectionId: string,
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({
@@ -102,7 +102,7 @@ export async function findAllSdkWebhooksByConnection(
 }
 
 export async function findAllLegacySdkWebhooks(
-  context: ReqContext
+  context: ReqContext,
 ): Promise<WebhookInterface[]> {
   return (
     await WebhookModel.find({
@@ -114,7 +114,7 @@ export async function findAllLegacySdkWebhooks(
 
 export async function deleteLegacySdkWebhookById(
   context: ReqContext,
-  id: string
+  id: string,
 ) {
   await WebhookModel.deleteOne({
     organization: context.org.id,
@@ -133,7 +133,7 @@ export async function deleteSdkWebhookById(context: ReqContext, id: string) {
 
 export async function setLastSdkWebhookError(
   webhook: WebhookInterface,
-  error: string
+  error: string,
 ) {
   await WebhookModel.updateOne(
     {
@@ -145,7 +145,7 @@ export async function setLastSdkWebhookError(
         error,
         lastSuccess: error ? undefined : new Date(),
       },
-    }
+    },
   );
 }
 
@@ -168,7 +168,7 @@ export type UpdateSdkWebhookProps = z.infer<typeof updateSdkWebhookValidator>;
 export async function updateSdkWebhook(
   context: ReqContext,
   existing: WebhookInterface,
-  updates: UpdateSdkWebhookProps
+  updates: UpdateSdkWebhookProps,
 ) {
   updates = updateSdkWebhookValidator.parse(updates);
 
@@ -182,7 +182,7 @@ export async function updateSdkWebhook(
       $set: {
         ...updates,
       },
-    }
+    },
   );
 
   return {
@@ -207,7 +207,7 @@ export type CreateSdkWebhookProps = z.infer<typeof createSdkWebhookValidator>;
 export async function createSdkWebhook(
   context: ReqContext,
   sdkConnectionId: string,
-  data: CreateSdkWebhookProps
+  data: CreateSdkWebhookProps,
 ) {
   data = createSdkWebhookValidator.parse(data);
 
@@ -250,7 +250,7 @@ export async function findSdkWebhookById(context: ReqContext, id: string) {
 
 export async function findLegacySdkWebhookById(
   context: ReqContext,
-  id: string
+  id: string,
 ) {
   const doc = await WebhookModel.findOne({
     organization: context.org.id,

@@ -21,7 +21,7 @@ router.post(
   validateRequestMiddleware({
     body: createTemplateValidator,
   }),
-  templateController.postTemplate
+  templateController.postTemplate,
 );
 
 router.delete(
@@ -29,7 +29,7 @@ router.delete(
   validateRequestMiddleware({
     params: templateParams,
   }),
-  templateController.deleteTemplate
+  templateController.deleteTemplate,
 );
 
 router.put(
@@ -38,7 +38,7 @@ router.put(
     params: templateParams,
     body: updateTemplateValidator,
   }),
-  templateController.putTemplate
+  templateController.putTemplate,
 );
 
 export { router as templateRouter };

@@ -21,7 +21,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export function isExperimentRefRuleSkipped(
   experiment: ExperimentInterfaceStringDates,
-  isDraft: boolean
+  isDraft: boolean,
 ) {
   if (experiment.status === "draft" && !experiment.archived) {
     // Draft experiments are published alongside feature drafts,
@@ -81,7 +81,7 @@ export default function ExperimentRefSummary({
   const releasedValue =
     experiment.status === "stopped" && !experiment.excludeFromPayload
       ? rule.variations.find(
-          (v) => v.variationId === experiment.releasedVariationId
+          (v) => v.variationId === experiment.releasedVariationId,
         )
       : null;
 
@@ -258,7 +258,7 @@ export default function ExperimentRefSummary({
                           name: variation.name,
                           value:
                             variations.find(
-                              (v) => v.variationId === variation.id
+                              (v) => v.variationId === variation.id,
                             )?.value ?? "null",
                           weight: phase.variationWeights?.[j] || 0,
                         };

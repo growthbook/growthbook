@@ -9,11 +9,9 @@ import Button from "@/components/Radix/Button";
 
 type DataSourceJupyterNotebookQueryProps = DataSourceQueryEditingModalBaseProps;
 
-export const DataSourceJupyterNotebookQuery: FC<DataSourceJupyterNotebookQueryProps> = ({
-  onSave,
-  dataSource,
-  canEdit = true,
-}) => {
+export const DataSourceJupyterNotebookQuery: FC<
+  DataSourceJupyterNotebookQueryProps
+> = ({ onSave, dataSource, canEdit = true }) => {
   const [uiMode, setUiMode] = useState<"view" | "edit">("view");
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);

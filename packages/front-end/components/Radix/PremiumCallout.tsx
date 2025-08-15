@@ -34,7 +34,7 @@ export default function PremiumCallout({
 
   const [dismissed, setDismissed] = useLocalStorage(
     `premium-callout:${id}`,
-    false
+    false,
   );
 
   const [upgradeModal, setUpgradeModal] = useState(false);

@@ -19,7 +19,7 @@ const RefreshSnapshotButton: FC<{
   phase: number;
   dimension?: string;
   setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   resetFilters?: () => void;
 }> = ({
@@ -62,7 +62,7 @@ const RefreshSnapshotButton: FC<{
       "create",
       "RefreshSnapshotButton",
       getDatasourceById(experiment.datasource)?.type || null,
-      res.snapshot
+      res.snapshot,
     );
     mutate();
   };

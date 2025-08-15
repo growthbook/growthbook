@@ -41,7 +41,7 @@ export default function EnvironmentToggle({
   const submit = async (
     feature: FeatureInterface,
     environment: string,
-    state: boolean
+    state: boolean,
   ) => {
     setToggling(true);
     try {

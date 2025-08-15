@@ -55,7 +55,7 @@ const genEnvironmentSettings = ({
 
   environments.forEach((e) => {
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? e.defaultState ?? true : false;
+    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
     const rules = [];
     envSettings[e.id] = { enabled, rules };
@@ -120,7 +120,7 @@ export default function FeatureFromExperimentModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
     allEnvironments,
-    experiment
+    experiment,
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
@@ -146,10 +146,10 @@ export default function FeatureFromExperimentModal({
   const form = useForm({ defaultValues });
 
   const [showTags, setShowTags] = useState(
-    experiment.tags && experiment.tags.length > 0
+    experiment.tags && experiment.tags.length > 0,
   );
   const [showDescription, setShowDescription] = useState(
-    experiment.description && experiment.description.length > 0
+    experiment.description && experiment.description.length > 0,
   );
 
   const { apiCall } = useAuth();
@@ -198,7 +198,7 @@ export default function FeatureFromExperimentModal({
       form.watch("variations").map((v) => ({
         ...v,
         value: transformValue(v.value),
-      }))
+      })),
     );
   }
 
@@ -250,14 +250,14 @@ export default function FeatureFromExperimentModal({
         if (newRule) {
           form.setValue(
             "variations",
-            (newRule as ExperimentRefRule).variations
+            (newRule as ExperimentRefRule).variations,
           );
           hasChanges = true;
         }
 
         if (hasChanges) {
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again."
+            "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
 
@@ -269,14 +269,14 @@ export default function FeatureFromExperimentModal({
               body: JSON.stringify({
                 rule: rule,
               }),
-            }
+            },
           );
         } else {
           // Add experiment rule to all environments
           Object.values(featureToCreate.environmentSettings).forEach(
             (settings) => {
               settings.rules.push(rule);
-            }
+            },
           );
 
           await apiCall<{ feature: FeatureInterface }>(`/feature`, {

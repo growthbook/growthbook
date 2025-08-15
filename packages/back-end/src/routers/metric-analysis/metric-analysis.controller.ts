@@ -15,7 +15,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>
+  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -36,7 +36,7 @@ export const postMetricAnalysis = async (
   const integration = await getIntegrationFromDatasourceId(
     context,
     metricObj.datasource,
-    true
+    true,
   );
   if (
     !context.permissions.canRunMetricAnalysisQueries(integration.datasource)
@@ -62,7 +62,7 @@ export const postMetricAnalysis = async (
     metricObj,
     metricAnalysisSettings,
     data.source,
-    !data.force
+    !data.force,
   );
 
   const model = metricAnalysis.model;
@@ -74,12 +74,12 @@ export const postMetricAnalysis = async (
 
 export const getMetricAnalysis = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>
+  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>,
 ) => {
   const context = getContextFromReq(req);
 
   const metricAnalysis = await context.models.metricAnalysis.getById(
-    req.params.id
+    req.params.id,
   );
 
   if (!metricAnalysis) {
@@ -94,12 +94,12 @@ export const getMetricAnalysis = async (
 
 export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
   const metricAnalysis = await context.models.metricAnalysis.getById(
-    req.params.id
+    req.params.id,
   );
 
   if (!metricAnalysis) {
@@ -113,13 +113,13 @@ export async function cancelMetricAnalysis(
   }
   const integration = await getIntegrationFromDatasourceId(
     context,
-    metric.datasource
+    metric.datasource,
   );
 
   const queryRunner = new MetricAnalysisQueryRunner(
     context,
     metricAnalysis,
-    integration
+    integration,
   );
   await queryRunner.cancelQueries();
 
@@ -130,12 +130,15 @@ export async function cancelMetricAnalysis(
 
 export async function getLatestMetricAnalysis(
   req: AuthRequest<null, { metricid: string }>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface | null }>
+  res: Response<{
+    status: 200;
+    metricAnalysis: MetricAnalysisInterface | null;
+  }>,
 ) {
   const context = getContextFromReq(req);
 
   const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(
-    req.params.metricid
+    req.params.metricid,
   );
 
   res.status(200).json({

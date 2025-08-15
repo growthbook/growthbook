@@ -13,7 +13,7 @@ const Markdown: FC<
   if (typeof children !== "string") {
     console.error(
       "The Markdown component expects a single string as child. Received",
-      typeof children
+      typeof children,
     );
   }
 

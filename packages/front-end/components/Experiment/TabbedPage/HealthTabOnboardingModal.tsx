@@ -35,7 +35,7 @@ export type HealthTabConfigParams = {
   refreshOrganization: () => void;
   mutateSnapshot: () => void;
   setAnalysisSettings: (
-    analysisSettings: ExperimentSnapshotAnalysisSettings | null
+    analysisSettings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   setLoading: (loading: boolean) => void;
   resetResultsSettings: () => void;
@@ -74,7 +74,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   >(
     exposureQuery.dimensions?.map((d, i) => {
       const existingMetadata = exposureQuery.dimensionMetadata?.find(
-        (m) => m.dimension === d
+        (m) => m.dimension === d,
       );
       return {
         dimension: d,
@@ -83,7 +83,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           : undefined,
         priority: i + 1,
       };
-    }) ?? []
+    }) ?? [],
   );
 
   const source = "health-tab-onboarding";
@@ -112,10 +112,10 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
     ) {
       const orderedDimensions = exposureQuery.dimensions.sort((a, b) => {
         const aMetadata = customDimensionMetadata.find(
-          (m) => m.dimension === a
+          (m) => m.dimension === a,
         );
         const bMetadata = customDimensionMetadata.find(
-          (m) => m.dimension === b
+          (m) => m.dimension === b,
         );
         // if missing metadata, put it at the end
         if (!aMetadata) return 1;
@@ -130,9 +130,9 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           dimension: d.dimension,
           specifiedSlices: d.customSlicesArray?.length
             ? d.customSlicesArray
-            : data.dimensionSlices.results
+            : (data.dimensionSlices.results
                 .find((r) => r.dimension === d.dimension)
-                ?.dimensionSlices.map((s) => s.name) ?? [],
+                ?.dimensionSlices.map((s) => s.name) ?? []),
         })),
       };
       await apiCall(
@@ -140,7 +140,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
         {
           method: "PUT",
           body: JSON.stringify({ updates }),
-        }
+        },
       );
     }
     if (setupChoice === "refresh") {
@@ -152,14 +152,14 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
           body: JSON.stringify({
             phase,
           }),
-        }
+        },
       )
         .then((res) => {
           trackSnapshot(
             "create",
             "HealthTabOnboarding",
             dataSource?.type || null,
-            res.snapshot
+            res.snapshot,
           );
 
           setAnalysisSettings(null);
@@ -179,7 +179,7 @@ export const HealthTabOnboardingModal: FC<HealthTabOnboardingModalProps> = ({
   }
   const { status } = getQueryStatus(
     data?.dimensionSlices?.queries || [],
-    data?.dimensionSlices?.error
+    data?.dimensionSlices?.error,
   );
 
   // exit modal

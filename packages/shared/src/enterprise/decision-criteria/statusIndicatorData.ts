@@ -21,7 +21,7 @@ export function getStatusIndicatorData(
   experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates,
   skipArchived: boolean,
   healthSettings: ExperimentHealthSettings,
-  decisionCriteria: DecisionCriteriaData
+  decisionCriteria: DecisionCriteriaData,
 ): StatusIndicatorData {
   if (!skipArchived && experimentData.archived) {
     return {
@@ -107,7 +107,7 @@ export function getStatusIndicatorData(
 }
 
 function getDetailedRunningStatusIndicatorData(
-  decisionData: ExperimentResultStatusData
+  decisionData: ExperimentResultStatusData,
 ): StatusIndicatorData {
   switch (decisionData.status) {
     case "rollback-now":
@@ -158,7 +158,7 @@ function getDetailedRunningStatusIndicatorData(
     case "days-left": {
       const cappedPowerAdditionalDaysNeeded = Math.min(
         decisionData.daysLeft,
-        90
+        90,
       );
 
       // Fewer days left = higher sortOrder

@@ -130,28 +130,23 @@ const DataSourcesPage: FC = () => {
     currentProjectIsDemo,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
-  const {
-    mutateDefinitions,
-    setProject,
-    project,
-    datasources,
-  } = useDefinitions();
+  const { mutateDefinitions, setProject, project, datasources } =
+    useDefinitions();
 
   const gb = useGrowthBook();
 
   const router = useRouter();
 
-  const filteredDatasources = (project
-    ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
-      )
-    : datasources
+  const filteredDatasources = (
+    project
+      ? datasources.filter((ds) =>
+          isProjectListValidForProject(ds.projects, project),
+        )
+      : datasources
   ).filter((ds) => !ds.projects?.includes(demoProjectId || ""));
 
-  const [
-    newModalData,
-    setNewModalData,
-  ] = useState<null | Partial<DataSourceInterfaceWithParams>>(null);
+  const [newModalData, setNewModalData] =
+    useState<null | Partial<DataSourceInterfaceWithParams>>(null);
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, license } = useUser();
@@ -259,7 +254,7 @@ const DataSourcesPage: FC = () => {
               value=""
               setValue={(value) => {
                 const option = dataSourceConnections.find(
-                  (o) => o.type === value
+                  (o) => o.type === value,
                 );
                 if (!option) return;
 

@@ -45,7 +45,7 @@ export default function PaymentInfo() {
         "/subscription/payment-methods",
         {
           method: "GET",
-        }
+        },
       );
       setPaymentMethods(res.paymentMethods);
     } catch (e) {
@@ -84,18 +84,18 @@ export default function PaymentInfo() {
   async function detachPaymentMethod(paymentMethodId: string) {
     try {
       const methodIndex = paymentMethods?.findIndex(
-        (method) => method.id === paymentMethodId
+        (method) => method.id === paymentMethodId,
       );
 
       if (paymentMethods?.length === 1 && subscription?.status !== "canceled") {
         throw new Error(
-          "Unable to delete payment method. You must have at least 1 payment method on file."
+          "Unable to delete payment method. You must have at least 1 payment method on file.",
         );
       }
 
       if (methodIndex <= -1) {
         throw new Error(
-          "Cannot delete: Payment method does not exist on this subscription"
+          "Cannot delete: Payment method does not exist on this subscription",
         );
       }
       await apiCall("/subscription/payment-methods/detach", {

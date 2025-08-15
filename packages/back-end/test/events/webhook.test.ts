@@ -35,7 +35,7 @@ describe("webhook test events", () => {
         permissions: { canCreateEventWebhook: () => true },
         org,
       },
-      "webhook-aabb"
+      "webhook-aabb",
     );
 
     expect(eventModelCreate).toHaveBeenCalledWith(
@@ -59,10 +59,10 @@ describe("webhook test events", () => {
         objectId: "webhook-aabb",
         organizationId: "org",
         version: 1,
-      })
+      }),
     );
     expect(EventNotifier).toHaveBeenCalledWith(
-      eventModelCreate.mock.calls[0][0].id
+      eventModelCreate.mock.calls[0][0].id,
     );
     expect(mockNotifier.perform).toHaveBeenCalled();
   });

@@ -16,7 +16,7 @@ import { ApiCallType } from "@/services/auth";
 import { getTablePrefix } from "@/services/datasources";
 
 function generateColumns(
-  cols: Record<string, Partial<ColumnInterface>>
+  cols: Record<string, Partial<ColumnInterface>>,
 ): CreateColumnProps[] {
   return Object.entries(cols).map(([name, data]) => ({
     column: name,
@@ -143,7 +143,7 @@ WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
 }
 
 function getSegmentResources(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   const params = datasource.params;
   const tablePrefix = getTablePrefix(params);
@@ -233,7 +233,7 @@ WHERE
 }
 
 function getRudderstackResources(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   const params = datasource.params;
   const tablePrefix = getTablePrefix(params);
@@ -319,13 +319,13 @@ WHERE
 }
 
 function getAmplitudeResources(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   const tablePrefix = getTablePrefix(datasource.params);
   const projectId = datasource.settings.schemaOptions?.projectId || `*`;
 
   const anonymous_attr = datasource.settings.userIdTypes?.find((t) =>
-    ["anonymous_id", "amplitude_id"].includes(t.userIdType)
+    ["anonymous_id", "amplitude_id"].includes(t.userIdType),
   )?.userIdType;
 
   return {
@@ -370,7 +370,7 @@ WHERE
 }
 
 function getGA4Resources(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ): InitialDatasourceResources {
   if (datasource.type !== "bigquery") {
     return { factTables: [] };
@@ -416,8 +416,8 @@ function getGA4Resources(
     (SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'engagement_time_msec')/1000 as engagement_time
   FROM
     \`${params.defaultProject || "my_project"}\`.\`${
-            params.defaultDataset || "my_dataset"
-          }\`.\`events_*\`
+      params.defaultDataset || "my_dataset"
+    }\`.\`events_*\`
   WHERE
     ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
     (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
@@ -580,8 +580,8 @@ function getGA4Resources(
     CAST((SELECT value.int_value FROM UNNEST(event_params) WHERE key = 'ga_session_id') AS string) as session_id
   FROM
     \`${params.defaultProject || "my_project"}\`.\`${
-            params.defaultDataset || "my_dataset"
-          }\`.\`events_*\`
+      params.defaultDataset || "my_dataset"
+    }\`.\`events_*\`
   WHERE
     ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
     (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
@@ -694,7 +694,7 @@ export async function createInitialResources({
         {
           method: "POST",
           body: JSON.stringify(factTableBody),
-        }
+        },
       );
       const factTableId = res.factTable.id;
       success++;
@@ -711,7 +711,7 @@ export async function createInitialResources({
             {
               method: "POST",
               body: JSON.stringify(filterBody),
-            }
+            },
           );
           filterMap[filter.name] = res.filterId;
           success++;
@@ -729,7 +729,7 @@ export async function createInitialResources({
           // Replace filter names with filter ids
           if (metric.numerator?.filters?.length) {
             metric.numerator.filters = metric.numerator.filters.map(
-              (name) => filterMap[name]
+              (name) => filterMap[name],
             );
             // If some filters are missing, skip this metric
             if (metric.numerator.filters.some((f) => !f)) {
@@ -738,7 +738,7 @@ export async function createInitialResources({
           }
           if (metric.denominator?.filters?.length) {
             metric.denominator.filters = metric.denominator.filters.map(
-              (name) => filterMap[name]
+              (name) => filterMap[name],
             );
             // If some filters are missing, skip this metric
             if (metric.denominator.filters.some((f) => !f)) {

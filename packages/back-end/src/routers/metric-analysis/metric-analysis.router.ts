@@ -14,7 +14,7 @@ router.post(
   validateRequestMiddleware({
     body: createMetricAnalysisPropsValidator,
   }),
-  metricAnalysisController.postMetricAnalysis
+  metricAnalysisController.postMetricAnalysis,
 );
 
 router.post(
@@ -22,7 +22,7 @@ router.post(
   validateRequestMiddleware({
     params: z.object({ id: z.string() }).strict(),
   }),
-  metricAnalysisController.cancelMetricAnalysis
+  metricAnalysisController.cancelMetricAnalysis,
 );
 
 router.get(
@@ -30,7 +30,7 @@ router.get(
   validateRequestMiddleware({
     params: z.object({ metricid: z.string() }).strict(),
   }),
-  metricAnalysisController.getLatestMetricAnalysis
+  metricAnalysisController.getLatestMetricAnalysis,
 );
 
 export { router as metricAnalysisRouter };

@@ -9,7 +9,7 @@ import { getTablePath } from "@/services/datasources";
 import useApi from "./useApi";
 
 export default function useSchemaFormOptions(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ) {
   const [tableId, setTableId] = useState("");
 

@@ -42,15 +42,15 @@ describe("async queue", () => {
             });
           }, 200);
         });
-      }
+      },
     );
 
     const mockOnProgress = vi.fn(
       (taskId: string, result: TaskResult<MyMockResultType>) => {
         console.log(
-          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
         );
-      }
+      },
     );
 
     const result = await enqueueTasks<MyMockDataType, MyMockResultType>(tasks, {
@@ -152,7 +152,7 @@ describe("async queue", () => {
         (taskId: string, result: TaskResult<MyMockResultType>) => void
       >((taskId, result) => {
         console.log(
-          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
         );
       });
 
@@ -165,7 +165,7 @@ describe("async queue", () => {
         {
           retryCount: 2,
           delayMs: 100,
-        }
+        },
       );
 
       // correct results
@@ -262,7 +262,7 @@ describe("async queue", () => {
         (taskId: string, result: TaskResult<MyMockResultType>) => void
       >((taskId, result) => {
         console.log(
-          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`,
         );
       });
 
@@ -275,7 +275,7 @@ describe("async queue", () => {
         {
           retryCount: 3,
           delayMs: 100,
-        }
+        },
       );
 
       expect(result.completed).toEqual([

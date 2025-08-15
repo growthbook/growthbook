@@ -21,7 +21,7 @@ export default function SqlExplorer() {
   }>("/saved-queries");
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project)
+    isProjectListValidForProject(d.projects, project),
   );
 
   const permissionsUtil = usePermissionsUtil();

@@ -30,7 +30,7 @@ export function getBuild() {
         "..",
         "..",
         "..",
-        "package.json"
+        "package.json",
       );
       if (fs.existsSync(packageJSONPath)) {
         const json = JSON.parse(fs.readFileSync(packageJSONPath).toString());

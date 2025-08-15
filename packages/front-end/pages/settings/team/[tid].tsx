@@ -18,9 +18,8 @@ const TeamPage: FC = () => {
   const { apiCall } = useAuth();
   const { tid } = router.query as { tid: string };
   const [teamModalOpen, setTeamModalOpen] = useState<boolean>(false);
-  const [permissionModalOpen, setPermissionModalOpen] = useState<boolean>(
-    false
-  );
+  const [permissionModalOpen, setPermissionModalOpen] =
+    useState<boolean>(false);
   const [memberModalOpen, setMemberModalOpen] = useState<boolean>(false);
 
   const permissionsUtil = usePermissionsUtil();
@@ -176,7 +175,7 @@ const TeamPage: FC = () => {
                                 `/teams/${team.id}/member/${member.id}`,
                                 {
                                   method: "DELETE",
-                                }
+                                },
                               );
                               refreshOrganization();
                             }}

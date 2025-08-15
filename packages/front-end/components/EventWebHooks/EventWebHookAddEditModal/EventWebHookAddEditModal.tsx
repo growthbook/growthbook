@@ -426,7 +426,7 @@ const EventWebHookAddEditSettings = ({
                 onChange={(selected: string[]) => {
                   form.setValue(
                     "tags",
-                    selected.map((item) => item)
+                    selected.map((item) => item),
                   );
                   handleFormValidation();
                 }}
@@ -511,7 +511,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
 
   const filteredValues = useCallback(
     (values) => ({ ...values, ...forcedParams }),
-    [forcedParams]
+    [forcedParams],
   );
 
   const handleSubmit = useMemo(() => {
@@ -539,7 +539,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       payloadType: z.enum(
         mode.mode === "edit"
           ? legacyEventWebHookPayloadTypes
-          : eventWebHookPayloadTypes
+          : eventWebHookPayloadTypes,
       ),
       tags: z.array(z.string()),
       projects: z.array(z.string()),

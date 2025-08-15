@@ -41,7 +41,7 @@ export default function UpdateOrbSubscriptionModal({
 }: Props) {
   const [loading, setLoading] = useState(false);
   const [customerDataError, setCustomerDataError] = useState<string | null>(
-    null
+    null,
   );
   const [showAddress, setShowAddress] = useState(false);
   const [hasExistingAddress, setHasExistingAddress] = useState(false);
@@ -80,13 +80,13 @@ export default function UpdateOrbSubscriptionModal({
 
         if (subscription.billingPlatform !== "orb") {
           throw new Error(
-            "Updating subscription details is not available for this subscription type."
+            "Updating subscription details is not available for this subscription type.",
           );
         }
 
         if (subscription.isVercelIntegration) {
           throw new Error(
-            "To update your subscription details, please go to your Vercel Integration Dashboard."
+            "To update your subscription details, please go to your Vercel Integration Dashboard.",
           );
         }
 
@@ -94,7 +94,7 @@ export default function UpdateOrbSubscriptionModal({
           `/subscription/customer-data`,
           {
             method: "GET",
-          }
+          },
         );
 
         // Update form values with fetched data
@@ -118,7 +118,7 @@ export default function UpdateOrbSubscriptionModal({
       } catch (error) {
         console.error("Failed to fetch customer data:", error);
         setCustomerDataError(
-          "Failed to load existing customer data. Please contact support@growthbook.com."
+          "Failed to load existing customer data. Please contact support@growthbook.com.",
         );
       } finally {
         setLoading(false);
@@ -137,7 +137,7 @@ export default function UpdateOrbSubscriptionModal({
       const { error: submitError } = await elements.submit();
       if (submitError) {
         throw new Error(
-          submitError.message || "Unable to validate address inputs"
+          submitError.message || "Unable to validate address inputs",
         );
       }
 

@@ -44,7 +44,7 @@ const createInformationSchema = async (job: CreateInformationSchemaJob) => {
     }
     const informationSchema = await getInformationSchemaByDatasourceId(
       datasource.id,
-      organization
+      organization,
     );
     if (informationSchema) {
       await updateInformationSchemaById(organization, informationSchema.id, {
@@ -64,7 +64,7 @@ export default function (ag: Agenda) {
 
 export async function queueCreateInformationSchema(
   datasourceId: string,
-  organization: string
+  organization: string,
 ) {
   if (!datasourceId || !organization) return;
 

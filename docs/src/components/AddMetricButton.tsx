@@ -36,7 +36,7 @@ export default function AddMetricButton({ data }: { data: MetricData }) {
   const host = useGrowthBookHost();
 
   const url = `${host}/metrics?addMetric=${encodeURIComponent(
-    JSON.stringify(data)
+    JSON.stringify(data),
   )}`;
 
   // Style a to look like a button

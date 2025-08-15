@@ -57,9 +57,8 @@ export default function SDKConnectionsList() {
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
 
-  const canCreateSDKConnections = permissionsUtil.canViewCreateSDKConnectionModal(
-    project
-  );
+  const canCreateSDKConnections =
+    permissionsUtil.canViewCreateSDKConnectionModal(project);
 
   const gb = useGrowthBook();
 
@@ -68,13 +67,11 @@ export default function SDKConnectionsList() {
     useNewEmptyStateLayout = gb.isOn("sdk-connections-new-empty-state");
   }
 
-  const [
-    initialModalSelectedLanguage,
-    setInitialModalSelectedLanguage,
-  ] = useState<SDKLanguage | null>(null);
+  const [initialModalSelectedLanguage, setInitialModalSelectedLanguage] =
+    useState<SDKLanguage | null>(null);
   const [showAllSdkLanguages, setShowAllSdkLanguages] = useState(false);
   const sdkLanguagesToShow = getLanguagesByFilter(
-    showAllSdkLanguages ? "all" : "popular"
+    showAllSdkLanguages ? "all" : "popular",
   ).sort(popularLanguagesFirst);
 
   if (error) {
@@ -234,13 +231,13 @@ export default function SDKConnectionsList() {
                 (!hasProxy || connection.proxy.connected);
 
               const environment = environments.find(
-                (e) => e.id === connection.environment
+                (e) => e.id === connection.environment,
               );
               const envProjects = environment?.projects ?? [];
               const filteredProjectIds = filterProjectsByEnvironment(
                 connection.projects,
                 environment,
-                true
+                true,
               );
               const showAllEnvironmentProjects =
                 connection.projects.length === 0 &&
@@ -248,7 +245,7 @@ export default function SDKConnectionsList() {
               const disallowedProjects = getDisallowedProjects(
                 projects,
                 connection?.projects ?? [],
-                environment
+                environment,
               );
               const disallowedProjectIds = disallowedProjects.map((p) => p.id);
               const filteredProjectIdsWithDisallowed = [
@@ -291,7 +288,7 @@ export default function SDKConnectionsList() {
                       <div>
                         <Badge
                           label={`Managed by ${capitalizeFirstLetter(
-                            connection.managedBy.type
+                            connection.managedBy.type,
                           )}`}
                         />
                       </div>

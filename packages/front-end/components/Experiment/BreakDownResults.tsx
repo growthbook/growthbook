@@ -44,7 +44,7 @@ import UsersTable from "./UsersTable";
 const numberFormatter = Intl.NumberFormat();
 export const includeVariation = (
   d: ExperimentReportResultDimension,
-  dimensionValuesFilter?: string[]
+  dimensionValuesFilter?: string[],
 ): boolean => {
   return (
     !dimensionValuesFilter ||
@@ -56,13 +56,13 @@ export const includeVariation = (
 export function getMetricResultGroup(
   metricId,
   goalMetrics: string[],
-  secondaryMetrics: string[]
+  secondaryMetrics: string[],
 ): "goal" | "secondary" | "guardrail" {
   return goalMetrics.includes(metricId)
     ? "goal"
     : secondaryMetrics.includes(metricId)
-    ? "secondary"
-    : "guardrail";
+      ? "secondary"
+      : "guardrail";
 }
 
 type TableDef = {
@@ -77,7 +77,7 @@ const BreakDownResults: FC<{
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
-  columnsFilter?: Array<typeof RESULTS_TABLE_COLUMNS[number]>;
+  columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
@@ -105,7 +105,7 @@ const BreakDownResults: FC<{
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
   renderMetricName?: (
-    metric: ExperimentMetricInterface
+    metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
 }> = ({
   dimensionId,
@@ -144,12 +144,8 @@ const BreakDownResults: FC<{
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
-  const {
-    getDimensionById,
-    getExperimentMetricById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getDimensionById, getExperimentMetricById, metricGroups, ready } =
+    useDefinitions();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -174,32 +170,29 @@ const BreakDownResults: FC<{
     return totalUsers;
   }, [results, dimensionValuesFilter]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
-      goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    goalMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-    secondaryMetrics,
-    guardrailMetrics,
-  ]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
+      goalMetrics,
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+      secondaryMetrics,
+      guardrailMetrics,
+    ]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
@@ -211,7 +204,7 @@ const BreakDownResults: FC<{
         metric?.tags?.forEach((tag) => {
           allMetricTagsSet.add(tag);
         });
-      }
+      },
     );
     return [...allMetricTagsSet];
   }, [
@@ -238,12 +231,12 @@ const BreakDownResults: FC<{
       .map(
         (metricId) =>
           ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
+          getExperimentMetricById(metricId),
       )
       .filter(isDefined);
     const sortedFilteredMetrics = sortAndFilterMetricsByTags(
       metricDefs,
-      metricFilter
+      metricFilter,
     );
 
     return Array.from(new Set(sortedFilteredMetrics))
@@ -257,18 +250,18 @@ const BreakDownResults: FC<{
 
         const { newMetric, overrideFields } = applyMetricOverrides(
           metric,
-          metricOverrides
+          metricOverrides,
         );
         let metricSnapshotSettings: MetricSnapshotSettings | undefined;
         if (settingsForSnapshotMetrics) {
           metricSnapshotSettings = settingsForSnapshotMetrics.find(
-            (s) => s.metric === metricId
+            (s) => s.metric === metricId,
           );
         }
         const resultGroup = getMetricResultGroup(
           metricId,
           expandedGoals,
-          expandedSecondaries
+          expandedSecondaries,
         );
 
         if (showErrorsOnQuantileMetrics && quantileMetricType(newMetric)) {
@@ -385,10 +378,10 @@ const BreakDownResults: FC<{
               {expandedGoals.includes(metric.id)
                 ? "Goal Metric"
                 : expandedSecondaries.includes(metric.id)
-                ? "Secondary Metric"
-                : expandedGuardrails.includes(metric.id)
-                ? "Guardrail Metric"
-                : null}
+                  ? "Secondary Metric"
+                  : expandedGuardrails.includes(metric.id)
+                    ? "Guardrail Metric"
+                    : null}
             </h5>
             <ResultsTable
               key={i}
@@ -415,7 +408,7 @@ const BreakDownResults: FC<{
                     {getRenderLabelColumn(
                       !!regressionAdjustmentEnabled,
                       statsEngine,
-                      hideDetails
+                      hideDetails,
                     )(table.metric.name, table.metric, table.rows[0])}
                   </div>
                 )

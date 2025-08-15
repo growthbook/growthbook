@@ -27,11 +27,11 @@ import {
 async function getQueryData(
   queries: Queries,
   organization: string,
-  map?: QueryMap
+  map?: QueryMap,
 ): Promise<QueryMap> {
   const docs = await getQueriesByIds(
     organization,
-    queries.map((q) => q.query)
+    queries.map((q) => q.query),
   );
 
   const res: QueryMap = map || new Map();
@@ -46,7 +46,7 @@ async function getQueryData(
 
 export async function generateReportNotebook(
   context: ReqContext | ApiReqContext,
-  reportId: string
+  reportId: string,
 ): Promise<string> {
   const report = await getReportById(context.org.id, reportId);
   if (!report) {
@@ -57,10 +57,8 @@ export async function generateReportNotebook(
     // Get metrics
     const metricMap = await getMetricMap(context);
 
-    const {
-      snapshotSettings,
-      analysisSettings,
-    } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+    const { snapshotSettings, analysisSettings } =
+      getSnapshotSettingsFromReportArgs(report.args, metricMap);
     return generateNotebook({
       context,
       queryPointers: report.queries,
@@ -78,7 +76,7 @@ export async function generateReportNotebook(
 
 export async function generateExperimentNotebook(
   context: ReqContext,
-  snapshotId: string
+  snapshotId: string,
 ): Promise<string> {
   // Get snapshot
   const snapshot = await findSnapshotById(context.org.id, snapshotId);
@@ -137,14 +135,14 @@ export async function generateNotebook({
   // Get datasource
   const datasource = await getDataSourceById(
     context,
-    snapshotSettings.datasourceId
+    snapshotSettings.datasourceId,
   );
   if (!datasource) {
     throw new Error("Cannot find datasource");
   }
   if (!datasource.settings?.notebookRunQuery) {
     throw new Error(
-      "Must define a runQuery function for this data source before exporting as a notebook."
+      "Must define a runQuery function for this data source before exporting as a notebook.",
     );
   }
 
@@ -166,15 +164,15 @@ export async function generateNotebook({
     Math.max(
       hoursBetween(
         snapshotSettings.startDate,
-        snapshotSettings.endDate || createdAt
+        snapshotSettings.endDate || createdAt,
       ),
-      1
+      1,
     ) / 24;
 
   const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
     queries,
     metricMap,
-    snapshotSettings
+    snapshotSettings,
   );
 
   const data: DataForStatsEngine = {
@@ -186,7 +184,7 @@ export async function generateNotebook({
           name: variationNames[i] || v.id,
         })),
         snapshotSettings.coverage ?? 1,
-        phaseLengthDays
+        phaseLengthDays,
       ),
     ],
     metrics: metricSettings,
@@ -216,7 +214,7 @@ print(create_notebook(
       run_query=data['run_query'],
     ),
 ))`,
-    {}
+    {},
   );
 
   if (!result) {

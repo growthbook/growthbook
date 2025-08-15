@@ -35,7 +35,7 @@ const CustomFields: FC<{
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState();
   const [items, setItems] = useState(
-    customFields?.filter((x) => x.section === section)
+    customFields?.filter((x) => x.section === section),
   );
   const permissionsUtils = usePermissionsUtil();
 
@@ -64,7 +64,7 @@ const CustomFields: FC<{
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
     useSensor(TouchSensor, {}),
-    useSensor(KeyboardSensor, {})
+    useSensor(KeyboardSensor, {}),
   );
 
   function handleDragStart(event) {

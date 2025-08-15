@@ -131,21 +131,18 @@ function MetricExperimentResultTab({
         decisionFrameworkSettings: e.decisionFrameworkSettings,
       };
       if (!bandits && baseline && variationResults[i]) {
-        const {
-          significant,
-          resultsStatus,
-          directionalStatus,
-        } = getMetricResultStatus({
-          metric: metric,
-          metricDefaults,
-          baseline: baseline,
-          stats: variationResults[i],
-          ciLower,
-          ciUpper,
-          pValueThreshold,
-          statsEngine,
-          differenceType,
-        });
+        const { significant, resultsStatus, directionalStatus } =
+          getMetricResultStatus({
+            metric: metric,
+            metricDefaults,
+            baseline: baseline,
+            stats: variationResults[i],
+            ciLower,
+            ciUpper,
+            pValueThreshold,
+            statsEngine,
+            differenceType,
+          });
         expVariationData = {
           ...expVariationData,
           variationResults: variationResults[i],
@@ -215,10 +212,10 @@ function MetricExperimentResultTab({
           {e.status === "running"
             ? "started"
             : e.status === "draft"
-            ? "created"
-            : e.status === "stopped"
-            ? "ended"
-            : ""}{" "}
+              ? "created"
+              : e.status === "stopped"
+                ? "ended"
+                : ""}{" "}
           {date(e.date)}
         </td>
         <td>
@@ -301,7 +298,7 @@ const MetricExperiments: FC<MetricAnalysisProps> = ({
         : e.type !== "multi-armed-bandit") &&
       (includeOnlyResults
         ? e.status !== "draft" && e.snapshot?.status === "success"
-        : true)
+        : true),
   );
 
   const body = !metricExperiments?.length ? (

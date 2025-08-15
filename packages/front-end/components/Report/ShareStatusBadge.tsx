@@ -39,8 +39,8 @@ export function getShareStatusTooltip({
           isOwner ? "you" : "the owner"
         } can view it`
       : shareLevel === "organization"
-      ? "This report is discoverable within your organization"
-      : "This report is viewable by anybody with a shared link";
+        ? "This report is discoverable within your organization"
+        : "This report is viewable by anybody with a shared link";
 
   if (editLevel === "organization") {
     message += ". Anybody in your organization with permissions can edit it.";

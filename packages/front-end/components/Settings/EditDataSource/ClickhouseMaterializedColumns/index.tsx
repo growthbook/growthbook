@@ -37,18 +37,18 @@ export default function ClickhouseMaterializedColumns({
 }: ClickhouseMaterializedColumnsProps) {
   const materializedColumns = useMemo(
     () => dataSource.settings.materializedColumns || [],
-    [dataSource.settings.materializedColumns]
+    [dataSource.settings.materializedColumns],
   );
   const [addModal, setAddModal] = useState(false);
   const [editColumnIdx, setEditColumnIdx] = useState<number | undefined>(
-    undefined
+    undefined,
   );
   const { apiCall } = useAuth();
 
   const deleteColumn = async (columnName: string) => {
     await apiCall(
       `/datasource/${dataSource.id}/materializedColumn/${columnName}`,
-      { method: "DELETE" }
+      { method: "DELETE" },
     );
     await mutate();
   };
@@ -63,14 +63,14 @@ export default function ClickhouseMaterializedColumns({
 
   const updateColumn = async (
     columnName: string,
-    column: MaterializedColumn
+    column: MaterializedColumn,
   ) => {
     await apiCall(
       `/datasource/${dataSource.id}/materializedColumn/${columnName}`,
       {
         method: "PUT",
         body: JSON.stringify(column),
-      }
+      },
     );
     await mutate();
   };
@@ -102,10 +102,10 @@ export default function ClickhouseMaterializedColumns({
           mode="edit"
           column={materializedColumns[editColumnIdx]}
           existingColumnNames={materializedColumns.map((c, idx) =>
-            idx === editColumnIdx ? "" : c.columnName
+            idx === editColumnIdx ? "" : c.columnName,
           )}
           existingSourceFields={materializedColumns.map((c, idx) =>
-            idx === editColumnIdx ? "" : c.sourceField
+            idx === editColumnIdx ? "" : c.sourceField,
           )}
           onSave={(column) =>
             updateColumn(materializedColumns[editColumnIdx].columnName, column)
@@ -169,8 +169,8 @@ export default function ClickhouseMaterializedColumns({
                     {col.type === "identifier"
                       ? "Identifier"
                       : col.type === "dimension"
-                      ? "Dimension"
-                      : `Other (${col.datatype})`}
+                        ? "Dimension"
+                        : `Other (${col.datatype})`}
                   </TableCell>
                   <TableCell>
                     {canEdit && (

@@ -8,8 +8,7 @@ export default {
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/vanilla-typescript",
+        url: "https://github.com/growthbook/examples/tree/main/vanilla-typescript",
         name: "Typescript example app",
       },
     ],
@@ -147,8 +146,7 @@ export default {
       "https://github.com/vercel/flags/tree/main/packages/adapter-growthbook",
     examples: [
       {
-        url:
-          "https://github.com/vercel/examples/tree/main/flags-sdk/growthbook",
+        url: "https://github.com/vercel/examples/tree/main/flags-sdk/growthbook",
         name: "Next.js Flags SDK example app",
       },
     ],
@@ -291,8 +289,7 @@ export default {
     github: "https://github.com/growthbook/growthbook-ruby",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/acme_donuts_rails",
+        url: "https://github.com/growthbook/examples/tree/main/acme_donuts_rails",
         name: "Rails example app",
       },
     ],
@@ -429,8 +426,7 @@ export default {
         name: "JVM with Spring Web example app",
       },
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example",
+        url: "https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example",
         name: "JVM with Kotlin Ktor example app",
       },
       {
@@ -484,8 +480,7 @@ export default {
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/csharp-example/GrowthBookCSharpExamples",
+        url: "https://github.com/growthbook/examples/tree/main/csharp-example/GrowthBookCSharpExamples",
         name: "C# example app",
       },
     ],
@@ -658,8 +653,7 @@ export default {
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/react-native-cli",
+        url: "https://github.com/growthbook/examples/tree/main/react-native-cli",
         name: "React Native CLI example app",
       },
     ],
@@ -724,8 +718,7 @@ export default {
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example",
+        url: "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example",
         name: "Example worker",
       },
     ],
@@ -787,8 +780,7 @@ export default {
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example",
+        url: "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example",
         name: "Example compute worker",
       },
     ],

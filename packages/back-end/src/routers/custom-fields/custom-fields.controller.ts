@@ -30,7 +30,7 @@ type CreateCustomFieldResponse =
  */
 export const postCustomField = async (
   req: CreateCustomFieldRequest,
-  res: Response<CreateCustomFieldResponse>
+  res: Response<CreateCustomFieldResponse>,
 ) => {
   const {
     id,
@@ -57,7 +57,7 @@ export const postCustomField = async (
 
   if (!id.match(/^[a-z0-9_-]+$/)) {
     throw new Error(
-      "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores."
+      "Custom field keys can only include lowercase letters, numbers, hyphens, and underscores.",
     );
   }
   const existingFields = await context.models.customFields.getCustomFields();
@@ -65,7 +65,7 @@ export const postCustomField = async (
   // check if this name already exists:
   if (existingFields) {
     const existingCustomField = existingFields.fields.find(
-      (field) => field.name === name && field.section === section
+      (field) => field.name === name && field.section === section,
     );
     if (existingCustomField) {
       throw new Error("Custom field name already exists for this section");
@@ -123,7 +123,7 @@ type ReorderCustomFieldsResponse =
  */
 export const postReorderCustomFields = async (
   req: ReorderCustomFieldsRequest,
-  res: Response<ReorderCustomFieldsResponse>
+  res: Response<ReorderCustomFieldsResponse>,
 ) => {
   const { oldId, newId } = req.body;
 
@@ -142,7 +142,7 @@ export const postReorderCustomFields = async (
 
   const customField = await context.models.customFields.reorderCustomFields(
     oldId,
-    newId
+    newId,
   );
 
   if (!customField) {
@@ -190,7 +190,7 @@ type PutCustomFieldResponse = {
  */
 export const putCustomField = async (
   req: PutCustomFieldRequest,
-  res: Response<PutCustomFieldResponse>
+  res: Response<PutCustomFieldResponse>,
 ) => {
   const {
     name,
@@ -227,7 +227,7 @@ export const putCustomField = async (
       index: !!index,
       projects,
       section,
-    }
+    },
   );
 
   if (!newCustomFields) {
@@ -257,7 +257,7 @@ type DeleteCustomFieldRequest = AuthRequest<
  */
 export const deleteCustomField = async (
   req: DeleteCustomFieldRequest,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   req.checkPermissions("manageCustomFields");
 

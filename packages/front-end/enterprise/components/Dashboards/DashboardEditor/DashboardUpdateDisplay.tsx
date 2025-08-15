@@ -34,7 +34,7 @@ function SnapshotStatusSummary({
   } = useContext(DashboardSnapshotContext);
   const numFailed = useMemo(
     () => allQueries.filter((q) => q.status === "failed").length,
-    [allQueries]
+    [allQueries],
   );
 
   if (!snapshot) return null;
@@ -50,10 +50,10 @@ function SnapshotStatusSummary({
   const content = refreshError
     ? "Update Failed"
     : numFailed > 0
-    ? "One or more queries failed"
-    : snapshot.runStarted
-    ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
-    : "Not started yet";
+      ? "One or more queries failed"
+      : snapshot.runStarted
+        ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
+        : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (
@@ -119,7 +119,7 @@ export default function DashboardUpdateDisplay({
   const { numQueries, numFinished } = useMemo(() => {
     const numQueries = allQueries.length;
     const numFinished = allQueries.filter((q) =>
-      ["succeeded", "failed"].includes(q.status)
+      ["succeeded", "failed"].includes(q.status),
     ).length;
     return { numQueries, numFinished };
   }, [allQueries]);

@@ -41,13 +41,13 @@ router.get(
   validateRequestMiddleware({
     params: z.object({ experimentId: z.string() }).strict(),
   }),
-  dashboardsController.getDashboardsForExperiment
+  dashboardsController.getDashboardsForExperiment,
 );
 
 router.post(
   "/",
   validateRequestMiddleware({ body: createDashboardBody }),
-  dashboardsController.createDashboard
+  dashboardsController.createDashboard,
 );
 router.put(
   "/:id",
@@ -55,25 +55,25 @@ router.put(
     body: updateDashboardBody,
     params: dashboardParams,
   }),
-  dashboardsController.updateDashboard
+  dashboardsController.updateDashboard,
 );
 
 router.delete(
   "/:id",
   validateRequestMiddleware({ params: dashboardParams }),
-  dashboardsController.deleteDashboard
+  dashboardsController.deleteDashboard,
 );
 
 router.post(
   "/:id/refresh",
   validateRequestMiddleware({ params: dashboardParams }),
-  dashboardsController.refreshDashboardData
+  dashboardsController.refreshDashboardData,
 );
 
 router.get(
   "/:id/snapshots",
   validateRequestMiddleware({ params: dashboardParams }),
-  dashboardsController.getDashboardSnapshots
+  dashboardsController.getDashboardSnapshots,
 );
 
 export { router as dashboardsRouter };

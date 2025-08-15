@@ -10,5 +10,5 @@ export const getFeatureKeys = createApiRequestHandler(getFeatureKeysValidator)(
     });
 
     return features.map((f) => f.id);
-  }
+  },
 );

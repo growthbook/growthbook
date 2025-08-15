@@ -41,8 +41,10 @@ export type DecisionCriteriaData = Omit<
   DecisionCriteriaInterface,
   "organization" | "project" | "owner" | "dateCreated" | "dateUpdated"
 >;
-export type CreateDecisionCriteriaProps = CreateProps<DecisionCriteriaInterface>;
-export type UpdateDecisionCriteriaProps = UpdateProps<DecisionCriteriaInterface>;
+export type CreateDecisionCriteriaProps =
+  CreateProps<DecisionCriteriaInterface>;
+export type UpdateDecisionCriteriaProps =
+  UpdateProps<DecisionCriteriaInterface>;
 export type DecisionCriteriaInterface = z.infer<
   typeof decisionCriteriaInterface
 >;

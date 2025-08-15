@@ -4,7 +4,7 @@ import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "./secrets";
 
 export function getSurrogateKeysFromEnvironments(
   orgId: string,
-  environments: string[]
+  environments: string[],
 ): string[] {
   return environments.map((k) => {
     const key = `${orgId}_${k}`;
@@ -16,7 +16,7 @@ export function getSurrogateKeysFromEnvironments(
 
 export async function purgeCDNCache(
   orgId: string,
-  surrogateKeys: string[]
+  surrogateKeys: string[],
 ): Promise<void> {
   // Only purge when Fastly is used as the CDN (e.g. GrowthBook Cloud)
   if (!FASTLY_SERVICE_ID || !FASTLY_API_TOKEN) return;

@@ -21,7 +21,7 @@ function formatValue(value: number, format: BigValueFormat, currency: string) {
       });
     case "percentage":
       return new Intl.NumberFormat(undefined, { style: "percent" }).format(
-        value
+        value,
       );
     case "accounting":
       return new Intl.NumberFormat(undefined, {

@@ -30,8 +30,8 @@ export class DecisionCriteriaModel extends BaseClass {
     return this.context.permissions.canUpdateDecisionCriteria();
   }
   protected async beforeDelete(existing: DecisionCriteriaInterface) {
-    const defaultDecisionCriteriaId = this.context.org.settings
-      ?.defaultDecisionCriteriaId;
+    const defaultDecisionCriteriaId =
+      this.context.org.settings?.defaultDecisionCriteriaId;
     if (existing.id === defaultDecisionCriteriaId) {
       throw new Error("Cannot delete organization default decision criteria");
     }

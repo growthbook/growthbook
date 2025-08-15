@@ -50,7 +50,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyExperimentsOnly",
-    false
+    false,
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
@@ -67,7 +67,7 @@ const ExperimentsPage = (): React.ReactElement => {
       if (showMineOnly) {
         items = items.filter(
           (item) =>
-            item.owner === userId || watchedExperiments.includes(item.id)
+            item.owner === userId || watchedExperiments.includes(item.id),
         );
       }
 
@@ -75,18 +75,14 @@ const ExperimentsPage = (): React.ReactElement => {
 
       return items;
     },
-    [showMineOnly, userId, tagsFilter.tags, watchedExperiments]
+    [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
   );
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-  } = useExperimentSearch({
-    allExperiments,
-    filterResults,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH } =
+    useExperimentSearch({
+      allExperiments,
+      filterResults,
+    });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -109,7 +105,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
+    "multi-armed-bandits",
   );
 
   // Reset to page 1 when a filter is applied or tabs change
@@ -278,10 +274,10 @@ const ExperimentsPage = (): React.ReactElement => {
                             active && tabs.length > 1
                               ? `Hide ${tab} experiments`
                               : active
-                              ? `Remove filter`
-                              : tabs.length === 0
-                              ? `View only ${tab} experiments`
-                              : `Include ${tab} experiments`
+                                ? `Remove filter`
+                                : tabs.length === 0
+                                  ? `View only ${tab} experiments`
+                                  : `Include ${tab} experiments`
                           }
                         >
                           <span className="mr-1">
@@ -295,7 +291,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           )}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
                 <div className="col-auto">
@@ -407,7 +403,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 </span>
                               </Tooltip>
                             ) : (
-                              e.projectName ?? <em>None</em>
+                              (e.projectName ?? <em>None</em>)
                             )}
                           </td>
                         )}
@@ -425,12 +421,12 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.tab === "running"
                             ? "started"
                             : e.tab === "drafts"
-                            ? "created"
-                            : e.tab === "stopped"
-                            ? "ended"
-                            : e.tab === "archived"
-                            ? "updated"
-                            : ""}{" "}
+                              ? "created"
+                              : e.tab === "stopped"
+                                ? "ended"
+                                : e.tab === "archived"
+                                  ? "updated"
+                                  : ""}{" "}
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Status:">

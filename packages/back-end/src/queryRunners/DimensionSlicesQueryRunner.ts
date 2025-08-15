@@ -24,7 +24,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
 > {
   checkPermissions(): boolean {
     return this.context.permissions.canRunHealthQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -42,7 +42,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
 
     if (!dimensions.length) {
       throw new Error(
-        "Exposure query must have at least 1 dimension to get dimension slices."
+        "Exposure query must have at least 1 dimension to get dimension slices.",
       );
     }
 
@@ -98,7 +98,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
   async getLatestModel(): Promise<DimensionSlicesInterface> {
     const model = await getDimensionSlicesById(
       this.model.organization,
-      this.model.id
+      this.model.id,
     );
     if (!model) throw new Error("Could not find automatic dimension model");
     return model;

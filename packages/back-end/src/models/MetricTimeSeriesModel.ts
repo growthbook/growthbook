@@ -82,7 +82,7 @@ export class MetricTimeSeriesModel extends BaseClass {
 
   public async deleteAllBySource(
     source: MetricTimeSeries["source"],
-    sourceId: MetricTimeSeries["sourceId"]
+    sourceId: MetricTimeSeries["sourceId"],
   ) {
     await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,
@@ -95,7 +95,7 @@ export class MetricTimeSeriesModel extends BaseClass {
     metricTimeSeriesIdentifiers: Pick<
       MetricTimeSeries,
       "source" | "sourceId" | "sourcePhase" | "metricId"
-    >[]
+    >[],
   ) {
     const metricTimeSeriesPerSource = new Map<
       string,
@@ -130,7 +130,7 @@ export class MetricTimeSeriesModel extends BaseClass {
           sourceId,
           sourcePhase,
           metricIds,
-        })
+        }),
     );
 
     const allResults = await Promise.all(allPromises);
@@ -146,7 +146,7 @@ export class MetricTimeSeriesModel extends BaseClass {
    * @param metricTimeSeries - An array of metric time series identifiers and data points to upsert.
    */
   public async upsertMultipleSingleDataPoint(
-    metricTimeSeries: CreateMetricTimeSeriesSingleDataPoint[]
+    metricTimeSeries: CreateMetricTimeSeriesSingleDataPoint[],
   ) {
     const existingMetricTimeSeries = await this.findMany(metricTimeSeries);
 
@@ -159,7 +159,7 @@ export class MetricTimeSeriesModel extends BaseClass {
           existing.source === mts.source &&
           existing.sourceId === mts.sourceId &&
           existing.sourcePhase === mts.sourcePhase &&
-          existing.metricId === mts.metricId
+          existing.metricId === mts.metricId,
       );
 
       if (existing) {
@@ -193,14 +193,14 @@ export class MetricTimeSeriesModel extends BaseClass {
             },
           },
         })),
-        { ignoreUndefined: true }
+        { ignoreUndefined: true },
       );
     }
   }
 
   private getUpdatedMetricTimeSeries(
     existing: MetricTimeSeries,
-    newTimeSeries: CreateMetricTimeSeriesSingleDataPoint
+    newTimeSeries: CreateMetricTimeSeriesSingleDataPoint,
   ): MetricTimeSeries {
     if (
       newTimeSeries.lastExperimentSettingsHash !==
@@ -232,7 +232,7 @@ export class MetricTimeSeriesModel extends BaseClass {
           metricTimeSeriesId: existing.id,
           newDataPoint: newTimeSeries.singleDataPoint,
         },
-        "No valid data points for metric time series. Skipping update."
+        "No valid data points for metric time series. Skipping update.",
       );
       return existing;
     }
@@ -247,14 +247,14 @@ export class MetricTimeSeriesModel extends BaseClass {
   }
 
   private getNewMetricTimeSeries(
-    newTimeSeries: CreateMetricTimeSeriesSingleDataPoint
+    newTimeSeries: CreateMetricTimeSeriesSingleDataPoint,
   ): MetricTimeSeries | undefined {
     if (!isValidDataPoint(newTimeSeries.singleDataPoint)) {
       logger.warn(
         {
           newTimeSeries,
         },
-        "Invalid data point. Skipping creation of time series."
+        "Invalid data point. Skipping creation of time series.",
       );
       return;
     }
@@ -277,12 +277,12 @@ export class MetricTimeSeriesModel extends BaseClass {
    * Limits the total to 300 most recent points.
    */
   private dropInvalidAndLimitDataPoints(
-    dataPoints: MetricTimeSeries["dataPoints"]
+    dataPoints: MetricTimeSeries["dataPoints"],
   ) {
     const lastDataPointPerDay = dataPoints
       .sort(
         (a, b) =>
-          getValidDate(a.date).getTime() - getValidDate(b.date).getTime()
+          getValidDate(a.date).getTime() - getValidDate(b.date).getTime(),
       )
       .reduceRight((acc, dataPoint) => {
         if (!isValidDataPoint(dataPoint)) {

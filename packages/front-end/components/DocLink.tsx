@@ -173,8 +173,8 @@ export const docUrl = (docSection: DocSection, fallBackSection = "home") => {
   const docsPath = docSections[docSection]
     ? docSections[docSection]
     : docSections[fallBackSection]
-    ? docSections[fallBackSection]
-    : "";
+      ? docSections[fallBackSection]
+      : "";
 
   return docsOrigin + docsPath;
 };

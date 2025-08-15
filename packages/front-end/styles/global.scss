@@ -601,7 +601,9 @@ pre {
       position: sticky;
       z-index: 930;
       // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
       }
@@ -621,7 +623,9 @@ pre {
   &.pinned {
     background-color: var(--color-surface-solid);
     // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 4px 4px rgba(0, 0, 0, 0.025);
     .header-tabs .tab-wrapper {
       overflow: hidden;
     }
@@ -1454,7 +1458,9 @@ main.main {
   text-transform: initial;
   font-weight: normal;
   opacity: 0;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
 
   .arrow {
     position: absolute;
@@ -2042,9 +2048,10 @@ main.main {
 }
 
 .variation {
-  $colors: colors.$variant-0, colors.$variant-1, colors.$variant-2,
-    colors.$variant-3, colors.$variant-4, colors.$variant-5, colors.$variant-6,
-    colors.$variant-7, colors.$variant-8;
+  $colors:
+    colors.$variant-0, colors.$variant-1, colors.$variant-2, colors.$variant-3,
+    colors.$variant-4, colors.$variant-5, colors.$variant-6, colors.$variant-7,
+    colors.$variant-8;
 
   &.with-variation-label {
     .label {
@@ -2956,11 +2963,8 @@ html {
     }
   }
   .secondary-box {
-    background: linear-gradient(
-        0deg,
-        rgba(124, 69, 234, 0.06),
-        rgba(124, 69, 234, 0.06)
-      ),
+    background:
+      linear-gradient(0deg, rgba(124, 69, 234, 0.06), rgba(124, 69, 234, 0.06)),
       #ffffff;
     box-shadow: 0px 1px 3px rgba(23, 18, 33, 0.08);
     border-radius: 3px;
@@ -3129,7 +3133,8 @@ html {
 .rta__autocomplete {
   margin-top: 25px;
   z-index: 998;
-  box-shadow: 0 4px 8px 0 var(--border-color-300),
+  box-shadow:
+    0 4px 8px 0 var(--border-color-300),
     0 6px 20px 0 var(--border-color-300);
 }
 .rta__list {

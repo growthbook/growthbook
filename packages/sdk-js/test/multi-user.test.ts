@@ -32,7 +32,7 @@ describe("GrowthBookClient", () => {
         attributes: {
           country: "US",
         },
-      })
+      }),
     ).toEqual(true);
 
     expect(
@@ -40,7 +40,7 @@ describe("GrowthBookClient", () => {
         attributes: {
           country: "GB",
         },
-      })
+      }),
     ).toEqual(false);
 
     gb.destroy();
@@ -132,7 +132,7 @@ describe("GrowthBookClient", () => {
           id: "1",
         },
       },
-      stickyBucketService
+      stickyBucketService,
     );
     // Starts out empty
     expect(user.stickyBucketAssignmentDocs).toEqual({});
@@ -159,7 +159,7 @@ describe("GrowthBookClient", () => {
           id: "1",
         },
       },
-      stickyBucketService
+      stickyBucketService,
     );
     expect(user2.stickyBucketAssignmentDocs).toEqual(newStickyBucketDocs);
 
@@ -170,7 +170,7 @@ describe("GrowthBookClient", () => {
           id: "2",
         },
       },
-      stickyBucketService
+      stickyBucketService,
     );
     expect(user3.stickyBucketAssignmentDocs).toEqual({});
 
@@ -214,14 +214,14 @@ describe("GrowthBookClient", () => {
 
       expect(gb.runInlineExperiment(exp, user).inExperiment).toEqual(true);
       expect(
-        gb.runInlineExperiment(exp, { ...user, enabled: false }).inExperiment
+        gb.runInlineExperiment(exp, { ...user, enabled: false }).inExperiment,
       ).toEqual(false);
       expect(gbDisabled.runInlineExperiment(exp, user).inExperiment).toEqual(
-        false
+        false,
       );
       expect(
         gbDisabled.runInlineExperiment(exp, { ...user, enabled: false })
-          .inExperiment
+          .inExperiment,
       ).toEqual(false);
 
       gb.destroy();
@@ -236,11 +236,11 @@ describe("GrowthBookClient", () => {
 
       expect(gb.runInlineExperiment(exp, user).inExperiment).toEqual(true);
       expect(
-        gb.runInlineExperiment(exp, { ...user, qaMode: true }).inExperiment
+        gb.runInlineExperiment(exp, { ...user, qaMode: true }).inExperiment,
       ).toEqual(false);
       expect(gbQA.runInlineExperiment(exp, user).inExperiment).toEqual(false);
       expect(
-        gbQA.runInlineExperiment(exp, { ...user, qaMode: true }).inExperiment
+        gbQA.runInlineExperiment(exp, { ...user, qaMode: true }).inExperiment,
       ).toEqual(false);
 
       gb.destroy();
@@ -257,31 +257,31 @@ describe("GrowthBookClient", () => {
         gb.runInlineExperiment(exp, {
           ...user,
           forcedVariations: { "my-other-experiment": 1 },
-        }).variationId
+        }).variationId,
       ).toEqual(0);
       expect(
         gb.runInlineExperiment(exp, {
           ...user,
           forcedVariations: { "my-experiment": 1 },
-        }).variationId
+        }).variationId,
       ).toEqual(1);
       expect(
         gbForced.runInlineExperiment(exp, {
           ...user,
           forcedVariations: { "my-other-experiment": 1 },
-        }).variationId
+        }).variationId,
       ).toEqual(1);
       expect(
         gbForced.runInlineExperiment(exp, {
           ...user,
           forcedVariations: { "my-experiment": 1 },
-        }).variationId
+        }).variationId,
       ).toEqual(1);
       expect(
         gbForced.runInlineExperiment(exp, {
           ...user,
           forcedVariations: { "my-experiment": 0 },
-        }).variationId
+        }).variationId,
       ).toEqual(0);
 
       gb.destroy();
@@ -309,31 +309,31 @@ describe("GrowthBookClient", () => {
         gb.evalFeature("feature", {
           ...user,
           forcedFeatureValues: otherForce,
-        }).value
+        }).value,
       ).toEqual(false);
       expect(
         gb.evalFeature("feature", {
           ...user,
           forcedFeatureValues: force,
-        }).value
+        }).value,
       ).toEqual(true);
       expect(
         gbForced.evalFeature("feature", {
           ...user,
           forcedFeatureValues: otherForce,
-        }).value
+        }).value,
       ).toEqual(true);
       expect(
         gbForced.evalFeature("feature", {
           ...user,
           forcedFeatureValues: force,
-        }).value
+        }).value,
       ).toEqual(true);
       expect(
         gbForced.evalFeature("feature", {
           ...user,
           forcedFeatureValues: forceOff,
-        }).value
+        }).value,
       ).toEqual(false);
 
       gb.destroy();
@@ -444,7 +444,7 @@ describe("GrowthBookClient", () => {
           attributes: {
             country: "US",
           },
-        })
+        }),
       ).toEqual(true);
 
       // Global attributes only
@@ -454,7 +454,7 @@ describe("GrowthBookClient", () => {
       expect(
         gb.isOn("feature", {
           attributes: {},
-        })
+        }),
       ).toEqual(true);
 
       // Both
@@ -463,7 +463,7 @@ describe("GrowthBookClient", () => {
           attributes: {
             country: "US",
           },
-        })
+        }),
       ).toEqual(true);
 
       // User overrides global
@@ -472,7 +472,7 @@ describe("GrowthBookClient", () => {
           attributes: {
             country: "GB",
           },
-        })
+        }),
       ).toEqual(false);
 
       gb.destroy();
@@ -592,7 +592,7 @@ describe("UserScopedGrowthBook", () => {
 
     scoped.setForcedFeatures(new Map([["feature", "forcedValue"]]));
     expect(scoped.getFeatureValue("feature", "fallback")).toEqual(
-      "forcedValue"
+      "forcedValue",
     );
 
     gb.destroy();

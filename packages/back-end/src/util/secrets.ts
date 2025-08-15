@@ -15,7 +15,7 @@ export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   process.env.ALLOW_SELF_ORG_CREATION,
-  true
+  true,
 );
 
 export const UPLOAD_METHOD = (() => {
@@ -48,7 +48,7 @@ if (!MONGODB_URI) {
 if (!MONGODB_URI) {
   if (prod) {
     throw new Error(
-      "Missing MONGODB_URI or required alternate environment variables to generate it"
+      "Missing MONGODB_URI or required alternate environment variables to generate it",
     );
   }
   MONGODB_URI = "mongodb://root:password@localhost:27017/test?authSource=admin";
@@ -80,7 +80,7 @@ export const S3_DOMAIN =
 export const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "dev";
 if (prod && ENCRYPTION_KEY === "dev") {
   throw new Error(
-    "Cannot use ENCRYPTION_KEY=dev in production. Please set to a long random string."
+    "Cannot use ENCRYPTION_KEY=dev in production. Please set to a long random string.",
   );
 }
 
@@ -92,7 +92,7 @@ export const GCS_DOMAIN =
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
   throw new Error(
-    "Cannot use JWT_SECRET=dev in production. Please set to a long random string."
+    "Cannot use JWT_SECRET=dev in production. Please set to a long random string.",
   );
 }
 
@@ -154,17 +154,17 @@ export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(
-  process.env.STORE_SEGMENTS_IN_MONGO
+  process.env.STORE_SEGMENTS_IN_MONGO,
 );
 
 // If set to false AND using a config file, don't allow creating metric via the UI
 export const ALLOW_CREATE_METRICS = stringToBoolean(
-  process.env.ALLOW_CREATE_METRICS
+  process.env.ALLOW_CREATE_METRICS,
 );
 
 // If set to false AND using a config file, don't allow creating dimension via the UI
 export const ALLOW_CREATE_DIMENSIONS = stringToBoolean(
-  process.env.ALLOW_CREATE_DIMENSIONS
+  process.env.ALLOW_CREATE_DIMENSIONS,
 );
 
 // Defines the User-Agent header for all requests made by the API
@@ -180,7 +180,7 @@ if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   secretAPIKey = "";
   // eslint-disable-next-line
   console.error(
-    "SECRET_API_KEY must be set to a secure value in production. Disabling access."
+    "SECRET_API_KEY must be set to a secure value in production. Disabling access.",
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
@@ -215,7 +215,7 @@ const webhooksValidator = z.array(
         .optional(),
       payloadKey: z.string().optional(),
     })
-    .strict()
+    .strict(),
 );
 let webhooks: z.infer<typeof webhooksValidator> = [];
 try {
@@ -281,11 +281,11 @@ export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,
   options?: {
     encode?: (s: string) => string;
-  }
+  },
 ) => T;
 
 export const secretsReplacer = (
-  secrets: Record<string, string>
+  secrets: Record<string, string>,
 ): SecretsReplacer => {
   return ((s, options) => {
     const encode = options?.encode || ((s: string) => s);
@@ -295,7 +295,7 @@ export const secretsReplacer = (
         ...encoded,
         [key]: encode(secrets[key]),
       }),
-      {}
+      {},
     );
 
     const stringReplacer = (s: string) => {
@@ -313,7 +313,7 @@ export const secretsReplacer = (
         ...obj,
         [stringReplacer(key)]: stringReplacer(s[key]),
       }),
-      {}
+      {},
     );
   }) as SecretsReplacer;
 };

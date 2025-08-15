@@ -62,7 +62,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       if (
         !context.permissions.canPublishFeature(
           feature,
-          Array.from(getEnabledEnvironments(feature, environmentIds))
+          Array.from(getEnabledEnvironments(feature, environmentIds)),
         )
       ) {
         context.permissions.throwPermissionError();
@@ -76,7 +76,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         revision.rules[env] &&
         !isEqual(
           revision.rules[env],
-          feature.environmentSettings?.[env]?.rules || []
+          feature.environmentSettings?.[env]?.rules || [],
         )
       ) {
         changedEnvs.push(env);
@@ -94,7 +94,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       context,
       feature,
       revision,
-      changes
+      changes,
     );
 
     await markRevisionAsPublished(context, revision, req.eventAudit, comment);
@@ -113,9 +113,10 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getExperimentMapForFeature(
       req.context,
-      feature.id
+      feature.id,
     );
-    const safeRolloutMap = await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+    const safeRolloutMap =
+      await req.context.models.safeRollout.getAllPayloadSafeRollouts();
 
     return {
       feature: getApiFeatureObj({
@@ -127,5 +128,5 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
         safeRolloutMap,
       }),
     };
-  }
+  },
 );

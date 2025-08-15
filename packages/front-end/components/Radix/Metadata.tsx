@@ -11,7 +11,7 @@ type Props = {
 
 export default forwardRef<HTMLDivElement, Props>(function Metadata(
   { label, value, ...props },
-  ref
+  ref,
 ) {
   const renderLabel = () => {
     return (

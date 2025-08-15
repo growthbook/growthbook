@@ -8,7 +8,7 @@ type Props = {
 
 const getUserAvatar = (
   name: string,
-  icon?: ReactElement
+  icon?: ReactElement,
 ): string | ReactElement => {
   if (icon) return icon;
 

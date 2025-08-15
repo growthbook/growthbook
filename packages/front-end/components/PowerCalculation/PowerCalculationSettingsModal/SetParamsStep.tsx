@@ -187,7 +187,11 @@ const PopulationDataQueryInput = ({
     projects: datasourceProjects ?? [],
   });
 
-  const { data, error: getError, mutate } = useApi<{
+  const {
+    data,
+    error: getError,
+    mutate,
+  } = useApi<{
     populationData: PopulationDataInterface;
   }>(`/population-data/${metricValuesPopulationId}`, {
     shouldRun: () => !!metricValuesPopulationId,
@@ -242,7 +246,7 @@ const PopulationDataQueryInput = ({
                   });
                   form.setValue(
                     "metricValuesData.populationId",
-                    res.populationData?.id
+                    res.populationData?.id,
                   );
                   setMetricsEditable(false);
                   mutate();
@@ -453,8 +457,8 @@ export const SetParamsStep = ({
             onSubmit(
               ensureAndReturnPowerCalculationParams(
                 engineType,
-                form.getValues()
-              )
+                form.getValues(),
+              ),
             )
           }
         >

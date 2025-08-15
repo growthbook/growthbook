@@ -31,15 +31,16 @@ const InfoContainer = memo(
         {children}
       </Component>
     );
-  }
+  },
 );
 InfoContainer.displayName = "InfoContainer";
 
 export default function SdkResources({ sdk }: { sdk: keyof typeof sdkInfo }) {
   const { name, version, github, examples, packageRepos } = sdkInfo[sdk];
-  const formattedVersion = useMemo(() => version.replace(/^v?/, "v"), [
-    version,
-  ]);
+  const formattedVersion = useMemo(
+    () => version.replace(/^v?/, "v"),
+    [version],
+  );
 
   const githubName = useMemo(() => github.split("/").pop(), [github]);
 

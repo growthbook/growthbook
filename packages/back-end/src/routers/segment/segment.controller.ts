@@ -41,7 +41,7 @@ type GetSegmentsResponse = {
  */
 export const getSegments = async (
   req: GetSegmentsRequest,
-  res: Response<GetSegmentsResponse, EventUserForResponseLocals>
+  res: Response<GetSegmentsResponse, EventUserForResponseLocals>,
 ) => {
   const context = getContextFromReq(req);
   const segments = await context.models.segments.getAll();
@@ -77,7 +77,7 @@ type GetSegmentUsageResponse = {
  */
 export const getSegmentUsage = async (
   req: GetSegmentUsageRequest,
-  res: Response<GetSegmentUsageResponse, EventUserForResponseLocals>
+  res: Response<GetSegmentUsageResponse, EventUserForResponseLocals>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -131,7 +131,7 @@ export const postSegment = async (
   res: Response<
     CreateSegmentResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const {
     datasource,
@@ -210,7 +210,7 @@ export const putSegment = async (
   res: Response<
     PutSegmentResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -283,7 +283,7 @@ type DeleteSegmentResponse = {
  */
 export const deleteSegment = async (
   req: DeleteSegmentRequest,
-  res: Response<DeleteSegmentResponse, EventUserForResponseLocals>
+  res: Response<DeleteSegmentResponse, EventUserForResponseLocals>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -311,7 +311,7 @@ export const deleteSegment = async (
       { organization: org.id, "estimateParams.segment": id },
       {
         $unset: { "estimateParams.segment": "" },
-      }
+      },
     );
   }
 

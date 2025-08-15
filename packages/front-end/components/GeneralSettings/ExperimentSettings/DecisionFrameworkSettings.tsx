@@ -24,7 +24,9 @@ interface DecisionFrameworkSettingsProps {
   // No specific props needed as we use form context
 }
 
-const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () => {
+const DecisionFrameworkSettings: React.FC<
+  DecisionFrameworkSettingsProps
+> = () => {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
 
@@ -82,7 +84,7 @@ const DecisionFrameworkSettings: React.FC<DecisionFrameworkSettingsProps> = () =
                 {
                   method: "DELETE",
                   body: JSON.stringify({ id: criteriaToDelete.id }),
-                }
+                },
               );
               mutate();
               setCriteriaToDelete(undefined);

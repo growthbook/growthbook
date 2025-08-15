@@ -34,7 +34,7 @@ export class FeatureRevisionLogModel extends BaseClass {
     const { feature } = this.getForeignRefs(doc);
 
     return this.context.permissions.canReadSingleProjectResource(
-      feature?.project
+      feature?.project,
     );
   }
 

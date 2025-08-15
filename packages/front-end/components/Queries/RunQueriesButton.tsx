@@ -41,7 +41,7 @@ export interface QueryStatusData {
 }
 export function getQueryStatus(
   queries: Queries,
-  error?: string | null
+  error?: string | null,
 ): QueryStatusData {
   let status: QueryStatus = "succeeded";
   let numFailed = 0;
@@ -95,7 +95,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
       disabled,
       useRadixButton,
     },
-    ref: ForwardedRef<HTMLButtonElement>
+    ref: ForwardedRef<HTMLButtonElement>,
   ) => {
     const { apiCall } = useAuth();
 
@@ -108,8 +108,9 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
     // eslint-disable-next-line
     const [_, setCounter] = useState(0);
 
-    const numFinished = model.queries.filter((q) => q.status === "succeeded")
-      .length;
+    const numFinished = model.queries.filter(
+      (q) => q.status === "succeeded",
+    ).length;
     const numQueries = model.queries.length;
 
     const { status } = getQueryStatus(model.queries || []);
@@ -239,7 +240,7 @@ const RunQueriesButton = forwardRef<HTMLButtonElement, Props>(
         </div>
       </>
     );
-  }
+  },
 );
 RunQueriesButton.displayName = "RunQueriesButton";
 export default RunQueriesButton;

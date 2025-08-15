@@ -36,8 +36,8 @@ function getColor(val: number | undefined): string {
   return defVal > 0
     ? "var(--green-11)"
     : defVal < 0
-    ? "var(--red-11)"
-    : "var(--slate-11)";
+      ? "var(--red-11)"
+      : "var(--slate-11)";
 }
 
 export default function ExecExperimentImpact({
@@ -144,7 +144,7 @@ export default function ExecExperimentImpact({
       }
       setLoading(false);
     },
-    [apiCall]
+    [apiCall],
   );
 
   const updateSnapshots = useCallback(
@@ -163,7 +163,7 @@ export default function ExecExperimentImpact({
         console.error(`Error creating scaled impact: ${error.message}`);
       }
     },
-    [apiCall]
+    [apiCall],
   );
 
   useEffect(() => {
@@ -173,23 +173,20 @@ export default function ExecExperimentImpact({
   }, [experiments]);
 
   // 2 check for snapshots w/o impact and update data
-  const {
-    summaryObj,
-    nExpsUsedForAdjustment,
-    experimentsWithNoImpact,
-  } = useMemo(
-    () =>
-      scaleImpactAndSetMissingExperiments({
-        experiments,
-        snapshots,
-        metric,
-        selectedProjects: projects,
-        startDate: startDate?.toISOString() || "",
-        endDate: endDate?.toISOString() || "",
-        adjusted,
-      }),
-    [experiments, snapshots, metric, projects, startDate, endDate, adjusted]
-  );
+  const { summaryObj, nExpsUsedForAdjustment, experimentsWithNoImpact } =
+    useMemo(
+      () =>
+        scaleImpactAndSetMissingExperiments({
+          experiments,
+          snapshots,
+          metric,
+          selectedProjects: projects,
+          startDate: startDate?.toISOString() || "",
+          endDate: endDate?.toISOString() || "",
+          adjusted,
+        }),
+      [experiments, snapshots, metric, projects, startDate, endDate, adjusted],
+    );
 
   // top winning experiments by scaled impact:
   const topWinningExperiments = useMemo(() => {
@@ -207,7 +204,7 @@ export default function ExecExperimentImpact({
       .sort(
         (a, b) =>
           (b.scaledImpact?.scaledImpact || 0) -
-          (a.scaledImpact?.scaledImpact || 0)
+          (a.scaledImpact?.scaledImpact || 0),
       );
   }, [summaryObj]);
 
@@ -226,7 +223,7 @@ export default function ExecExperimentImpact({
       .sort(
         (a, b) =>
           (b.scaledImpact?.scaledImpact || 0) -
-          (a.scaledImpact?.scaledImpact || 0)
+          (a.scaledImpact?.scaledImpact || 0),
       );
   }, [summaryObj]);
 
@@ -244,11 +241,11 @@ export default function ExecExperimentImpact({
       .sort(
         (a, b) =>
           getValidDate(
-            b.experiment.phases[b.experiment.phases.length - 1]?.dateEnded
+            b.experiment.phases[b.experiment.phases.length - 1]?.dateEnded,
           ).getTime() -
           getValidDate(
-            a.experiment.phases[a.experiment.phases.length - 1]?.dateEnded
-          ).getTime()
+            a.experiment.phases[a.experiment.phases.length - 1]?.dateEnded,
+          ).getTime(),
       );
   }, [summaryObj]);
 
@@ -261,7 +258,7 @@ export default function ExecExperimentImpact({
     ].sort(
       (a, b) =>
         (b.scaledImpact?.scaledImpact || 0) -
-        (a.scaledImpact?.scaledImpact || 0)
+        (a.scaledImpact?.scaledImpact || 0),
     );
   }, [topLostExperiments, topOtherExperiments, topWinningExperiments]);
 
@@ -371,7 +368,7 @@ export default function ExecExperimentImpact({
                                 updateSnapshots(experimentsWithNoImpact).then(
                                   () => {
                                     fetchSnapshots(experiments);
-                                  }
+                                  },
                                 )
                               }
                             >
@@ -425,14 +422,14 @@ export default function ExecExperimentImpact({
                             <span
                               style={{
                                 color: getColor(
-                                  summaryObj.winners.totalAdjustedImpact
+                                  summaryObj.winners.totalAdjustedImpact,
                                 ),
                               }}
                             >
                               {formatImpact(
                                 summaryObj.winners.totalAdjustedImpact * 365,
                                 formatter,
-                                formatterOptions
+                                formatterOptions,
                               )}
                             </span>
                           </Box>
@@ -443,11 +440,11 @@ export default function ExecExperimentImpact({
                                 {formatter(
                                   Math.sqrt(
                                     summaryObj.winners
-                                      .totalAdjustedImpactVariance
+                                      .totalAdjustedImpactVariance,
                                   ) *
                                     1.96 *
                                     365,
-                                  formatterOptions
+                                  formatterOptions,
                                 )}
                               </span>
                             ) : null}
@@ -511,7 +508,7 @@ export default function ExecExperimentImpact({
                             {formatImpact(
                               summaryObj.losers.totalAdjustedImpact * 365,
                               formatter,
-                              formatterOptions
+                              formatterOptions,
                             )}
                           </Box>
                           <Box>
@@ -521,11 +518,11 @@ export default function ExecExperimentImpact({
                                 {formatter(
                                   Math.sqrt(
                                     summaryObj.losers
-                                      .totalAdjustedImpactVariance
+                                      .totalAdjustedImpactVariance,
                                   ) *
                                     1.96 *
                                     365,
-                                  formatterOptions
+                                  formatterOptions,
                                 )}
                               </span>
                             ) : null}
@@ -673,8 +670,8 @@ export default function ExecExperimentImpact({
                                   obj.type === "winner"
                                     ? "green"
                                     : obj.type == "loser"
-                                    ? "red"
-                                    : "gray"
+                                      ? "red"
+                                      : "gray"
                                 }
                               />{" "}
                               {obj.experiment.name}
@@ -687,8 +684,8 @@ export default function ExecExperimentImpact({
                               obj.experiment.results === "dnf"
                                 ? "- Did Not Finish"
                                 : obj.experiment.results === "inconclusive"
-                                ? "- Inconclusive"
-                                : ""
+                                  ? "- Inconclusive"
+                                  : ""
                             }`}</span>
                           ) : obj.scaledImpact ? (
                             <span
@@ -699,7 +696,7 @@ export default function ExecExperimentImpact({
                               {formatImpact(
                                 obj.scaledImpact.scaledImpact,
                                 formatter,
-                                formatterOptions
+                                formatterOptions,
                               )}
                             </span>
                           ) : (
@@ -716,17 +713,18 @@ export default function ExecExperimentImpact({
                                 <span
                                   style={{
                                     color: getColor(
-                                      obj.scaledImpact.scaledImpact
+                                      obj.scaledImpact.scaledImpact,
                                     ),
                                   }}
                                 >
                                   {formatImpact(
                                     (adjusted
-                                      ? obj.scaledImpact.scaledImpactAdjusted ??
-                                        obj.scaledImpact.scaledImpact
+                                      ? (obj.scaledImpact
+                                          .scaledImpactAdjusted ??
+                                        obj.scaledImpact.scaledImpact)
                                       : obj.scaledImpact.scaledImpact) * 365,
                                     formatter,
-                                    formatterOptions
+                                    formatterOptions,
                                   )}
                                 </span>
                               ) : (
@@ -739,7 +737,7 @@ export default function ExecExperimentImpact({
                                   ±{" "}
                                   {formatter(
                                     obj?.scaledImpact.se * 1.96 * 365,
-                                    formatterOptions
+                                    formatterOptions,
                                   )}
                                 </span>
                               )}

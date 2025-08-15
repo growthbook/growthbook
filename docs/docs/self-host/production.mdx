@@ -107,7 +107,6 @@ Hitting the GrowthBook instance directly from our SDKs can work fine at a small 
 
 1. Use a [**GrowthBook Proxy**](/self-host/proxy) server. Each Proxy Server instance can easily handle thousands of requests per second. We recommend horizontally scaling these instances and configuring Redis to keep them in sync.
 2. Use a **CDN** in front of the `/api/features/*` endpoints. The response from GrowthBook contains cache headers by default that most CDNs will recognize without any custom configuration. You can tweak these cache settings with the following environment variables (all in seconds):
-
    - `CACHE_CONTROL_MAX_AGE` (default `30`)
    - `CACHE_CONTROL_STALE_WHILE_REVALIDATE` (default `3600` = 1 hour)
    - `CACHE_CONTROL_STALE_IF_ERROR` (default `36000` = 10 hours)

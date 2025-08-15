@@ -31,7 +31,7 @@ export const featureValueType = [
   "json",
 ] as const;
 
-export type FeatureValueType = typeof featureValueType[number];
+export type FeatureValueType = (typeof featureValueType)[number];
 
 const scheduleRule = z
   .object({

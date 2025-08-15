@@ -74,7 +74,7 @@ export default function RuleList({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
@@ -132,7 +132,7 @@ export default function RuleList({
                 from: oldIndex,
                 to: newIndex,
               }),
-            }
+            },
           );
           await mutate();
           res.version && setVersion(res.version);

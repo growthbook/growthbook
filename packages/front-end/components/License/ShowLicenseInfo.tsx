@@ -29,10 +29,10 @@ const ShowLicenseInfo: FC<{
     (actualPlan === "enterprise"
       ? "Enterprise"
       : actualPlan === "pro"
-      ? "Pro"
-      : actualPlan === "pro_sso"
-      ? "Pro + SSO"
-      : "Starter") + (license && license.isTrial ? " (trial)" : "");
+        ? "Pro"
+        : actualPlan === "pro_sso"
+          ? "Pro + SSO"
+          : "Starter") + (license && license.isTrial ? " (trial)" : "");
 
   return (
     <Box>
@@ -123,7 +123,7 @@ const ShowLicenseInfo: FC<{
                               <span
                                 className={`text-muted ${
                                   !["active", "trialing"].includes(
-                                    subscription?.status || ""
+                                    subscription?.status || "",
                                   )
                                     ? "alert-danger"
                                     : ""

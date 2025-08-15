@@ -32,7 +32,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
     descriptionSize = "1",
     ...containerProps
   }: Props,
-  ref
+  ref,
 ) {
   // get color for selected option
   const selectedOption = options.find((o) => o.value === value);
@@ -87,7 +87,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioGroup(
                     </Text>
                   </RadixRadioGroup.Item>
                 );
-              }
+              },
             )}
           </RadixRadioGroup.Root>
         </Text>

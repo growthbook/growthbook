@@ -7,7 +7,7 @@ const DEMO_PROJECT_ID_SUFFIX = "demo-datasource-project";
  * @param organizationId
  */
 export function getDemoDatasourceProjectIdForOrganization(
-  organizationId?: string
+  organizationId?: string,
 ): string {
   return (
     "prj" +

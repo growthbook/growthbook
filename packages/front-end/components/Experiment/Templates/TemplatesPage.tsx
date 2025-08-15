@@ -24,10 +24,10 @@ import EmptyState from "@/components/EmptyState";
 
 interface Props {
   setOpenTemplateModal: (
-    template: Partial<ExperimentTemplateInterface>
+    template: Partial<ExperimentTemplateInterface>,
   ) => void;
   setOpenDuplicateTemplateModal: (
-    template: ExperimentTemplateInterface
+    template: ExperimentTemplateInterface,
   ) => void;
 }
 
@@ -63,7 +63,7 @@ export const TemplatesPage = ({
 
   const filteredTemplates = project
     ? allTemplates.filter((t) =>
-        isProjectListValidForProject(t.project ? [t.project] : [], project)
+        isProjectListValidForProject(t.project ? [t.project] : [], project),
       )
     : allTemplates;
 
@@ -77,7 +77,7 @@ export const TemplatesPage = ({
         usage: templateExperimentMap[templ.id]?.length ?? 0,
       };
     },
-    [templateExperimentMap, allTemplates]
+    [templateExperimentMap, allTemplates],
   );
 
   const { items, SortableTH } = useSearch({

@@ -32,7 +32,7 @@ const TestedClassComponent = withRunExperiment(
       });
       return <h1>{value}</h1>;
     }
-  }
+  },
 );
 
 describe("GrowthBookProvider", () => {
@@ -42,7 +42,7 @@ describe("GrowthBookProvider", () => {
     const { container } = render(
       <GrowthBookProvider growthbook={growthbook}>
         <h1>Hello World</h1>
-      </GrowthBookProvider>
+      </GrowthBookProvider>,
     );
     expect(container.innerHTML).toEqual("<h1>Hello World</h1>");
     growthbook.destroy();
@@ -54,7 +54,7 @@ describe("GrowthBookProvider", () => {
     const { container } = render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedComponent />
-      </GrowthBookProvider>
+      </GrowthBookProvider>,
     );
     expect(container.innerHTML).toEqual("<h1>1</h1>");
     growthbook.destroy();
@@ -66,7 +66,7 @@ describe("GrowthBookProvider", () => {
     const { container } = render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedClassComponent />
-      </GrowthBookProvider>
+      </GrowthBookProvider>,
     );
     expect(container.innerHTML).toEqual("<h1>1</h1>");
     growthbook.destroy();
@@ -78,7 +78,7 @@ describe("GrowthBookProvider", () => {
     const { container } = render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedComponent />
-      </GrowthBookProvider>
+      </GrowthBookProvider>,
     );
     expect(container.innerHTML).toEqual("<h1>0</h1>");
     growthbook.destroy();
@@ -105,7 +105,7 @@ describe("GrowthBookProvider", () => {
           <FeaturesReady fallback={<Fallback />}>
             <FeatureComponent />
           </FeaturesReady>
-        </GrowthBookProvider>
+        </GrowthBookProvider>,
       );
       expect(container.innerHTML).toEqual("<div>actual value</div>");
 
@@ -126,7 +126,7 @@ describe("GrowthBookProvider", () => {
           <FeaturesReady fallback={<Fallback />}>
             <FeatureComponent />
           </FeaturesReady>
-        </GrowthBookProvider>
+        </GrowthBookProvider>,
       );
       expect(container.innerHTML).toEqual("<div>loading fallback</div>");
 
@@ -156,7 +156,7 @@ describe("GrowthBookProvider", () => {
           <FeaturesReady fallback={<Fallback />} timeout={100}>
             <FeatureComponent />
           </FeaturesReady>
-        </GrowthBookProvider>
+        </GrowthBookProvider>,
       );
       expect(container.innerHTML).toEqual("<div>loading fallback</div>");
 
@@ -220,11 +220,11 @@ describe("GrowthBookProvider", () => {
       const { container } = render(
         <GrowthBookProvider growthbook={providedGrowthBook}>
           <ComponentThatCallsUseGrowthBookWithTypes />
-        </GrowthBookProvider>
+        </GrowthBookProvider>,
       );
 
       expect(container.innerHTML).toEqual(
-        "<h1>foo = 1337, bar = true, baz = hello world</h1>"
+        "<h1>foo = 1337, bar = true, baz = hello world</h1>",
       );
     });
 
@@ -240,7 +240,7 @@ describe("GrowthBookProvider", () => {
       const { container } = render(
         <GrowthBookProvider growthbook={providedGrowthBook}>
           <ComponentThatCallsUseFeatureIsOn />
-        </GrowthBookProvider>
+        </GrowthBookProvider>,
       );
 
       expect(container.innerHTML).toEqual("<h1>is on = Yes</h1>");
@@ -259,7 +259,7 @@ describe("GrowthBookProvider", () => {
         const { container } = render(
           <GrowthBookProvider growthbook={providedGrowthBook}>
             <ComponentThatCallsUseFeatureIsOn />
-          </GrowthBookProvider>
+          </GrowthBookProvider>,
         );
 
         expect(container.innerHTML).toEqual("<h1>is on = Yes</h1>");
@@ -285,11 +285,11 @@ describe("GrowthBookProvider", () => {
         const { container } = render(
           <GrowthBookProvider growthbook={providedGrowthBook}>
             <ComponentThatCallsUseGrowthBookWithTypes />
-          </GrowthBookProvider>
+          </GrowthBookProvider>,
         );
 
         expect(container.innerHTML).toEqual(
-          "<h1>foo = 1337, bar = true, baz = hello world</h1>"
+          "<h1>foo = 1337, bar = true, baz = hello world</h1>",
         );
       });
     });

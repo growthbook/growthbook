@@ -42,7 +42,7 @@ export default function SchemaBrowserWrapper({
                   <div>
                     <div>
                       {`Last Updated: ${new Date(
-                        informationSchema.dateUpdated
+                        informationSchema.dateUpdated,
                       ).toLocaleString()}`}
                     </div>
                     {!canRunQueries ? (

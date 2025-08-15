@@ -160,7 +160,7 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
 export function getDefaultExperimentQuery(
   settings: DataSourceSettings,
   userIdType = "user_id",
-  schema?: string
+  schema?: string,
 ): string {
   let column = userIdType;
 
@@ -194,7 +194,7 @@ FROM
 }
 
 export function upgradeDatasourceObject(
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ): DataSourceInterface {
   datasource.settings = datasource.settings || {};
 
@@ -258,7 +258,7 @@ function updateEnvironmentSettings(
   rules: FeatureRule[],
   environments: string[],
   environment: string,
-  feature: FeatureInterface
+  feature: FeatureInterface,
 ) {
   const settings: Partial<FeatureEnvironment> =
     feature.environmentSettings?.[environment] || {};
@@ -281,7 +281,7 @@ function updateEnvironmentSettings(
 
 function draftHasChanges(
   feature: FeatureInterface,
-  draft: FeatureDraftChanges
+  draft: FeatureDraftChanges,
 ) {
   if (!draft?.active) return false;
 
@@ -320,7 +320,7 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
 
     const multiplier = totalWeight > 0 ? 1 / totalWeight : 0;
     const adjustedWeights = adjustWeights(
-      weights.map((w) => roundVariationWeight(w * multiplier))
+      weights.map((w) => roundVariationWeight(w * multiplier)),
     );
 
     rule.values = rule.values.map((v, j) => {
@@ -332,7 +332,7 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
 }
 
 export function upgradeFeatureInterface(
-  feature: LegacyFeatureInterface
+  feature: LegacyFeatureInterface,
 ): FeatureInterface {
   const { environments, rules, revision, draft, ...newFeature } = feature;
 
@@ -342,7 +342,7 @@ export function upgradeFeatureInterface(
     rules || [],
     environments || [],
     "production",
-    newFeature
+    newFeature,
   );
 
   newFeature.version = feature.version || revision?.version || 1;
@@ -377,7 +377,7 @@ export function upgradeFeatureInterface(
           if (draft.rules && draft.rules[env]) {
             revisionRules[env] = draft.rules[env];
           }
-        }
+        },
       );
 
       newFeature.legacyDraft = {
@@ -415,7 +415,7 @@ export function upgradeFeatureInterface(
 }
 
 export function upgradeOrganizationDoc(
-  doc: OrganizationInterface
+  doc: OrganizationInterface,
 ): OrganizationInterface {
   const org = cloneDeep(doc);
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
@@ -430,9 +430,8 @@ export function upgradeOrganizationDoc(
   // Change old `implementationTypes` field to new `visualEditorEnabled` field
   if (org.settings.implementationTypes) {
     if (!("visualEditorEnabled" in org.settings)) {
-      org.settings.visualEditorEnabled = org.settings.implementationTypes.includes(
-        "visual"
-      );
+      org.settings.visualEditorEnabled =
+        org.settings.implementationTypes.includes("visual");
     }
     delete org.settings.implementationTypes;
   }
@@ -510,7 +509,7 @@ export function upgradeOrganizationDoc(
 }
 
 export function upgradeExperimentDoc(
-  orig: LegacyExperimentInterface
+  orig: LegacyExperimentInterface,
 ): ExperimentInterface {
   const experiment = cloneDeep(orig);
 
@@ -633,7 +632,8 @@ export function upgradeExperimentDoc(
     experiment.sequentialTestingEnabled = false;
   }
   if (!("sequentialTestingTuningParameter" in experiment)) {
-    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+    experiment.sequentialTestingTuningParameter =
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
   if (!("shareLevel" in experiment)) {
@@ -647,7 +647,7 @@ export function upgradeExperimentDoc(
 }
 
 export function migrateExperimentReport(
-  orig: LegacyReportInterface
+  orig: LegacyReportInterface,
 ): ExperimentReportInterface {
   const { args, ...report } = orig;
 
@@ -685,7 +685,7 @@ export function migrateExperimentReport(
         regressionAdjustmentDays: m.regressionAdjustmentDays,
         regressionAdjustmentEnabled: m.regressionAdjustmentEnabled,
         regressionAdjustmentAvailable: m.regressionAdjustmentAvailable,
-      })
+      }),
     );
   }
 
@@ -696,7 +696,7 @@ export function migrateExperimentReport(
 }
 
 export function migrateSnapshot(
-  orig: LegacyExperimentSnapshotInterface
+  orig: LegacyExperimentSnapshotInterface,
 ): ExperimentSnapshotInterface {
   const {
     activationMetric,
@@ -736,7 +736,7 @@ export function migrateSnapshot(
       const regressionAdjusted =
         regressionAdjustmentEnabled &&
         metricRegressionAdjustmentStatuses?.some(
-          (s) => s.regressionAdjustmentEnabled
+          (s) => s.regressionAdjustmentEnabled,
         )
           ? true
           : false;
@@ -773,8 +773,8 @@ export function migrateSnapshot(
     snapshot.status = snapshot.error
       ? "error"
       : snapshot.analyses.length > 0
-      ? "success"
-      : "running";
+        ? "success"
+        : "running";
   }
 
   const defaultMetricPriorSettings = {
@@ -793,7 +793,7 @@ export function migrateSnapshot(
 
     const metricSettings: MetricForSnapshot[] = metricIds.map((id) => {
       const regressionSettings = metricRegressionAdjustmentStatuses?.find(
-        (s) => s.metric === id
+        (s) => s.metric === id,
       );
 
       return {
@@ -815,7 +815,8 @@ export function migrateSnapshot(
             regressionAdjustmentEnabled &&
             regressionSettings?.regressionAdjustmentEnabled
           ),
-          regressionAdjustmentAvailable: !!regressionSettings?.regressionAdjustmentAvailable,
+          regressionAdjustmentAvailable:
+            !!regressionSettings?.regressionAdjustmentAvailable,
           regressionAdjustmentReason: regressionSettings?.reason || "",
           targetMDE: undefined,
         },
@@ -880,7 +881,7 @@ export function migrateSnapshot(
           }
         }
         return m;
-      }
+      },
     );
   }
 
@@ -905,7 +906,7 @@ export function migrateSnapshot(
 }
 
 export function migrateSavedGroup(
-  legacy: LegacySavedGroupInterface
+  legacy: LegacySavedGroupInterface,
 ): SavedGroupInterface {
   // Add `type` field to legacy groups
   const { source, type, ...otherFields } = legacy;
@@ -934,7 +935,7 @@ export function migrateSavedGroup(
 }
 
 export function migrateSdkWebhookLogModel(
-  doc: SdkWebHookLogDocument
+  doc: SdkWebHookLogDocument,
 ): SdkWebHookLogDocument {
   if (doc?.webhookReduestId) {
     doc.webhookRequestId = doc.webhookReduestId;

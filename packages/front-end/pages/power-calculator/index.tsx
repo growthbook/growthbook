@@ -47,12 +47,8 @@ const PowerCalculationPage = (): React.ReactElement => {
     FullModalPowerCalculationParams | undefined
   >(initialParams.powerCalculationParams);
 
-  const [
-    settingsModalParams,
-    setSettingsModalParams,
-  ] = useState<PartialPowerCalculationParams>(
-    initialParams.settingsModalParams
-  );
+  const [settingsModalParams, setSettingsModalParams] =
+    useState<PartialPowerCalculationParams>(initialParams.settingsModalParams);
 
   const [variations, setVariations] = useState(initialParams.variations);
 
@@ -64,17 +60,13 @@ const PowerCalculationPage = (): React.ReactElement => {
       : false,
   };
 
-  const [
-    statsEngineSettings,
-    setStatsEngineSettings,
-  ] = useState<StatsEngineSettings>(
-    initialParams.statsEngineSettings || defaultStatsEngineSettings
-  );
+  const [statsEngineSettings, setStatsEngineSettings] =
+    useState<StatsEngineSettings>(
+      initialParams.statsEngineSettings || defaultStatsEngineSettings,
+    );
 
-  const [
-    modalStatsEngineSettings,
-    setModalStatsEngineSettings,
-  ] = useState<StatsEngineSettings>(statsEngineSettings);
+  const [modalStatsEngineSettings, setModalStatsEngineSettings] =
+    useState<StatsEngineSettings>(statsEngineSettings);
 
   useEffect(() => {
     localStorage.setItem(
@@ -84,7 +76,7 @@ const PowerCalculationPage = (): React.ReactElement => {
         settingsModalParams,
         variations,
         statsEngineSettings,
-      })
+      }),
     );
   }, [
     powerCalculationParams,

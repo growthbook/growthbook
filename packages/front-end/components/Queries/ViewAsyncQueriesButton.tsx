@@ -50,15 +50,15 @@ const ViewAsyncQueriesButton: FC<{
                 ? status === "running"
                   ? "View running queries"
                   : status === "failed"
-                  ? "View failed queries"
-                  : status === "partially-succeeded"
-                  ? "View failed queries"
-                  : ""
+                    ? "View failed queries"
+                    : status === "partially-succeeded"
+                      ? "View failed queries"
+                      : ""
                 : ""
               : "No queries were run"
           }
           shouldDisplay={["running", "failed", "partially-succeeded"].includes(
-            status ?? ""
+            status ?? "",
           )}
         >
           <button
@@ -79,7 +79,8 @@ const ViewAsyncQueriesButton: FC<{
             {icon !== null && (
               <span
                 className={clsx("h4", {
-                  "position-relative d-flex m-0 d-inline-block align-top": condensed,
+                  "position-relative d-flex m-0 d-inline-block align-top":
+                    condensed,
                   "pr-2": !hideQueryCount,
                 })}
               >

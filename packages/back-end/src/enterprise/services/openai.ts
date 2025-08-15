@@ -34,7 +34,7 @@ const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 export const getOpenAI = (context: ReqContext | ApiReqContext) => {
   const { aiEnabled, openAIAPIKey, openAIDefaultModel } = getAISettingsForOrg(
     context,
-    true
+    true,
   );
   let _openai: OpenAI | null = null;
   if (openAIAPIKey && aiEnabled) {
@@ -59,7 +59,7 @@ type ChatCompletionRequestMessage = {
  */
 const numTokensFromMessages = (
   messages: ChatCompletionRequestMessage[],
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ) => {
   let encoding;
   try {
@@ -85,13 +85,10 @@ const numTokensFromMessages = (
 };
 
 export const secondsUntilAICanBeUsedAgain = async (
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ) => {
-  const {
-    numTokensUsed,
-    dailyLimit,
-    nextResetAt,
-  } = await getTokensUsedByOrganization(organization);
+  const { numTokensUsed, dailyLimit, nextResetAt } =
+    await getTokensUsedByOrganization(organization);
   return numTokensUsed > dailyLimit
     ? (nextResetAt - new Date().getTime()) / 1000
     : 0;
@@ -134,12 +131,12 @@ export const simpleCompletion = async ({
   const numTokens = numTokensFromMessages(messages, context);
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`
+      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
     );
   }
   if (numTokens > MESSAGE_TOKEN_LIMIT) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`
+      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`,
     );
   }
 
@@ -151,8 +148,8 @@ export const simpleCompletion = async ({
     jsonSchema && supportsJSONSchema(model)
       ? { type: "json_schema", json_schema: jsonSchema }
       : returnType === "json"
-      ? { type: "json_object" }
-      : { type: "text" };
+        ? { type: "json_object" }
+        : { type: "text" };
   const response = await openai.chat.completions.create({
     model,
     messages,
@@ -207,7 +204,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   if (!zodObjectSchema) {
     throw new Error(
-      "a Zod Object for the JSON schema is required for structuredPrompt."
+      "a Zod Object for the JSON schema is required for structuredPrompt.",
     );
   }
 
@@ -216,12 +213,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   const numTokens = numTokensFromMessages(messages, context);
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`
+      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
     );
   }
   if (numTokens > MESSAGE_TOKEN_LIMIT) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`
+      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`,
     );
   }
   const modelToUse = model || defaultModel;
@@ -231,14 +228,14 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     | ResponseFormatJSONSchema
     | ResponseFormatJSONObject = zodResponseFormat(
     zodObjectSchema,
-    "response_schema"
+    "response_schema",
   );
   if (
     !supportsJSONSchema(modelToUse) &&
     response_format.type === "json_schema"
   ) {
     throw new Error(
-      `Model ${modelToUse} does not support JSON schema response format. Please use a model that supports it, such as gpt-4o or higher.`
+      `Model ${modelToUse} does not support JSON schema response format. Please use a model that supports it, such as gpt-4o or higher.`,
     );
   }
 
@@ -283,7 +280,7 @@ export const supportsJSONSchema = (model: TiktokenModel) => {
 
 const constructOpenAIMessages = (
   prompt: string,
-  instructions?: string
+  instructions?: string,
 ): ChatCompletionRequestMessage[] => {
   const messages: ChatCompletionRequestMessage[] = [];
 

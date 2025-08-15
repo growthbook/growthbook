@@ -46,7 +46,7 @@ const StopExperimentForm: FC<{
 
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestFunction = gb.isOn(
-    "ai-suggestions-for-experiment-analysis-input"
+    "ai-suggestions-for-experiment-analysis-input",
   )
     ? async () => {
         const response = await apiCall<{
@@ -70,12 +70,12 @@ const StopExperimentForm: FC<{
               const hours = Math.floor(retryAfter / 3600);
               const minutes = Math.floor((retryAfter % 3600) / 60);
               throw new Error(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
             } else {
               throw new Error("Error getting AI suggestion");
             }
-          }
+          },
         );
         return response.data.description;
       }
@@ -92,7 +92,7 @@ const StopExperimentForm: FC<{
 
   const getRecommendedResult = (
     recommendation?: ExperimentResultStatusData,
-    controlVariationId?: string
+    controlVariationId?: string,
   ): { result?: Results; releasedVariationId?: string } => {
     if (recommendation?.status === "ship-now") {
       return {
@@ -114,12 +114,12 @@ const StopExperimentForm: FC<{
     releasedVariationId: recommendedReleaseVariationId,
   } = getRecommendedResult(
     runningExperimentStatus,
-    experiment.variations?.[0]?.id
+    experiment.variations?.[0]?.id,
   );
 
   const recommendedReleaseVariationIndex = recommendedReleaseVariationId
     ? experiment.variations.findIndex(
-        (v) => v.id === recommendedReleaseVariationId
+        (v) => v.id === recommendedReleaseVariationId,
       )
     : undefined;
 
@@ -191,7 +191,7 @@ const StopExperimentForm: FC<{
       {
         method: "POST",
         body: JSON.stringify(body),
-      }
+      },
     );
 
     if (!isStopped) {
@@ -249,19 +249,19 @@ const StopExperimentForm: FC<{
                   form.setValue("excludeFromPayload", false);
                   form.setValue(
                     "winner",
-                    recommendedReleaseVariationIndex ?? 1
+                    recommendedReleaseVariationIndex ?? 1,
                   );
                   form.setValue(
                     "releasedVariationId",
                     recommendedReleaseVariationId ??
-                      (experiment.variations[1]?.id || "")
+                      (experiment.variations[1]?.id || ""),
                   );
                 } else if (result === "lost") {
                   form.setValue("excludeFromPayload", true);
                   form.setValue("winner", 0);
                   form.setValue(
                     "releasedVariationId",
-                    experiment.variations[0]?.id || ""
+                    experiment.variations[0]?.id || "",
                   );
                 }
               }}
@@ -289,7 +289,7 @@ const StopExperimentForm: FC<{
                     form.setValue(
                       "releasedVariationId",
                       experiment.variations[parseInt(v)]?.id ||
-                        form.watch("releasedVariationId")
+                        form.watch("releasedVariationId"),
                     );
                   }}
                   options={experiment.variations.slice(1).map((v, i) => {

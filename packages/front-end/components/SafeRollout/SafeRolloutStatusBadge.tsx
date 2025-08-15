@@ -10,10 +10,8 @@ import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvide
 import Badge from "@/components/Radix/Badge";
 
 const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
-  const {
-    safeRollout,
-    snapshot: snapshotWithResults,
-  } = useSafeRolloutSnapshot();
+  const { safeRollout, snapshot: snapshotWithResults } =
+    useSafeRolloutSnapshot();
 
   const { hasCommercialFeature, organization } = useUser();
   const settings = organization?.settings;
@@ -34,7 +32,7 @@ const SafeRolloutStatusBadge = ({ rule }: { rule: SafeRolloutRule }) => {
     safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });

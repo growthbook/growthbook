@@ -72,8 +72,8 @@ export default function DashboardModal({
         mode === "edit"
           ? "Edit Dashboard Details"
           : mode === "create"
-          ? "Create New Dashboard"
-          : "Duplicate Dashboard"
+            ? "Create New Dashboard"
+            : "Duplicate Dashboard"
       }
       cta={initial ? "Done" : "Create"}
       submit={() => submit(form.getValues())}

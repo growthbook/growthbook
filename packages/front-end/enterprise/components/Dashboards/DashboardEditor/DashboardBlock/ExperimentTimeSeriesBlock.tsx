@@ -19,7 +19,7 @@ export default function ExperimentTimeSeriesBlock({
   const goalMetrics = expandMetricGroups(experiment.goalMetrics, metricGroups);
   const secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
-    metricGroups
+    metricGroups,
   );
 
   const statsEngine = analysis.settings.statsEngine;
@@ -27,23 +27,23 @@ export default function ExperimentTimeSeriesBlock({
   const resultGroup = getMetricResultGroup(
     metric.id,
     goalMetrics,
-    secondaryMetrics
+    secondaryMetrics,
   );
 
   const appliedPValueCorrection =
     resultGroup === "goal"
-      ? (ssrPolyfills?.useOrgSettings()?.pValueCorrection ||
+      ? ((ssrPolyfills?.useOrgSettings()?.pValueCorrection ||
           pValueCorrection) ??
-        null
+        null)
       : null;
 
   const showVariations = experiment.variations.map(
-    (v) => variationIds.length === 0 || variationIds.includes(v.id)
+    (v) => variationIds.length === 0 || variationIds.includes(v.id),
   );
   const variationNames = experiment.variations
     .filter(
       (variation) =>
-        variationIds.length === 0 || variationIds.includes(variation.id)
+        variationIds.length === 0 || variationIds.includes(variation.id),
     )
     .map(({ name }) => name);
 

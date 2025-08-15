@@ -12,7 +12,7 @@ export type FilterDataForNotificationEvent = {
 };
 
 export const getFilterDataForNotificationEvent = (
-  event: NotificationEvent | LegacyNotificationEvent
+  event: NotificationEvent | LegacyNotificationEvent,
 ): FilterDataForNotificationEvent | null => {
   return {
     tags: event.tags || [],
@@ -48,13 +48,13 @@ export const RELEVANT_KEYS_FOR_ALL_ENVS: (keyof ApiFeature)[] = [
 
 export function getChangedApiFeatureEnvironments(
   previous: ApiFeature,
-  current: ApiFeature
+  current: ApiFeature,
 ): string[] {
   const allEnvs = Array.from(
     new Set([
       ...Object.keys(previous.environments),
       ...Object.keys(current.environments),
-    ])
+    ]),
   );
 
   if (

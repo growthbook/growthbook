@@ -25,7 +25,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   const { setStep, clearStep } = useGetStarted();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
 
   // If they view the guide, clear the current step
@@ -46,14 +46,14 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   // Ignore the demo datasource
   const hasExperiments = project
     ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project
+        (e) => e.project !== demoProjectId && e.project === project,
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
   const hasFactTables = factTables.length > 0;
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
 
   return (

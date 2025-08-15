@@ -32,7 +32,7 @@ export type AuthRefreshDocument = mongoose.Document & AuthRefreshInterface;
 
 export const AuthRefreshModel = mongoose.model<AuthRefreshInterface>(
   "AuthRefresh",
-  authRefreshSchema
+  authRefreshSchema,
 );
 
 export async function createRefreshToken(req: Request, user: UserInterface) {
@@ -52,7 +52,7 @@ export async function createRefreshToken(req: Request, user: UserInterface) {
 }
 
 export async function getUserIdFromAuthRefreshToken(
-  token: string
+  token: string,
 ): Promise<string> {
   const doc = await AuthRefreshModel.findOne({
     token,
@@ -67,7 +67,7 @@ export async function getUserIdFromAuthRefreshToken(
         $set: {
           lastLogin: new Date(),
         },
-      }
+      },
     );
   }
 

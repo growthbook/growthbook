@@ -91,11 +91,11 @@ export default function SqlExplorerModal({
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tab, setTab] = useState(
-    initial?.dataVizConfig?.length && !disableSave ? "visualization-0" : "sql"
+    initial?.dataVizConfig?.length && !disableSave ? "visualization-0" : "sql",
   );
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
     "sql-editor-autocomplete-enabled",
-    true
+    true,
   );
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
   const [informationSchema, setInformationSchema] = useState<
@@ -193,7 +193,7 @@ export default function SqlExplorerModal({
       });
       return res;
     },
-    [apiCall, form]
+    [apiCall, form],
   );
 
   const handleSubmit = async () => {
@@ -213,7 +213,7 @@ export default function SqlExplorerModal({
       setLoading(false);
       setIsEditingName(true);
       throw new Error(
-        "Query name can only contain letters, numbers, hyphens, underscores, and spaces"
+        "Query name can only contain letters, numbers, hyphens, underscores, and spaces",
       );
     }
 
@@ -227,7 +227,7 @@ export default function SqlExplorerModal({
         throw new Error(
           `X axis is required for Visualization ${
             config.title ? config.title : `${index + 1}`
-          }. Please add an X axis or remove the visualization to save the query.`
+          }. Please add an X axis or remove the visualization to save the query.`,
         );
       }
       if (!config.yAxis) {
@@ -235,7 +235,7 @@ export default function SqlExplorerModal({
         throw new Error(
           `Y axis is required for Visualization ${
             config.title ? config.title : `${index + 1}`
-          }. Please add a y axis or remove the visualization to save the query.`
+          }. Please add a y axis or remove the visualization to save the query.`,
         );
       }
     });
@@ -303,7 +303,7 @@ export default function SqlExplorerModal({
     });
     try {
       const { results, error, duration, sql } = await runQuery(
-        form.watch("sql")
+        form.watch("sql"),
       );
       // Update the form's results field
       form.setValue("results", {
@@ -358,13 +358,13 @@ export default function SqlExplorerModal({
               const hours = Math.floor(retryAfter / 3600);
               const minutes = Math.floor((retryAfter % 3600) / 60);
               setAiError(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
             } else {
               setAiError("Error getting AI suggestion");
             }
             setLoading(false);
-          }
+          },
         )
           .then((res: { data: { sql: string; errors: string[] } }) => {
             form.setValue("sql", res.data.sql);
@@ -387,7 +387,7 @@ export default function SqlExplorerModal({
   const handleAIClick = () => {
     if (!hasAISuggestions) {
       throw new Error(
-        "AI suggestions are not enabled for your organization. Please contact your administrator."
+        "AI suggestions are not enabled for your organization. Please contact your administrator.",
       );
     }
     if (!aiAgreedTo) {
@@ -399,7 +399,7 @@ export default function SqlExplorerModal({
     }
     if (!aiEnabled) {
       throw new Error(
-        "AI suggestions are disabled for your organization. Please contact your administrator."
+        "AI suggestions are disabled for your organization. Please contact your administrator.",
       );
     }
     setOpenAIBox(!openAIBox);
@@ -407,7 +407,7 @@ export default function SqlExplorerModal({
 
   const getTruncatedTitle = (
     title: string,
-    totalVisualizationCount: number
+    totalVisualizationCount: number,
   ): string => {
     // Only truncate if there are 4 or more visualizations
     if (totalVisualizationCount < 4) return title;
@@ -422,7 +422,7 @@ export default function SqlExplorerModal({
   const validDatasources = datasources.filter(
     (d) =>
       d.type !== "google_analytics" &&
-      permissionsUtil.canRunSqlExplorerQueries(d)
+      permissionsUtil.canRunSqlExplorerQueries(d),
   );
 
   const dataVizConfig = form.watch("dataVizConfig") || [];
@@ -440,7 +440,7 @@ export default function SqlExplorerModal({
           informationSchema,
           datasource?.type,
           apiCall,
-          "SqlExplorer"
+          "SqlExplorer",
         );
         setAutoCompletions(completions);
       } catch (error) {
@@ -497,8 +497,8 @@ export default function SqlExplorerModal({
           !hasCommercialFeature("saveSqlExplorerQueries")
             ? "Upgrade to a Pro or Enterprise plan to save your queries."
             : !hasPermission
-            ? "You don't have permission to save this query."
-            : undefined
+              ? "You don't have permission to save this query."
+              : undefined
         }
         header={header || `${id ? "Update" : "Create"} SQL Query`}
         headerClassName={styles["modal-header-backgroundless"]}
@@ -621,7 +621,7 @@ export default function SqlExplorerModal({
                         >
                           {getTruncatedTitle(
                             config.title || `Visualization ${index + 1}`,
-                            dataVizConfig.length
+                            dataVizConfig.length,
                           )}
                         </span>
                         {!readOnlyMode && tab === `visualization-${index}` ? (
@@ -651,10 +651,10 @@ export default function SqlExplorerModal({
                                   ];
                                   form.setValue(
                                     "dataVizConfig",
-                                    newDataVizConfig
+                                    newDataVizConfig,
                                   );
                                   setTab(
-                                    `visualization-${dataVizConfig.length}`
+                                    `visualization-${dataVizConfig.length}`,
                                   );
                                 }}
                                 disabled={dataVizConfig.length >= 10}
@@ -673,8 +673,8 @@ export default function SqlExplorerModal({
                                   index < dataVizConfig.length - 1
                                     ? `visualization-${index}`
                                     : index > 0
-                                    ? `visualization-${index - 1}`
-                                    : "sql"
+                                      ? `visualization-${index - 1}`
+                                      : "sql",
                                 );
                               }}
                             >
@@ -879,7 +879,7 @@ export default function SqlExplorerModal({
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setIsAutocompleteEnabled(
-                                        !isAutocompleteEnabled
+                                        !isAutocompleteEnabled,
                                       );
                                     }}
                                   >

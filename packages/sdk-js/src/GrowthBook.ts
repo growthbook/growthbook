@@ -62,7 +62,7 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
   private context: Options;
@@ -144,7 +144,7 @@ export class GrowthBook<
       let isGbHost = false;
       try {
         isGbHost = !!new URL(options.apiHost || "").hostname.match(
-          /growthbook\.io$/i
+          /growthbook\.io$/i,
         );
       } catch (e) {
         // ignore invalid URLs
@@ -238,10 +238,11 @@ export class GrowthBook<
       this._options.stickyBucketService &&
       !this._options.stickyBucketAssignmentDocs
     ) {
-      this._options.stickyBucketAssignmentDocs = this.generateStickyBucketAssignmentDocsSync(
-        this._options.stickyBucketService as StickyBucketServiceSync,
-        payload
-      );
+      this._options.stickyBucketAssignmentDocs =
+        this.generateStickyBucketAssignmentDocsSync(
+          this._options.stickyBucketService as StickyBucketServiceSync,
+          payload,
+        );
     }
 
     this._payload = payload;
@@ -300,7 +301,7 @@ export class GrowthBook<
   }
 
   public async refreshFeatures(
-    options?: RefreshFeaturesOptions
+    options?: RefreshFeaturesOptions,
   ): Promise<void> {
     const res = await this._refresh({
       ...(options || {}),
@@ -383,15 +384,15 @@ export class GrowthBook<
   public async setEncryptedFeatures(
     encryptedString: string,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<void> {
     const featuresJSON = await decrypt(
       encryptedString,
       decryptionKey || this._options.decryptionKey,
-      subtle
+      subtle,
     );
     this.setFeatures(
-      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>
+      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>,
     );
   }
 
@@ -406,12 +407,12 @@ export class GrowthBook<
   public async setEncryptedExperiments(
     encryptedString: string,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<void> {
     const experimentsJSON = await decrypt(
       encryptedString,
       decryptionKey || this._options.decryptionKey,
-      subtle
+      subtle,
     );
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
@@ -600,7 +601,7 @@ export class GrowthBook<
     this._triggeredExpKeys.add(key);
     if (!this._options.experiments) return null;
     const experiments = this._options.experiments.filter(
-      (exp) => exp.key === key
+      (exp) => exp.key === key,
     );
     return experiments
       .map((exp) => {
@@ -693,13 +694,13 @@ export class GrowthBook<
         experiment,
         -1,
         false,
-        ""
+        "",
       );
     } else {
       ({ result, trackingCall } = runExperiment(
         experiment,
         null,
-        this._getEvalContext()
+        this._getEvalContext(),
       ));
       this._fireSubscriptions(experiment, result);
     }
@@ -738,7 +739,7 @@ export class GrowthBook<
             "Skipping redirect because original URL matches redirect URL",
             {
               id: experiment.key,
-            }
+            },
           );
           return result;
         }
@@ -752,12 +753,15 @@ export class GrowthBook<
                 ? [
                     promiseTimeout(
                       trackingCall,
-                      this._options.maxNavigateDelay ?? 1000
+                      this._options.maxNavigateDelay ?? 1000,
                     ),
                   ]
                 : []),
               new Promise((resolve) =>
-                window.setTimeout(resolve, this._options.navigateDelay ?? delay)
+                window.setTimeout(
+                  resolve,
+                  this._options.navigateDelay ?? delay,
+                ),
               ),
             ]).then(() => {
               try {
@@ -862,7 +866,7 @@ export class GrowthBook<
 
   public getFeatureValue<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V): WidenPrimitives<V> {
     const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
@@ -875,14 +879,14 @@ export class GrowthBook<
   // eslint-disable-next-line
   public feature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return this.evalFeature(id);
   }
 
   public evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return _evalFeature(id, this._getEvalContext());
   }
@@ -903,7 +907,7 @@ export class GrowthBook<
         .filter((c) => c && c.experiment && c.result)
         .map((c) => {
           return [getExperimentDedupeKey(c.experiment, c.result), c];
-        })
+        }),
     );
   }
 
@@ -918,8 +922,8 @@ export class GrowthBook<
         promises.push(
           (this._options.trackingCallback as TrackingCallback)(
             call.experiment,
-            call.result
-          )
+            call.result,
+          ),
         );
       }
     });
@@ -938,7 +942,7 @@ export class GrowthBook<
 
   public async logEvent(
     eventName: string,
-    properties?: Record<string, unknown>
+    properties?: Record<string, unknown>,
   ) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
@@ -957,7 +961,7 @@ export class GrowthBook<
         await this._options.eventLogger(
           eventName,
           properties || {},
-          this._getUserContext()
+          this._getUserContext(),
         );
       } catch (e) {
         console.error(e);
@@ -970,7 +974,7 @@ export class GrowthBook<
   private _saveDeferredTrack(data: TrackingData) {
     this._deferredTrackingCalls.set(
       getExperimentDedupeKey(data.experiment, data.result),
-      data
+      data,
     );
   }
 
@@ -979,7 +983,7 @@ export class GrowthBook<
   }
 
   private _isAutoExperimentBlockedByContext(
-    experiment: AutoExperiment
+    experiment: AutoExperiment,
   ): boolean {
     const changeType = getAutoExperimentChangeType(experiment);
     if (changeType === "visual") {
@@ -1090,7 +1094,7 @@ export class GrowthBook<
       const docs = await getAllStickyBucketAssignmentDocs(
         ctx,
         this._options.stickyBucketService,
-        data
+        data,
       );
       this._options.stickyBucketAssignmentDocs = docs;
     }
@@ -1098,11 +1102,11 @@ export class GrowthBook<
 
   public generateStickyBucketAssignmentDocsSync(
     stickyBucketService: StickyBucketServiceSync,
-    payload: FeatureApiResponse
+    payload: FeatureApiResponse,
   ) {
     if (!("getAllAssignmentsSync" in stickyBucketService)) {
       console.error(
-        "generating StickyBucketAssignmentDocs docs requires StickyBucketServiceSync"
+        "generating StickyBucketAssignmentDocs docs requires StickyBucketServiceSync",
       );
       return;
     }

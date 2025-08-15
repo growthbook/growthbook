@@ -96,7 +96,7 @@ export default function AnalysisSettingsBar({
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -237,8 +237,8 @@ export default function AnalysisSettingsBar({
                       !hasRegressionAdjustmentFeature
                         ? "teal-disabled"
                         : regressionAdjustmentEnabled
-                        ? "teal"
-                        : "teal-off"
+                          ? "teal"
+                          : "teal-off"
                     } my-0 pl-2 pr-1 py-1 form-inline`}
                   >
                     <GBCuped />
@@ -359,14 +359,14 @@ export default function AnalysisSettingsBar({
                         phase,
                         dimension,
                       }),
-                    }
+                    },
                   )
                     .then((res) => {
                       trackSnapshot(
                         "create",
                         "ForceRerunQueriesButton",
                         datasource?.type || null,
-                        res.snapshot
+                        res.snapshot,
                       );
                       mutate();
                     })
@@ -398,14 +398,14 @@ export default function AnalysisSettingsBar({
 
 function isDifferent(
   val1?: string | boolean | number | null,
-  val2?: string | boolean | number | null
+  val2?: string | boolean | number | null,
 ) {
   if (!val1 && !val2) return false;
   return val1 !== val2;
 }
 function isDifferentStringArray(
   val1?: string[] | null,
-  val2?: string[] | null
+  val2?: string[] | null,
 ) {
   if (!val1 && !val2) return false;
   if (!val1 || !val2) return true;
@@ -414,7 +414,7 @@ function isDifferentStringArray(
 }
 function isStringArrayMissingElements(
   strings: string[] = [],
-  elements: string[] = []
+  elements: string[] = [],
 ) {
   if (!elements.length) return false;
   if (elements.length > strings.length) return true;
@@ -459,7 +459,7 @@ export function isOutdated({
   if (
     isDifferent(
       analysisSettings.statsEngine || DEFAULT_STATS_ENGINE,
-      statsEngine || DEFAULT_STATS_ENGINE
+      statsEngine || DEFAULT_STATS_ENGINE,
     )
   ) {
     reasons.push("Stats engine changed");
@@ -488,7 +488,7 @@ export function isOutdated({
   if (
     isDifferent(
       experiment.attributionModel || "firstExposure",
-      snapshotSettings.attributionModel || "firstExposure"
+      snapshotSettings.attributionModel || "firstExposure",
     )
   ) {
     reasons.push("Attribution model changed");
@@ -499,18 +499,18 @@ export function isOutdated({
         new Set(
           expandMetricGroups(
             getAllMetricIdsFromExperiment(snapshotSettings, false),
-            metricGroups
-          )
-        )
+            metricGroups,
+          ),
+        ),
       ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true)),
       Array.from(
         new Set(
           expandMetricGroups(
             getAllMetricIdsFromExperiment(experiment, false),
-            metricGroups
-          )
-        )
-      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true))
+            metricGroups,
+          ),
+        ),
+      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true)),
     )
   ) {
     reasons.push("Metrics changed");
@@ -518,7 +518,7 @@ export function isOutdated({
   if (
     isDifferentStringArray(
       experiment.variations.map((v) => v.key),
-      snapshotSettings.variations.map((v) => v.id)
+      snapshotSettings.variations.map((v) => v.id),
     )
   ) {
     reasons.push("Variations changed");
@@ -526,11 +526,11 @@ export function isOutdated({
   if (
     isDifferentDate(
       getValidDate(experiment.phases?.[phase ?? 0]?.dateStarted ?? ""),
-      getValidDate(snapshotSettings.startDate)
+      getValidDate(snapshotSettings.startDate),
     ) ||
     isDifferentDate(
       getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
-      getValidDate(snapshotSettings.endDate)
+      getValidDate(snapshotSettings.endDate),
     )
   ) {
     reasons.push("Analysis dates changed");
@@ -538,7 +538,7 @@ export function isOutdated({
   if (
     isDifferent(
       analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
-      orgSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD
+      orgSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
     )
   ) {
     reasons.push("P-value threshold changed");
@@ -550,7 +550,7 @@ export function isOutdated({
   if (
     isDifferent(
       experimentRegressionAdjustmentEnabled,
-      !!analysisSettings?.regressionAdjusted
+      !!analysisSettings?.regressionAdjusted,
     )
   ) {
     reasons.push("CUPED settings changed");
@@ -559,8 +559,8 @@ export function isOutdated({
   const experimentSequentialEnabled =
     statsEngine !== "frequentist" || !hasSequentialFeature
       ? false
-      : experiment.sequentialTestingEnabled ??
-        !!orgSettings.sequentialTestingEnabled;
+      : (experiment.sequentialTestingEnabled ??
+        !!orgSettings.sequentialTestingEnabled);
   const experimentSequentialTuningParameter: number =
     experiment.sequentialTestingTuningParameter ??
     orgSettings.sequentialTestingTuningParameter ??
@@ -568,7 +568,7 @@ export function isOutdated({
   if (
     (isDifferent(
       experimentSequentialEnabled,
-      !!analysisSettings?.sequentialTesting
+      !!analysisSettings?.sequentialTesting,
     ) ||
       (experimentSequentialEnabled &&
         experimentSequentialTuningParameter !==

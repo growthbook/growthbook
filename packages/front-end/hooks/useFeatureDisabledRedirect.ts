@@ -15,7 +15,7 @@ type UseFeatureDisabledRedirect = {
  */
 export const useFeatureDisabledRedirect = (
   featureKey: keyof AppFeatures,
-  redirectTo: string = "/"
+  redirectTo: string = "/",
 ): UseFeatureDisabledRedirect => {
   const router = useRouter();
   const growthbook = useGrowthBook<AppFeatures>();
@@ -29,7 +29,7 @@ export const useFeatureDisabledRedirect = (
         router.replace(redirectTo);
       }
     },
-    [ready, router, shouldRender, redirectTo]
+    [ready, router, shouldRender, redirectTo],
   );
 
   return {

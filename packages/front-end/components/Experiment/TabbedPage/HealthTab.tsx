@@ -53,7 +53,7 @@ export default function HealthTab({
   const datasource = getDatasourceById(experiment.datasource);
 
   const exposureQuery = datasource?.settings.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
 
   const hasPermissionToConfigHealthTag =
@@ -94,7 +94,7 @@ export default function HealthTab({
       });
       onHealthNotify();
     },
-    [onHealthNotify]
+    [onHealthNotify],
   );
 
   // If org has the health tab turned to off and has no data, prompt set up if the
@@ -242,7 +242,7 @@ export default function HealthTab({
 
   const totalUsers = snapshot?.health?.traffic?.overall?.variationUnits?.reduce(
     (acc, a) => acc + a,
-    0
+    0,
   );
 
   const traffic = snapshot.health.traffic;

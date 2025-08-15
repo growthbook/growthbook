@@ -79,7 +79,7 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const projectOptions = useProjectOptions(
     permissionRequired,
-    form.watch("projects") || []
+    form.watch("projects") || [],
   );
 
   return (
@@ -110,7 +110,7 @@ export default function AttributeModal({ close, attribute }: Props) {
           schema.some((s) => s.property === value.property)
         ) {
           throw new Error(
-            "That attribute name is already being used. Please choose another one."
+            "That attribute name is already being used. Please choose another one.",
           );
         }
 

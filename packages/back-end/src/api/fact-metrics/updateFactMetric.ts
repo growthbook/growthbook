@@ -26,7 +26,7 @@ function expectsDenominator(metricType: FactMetricType) {
 export async function getUpdateFactMetricPropsFromBody(
   body: z.infer<typeof updateFactMetricValidator.bodySchema>,
   factMetric: FactMetricInterface,
-  getFactTable: (id: string) => Promise<FactTableInterface | null>
+  getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<UpdateFactMetricProps> {
   const {
     numerator,
@@ -120,7 +120,8 @@ export async function getUpdateFactMetricPropsFromBody(
       regressionAdjustmentSettings.override;
 
     if (regressionAdjustmentSettings.override) {
-      updates.regressionAdjustmentEnabled = !!regressionAdjustmentSettings.enabled;
+      updates.regressionAdjustmentEnabled =
+        !!regressionAdjustmentSettings.enabled;
       if (regressionAdjustmentSettings.days) {
         updates.regressionAdjustmentDays = regressionAdjustmentSettings.days;
       }
@@ -131,29 +132,27 @@ export async function getUpdateFactMetricPropsFromBody(
 }
 
 export const updateFactMetric = createApiRequestHandler(
-  updateFactMetricValidator
-)(
-  async (req): Promise<UpdateFactMetricResponse> => {
-    const factMetric = await req.context.models.factMetrics.getById(
-      req.params.id
-    );
-    if (!factMetric) {
-      throw new Error("Could not find factMetric with that id");
-    }
-    const lookupFactTable = async (id: string) => getFactTable(req.context, id);
-    const updates = await getUpdateFactMetricPropsFromBody(
-      req.body,
-      factMetric,
-      lookupFactTable
-    );
-
-    const newFactMetric = await req.context.models.factMetrics.update(
-      factMetric,
-      updates
-    );
-
-    return {
-      factMetric: req.context.models.factMetrics.toApiInterface(newFactMetric),
-    };
+  updateFactMetricValidator,
+)(async (req): Promise<UpdateFactMetricResponse> => {
+  const factMetric = await req.context.models.factMetrics.getById(
+    req.params.id,
+  );
+  if (!factMetric) {
+    throw new Error("Could not find factMetric with that id");
   }
-);
+  const lookupFactTable = async (id: string) => getFactTable(req.context, id);
+  const updates = await getUpdateFactMetricPropsFromBody(
+    req.body,
+    factMetric,
+    lookupFactTable,
+  );
+
+  const newFactMetric = await req.context.models.factMetrics.update(
+    factMetric,
+    updates,
+  );
+
+  return {
+    factMetric: req.context.models.factMetrics.toApiInterface(newFactMetric),
+  };
+});

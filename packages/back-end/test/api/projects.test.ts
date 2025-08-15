@@ -173,7 +173,7 @@ describe("environements API", () => {
     expect(getByIdMock).toHaveBeenCalledWith("prj__3");
     expect(updateMock).toHaveBeenCalledWith(
       { id: "prj__3", description: "le proj 3" },
-      { description: "new description" }
+      { description: "new description" },
     );
     expect(updateValidatorMock).toHaveBeenCalledWith({
       description: "new description",

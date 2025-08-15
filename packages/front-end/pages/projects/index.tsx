@@ -23,7 +23,7 @@ const ProjectsPage: FC = () => {
   const { apiCall } = useAuth();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
-    null
+    null,
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -110,7 +110,7 @@ const ProjectsPage: FC = () => {
                       <div>
                         <Badge
                           label={`Managed by ${capitalizeFirstLetter(
-                            p.managedBy.type
+                            p.managedBy.type,
                           )}`}
                         />
                       </div>
@@ -153,7 +153,7 @@ const ProjectsPage: FC = () => {
                           }}
                           additionalMessage={
                             sdkConnectionsData?.connections?.find((c) =>
-                              c.projects.includes(p.id)
+                              c.projects.includes(p.id),
                             ) ? (
                               <div className="alert alert-danger px-2 py-1">
                                 <FaExclamationTriangle /> This project is in use

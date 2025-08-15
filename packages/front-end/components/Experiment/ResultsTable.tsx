@@ -85,7 +85,7 @@ export type ResultsTableProps = {
     label: string,
     metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
-    maxRows?: number
+    maxRows?: number,
   ) => string | ReactElement;
   dateCreated: Date;
   statsEngine: StatsEngine;
@@ -102,7 +102,7 @@ export type ResultsTableProps = {
   isGoalMetrics?: boolean;
   ssrPolyfills?: SSRPolyfills;
   disableTimeSeriesButton?: boolean;
-  columnsFilter?: Array<typeof RESULTS_TABLE_COLUMNS[number]>;
+  columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
 };
 
 const ROW_HEIGHT = 56;
@@ -214,7 +214,7 @@ export default function ResultsTable({
     setVisibleTimeSeriesMetricIds((prev) =>
       prev.includes(metricId)
         ? prev.filter((id) => id !== metricId)
-        : [...prev, metricId]
+        : [...prev, metricId],
     );
   };
 
@@ -227,7 +227,7 @@ export default function ResultsTable({
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current?.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
-      "#main-results thead tr:first-child th:not(.graph-cell)"
+      "#main-results thead tr:first-child th:not(.graph-cell)",
     );
     let totalCellWidth = 0;
     for (let i = 0; i < firstRowCells.length; i++) {
@@ -246,132 +246,130 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive, columnsFilter]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
-    const sorted = variations
-      .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-      .sort((a, b) => {
-        if (a.index === baselineRow) return -1;
-        return a.index - b.index;
-      });
-    // fix browser .sort() quirks. manually move the control row to top:
-    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-    if (baselineIndex > -1) {
-      const baseline = sorted[baselineIndex];
-      sorted.splice(baselineIndex, 1);
-      sorted.unshift(baseline);
-    }
-    return sorted;
-  }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariationWithIndex[] =
+    useMemo(() => {
+      const sorted = variations
+        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
+        .sort((a, b) => {
+          if (a.index === baselineRow) return -1;
+          return a.index - b.index;
+        });
+      // fix browser .sort() quirks. manually move the control row to top:
+      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+      if (baselineIndex > -1) {
+        const baseline = sorted[baselineIndex];
+        sorted.splice(baselineIndex, 1);
+        sorted.unshift(baseline);
+      }
+      return sorted;
+    }, [variations, baselineRow]);
 
   const showVariations = orderedVariations.map(
-    (v) => !variationFilter?.includes(v.index)
+    (v) => !variationFilter?.includes(v.index),
   );
   const filteredVariations = orderedVariations.filter(
-    (v) => !variationFilter?.includes(v.index)
+    (v) => !variationFilter?.includes(v.index),
   );
   const compactResults = filteredVariations.length <= 2;
 
   const domain = useDomain(filteredVariations, rows, differenceType);
 
-  const rowsResults: (
-    | RowResults
-    | "query error"
-    | RowError
-    | null
-  )[][] = useMemo(() => {
-    const rr: (RowResults | "query error" | RowError | null)[][] = [];
-    rows.map((row, i) => {
-      rr.push([]);
-      const baseline = row.variations[baselineRow] || {
-        value: 0,
-        cr: 0,
-        users: 0,
-      };
-      orderedVariations.map((v) => {
-        let skipVariation = false;
-        if (variationFilter?.length && variationFilter?.includes(v.index)) {
-          skipVariation = true;
-        }
-        if (v.index === baselineRow) {
-          skipVariation = true;
-        }
-        if (skipVariation) {
-          rr[i].push(null);
-          return;
-        }
-        if (
-          queryStatusData?.status === "partially-succeeded" &&
-          queryStatusData?.failedNames?.includes(row.metric.id)
-        ) {
-          rr[i].push("query error");
-          return;
-        }
-
-        if (row.error) {
-          rr[i].push(row.error);
-          return;
-        }
-
-        const stats = row.variations[v.index] || {
+  const rowsResults: (RowResults | "query error" | RowError | null)[][] =
+    useMemo(() => {
+      const rr: (RowResults | "query error" | RowError | null)[][] = [];
+      rows.map((row, i) => {
+        rr.push([]);
+        const baseline = row.variations[baselineRow] || {
           value: 0,
           cr: 0,
           users: 0,
         };
+        orderedVariations.map((v) => {
+          let skipVariation = false;
+          if (variationFilter?.length && variationFilter?.includes(v.index)) {
+            skipVariation = true;
+          }
+          if (v.index === baselineRow) {
+            skipVariation = true;
+          }
+          if (skipVariation) {
+            rr[i].push(null);
+            return;
+          }
+          if (
+            queryStatusData?.status === "partially-succeeded" &&
+            queryStatusData?.failedNames?.includes(row.metric.id)
+          ) {
+            rr[i].push("query error");
+            return;
+          }
 
-        const denominator =
-          !isFactMetric(row.metric) && row.metric.denominator
-            ? (ssrPolyfills?.getExperimentMetricById?.(
-                row.metric.denominator
-              ) ||
-                getExperimentMetricById(row.metric.denominator)) ??
-              undefined
-            : undefined;
-        const rowResults = getRowResults({
-          stats,
-          baseline,
-          metric: row.metric,
-          denominator,
-          metricDefaults,
-          isGuardrail: row.resultGroup === "guardrail",
-          minSampleSize: getMinSampleSizeForMetric(row.metric),
-          statsEngine,
-          differenceType,
-          ciUpper,
-          ciLower,
-          pValueThreshold,
-          snapshotDate: getValidDate(dateCreated),
-          phaseStartDate: getValidDate(startDate),
-          isLatestPhase,
-          experimentStatus: status,
-          displayCurrency,
-          getFactTableById: ssrPolyfills?.getFactTableById || getFactTableById,
+          if (row.error) {
+            rr[i].push(row.error);
+            return;
+          }
+
+          const stats = row.variations[v.index] || {
+            value: 0,
+            cr: 0,
+            users: 0,
+          };
+
+          const denominator =
+            !isFactMetric(row.metric) && row.metric.denominator
+              ? ((ssrPolyfills?.getExperimentMetricById?.(
+                  row.metric.denominator,
+                ) ||
+                  getExperimentMetricById(row.metric.denominator)) ??
+                undefined)
+              : undefined;
+          const rowResults = getRowResults({
+            stats,
+            baseline,
+            metric: row.metric,
+            denominator,
+            metricDefaults,
+            isGuardrail: row.resultGroup === "guardrail",
+            minSampleSize: getMinSampleSizeForMetric(row.metric),
+            statsEngine,
+            differenceType,
+            ciUpper,
+            ciLower,
+            pValueThreshold,
+            snapshotDate: getValidDate(dateCreated),
+            phaseStartDate: getValidDate(startDate),
+            isLatestPhase,
+            experimentStatus: status,
+            displayCurrency,
+            getFactTableById:
+              ssrPolyfills?.getFactTableById || getFactTableById,
+          });
+          rr[i].push(rowResults);
         });
-        rr[i].push(rowResults);
       });
-    });
-    return rr;
-  }, [
-    rows,
-    orderedVariations,
-    baselineRow,
-    variationFilter,
-    metricDefaults,
-    getMinSampleSizeForMetric,
-    statsEngine,
-    differenceType,
-    ciUpper,
-    ciLower,
-    pValueThreshold,
-    dateCreated,
-    startDate,
-    isLatestPhase,
-    status,
-    displayCurrency,
-    queryStatusData,
-    ssrPolyfills,
-    getFactTableById,
-    getExperimentMetricById,
-  ]);
+      return rr;
+    }, [
+      rows,
+      orderedVariations,
+      baselineRow,
+      variationFilter,
+      metricDefaults,
+      getMinSampleSizeForMetric,
+      statsEngine,
+      differenceType,
+      ciUpper,
+      ciLower,
+      pValueThreshold,
+      dateCreated,
+      startDate,
+      isLatestPhase,
+      status,
+      displayCurrency,
+      queryStatusData,
+      ssrPolyfills,
+      getFactTableById,
+      getExperimentMetricById,
+    ]);
 
   const {
     containerRef,
@@ -402,7 +400,7 @@ export default function ResultsTable({
 
   const hasGoalMetrics = rows.some((r) => r.resultGroup === "goal");
   const appliedPValueCorrection = hasGoalMetrics
-    ? pValueCorrection ?? null
+    ? (pValueCorrection ?? null)
     : null;
 
   return (
@@ -596,7 +594,7 @@ export default function ResultsTable({
                                   appliedPValueCorrection,
                                   orgSettings.pValueThreshold ??
                                     DEFAULT_P_VALUE_THRESHOLD,
-                                  tableRowAxis
+                                  tableRowAxis,
                                 )}
                               </div>
                             }
@@ -658,7 +656,7 @@ export default function ResultsTable({
                                   differenceType,
                                   !!sequentialTestingEnabled,
                                   pValueCorrection ?? null,
-                                  pValueThreshold
+                                  pValueThreshold,
                                 )}
                               </div>
                             }
@@ -674,7 +672,7 @@ export default function ResultsTable({
                     className={clsx("axis-col label", { noStickyHeader })}
                     colSpan={
                       columnsToDisplay.filter(
-                        (col) => col !== "Metric & Variation Names"
+                        (col) => col !== "Metric & Variation Names",
                       ).length
                     }
                   />
@@ -704,7 +702,7 @@ export default function ResultsTable({
                   "Baseline Average",
                   "Variation Averages",
                   "Chance to Win",
-                ].includes(col)
+                ].includes(col),
               );
 
               return (
@@ -717,7 +715,7 @@ export default function ResultsTable({
                       renderGraph: columnsToDisplay.includes("CI Graph"),
                       renderLastColumn: columnsToDisplay.includes("Lift"),
                       label: columnsToDisplay.includes(
-                        "Metric & Variation Names"
+                        "Metric & Variation Names",
                       ) ? (
                         renderLabelColumn(row.label, row.metric, row)
                       ) : (
@@ -766,7 +764,7 @@ export default function ResultsTable({
                                   {renderLabelColumn(
                                     row.label,
                                     row.metric,
-                                    row
+                                    row,
                                   )}
                                 </div>
                               ) : null}
@@ -832,12 +830,12 @@ export default function ResultsTable({
                       {
                         "non-significant": !rowResults.significant,
                         hover: isHovered,
-                      }
+                      },
                     );
 
                     const onPointerMove = (
                       e,
-                      settings?: TooltipHoverSettings
+                      settings?: TooltipHoverSettings,
                     ) => {
                       // No hover tooltip if the screen is too narrow. Clicks still work.
                       if (
@@ -860,7 +858,7 @@ export default function ResultsTable({
                         key={j}
                       >
                         {columnsToDisplay.includes(
-                          "Metric & Variation Names"
+                          "Metric & Variation Names",
                         ) && (
                           <td
                             className={`variation with-variation-label variation${v.index}`}
@@ -954,7 +952,7 @@ export default function ResultsTable({
                                   hideScaledImpact={hideScaledImpact}
                                   className={clsx(
                                     "results-ctw",
-                                    resultsHighlightClassname
+                                    resultsHighlightClassname,
                                   )}
                                   onMouseMove={onPointerMove}
                                   onMouseLeave={onPointerLeave}
@@ -981,7 +979,7 @@ export default function ResultsTable({
                                   hideScaledImpact={hideScaledImpact}
                                   className={clsx(
                                     "results-pval",
-                                    resultsHighlightClassname
+                                    resultsHighlightClassname,
                                   )}
                                   onMouseMove={onPointerMove}
                                   onMouseLeave={onPointerLeave}
@@ -1024,7 +1022,7 @@ export default function ResultsTable({
                                 percent={differenceType === "relative"}
                                 className={clsx(
                                   resultsHighlightClassname,
-                                  "overflow-hidden"
+                                  "overflow-hidden",
                                 )}
                                 rowStatus={
                                   statsEngine === "frequentist"
@@ -1101,7 +1099,7 @@ export default function ResultsTable({
                               metric={row.metric}
                               differenceType={differenceType}
                               variationNames={orderedVariations.map(
-                                (v) => v.name
+                                (v) => v.name,
                               )}
                               showVariations={showVariations}
                               statsEngine={statsEngine}
@@ -1202,7 +1200,7 @@ function getChangeTooltip(
   differenceType: DifferenceType,
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
-  pValueThreshold: number
+  pValueThreshold: number,
 ) {
   let changeText =
     "The uplift comparing the variation to the baseline, in percent change from the baseline value.";
@@ -1274,7 +1272,7 @@ function getPValueTooltip(
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number,
-  tableRowAxis: "dimension" | "metric"
+  tableRowAxis: "dimension" | "metric",
 ) {
   return (
     <>

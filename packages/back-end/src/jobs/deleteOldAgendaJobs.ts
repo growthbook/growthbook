@@ -18,7 +18,7 @@ const deleteOldAgendaJobs = async () => {
       {
         limit: 1000,
         projection: { _id: 1 },
-      }
+      },
     )
     .toArray();
 
@@ -29,7 +29,7 @@ const deleteOldAgendaJobs = async () => {
   logger.debug(
     `Deleted ${deleteRes.deletedCount} old agenda jobs in ` +
       (Date.now() - startDate) +
-      `ms`
+      `ms`,
   );
 };
 

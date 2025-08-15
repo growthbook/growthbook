@@ -4,10 +4,10 @@ import Badge from "@/components/Radix/Badge";
 export type Results = "won" | "lost" | "dnf" | "inconclusive";
 
 const getColorAndVariant = (
-  results: Results
+  results: Results,
 ): [
   React.ComponentProps<typeof Badge>["color"],
-  React.ComponentProps<typeof Badge>["variant"]
+  React.ComponentProps<typeof Badge>["variant"],
 ] => {
   switch (results) {
     case "won":

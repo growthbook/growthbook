@@ -9,30 +9,28 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { validatePostPayload } from "./validations";
 
 export const postSdkConnection = createApiRequestHandler(
-  postSdkConnectionValidator
-)(
-  async (req): Promise<PostSdkConnectionResponse> => {
-    const params = {
-      ...(await validatePostPayload(req.context, req.body)),
-      organization: req.context.org.id,
-    };
+  postSdkConnectionValidator,
+)(async (req): Promise<PostSdkConnectionResponse> => {
+  const params = {
+    ...(await validatePostPayload(req.context, req.body)),
+    organization: req.context.org.id,
+  };
 
-    if (!req.context.permissions.canCreateSDKConnection(params))
-      req.context.permissions.throwPermissionError();
+  if (!req.context.permissions.canCreateSDKConnection(params))
+    req.context.permissions.throwPermissionError();
 
-    const connection = await createSDKConnection(params);
+  const connection = await createSDKConnection(params);
 
-    await req.audit({
-      event: "sdk-connection.create",
-      entity: {
-        object: "sdk-connection",
-        id: connection.id,
-      },
-      details: auditDetailsCreate(connection),
-    });
+  await req.audit({
+    event: "sdk-connection.create",
+    entity: {
+      object: "sdk-connection",
+      id: connection.id,
+    },
+    details: auditDetailsCreate(connection),
+  });
 
-    return {
-      sdkConnection: toApiSDKConnectionInterface(connection),
-    };
-  }
-);
+  return {
+    sdkConnection: toApiSDKConnectionInterface(connection),
+  };
+});

@@ -219,7 +219,7 @@ export default function FactTablePage() {
                     }`,
                     {
                       method: "POST",
-                    }
+                    },
                   );
                   mutateDefinitions();
                 }}

@@ -113,7 +113,7 @@ export default function DataSourceSchemaChooser({
                       helpText={helpText}
                     />
                   </div>
-                )
+                ),
               )}
             </>
           )}

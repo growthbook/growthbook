@@ -28,12 +28,13 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
   onCancel,
   onSave,
 }) => {
-  const identityTypes = useMemo(() => dataSource.settings.userIdTypes || [], [
-    dataSource.settings.userIdTypes,
-  ]);
+  const identityTypes = useMemo(
+    () => dataSource.settings.userIdTypes || [],
+    [dataSource.settings.userIdTypes],
+  );
   const existingIdentityJoins = useMemo(
     () => dataSource.settings.queries?.identityJoins || [],
-    [dataSource.settings.queries?.identityJoins]
+    [dataSource.settings.queries?.identityJoins],
   );
 
   const defaultQuery = useMemo(() => {
@@ -98,7 +99,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
 
   if (!identityJoin && mode === "edit") {
     console.error(
-      "ImplementationError: identityJoin is required for Edit mode"
+      "ImplementationError: identityJoin is required for Edit mode",
     );
     return null;
   }

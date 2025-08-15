@@ -103,14 +103,14 @@ describe("ensureLimit", () => {
       const sql = "SELECT * FROM (SELECT * FROM users LIMIT 50) AS subquery";
       const result = ensureLimit(sql, 10);
       expect(result).toBe(
-        "SELECT * FROM (SELECT * FROM users LIMIT 50) AS subquery\nLIMIT 10"
+        "SELECT * FROM (SELECT * FROM users LIMIT 50) AS subquery\nLIMIT 10",
       );
     });
     it("should handle WHERE clause with deceptive LIMIT in string", () => {
       const sql = "SELECT * FROM users WHERE test = 'LIMIT 5'";
       const result = ensureLimit(sql, 10);
       expect(result).toBe(
-        "SELECT * FROM users WHERE test = 'LIMIT 5'\nLIMIT 10"
+        "SELECT * FROM users WHERE test = 'LIMIT 5'\nLIMIT 10",
       );
     });
     it("should handle SQL with single-line comments", () => {
@@ -128,7 +128,7 @@ describe("ensureLimit", () => {
       const sql = "SELECT * FROM users LI/*\ntest\n*/MIT/* LIMIT 5 */ 5";
       const result = ensureLimit(sql, 10);
       expect(result).toBe(
-        "SELECT * FROM users LI/*\ntest\n*/MIT/* LIMIT 5 */ 5"
+        "SELECT * FROM users LI/*\ntest\n*/MIT/* LIMIT 5 */ 5",
       );
     });
     // TODO: properly parse comments to remove trailing semicolons

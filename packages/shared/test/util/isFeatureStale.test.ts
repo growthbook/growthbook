@@ -1228,7 +1228,7 @@ describe("isFeatureStale", () => {
             rules: experiments.map((e) =>
               genExperimentRef({
                 experimentId: e.id,
-              })
+              }),
             ),
           },
           prod: {
@@ -1236,7 +1236,7 @@ describe("isFeatureStale", () => {
             rules: experiments.map((e) =>
               genExperimentRef({
                 experimentId: e.id,
-              })
+              }),
             ),
           },
         };

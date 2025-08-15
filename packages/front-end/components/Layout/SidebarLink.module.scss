@@ -117,7 +117,10 @@ $topbarheight: 60px;
   overflow-y: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height 0.3s, opacity 0.2s, margin-bottom 0.3s;
+  transition:
+    max-height 0.3s,
+    opacity 0.2s,
+    margin-bottom 0.3s;
 }
 .open {
   margin-bottom: 1em !important;

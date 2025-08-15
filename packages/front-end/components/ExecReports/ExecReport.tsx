@@ -56,31 +56,31 @@ export default function ExecReport() {
   const [selectedProjects, setSelectedProjects] = useState<string[]>(
     searchParams.get("selectedProjects")?.split(",") || currentProject === ""
       ? []
-      : [currentProject]
+      : [currentProject],
   );
   const [dateRange, setDateRange] = useState(
-    searchParams.get("dateRange") || "90"
+    searchParams.get("dateRange") || "90",
   );
   const defaultStartDate = new Date();
   defaultStartDate.setDate(defaultStartDate.getDate() - parseInt(dateRange));
   const [startDate, setStartDate] = useState<Date>(
     searchParams.get("startDate")
       ? parseDateFromURL(searchParams.get("startDate")!)
-      : defaultStartDate
+      : defaultStartDate,
   );
   const [endDate, setEndDate] = useState<Date>(
     searchParams.get("endDate")
       ? parseDateFromURL(searchParams.get("endDate")!)
-      : new Date()
+      : new Date(),
   );
   // const [tag, setTag] = useState("");
   const [selectedMetric, setSelectedMetric] = useState(
     searchParams.get("selectedMetric") ||
       settings?.northStar?.metricIds?.[0] ||
-      ""
+      "",
   );
   const [experimentsToShow, setExperimentsToShow] = useState(
-    searchParams.get("show") || "all"
+    searchParams.get("show") || "all",
   );
 
   const { hasCommercialFeature } = useUser();
@@ -88,7 +88,7 @@ export default function ExecReport() {
 
   const disallowedProjects = getDisallowedProjects(
     projects,
-    selectedProjects ?? []
+    selectedProjects ?? [],
   );
 
   const projectsOptions = useProjectOptions(
@@ -96,14 +96,14 @@ export default function ExecReport() {
       return true;
     },
     selectedProjects || [],
-    [...projects, ...disallowedProjects]
+    [...projects, ...disallowedProjects],
   );
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    "",
-    true,
-    "standard"
-  );
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+  } = useExperiments("", true, "standard");
 
   //const tagsFilter = useTagsFilter("experiments");
 
@@ -152,7 +152,7 @@ export default function ExecReport() {
 
       return items;
     },
-    [endDate, selectedProjects, startDate]
+    [endDate, selectedProjects, startDate],
   );
 
   const { items } = useExperimentSearch({
@@ -174,7 +174,7 @@ export default function ExecReport() {
           return true;
         });
       },
-      [selectedProjects]
+      [selectedProjects],
     ),
   });
 
@@ -229,7 +229,7 @@ export default function ExecReport() {
           undefined,
           {
             shallow: true,
-          }
+          },
         )
         .then();
     }

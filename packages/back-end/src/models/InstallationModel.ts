@@ -16,7 +16,7 @@ export type InstallationDocument = mongoose.Document & {
 
 export const InstallationModel = mongoose.model<InstallationDocument>(
   "Installation",
-  InstallationSchema
+  InstallationSchema,
 );
 
 export async function getInstallationId(): Promise<string> {

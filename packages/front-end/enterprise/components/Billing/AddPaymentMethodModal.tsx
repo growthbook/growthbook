@@ -34,7 +34,7 @@ export default function AddPaymentMethodModal({
       const { error: submitError } = await elements.submit();
       if (submitError) {
         throw new Error(
-          submitError.message || "Unable to validate payment method inputs"
+          submitError.message || "Unable to validate payment method inputs",
         );
       }
 

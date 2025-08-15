@@ -5,7 +5,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 export default function useProjectOptions(
   permissionRequired: (project: string) => boolean,
   existingProjects: string[],
-  filteredProjects?: ProjectInterface[]
+  filteredProjects?: ProjectInterface[],
 ): { label: string; value: string }[] {
   const { projects: orgProjects } = useDefinitions();
 
@@ -17,7 +17,7 @@ export default function useProjectOptions(
   const filtered = projects.filter(
     // Return projects the user has permission to perform the action in AND any projects already on the resources
     (project) =>
-      existingProjects.includes(project.id) || permissionRequired(project.id)
+      existingProjects.includes(project.id) || permissionRequired(project.id),
   );
 
   return filtered.map((project) => {

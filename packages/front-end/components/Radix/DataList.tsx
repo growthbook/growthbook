@@ -28,8 +28,8 @@ export default function DataList({
     data.length === 0
       ? 1
       : maxColumns && data.length < maxColumns
-      ? (data.length as 1 | 2 | 3 | 4 | 5)
-      : maxColumns;
+        ? (data.length as 1 | 2 | 3 | 4 | 5)
+        : maxColumns;
 
   columns = columns || defaultColumns;
 

@@ -19,65 +19,72 @@ export type LegacyUserLoginNotificationEvent = LegacyNotificationEventPayload<
 
 // region Feature
 
-export type LegacyFeatureCreatedNotificationEvent = LegacyNotificationEventPayload<
-  "feature",
-  "feature.created",
-  {
-    current: ApiFeature;
-  }
->;
+export type LegacyFeatureCreatedNotificationEvent =
+  LegacyNotificationEventPayload<
+    "feature",
+    "feature.created",
+    {
+      current: ApiFeature;
+    }
+  >;
 
-export type LegacyFeatureUpdatedNotificationEvent = LegacyNotificationEventPayload<
-  "feature",
-  "feature.updated",
-  {
-    current: ApiFeature;
-    previous: ApiFeature;
-  }
->;
+export type LegacyFeatureUpdatedNotificationEvent =
+  LegacyNotificationEventPayload<
+    "feature",
+    "feature.updated",
+    {
+      current: ApiFeature;
+      previous: ApiFeature;
+    }
+  >;
 
-export type LegacyFeatureDeletedNotificationEvent = LegacyNotificationEventPayload<
-  "feature",
-  "feature.deleted",
-  {
-    previous: ApiFeature;
-  }
->;
+export type LegacyFeatureDeletedNotificationEvent =
+  LegacyNotificationEventPayload<
+    "feature",
+    "feature.deleted",
+    {
+      previous: ApiFeature;
+    }
+  >;
 
 // endregion Feature
 
 // region Experiment
 
-export type LegacyExperimentCreatedNotificationEvent = LegacyNotificationEventPayload<
-  "experiment",
-  "experiment.created",
-  {
-    current: ApiExperiment;
-  }
->;
+export type LegacyExperimentCreatedNotificationEvent =
+  LegacyNotificationEventPayload<
+    "experiment",
+    "experiment.created",
+    {
+      current: ApiExperiment;
+    }
+  >;
 
-export type LegacyExperimentUpdatedNotificationEvent = LegacyNotificationEventPayload<
-  "experiment",
-  "experiment.updated",
-  {
-    current: ApiExperiment;
-    previous: ApiExperiment;
-  }
->;
+export type LegacyExperimentUpdatedNotificationEvent =
+  LegacyNotificationEventPayload<
+    "experiment",
+    "experiment.updated",
+    {
+      current: ApiExperiment;
+      previous: ApiExperiment;
+    }
+  >;
 
-export type LegacyExperimentDeletedNotificationEvent = LegacyNotificationEventPayload<
-  "experiment",
-  "experiment.deleted",
-  {
-    previous: ApiExperiment;
-  }
->;
+export type LegacyExperimentDeletedNotificationEvent =
+  LegacyNotificationEventPayload<
+    "experiment",
+    "experiment.deleted",
+    {
+      previous: ApiExperiment;
+    }
+  >;
 
-export type LegacyExperimentWarningNotificationEvent = LegacyNotificationEventPayload<
-  "experiment",
-  "experiment.warning",
-  ExperimentWarningNotificationPayload
->;
+export type LegacyExperimentWarningNotificationEvent =
+  LegacyNotificationEventPayload<
+    "experiment",
+    "experiment.warning",
+    ExperimentWarningNotificationPayload
+  >;
 
 export type LegacyWebhookTestEvent = LegacyNotificationEventPayload<
   "webhook",

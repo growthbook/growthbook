@@ -116,15 +116,15 @@ describe("Experiment Significance notifications", () => {
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
         getLatestSnapshot.mockReturnValue(beforeSnapshot);
         getConfidenceLevelsForOrg.mockReturnValue(
-          params.getConfidenceLevelsForOrg
+          params.getConfidenceLevelsForOrg,
         );
         getMetricDefaultsForOrg.mockReturnValue(params.getMetricDefaultsForOrg);
         getPValueThresholdForOrg.mockReturnValue(
-          params.getPValueThresholdForOrg
+          params.getPValueThresholdForOrg,
         );
 
         const experiment = ensureAndReturn(
-          await ExperimentModel.findOne({ id: currentSnapshot.experiment })
+          await ExperimentModel.findOne({ id: currentSnapshot.experiment }),
         );
 
         const results = await computeExperimentChanges({
@@ -137,9 +137,9 @@ describe("Experiment Significance notifications", () => {
         });
 
         expect(results).toEqual(
-          expected.map((r) => expect.objectContaining(r))
+          expected.map((r) => expect.objectContaining(r)),
         );
-      }
+      },
     );
   });
 });

@@ -21,14 +21,14 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     const settings = req.context.org.settings;
     const healthSettings = getHealthSettings(
       settings,
-      orgHasPremiumFeature(req.context.org, "decision-framework")
+      orgHasPremiumFeature(req.context.org, "decision-framework"),
     );
     let decisionCriteria = getPresetDecisionCriteriaForOrg(settings);
     if (settings?.defaultDecisionCriteriaId) {
       try {
         decisionCriteria ||=
           (await req.context.models.decisionCriteria.getById(
-            settings.defaultDecisionCriteriaId
+            settings.defaultDecisionCriteriaId,
           )) ?? PRESET_DECISION_CRITERIA;
       } catch {
         // Empty catch - we fall back to the default below if the query failed.
@@ -40,16 +40,16 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       experiment,
       false,
       healthSettings,
-      decisionCriteria
+      decisionCriteria,
     );
     const enhancedStatus = { status, detailedStatus };
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment
+      experiment,
     );
     return {
       experiment: { ...apiExperiment, enhancedStatus },
     };
-  }
+  },
 );

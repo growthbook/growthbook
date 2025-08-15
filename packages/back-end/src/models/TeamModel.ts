@@ -53,7 +53,7 @@ type CreateTeamProps = Omit<
 type UpdateTeamProps = Partial<TeamInterface>;
 
 export async function createTeam(
-  data: CreateTeamProps
+  data: CreateTeamProps,
 ): Promise<TeamInterface> {
   const teamDoc = await TeamModel.create({
     ...data,
@@ -66,7 +66,7 @@ export async function createTeam(
 
 export async function findTeamById(
   id: string,
-  orgId: string
+  orgId: string,
 ): Promise<TeamInterface | null> {
   const teamDoc = await TeamModel.findOne({ id, organization: orgId });
   return teamDoc ? toInterface(teamDoc) : null;
@@ -74,7 +74,7 @@ export async function findTeamById(
 
 export async function findTeamByName(
   name: string,
-  orgId: string
+  orgId: string,
 ): Promise<TeamInterface | null> {
   const teamDoc = await TeamModel.findOne({
     name: { $regex: name, $options: "i" },
@@ -96,7 +96,7 @@ export async function getTeamsForOrganization(orgId: string) {
 export async function updateTeamMetadata(
   id: string,
   orgId: string,
-  update: UpdateTeamProps
+  update: UpdateTeamProps,
 ): Promise<UpdateTeamProps> {
   const changes = {
     ...update,
@@ -110,7 +110,7 @@ export async function updateTeamMetadata(
     },
     {
       $set: changes,
-    }
+    },
   );
 
   return changes;
@@ -118,7 +118,7 @@ export async function updateTeamMetadata(
 
 export const updateTeamRemoveManagedBy = async (
   orgId: string,
-  managedBy: Partial<ManagedBy>
+  managedBy: Partial<ManagedBy>,
 ) => {
   await TeamModel.updateMany(
     {
@@ -129,7 +129,7 @@ export const updateTeamRemoveManagedBy = async (
       $unset: {
         managedBy: 1,
       },
-    }
+    },
   );
 };
 

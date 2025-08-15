@@ -47,7 +47,7 @@ export default function StatsEngineSettings() {
   const regressionAdjustmentDays = form.watch("regressionAdjustmentDays");
 
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
-    statsEngine || DEFAULT_STATS_ENGINE
+    statsEngine || DEFAULT_STATS_ENGINE,
   );
 
   const { hasCommercialFeature } = useUser();
@@ -62,10 +62,10 @@ export default function StatsEngineSettings() {
       ? confidenceLevel < 70
         ? "#c73333"
         : confidenceLevel < 80
-        ? "#e27202"
-        : confidenceLevel < 90
-        ? "#B39F01"
-        : ""
+          ? "#e27202"
+          : confidenceLevel < 90
+            ? "#B39F01"
+            : ""
       : "";
 
   const warningMsg =
@@ -73,14 +73,14 @@ export default function StatsEngineSettings() {
       ? confidenceLevel === 70
         ? "This is as low as it goes"
         : confidenceLevel < 75
-        ? "Confidence thresholds this low are not recommended"
-        : confidenceLevel < 80
-        ? "Confidence thresholds this low are not recommended"
-        : confidenceLevel < 90
-        ? "Use caution with values below 90%"
-        : confidenceLevel >= 99
-        ? "Confidence levels 99% and higher can take lots of data to achieve"
-        : ""
+          ? "Confidence thresholds this low are not recommended"
+          : confidenceLevel < 80
+            ? "Confidence thresholds this low are not recommended"
+            : confidenceLevel < 90
+              ? "Use caution with values below 90%"
+              : confidenceLevel >= 99
+                ? "Confidence levels 99% and higher can take lots of data to achieve"
+                : ""
       : "";
 
   const pHighlightColor =
@@ -88,10 +88,10 @@ export default function StatsEngineSettings() {
       ? pValueThreshold > 0.3
         ? "#c73333"
         : pValueThreshold > 0.2
-        ? "#e27202"
-        : pValueThreshold > 0.1
-        ? "#B39F01"
-        : ""
+          ? "#e27202"
+          : pValueThreshold > 0.1
+            ? "#B39F01"
+            : ""
       : "";
 
   const pWarningMsg =
@@ -99,14 +99,14 @@ export default function StatsEngineSettings() {
       ? pValueThreshold === 0.5
         ? "This is as high as it goes"
         : pValueThreshold > 0.25
-        ? "P-value thresholds this high are not recommended"
-        : pValueThreshold > 0.2
-        ? "P-value thresholds this high are not recommended"
-        : pValueThreshold > 0.1
-        ? "Use caution with values above 0.1"
-        : pValueThreshold <= 0.01
-        ? "Threshold values of 0.01 and lower can take lots of data to achieve"
-        : ""
+          ? "P-value thresholds this high are not recommended"
+          : pValueThreshold > 0.2
+            ? "P-value thresholds this high are not recommended"
+            : pValueThreshold > 0.1
+              ? "Use caution with values above 0.1"
+              : pValueThreshold <= 0.01
+                ? "Threshold values of 0.01 and lower can take lots of data to achieve"
+                : ""
       : "";
 
   const regressionAdjustmentDaysHighlightColor =
@@ -121,8 +121,8 @@ export default function StatsEngineSettings() {
       ? regressionAdjustmentDays > 28
         ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
         : regressionAdjustmentDays < 7
-        ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-        : ""
+          ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+          : ""
       : "";
 
   return (

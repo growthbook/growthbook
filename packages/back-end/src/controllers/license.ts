@@ -38,7 +38,7 @@ export async function getLicenseData(req: AuthRequest, res: Response) {
       req.organization,
       getUserCodesForOrg,
       getLicenseMetaData,
-      true
+      true,
     );
   }
 
@@ -96,7 +96,7 @@ type CreateTrialEnterpriseLicenseRequest = AuthRequest<{
 
 export async function postCreateTrialEnterpriseLicense(
   req: CreateTrialEnterpriseLicenseRequest,
-  res: Response<{ status: 200 } | PrivateApiErrorResponse>
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -118,7 +118,7 @@ export async function postCreateTrialEnterpriseLicense(
       name,
       organizationId,
       companyName,
-      reqContext
+      reqContext,
     );
 
     if (!org.licenseKey) {
@@ -128,7 +128,7 @@ export async function postCreateTrialEnterpriseLicense(
         req.organization,
         getUserCodesForOrg,
         getLicenseMetaData,
-        true
+        true,
       );
     }
     return res.status(200).json({ status: 200 });
@@ -145,7 +145,7 @@ export async function postCreateTrialEnterpriseLicense(
 
 export async function postResendEmailVerificationEmail(
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -164,7 +164,7 @@ export async function postResendEmailVerificationEmail(
 
 export async function postVerifyEmail(
   req: AuthRequest<{ emailVerificationToken: string }>,
-  res: Response
+  res: Response,
 ) {
   const { emailVerificationToken } = req.body;
 
@@ -176,7 +176,7 @@ export async function postVerifyEmail(
       req.organization,
       getUserCodesForOrg,
       getLicenseMetaData,
-      true
+      true,
     );
 
     return res.status(200).json({ status: 200 });
