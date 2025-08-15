@@ -90,6 +90,7 @@ const formatEnum = z.enum([
 const baseChartConfig = z.object({
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  filter: z.array(filterConfigurationValidator).optional(),
 });
 
 const withXAxis = z.object({
@@ -98,7 +99,6 @@ const withXAxis = z.object({
 
 const withDimensions = z.object({
   dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
-  filter: z.array(filterConfigurationValidator).optional(),
 });
 
 const withFormat = z.object({

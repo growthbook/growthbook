@@ -709,8 +709,6 @@ export function SqlExplorerDataVisualization({
   showPanel?: boolean;
   graphTitle?: string;
 }) {
-  //MKTODO: Should I filter rows here - I think it's ok that we pass in the non-filtered rows to get the sample row
-  // The shape shouldn't change
   return (
     <PanelGroup direction="horizontal">
       <Panel
@@ -733,24 +731,14 @@ export function SqlExplorerDataVisualization({
         <>
           <PanelResizeHandle />
           <Panel id="graph-config" order={2} defaultSize={25} minSize={20}>
-            <AreaWithHeader
-              header={
-                <Text
-                  style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
-                >
-                  Configuration
-                </Text>
-              }
-            >
-              <Box p="4" style={{ overflow: "auto", height: "100%" }}>
-                <DataVizConfigPanel
-                  sampleRow={rows[0]}
-                  rows={rows}
-                  dataVizConfig={dataVizConfig}
-                  onDataVizConfigChange={onDataVizConfigChange}
-                />
-              </Box>
-            </AreaWithHeader>
+            <Box style={{ overflow: "auto", height: "100%" }}>
+              <DataVizConfigPanel
+                sampleRow={rows[0]}
+                rows={rows}
+                dataVizConfig={dataVizConfig}
+                onDataVizConfigChange={onDataVizConfigChange}
+              />
+            </Box>
           </Panel>
         </>
       ) : null}
