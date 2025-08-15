@@ -26,6 +26,7 @@ const env: EnvironmentInitValue = {
   stripePublishableKey: "",
   experimentRefreshFrequency: 6,
   hasOpenAIKey: false,
+  hasOllamaServer: false,
 };
 
 export async function initEnv() {
@@ -120,6 +121,9 @@ export function getStripePublishableKey() {
 }
 export function hasOpenAIKey() {
   return env.hasOpenAIKey || false;
+}
+export function hasOllamaServer() {
+  return env.hasOllamaServer || false;
 }
 
 export function getExperimentRefreshFrequency() {

@@ -176,7 +176,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
+      aiProvider: settings.aiProvider ?? "openai",
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      ollamaDefaultModel: settings.ollamaDefaultModel || "",
     },
   });
   const { apiCall } = useAuth();
@@ -222,7 +224,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
+    aiProvider: form.watch("aiProvider"),
     openAIDefaultModel: form.watch("openAIDefaultModel"),
+    ollamaDefaultModel: form.watch("ollamaDefaultModel"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
