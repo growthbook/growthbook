@@ -49,6 +49,8 @@ const dimensionAxisConfigurationValidator = z.object({
 export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
+
+//MKTODO: Need to refactor this so the filterType is a subset of the 'type' field
 const filterConfigurationValidator = z.object({
   column: z.string(),
   type: z.enum(["string", "number", "date"]),
