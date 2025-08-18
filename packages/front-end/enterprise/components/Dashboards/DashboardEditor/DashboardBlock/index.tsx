@@ -232,7 +232,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   return (
     <Flex
       ref={scrollRef}
-      className={clsx("appbox px-4 py-3 position-relative", {
+      className={clsx("appbox px-4 py-3 mb-0 position-relative", {
         "border-violet": editingBlock,
         "dashboard-disabled": disableBlock,
       })}
@@ -282,9 +282,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       )}
       <Flex align="center" justify="between">
         <h4 style={{ margin: 0 }}>
-          {BLOCK_TYPE_INFO[block.type].hideTitle
-            ? null
-            : block.title
+          {block.title
             ? block.title
             : isEditing
             ? BLOCK_TYPE_INFO[block.type].name
