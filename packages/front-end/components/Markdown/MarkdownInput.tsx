@@ -92,7 +92,7 @@ const MarkdownInput: FC<{
         const { fileURL } = await uploadFile(apiCall, file);
 
         toAdd[i] = `![${name}](${fileURL})`;
-      })
+      }),
     );
 
     promises
@@ -299,7 +299,7 @@ const MarkdownInput: FC<{
                           }
                         } else {
                           setError(
-                            "AI is disabled for your organization. Adjust in settings."
+                            "AI is disabled for your organization. Adjust in settings.",
                           );
                         }
                       }}

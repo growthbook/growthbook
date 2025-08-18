@@ -1,11 +1,13 @@
 import React, { useMemo } from "react";
+import { v4 as uuid4 } from "uuid";
 import { ExperimentMetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { isDefined } from "shared/util";
+import { isDefined, isString } from "shared/util";
 import { groupBy } from "lodash";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
 } from "shared/experiments";
+import { blockHasFieldOfType } from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -13,28 +15,31 @@ import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
-  block: { id, baselineRow, columnsFilter, variationIds },
+  block,
   experiment,
   analysis,
   ssrPolyfills,
   metrics,
-}: BlockProps<ExperimentMetricBlockInterface> & { block: { id?: string } }) {
-  // todo?: assign stable temp ID when creating new block
-  id = id || "" + Math.floor(Math.random() * 10000);
+}: BlockProps<ExperimentMetricBlockInterface>) {
+  const { baselineRow, columnsFilter, variationIds } = block;
+  const blockId = useMemo(
+    () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
+    [block],
+  );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const goalMetrics = useMemo(
     () => expandMetricGroups(experiment.goalMetrics, metricGroups),
-    [experiment, metricGroups]
+    [experiment, metricGroups],
   );
   const secondaryMetrics = useMemo(
     () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
-    [experiment, metricGroups]
+    [experiment, metricGroups],
   );
   const guardrailMetrics = useMemo(
     () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
-    [experiment, metricGroups]
+    [experiment, metricGroups],
   );
 
   const statsEngine = analysis.settings.statsEngine;
@@ -103,7 +108,7 @@ export default function ExperimentMetricBlock({
         resultGroup: getMetricResultGroup(
           metric.id,
           goalMetrics,
-          secondaryMetrics
+          secondaryMetrics,
         ),
         metricOverrideFields: [],
       };
@@ -117,7 +122,7 @@ export default function ExperimentMetricBlock({
       {Object.entries(rowGroups).map(([resultGroup, rows]) => (
         <ResultsTable
           key={resultGroup}
-          id={id}
+          id={blockId}
           phase={experiment.phases.length - 1}
           variations={variations}
           variationFilter={variationFilter}

@@ -10,16 +10,16 @@ export const listArchetypes = createApiRequestHandler(listArchetypesValidator)(
   async (req): Promise<ListArchetypesResponse> => {
     const archetypes = await getAllArchetypes(
       req.context.org.id,
-      req.context.userId
+      req.context.userId,
     );
     const filteredArchetypes = archetypes.filter((archetype) =>
-      req.context.permissions.canReadMultiProjectResource(archetype.projects)
+      req.context.permissions.canReadMultiProjectResource(archetype.projects),
     );
 
     return {
       archetypes: filteredArchetypes.map((archetype) =>
-        toArchetypeApiInterface(archetype)
+        toArchetypeApiInterface(archetype),
       ),
     };
-  }
+  },
 );

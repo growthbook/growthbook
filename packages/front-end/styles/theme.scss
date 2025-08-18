@@ -129,7 +129,10 @@
   --text-color-enterprise: #{colors.$white};
   --background-color: #{colors.$main-background-dark};
   --surface-background-color: #{colors.$surface-background-dark}; //rgba(0, 0, 0, 0.25);
-  --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
+  --surface-background-color-alt: #{lighten(
+      colors.$surface-background-dark,
+      4%
+    )};
   --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
   --table-row-highlight-background-color: #{lighten(
       colors.$surface-background-dark,

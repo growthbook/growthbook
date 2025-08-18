@@ -34,9 +34,8 @@ export default function SDKConnectionPage() {
 
   const permissionsUtil = usePermissionsUtil();
 
-  const connection:
-    | SDKConnectionInterface
-    | undefined = data?.connections?.find((conn) => conn.id === sdkid);
+  const connection: SDKConnectionInterface | undefined =
+    data?.connections?.find((conn) => conn.id === sdkid);
 
   const hasProxy = connection?.proxy?.enabled;
 
@@ -78,7 +77,7 @@ export default function SDKConnectionPage() {
         <div className="mb-2">
           <Badge
             label={`Managed by ${capitalizeFirstLetter(
-              connection.managedBy.type
+              connection.managedBy.type,
             )}`}
           />
         </div>

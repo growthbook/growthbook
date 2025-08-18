@@ -8,7 +8,7 @@ import useApi from "./useApi";
 export function useExperiments(
   project?: string,
   includeArchived: boolean = false,
-  type?: ExperimentType
+  type?: ExperimentType,
 ) {
   const { data, error, mutate } = useApi<{
     experiments: ExperimentInterfaceStringDates[];
@@ -16,14 +16,14 @@ export function useExperiments(
   }>(
     `/experiments?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
-    }&type=${type || ""}`
+    }&type=${type || ""}`,
   );
 
   const experiments = useMemo(() => data?.experiments || [], [data]);
 
   const experimentsMap = useMemo(
     () => new Map(experiments.map((e) => [e.id, e])),
-    [experiments]
+    [experiments],
   );
 
   return {

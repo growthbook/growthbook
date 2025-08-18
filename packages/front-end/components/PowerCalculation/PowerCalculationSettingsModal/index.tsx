@@ -37,14 +37,14 @@ type Config =
   | {
       defaultSettingsValue?: (
         priorSettings: MetricPriorSettings | undefined,
-        orgSettings: OrganizationSettings
+        orgSettings: OrganizationSettings,
       ) => number | undefined;
       defaultValue?: number;
     }
   | {
       defaultSettingsValue?: (
         priorSettings: MetricPriorSettings | undefined,
-        orgSettings: OrganizationSettings
+        orgSettings: OrganizationSettings,
       ) => boolean | undefined;
       defaultValue?: boolean;
     };
@@ -52,7 +52,7 @@ type Config =
 export const defaultValue = (
   { defaultSettingsValue, defaultValue }: Config,
   priorSettings: MetricPriorSettings | undefined,
-  settings: OrganizationSettings
+  settings: OrganizationSettings,
 ) => {
   const settingsDefault = defaultSettingsValue?.(priorSettings, settings);
   if (settingsDefault !== undefined) return settingsDefault;
@@ -99,7 +99,7 @@ export default function PowerCalculationSettingsModal({
             },
           }
         : defaultValues,
-    {}
+    {},
   );
 
   useEffect(() => {
@@ -115,13 +115,13 @@ export default function PowerCalculationSettingsModal({
                 defaultValues[key].type === "all"
                   ? { ...values, [key]: defaultValues[key].value }
                   : {},
-              {}
+              {},
             ),
             ...metrics[id],
           },
         }),
-        {}
-      )
+        {},
+      ),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -139,7 +139,7 @@ export default function PowerCalculationSettingsModal({
               if (form.watch("metricValuesData.source") === "experiment") {
                 const experimentId = form.watch("metricValuesData.sourceId");
                 const experiment = experiments.find(
-                  (e) => e.id === experimentId
+                  (e) => e.id === experimentId,
                 );
                 // Retrieve experiment snapshot and set data from it before moving
                 // to the set params step
@@ -151,7 +151,7 @@ export default function PowerCalculationSettingsModal({
 
                 form.setValue(
                   "metricValuesData.populationId",
-                  res.populationData?.id
+                  res.populationData?.id,
                 );
                 // sets it if data already exists, otherwise starts running on next page
                 if (res.populationData?.status === "success") {
@@ -164,7 +164,7 @@ export default function PowerCalculationSettingsModal({
             } catch (e) {
               form.setValue(
                 "metricValuesData.error",
-                `Unable to compute metric values: ${e.message}`
+                `Unable to compute metric values: ${e.message}`,
               );
             } finally {
               setStep("set-params");

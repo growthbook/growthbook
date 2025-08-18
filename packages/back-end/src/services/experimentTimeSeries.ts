@@ -55,25 +55,25 @@ export async function updateExperimentTimeSeries({
   const metricsIds = getAllMetricIdsFromExperiment(
     experimentSnapshot.settings,
     false,
-    metricGroups
+    metricGroups,
   );
   const relativeAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "relative" &&
       (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0)
+        analysis.settings.baselineVariationIndex === 0),
   );
   const absoluteAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "absolute" &&
       (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0)
+        analysis.settings.baselineVariationIndex === 0),
   );
   const scaledAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "scaled" &&
       (analysis.settings.baselineVariationIndex === undefined ||
-        analysis.settings.baselineVariationIndex === 0)
+        analysis.settings.baselineVariationIndex === 0),
   );
 
   // We should always have this, otherwise the snapshot has not
@@ -91,48 +91,51 @@ export async function updateExperimentTimeSeries({
     factTableMap = await getFactTableMap(context);
   }
 
-  const timeSeriesVariationsPerMetricId = metricsIds.reduce((acc, metricId) => {
-    acc[metricId] = variations.map((_, variationIndex) => ({
-      id: experiment.variations[variationIndex].id,
-      name: experiment.variations[variationIndex].name,
-      stats:
-        // NB: Using relative as a base to save space because it matches relative & absolute
-        relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-          metricId
-        ]?.stats,
-      relative: convertMetricToMetricValue(
-        relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-          metricId
-        ]
-      ),
-      absolute: convertMetricToMetricValue(
-        absoluteAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-          metricId
-        ]
-      ),
-      scaled: convertMetricToMetricValue(
-        scaledAnalysis?.results[0]?.variations[variationIndex]?.metrics[
-          metricId
-        ]
-      ),
-    }));
+  const timeSeriesVariationsPerMetricId = metricsIds.reduce(
+    (acc, metricId) => {
+      acc[metricId] = variations.map((_, variationIndex) => ({
+        id: experiment.variations[variationIndex].id,
+        name: experiment.variations[variationIndex].name,
+        stats:
+          // NB: Using relative as a base to save space because it matches relative & absolute
+          relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
+            metricId
+          ]?.stats,
+        relative: convertMetricToMetricValue(
+          relativeAnalysis?.results[0]?.variations[variationIndex]?.metrics[
+            metricId
+          ],
+        ),
+        absolute: convertMetricToMetricValue(
+          absoluteAnalysis?.results[0]?.variations[variationIndex]?.metrics[
+            metricId
+          ],
+        ),
+        scaled: convertMetricToMetricValue(
+          scaledAnalysis?.results[0]?.variations[variationIndex]?.metrics[
+            metricId
+          ],
+        ),
+      }));
 
-    return acc;
-  }, {} as Record<string, MetricTimeSeriesVariation[]>);
+      return acc;
+    },
+    {} as Record<string, MetricTimeSeriesVariation[]>,
+  );
 
   const experimentHash = getExperimentSettingsHash(
     experimentSnapshot.settings,
-    relativeAnalysis.settings
+    relativeAnalysis.settings,
   );
 
   // As we tag the whole snapshot, we just care if any metric has a significant difference from the previous status
   const hasSignificantDifference = getHasSignificantDifference(
     previousAnalysisSummary,
-    experiment.analysisSummary
+    experiment.analysisSummary,
   );
 
-  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] = metricsIds.map(
-    (metricId) => ({
+  const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
+    metricsIds.map((metricId) => ({
       source: "experiment",
       sourceId: experiment.id,
       sourcePhase: experimentSnapshot.phase,
@@ -141,10 +144,10 @@ export async function updateExperimentTimeSeries({
       lastMetricSettingsHash: getMetricSettingsHash(
         metricId,
         experimentSnapshot.settings.metricSettings.find(
-          (it) => it.id === metricId
+          (it) => it.id === metricId,
         ),
         factMetrics,
-        factTableMap
+        factTableMap,
       ),
       singleDataPoint: {
         date: experimentSnapshot.dateCreated,
@@ -154,16 +157,15 @@ export async function updateExperimentTimeSeries({
         notificationsTriggered.length > 0 || hasSignificantDifference
           ? ["triggered-alert"]
           : undefined,
-    })
-  );
+    }));
 
   await context.models.metricTimeSeries.upsertMultipleSingleDataPoint(
-    metricTimeSeriesSingleDataPoints
+    metricTimeSeriesSingleDataPoints,
   );
 }
 
 function convertMetricToMetricValue(
-  metric: SnapshotMetric | undefined
+  metric: SnapshotMetric | undefined,
 ): MetricTimeSeriesValue | undefined {
   if (!metric) {
     return undefined;
@@ -188,7 +190,7 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 function getExperimentSettingsHash(
   snapshotSettings: ExperimentSnapshotSettings,
-  snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings
+  snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings,
 ): string {
   return hashObject({
     // snapshotSettings
@@ -219,7 +221,7 @@ function getMetricSettingsHash(
   metricId: string,
   metricSettings?: MetricForSnapshot,
   factMetrics?: FactMetricInterface[],
-  factTableMap?: Map<string, FactTableInterface>
+  factTableMap?: Map<string, FactTableInterface>,
 ): string {
   const factMetric = factMetrics?.find((metric) => metric.id === metricId);
   if (!factMetric) {
@@ -236,7 +238,7 @@ function getMetricSettingsHash(
       : undefined;
 
     const numeratorFilters = numeratorFactTable?.filters.filter((it) =>
-      factMetric.numerator.filters.includes(it.id)
+      factMetric.numerator.filters.includes(it.id),
     );
 
     return hashObject({
@@ -265,7 +267,7 @@ function getMetricSettingsHash(
 
 function getHasSignificantDifference(
   previousAnalysisSummary: ExperimentAnalysisSummary | undefined,
-  currentAnalysisSummary: ExperimentAnalysisSummary | undefined
+  currentAnalysisSummary: ExperimentAnalysisSummary | undefined,
 ) {
   const currentResults = currentAnalysisSummary?.resultsStatus;
   if (!currentResults) {
@@ -286,14 +288,14 @@ function getHasSignificantDifference(
             ])
           : []),
         ...(variation?.guardrailMetrics
-          ? Object.entries(
-              variation.guardrailMetrics
-            ).map(([metricId, metric]) => [
-              `${variation.variationId}-${metricId}`,
-              metric.status,
-            ])
+          ? Object.entries(variation.guardrailMetrics).map(
+              ([metricId, metric]) => [
+                `${variation.variationId}-${metricId}`,
+                metric.status,
+              ],
+            )
           : []),
-      }))
+      })),
     );
   };
 
@@ -307,6 +309,6 @@ function getHasSignificantDifference(
   const previousResultsMap = parseToMap(previousResults);
   return Object.entries(currentMetricsParsed).some(
     ([metricKey, status]) =>
-      isSignificant(status) && previousResultsMap.get(metricKey) !== status
+      isSignificant(status) && previousResultsMap.get(metricKey) !== status,
   );
 }

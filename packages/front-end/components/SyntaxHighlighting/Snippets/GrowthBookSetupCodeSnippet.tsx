@@ -181,10 +181,8 @@ const { GrowthBookClient } = require("@growthbook/growthbook");
 const client = new GrowthBookClient({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-              encryptionKey
-                ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-                : ""
-            }
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }
   trackingCallback: (experiment, result, userContext) => {
     // ${trackingComment}
     console.log("Viewed Experiment", userContext.attributes.id, {
@@ -250,10 +248,10 @@ app.use(function(req, res, next) {
   req.growthbook = new GrowthBook({
     apiHost: ${JSON.stringify(apiHost)},
     clientKey: ${JSON.stringify(apiKey)},${
-            encryptionKey
-              ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
-              : ""
-          }
+      encryptionKey
+        ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)},`
+        : ""
+    }
     trackingCallback: (experiment, result) => {
       // ${trackingComment}
       console.log("Viewed Experiment", {
@@ -418,8 +416,8 @@ val gb = GBSDKBuilder(
           code={`
 var gb: GrowthBookSDK = GrowthBookBuilder(
   url: "${featuresEndpoint}",${
-            encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
-          }
+    encryptionKey ? `\n  encryptionKey: "${encryptionKey}",` : ""
+  }
   trackingCallback: { experiment, experimentResult in 
     // ${trackingComment}
     print("Viewed Experiment")
@@ -453,8 +451,8 @@ import (
 func main() {
 	client, err := gb.NewClient(context.TODO(),
 		gb.WithClientKey("${apiKey || "MY_SDK_KEY"}"),${
-            encryptionKey ? `\n		gb.WithDecryptionKey("${encryptionKey}"),` : ""
-          }
+      encryptionKey ? `\n		gb.WithDecryptionKey("${encryptionKey}"),` : ""
+    }
 		gb.WithApiHost("${apiHost}"),
 		gb.WithPollDataSource(30 * time.Second),
 		// ${trackingComment}
@@ -493,11 +491,11 @@ require 'growthbook'
 # You should cache this in Redis or similar in production
 features_repository = Growthbook::FeatureRepository.new(
   endpoint: '${featuresEndpoint}'${
-            encryptionKey
-              ? `,
+    encryptionKey
+      ? `,
   decryption_key: '${encryptionKey}'`
-              : ""
-          }
+      : ""
+  }
 )
 features = features_repository.fetch
             `.trim()}
@@ -563,11 +561,11 @@ $growthbook->withCache($cache);
 $growthbook->initialize(
   "${apiKey || "MY_SDK_KEY"}", // Client Key
   "${apiHost}"${
-            encryptionKey
-              ? `, // API Host
+    encryptionKey
+      ? `, // API Host
   "${encryptionKey}" // Decryption Key`
-              : " // API Host"
-          }
+      : " // API Host"
+  }
 );
             `.trim()}
         />
@@ -597,11 +595,11 @@ from growthbook import GrowthBook
 gb = GrowthBook(
   api_host = "${apiHost}",
   client_key = "${apiKey || "MY_SDK_KEY"}",${
-            encryptionKey
-              ? `
+    encryptionKey
+      ? `
   decryption_key = "${encryptionKey}",`
-              : ""
-          }
+      : ""
+  }
   on_experiment_viewed = on_experiment_viewed
 )
 
@@ -1091,12 +1089,10 @@ function buildEnv() {
     PROXY_TARGET: "https://internal.mysite.io",
     GROWTHBOOK_API_HOST: ${JSON.stringify(apiHost)},
     GROWTHBOOK_CLIENT_KEY: ${JSON.stringify(apiKey)},${
-            encryptionKey
-              ? `\n    GROWTHBOOK_DECRYPTION_KEY: ${JSON.stringify(
-                  encryptionKey
-                )},`
-              : ""
-          }
+      encryptionKey
+        ? `\n    GROWTHBOOK_DECRYPTION_KEY: ${JSON.stringify(encryptionKey)},`
+        : ""
+    }
   };
 }
           `.trim()}
@@ -1260,22 +1256,22 @@ if (window.gtag) {
   });
 }`
     : eventTracker === "segment"
-    ? `
+      ? `
 analytics.track("Experiment Viewed", {
   experimentId: experiment.key,
   variationId: result.key,
 });
 `
-    : eventTracker === "mixpanel"
-    ? `
+      : eventTracker === "mixpanel"
+        ? `
 mixpanel.track("$experiment_started", {
   "Experiment name": experiment.key,
   "Variant name": result.key,
   $source: "growthbook",
 });
 `
-    : eventTracker === "matomo"
-    ? `
+        : eventTracker === "matomo"
+          ? `
 window["_paq"] = window._paq || [];
 window._paq.push([
   "trackEvent",
@@ -1284,19 +1280,19 @@ window._paq.push([
   "v" + result.key,
 ]);
 `
-    : eventTracker === "amplitude"
-    ? `
+          : eventTracker === "amplitude"
+            ? `
 amplitude.track('Experiment Viewed', {experimentId: experiment.key, variantId: result.key});
 `
-    : eventTracker === "rudderstack"
-    ? `
+            : eventTracker === "rudderstack"
+              ? `
 rudderanalytics.track("Experiment Viewed", {
   experimentId: experiment.key,
   variationId: result.key,
 });
 `
-    : eventTracker === "snowplow"
-    ? `
+              : eventTracker === "snowplow"
+                ? `
 if (window.snowplow) {
   window.snowplow("trackSelfDescribingEvent", {
     event: {
@@ -1311,7 +1307,7 @@ if (window.snowplow) {
   });
 }
 `
-    : `
+                : `
 // This is where you would send an event to your analytics provider
 console.log("Viewed Experiment", {
   experimentId: experiment.key,
@@ -1360,10 +1356,8 @@ import {
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-      encryptionKey
-        ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-        : ""
-    }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   plugins: [
     autoAttributesPlugin(),
@@ -1381,10 +1375,8 @@ import { autoAttributesPlugin } from "@growthbook/growthbook/plugins";
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-      encryptionKey
-        ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-        : ""
-    }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   trackingCallback: (experiment, result) => {
     ${indentLines(trackingCallback.trim(), 4)}
@@ -1401,10 +1393,8 @@ const growthbook = new GrowthBook({
 const growthbook = new GrowthBook({
   apiHost: ${JSON.stringify(apiHost)},
   clientKey: ${JSON.stringify(apiKey)},${
-      encryptionKey
-        ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
-        : ""
-    }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
+    encryptionKey ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},` : ""
+  }${remoteEvalEnabled ? `\n  remoteEval: true,` : ""}
   enableDevMode: true,${!useInit ? `\n  subscribeToChanges: true,` : ""}
   trackingCallback: (experiment, result) => {
     ${indentLines(trackingCallback.trim(), 4)}

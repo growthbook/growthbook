@@ -50,7 +50,7 @@ export default function WebhookSecretModal({
 
           // Make sure all origins are valid and normalized
           data.allowedOrigins = data.allowedOrigins.map(
-            (origin) => new URL(origin).origin
+            (origin) => new URL(origin).origin,
           );
 
           // Remove duplicates

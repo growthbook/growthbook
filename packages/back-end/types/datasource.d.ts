@@ -86,11 +86,11 @@ export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
     userId: string,
-    options?: GetExperimentSqlOptions
+    options?: GetExperimentSqlOptions,
   ): string;
   getIdentitySQL(
     tablePrefix: string,
-    options?: Record<string, string | number>
+    options?: Record<string, string | number>,
   ): IdentityJoinQuery[];
   experimentDimensions: string[];
   userIdTypes: string[];

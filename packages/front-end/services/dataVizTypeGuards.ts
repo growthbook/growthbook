@@ -10,7 +10,7 @@ import {
  * Type guard to check if a DataVizConfig requires an xAxis
  */
 export function requiresXAxis(
-  config: Partial<DataVizConfig>
+  config: Partial<DataVizConfig>,
 ): config is Partial<BarChart | LineChart | AreaChart | ScatterChart> {
   return (
     config.chartType === "bar" ||
@@ -24,7 +24,7 @@ export function requiresXAxis(
  * Type guard to check if a DataVizConfig supports dimensions
  */
 export function supportsDimension(
-  config: Partial<DataVizConfig>
+  config: Partial<DataVizConfig>,
 ): config is Partial<BarChart | LineChart | AreaChart | ScatterChart> {
   return requiresXAxis(config);
 }

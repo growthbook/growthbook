@@ -19,16 +19,16 @@ export type IsTuple<Tuple extends any[]> = {
 }[Tuple extends []
   ? "empty"
   : Tuple extends (infer Element)[]
-  ? Element[] extends Tuple
-    ? "infinite"
-    : "nonEmpty"
-  : never];
+    ? Element[] extends Tuple
+      ? "infinite"
+      : "nonEmpty"
+    : never];
 
 export type TupleToUnion<T> = T extends (infer E)[] ? E : never;
 
 export type UnionPop<U> = (
   (U extends any ? (k: (x: U) => void) => void : never) extends (
-    k: infer I
+    k: infer I,
   ) => void
     ? I
     : never

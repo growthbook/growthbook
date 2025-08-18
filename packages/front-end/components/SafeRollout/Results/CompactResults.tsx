@@ -99,32 +99,29 @@ const CompactResults: FC<{
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
-      goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    goalMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-    secondaryMetrics,
-    guardrailMetrics,
-  ]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
+      goalMetrics,
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+      secondaryMetrics,
+      guardrailMetrics,
+    ]);
 
   const allMetricTags = useMemo(() => {
     const allMetricTagsSet: Set<string> = new Set();
@@ -136,7 +133,7 @@ const CompactResults: FC<{
         metric?.tags?.forEach((tag) => {
           allMetricTagsSet.add(tag);
         });
-      }
+      },
     );
     return [...allMetricTagsSet];
   }, [
@@ -150,7 +147,7 @@ const CompactResults: FC<{
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(
       metricId: string,
-      resultGroup: "goal" | "secondary" | "guardrail"
+      resultGroup: "goal" | "secondary" | "guardrail",
     ) {
       const metric =
         ssrPolyfills?.getExperimentMetricById?.(metricId) ||
@@ -158,12 +155,12 @@ const CompactResults: FC<{
       if (!metric) return null;
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
-        metricOverrides
+        metricOverrides,
       );
       let metricSnapshotSettings: MetricSnapshotSettings | undefined;
       if (settingsForSnapshotMetrics) {
         metricSnapshotSettings = settingsForSnapshotMetrics.find(
-          (s) => s.metric === metricId
+          (s) => s.metric === metricId,
         );
       }
       return {
@@ -197,12 +194,12 @@ const CompactResults: FC<{
       .map(
         (metricId) =>
           ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId)
+          getExperimentMetricById(metricId),
       )
       .filter(isDefined);
     const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
       guardrailDefs,
-      metricFilter
+      metricFilter,
     );
 
     const retGuardrails = sortedFilteredGuardrails
@@ -248,7 +245,7 @@ const CompactResults: FC<{
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled,
               statsEngine,
-              hideDetails
+              hideDetails,
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -271,13 +268,13 @@ export default CompactResults;
 export function getRenderLabelColumn(
   regressionAdjustmentEnabled?: boolean,
   statsEngine?: StatsEngine,
-  hideDetails?: boolean
+  hideDetails?: boolean,
 ) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
     row?: ExperimentTableRow,
-    maxRows?: number
+    maxRows?: number,
   ) {
     const metricLink = (
       <Tooltip

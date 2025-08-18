@@ -41,10 +41,10 @@ export default function ExperimentMetricsSelector({
   collapseGuardrail,
 }: Props) {
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
-    !!collapseSecondary && secondaryMetrics.length === 0
+    !!collapseSecondary && secondaryMetrics.length === 0,
   );
   const [guardrailCollapsed, setGuardrailCollapsed] = useState<boolean>(
-    !!collapseGuardrail && guardrailMetrics.length === 0
+    !!collapseGuardrail && guardrailMetrics.length === 0,
   );
   return (
     <>

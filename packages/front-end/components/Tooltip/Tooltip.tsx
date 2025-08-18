@@ -120,7 +120,7 @@ const Tooltip: FC<Props> = ({
       ],
       placement: tipPosition,
       strategy: "fixed",
-    }
+    },
   );
 
   if (!children && children !== 0) children = <GBInfo />;
@@ -156,7 +156,7 @@ const Tooltip: FC<Props> = ({
               className={clsx(
                 "shadow-lg gb-tooltip",
                 fadeIn ? "tooltip-visible" : "tooltip-hidden",
-                popperClassName
+                popperClassName,
               )}
               role="tooltip"
             >

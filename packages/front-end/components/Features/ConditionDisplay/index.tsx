@@ -77,7 +77,7 @@ function hasMultiValues(operator: string) {
 function getValue(
   operator: string,
   value: string,
-  savedGroups?: SavedGroupInterface[]
+  savedGroups?: SavedGroupInterface[],
 ): string {
   if (operator === "$true") return "TRUE";
   if (operator === "$false") return "FALSE";
@@ -266,7 +266,7 @@ export default function ConditionDisplay({
       parts.push(
         <div className="w-100" key={partId++}>
           <InlineCode language="json" code={jsonFormattedCondition} />
-        </div>
+        </div>,
       );
     } else {
       const conditionParts = getConditionParts({
@@ -285,7 +285,7 @@ export default function ConditionDisplay({
         groupClassName="col-auto"
         initialAnd={parts.length > 0}
         key={`${partId++}-saved-group-targeting`}
-      />
+      />,
     );
   }
 
@@ -307,7 +307,7 @@ export default function ConditionDisplay({
               <div className="mr-1">prerequisite</div>
               <ParentIdLink parentId={p.id} />
               <InlineCode language="json" code={jsonFormattedCondition} />
-            </div>
+            </div>,
           );
           return;
         }
@@ -326,7 +326,7 @@ export default function ConditionDisplay({
     const prereqConds =
       prereqConditionsGrouped.reduce(
         (acc, val) => val && acc.concat(val),
-        []
+        [],
       ) || [];
 
     const prereqParts = getConditionParts({

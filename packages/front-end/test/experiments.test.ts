@@ -14,21 +14,10 @@ describe("variation weighting functions", () => {
     expect(getEqualWeights(4)).toEqual([0.25, 0.25, 0.25, 0.25]);
     expect(getEqualWeights(5)).toEqual([0.2, 0.2, 0.2, 0.2, 0.2]);
     expect(getEqualWeights(6)).toEqual([
-      0.1667,
-      0.1667,
-      0.1667,
-      0.1667,
-      0.1666,
-      0.1666,
+      0.1667, 0.1667, 0.1667, 0.1667, 0.1666, 0.1666,
     ]);
     expect(getEqualWeights(7)).toEqual([
-      0.1429,
-      0.1429,
-      0.1429,
-      0.1429,
-      0.1428,
-      0.1428,
-      0.1428,
+      0.1429, 0.1429, 0.1429, 0.1429, 0.1428, 0.1428, 0.1428,
     ]);
   });
 
@@ -39,21 +28,10 @@ describe("variation weighting functions", () => {
     expect(getEqualWeights(4, 3)).toEqual([0.25, 0.25, 0.25, 0.25]);
     expect(getEqualWeights(5, 3)).toEqual([0.2, 0.2, 0.2, 0.2, 0.2]);
     expect(getEqualWeights(6, 3)).toEqual([
-      0.167,
-      0.167,
-      0.167,
-      0.167,
-      0.166,
-      0.166,
+      0.167, 0.167, 0.167, 0.167, 0.166, 0.166,
     ]);
     expect(getEqualWeights(7, 3)).toEqual([
-      0.143,
-      0.143,
-      0.143,
-      0.143,
-      0.143,
-      0.143,
-      0.142,
+      0.143, 0.143, 0.143, 0.143, 0.143, 0.143, 0.142,
     ]);
   });
 
@@ -64,21 +42,10 @@ describe("variation weighting functions", () => {
     expect(getEqualWeights(4, 5)).toEqual([0.25, 0.25, 0.25, 0.25]);
     expect(getEqualWeights(5, 5)).toEqual([0.2, 0.2, 0.2, 0.2, 0.2]);
     expect(getEqualWeights(6, 5)).toEqual([
-      0.16667,
-      0.16667,
-      0.16667,
-      0.16667,
-      0.16666,
-      0.16666,
+      0.16667, 0.16667, 0.16667, 0.16667, 0.16666, 0.16666,
     ]);
     expect(getEqualWeights(7, 5)).toEqual([
-      0.14286,
-      0.14286,
-      0.14286,
-      0.14286,
-      0.14286,
-      0.14285,
-      0.14285,
+      0.14286, 0.14286, 0.14286, 0.14286, 0.14286, 0.14285, 0.14285,
     ]);
   });
 
@@ -91,23 +58,17 @@ describe("variation weighting functions", () => {
 
   it("rebalances weights", () => {
     expect(rebalance([0.3334, 0.3333, 0.3333], 1, 0.3406, 4)).toEqual([
-      0.3334,
-      0.3406,
-      0.326,
+      0.3334, 0.3406, 0.326,
     ]);
 
     expect(rebalance([0.3334, 0.3333, 0.3333], 1, 1.5, 4)).toEqual([0, 1, 0]);
 
     expect(rebalance([0.3334, 0.3333, 0.3333], 1, 0.8, 4)).toEqual([
-      0.2,
-      0.8,
-      0,
+      0.2, 0.8, 0,
     ]);
 
     expect(rebalance([0.3334, 0.3333, 0.3333], 1, 0.12, 4)).toEqual([
-      0.3334,
-      0.12,
-      0.5466,
+      0.3334, 0.12, 0.5466,
     ]);
   });
 

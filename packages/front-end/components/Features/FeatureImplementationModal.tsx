@@ -25,9 +25,8 @@ export default function FeatureImplementationModal({
 }: Props) {
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const [fullSnippet, setFullSnippet] = useState(false);
-  const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
-    "popular"
-  );
+  const [languageFilter, setLanguageFilter] =
+    useState<LanguageFilter>("popular");
   const codeType = feature.valueType === "boolean" ? "boolean" : "multivariate";
 
   if (fullSnippet) {

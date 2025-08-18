@@ -14,12 +14,12 @@ export type PermissionFunctions = {
   checkPermissions(permission: GlobalPermission): void;
   checkPermissions(
     permission: ProjectScopedPermission,
-    project: string | string[] | undefined
+    project: string | string[] | undefined,
   ): void;
   checkPermissions(
     permission: EnvScopedPermission,
     project: string | (string | undefined)[] | undefined,
-    envs: string[] | Set<string>
+    envs: string[] | Set<string>,
   ): void;
 };
 
@@ -27,7 +27,7 @@ export type PermissionFunctions = {
 export type AuthRequest<
   Body = unknown,
   Params = unknown,
-  QueryParams = unknown
+  QueryParams = unknown,
 > = Request<Params, unknown, Body, QueryParams> & {
   currentUser: Pick<
     UserInterface,
@@ -44,7 +44,7 @@ export type AuthRequest<
   organization?: OrganizationInterface;
   teams: TeamInterface[];
   audit: (
-    data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">
+    data: Omit<AuditInterface, "organization" | "id" | "user" | "dateCreated">,
   ) => Promise<void>;
 } & PermissionFunctions;
 

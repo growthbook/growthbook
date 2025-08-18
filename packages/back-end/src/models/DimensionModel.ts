@@ -26,7 +26,7 @@ dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DimensionDocument = mongoose.Document & DimensionInterface;
 const DimensionModel = mongoose.model<DimensionInterface>(
   "Dimension",
-  dimensionSchema
+  dimensionSchema,
 );
 
 function toInterface(doc: DimensionDocument): DimensionInterface {
@@ -36,7 +36,7 @@ function toInterface(doc: DimensionDocument): DimensionInterface {
 export async function createDimension(dimension: Partial<DimensionInterface>) {
   if (usingFileConfig() && !ALLOW_CREATE_DIMENSIONS) {
     throw new Error(
-      "Cannot add new dimensions. Dimensions managed by config.yml"
+      "Cannot add new dimensions. Dimensions managed by config.yml",
     );
   }
   return toInterface(await DimensionModel.create(dimension));
@@ -84,24 +84,24 @@ export async function findDimensionById(id: string, organization: string) {
 
 export async function findDimensionsByDataSource(
   datasource: string,
-  organization: string
+  organization: string,
 ) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     return getConfigDimensions(organization).filter(
-      (d) => d.datasource === datasource
+      (d) => d.datasource === datasource,
     );
   }
 
   return (await DimensionModel.find({ datasource, organization })).map(
-    toInterface
+    toInterface,
   );
 }
 
 export async function updateDimension(
   context: ReqContext | ApiReqContext,
   existing: DimensionInterface,
-  updates: Partial<DimensionInterface>
+  updates: Partial<DimensionInterface>,
 ) {
   // If the dimension is managed by the config.yml, don't allow updates
   if (existing.managedBy === "config") {
@@ -114,23 +114,23 @@ export async function updateDimension(
 
   await DimensionModel.updateOne(
     { id: existing.id, organization: context.org.id },
-    { $set: updates }
+    { $set: updates },
   );
 }
 
 export async function deleteDimensionById(
   context: ReqContext | ApiReqContext,
-  dimension: DimensionInterface
+  dimension: DimensionInterface,
 ) {
   if (dimension?.managedBy === "config") {
     throw new Error(
-      "Cannot delete. This Dimension is being managed by config.yml"
+      "Cannot delete. This Dimension is being managed by config.yml",
     );
   }
 
   if (dimension?.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error(
-      "Cannot delete. This Dimension is being managed by the API"
+      "Cannot delete. This Dimension is being managed by the API",
     );
   }
 
@@ -141,7 +141,7 @@ export async function deleteDimensionById(
 }
 
 export function toDimensionApiInterface(
-  dimension: DimensionInterface
+  dimension: DimensionInterface,
 ): ApiDimension {
   return {
     id: dimension.id,

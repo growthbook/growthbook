@@ -17,7 +17,7 @@ export function isSingleValue(option: Option): option is SingleValue {
 }
 export type FormatOptionLabelType = (
   value: SingleValue,
-  meta: FormatOptionLabelMeta<SingleValue>
+  meta: FormatOptionLabelMeta<SingleValue>,
 ) => ReactNode;
 
 export type SelectFieldProps = Omit<
@@ -45,7 +45,7 @@ export type SelectFieldProps = Omit<
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
   initialOption?: string,
-  sort?: boolean
+  sort?: boolean,
 ) {
   return useMemo(() => {
     const m = new Map<string, SingleValue>();
@@ -216,7 +216,7 @@ const SelectField: FC<SelectFieldProps> = ({
             className={clsx(
               "gb-select-wrapper position-relative",
               disabled ? "disabled" : "",
-              className
+              className,
             )}
           >
             {createable ? (
@@ -292,7 +292,9 @@ const SelectField: FC<SelectFieldProps> = ({
                 }}
                 onBlur={onBlur}
                 autoFocus={autoFocus}
-                value={forceUndefinedValueToNull ? selected ?? null : selected}
+                value={
+                  forceUndefinedValueToNull ? (selected ?? null) : selected
+                }
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
                 formatGroupLabel={formatGroupLabel}

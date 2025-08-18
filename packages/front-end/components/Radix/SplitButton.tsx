@@ -11,7 +11,7 @@ export type Props = {
 /** Minimal wrapper for split button. Intended to work for solid purple buttons/menus. No batteries included. **/
 const SplitButton = forwardRef<HTMLDivElement, Props>(function SplitButton(
   { menu, variant = "solid", children, ...props }: Props,
-  ref
+  ref,
 ) {
   return (
     <div className="rt-SplitButton" {...props} ref={ref}>

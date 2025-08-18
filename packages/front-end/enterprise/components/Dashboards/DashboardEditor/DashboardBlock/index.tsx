@@ -66,8 +66,8 @@ type ObjectProps<Block> = {
       K extends `${infer Base}Id`
       ? Base
       : K extends `${infer Base}Ids`
-      ? `${Base}s`
-      : never
+        ? `${Base}s`
+        : never
     : never]: BlockIdFieldToObjectMap[K];
 };
 
@@ -140,12 +140,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     loading: dashboardSnapshotLoading,
   } = useDashboardSnapshot(block, setBlock);
   const { savedQueriesMap, loading: dashboardContextLoading } = useContext(
-    DashboardSnapshotContext
+    DashboardSnapshotContext,
   );
   const blockHasSavedQuery = blockHasFieldOfType(
     block,
     "savedQueryId",
-    isString
+    isString,
   );
   // Use the API directly when the saved query hasn't been attached to the dashboard yet (when editing)
   const shouldRun = () =>
@@ -166,7 +166,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   const blockHasExperiment = blockHasFieldOfType(
     block,
     "experimentId",
-    isString
+    isString,
   );
   const blockExperiment = blockHasExperiment
     ? experimentsMap.get(block.experimentId)
@@ -184,18 +184,18 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   const blockHasMetrics = blockHasFieldOfType(
     block,
     "metricIds",
-    isStringArray
+    isStringArray,
   );
   const blockMetrics = blockHasMetrics
     ? expandMetricGroups(block.metricIds, metricGroups).map(
-        getExperimentMetricById
+        getExperimentMetricById,
       )
     : undefined;
   if (blockHasMetrics) {
     objectProps = { ...objectProps, metrics: blockMetrics };
   }
   const blockSavedQuery = blockHasSavedQuery
-    ? savedQueriesMap.get(block.savedQueryId) ?? savedQueryData?.savedQuery
+    ? (savedQueriesMap.get(block.savedQueryId) ?? savedQueryData?.savedQuery)
     : undefined;
   if (blockHasSavedQuery) {
     objectProps = {
@@ -232,7 +232,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   return (
     <Flex
       ref={scrollRef}
-      className={clsx("appbox px-4 py-3 position-relative", {
+      className={clsx("appbox px-4 py-3 mb-0 position-relative", {
         "border-violet": editingBlock,
         "dashboard-disabled": disableBlock,
       })}
@@ -282,13 +282,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       )}
       <Flex align="center" justify="between">
         <h4 style={{ margin: 0 }}>
-          {BLOCK_TYPE_INFO[block.type].hideTitle
-            ? null
-            : block.title
+          {block.title
             ? block.title
             : isEditing
-            ? BLOCK_TYPE_INFO[block.type].name
-            : ""}
+              ? BLOCK_TYPE_INFO[block.type].name
+              : ""}
         </h4>
 
         {isEditing && (
@@ -361,7 +359,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           (key) =>
             !isDefined(objectProps[key]) ||
             (Array.isArray(objectProps[key]) &&
-              objectProps[key].some((el) => !isDefined(el)))
+              objectProps[key].some((el) => !isDefined(el))),
         ) ? (
         <BlockObjectMissing block={block} />
       ) : (
@@ -374,7 +372,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             analysis={analysis}
             mutate={mutate}
             // objectProps should be validated above to actually contain all the keys and not be Partial
-            {...((objectProps as unknown) as ObjectProps<T>)}
+            {...(objectProps as unknown as ObjectProps<T>)}
           />
         </ErrorBoundary>
       )}

@@ -154,7 +154,7 @@ const PagedModal: FC<Props> = (props) => {
       trackingEventModalSource,
       allowlistedTrackingEventProps,
       modalUuid,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -278,7 +278,7 @@ const PagedModal: FC<Props> = (props) => {
                       active: step === i,
                       completed: i < step && !skipped?.has(i),
                       disabled: !enabled,
-                    }
+                    },
                   )}
                   key={i}
                 >

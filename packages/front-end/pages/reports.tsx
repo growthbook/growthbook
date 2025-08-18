@@ -45,12 +45,12 @@ const ReportsPage = (): React.ReactElement => {
           ? "private"
           : "organization"
         : r.shareLevel === "public"
-        ? "public"
-        : r.shareLevel === "private"
-        ? "private"
-        : "organization") as "public" | "organization" | "private",
+          ? "public"
+          : r.shareLevel === "private"
+            ? "private"
+            : "organization") as "public" | "organization" | "private",
     }),
-    [experimentNames]
+    [experimentNames],
   );
 
   const filterResults = useCallback(
@@ -64,29 +64,24 @@ const ReportsPage = (): React.ReactElement => {
         }
       });
     },
-    [onlyMyReports, userId]
+    [onlyMyReports, userId],
   );
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    pagination,
-  } = useSearch({
-    items: reports,
-    localStorageKey: "reports",
-    defaultSortField: "dateUpdated",
-    defaultSortDir: -1,
-    searchFields: [
-      "title",
-      "description",
-      "experimentName",
-      "userName",
-      "dateUpdated",
-    ],
-    filterResults,
-    pageSize: 20,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, pagination } =
+    useSearch({
+      items: reports,
+      localStorageKey: "reports",
+      defaultSortField: "dateUpdated",
+      defaultSortDir: -1,
+      searchFields: [
+        "title",
+        "description",
+        "experimentName",
+        "userName",
+        "dateUpdated",
+      ],
+      filterResults,
+      pageSize: 20,
+    });
 
   if (error) {
     return (
@@ -222,8 +217,8 @@ const ReportsPage = (): React.ReactElement => {
                 {isFiltered
                   ? "No matching reports"
                   : onlyMyReports
-                  ? "You have no reports"
-                  : "No reports"}
+                    ? "You have no reports"
+                    : "No reports"}
               </td>
             </tr>
           )}

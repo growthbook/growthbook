@@ -173,7 +173,7 @@ export default function MarkdownInlineEdit({
                               setAiAgreementModal(true);
                             } else if (!aiEnabled) {
                               setError(
-                                "AI suggestions are not enabled for your organization. Enable it in settings."
+                                "AI suggestions are not enabled for your organization. Enable it in settings.",
                               );
                               setEdit(true); // Error is only shown in edit mode
                             } else {

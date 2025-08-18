@@ -72,13 +72,13 @@ export default function EditHypothesisModal({
               const hours = Math.floor(retryAfter / 3600);
               const minutes = Math.floor((retryAfter % 3600) / 60);
               setError(
-                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`
+                `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
               );
             } else {
               setError("Error getting AI suggestion");
             }
             setLoading(false);
-          }
+          },
         )
           .then((res: { data: { output: string } }) => {
             setAiResponse(res.data.output);
@@ -192,19 +192,20 @@ export default function EditHypothesisModal({
                       </Button>
                     </Tooltip>
                   )}
-                  {revertValue && form.getValues("hypothesis") == aiResponse && (
-                    <Tooltip body="Revert to previous content.">
-                      <Button
-                        variant="soft"
-                        onClick={() => {
-                          form.setValue("hypothesis", revertValue);
-                          setRevertValue(null);
-                        }}
-                      >
-                        Revert
-                      </Button>
-                    </Tooltip>
-                  )}
+                  {revertValue &&
+                    form.getValues("hypothesis") == aiResponse && (
+                      <Tooltip body="Revert to previous content.">
+                        <Button
+                          variant="soft"
+                          onClick={() => {
+                            form.setValue("hypothesis", revertValue);
+                            setRevertValue(null);
+                          }}
+                        >
+                          Revert
+                        </Button>
+                      </Tooltip>
+                    )}
                 </Flex>
               </Flex>
               <Box>

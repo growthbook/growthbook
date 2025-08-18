@@ -41,13 +41,13 @@ export default async function (agenda: Agenda) {
           id: metricId,
           daysToInclude:
             org?.settings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS,
-        })
+        }),
       );
     });
 
     const lastRefreshDate = new Date();
     lastRefreshDate.setHours(
-      lastRefreshDate.getHours() - METRIC_REFRESH_FREQUENCY
+      lastRefreshDate.getHours() - METRIC_REFRESH_FREQUENCY,
     );
 
     const promiseCallbacks: (() => Promise<unknown>)[] = [];
@@ -91,7 +91,7 @@ export default async function (agenda: Agenda) {
   async function queueMetricUpdate(
     metricId: string,
     orgId: string,
-    daysToInclude: number
+    daysToInclude: number,
   ) {
     const job = agenda.create(UPDATE_SINGLE_METRIC, {
       metricId,

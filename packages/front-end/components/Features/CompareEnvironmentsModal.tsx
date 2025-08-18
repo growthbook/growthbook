@@ -43,7 +43,7 @@ export default function CompareEnvironmentsModal({
     environments.map((e) => {
       const rules = getRules(feature, e.id);
       return [e.id, rules];
-    })
+    }),
   );
 
   const submit = async () => {
@@ -56,7 +56,7 @@ export default function CompareEnvironmentsModal({
           sourceEnv,
           targetEnv,
         }),
-      }
+      },
     );
     track("Copy Feature Rules", {
       sourceEnv,

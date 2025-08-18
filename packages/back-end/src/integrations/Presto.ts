@@ -18,9 +18,8 @@ export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PrestoConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PrestoConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "trino";
@@ -121,7 +120,7 @@ export default class Presto extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }
