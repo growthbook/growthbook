@@ -13,11 +13,11 @@ import {
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
   blockHasFieldOfType,
+  blockSnapshotSettingsMatch,
+  getBlockSnapshotAnalysis,
   getBlockAnalysisSettings,
-  getBlockSnapshotSettings,
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
-import { isEqual } from "lodash";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
@@ -214,19 +214,15 @@ export function useDashboardSnapshot(
   }, [snapshot, block]);
 
   // Check that the current snapshot is sufficient for the block
-  let snapshotSettingsMatch = true;
-  if (snapshot && block) {
-    const blockSettings = {
-      ...snapshot.settings,
-      ...getBlockSnapshotSettings(block),
-    };
-    snapshotSettingsMatch = isEqual(blockSettings, snapshot.settings);
-  }
+  const snapshotSettingsMatch =
+    snapshot && block
+      ? blockSnapshotSettingsMatch(snapshot.settings, block)
+      : true;
 
   const analysis = useMemo(() => {
-    if (!snapshot || !blockAnalysisSettings) return null;
-    return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
-  }, [blockAnalysisSettings, snapshot]);
+    if (!snapshot || !block) return null;
+    return getBlockSnapshotAnalysis(snapshot, block);
+  }, [snapshot, block]);
 
   // If the current snapshot is incorrect, e.g. a dimension mismatch, fetch a matching snapshot
   useEffect(() => {

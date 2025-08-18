@@ -7,6 +7,7 @@ import {
 } from "back-end/src/enterprise/validators/dashboard";
 import { MakeModelClass, UpdateProps } from "back-end/src/models/BaseModel";
 import {
+  getCollection,
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
@@ -34,9 +35,10 @@ const DEFAULT_DASHBOARD_BLOCKS: DashboardTemplateInterface["blockInitialValues"]
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
 
+const COLLECTION_NAME = "dashboards";
 const BaseClass = MakeModelClass({
   schema: dashboardInterface,
-  collectionName: "dashboards",
+  collectionName: COLLECTION_NAME,
   idPrefix: "dash_",
   auditLog: {
     entity: "dashboard",
@@ -65,6 +67,22 @@ export class DashboardModel extends BaseClass {
       dashboards.push(await this.createDefaultDashboard(experimentId));
     }
     return dashboards.filter((dash) => !dash.isDeleted);
+  }
+
+  public static async getDashboardsToUpdate(): Promise<
+    { id: string; organization: string }[]
+  > {
+    const dashboards = await getCollection(COLLECTION_NAME)
+      .find({
+        enableAutoUpdates: "true",
+      })
+      .limit(100)
+      .sort({ nextUpdate: 1 })
+      .toArray();
+    return dashboards.map((dash) => ({
+      id: dash.id,
+      organization: dash.organization,
+    }));
   }
 
   protected canCreate(doc: DashboardInterface): boolean {

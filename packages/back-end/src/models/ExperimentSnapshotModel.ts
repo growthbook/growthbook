@@ -1,6 +1,11 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
-import { blockHasFieldOfType, dashboardCanAutoUpdate } from "shared/enterprise";
+import {
+  dashboardCanAutoUpdate,
+  blockSnapshotSettingsMatch,
+  blockHasFieldOfType,
+  getBlockSnapshotAnalysis,
+} from "shared/enterprise";
 import { isString } from "shared/util";
 import {
   SnapshotType,
@@ -301,11 +306,18 @@ export async function updateSnapshot({
     for (const dashboard of dashboards) {
       if (!dashboard.enableAutoUpdates || !dashboardCanAutoUpdate(dashboard))
         continue;
-      const blocks = dashboard.blocks.map((block) =>
-        blockHasFieldOfType(block, "snapshotId", isString)
-          ? { ...block, snapshotId: experimentSnapshotModel.id }
-          : block
-      );
+      const blocks = dashboard.blocks.map((block) => {
+        if (
+          !blockHasFieldOfType(block, "snapshotId", isString) ||
+          !blockSnapshotSettingsMatch(
+            experimentSnapshotModel.settings,
+            block
+          ) ||
+          !getBlockSnapshotAnalysis(experimentSnapshotModel, block)
+        )
+          return block;
+        return { ...block, snapshotId: experimentSnapshotModel.id };
+      });
       await context.models.dashboards.dangerousUpdateBypassPermission(
         dashboard,
         { blocks }
