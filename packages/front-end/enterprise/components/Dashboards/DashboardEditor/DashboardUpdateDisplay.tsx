@@ -11,22 +11,19 @@ import {
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
-import { useUser } from "@/services/UserContext";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
 function SnapshotStatusSummary({
   blocks,
   enableAutoUpdates,
+  nextUpdate,
 }: {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
 }) {
   const {
-    settings: { updateSchedule },
-  } = useUser();
-  const {
-    experiment,
     defaultSnapshot: snapshot,
     refreshError,
     allQueries,
@@ -38,12 +35,7 @@ function SnapshotStatusSummary({
 
   if (!snapshot) return null;
 
-  const autoUpdateEnabled =
-    enableAutoUpdates &&
-    dashboardCanAutoUpdate({ blocks }) &&
-    updateSchedule?.type !== "never" &&
-    experiment?.autoSnapshots;
-  const nextUpdate = experiment?.nextSnapshotAttempt;
+  const willUpdate = enableAutoUpdates && dashboardCanAutoUpdate({ blocks });
 
   const textColor = refreshError || numFailed > 0 ? "red" : undefined;
   const content = refreshError
@@ -58,16 +50,18 @@ function SnapshotStatusSummary({
   return (
     <Flex gap="1" align="center">
       <Text size="1">
-        {autoUpdateEnabled &&
-          nextUpdate &&
-          getValidDate(nextUpdate) > new Date() && (
-            <Tooltip
-              tipPosition="top"
-              body={`Next auto-update ${ago(nextUpdate)}`}
-            >
-              <PiLightning style={{ color: "var(--violet-11)" }} />{" "}
-            </Tooltip>
-          )}
+        {willUpdate && (
+          <Tooltip
+            tipPosition="top"
+            body={
+              nextUpdate && getValidDate(nextUpdate) > new Date()
+                ? `Next auto-update ${ago(nextUpdate)}`
+                : "Auto-update starting soon"
+            }
+          >
+            <PiLightning style={{ color: "var(--violet-11)" }} />{" "}
+          </Tooltip>
+        )}
       </Text>
       <Text size="1" color={textColor}>
         {content}
@@ -93,6 +87,7 @@ function SnapshotStatusSummary({
 interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
   disabled: boolean;
   isEditing: boolean;
 }
@@ -100,6 +95,7 @@ interface Props {
 export default function DashboardUpdateDisplay({
   blocks,
   enableAutoUpdates,
+  nextUpdate,
   disabled,
   isEditing,
 }: Props) {
@@ -138,6 +134,7 @@ export default function DashboardUpdateDisplay({
       <SnapshotStatusSummary
         blocks={blocks}
         enableAutoUpdates={enableAutoUpdates}
+        nextUpdate={nextUpdate}
       />
       {isEditing && (
         <DashboardViewQueriesButton

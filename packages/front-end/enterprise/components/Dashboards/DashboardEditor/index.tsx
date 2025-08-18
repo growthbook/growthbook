@@ -134,6 +134,7 @@ interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   isEditing: boolean;
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
   editSidebarDirty: boolean;
   focusedBlockIndex: number | undefined;
   stagedBlockIndex: number | undefined;
@@ -157,6 +158,7 @@ function DashboardEditor({
   blocks,
   isEditing,
   enableAutoUpdates,
+  nextUpdate,
   editSidebarDirty,
   focusedBlockIndex,
   stagedBlockIndex,
@@ -291,6 +293,7 @@ function DashboardEditor({
         <DashboardUpdateDisplay
           blocks={blocks}
           enableAutoUpdates={enableAutoUpdates}
+          nextUpdate={nextUpdate}
           disabled={editSidebarDirty}
           isEditing={isEditing}
         />

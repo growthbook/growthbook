@@ -188,6 +188,8 @@ export async function refreshDashboardData(
     phase: experiment.phases.length - 1,
     useCache: false,
     triggeredBy: "manual",
+    type: "dashboard",
+    dashboardId: id,
   });
 
   // Copy the blocks of the dashboard to overwrite their snapshot IDs
@@ -222,7 +224,10 @@ export async function refreshDashboardData(
       phase: experiment.phases.length - 1,
       useCache: false,
       triggeredBy: "manual",
+      type: "dashboard",
+      dashboardId: id,
     });
+
     newBlocks.forEach((block) => {
       if (blockIds.includes(block.id)) {
         block.snapshotId = snapshot.id;
@@ -243,7 +248,14 @@ export async function refreshDashboardData(
   ]);
 
   for (const savedQuery of savedQueries) {
-    executeAndSaveQuery(context, savedQuery, datasource);
+    // TODO: cache in a map to reduce db queries
+    const datasource = await getDataSourceById(
+      context,
+      savedQuery.datasourceId,
+    );
+    if (datasource) {
+      executeAndSaveQuery(context, savedQuery, datasource);
+    }
   }
 
   return res.status(200).json({ status: 200 });

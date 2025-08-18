@@ -11,11 +11,12 @@ import {
 } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
+  ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
+import { getSnapshotAnalysis } from "../../util";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
 export const metricSelectors = [
@@ -24,6 +25,10 @@ export const metricSelectors = [
   "experiment-guardrail",
   "custom",
 ] as const;
+
+export interface BlockSnapshotSettings {
+  dimensionId?: string;
+}
 
 export function getBlockData<T extends DashboardBlockInterface>(
   block: DashboardBlockInterfaceOrData<T>,
@@ -68,13 +73,13 @@ export function blockHasFieldOfType<Field extends string, T>(
 
 export function getBlockSnapshotSettings(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-): Partial<ExperimentSnapshotSettings> {
-  const blockSettings: Partial<ExperimentSnapshotSettings> = {};
+): BlockSnapshotSettings {
+  const blockSettings: BlockSnapshotSettings = {};
   if (
     blockHasFieldOfType(block, "dimensionId", isString) &&
     block.dimensionId.length > 0
   ) {
-    blockSettings.dimensions = [{ id: block.dimensionId }];
+    blockSettings.dimensionId = block.dimensionId;
   }
   return blockSettings;
 }
@@ -103,15 +108,40 @@ export function getBlockAnalysisSettings(
   };
 }
 
+export function snapshotSatisfiesBlock(
+  snapshot: ExperimentSnapshotInterface,
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+) {
+  const blockSettings = getBlockSnapshotSettings(block);
+  // If snapshot does have a dimension, must match block dimension
+  if (snapshot.dimension) {
+    return snapshot.dimension === blockSettings.dimensionId;
+  }
+  if (!blockSettings.dimensionId) return true;
+  // If snapshot doesn't have a dimension, check whether the requested dimension is precomputed
+  return snapshot.settings.dimensions.some(
+    ({ id }) => `precomputed:${blockSettings.dimensionId}` === id,
+  );
+}
+
+export function getBlockSnapshotAnalysis<
+  B extends DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+>(snapshot: ExperimentSnapshotInterface, block: B) {
+  const defaultAnalysis = getSnapshotAnalysis(snapshot);
+  if (!defaultAnalysis) return null;
+  const blockAnalysisSettings = getBlockAnalysisSettings(
+    block,
+    defaultAnalysis.settings,
+  );
+  return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
+}
+
 export function dashboardCanAutoUpdate({
-  blocks,
+  blocks: _blocks,
 }: {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
 }) {
-  // Only update dashboards where all the blocks will stay up to date with each other
-  return !blocks.find((block) =>
-    ["sql-explorer", "experiment-dimension"].includes(block.type),
-  );
+  return true;
 }
 
 type CreateBlock<T extends DashboardBlockInterface> = (args: {

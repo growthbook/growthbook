@@ -1057,6 +1057,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  dashboardId,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1070,6 +1071,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
+  dashboardId?: string;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1132,6 +1134,7 @@ export async function createSnapshot({
         }),
     ],
     status: "running",
+    dashboard: dashboardId,
   };
 
   let scheduleNextSnapshot = true;
@@ -1154,6 +1157,14 @@ export async function createSnapshot({
         ...(nextUpdate ? { nextSnapshotAttempt: nextUpdate } : {}),
         autoSnapshots: nextUpdate !== null,
       },
+    });
+  }
+
+  if (type === "dashboard" && dashboardId && dashboardId.length > 0) {
+    await context.models.dashboards.updateById(dashboardId, {
+      nextUpdate:
+        determineNextDate(organization.settings?.updateSchedule || null) ??
+        undefined,
     });
   }
 
