@@ -11,14 +11,19 @@ import {
 } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
 import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
 import { expandMetricGroups } from "../../experiments";
+import { getSnapshotAnalysis } from "../../util";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
+export interface BlockSnapshotSettings {
+  dimensionId?: string;
+}
 
 export function getBlockData<T extends DashboardBlockInterface>(
   block: DashboardBlockInterfaceOrData<T>
@@ -57,13 +62,13 @@ export function blockHasFieldOfType<Field extends string, T>(
 
 export function getBlockSnapshotSettings(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>
-): Partial<ExperimentSnapshotSettings> {
-  const blockSettings: Partial<ExperimentSnapshotSettings> = {};
+): BlockSnapshotSettings {
+  const blockSettings: BlockSnapshotSettings = {};
   if (
     blockHasFieldOfType(block, "dimensionId", isString) &&
     block.dimensionId.length > 0
   ) {
-    blockSettings.dimensions = [{ id: block.dimensionId }];
+    blockSettings.dimensionId = block.dimensionId;
   }
   return blockSettings;
 }
@@ -90,6 +95,30 @@ export function getBlockAnalysisSettings(
     ...defaultAnalysisSettings,
     ...blockSettings,
   };
+}
+
+export function blockSnapshotSettingsMatch<
+  B extends DashboardBlockInterfaceOrData<DashboardBlockInterface>
+>(snapshotSettings: ExperimentSnapshotSettings, block: B) {
+  const blockSettings = getBlockSnapshotSettings(block);
+  // TODO: check this logic w/ Luke/Bryce
+  if (!blockSettings.dimensionId)
+    return snapshotSettings.dimensions.length === 0;
+  snapshotSettings.dimensions.find(
+    ({ id }) => id === blockSettings.dimensionId
+  );
+}
+
+export function getBlockSnapshotAnalysis<
+  B extends DashboardBlockInterfaceOrData<DashboardBlockInterface>
+>(snapshot: ExperimentSnapshotInterface, block: B) {
+  const defaultAnalysis = getSnapshotAnalysis(snapshot);
+  if (!defaultAnalysis) return null;
+  const blockAnalysisSettings = getBlockAnalysisSettings(
+    block,
+    defaultAnalysis.settings
+  );
+  return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
 }
 
 export function dashboardCanAutoUpdate({
