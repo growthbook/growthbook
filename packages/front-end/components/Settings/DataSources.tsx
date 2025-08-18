@@ -3,22 +3,20 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
 import ProjectBadges from "@/components/ProjectBadges";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 const DataSources: FC = () => {
   const router = useRouter();
 
-  const { datasources, project, error, ready } = useDefinitions();
-  const filteredDatasources = project
-    ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
-      )
-    : datasources;
+  const { project, error, ready } = useDefinitions();
+  const { projectDataSources: filteredDatasources } = useProjectDefinitions(
+    project
+  );
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;

@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
 import { MetricInterface } from "back-end/types/metric";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 export type MetricModalState = {
   currentMetric?: MetricInterface;
@@ -62,25 +62,24 @@ export function MetricModal({
 }
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
+  const { project, getDatasourceById } = useDefinitions();
   const {
-    factMetrics,
-    metrics,
-    factTables,
-    project,
-    getDatasourceById,
-  } = useDefinitions();
+    projectFactTables: factTables,
+    projectMetrics: metrics,
+    projectFactMetrics: factMetrics,
+  } = useProjectDefinitions(project);
 
-  const filteredFactMetrics = factMetrics
-    .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
+  const filteredFactMetrics = factMetrics.filter(
+    (f) => !datasource || f.datasource === datasource
+  );
 
-  const filteredMetrics = metrics
-    .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
+  const filteredMetrics = metrics.filter(
+    (f) => !datasource || f.datasource === datasource
+  );
 
-  const filteredFactTables = factTables
-    .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
+  const filteredFactTables = factTables.filter(
+    (f) => !datasource || f.datasource === datasource
+  );
 
   // Determine the most appropriate default type based on what the org has already created
   // - If there are no fact tables yet, always default to legacy

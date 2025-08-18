@@ -1,5 +1,4 @@
 import React from "react";
-import { isProjectListValidForProject } from "shared/util";
 import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
@@ -15,16 +14,11 @@ import {
 } from "@/components/Radix/Tabs";
 import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { useProjectDefinitions } from "@/hooks/useProjectDefinitions";
 
 const MetricsPage = (): React.ReactElement => {
-  const { metrics, factMetrics, datasources, project } = useDefinitions();
-
-  const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project)
-  );
-  const hasMetrics =
-    metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||
-    factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
+  const { project } = useDefinitions();
+  const { hasMetrics, hasDatasource } = useProjectDefinitions(project);
 
   const [showNewModal, setShowNewModal] = React.useState(false);
 
