@@ -14,6 +14,7 @@ export const dashboardInterface = z
     userId: z.string(),
     editLevel: dashboardEditLevel,
     enableAutoUpdates: z.boolean(),
+    nextUpdate: z.date().optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
     dateCreated: z.date(),

@@ -5,6 +5,7 @@ import {
 } from "back-end/src/enterprise/validators/dashboard";
 import { MakeModelClass, UpdateProps } from "back-end/src/models/BaseModel";
 import {
+  getCollection,
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
@@ -19,9 +20,10 @@ type LegacyDashboardDocument = Omit<DashboardDocument, "blocks"> & {
   blocks: LegacyDashboardBlockInterface[];
 };
 
+const COLLECTION_NAME = "dashboards";
 const BaseClass = MakeModelClass({
   schema: dashboardInterface,
-  collectionName: "dashboards",
+  collectionName: COLLECTION_NAME,
   idPrefix: "dash_",
   auditLog: {
     entity: "dashboard",
@@ -46,6 +48,28 @@ export class DashboardModel extends BaseClass {
     experimentId: string,
   ): Promise<DashboardInterface[]> {
     return this._find({ experimentId, isDeleted: false, isDefault: false });
+  }
+
+  public static async getDashboardsToUpdate(): Promise<
+    { id: string; organization: string }[]
+  > {
+    const dashboards = await getCollection(COLLECTION_NAME)
+      .find({
+        enableAutoUpdates: true,
+        isDefault: false,
+        isDeleted: false,
+        $or: [
+          { nextUpdate: { $exists: true, $lte: new Date() } },
+          { nextUpdate: { $exists: false } },
+        ],
+      })
+      .limit(100)
+      .sort({ nextUpdate: 1 })
+      .toArray();
+    return dashboards.map((dash) => ({
+      id: dash.id,
+      organization: dash.organization,
+    }));
   }
 
   protected canCreate(doc: DashboardInterface): boolean {

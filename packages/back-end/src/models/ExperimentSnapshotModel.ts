@@ -1,6 +1,10 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
-import { blockHasFieldOfType, dashboardCanAutoUpdate } from "shared/enterprise";
+import {
+  dashboardCanAutoUpdate,
+  snapshotSatisfiesBlock,
+  blockHasFieldOfType,
+} from "shared/enterprise";
 import { isString } from "shared/util";
 import {
   SnapshotType,
@@ -59,6 +63,7 @@ const experimentSnapshotSchema = new mongoose.Schema({
   type: { type: String },
   triggeredBy: String,
   report: String,
+  dashboard: String,
   dateCreated: Date,
   runStarted: Date,
   manual: Boolean,
@@ -295,21 +300,34 @@ export async function updateSnapshot({
         );
       }
     }
+  }
 
-    const dashboards = await context.models.dashboards.findByExperiment(
-      experimentSnapshotModel.experiment,
+  const shouldUpdateDashboard =
+    experimentSnapshotModel.type === "dashboard" &&
+    experimentSnapshotModel.dashboard &&
+    experimentSnapshotModel.status === "success";
+  if (shouldUpdateDashboard) {
+    const dashboard = await context.models.dashboards.getById(
+      experimentSnapshotModel.dashboard!,
     );
-    for (const dashboard of dashboards) {
-      if (!dashboard.enableAutoUpdates || !dashboardCanAutoUpdate(dashboard))
-        continue;
-      const blocks = dashboard.blocks.map((block) =>
-        blockHasFieldOfType(block, "snapshotId", isString)
-          ? { ...block, snapshotId: experimentSnapshotModel.id }
-          : block,
-      );
+    if (
+      dashboard &&
+      dashboard.enableAutoUpdates &&
+      dashboardCanAutoUpdate(dashboard)
+    ) {
+      const blocks = dashboard.blocks.map((block) => {
+        if (
+          !blockHasFieldOfType(block, "snapshotId", isString) ||
+          !snapshotSatisfiesBlock(experimentSnapshotModel, block)
+        )
+          return block;
+        return { ...block, snapshotId: experimentSnapshotModel.id };
+      });
       await context.models.dashboards.dangerousUpdateBypassPermission(
         dashboard,
-        { blocks },
+        {
+          blocks,
+        },
       );
     }
   }
