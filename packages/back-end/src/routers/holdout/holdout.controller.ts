@@ -9,7 +9,10 @@ import {
   ExperimentPhase,
 } from "back-end/types/experiment";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getContextFromReq,
+  getEnvironmentIdsFromOrg,
+} from "back-end/src/services/organizations";
 import {
   createExperiment,
   deleteExperimentByIdForOrganization,
@@ -35,6 +38,8 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { DataSourceInterface } from "back-end/types/datasource";
+import { getAffectedSDKPayloadKeys } from "back-end/src/util/holdouts";
+import { refreshSDKPayloadCache } from "back-end/src/services/features";
 import { HoldoutInterface } from "./holdout.validators";
 
 /**
@@ -406,10 +411,15 @@ export const editStatus = async (
         status: "stopped",
       },
     });
+
+    await refreshSDKPayloadCache(
+      context,
+      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org))
+    );
   } else if (req.body.status === "running") {
     // check to see if already in analysis period
     if (!phases[0]) {
-      throw new Error("holdout does not have a phase ");
+      throw new Error("Holdout does not have a phase");
     }
     if (
       !phases[1] ||
@@ -447,6 +457,11 @@ export const editStatus = async (
       experiment,
       changes: { phases, status: "running" },
     });
+
+    await refreshSDKPayloadCache(
+      context,
+      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org))
+    );
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
     phases[0].dateEnded = undefined;
@@ -458,6 +473,11 @@ export const editStatus = async (
     await context.models.holdout.update(holdout, {
       analysisStartDate: undefined,
     });
+
+    await refreshSDKPayloadCache(
+      context,
+      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org))
+    );
   }
 
   return res.status(200).json({ status: 200 });

@@ -18,7 +18,6 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
@@ -51,8 +50,6 @@ const HoldoutPage = (): ReactElement => {
     envs: string[];
   }>(`/holdout/${hid}`);
 
-  const { getRunningExperimentResultStatus } = useRunningExperimentStatus();
-
   useSwitchOrg(data?.experiment?.organization ?? null);
 
   const { apiCall } = useAuth();
@@ -70,8 +67,6 @@ const HoldoutPage = (): ReactElement => {
     envs = [],
     linkedExperiments = [],
   } = data;
-
-  const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
   const startAnalysis = async () => {
     await apiCall(`/holdout/${hid}/edit-status`, {
@@ -148,9 +143,8 @@ const HoldoutPage = (): ReactElement => {
         <StopHoldoutForm
           close={() => setStopModalOpen(false)}
           mutate={mutate}
+          holdout={holdout}
           experiment={experiment}
-          runningExperimentStatus={runningExperimentStatus}
-          source="hid"
         />
       )}
       {variationsModalOpen && (

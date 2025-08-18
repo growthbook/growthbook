@@ -387,7 +387,7 @@ export default function TabbedPage({
             <div className="alert alert-warning mt-3">
               <div>
                 {isHoldout
-                  ? "You are viewing the results of the whole holdout period not the analysis period."
+                  ? "You are viewing the results of the entire holdout period."
                   : "You are viewing the results of a previous experiment phase."}{" "}
                 <a
                   role="button"
@@ -397,7 +397,7 @@ export default function TabbedPage({
                   }}
                 >
                   {isHoldout
-                    ? "Switch to the analysis period"
+                    ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
                     : "Switch to the latest phase"}
                 </a>
               </div>

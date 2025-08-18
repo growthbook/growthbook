@@ -819,21 +819,23 @@ export default function ExperimentHeader({
                   Audit log
                 </DropdownMenuItem>
               </DropdownMenuGroup>
-              {isHoldout && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        stop?.();
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Stop Holdout
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </>
-              )}
+              {isHoldout &&
+                experiment.status !== "stopped" &&
+                experiment.phases.length < 2 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          stop?.();
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Stop Holdout
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </>
+                )}
               {!isHoldout && (
                 <>
                   <DropdownMenuSeparator />
