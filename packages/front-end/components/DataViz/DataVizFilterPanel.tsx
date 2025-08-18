@@ -183,6 +183,16 @@ export default function DataVizFilterPanel({
                   }
                 });
 
+                //MKTODO: Add validation for specific filterTypes
+                //E.G. If the filterType is "dateRange" it needs a min/max date
+                //E.G. If the filterType is "numberRange" it needs a min/max number
+                //E.G. If the filterType is "includes" it needs a list of values
+                //E.G. If the filterType is "contains" it needs a string
+                //E.G. If the filterType is "equals" it needs a number
+                //E.G. If the filterType is "greaterThan" it needs a number
+                //E.G. If the filterType is "lessThan" it needs a number
+                //E.G. If the filterType is "today" it needs a date
+
                 const newDataVizConfig = {
                   ...dataVizConfig,
                   filter: filters,
