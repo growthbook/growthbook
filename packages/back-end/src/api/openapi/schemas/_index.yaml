@@ -74,3 +74,5 @@ Query:
   $ref: "./Query.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
+MetricGroup:
+  $ref: './MetricGroup.yaml'

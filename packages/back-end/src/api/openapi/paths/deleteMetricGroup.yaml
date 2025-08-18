@@ -1,0 +1,24 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+tags:
+  - metric-groups
+summary: Deletes a single metric group
+operationId: deleteMetricGroup
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl -X DELETE https://api.growthbook.io/api/v1/metric-groups/ds_123abc \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - metricGroup
+          properties:
+            deletedId:
+              type: string
+              description: The ID of the deleted metric group
+              example: ds_123abc

@@ -1,0 +1,28 @@
+parameters:
+  - in: path
+    name: id
+    schema:
+      type: string
+    required: true
+    description: Metric group id
+tags:
+  - metric-groups
+summary: Update a single metric group
+operationId: updateMetricGroup
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/UpdateMetricGroupPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - metricGroup
+          properties:
+            metricGroup:
+              $ref: "../schemas/MetricGroup.yaml"
