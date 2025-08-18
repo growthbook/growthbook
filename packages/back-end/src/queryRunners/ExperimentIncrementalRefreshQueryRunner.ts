@@ -87,7 +87,8 @@ export const startExperimentIncrementalRefreshQueries = async (
   // TODO validate that incremental refresh is enabled
 
   const canRunIncrementalRefreshQueries =
-    hasIncrementalRefreshFeature && settings.incrementalRefresh?.enabled;
+    hasIncrementalRefreshFeature &&
+    settings.pipelineSettings?.mode === "incremental";
 
   const queries: Queries = [];
 
@@ -132,6 +133,9 @@ export const startExperimentIncrementalRefreshQueries = async (
         settings: snapshotSettings,
         activationMetric: activationMetric,
         dimensions: [], // TODO experiment dimensions
+        partitionSettings: {
+          type: "timestamp",
+        },
       }),
       dependencies: [dropOldUnitsTableQuery.query],
       run: (query, setExternalId) =>

@@ -1,15 +1,33 @@
 import { FC } from "react";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourcePipelineSettings,
+} from "back-end/types/datasource";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { dataSourcePathNames } from "./DataSourcePipeline";
 
 type EditDataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
+
+type FormValues = Required<
+  Pick<
+    DataSourcePipelineSettings,
+    | "mode"
+    | "allowWriting"
+    | "writeDatabase"
+    | "writeDataset"
+    | "unitsTableRetentionHours"
+    | "unitsTableDeletion"
+  >
+> & {
+  partitionSettings?: DataSourcePipelineSettings["partitionSettings"];
+};
 
 export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   dataSource,
@@ -25,8 +43,9 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   }
   const pathNames = dataSourcePathNames(dataSource.type);
 
-  const form = useForm({
+  const form = useForm<FormValues>({
     defaultValues: {
+      mode: dataSource.settings.pipelineSettings?.mode ?? "temporary",
       allowWriting: dataSource.settings.pipelineSettings?.allowWriting ?? false,
       writeDatabase: dataSource.settings.pipelineSettings?.writeDatabase ?? "",
       writeDataset: dataSource.settings.pipelineSettings?.writeDataset ?? "",
@@ -34,13 +53,21 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         dataSource.settings.pipelineSettings?.unitsTableRetentionHours ?? 24,
       unitsTableDeletion:
         dataSource.settings.pipelineSettings?.unitsTableDeletion ?? true,
+      partitionSettings:
+        dataSource.settings.pipelineSettings?.partitionSettings,
     },
   });
 
   const handleSubmit = form.handleSubmit(async (value) => {
     const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-    copy.settings.pipelineSettings = value;
+    // Only include partitionSettings if defined; otherwise remove it
+    const { partitionSettings, ...rest } = value;
+    copy.settings.pipelineSettings = {
+      ...rest,
+      ...(partitionSettings ? { partitionSettings } : {}),
+    };
     await onSave(copy);
+    onCancel();
   });
 
   return (
@@ -66,6 +93,23 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
       </div>
       {form.watch("allowWriting") ? (
         <div className="form-inline flex-column align-items-start mb-4 mt-4">
+          <SelectField
+            label="Pipeline Mode"
+            className="ml-2"
+            containerClassName="mb-3"
+            required
+            value={form.watch("mode")}
+            onChange={(v) =>
+              form.setValue("mode", v as "temporary" | "incremental")
+            }
+            options={[
+              {
+                label: "Incremental (persist units table)",
+                value: "incremental",
+              },
+              { label: "Temporary (per-analysis)", value: "temporary" },
+            ]}
+          />
           <label>
             {`Destination ${pathNames.databaseName} (optional)`}{" "}
             <Tooltip
@@ -105,7 +149,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
                 </div>
               ) : null}
             </>
-          ) : (
+          ) : form.watch("mode") === "temporary" ? (
             <>
               <Field
                 label="Retention of temporary units table (hours)"
@@ -121,7 +165,65 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
                 </div>
               ) : null}
             </>
-          )}
+          ) : null}
+
+          {
+            <>
+              <hr className="w-100" />
+              <SelectField
+                label="Partition Type (optional)"
+                className="ml-2"
+                containerClassName="mb-2"
+                value={form.watch("partitionSettings")?.type || ""}
+                onChange={(v) => {
+                  if (!v) {
+                    // Clear partition settings
+                    form.setValue("partitionSettings", undefined);
+                    return;
+                  }
+                  if (v === "timestamp") {
+                    form.setValue("partitionSettings", { type: "timestamp" });
+                  } else if (v === "yearMonthDate") {
+                    const current = form.getValues("partitionSettings");
+                    form.setValue("partitionSettings", {
+                      type: "yearMonthDate",
+                      yearColumn: current?.yearColumn || "",
+                      monthColumn: current?.monthColumn || "",
+                      dateColumn: current?.dateColumn || "",
+                    });
+                  }
+                }}
+                initialOption="None"
+                isClearable
+                options={[
+                  { label: "Timestamp", value: "timestamp" },
+                  { label: "Year/Month/Date", value: "yearMonthDate" },
+                ]}
+              />
+              {form.watch("partitionSettings")?.type === "yearMonthDate" ? (
+                <div className="ml-2 w-100">
+                  <Field
+                    label="Year column"
+                    type="text"
+                    required
+                    {...form.register("partitionSettings.yearColumn")}
+                  />
+                  <Field
+                    label="Month column"
+                    type="text"
+                    required
+                    {...form.register("partitionSettings.monthColumn")}
+                  />
+                  <Field
+                    label="Date column"
+                    type="text"
+                    required
+                    {...form.register("partitionSettings.dateColumn")}
+                  />
+                </div>
+              ) : null}
+            </>
+          }
         </div>
       ) : null}
     </Modal>

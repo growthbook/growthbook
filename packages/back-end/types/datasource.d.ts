@@ -184,11 +184,18 @@ export type DataSourceEvents = {
 };
 
 export type DataSourcePipelineSettings = {
+  mode: "temporary" | "incremental";
   allowWriting?: boolean;
   writeDatabase?: string; // the top level directory
   writeDataset?: string; // the mid level name (aka schema)
   unitsTableRetentionHours?: number;
   unitsTableDeletion?: boolean;
+  partitionSettings?: {
+    type: "timestamp" | "yearMonthDate";
+    yearColumn?: string;
+    monthColumn?: string;
+    dateColumn?: string;
+  };
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";

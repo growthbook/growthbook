@@ -32,7 +32,6 @@ import Callout from "@/components/Radix/Callout";
 import Frame from "@/components/Radix/Frame";
 import ClickhouseMaterializedColumns from "@/components/Settings/EditDataSource/ClickhouseMaterializedColumns";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
-import IncrementalRefresh from "@/components/Settings/EditDataSource/IncrementalRefresh";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -413,16 +412,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               </Frame>
             ) : null}
 
-            {d.properties?.supportsWritingTables && pipelineEnabled ? (
-              <Frame>
-                <IncrementalRefresh
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canUpdateDataSourceSettings}
-                />
-              </Frame>
-            ) : null}
+            {/* Incremental Refresh UI merged into Data Pipeline settings */}
           </>
         )}
       </Box>

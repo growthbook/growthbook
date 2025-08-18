@@ -1134,7 +1134,7 @@ export async function createSnapshot({
 
   const integration = getSourceIntegrationObject(context, datasource, true);
 
-  if (datasource.settings.incrementalRefresh?.enabled) {
+  if (datasource.settings.pipelineSettings?.mode === "incremental") {
     const queryRunner = new ExperimentIncrementalRefreshQueryRunner(
       context,
       snapshot,
