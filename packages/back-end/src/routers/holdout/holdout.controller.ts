@@ -34,6 +34,7 @@ import { validateExperimentData } from "back-end/src/services/experiments";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
 import { PrivateApiErrorResponse } from "back-end/types/api";
+import { DataSourceInterface } from "back-end/types/datasource";
 import { HoldoutInterface } from "./holdout.validators";
 
 /**
@@ -128,11 +129,20 @@ export const createHoldout = async (
     context.permissions.throwPermissionError();
   }
 
-  const result = await validateExperimentData(context, data, res);
-  // If datasource or metrics are invalid, return
-  if (!result) {
+  let result:
+    | { metricIds: string[]; datasource: DataSourceInterface | null }
+    | undefined;
+
+  try {
+    result = await validateExperimentData(context, data);
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
     return;
   }
+
   const { metricIds, datasource } = result;
   const variations = [
     {

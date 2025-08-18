@@ -255,11 +255,6 @@ export const scrubHoldouts = ({
   holdouts: Record<string, FeatureDefinition>;
   features: Record<string, FeatureDefinition>;
 } => {
-  // No scrubbing needed if there are no holdouts
-  if (Object.keys(holdouts).length === 0) {
-    return { holdouts, features };
-  }
-
   // Filter list of holdouts to the selected projects
   if (projects && projects.length > 0) {
     holdouts = Object.fromEntries(
@@ -274,28 +269,33 @@ export const scrubHoldouts = ({
     );
   }
 
+  const holdoutIds = new Set(Object.keys(holdouts));
+
   // Filter out holdout pre-requisite rules that do not have associated holdout feature definitions
   // Also scrub holdoutId from all rules that have it
   for (const k in features) {
     if (features[k]?.rules) {
-      features[k].rules = features[k].rules
-        ?.filter((rule) => {
-          if (!rule.holdoutId) {
-            return true;
-          }
-          if (!holdouts[rule.holdoutId]) {
+      features[k].rules = features[k].rules?.filter((rule) => {
+        // If the rule id does not have the prefix "holdout_", it's not a holdout rule. Do not filter it out
+        if (rule.id && !rule.id.startsWith("holdout_")) {
+          return true;
+        }
+
+        // If the rule id has the prefix "holdout_", it's a holdout rule. Filter it out if it does not have an associated holdout feature definition
+        if (rule.id && rule.id.startsWith("holdout_")) {
+          // A holdout rule must have a parent condition because it's a prerequisite rule
+          if (!rule.parentConditions || rule.parentConditions.length === 0) {
             return false;
           }
 
-          return true;
-        })
-        .map((rule) => {
-          if (!rule.holdoutId) {
-            return rule;
+          const holdoutId = rule.parentConditions[0].id;
+          if (!holdoutIds.has(holdoutId)) {
+            return false;
           }
-          // Remove holdoutId from all remainingrules that have it
-          return omit(rule, ["holdoutId"]);
-        });
+        }
+
+        return true;
+      });
     }
   }
 
