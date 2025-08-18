@@ -34,7 +34,7 @@ export class IncrementalRefreshModel extends BaseClass {
     data: Pick<
       IncrementalRefreshInterface,
       "unitsTableFullName" | "lastScannedTimestamp"
-    >
+    >,
   ) {
     const existing = await this._findOne({ experimentId });
     if (existing) {
@@ -51,7 +51,7 @@ export class IncrementalRefreshModel extends BaseClass {
   protected canUpdate(
     _existing: IncrementalRefreshInterface,
     _updates: UpdateProps<IncrementalRefreshInterface>,
-    _newDoc: IncrementalRefreshInterface
+    _newDoc: IncrementalRefreshInterface,
   ) {
     return true;
   }

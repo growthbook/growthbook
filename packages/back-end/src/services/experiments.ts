@@ -1139,7 +1139,7 @@ export async function createSnapshot({
       context,
       snapshot,
       integration,
-      false // always ignore cache for incremental refresh queries
+      false, // always ignore cache for incremental refresh queries
     );
     await queryRunner.startAnalysis({
       snapshotSettings: data.settings,

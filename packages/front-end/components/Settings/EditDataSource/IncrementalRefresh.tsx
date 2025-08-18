@@ -13,7 +13,7 @@ export default function IncrementalRefresh({
   canEdit,
 }: IncrementalRefreshProps) {
   const [isEnabled, setIsEnabled] = useState(
-    dataSource.settings.incrementalRefresh?.enabled ?? false
+    dataSource.settings.incrementalRefresh?.enabled ?? false,
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -28,7 +28,7 @@ export default function IncrementalRefresh({
       };
       await onSave(updatedDataSource);
     },
-    [dataSource, onSave]
+    [dataSource, onSave],
   );
 
   return (

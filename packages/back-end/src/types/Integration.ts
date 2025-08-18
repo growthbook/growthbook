@@ -492,7 +492,8 @@ export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
 export type IncrementalWithNoOutputQueryResponse = QueryResponse;
-export type MaxTimestampIncrementalUnitsQueryResponse = QueryResponse<MaxTimestampIncrementalUnitsQueryResponseRow>;
+export type MaxTimestampIncrementalUnitsQueryResponse =
+  QueryResponse<MaxTimestampIncrementalUnitsQueryResponseRow>;
 
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
@@ -664,26 +665,26 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getCreateExperimentIncrementalUnitsQuery(
-    params: CreateExperimentIncrementalUnitsQueryParams
+    params: CreateExperimentIncrementalUnitsQueryParams,
   ): string;
   getUpdateExperimentIncrementalUnitsQuery(
-    params: UpdateExperimentIncrementalUnitsQueryParams
+    params: UpdateExperimentIncrementalUnitsQueryParams,
   ): string;
   getDropOldIncrementalUnitsQuery(
-    params: DropOldIncrementalUnitsQueryParams
+    params: DropOldIncrementalUnitsQueryParams,
   ): string;
   getDropTempIncrementalUnitsQuery(
-    params: DropTempIncrementalUnitsQueryParams
+    params: DropTempIncrementalUnitsQueryParams,
   ): string;
   getAlterNewIncrementalUnitsQuery(
-    params: AlterNewIncrementalUnitsQueryParams
+    params: AlterNewIncrementalUnitsQueryParams,
   ): string;
   getMaxTimestampIncrementalUnitsQuery(
-    params: MaxTimestampIncrementalUnitsQueryParams
+    params: MaxTimestampIncrementalUnitsQueryParams,
   ): string;
   runIncrementalWithNoOutputQuery(
     query: string,
-    setExternalId: ExternalIdCallback
+    setExternalId: ExternalIdCallback,
   ): Promise<IncrementalWithNoOutputQueryResponse>;
   getPastExperimentQuery(params: PastExperimentParams): string;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;

@@ -38,7 +38,7 @@ export default class Presto extends SqlIntegration {
       SELECT * FROM __experimentUnits
     )
     `,
-      this.getFormatDialect()
+      this.getFormatDialect(),
     );
   }
   getSensitiveParamKeys(): string[] {

@@ -44,8 +44,8 @@ export const startExperimentIncrementalRefreshQueries = async (
   params: ExperimentIncrementalRefreshQueryParams,
   integration: SourceIntegrationInterface,
   startQuery: (
-    params: StartQueryParams<RowsType, ProcessedRowsType>
-  ) => Promise<QueryPointer>
+    params: StartQueryParams<RowsType, ProcessedRowsType>,
+  ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
@@ -54,11 +54,11 @@ export const startExperimentIncrementalRefreshQueries = async (
   const { org } = context;
   const hasIncrementalRefreshFeature = orgHasPremiumFeature(
     org,
-    "incremental-refresh"
+    "incremental-refresh",
   );
 
   const activationMetric = snapshotSettings.activationMetric
-    ? metricMap.get(snapshotSettings.activationMetric) ?? null
+    ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
     : null;
 
   // let segmentObj: SegmentInterface | null = null;
@@ -74,7 +74,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   const allMetricGroups = await context.models.metricGroups.getAll();
   const selectedMetrics = expandMetricGroups(
     getAllMetricIdsFromExperiment(snapshotSettings, false),
-    allMetricGroups
+    allMetricGroups,
   )
     .map((m) => metricMap.get(m))
     .filter((m) => m) as ExperimentMetricInterface[];
@@ -101,11 +101,11 @@ export const startExperimentIncrementalRefreshQueries = async (
       `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}`,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
-      true
+      true,
     );
   if (!unitsTableFullName) {
     throw new Error(
-      "Unable to generate table; table path generator not specified."
+      "Unable to generate table; table path generator not specified.",
     );
   }
 
@@ -142,13 +142,14 @@ export const startExperimentIncrementalRefreshQueries = async (
     queries.push(createUnitsTableQuery);
   }
 
-  const incrementalRefreshModel = await context.models.incrementalRefresh.getByExperimentId(
-    snapshotSettings.experimentId
-  );
+  const incrementalRefreshModel =
+    await context.models.incrementalRefresh.getByExperimentId(
+      snapshotSettings.experimentId,
+    );
   const lastMaxTimestamp = params.recreateUnitsTable
     ? snapshotSettings.startDate
-    : incrementalRefreshModel?.lastScannedTimestamp ??
-      snapshotSettings.startDate;
+    : (incrementalRefreshModel?.lastScannedTimestamp ??
+      snapshotSettings.startDate);
 
   const dropTempUnitsTableQuery = await startQuery({
     name: `drop_temp_${queryParentId}`,
@@ -254,19 +255,19 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
   async startQueries(
-    params: ExperimentIncrementalRefreshQueryParams
+    params: ExperimentIncrementalRefreshQueryParams,
   ): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
 
     if (!this.integration.getSourceProperties().hasIncrementalRefresh) {
       throw new Error(
-        "Integration does not support incremental refresh queries"
+        "Integration does not support incremental refresh queries",
       );
     }
 
@@ -274,7 +275,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.context,
       params,
       this.integration,
-      this.startQuery.bind(this)
+      this.startQuery.bind(this),
     );
   }
 
@@ -396,8 +397,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         status === "running"
           ? "running"
           : status === "failed"
-          ? "error"
-          : "success",
+            ? "error"
+            : "success",
     };
     await updateSnapshot({
       organization: this.model.organization,
