@@ -14,9 +14,11 @@ properties:
     type: string
   datasourceId:
     type: string
-  identifierType:
+  userIdType:
     type: string
   name:
+    type: string
+  description:
     type: string
   query:
     type: string
@@ -24,6 +26,13 @@ properties:
     type: string
   dateUpdated:
     type: string
+  managedBy:
+    type: string
+    description: Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.
+    enum:
+      - ""
+      - api
+      - config
   type:
     enum:
       - SQL

@@ -18,7 +18,7 @@ export const apiEnvironmentValidator = z.object({ "id": z.string(), "description
 
 export const apiAttributeValidator = z.object({ "property": z.string(), "datatype": z.enum(["boolean","string","number","secureString","enum","string[]","number[]","secureString[]"]), "description": z.string().optional(), "hashAttribute": z.boolean().optional(), "archived": z.boolean().optional(), "enum": z.string().optional(), "format": z.enum(["","version","date","isoCountryCode"]).optional(), "projects": z.array(z.string()).optional() }).strict()
 
-export const apiSegmentValidator = z.object({ "id": z.string(), "owner": z.string(), "datasourceId": z.string(), "identifierType": z.string(), "name": z.string(), "query": z.string().optional(), "dateCreated": z.string(), "dateUpdated": z.string(), "type": z.enum(["SQL","FACT"]).optional(), "factTableId": z.string().optional(), "filters": z.array(z.string()).optional() }).strict()
+export const apiSegmentValidator = z.object({ "id": z.string(), "owner": z.string(), "datasourceId": z.string(), "userIdType": z.string().optional(), "name": z.string(), "description": z.string().optional(), "query": z.string().optional(), "dateCreated": z.string(), "dateUpdated": z.string(), "managedBy": z.enum(["","api","config"]).describe("Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.").optional(), "type": z.enum(["SQL","FACT"]).optional(), "factTableId": z.string().optional(), "filters": z.array(z.string()).optional() }).strict()
 
 export const apiScheduleRuleValidator = z.object({ "enabled": z.boolean().describe("Whether the rule should be enabled or disabled at the specified timestamp."), "timestamp": z.string().nullable().describe("ISO timestamp when the rule should activate.") }).describe("An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule.").strict()
 
@@ -202,7 +202,25 @@ export const listSegmentsValidator = {
   paramsSchema: z.never(),
 };
 
+export const postSegmentValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Name of the segment"), "description": z.string().describe("Description of the segment").optional(), "datasource": z.string().describe("ID of the datasource this segment belongs to"), "userIdType": z.string().describe("Type of identifier (user, anonymous, etc.)"), "projects": z.array(z.string()).describe("List of project IDs for projects that can access this segment").optional(), "managedBy": z.enum(["","api"]).describe("Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere."), "type": z.enum(["SQL","FACT"]).describe("GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters."), "sql": z.string().describe("SQL query that defines the Segment. This is required for SQL segments.").optional(), "factTableId": z.string().describe("ID of the fact table this segment belongs to. This is required for FACT segments.").optional(), "filters": z.array(z.string()).describe("Optional array of fact table filter ids that can further define the Fact Table based Segment.").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getSegmentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const updateSegmentValidator = {
+  bodySchema: z.object({ "name": z.string().describe("Name of the segment").optional(), "description": z.string().describe("Description of the segment").optional(), "datasource": z.string().describe("ID of the datasource this segment belongs to").optional(), "userIdType": z.string().describe("Type of identifier (user, anonymous, etc.)").optional(), "projects": z.array(z.string()).describe("List of project IDs for projects that can access this segment").optional(), "managedBy": z.enum(["","api"]).describe("Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere.").optional(), "type": z.enum(["SQL","FACT"]).describe("GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters.").optional(), "sql": z.string().describe("SQL query that defines the Segment. This is required for SQL segments.").optional(), "factTableId": z.string().describe("ID of the fact table this segment belongs to. This is required for FACT segments.").optional(), "filters": z.array(z.string()).describe("Optional array of fact table filter ids that can further define the Fact Table based Segment.").optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const deleteSegmentValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
