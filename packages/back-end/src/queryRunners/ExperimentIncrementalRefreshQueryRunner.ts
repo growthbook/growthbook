@@ -142,10 +142,27 @@ export const startExperimentIncrementalRefreshQueries = async (
     queries.push(createUnitsTableQuery);
   }
 
-  // TODO get from model
+  const incrementalRefreshModel = await context.models.incrementalRefresh.getByExperimentId(
+    snapshotSettings.experimentId
+  );
   const lastMaxTimestamp = params.recreateUnitsTable
     ? snapshotSettings.startDate
-    : new Date();
+    : incrementalRefreshModel?.lastScannedTimestamp ??
+      snapshotSettings.startDate;
+
+  const dropTempUnitsTableQuery = await startQuery({
+    name: `drop_temp_${queryParentId}`,
+    query: integration.getDropTempIncrementalUnitsQuery({
+      unitsTableFullName: unitsTableFullName,
+    }),
+    dependencies: [],
+    run: (query, setExternalId) =>
+      integration.runDropTableQuery(query, setExternalId),
+    process: (rows) => rows,
+    queryType: "experimentIncrementalRefreshDropTempUnitsTable",
+  });
+  queries.push(dropTempUnitsTableQuery);
+
   const updateUnitsTableQuery = await startQuery({
     name: `update_${queryParentId}`,
     query: integration.getUpdateExperimentIncrementalUnitsQuery({
@@ -155,7 +172,10 @@ export const startExperimentIncrementalRefreshQueries = async (
       dimensions: [], // TODO experiment dimensions
       lastMaxTimestamp: lastMaxTimestamp,
     }),
-    dependencies: createUnitsTableQuery ? [createUnitsTableQuery.query] : [],
+    dependencies: [
+      dropTempUnitsTableQuery.query,
+      ...(createUnitsTableQuery ? [createUnitsTableQuery.query] : []),
+    ],
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
     process: (rows) => rows,

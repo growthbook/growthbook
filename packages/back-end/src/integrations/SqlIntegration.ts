@@ -93,6 +93,7 @@ import {
   AlterNewIncrementalUnitsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   DimensionColumnData,
+  DropTempIncrementalUnitsQueryParams,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -366,7 +367,7 @@ export default abstract class SqlIntegration
 
   private getExposureQuery(
     exposureQueryId: string,
-    userIdType?: "anonymous" | "user",
+    userIdType?: "anonymous" | "user"
   ): ExposureQuery {
     if (!exposureQueryId) {
       exposureQueryId = userIdType === "user" ? "user_id" : "anonymous_id";
@@ -1911,7 +1912,7 @@ export default abstract class SqlIntegration
 
     const exposureQuery = this.getExposureQuery(
       settings.exposureQueryId || "",
-      undefined,
+      undefined
     );
 
     // For testing of the start from scratch example
@@ -2043,9 +2044,7 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(d)} AS dim_unit_${
-              d.dimension.id
-            }`
+          , ${this.getDimensionColumn(d)} AS dim_unit_${d.dimension.id}`
           )
           .join("\n")}
         ${experimentDimensions
@@ -5521,14 +5520,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
   }
 
-
   // Incremental Refresh Queries
 
   // Data Types used for table creation
 
   // TODO: customize per engine, or break it into `getStringDataType` methods to override just one
   // although I think the full mapping is file
-getDataType(dataType: DataType): string {
+  getDataType(dataType: DataType): string {
     switch (dataType) {
       case "string":
         return "VARCHAR";
@@ -5566,7 +5564,7 @@ getDataType(dataType: DataType): string {
   // If restarting/no old table + CUPED: getCreateExperimentIncrementalMetricsCupedQuery
   // Else: nothing
   // Then: getUpdateExperimentIncrementalMetricsCupedQuery
-  
+
   // Finally, one per fact table for now:
   // getExperimentIncrementalStatisticsQuery
 
@@ -5581,14 +5579,11 @@ getDataType(dataType: DataType): string {
     experimentDimensions: ExperimentDimension[];
     unitDimensions: Dimension[];
   } {
-    const {
-      settings,
-      activationMetric: activationMetricDoc,
-    } = params;
+    const { settings, activationMetric: activationMetricDoc } = params;
 
     const exposureQuery = this.getExposureQuery(
       settings.exposureQueryId || "",
-      undefined,
+      undefined
     );
 
     const activationMetric = this.processActivationMetric(
@@ -5613,9 +5608,12 @@ getDataType(dataType: DataType): string {
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams
   ): string {
+    const {
+      exposureQuery,
+      activationMetric,
+      experimentDimensions,
+    } = this.parseExperimentParams(params);
 
-    const { exposureQuery, activationMetric, experimentDimensions } = this.parseExperimentParams(params);
-    
     // TODO : partition on `max_timestamp` for faster retrieval of the maximum timestamp for last scanned
     return format(
       `
@@ -5623,10 +5621,16 @@ getDataType(dataType: DataType): string {
     ${this.createUnitsTableOptions()}
     (
       ${exposureQuery.userIdType} ${this.getDataType("string")}
-      , variation ${this.getDataType("string")},
+      , variation ${this.getDataType("string")}
       , first_exposure_timestamp ${this.getDataType("timestamp")}
-      ${activationMetric ? `, first_activation_timestamp ${this.getDataType("timestamp")}` : ""}
-      ${experimentDimensions.map((d) => `, dim_exp_${d.id} ${this.getDataType("string")}`).join("\n")}
+      ${
+        activationMetric
+          ? `, first_activation_timestamp ${this.getDataType("timestamp")}`
+          : ""
+      }
+      ${experimentDimensions
+        .map((d) => `, dim_exp_${d.id} ${this.getDataType("string")}`)
+        .join("\n")}
       , max_timestamp ${this.getDataType("timestamp")}
     )
     `,
@@ -5637,9 +5641,12 @@ getDataType(dataType: DataType): string {
   getUpdateExperimentIncrementalUnitsQuery(
     params: UpdateExperimentIncrementalUnitsQueryParams
   ): string {
-
     const { settings } = params;
-    const { exposureQuery, activationMetric, experimentDimensions } = this.parseExperimentParams(params);
+    const {
+      exposureQuery,
+      activationMetric,
+      experimentDimensions,
+    } = this.parseExperimentParams(params);
 
     // TODO: id joins
     // TODO: sql filter and segments
@@ -5653,11 +5660,15 @@ getDataType(dataType: DataType): string {
             ${exposureQuery.userIdType}
             , variation
             , first_exposure_timestamp AS timestamp
-            ${activationMetric ? `, first_activation_timestamp AS activation_timestamp` : ""}
+            ${
+              activationMetric
+                ? `, first_activation_timestamp AS activation_timestamp`
+                : ""
+            }
             ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
           FROM ${params.unitsTableFullName}
           -- Redundant where statement could be used for safety to prevent counting units twice
-          -- WHERE max_timestamp < ${this.toTimestamp(params.lastMaxTimestamp)}
+          -- WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}
         ),
         __newExposures AS (
           ${compileSqlTemplate(exposureQuery.query, {
@@ -5669,15 +5680,19 @@ getDataType(dataType: DataType): string {
         ),
         __filteredNewExposures AS (
           SELECT 
-            ${exposureQuery.userIdType}
+            ${this.castToString(exposureQuery.userIdType)} AS ${
+        exposureQuery.userIdType
+      }
             , variation_id AS variation
             , ${this.castUserDateCol("timestamp")} AS timestamp
             -- TODO activation metric timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
-            ${experimentDimensions.map((d) => `, ${d.id} AS dim_exp_${d.id}`).join(",\n")}
+            ${experimentDimensions
+              .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
+              .join(",\n")}
           FROM __newExposures
           -- TODO pass this up to __newExposures directly
-          WHERE timestamp >= ${this.toTimestamp(params.lastMaxTimestamp)}
+          WHERE timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
         ),
         __jointExposures AS (
           SELECT * FROM __existingUnits
@@ -5693,7 +5708,11 @@ getDataType(dataType: DataType): string {
               "MAX(e.variation)"
             )} AS variation
             , MIN(e.timestamp) AS first_exposure_timestamp
-            ${activationMetric ? `, MIN(e.activation_timestamp) AS first_activation_timestamp` : ""}
+            ${
+              activationMetric
+                ? `, MIN(e.activation_timestamp) AS first_activation_timestamp`
+                : ""
+            }
             ${experimentDimensions
               .map(
                 (d) => `
@@ -5710,40 +5729,66 @@ getDataType(dataType: DataType): string {
           , first_exposure_timestamp
           ${activationMetric ? `, first_activation_timestamp` : ""}
           ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
-          , MAX(timestamp) OVER () AS max_timestamp
+          , MAX(first_exposure_timestamp) OVER () AS max_timestamp
         FROM __experimentUnits
       )
-      `, this.getFormatDialect()
+      `,
+      this.getFormatDialect()
     );
   }
 
-  getDropOldIncrementalUnitsQuery(params: DropOldIncrementalUnitsQueryParams): string {
+  getDropOldIncrementalUnitsQuery(
+    params: DropOldIncrementalUnitsQueryParams
+  ): string {
     if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
       throw new Error(
-        "Unable to drop table that is not temporary units table."
+        "Unable to drop table that is not an incremental refresh units table."
       );
     }
     return format(
       `
       DROP TABLE IF EXISTS ${params.unitsTableFullName}
-      `, this.getFormatDialect()
+      `,
+      this.getFormatDialect()
     );
   }
 
-  getAlterNewIncrementalUnitsQuery(params: AlterNewIncrementalUnitsQueryParams): string {
+  getDropTempIncrementalUnitsQuery(
+    params: DropTempIncrementalUnitsQueryParams
+  ): string {
+    if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
+      throw new Error(
+        "Unable to drop table that is not an incremental refresh units table."
+      );
+    }
+    return format(
+      `
+      DROP TABLE IF EXISTS ${params.unitsTableFullName}_tmp
+      `,
+      this.getFormatDialect()
+    );
+  }
+
+  getAlterNewIncrementalUnitsQuery(
+    params: AlterNewIncrementalUnitsQueryParams
+  ): string {
     return format(
       `
       ALTER TABLE ${params.unitsTableFullName}_tmp RENAME TO ${params.unitsTableFullName}
-      `, this.getFormatDialect()
+      `,
+      this.getFormatDialect()
     );
   }
 
-  getMaxTimestampIncrementalUnitsQuery(params: MaxTimestampIncrementalUnitsQueryParams): string {
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams
+  ): string {
     // TODO: partitioning for quick max timestamp retrieval
     return format(
       `
-      SELECT MAX(max_timestamp) FROM ${params.unitsTableFullName}
-      `, this.getFormatDialect()
+      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
+      `,
+      this.getFormatDialect()
     );
   }
 

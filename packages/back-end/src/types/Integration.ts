@@ -192,11 +192,16 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
   unitsTableFullName: string;
 }
 
-export interface UpdateExperimentIncrementalUnitsQueryParams extends CreateExperimentIncrementalUnitsQueryParams {
+export interface UpdateExperimentIncrementalUnitsQueryParams
+  extends CreateExperimentIncrementalUnitsQueryParams {
   lastMaxTimestamp: Date;
 }
 
 export interface DropOldIncrementalUnitsQueryParams {
+  unitsTableFullName: string;
+}
+
+export interface DropTempIncrementalUnitsQueryParams {
   unitsTableFullName: string;
 }
 
@@ -453,7 +458,6 @@ export type MaxTimestampIncrementalUnitsQueryResponseRow = {
   max_timestamp: string;
 };
 
-
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
@@ -649,6 +653,9 @@ export interface SourceIntegrationInterface {
   ): string;
   getDropOldIncrementalUnitsQuery(
     params: DropOldIncrementalUnitsQueryParams
+  ): string;
+  getDropTempIncrementalUnitsQuery(
+    params: DropTempIncrementalUnitsQueryParams
   ): string;
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams

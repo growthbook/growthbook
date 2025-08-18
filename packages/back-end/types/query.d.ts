@@ -35,6 +35,7 @@ export type QueryType =
   | "populationMetric"
   | "populationMultiMetric"
   | "experimentIncrementalRefreshDropUnitsTable"
+  | "experimentIncrementalRefreshDropTempUnitsTable"
   | "experimentIncrementalRefreshCreateUnitsTable"
   | "experimentIncrementalRefreshUpdateUnitsTable"
   | "experimentIncrementalRefreshAlterUnitsTable"
