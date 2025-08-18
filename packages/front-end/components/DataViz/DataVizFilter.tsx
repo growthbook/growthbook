@@ -49,12 +49,6 @@ const filterOptions = [
   { value: "contains", label: "Text Search", supportedTypes: ["string"] },
 ];
 
-//MKTODO: I'm stuck - I need to build out the `dirty` state
-//And when this happens, I can create a filters array and I can also create the "Apply Filter(s)" button
-//The onclick for that button is where I can do our validation
-//After that, locally I can work just with the filters array
-//If the user clicks the `Apply Filter(s)` button, that's when I can call onDataVizConfigChange with the updated filters array
-
 export default function DataVizFilter({
   filterIndex,
   filters,
@@ -63,6 +57,7 @@ export default function DataVizFilter({
   rows,
   columnFilterOptions,
 }: Props) {
+  console.log("columnFilterOptions", columnFilterOptions);
   return (
     <Flex direction="column" gap="4">
       <Select
@@ -90,11 +85,23 @@ export default function DataVizFilter({
         setValue={(v) => {
           console.log("v", v);
           setDirty(true);
-          // MKTODO: If the type changes, then we need to reset the type and options defaults
-          // Should I do that with a useEffect or handle it here?
-          if (!v) return;
+          const { knownType } = columnFilterOptions.find(
+            (option) => option.column === v
+          ) || { knownType: "string" };
           const newFilters = [...filters];
+          // When the column changes, we reset the type and filterType fields to their defaults
+          // This means that changing from one date column to another date column will reset the whole form
+          // Not ideal
           newFilters[filterIndex].column = v;
+          newFilters[filterIndex].type = knownType;
+          newFilters[filterIndex].filterType =
+            knownType === "date"
+              ? "today"
+              : knownType === "number"
+              ? "equals"
+              : "contains";
+
+          newFilters[filterIndex].config = undefined;
           setFilters(newFilters);
         }}
         size="2"
@@ -265,11 +272,9 @@ export default function DataVizFilter({
                 placeholder="Minimum"
                 value={filters[filterIndex].config?.min?.toString() || ""}
                 onChange={(e) => {
+                  console.log("e", e);
                   setDirty(true);
-                  // if (!e.target.value) return;
-                  const value = e.target.value
-                    ? Number(e.target.value)
-                    : undefined;
+                  const value = e.target.value ? e.target.value : undefined;
                   const newFilters = [...filters];
                   if (newFilters[filterIndex]?.config) {
                     if (value !== undefined) {
@@ -294,10 +299,7 @@ export default function DataVizFilter({
                 value={filters[filterIndex].config?.max?.toString() || ""}
                 onChange={(e) => {
                   setDirty(true);
-                  // if (!e.target.value) return;
-                  const value = e.target.value
-                    ? Number(e.target.value)
-                    : undefined;
+                  const value = e.target.value ? e.target.value : undefined;
                   const newFilters = [...filters];
                   if (newFilters[filterIndex]?.config) {
                     if (value !== undefined) {
@@ -328,18 +330,24 @@ export default function DataVizFilter({
               placeholder="Enter value"
               value={filters[filterIndex].config?.value?.toString() || ""}
               onChange={(e) => {
+                console.log("e", e.target.value);
                 setDirty(true);
-                const value = e.target.value
-                  ? Number(e.target.value)
-                  : undefined;
+                const value = e.target.value ? e.target.value : undefined;
+                console.log("value", value);
                 const newFilters = [...filters];
+                console.log("newFilters", newFilters);
                 if (newFilters[filterIndex]?.config) {
                   if (value !== undefined) {
                     newFilters[filterIndex].config.value = value;
                   } else {
                     delete newFilters[filterIndex].config.value;
                   }
-                  setFilters(newFilters);
+                }
+                if (newFilters[filterIndex].config?.value === undefined) {
+                  if (value !== undefined) {
+                    newFilters[filterIndex].config = { value };
+                    setFilters(newFilters);
+                  }
                 }
               }}
             />
@@ -371,6 +379,12 @@ export default function DataVizFilter({
                     delete newFilters[filterIndex].config.value;
                   }
                   setFilters(newFilters);
+                }
+                if (newFilters[filterIndex].config?.value === undefined) {
+                  if (value !== undefined) {
+                    newFilters[filterIndex].config = { value };
+                    setFilters(newFilters);
+                  }
                 }
               }}
             />
