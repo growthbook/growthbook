@@ -7,6 +7,7 @@ import {
   BigValueFormat,
 } from "back-end/src/validators/saved-queries";
 import { PiNetwork, PiWrench } from "react-icons/pi";
+import { FaPlusCircle } from "react-icons/fa";
 import { Select, SelectItem } from "@/components/Radix/Select";
 import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
@@ -498,7 +499,6 @@ export default function DataVizConfigPanel({
                     </Flex>
                   </Flex>
                 )}
-                {/* <Separator size="4" my={"2"} /> */}
               </>
             )}
           </Flex>
@@ -523,55 +523,72 @@ export default function DataVizConfigPanel({
         >
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
-              <Select
-                // label="Dimension"
-                value={
-                  supportsDimension(dataVizConfig)
-                    ? dataVizConfig.dimension?.[0]?.fieldName ?? ""
-                    : ""
-                }
-                setValue={(v) => {
-                  const shouldRemove = !v || v === "remove-dimension";
-                  const display =
-                    dataVizConfig.chartType !== "bar"
-                      ? "grouped"
-                      : supportsDimension(dataVizConfig) &&
-                        dataVizConfig.dimension?.[0]?.display
-                      ? dataVizConfig.dimension[0].display
-                      : "grouped";
-                  onDataVizConfigChange({
-                    ...dataVizConfig,
-                    dimension: shouldRemove
-                      ? undefined
-                      : [
-                          {
-                            fieldName: v,
-                            display,
-                            maxValues:
-                              supportsDimension(dataVizConfig) &&
-                              dataVizConfig.dimension?.[0]?.maxValues
-                                ? dataVizConfig.dimension[0].maxValues
-                                : 5,
-                          },
-                        ],
-                  });
-                }}
-                size="2"
-                placeholder="Select a dimension"
-              >
-                {supportsDimension(dataVizConfig) &&
-                  dataVizConfig.dimension?.[0]?.fieldName && (
-                    <SelectItem value="remove-dimension">
-                      - Remove dimension -
+              {!dataVizConfig.dimension ? (
+                <a
+                  role="button"
+                  className="d-inline-block link-purple font-weight-bold"
+                  onClick={() => {
+                    onDataVizConfigChange({
+                      ...dataVizConfig,
+                      dimension: [
+                        { fieldName: "", display: "grouped", maxValues: 5 },
+                      ],
+                    });
+                  }}
+                >
+                  <FaPlusCircle className="mr-1" />
+                  Add Dimension
+                </a>
+              ) : (
+                <Select
+                  value={
+                    supportsDimension(dataVizConfig)
+                      ? dataVizConfig.dimension?.[0]?.fieldName ?? ""
+                      : ""
+                  }
+                  setValue={(v) => {
+                    const shouldRemove = !v || v === "remove-dimension";
+                    const display =
+                      dataVizConfig.chartType !== "bar"
+                        ? "grouped"
+                        : supportsDimension(dataVizConfig) &&
+                          dataVizConfig.dimension?.[0]?.display
+                        ? dataVizConfig.dimension[0].display
+                        : "grouped";
+                    onDataVizConfigChange({
+                      ...dataVizConfig,
+                      dimension: shouldRemove
+                        ? undefined
+                        : [
+                            {
+                              fieldName: v,
+                              display,
+                              maxValues:
+                                supportsDimension(dataVizConfig) &&
+                                dataVizConfig.dimension?.[0]?.maxValues
+                                  ? dataVizConfig.dimension[0].maxValues
+                                  : 5,
+                            },
+                          ],
+                    });
+                  }}
+                  size="2"
+                  placeholder="Select a dimension"
+                >
+                  {supportsDimension(dataVizConfig) &&
+                    dataVizConfig.dimension?.[0]?.fieldName && (
+                      <SelectItem value="remove-dimension">
+                        - Remove dimension -
+                      </SelectItem>
+                    )}
+                  {axisKeys.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {key}
                     </SelectItem>
-                  )}
-                {axisKeys.map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {key}
-                  </SelectItem>
-                ))}
-              </Select>
-              {dataVizConfig.dimension && (
+                  ))}
+                </Select>
+              )}
+              {dataVizConfig.dimension?.[0]?.fieldName && (
                 <>
                   <Flex direction="column" gap="2">
                     {(dataVizConfig.chartType === "bar" ||
@@ -617,9 +634,8 @@ export default function DataVizConfigPanel({
                         max="10"
                         step="1"
                         type="number"
-                        defaultValue={
-                          (supportsDimension(dataVizConfig) &&
-                            dataVizConfig.dimension?.[0]?.maxValues?.toString()) ||
+                        value={
+                          dataVizConfig.dimension?.[0]?.maxValues?.toString() ||
                           "5"
                         }
                         onBlur={(e) => {
