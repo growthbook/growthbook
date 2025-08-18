@@ -71,7 +71,7 @@ const CONFIG_FILE = path.join(
   "..",
   "..",
   "config",
-  "config.yml"
+  "config.yml",
 );
 
 let configFileTime: number;
@@ -103,7 +103,7 @@ function loadConfig(initial = false) {
     config = null;
     if (initial) {
       logger.info(
-        "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions."
+        "No config.yml file. Using MongoDB instead to store data sources, metrics, and dimensions.",
       );
     }
   }
@@ -111,23 +111,23 @@ function loadConfig(initial = false) {
   if (EMAIL_ENABLED) {
     if (!EMAIL_HOST)
       logger.error(
-        "Email is enabled, but missing required EMAIL_HOST env variable"
+        "Email is enabled, but missing required EMAIL_HOST env variable",
       );
     if (!EMAIL_PORT)
       logger.error(
-        "Email is enabled, but missing required EMAIL_PORT env variable"
+        "Email is enabled, but missing required EMAIL_PORT env variable",
       );
     if (!EMAIL_HOST_USER)
       logger.error(
-        "Email is enabled, but missing required EMAIL_HOST_USER env variable"
+        "Email is enabled, but missing required EMAIL_HOST_USER env variable",
       );
     if (!EMAIL_HOST_PASSWORD)
       logger.error(
-        "Email is enabled, but missing required EMAIL_HOST_PASSWORD env variable"
+        "Email is enabled, but missing required EMAIL_HOST_PASSWORD env variable",
       );
     if (!EMAIL_FROM)
       logger.error(
-        "Email is enabled, but missing required EMAIL_FROM env variable"
+        "Email is enabled, but missing required EMAIL_FROM env variable",
       );
   }
 }
@@ -147,7 +147,7 @@ export function usingFileConfig(): boolean {
 }
 
 export function getConfigDatasources(
-  organization: string
+  organization: string,
 ): DataSourceInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.datasources) return [];
@@ -171,7 +171,7 @@ export function getConfigDatasources(
 }
 
 export function getConfigMetrics(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ): MetricInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.metrics) return [];
@@ -198,7 +198,7 @@ export function getConfigMetrics(
 }
 
 export function getConfigDimensions(
-  organization: string
+  organization: string,
 ): DimensionInterface[] {
   reloadConfigIfNeeded();
   if (!config || !config.dimensions) return [];

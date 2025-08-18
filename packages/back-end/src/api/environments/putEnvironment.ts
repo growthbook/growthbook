@@ -25,7 +25,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     if (
       !req.context.permissions.canUpdateEnvironment(
         environment,
-        updatedEnvironment
+        updatedEnvironment,
       )
     )
       req.context.permissions.throwPermissionError();
@@ -34,7 +34,7 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
       settings: {
         ...org.settings,
         environments: environments.map((env) =>
-          env.id === id ? updatedEnvironment : env
+          env.id === id ? updatedEnvironment : env,
         ),
       },
     };
@@ -53,5 +53,5 @@ export const putEnvironment = createApiRequestHandler(putEnvironmentValidator)(
     return {
       environment: updatedEnvironment,
     };
-  }
+  },
 );

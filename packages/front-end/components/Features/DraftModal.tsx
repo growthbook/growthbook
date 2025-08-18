@@ -92,7 +92,7 @@ export default function DraftModal({
 
   const revision = revisions.find((r) => r.version === version);
   const baseRevision = revisions.find(
-    (r) => r.version === revision?.baseVersion
+    (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
@@ -103,7 +103,7 @@ export default function DraftModal({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revision, baseRevision, liveRevision]);
 
@@ -116,7 +116,7 @@ export default function DraftModal({
   });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experimentData.map((e) => e.experiment.id))
+    new Set(experimentData.map((e) => e.experiment.id)),
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
@@ -155,7 +155,7 @@ export default function DraftModal({
 
   const hasPermission = permissionsUtil.canPublishFeature(
     feature,
-    getAffectedRevisionEnvs(feature, revision, environments)
+    getAffectedRevisionEnvs(feature, revision, environments),
   );
 
   const hasChanges = mergeResultHasChanges(mergeResult);
@@ -195,7 +195,7 @@ export default function DraftModal({
                       publishExperimentIds: Array.from(selectedExperiments),
                       comment,
                     }),
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();

@@ -102,7 +102,7 @@ export const useDecisionCriteriaForm = ({
     if (currentRules.length <= 1) return; // Ensure at least one rule remains
     form.setValue(
       "rules",
-      currentRules.filter((rule) => rule.key !== key)
+      currentRules.filter((rule) => rule.key !== key),
     );
   };
 
@@ -116,8 +116,8 @@ export const useDecisionCriteriaForm = ({
               ...rule,
               conditions: [...rule.conditions, createDefaultCondition()],
             }
-          : rule
-      )
+          : rule,
+      ),
     );
   };
 
@@ -134,10 +134,10 @@ export const useDecisionCriteriaForm = ({
         return {
           ...rule,
           conditions: rule.conditions.filter(
-            (condition) => condition.key !== conditionKey
+            (condition) => condition.key !== conditionKey,
           ),
         };
-      })
+      }),
     );
   };
 
@@ -145,7 +145,7 @@ export const useDecisionCriteriaForm = ({
     ruleKey: string,
     conditionKey: string,
     field: keyof Omit<DecisionCriteriaConditionUI, "key">,
-    value: string
+    value: string,
   ) => {
     const currentRules = form.getValues("rules");
     form.setValue(
@@ -158,23 +158,23 @@ export const useDecisionCriteriaForm = ({
           conditions: rule.conditions.map((condition) =>
             condition.key === conditionKey
               ? { ...condition, [field]: value }
-              : condition
+              : condition,
           ),
         };
-      })
+      }),
     );
   };
 
   const updateRuleAction = (
     ruleKey: string,
-    value: "ship" | "rollback" | "review"
+    value: "ship" | "rollback" | "review",
   ) => {
     const currentRules = form.getValues("rules");
     form.setValue(
       "rules",
       currentRules.map((rule) =>
-        rule.key === ruleKey ? { ...rule, action: value } : rule
-      )
+        rule.key === ruleKey ? { ...rule, action: value } : rule,
+      ),
     );
   };
 
@@ -185,10 +185,10 @@ export const useDecisionCriteriaForm = ({
     const rulesToSave = formData.rules.map(
       ({ key: _, conditions, action }) => ({
         conditions: conditions.map(
-          ({ key: _, ...conditionRest }) => conditionRest
+          ({ key: _, ...conditionRest }) => conditionRest,
         ),
         action,
-      })
+      }),
     );
 
     // validate no guardrail has statsig winner
@@ -196,12 +196,12 @@ export const useDecisionCriteriaForm = ({
       rule.conditions.some(
         (condition) =>
           condition.metrics === "guardrails" &&
-          condition.direction === "statsigWinner"
-      )
+          condition.direction === "statsigWinner",
+      ),
     );
     if (guardrailWithStatsigWinner) {
       throw new Error(
-        "Guardrails cannot be checked for Stat Sig Good results."
+        "Guardrails cannot be checked for Stat Sig Good results.",
       );
     }
 

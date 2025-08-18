@@ -35,7 +35,7 @@ export const dashboardBlockSchema = new mongoose.Schema(
     description: String,
     snapshotId: String,
   },
-  { discriminatorKey: "type" }
+  { discriminatorKey: "type" },
 );
 
 const markdownBlockSchema = new mongoose.Schema({
@@ -100,41 +100,41 @@ dashboardBlockSchema.index({
 
 export const DashboardBlockModel = mongoose.model(
   "DashboardBlock",
-  dashboardBlockSchema
+  dashboardBlockSchema,
 );
 
 DashboardBlockModel.discriminator("markdown", markdownBlockSchema);
 DashboardBlockModel.discriminator(
   "experiment-description",
-  experimentDescriptionBlockSchema
+  experimentDescriptionBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-hypothesis",
-  experimentHypothesisBlockSchema
+  experimentHypothesisBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-variation-image",
-  experimentVariationImageBlockSchema
+  experimentVariationImageBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-metric",
-  experimentMetricBlockSchema
+  experimentMetricBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-dimension",
-  experimentDimensionBlockSchema
+  experimentDimensionBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-time-series",
-  experimentTimeSeriesBlockSchema
+  experimentTimeSeriesBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-traffic-table",
-  experimentTrafficTableBlockSchema
+  experimentTrafficTableBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-traffic-graph",
-  experimentTrafficGraphBlockSchema
+  experimentTrafficGraphBlockSchema,
 );
 DashboardBlockModel.discriminator("sql-explorer", sqlExplorerBlockSchema);
 
@@ -144,7 +144,7 @@ export const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {
 
 export async function createDashboardBlock(
   organization: string,
-  initialValue: CreateDashboardBlockInterface
+  initialValue: CreateDashboardBlockInterface,
 ) {
   const block = await DashboardBlockModel.create({
     ...initialValue,

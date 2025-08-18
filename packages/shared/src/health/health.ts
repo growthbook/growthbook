@@ -97,7 +97,7 @@ export function getSRMHealthData({
 
 export function getSRMValue(
   experimentType: ExperimentType,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
 ): number | undefined {
   switch (experimentType) {
     case "multi-armed-bandit":
@@ -129,7 +129,7 @@ export function getSRMValue(
       const _exhaustiveCheck: never = experimentType;
       // eslint-disable-next-line no-console
       console.error(
-        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`
+        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`,
       );
       return undefined;
     }
@@ -137,7 +137,7 @@ export function getSRMValue(
 }
 
 export function getSafeRolloutSRMValue(
-  safeRolloutSnapshot: SafeRolloutSnapshotInterface
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface,
 ): number | undefined {
   const healthQuerySRM = safeRolloutSnapshot.health?.traffic?.overall?.srm;
   if (healthQuerySRM !== undefined) {

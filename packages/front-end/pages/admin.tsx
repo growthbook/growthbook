@@ -84,7 +84,7 @@ function OrganizationRow({
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
   const [managedWarehouseId, setManagedWarehouseId] = useState(
-    datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null
+    datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
 
   useEffect(() => {
@@ -137,7 +137,7 @@ function OrganizationRow({
       {
         method: "POST",
         headers: { "X-Organization": organization.id },
-      }
+      },
     );
     setClickhouseModalOpen(false);
     setManagedWarehouseId(id);
@@ -330,7 +330,7 @@ function OrganizationRow({
                               {
                                 method: "POST",
                                 headers: { "X-Organization": organization.id },
-                              }
+                              },
                             );
                           }}
                           confirmationText={
@@ -404,7 +404,7 @@ function OrganizationRow({
                       email: mInfo?.email ?? "-",
                       ...m,
                     };
-                  })
+                  }),
                 )}
               />
             </Collapsible>
@@ -584,7 +584,7 @@ const Admin: FC = () => {
 
       setLoading(false);
     },
-    [apiCall]
+    [apiCall],
   );
 
   const loadMembers = useCallback(
@@ -611,7 +611,7 @@ const Admin: FC = () => {
 
       setMemberLoading(false);
     },
-    [apiCall]
+    [apiCall],
   );
 
   useEffect(() => {
@@ -733,10 +733,10 @@ const Admin: FC = () => {
                   <OrganizationRow
                     organization={o}
                     ssoInfo={ssoConnections.find(
-                      (sso) => sso.organization === o.id
+                      (sso) => sso.organization === o.id,
                     )}
                     datasources={datasources.filter(
-                      (ds) => ds.organization === o.id
+                      (ds) => ds.organization === o.id,
                     )}
                     showExternalId={!isCloud()}
                     showVerfiedDomain={isCloud()}
@@ -752,7 +752,7 @@ const Admin: FC = () => {
                       try {
                         localStorage.setItem(
                           "gb-last-picked-org",
-                          `"${org.id}"`
+                          `"${org.id}"`,
                         );
                       } catch (e) {
                         console.warn("Cannot set gb-last-picked-org");

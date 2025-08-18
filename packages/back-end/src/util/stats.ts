@@ -34,7 +34,7 @@ export function chi2pvalue(x: number, df: number) {
 export function sumSquaresFromStats(
   sum: number,
   variance: number,
-  n: number
+  n: number,
 ): number {
   return returnZeroIfNotFinite(variance * (n - 1) + Math.pow(sum, 2) / n);
 }

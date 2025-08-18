@@ -21,7 +21,7 @@ export default function GithubIntegrationConnect({
         body: JSON.stringify({
           code,
         }),
-      }
+      },
     )
       .then(() => refresh())
       .catch((e) => {

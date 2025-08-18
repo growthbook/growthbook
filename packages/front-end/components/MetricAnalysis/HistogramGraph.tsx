@@ -35,7 +35,7 @@ function getTooltipDataFromDatapoint(
   datapoint: Datapoint,
   data: Datapoint[],
   innerWidth: number,
-  yScale: ScaleLinear<unknown, unknown, never>
+  yScale: ScaleLinear<unknown, unknown, never>,
 ) {
   const index = data.indexOf(datapoint);
   if (index === -1) {
@@ -49,7 +49,7 @@ function getTooltipDataFromDatapoint(
 function getTooltipContents(
   d: TooltipData,
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
-  formatterOptions?: Intl.NumberFormatOptions
+  formatterOptions?: Intl.NumberFormatOptions,
 ) {
   return (
     <>
@@ -162,7 +162,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
         datapoint,
         data,
         innerWidth,
-        yScale
+        yScale,
       );
       if (!tooltipData) {
         hideTooltip();
@@ -185,7 +185,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
       showTooltip,
       hideTooltip,
       yScale,
-    ]
+    ],
   );
 
   const getContentXScale = useCallback(
@@ -198,7 +198,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
         range: [0, currentXMax],
       });
     },
-    [valueDomain]
+    [valueDomain],
   );
 
   const getGeneratedTickValues = useCallback(
@@ -228,7 +228,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
 
       return ticks;
     },
-    [valueDomain]
+    [valueDomain],
   );
 
   return (
@@ -242,7 +242,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
         const generatedTickValues = getGeneratedTickValues(contentXScale);
 
         const handlePointerMove = (
-          event: React.PointerEvent<HTMLDivElement>
+          event: React.PointerEvent<HTMLDivElement>,
         ) => {
           if (!data || data.length === 0) {
             onHover(null);
@@ -253,7 +253,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
             ("clientX" in event ? event.clientX : 0) - containerBounds.left;
           const bin = Math.min(
             Math.max(0, Math.floor((data.length * containerX) / currentXMax)),
-            data.length - 1
+            data.length - 1,
           );
           onHover(bin);
         };
@@ -297,7 +297,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                       getTooltipContents(
                         tooltipData,
                         formatter,
-                        formatterOptions
+                        formatterOptions,
                       )}
                   </TooltipWithBounds>
                 </>

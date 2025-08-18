@@ -92,7 +92,7 @@ function SidebarHeading({ children }: { children: string }) {
 }
 
 function LinkItem(
-  props: React.ComponentProps<typeof Link>
+  props: React.ComponentProps<typeof Link>,
 ): React.ReactElement {
   return (
     <Link
@@ -110,7 +110,7 @@ function LinkItem(
 
 function getLinksFor(
   type: Props["type"],
-  isVercelIntegration?: boolean
+  isVercelIntegration?: boolean,
 ): JSX.Element {
   switch (type) {
     case "get-started":

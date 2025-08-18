@@ -18,13 +18,13 @@ const EditOrganization: FC<{
   const [licenseKey, setLicenseKey] = useState(currentOrg.licenseKey || "");
   const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats || 3);
   const [legacyEnterprise, setLegacyEnterprise] = useState(
-    currentOrg.enterprise || false
+    currentOrg.enterprise || false,
   );
   const [verifiedDomain, setVerifiedDomain] = useState(
-    currentOrg.verifiedDomain || ""
+    currentOrg.verifiedDomain || "",
   );
   const [autoApproveMembers, setAutoApproveMembers] = useState(
-    currentOrg.autoApproveMembers || false
+    currentOrg.autoApproveMembers || false,
   );
 
   const { apiCall } = useAuth();
@@ -89,7 +89,7 @@ const EditOrganization: FC<{
                   e.preventDefault();
                   if (
                     confirm(
-                      "Are you sure you want to disable this organization? Users will not be able to use this organization"
+                      "Are you sure you want to disable this organization? Users will not be able to use this organization",
                     )
                   ) {
                     await apiCall<{

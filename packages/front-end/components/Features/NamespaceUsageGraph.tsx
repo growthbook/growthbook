@@ -46,7 +46,7 @@ export default function NamespaceUsageGraph({
             className={clsx(
               styles.legend_box,
               styles.used,
-              "progress-bar-striped"
+              "progress-bar-striped",
             )}
           />{" "}
           In-use

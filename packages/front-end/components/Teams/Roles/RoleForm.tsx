@@ -26,7 +26,7 @@ export default function RoleForm({
   const [error, setError] = useState<string | null>(null);
   const { refreshOrganization } = useUser();
   const [status, setStatus] = useState<"editing" | "viewing" | "creating">(
-    action
+    action,
   );
 
   const validateInputs = (input: {
@@ -173,9 +173,8 @@ export default function RoleForm({
                               if (!checked) {
                                 currentPolicies.push(policy);
                               } else {
-                                const indexToRemove = currentPolicies.indexOf(
-                                  policy
-                                );
+                                const indexToRemove =
+                                  currentPolicies.indexOf(policy);
                                 currentPolicies.splice(indexToRemove, 1);
                               }
                               form.setValue("policies", currentPolicies);

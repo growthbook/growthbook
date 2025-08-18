@@ -37,7 +37,7 @@ export interface Props {
   mutate?: () => void;
   setSnapshotDimension?: (dimension: string) => void;
   setAnalysisSettings?: (
-    settings: ExperimentSnapshotAnalysisSettings | null
+    settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   disabled?: boolean;
   ssrPolyfills?: SSRPolyfills;
@@ -248,7 +248,7 @@ export default function DimensionChooser({
                 defaultAnalysis,
                 standardSnapshot,
                 apiCall,
-                setPostLoading
+                setPostLoading,
               )
                 .then((status) => {
                   if (status === "success") {

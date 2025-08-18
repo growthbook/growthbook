@@ -18,7 +18,7 @@ router.post(
   validateRequestMiddleware({
     body: createCustomFieldsValidator,
   }),
-  customFieldController.postCustomField
+  customFieldController.postCustomField,
 );
 
 router.post(
@@ -26,7 +26,7 @@ router.post(
   validateRequestMiddleware({
     body: redorderFieldsValidator,
   }),
-  customFieldController.postReorderCustomFields
+  customFieldController.postReorderCustomFields,
 );
 
 router.put(
@@ -39,7 +39,7 @@ router.put(
       .strict(),
     body: updateCustomFieldsValidator,
   }),
-  customFieldController.putCustomField
+  customFieldController.putCustomField,
 );
 
 router.delete(
@@ -51,7 +51,7 @@ router.delete(
       })
       .strict(),
   }),
-  customFieldController.deleteCustomField
+  customFieldController.deleteCustomField,
 );
 
 export { router as customFieldsRouter };

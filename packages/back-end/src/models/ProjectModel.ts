@@ -95,7 +95,7 @@ export class ProjectModel extends BaseClass {
         $unset: {
           managedBy: 1,
         },
-      }
+      },
     );
   }
 
@@ -105,7 +105,7 @@ export class ProjectModel extends BaseClass {
       throw new Error(
         `Invalid project ids: ${projectIds
           .filter((id) => !projects.find((p) => p.id === id))
-          .join(", ")}`
+          .join(", ")}`,
       );
     }
   }

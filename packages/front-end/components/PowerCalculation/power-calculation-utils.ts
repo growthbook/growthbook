@@ -42,7 +42,7 @@ export async function setMetricDataFromExperiment({
       } else {
         form.setValue(
           "metricValuesData.error",
-          `No data found for the experiment.`
+          `No data found for the experiment.`,
         );
         return;
       }
@@ -57,13 +57,13 @@ export async function setMetricDataFromExperiment({
     const units =
       snapshot.health?.traffic.overall.variationUnits.reduce(
         (result, v) => v + result,
-        0
+        0,
       ) ?? 0;
 
     const experimentPhase = experiment.phases[phase];
     const phaseLength = daysBetween(
       experimentPhase.dateStarted ?? new Date(),
-      experimentPhase.dateEnded ?? new Date()
+      experimentPhase.dateEnded ?? new Date(),
     );
     const lengthWeeks = phaseLength / 7;
     let newMetrics = {};
@@ -166,7 +166,7 @@ export function setMetricDataFromPopulationData({
     const standardDeviation = meanVarianceFromSums(
       mdata.main_sum,
       mdata.main_sum_squares,
-      mdata.count
+      mdata.count,
     );
     metrics[id] = {
       ...metric,
@@ -177,7 +177,7 @@ export function setMetricDataFromPopulationData({
   const usersPerWeek = Math.round(
     populationData.units.reduce((r, u) => {
       return r + u.count;
-    }, 0) / (populationData.units.length ?? 1)
+    }, 0) / (populationData.units.length ?? 1),
   );
   form.setValue("metrics", metrics);
   form.setValue("usersPerWeek", isNaN(usersPerWeek) ? 0 : usersPerWeek);

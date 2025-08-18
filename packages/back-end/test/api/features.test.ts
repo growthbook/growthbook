@@ -59,7 +59,7 @@ describe("features API", () => {
     (getFeature as jest.Mock).mockReturnValue(undefined);
     (addTags as jest.Mock).mockReturnValue(undefined);
     (createInterfaceEnvSettingsFromApiEnvSettings as jest.Mock).mockReturnValue(
-      "createInterfaceEnvSettingsFromApiEnvSettings"
+      "createInterfaceEnvSettingsFromApiEnvSettings",
     );
     (getSavedGroupMap as jest.Mock).mockResolvedValue("savedGroupMap");
     (getApiFeatureObj as jest.Mock).mockImplementation((v) => v);
@@ -111,7 +111,7 @@ describe("features API", () => {
           }),
           groupMap: "savedGroupMap",
         }),
-      })
+      }),
     );
     expect(auditMock).toHaveBeenCalledWith({
       details: `{"post":{"defaultValue":"defaultValue","valueType":"string","owner":"owner","description":"description","project":"project","dateCreated":"${response.body.feature.feature.dateCreated}","dateUpdated":"${response.body.feature.feature.dateUpdated}","organization":"org","id":"id","archived":true,"version":1,"environmentSettings":"createInterfaceEnvSettingsFromApiEnvSettings","prerequisites":[],"tags":["tag"],"jsonSchema":{"schemaType":"schema","schema":"","simple":{"type":"object","fields":[]},"date":"${response.body.feature.feature.jsonSchema.date}","enabled":false}},"context":{}}`,
@@ -312,7 +312,7 @@ describe("features API", () => {
             }),
             groupMap: "savedGroupMap",
           }),
-        })
+        }),
       );
     });
   });

@@ -36,7 +36,7 @@ import { setMetrics, Attributes } from "./util/metrics";
 
 diag.setLogger(
   new DiagConsoleLogger(),
-  opentelemetry.core.getEnv().OTEL_LOG_LEVEL
+  opentelemetry.core.getEnv().OTEL_LOG_LEVEL,
 );
 
 const metricReader = new PeriodicExportingMetricReader({
@@ -67,7 +67,7 @@ try {
 } catch (error) {
   diag.error(
     "Error initializing OpenTelemetry SDK. Your application is not instrumented and will not produce telemetry",
-    error
+    error,
   );
 }
 

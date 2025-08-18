@@ -54,10 +54,8 @@ export default function SQLInputField({
   showTestButton = true,
   showHeadline = true,
 }: Props) {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const { apiCall } = useAuth();
 
   // These will only be defined in Experiment Assignment Queries
@@ -134,7 +132,7 @@ export default function SQLInputField({
               setValue={(sql) =>
                 form.setValue(
                   queryType === "experiment-assignment" ? "query" : "sql",
-                  sql
+                  sql,
                 )
               }
               placeholder={placeholder}

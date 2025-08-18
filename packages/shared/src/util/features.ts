@@ -75,7 +75,7 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
 export function mergeRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  environments: string[]
+  environments: string[],
 ) {
   const newFeature = cloneDeep(feature);
 
@@ -101,7 +101,7 @@ export function getJSONValidator() {
 export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
-  feature: Pick<FeatureInterface, "jsonSchema">
+  feature: Pick<FeatureInterface, "jsonSchema">,
 ) {
   const { jsonSchema, validationEnabled } = getValidation(feature);
   if (!validationEnabled) {
@@ -157,7 +157,7 @@ export function validateJSONFeatureValue(
 export function validateFeatureValue(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   value: string,
-  label?: string
+  label?: string,
 ): string {
   const type = feature.valueType;
   const prefix = label ? label + ": " : "";
@@ -218,7 +218,7 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   // Rule 1: Must have exactly 2 elements (start and end rules)
   if (scheduleRules.length !== 2) {
     throw new Error(
-      "scheduleRules must contain exactly 2 elements (start and end rules)"
+      "scheduleRules must contain exactly 2 elements (start and end rules)",
     );
   }
 
@@ -227,13 +227,13 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   // Rule 2: One rule must be enabled=true, the other enabled=false
   if (rule1.enabled === rule2.enabled) {
     throw new Error(
-      "scheduleRules must have one rule with enabled=true and one with enabled=false"
+      "scheduleRules must have one rule with enabled=true and one with enabled=false",
     );
   }
 
   // Rule 3: Only one rule can have timestamp=null
   const nullTimestampCount = scheduleRules.filter(
-    (rule) => rule.timestamp === null
+    (rule) => rule.timestamp === null,
   ).length;
 
   if (nullTimestampCount > 1) {
@@ -244,7 +244,7 @@ export function validateScheduleRules(scheduleRules: ScheduleRule[]): void {
   for (const rule of scheduleRules) {
     if (rule.timestamp !== null && !isValidISOTimestamp(rule.timestamp)) {
       throw new Error(
-        `Invalid timestamp format: "${rule.timestamp}". Must be in ISO format (e.g., "2025-06-23T16:09:37.769Z")`
+        `Invalid timestamp format: "${rule.timestamp}". Must be in ISO format (e.g., "2025-06-23T16:09:37.769Z")`,
       );
     }
   }
@@ -259,7 +259,7 @@ const isForceRule = (rule: FeatureRule): rule is ForceRule =>
   rule.type === "force";
 
 const areRulesOneSided = (
-  rules: FeatureRule[] // can assume all rules are enabled
+  rules: FeatureRule[], // can assume all rules are enabled
 ) => {
   const rolloutRules = rules.filter(isRolloutRule);
   const forceRules = rules.filter(isForceRule);
@@ -267,7 +267,7 @@ const areRulesOneSided = (
   const rolloutRulesOnesided =
     !rolloutRules.length ||
     rolloutRules.every(
-      (r) => r.coverage === 1 && !r.condition && !r.savedGroups?.length
+      (r) => r.coverage === 1 && !r.condition && !r.savedGroups?.length,
     );
 
   const forceRulesOnesided =
@@ -312,7 +312,7 @@ export function isFeatureStale({
   }
 
   const visit = (
-    feature: FeatureInterface
+    feature: FeatureInterface,
   ): { stale: boolean; reason?: StaleFeatureReason } => {
     if (visitedFeatures.has(feature.id)) {
       return { stale: false };
@@ -340,7 +340,7 @@ export function isFeatureStale({
         const dependentFeatures = getDependentFeatures(
           feature,
           features,
-          environments
+          environments,
         );
         const hasNonStaleDependentFeatures = dependentFeatures.some((id) => {
           const f = featuresMap.get(id);
@@ -354,7 +354,7 @@ export function isFeatureStale({
       dependentExperiments =
         dependentExperiments ?? getDependentExperiments(feature, experiments);
       const hasNonStaleDependentExperiments = dependentExperiments.some((e) =>
-        includeExperimentInPayload(e)
+        includeExperimentInPayload(e),
       );
       if (dependentExperiments.length && hasNonStaleDependentExperiments) {
         return { stale: false };
@@ -429,7 +429,7 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
 export function listChangedEnvironments(
   base: RulesAndValues,
   revision: RulesAndValues,
-  allEnviroments: string[]
+  allEnviroments: string[],
 ) {
   const environmentsList: string[] = [];
   allEnviroments?.forEach((env) => {
@@ -448,7 +448,7 @@ export function autoMerge(
   base: RulesAndValues,
   revision: RulesAndValues,
   environments: string[],
-  strategies: Record<string, MergeStrategy>
+  strategies: Record<string, MergeStrategy>,
 ): AutoMergeResult {
   const result: {
     defaultValue?: string;
@@ -626,7 +626,7 @@ export function validateCondition(condition?: string): ValidateConditionReturn {
 export function validateAndFixCondition(
   condition: string | undefined,
   applySuggestion: (suggestion: string) => void,
-  throwOnSuggestion: boolean = true
+  throwOnSuggestion: boolean = true,
 ): ValidateConditionReturn {
   const res = validateCondition(condition);
   if (res.success) return res;
@@ -634,14 +634,14 @@ export function validateAndFixCondition(
     applySuggestion(res.suggestedValue);
     if (!throwOnSuggestion) return res;
     throw new Error(
-      "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again."
+      "We fixed some syntax errors in your targeting condition JSON. Please verify the changes and save again.",
     );
   }
   throw new Error("Invalid targeting condition JSON: " + res.error);
 }
 
 export function getDefaultPrerequisiteCondition(
-  parentFeature?: FeatureInterface
+  parentFeature?: FeatureInterface,
 ) {
   const valueType = parentFeature?.valueType || "boolean";
   if (valueType === "boolean") {
@@ -654,7 +654,7 @@ export function isFeatureCyclic(
   feature: FeatureInterface,
   featuresMap: Map<string, FeatureInterface>,
   revision?: FeatureRevisionInterface,
-  envs?: string[]
+  envs?: string[],
 ): [boolean, string | null] {
   const visited = new Set<string>();
   const stack = new Set<string>();
@@ -714,7 +714,7 @@ export function evaluatePrerequisiteState(
   featuresMap: Map<string, FeatureInterface>,
   env: string,
   skipRootConditions: boolean = false,
-  skipCyclicCheck: boolean = false
+  skipCyclicCheck: boolean = false,
 ): PrerequisiteStateResult {
   let isTopLevel = true;
   if (!skipCyclicCheck) {
@@ -772,13 +772,12 @@ export function evaluatePrerequisiteState(
         value = null;
         break;
       }
-      const { state: prerequisiteState, value: prerequisiteValue } = visit(
-        prerequisiteFeature
-      );
+      const { state: prerequisiteState, value: prerequisiteValue } =
+        visit(prerequisiteFeature);
       if (prerequisiteState === "deterministic") {
         const evaled = evalDeterministicPrereqValue(
           prerequisiteValue ?? null,
-          prerequisite.condition
+          prerequisite.condition,
         );
         if (evaled === "fail") {
           state = "deterministic";
@@ -800,7 +799,7 @@ export function evaluatePrerequisiteState(
 export function evalDeterministicPrereqValue(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any,
-  condition: string
+  condition: string,
 ): "pass" | "fail" {
   const parsedCondition = getParsedPrereqCondition(condition);
   if (!parsedCondition) return "fail";
@@ -812,7 +811,7 @@ export function evalDeterministicPrereqValue(
 export function getDependentFeatures(
   feature: FeatureInterface,
   features: FeatureInterface[],
-  environments: string[]
+  environments: string[],
 ): string[] {
   const dependentFeatures = features.filter((f) => {
     const prerequisites = f.prerequisites || [];
@@ -820,7 +819,7 @@ export function getDependentFeatures(
       f,
       (r) =>
         !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
-      environments
+      environments,
     );
     return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
   });
@@ -829,7 +828,7 @@ export function getDependentFeatures(
 
 export function getDependentExperiments(
   feature: FeatureInterface,
-  experiments: ExperimentInterfaceStringDates[]
+  experiments: ExperimentInterfaceStringDates[],
 ): ExperimentInterfaceStringDates[] {
   return experiments.filter((e) => {
     const phase = e.phases.slice(-1)?.[0] ?? null;
@@ -859,7 +858,7 @@ export type ResetReviewOnChange = {
 };
 export function getReviewSetting(
   requireReviewSettings: RequireReview[],
-  feature: FeatureInterface
+  feature: FeatureInterface,
 ): RequireReview | undefined {
   // check projects
   for (const reviewSetting of requireReviewSettings) {
@@ -875,7 +874,7 @@ export function getReviewSetting(
 
 export function checkEnvironmentsMatch(
   environments: string[],
-  reviewSetting: RequireReview
+  reviewSetting: RequireReview,
 ) {
   for (const env of reviewSetting.environments) {
     if (environments.includes(env)) {
@@ -888,7 +887,7 @@ export function featureRequiresReview(
   feature: FeatureInterface,
   changedEnvironments: string[],
   defaultValueChanged: boolean,
-  settings?: OrganizationSettings
+  settings?: OrganizationSettings,
 ) {
   const requiresReviewSettings = settings?.requireReviews;
   //legacy check
@@ -955,7 +954,7 @@ export function checkIfRevisionNeedsReview({
   const changedEnvironments = listChangedEnvironments(
     baseRevision,
     revision,
-    allEnvironments
+    allEnvironments,
   );
   const defaultValueChanged =
     baseRevision.defaultValue !== revision.defaultValue;
@@ -964,14 +963,14 @@ export function checkIfRevisionNeedsReview({
     feature,
     changedEnvironments,
     defaultValueChanged,
-    settings
+    settings,
   );
 }
 
 export function filterProjectsByEnvironment(
   projects: string[],
   environment?: Environment,
-  applyEnvironmentProjectsToAll: boolean = false
+  applyEnvironmentProjectsToAll: boolean = false,
 ): string[] {
   if (!environment) return projects;
   const environmentHasProjects = (environment?.projects?.length ?? 0) > 0;
@@ -991,12 +990,12 @@ export function filterProjectsByEnvironment(
 export function filterProjectsByEnvironmentWithNull(
   projects: string[],
   environment?: Environment,
-  applyEnvironmentProjectsToAll: boolean = false
+  applyEnvironmentProjectsToAll: boolean = false,
 ): string[] | null {
   let filteredProjects: string[] | null = filterProjectsByEnvironment(
     projects,
     environment,
-    applyEnvironmentProjectsToAll
+    applyEnvironmentProjectsToAll,
   );
   // If projects were scrubbed by environment and nothing is left, then we should
   // return null (no projects) instead of [] (all projects)
@@ -1008,51 +1007,51 @@ export function filterProjectsByEnvironmentWithNull(
 
 export function featureHasEnvironment(
   feature: FeatureInterface,
-  environment: Environment
+  environment: Environment,
 ): boolean {
   const featureProjects = feature.project ? [feature.project] : [];
   if (featureProjects.length === 0) return true;
   const filteredProjects = filterProjectsByEnvironment(
     featureProjects,
     environment,
-    true
+    true,
   );
   return filteredProjects.length > 0;
 }
 
 export function filterEnvironmentsByExperiment(
   environments: Environment[],
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
 ): Environment[] {
   return environments.filter((env) =>
-    experimentHasEnvironment(experiment, env)
+    experimentHasEnvironment(experiment, env),
   );
 }
 
 export function experimentHasEnvironment(
   experiment: ExperimentInterfaceStringDates,
-  environment: Environment
+  environment: Environment,
 ): boolean {
   const experimentProjects = experiment.project ? [experiment.project] : [];
   if (experimentProjects.length === 0) return true;
   const filteredProjects = filterProjectsByEnvironment(
     experimentProjects,
     environment,
-    true
+    true,
   );
   return filteredProjects.length > 0;
 }
 
 export function filterEnvironmentsByFeature(
   environments: Environment[],
-  feature: FeatureInterface
+  feature: FeatureInterface,
 ): Environment[] {
   return environments.filter((env) => featureHasEnvironment(feature, env));
 }
 
 export function getDisallowedProjectIds(
   projects: string[],
-  environment?: Environment
+  environment?: Environment,
 ) {
   if (!environment) return [];
   return projects.filter((p) => {
@@ -1065,17 +1064,17 @@ export function getDisallowedProjectIds(
 export function getDisallowedProjects(
   allProjects: ProjectInterface[],
   projects: string[],
-  environment?: Environment
+  environment?: Environment,
 ) {
   return allProjects.filter((p) =>
-    getDisallowedProjectIds(projects, environment).includes(p.id)
+    getDisallowedProjectIds(projects, environment).includes(p.id),
   );
 }
 
 export function simpleToJSONSchema(simple: SimpleSchema): string {
   const getValue = (
     value: string,
-    field: SchemaField
+    field: SchemaField,
   ): string | number | boolean => {
     const type = field.type;
     // Validation
@@ -1086,30 +1085,30 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
       if (field.type === "string" && !field.enum.length) {
         if (value.length < field.min) {
           throw new Error(
-            `Value '${value}' is shorter than min length for field ${field.key}`
+            `Value '${value}' is shorter than min length for field ${field.key}`,
           );
         }
         if (value.length > field.max) {
           throw new Error(
-            `Value '${value}' is longer than max length for field ${field.key}`
+            `Value '${value}' is longer than max length for field ${field.key}`,
           );
         }
       } else if (!field.enum.length) {
         if (parseFloat(value) < field.min) {
           throw new Error(
-            `Value '${value}' is less than min value for field ${field.key}`
+            `Value '${value}' is less than min value for field ${field.key}`,
           );
         }
         if (parseFloat(value) > field.max) {
           throw new Error(
-            `Value '${value}' is greater than max value for field ${field.key}`
+            `Value '${value}' is greater than max value for field ${field.key}`,
           );
         }
       }
 
       if (field.type === "integer" && !Number.isInteger(parseFloat(value))) {
         throw new Error(
-          `Value '${value}' is not an integer for field ${field.key}`
+          `Value '${value}' is not an integer for field ${field.key}`,
         );
       }
     }
@@ -1167,10 +1166,13 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
       return JSON.stringify({
         type: "object",
         required: fields.filter((f) => f.required).map((f) => f.key),
-        properties: fields.reduce((acc, f) => {
-          acc[f.key] = f.schema;
-          return acc;
-        }, {} as Record<string, unknown>),
+        properties: fields.reduce(
+          (acc, f) => {
+            acc[f.key] = f.schema;
+            return acc;
+          },
+          {} as Record<string, unknown>,
+        ),
         additionalProperties: false,
       });
     case "object[]":
@@ -1182,10 +1184,13 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
         items: {
           type: "object",
           required: fields.filter((f) => f.required).map((f) => f.key),
-          properties: fields.reduce((acc, f) => {
-            acc[f.key] = f.schema;
-            return acc;
-          }, {} as Record<string, unknown>),
+          properties: fields.reduce(
+            (acc, f) => {
+              acc[f.key] = f.schema;
+              return acc;
+            },
+            {} as Record<string, unknown>,
+          ),
           additionalProperties: false,
         },
       });
@@ -1206,7 +1211,7 @@ export function simpleToJSONSchema(simple: SimpleSchema): string {
 export function inferSchemaField(
   value: unknown,
   key: string,
-  existing?: SchemaField
+  existing?: SchemaField,
 ): undefined | SchemaField {
   if (value == null) {
     return existing;
@@ -1261,7 +1266,7 @@ export function inferSchemaField(
 
 export function inferSchemaFields(
   obj: Record<string, unknown>,
-  existing?: Map<string, SchemaField>
+  existing?: Map<string, SchemaField>,
 ): Map<string, SchemaField> {
   const fields = existing || new Map<string, SchemaField>();
   for (const key in obj) {

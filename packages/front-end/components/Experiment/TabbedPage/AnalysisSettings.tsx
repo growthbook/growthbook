@@ -67,7 +67,7 @@ export default function AnalysisSettings({
 
   const { getDecisionCriteria } = useRunningExperimentStatus();
   const decisionCriteria = getDecisionCriteria(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId
+    experiment.decisionFrameworkSettings?.decisionCriteriaId,
   );
 
   const [analysisModal, setAnalysisModal] = useState(false);
@@ -82,37 +82,35 @@ export default function AnalysisSettings({
     : null;
 
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        experiment.goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        experiment.secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        experiment.guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
       experiment.goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
       experiment.secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
       experiment.guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+    ]);
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    experiment.goalMetrics,
-    experiment.secondaryMetrics,
-    experiment.guardrailMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-  ]);
-
-  const goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[] = [];
+  const goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[] =
+    [];
   expandedGoals.forEach((m) => {
     const metric =
       ssrPolyfills?.getExperimentMetricById?.(m) || getExperimentMetricById(m);

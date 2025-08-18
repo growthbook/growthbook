@@ -4,7 +4,7 @@ import {
 } from "back-end/src/events/notification-events";
 
 export const getLegacyMessageForNotificationEvent = (
-  event: NotificationEvent
+  event: NotificationEvent,
 ): LegacyNotificationEvent | undefined => {
   const { user, projects, tags, environments, containsSecrets } = event;
 
