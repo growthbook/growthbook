@@ -94,6 +94,7 @@ import {
   MaxTimestampIncrementalUnitsQueryParams,
   DimensionColumnData,
   DropTempIncrementalUnitsQueryParams,
+  PartitionSettings,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -5638,15 +5639,76 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
+  getPartitionWhereClause(
+    partitionSettings: PartitionSettings,
+    date: Date,
+    type: "onOrAfter" | "onOrBefore"
+  ): string {
+    // TODO do we need to know if zero padded?
+    // TODO do we need to know if the column is a string or number?
+    if (partitionSettings.type === "yearMonthDate") {
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      switch (type) {
+        case "onOrAfter":
+          return `
+            (
+              ${partitionSettings.yearColumn} >= '${year}'
+              AND ${
+                partitionSettings.monthColumn
+              } >= '${month.toString().padStart(2, "0")}'
+              AND ${partitionSettings.dateColumn} >= '${day
+            .toString()
+            .padStart(2, "0")}'
+            ) OR (
+              ${partitionSettings.yearColumn} >= '${year}'
+              AND ${
+                partitionSettings.monthColumn
+              } > '${month.toString().padStart(2, "0")}'
+            ) OR (
+              ${partitionSettings.yearColumn} > '${year}'
+            )
+          `;
+        case "onOrBefore":
+          return `
+            (
+              ${partitionSettings.yearColumn} <= '${year}'
+              AND ${
+                partitionSettings.monthColumn
+              } <= '${month.toString().padStart(2, "0")}'
+              AND ${partitionSettings.dateColumn} <= '${day
+            .toString()
+            .padStart(2, "0")}'
+            ) OR (
+              ${partitionSettings.yearColumn} <= '${year}'
+              AND ${
+                partitionSettings.monthColumn
+              } < '${month.toString().padStart(2, "0")}'
+            ) OR (
+              ${partitionSettings.yearColumn} < '${year}'
+            )
+          `;
+      }
+    }
+    return "";
+  }
+
   getUpdateExperimentIncrementalUnitsQuery(
     params: UpdateExperimentIncrementalUnitsQueryParams
   ): string {
-    const { settings } = params;
+    const { settings, partitionSettings } = params;
     const {
       exposureQuery,
       activationMetric,
       experimentDimensions,
     } = this.parseExperimentParams(params);
+
+    const partitionWhereClause = this.getPartitionWhereClause(
+      partitionSettings,
+      params.lastMaxTimestamp,
+      "onOrAfter"
+    );
 
     // TODO: id joins
     // TODO: sql filter and segments
@@ -5691,8 +5753,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
               .join(",\n")}
           FROM __newExposures
-          -- TODO pass this up to __newExposures directly
-          WHERE timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
+          -- TODO: confirm this always works for all incremental refresh datasources
+          -- and their partitioning strategy
+          WHERE 
+            timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
+            ${partitionWhereClause ? `AND ${partitionWhereClause}` : ""}
         ),
         __jointExposures AS (
           SELECT * FROM __existingUnits

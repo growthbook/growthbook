@@ -185,11 +185,22 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   incrementalStartDate?: Date;
 }
 
+export type PartitionSettings =
+  | {
+      type: "yearMonthDate";
+      yearColumn: string;
+      monthColumn: string;
+      dateColumn: string;
+    }
+  | {
+      type: "timestamp";
+    };
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
   unitsTableFullName: string;
+  partitionSettings: PartitionSettings;
 }
 
 export interface UpdateExperimentIncrementalUnitsQueryParams
