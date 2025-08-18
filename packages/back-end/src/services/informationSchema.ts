@@ -13,6 +13,7 @@ import { queueUpdateStaleInformationSchemaTable } from "back-end/src/jobs/update
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/organization";
+import { usingFileConfig } from "../init/config";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(
@@ -234,13 +235,16 @@ export async function initializeDatasourceInformationSchema(
     datasource.id,
   );
 
-  // Update the datasource with the informationSchemaId
-  await updateDataSource(context, datasource, {
-    settings: {
-      ...datasource.settings,
-      informationSchemaId: emptyInformationSchema.id,
-    },
-  });
+  if (!usingFileConfig()) {
+    // Update the datasource with the informationSchemaId
+    // Only if the data source is not managed by the config.yml
+    await updateDataSource(context, datasource, {
+      settings: {
+        ...datasource.settings,
+        informationSchemaId: emptyInformationSchema.id,
+      },
+    });
+  }
 
   const { informationSchema, refreshMS } = await generateInformationSchema(
     context,

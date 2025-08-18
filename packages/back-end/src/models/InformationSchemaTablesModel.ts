@@ -3,7 +3,6 @@ import z from "zod";
 import mongoose from "mongoose";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
-import { usingFileConfig } from "back-end/src/init/config";
 import { InformationSchemaTablesInterface } from "back-end/src/types/Integration";
 
 const informationSchemaTablesSchema = new mongoose.Schema({
@@ -77,11 +76,6 @@ export async function createInformationSchemaTable(
     "dateCreated" | "dateUpdated"
   >,
 ): Promise<InformationSchemaTablesInterface> {
-  //TODO: GB-82 Remove this check and orgs usingFileConfig to create informationSchemas
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Data sources managed by config.yml");
-  }
-
   const result = await InformationSchemaTablesModel.create({
     ...tableData,
     dateCreated: new Date(),
