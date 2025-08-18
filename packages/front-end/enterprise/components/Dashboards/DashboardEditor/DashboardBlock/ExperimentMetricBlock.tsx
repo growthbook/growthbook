@@ -24,7 +24,7 @@ export default function ExperimentMetricBlock({
   const { baselineRow, columnsFilter, variationIds } = block;
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
-    [block]
+    [block],
   );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();

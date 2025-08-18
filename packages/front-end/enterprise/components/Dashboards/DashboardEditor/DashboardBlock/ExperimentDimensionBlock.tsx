@@ -33,7 +33,7 @@ export default function ExperimentDimensionBlock({
   } = block;
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
-    [block]
+    [block],
   );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
