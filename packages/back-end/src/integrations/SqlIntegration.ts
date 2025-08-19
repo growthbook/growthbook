@@ -4714,7 +4714,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // to filter to rows that match a metric to improve query performance.
     // We AND together each metric filters, before OR together all of
     // the different metrics filters
-    const filterWhere: string[] = [];
+    const filterWhere: Set<string> = new Set();
 
     // We only do this if all metrics have at least one filter
     let numberOfNumeratorsOrDenominatorsWithoutFilters = 0;
@@ -4747,7 +4747,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         numberOfNumeratorsOrDenominatorsWithoutFilters++;
       }
       if (addFiltersToWhere && filters.length) {
-        filterWhere.push(`(${filters.join("\n AND ")})`);
+        filterWhere.add(`(${filters.join("\n AND ")})`);
       }
 
       // Add denominator column if there is one
@@ -4777,17 +4777,17 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         if (addFiltersToWhere && filters.length) {
-          filterWhere.push(`(${filters.join(" AND ")})`);
+          filterWhere.add(`(${filters.join(" AND ")})`);
         }
       }
     });
 
     // only add filters if all metrics have at least one filter
     if (
-      filterWhere.length &&
+      filterWhere.size > 0 &&
       numberOfNumeratorsOrDenominatorsWithoutFilters === 0
     ) {
-      where.push("(" + filterWhere.join(" OR ") + ")");
+      where.push("(" + Array.from(filterWhere).join(" OR ") + ")");
     }
 
     return compileSqlTemplate(
