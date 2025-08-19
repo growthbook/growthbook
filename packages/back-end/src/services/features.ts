@@ -140,6 +140,7 @@ export function generateFeaturesPayload({
     environment,
     prereqStateCache,
   );
+
   newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,

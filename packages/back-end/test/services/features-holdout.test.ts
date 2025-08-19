@@ -102,30 +102,31 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     (getAllURLRedirectExperiments as jest.Mock).mockResolvedValue([]);
   });
 
-  it("should include holdout when feature and holdout share the same project", async () => {
+  it("should include holdout and holdout rule when holdout has the requested project", async () => {
     // Mock features
     (getAllFeatures as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
+        valueType: "string",
         defaultValue: "default_value",
         environmentSettings: {
           production: {
             enabled: true,
             rules: [
               {
-                id: "holdout_rule",
-                parentConditions: [
-                  {
-                    id: "$holdout:hld_test_holdout",
-                    condition: { value: "holdoutcontrol" },
-                  },
-                ],
-                force: "holdout_value",
+                id: "sample_rule",
+                value: "sample_value",
+                type: "force",
+                enabled: true,
               },
             ],
           },
         },
-        projects: ["project-2"],
+        project: "project-2",
+        holdout: {
+          id: "hld_test_holdout",
+          value: "default_value",
+        },
       },
     ]);
 
@@ -135,12 +136,17 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     ).mockResolvedValue(
       new Map([
         [
-          "$holdout:hld_test_holdout",
+          "hld_test_holdout",
           {
             id: "hld_test_holdout",
             name: "Test Holdout",
             projects: ["project-2"], // Same project as feature
             environment: "production",
+            environmentSettings: {
+              production: {
+                enabled: true,
+              },
+            },
             experiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
@@ -170,32 +176,35 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     expect(result.features["$holdout:hld_test_holdout"].defaultValue).toBe(
       "genpop",
     );
+    // Verify feature has holdout rule
+    expect(result.features["feature-with-holdout"].rules).toHaveLength(2);
   });
 
-  it("should NOT include holdout when feature and holdout have different projects", async () => {
+  it("should NOT include holdout and holdout rule when holdout doesn't have the requested project", async () => {
     // Mock features
     (getAllFeatures as jest.Mock).mockResolvedValue([
       {
         id: "feature-with-holdout",
+        valueType: "string",
         defaultValue: "default_value",
         environmentSettings: {
           production: {
             enabled: true,
             rules: [
               {
-                id: "holdout_rule",
-                parentConditions: [
-                  {
-                    id: "$holdout:hld_test_holdout",
-                    condition: { value: "holdoutcontrol" },
-                  },
-                ],
-                force: "holdout_value",
+                id: "sample_rule",
+                value: "sample_value",
+                type: "force",
+                enabled: true,
               },
             ],
           },
         },
-        projects: ["project-1"], // Different project from holdout
+        project: "project-1",
+        holdout: {
+          id: "hld_test_holdout",
+          value: "default_value",
+        },
       },
     ]);
 
@@ -205,12 +214,17 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     ).mockResolvedValue(
       new Map([
         [
-          "$holdout:hld_test_holdout",
+          "hld_test_holdout",
           {
             id: "hld_test_holdout",
             name: "Test Holdout",
             projects: ["project-2"], // Different project from feature
             environment: "production",
+            environmentSettings: {
+              production: {
+                enabled: true,
+              },
+            },
             experiment: {
               id: "exp_holdout",
               name: "Holdout Experiment",
@@ -236,6 +250,199 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     });
 
     // Verify holdout is NOT included
+    expect(result.features).not.toHaveProperty("$holdout:hld_test_holdout");
+    // Verify feature does not have holdout rule
+    expect(result.features["feature-with-holdout"].rules).toHaveLength(1);
+  });
+
+  it("should include holdout and holdout rule when requested project is in holdout projects array", async () => {
+    // Mock features
+    (getAllFeatures as jest.Mock).mockResolvedValue([
+      {
+        id: "feature-with-holdout",
+        valueType: "string",
+        defaultValue: "default_value",
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                id: "sample_rule",
+                value: "sample_value",
+                type: "force",
+                enabled: true,
+              },
+            ],
+          },
+        },
+        project: "project-2",
+        holdout: {
+          id: "hld_test_holdout",
+          value: "default_value",
+        },
+      },
+    ]);
+
+    // Mock holdouts
+    (
+      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+    ).mockResolvedValue(
+      new Map([
+        [
+          "hld_test_holdout",
+          {
+            id: "hld_test_holdout",
+            name: "Test Holdout",
+            projects: ["project-2", "project-3"],
+            environment: "production",
+            environmentSettings: {
+              production: {
+                enabled: true,
+              },
+            },
+            experiment: {
+              id: "exp_holdout",
+              name: "Holdout Experiment",
+              phases: [
+                {
+                  dateStarted: new Date("2023-01-01"),
+                  dateEnded: null,
+                  coverage: 0.1,
+                  variationWeights: [0.5, 0.5],
+                },
+              ],
+            },
+          },
+        ],
+      ]),
+    );
+
+    const result = await getFeatureDefinitions({
+      context: mockContext,
+      capabilities: ["prerequisites"],
+      environment: "production",
+      projects: ["project-2"], // Only requesting project-2
+    });
+
+    // Verify holdout is included
+    expect(result.features).toHaveProperty("$holdout:hld_test_holdout");
+    expect(result.features["$holdout:hld_test_holdout"].defaultValue).toBe(
+      "genpop",
+    );
+    // Verify feature has holdout rule
+    expect(result.features["feature-with-holdout"].rules).toHaveLength(2);
+  });
+
+  it("should NOT include holdout rule when holdout feature definition is missing", async () => {
+    // Mock features
+    (getAllFeatures as jest.Mock).mockResolvedValue([
+      {
+        id: "feature-with-holdout",
+        valueType: "string",
+        defaultValue: "default_value",
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                id: "sample_rule",
+                value: "sample_value",
+                type: "force",
+                enabled: true,
+              },
+            ],
+          },
+        },
+        project: "project-1",
+        holdout: {
+          id: "hld_test_holdout",
+          value: "default_value",
+        },
+      },
+    ]);
+
+    // Mock holdouts
+    (
+      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+    ).mockResolvedValue(new Map());
+
+    const result = await getFeatureDefinitions({
+      context: mockContext,
+      capabilities: ["prerequisites"],
+      environment: "production",
+      projects: ["project-1"], // Only requesting project-1
+    });
+
+    // Verify feature does not have holdout rule
+    expect(result.features["feature-with-holdout"].rules).toHaveLength(1);
+  });
+
+  it("should NOT include holdout feature definition when no feature has a holdout", async () => {
+    // Mock features
+    (getAllFeatures as jest.Mock).mockResolvedValue([
+      {
+        id: "feature-with-holdout",
+        valueType: "string",
+        defaultValue: "default_value",
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                id: "sample_rule",
+                value: "sample_value",
+                type: "force",
+                enabled: true,
+              },
+            ],
+          },
+        },
+        project: "project-1",
+      },
+    ]);
+
+    // Mock holdouts
+    (
+      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+    ).mockResolvedValue(
+      new Map([
+        [
+          "hld_test_holdout",
+          {
+            id: "hld_test_holdout",
+            name: "Test Holdout",
+            projects: ["project-1", "project-2"],
+            environment: "production",
+            environmentSettings: {
+              production: {
+                enabled: true,
+              },
+            },
+            experiment: {
+              id: "exp_holdout",
+              name: "Holdout Experiment",
+              phases: [
+                {
+                  dateStarted: new Date("2023-01-01"),
+                  dateEnded: null,
+                  coverage: 0.1,
+                  variationWeights: [0.5, 0.5],
+                },
+              ],
+            },
+          },
+        ],
+      ]),
+    );
+
+    const result = await getFeatureDefinitions({
+      context: mockContext,
+      capabilities: ["prerequisites"],
+      environment: "production",
+      projects: ["project-1"], // Only requesting project-1
+    });
+
+    // Verify holdout feature definition is not included
     expect(result.features).not.toHaveProperty("$holdout:hld_test_holdout");
   });
 });

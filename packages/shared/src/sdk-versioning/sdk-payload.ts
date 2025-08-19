@@ -271,6 +271,9 @@ export const scrubHoldouts = ({
 
   const holdoutIds = new Set(Object.keys(holdouts));
 
+  // keep track of references to each holdoutId in the loop below
+  const holdoutReferences = new Set<string>();
+
   // Filter out holdout pre-requisite rules that do not have associated holdout feature definitions
   // Also scrub holdoutId from all rules that have it
   for (const k in features) {
@@ -292,12 +295,21 @@ export const scrubHoldouts = ({
           if (!holdoutIds.has(holdoutId)) {
             return false;
           }
+          // Document that this holdoutId is referenced by a feature rule
+          holdoutReferences.add(holdoutId);
         }
 
         return true;
       });
     }
   }
+
+  // Remove holdouts that are not referenced by any feature rules
+  holdouts = Object.fromEntries(
+    Object.entries(holdouts).filter(([key, _]) => {
+      return holdoutReferences.has(key);
+    }),
+  );
 
   // Remove `projects` from holdouts
   holdouts = Object.fromEntries(

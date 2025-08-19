@@ -29,7 +29,7 @@ export class HoldoutModel extends BaseClass {
   }
   protected canUpdate(
     existing: HoldoutInterface,
-    updates: HoldoutInterface
+    updates: HoldoutInterface,
   ): boolean {
     return this.context.permissions.canUpdateHoldout(existing, updates);
   }
@@ -43,10 +43,10 @@ export class HoldoutModel extends BaseClass {
       holdouts.map(async (h) => {
         const experiment = await getExperimentById(
           this.context,
-          h.experimentId
+          h.experimentId,
         );
         return { ...h, experiment };
-      })
+      }),
     );
 
     const filteredHoldouts = holdoutsWithExperiments.filter(
@@ -64,7 +64,7 @@ export class HoldoutModel extends BaseClass {
           return false;
         }
         return true;
-      }
+      },
     );
     if (!filteredHoldouts || filteredHoldouts.length === 0) {
       return new Map();
@@ -74,16 +74,14 @@ export class HoldoutModel extends BaseClass {
 
   public async removeExperimentFromHoldout(
     holdoutId: string,
-    experimentId: string
+    experimentId: string,
   ) {
     const holdout = await this.getById(holdoutId);
     if (!holdout) {
       throw new Error("Holdout not found");
     }
-    const {
-      [experimentId]: _,
-      ...linkedExperiments
-    } = holdout.linkedExperiments;
+    const { [experimentId]: _, ...linkedExperiments } =
+      holdout.linkedExperiments;
     await this.updateById(holdoutId, { linkedExperiments });
   }
 
