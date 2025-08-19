@@ -25,6 +25,7 @@ export default function ExperimentStatusIndicator({
     <RawExperimentStatusIndicator
       statusIndicatorData={statusIndicatorData}
       labelFormat={labelFormat}
+      experimentData={experimentData}
     />
   );
 }
@@ -72,19 +73,31 @@ export function ExperimentStatusDetailsWithDot({
 export function RawExperimentStatusIndicator({
   statusIndicatorData,
   labelFormat = "full",
+  experimentData,
 }: {
   statusIndicatorData: StatusIndicatorData;
   labelFormat?: LabelFormat;
+  experimentData: ExperimentDataForStatusStringDates;
 }) {
   const { color, status, detailedStatus, tooltip } = statusIndicatorData;
-  const label = getFormattedLabel(labelFormat, status, detailedStatus);
+  const isHoldout = experimentData.type === "holdout";
+  const label = getFormattedLabel(
+    isHoldout ? "status-only" : labelFormat,
+    status,
+    detailedStatus,
+  );
+  const isInAnalysisPeriod =
+    isHoldout &&
+    experimentData.phases.length > 1 &&
+    experimentData.status === "running" &&
+    !experimentData.archived;
 
   const badge = (
     <Badge
       color={color}
       variant={"solid"}
       radius="full"
-      label={label}
+      label={`${label}${isInAnalysisPeriod ? ": Analysis Period" : ""}`}
       style={{
         cursor: tooltip !== undefined ? "default" : undefined,
       }}

@@ -11,6 +11,7 @@ import {
   mergeRevision,
 } from "shared/util";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -55,6 +56,7 @@ export default function FeaturePage() {
     experiments: ExperimentInterfaceStringDates[];
     safeRollouts: SafeRolloutInterface[];
     codeRefs: FeatureCodeRefsInterface[];
+    holdout: HoldoutInterface | undefined;
   }>({
     feature: null,
     revisionList: [],
@@ -62,6 +64,7 @@ export default function FeaturePage() {
     experiments: [],
     safeRollouts: [],
     codeRefs: [],
+    holdout: undefined,
   });
 
   const baseFeature = data?.feature;
@@ -69,6 +72,7 @@ export default function FeaturePage() {
   const revisions = data?.revisions;
   const experiments = data?.experiments;
   const safeRollouts = data?.safeRollouts;
+  const holdout = data?.holdout;
   const [error, setError] = useState<string | null>(null);
   const { experiments: allExperiments } = useExperiments();
 
@@ -98,6 +102,7 @@ export default function FeaturePage() {
           experiments: ExperimentInterfaceStringDates[];
           safeRollouts: SafeRolloutInterface[];
           codeRefs: FeatureCodeRefsInterface[];
+          holdout: HoldoutInterface | undefined;
         }>(`/feature/${fid}${queryString}`);
 
         // Merge new data with existing data
@@ -120,6 +125,7 @@ export default function FeaturePage() {
             "id",
           ),
           codeRefs: response.codeRefs,
+          holdout: response.holdout,
         }));
         setError(null);
       } catch (err) {
@@ -307,6 +313,7 @@ export default function FeaturePage() {
         setTab={setTabAndScroll}
         setEditFeatureInfoModal={setEditFeatureInfoModal}
         dependents={dependents}
+        holdout={holdout}
         dependentExperiments={dependentExperiments}
       />
 
@@ -320,6 +327,7 @@ export default function FeaturePage() {
           revisions={data.revisions}
           experiments={experiments}
           safeRollouts={safeRollouts}
+          holdout={holdout}
           mutate={() => fetchData()}
           editProjectModal={editProjectModal}
           setEditProjectModal={setEditProjectModal}

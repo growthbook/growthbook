@@ -65,6 +65,7 @@ export const experimentPhase = z
     seed: z.string().optional(),
     variationWeights: z.array(z.number()),
     banditEvents: z.array(banditEvent).optional(),
+    lookbackStartDate: z.date().optional(),
   })
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
@@ -134,7 +135,11 @@ export const metricOverride = z
   .strict();
 export type MetricOverride = z.infer<typeof metricOverride>;
 
-export const experimentType = ["standard", "multi-armed-bandit"] as const;
+export const experimentType = [
+  "standard",
+  "multi-armed-bandit",
+  "holdout",
+] as const;
 export type ExperimentType = (typeof experimentType)[number];
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;
@@ -317,7 +322,16 @@ export const experimentInterface = z
     shareLevel: z.enum(["public", "organization"]).optional(),
     analysisSummary: experimentAnalysisSummary.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
+    holdoutId: z.string().optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
 export type ExperimentInterface = z.infer<typeof experimentInterface>;
+
+// Excludes "holdout" from the type property for the experiments API
+export type ExperimentInterfaceExcludingHoldouts = Omit<
+  ExperimentInterface,
+  "type"
+> & {
+  type?: Exclude<ExperimentInterface["type"], "holdout">;
+};
