@@ -73,12 +73,12 @@ export function getNewExperimentDatasourceDefaults(
   datasources: DataSourceInterfaceWithParams[],
   settings: OrganizationSettings,
   project?: string,
-  initialValue?: Partial<ExperimentInterfaceStringDates>
+  initialValue?: Partial<ExperimentInterfaceStringDates>,
 ): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
@@ -95,7 +95,7 @@ export function getNewExperimentDatasourceDefaults(
       getExposureQuery(
         initialDatasource.settings,
         initialValue?.exposureQueryId,
-        initialValue?.userIdType
+        initialValue?.userIdType,
       )?.id || "",
   };
 }
@@ -114,7 +114,7 @@ export const genEnvironmentSettings = ({
   environments.forEach((e) => {
     // How should we handle a holdout having multiple projects here?
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? e.defaultState ?? true : false;
+    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
     const rules = [];
 
@@ -206,7 +206,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         datasources,
         settings,
         initialExperiment?.project || project || "",
-        initialExperiment
+        initialExperiment,
       ),
       hashAttribute: initialExperiment?.hashAttribute || hashAttribute,
       goalMetrics: initialExperiment?.goalMetrics || [],
@@ -419,7 +419,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   async (key: string) =>
                     (experiments.find((exp) => exp.trackingKey === key) as
                       | ExperimentInterfaceStringDates
-                      | undefined) ?? null
+                      | undefined) ?? null,
                 );
                 form.setValue("trackingKey", trackingKey);
               }}
@@ -524,7 +524,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                     isNaN(form.watch("phases.0.coverage") ?? 0)
                       ? "5"
                       : decimalToPercent(
-                          (form.watch("phases.0.coverage") ?? 0) / 2
+                          (form.watch("phases.0.coverage") ?? 0) / 2,
                         )
                   }
                   onChange={(e) => {
@@ -623,7 +623,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   })}
                   formatOptionLabel={({ label, value }) => {
                     const userIdType = exposureQueries?.find(
-                      (e) => e.id === value
+                      (e) => e.id === value,
                     )?.userIdType;
                     return (
                       <>

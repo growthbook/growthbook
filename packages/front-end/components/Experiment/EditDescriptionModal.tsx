@@ -69,7 +69,7 @@ export default function EditDescriptionModal({
         value={form.watch("description")}
         setValue={(value) => form.setValue("description", value)}
         placeholder={`Add a description to keep your team informed about the purpose and parameters of your ${upperFirst(
-          experimentType || "experiment"
+          experimentType || "experiment",
         )}.`}
       />
     </Modal>

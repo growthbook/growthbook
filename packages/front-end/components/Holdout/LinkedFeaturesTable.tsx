@@ -22,7 +22,7 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
         holdoutValue: f.holdout?.value,
       };
     },
-    [holdout, features]
+    [holdout, features],
   );
 
   const { items, SortableTH } = useSearch({

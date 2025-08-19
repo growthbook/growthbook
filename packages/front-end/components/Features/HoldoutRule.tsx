@@ -148,7 +148,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                             body: JSON.stringify({
                               holdout: undefined,
                             }),
-                          }
+                          },
                         );
                         await mutate();
                       }}
@@ -161,5 +161,5 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
         </Box>
       </Box>
     );
-  }
+  },
 );

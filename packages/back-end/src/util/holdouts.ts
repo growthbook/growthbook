@@ -4,7 +4,7 @@ import { getSDKPayloadKeys } from "./features";
 
 export function getEnabledEnvironments(
   holdout: HoldoutInterface,
-  allowedEnvs: string[]
+  allowedEnvs: string[],
 ): Set<string> {
   const environments = new Set<string>();
 
@@ -20,7 +20,7 @@ export function getEnabledEnvironments(
 
 export function getAffectedSDKPayloadKeys(
   holdout: HoldoutInterface,
-  allowedEnvs: string[]
+  allowedEnvs: string[],
 ): SDKPayloadKey[] {
   const keys: SDKPayloadKey[] = [];
 

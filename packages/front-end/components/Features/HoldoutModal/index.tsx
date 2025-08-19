@@ -23,7 +23,7 @@ export default function HoldoutModal({
   const { holdouts, experimentsMap } = useExperiments(
     project,
     false,
-    "holdout"
+    "holdout",
   );
   const { apiCall } = useAuth();
 
@@ -31,7 +31,7 @@ export default function HoldoutModal({
     return holdouts.map((holdout) => ({
       ...holdout,
       experiment: experimentsMap.get(
-        holdout.experimentId
+        holdout.experimentId,
       ) as ExperimentInterfaceStringDates,
     }));
   }, [holdouts, experimentsMap]);
@@ -80,7 +80,7 @@ export default function HoldoutModal({
           })}
           formatOptionLabel={({ label, value }) => {
             const userIdType = holdoutsWithExperiment?.find(
-              (h) => h.id === value
+              (h) => h.id === value,
             )?.experiment.exposureQueryId;
             return (
               <>

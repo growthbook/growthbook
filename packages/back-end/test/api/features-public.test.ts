@@ -51,7 +51,8 @@ jest.mock("back-end/src/controllers/features", () => {
   return {
     ...actual,
     getPayloadParamsFromApiKey: mockGetPayloadParamsFromApiKey,
-    getFeatureDefinitionsFilteredByEnvironment: mockGetFeatureDefinitionsFilteredByEnvironment,
+    getFeatureDefinitionsFilteredByEnvironment:
+      mockGetFeatureDefinitionsFilteredByEnvironment,
   };
 });
 
@@ -297,9 +298,9 @@ describe("getFeaturesPublic test holdout", () => {
     };
 
     // Setup mocks for the functions that getFeatureDefinitions calls
-    (featuresController.getPayloadParamsFromApiKey as jest.Mock).mockResolvedValue(
-      mockPayloadParams
-    );
+    (
+      featuresController.getPayloadParamsFromApiKey as jest.Mock
+    ).mockResolvedValue(mockPayloadParams);
     (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue(mockContext);
     (util.filterProjectsByEnvironmentWithNull as jest.Mock).mockReturnValue([
       "project-1",

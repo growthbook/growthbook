@@ -73,20 +73,20 @@ export default function TrafficAndTargeting({
                   <>
                     <div>
                       {Math.floor(
-                        phase.coverage * phase.variationWeights[0] * 100
+                        phase.coverage * phase.variationWeights[0] * 100,
                       )}
                       % in holdout
                     </div>
                     <div>
                       {Math.floor(
-                        phase.coverage * phase.variationWeights[0] * 100
+                        phase.coverage * phase.variationWeights[0] * 100,
                       )}
                       % not in holdout (for measurement)
                     </div>
                     <div>
                       {Math.floor(
                         (1 - phase.coverage * phase.variationWeights[0] * 2) *
-                          100
+                          100,
                       )}
                       % not in holdout (not for measurement)
                     </div>

@@ -5,7 +5,7 @@ import useApi from "./useApi";
 
 export function useHoldouts(
   project?: string,
-  includeArchived: boolean = false
+  includeArchived: boolean = false,
 ) {
   const { data, error, mutate } = useApi<{
     holdouts: HoldoutInterface[];
@@ -14,19 +14,20 @@ export function useHoldouts(
   }>(
     `/holdout?project=${project || ""}&includeArchived=${
       includeArchived ? "1" : ""
-    }`
+    }`,
   );
 
   const holdouts = useMemo(() => data?.holdouts || [], [data]);
 
-  const holdoutsMap = useMemo(() => new Map(holdouts.map((h) => [h.id, h])), [
-    holdouts,
-  ]);
+  const holdoutsMap = useMemo(
+    () => new Map(holdouts.map((h) => [h.id, h])),
+    [holdouts],
+  );
 
   const experiments = useMemo(() => data?.experiments || [], [data]);
   const experimentsMap = useMemo(
     () => new Map(experiments.map((e) => [e.id, e])),
-    [experiments]
+    [experiments],
   );
 
   return {

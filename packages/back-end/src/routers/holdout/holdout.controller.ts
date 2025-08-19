@@ -58,7 +58,7 @@ export const getHoldout = async (
     linkedExperiments?: ExperimentInterface[];
     envs?: string[];
     message?: string;
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -73,7 +73,7 @@ export const getHoldout = async (
 
   const holdoutExperiment = await getExperimentById(
     context,
-    holdout.experimentId
+    holdout.experimentId,
   );
 
   if (!holdoutExperiment) {
@@ -89,7 +89,7 @@ export const getHoldout = async (
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
   const linkedExperiments = await getExperimentsByIds(
     context,
-    linkedExperimentIds
+    linkedExperimentIds,
   );
 
   res.status(200).json({
@@ -99,7 +99,7 @@ export const getHoldout = async (
     linkedFeatures,
     linkedExperiments,
     envs: Object.keys(holdout.environmentSettings).filter(
-      (e) => holdout.environmentSettings[e].enabled
+      (e) => holdout.environmentSettings[e].enabled,
     ),
   });
 };
@@ -122,7 +122,7 @@ export const createHoldout = async (
       }
     | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -314,7 +314,7 @@ export const getHoldouts = async (
     holdouts: HoldoutInterface[];
     experiments: ExperimentInterface[];
     hasArchived: boolean;
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
   let project = "";
@@ -349,7 +349,7 @@ export const getHoldouts = async (
 
 export const updateHoldout = async (
   req: AuthRequest<Partial<HoldoutInterface>, { id: string }>,
-  res: Response<{ status: 200 | 404; holdout?: HoldoutInterface }>
+  res: Response<{ status: 200 | 404; holdout?: HoldoutInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const holdout = await context.models.holdout.getById(req.params.id);
@@ -380,7 +380,7 @@ export const editStatus = async (
     },
     { id: string }
   >,
-  res: Response<{ status: 200 | 404 }>
+  res: Response<{ status: 200 | 404 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -414,7 +414,7 @@ export const editStatus = async (
 
     await refreshSDKPayloadCache(
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org))
+      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
     );
   } else if (req.body.status === "running") {
     // check to see if already in analysis period
@@ -460,7 +460,7 @@ export const editStatus = async (
 
     await refreshSDKPayloadCache(
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org))
+      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
     );
   } else if (req.body.status === "draft") {
     // set the status to draft for the experiment
@@ -476,7 +476,7 @@ export const editStatus = async (
 
     await refreshSDKPayloadCache(
       context,
-      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org))
+      getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
     );
   }
 
@@ -489,7 +489,7 @@ export const editStatus = async (
 
 export const deleteHoldout = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 | 404 | 403; message?: string }>
+  res: Response<{ status: 200 | 404 | 403; message?: string }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -532,12 +532,14 @@ export const deleteHoldout = async (
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);
   const linkedExperiments = await getExperimentsByIds(
     context,
-    linkedExperimentIds
+    linkedExperimentIds,
   );
 
   // Remove holdout links from linked features and experiments
   await Promise.all(
-    linkedFeatures.map((f) => updateFeature(context, f, { holdout: undefined }))
+    linkedFeatures.map((f) =>
+      updateFeature(context, f, { holdout: undefined }),
+    ),
   );
   await Promise.all(
     linkedExperiments.map((e) =>
@@ -545,8 +547,8 @@ export const deleteHoldout = async (
         context,
         experiment: e,
         changes: { holdoutId: undefined },
-      })
-    )
+      }),
+    ),
   );
 
   await context.models.holdout.delete(holdout);

@@ -124,7 +124,7 @@ export default function EditHoldoutInfoModal({
         value={form.watch("projects") || []}
         options={useProjectOptions(
           (project) => canUpdateHoldoutProjects(project),
-          experiment.project ? [experiment.project] : []
+          experiment.project ? [experiment.project] : [],
         )}
         onChange={(v) => form.setValue("projects", v)}
         customClassName="label-overflow-ellipsis"

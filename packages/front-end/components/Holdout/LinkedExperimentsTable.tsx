@@ -29,7 +29,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
         statusIndicator,
       };
     },
-    [holdout, experiments]
+    [holdout, experiments],
   );
 
   const { items, SortableTH } = useSearch({
@@ -72,7 +72,7 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
         <tbody>
           {items.map((exp) => {
             const variationIndex = exp.variations.findIndex(
-              (v) => v.id === exp.releasedVariationId
+              (v) => v.id === exp.releasedVariationId,
             );
             const variation = exp.variations[variationIndex];
             return (

@@ -126,7 +126,7 @@ export default function MetricName({
     }
     const allJoinable = metrics?.every((m) => m.joinable) ?? true;
     const allNonConversionWindow = metrics?.every(
-      (m) => m?.metric?.windowSettings?.type !== "conversion"
+      (m) => m?.metric?.windowSettings?.type !== "conversion",
     );
 
     return (

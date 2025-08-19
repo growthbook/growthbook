@@ -59,9 +59,8 @@ export default function Implementation({
   linkedFeatures,
   envs,
 }: Props) {
-  const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] = useState(
-    false
-  );
+  const [showEditEnvironmentsModal, setShowEditEnvironmentsModal] =
+    useState(false);
   const phases = experiment.phases || [];
 
   const permissionsUtil = usePermissionsUtil();
@@ -87,7 +86,7 @@ export default function Implementation({
   const showEditVariations = editVariations;
 
   const [tab, setTab] = useState<"experiments" | "features">(
-    holdoutExperiments?.length ? "experiments" : "features"
+    holdoutExperiments?.length ? "experiments" : "features",
   );
 
   const isHoldout = experiment.type === "holdout";

@@ -24,7 +24,7 @@ export const HoldoutSelect = ({
   const { holdouts, experimentsMap } = useExperiments(
     project,
     false,
-    "holdout"
+    "holdout",
   );
   const hasHoldouts = hasCommercialFeature("holdouts");
 
@@ -56,7 +56,7 @@ export const HoldoutSelect = ({
       .map((holdout) => ({
         ...holdout,
         experiment: experimentsMap.get(
-          holdout.experimentId
+          holdout.experimentId,
         ) as ExperimentInterfaceStringDates,
       }));
   }, [holdouts, experimentsMap, selectedHoldoutId, selectedProject]);

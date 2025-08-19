@@ -25,7 +25,7 @@ const margin = { top: 30, right: 60, bottom: 30, left: 200 }; // Increased right
 
 const getPhaseColor = (
   experiment: ExperimentInterfaceStringDates,
-  phase: "running" | "won"
+  phase: "running" | "won",
 ) => {
   // Simplified color scheme matching the image
   const mainColor =
@@ -90,7 +90,7 @@ const HoldoutTimeline: React.FC<{
     experimentName: string,
     status: ExperimentStatus,
     result: string,
-    phase: ExperimentPhaseStringDates
+    phase: ExperimentPhaseStringDates,
   ) => {
     if (!containerRef.current) return;
 
@@ -172,7 +172,7 @@ const HoldoutTimeline: React.FC<{
       const previousMonday = new Date(startDate);
       previousMonday.setDate(previousMonday.getDate() - 1);
       previousMonday.setDate(
-        previousMonday.getDate() - (previousMonday.getDay() - 1)
+        previousMonday.getDate() - (previousMonday.getDay() - 1),
       );
       const nextMonday = new Date(startDate);
       const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
@@ -412,7 +412,7 @@ const HoldoutTimeline: React.FC<{
                     const previousMonday = new Date(startDate);
                     previousMonday.setDate(previousMonday.getDate() - 1);
                     previousMonday.setDate(
-                      previousMonday.getDate() - (previousMonday.getDay() - 1)
+                      previousMonday.getDate() - (previousMonday.getDay() - 1),
                     );
                     ticks.push(new Date(previousMonday));
 
@@ -420,7 +420,7 @@ const HoldoutTimeline: React.FC<{
                     const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
                     if (daysUntilMonday > 0) {
                       nextMonday.setDate(
-                        nextMonday.getDate() + daysUntilMonday
+                        nextMonday.getDate() + daysUntilMonday,
                       );
                     }
 
@@ -520,7 +520,7 @@ const HoldoutTimeline: React.FC<{
                     const start = getValidDate(phase.dateStarted) ?? "";
                     const end =
                       experiment.status === "stopped"
-                        ? getValidDate(phase.dateEnded) ?? ""
+                        ? (getValidDate(phase.dateEnded) ?? "")
                         : new Date();
                     const colors = getPhaseColor(experiment, "running");
                     const winColors = getPhaseColor(experiment, "won");
@@ -552,7 +552,7 @@ const HoldoutTimeline: React.FC<{
                                 experiment.name,
                                 experiment.status,
                                 experiment.results || "",
-                                phase
+                                phase,
                               )
                             }
                             onMouseLeave={handleBarMouseLeave}
@@ -579,7 +579,7 @@ const HoldoutTimeline: React.FC<{
                                   experiment.name,
                                   experiment.status,
                                   experiment.results || "",
-                                  phase
+                                  phase,
                                 )
                               }
                               onMouseLeave={handleBarMouseLeave}

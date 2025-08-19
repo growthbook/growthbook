@@ -66,10 +66,10 @@ const HoldoutsPage = (): React.ReactElement => {
       }))
       .filter(
         (
-          item
+          item,
         ): item is typeof item & {
           experiment: NonNullable<typeof item.experiment>;
-        } => !!item.experiment
+        } => !!item.experiment,
       );
   }, [holdouts, experimentsMap]);
 
@@ -81,12 +81,12 @@ const HoldoutsPage = (): React.ReactElement => {
       item.experiment?.status === "draft"
         ? "--"
         : item.experiment?.status === "running"
-        ? `${date(item.experiment.phases[0].dateStarted ?? "")} - now`
-        : item.experiment?.status === "stopped"
-        ? `${date(item.experiment.phases[0].dateStarted ?? "")} - ${date(
-            item.experiment.phases[0].dateEnded ?? ""
-          )}`
-        : null;
+          ? `${date(item.experiment.phases[0].dateStarted ?? "")} - now`
+          : item.experiment?.status === "stopped"
+            ? `${date(item.experiment.phases[0].dateStarted ?? "")} - ${date(
+                item.experiment.phases[0].dateEnded ?? "",
+              )}`
+            : null;
     const projectsComputed = item.projects.reduce((acc, p) => {
       const project = projects.find((project) => project.id === p);
       if (!project) {
@@ -269,10 +269,10 @@ const HoldoutsPage = (): React.ReactElement => {
                             active && tabs.length > 1
                               ? `Hide ${tab} holdouts`
                               : active
-                              ? `Remove filter`
-                              : tabs.length === 0
-                              ? `View only ${tab} holdouts`
-                              : `Include ${tab} holdouts`
+                                ? `Remove filter`
+                                : tabs.length === 0
+                                  ? `View only ${tab} holdouts`
+                                  : `Include ${tab} holdouts`
                           }
                         >
                           <span className="mr-1">
@@ -286,7 +286,7 @@ const HoldoutsPage = (): React.ReactElement => {
                           )}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
                 <div className="col-auto">
@@ -375,7 +375,7 @@ const HoldoutsPage = (): React.ReactElement => {
                         <td
                           className="nowrap"
                           title={datetime(
-                            holdout.experiment.phases[0].dateStarted ?? ""
+                            holdout.experiment.phases[0].dateStarted ?? "",
                           )}
                         >
                           {holdout.duration}
