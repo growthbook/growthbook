@@ -40,6 +40,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Link from "@/components/Radix/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import QueriesNextRun from "@/components/Queries/QueriesNextRun";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -489,6 +490,14 @@ export default function AnalysisSettingsSummary({
                   )}
                 </div>
               )}
+
+            {hasData && experiment.autoSnapshots && (
+              <div className="col-auto">
+                <QueriesNextRun
+                  scheduledDate={experiment?.nextSnapshotAttempt}
+                />
+              </div>
+            )}
 
             {ds &&
               permissionsUtil.canRunExperimentQueries(ds) &&
