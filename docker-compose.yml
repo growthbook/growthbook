@@ -16,6 +16,7 @@ services:
       - APP_ORIGIN=http://10.0.31.135
       - API_HOST=http://10.0.31.135
       - JWT_SECRET=your-super-secure-jwt-secret-key-that-should-be-at-least-32-characters-long-for-security
+      - ENCRYPTION_KEY=your-super-secure-encryption-key-that-should-be-at-least-32-characters-long-for-security
       - NODE_ENV=production
       - COOKIE_SECURE=false
       - COOKIE_SAME_SITE=lax
