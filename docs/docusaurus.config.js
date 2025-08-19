@@ -79,9 +79,9 @@ const config = {
             require.resolve("modern-normalize/modern-normalize.css"),
           ],
         },
-        gtag: {
+        gtag: process.env.NODE_ENV === 'production' ? {
           trackingID: "G-3W683MDLMQ",
-        },
+        } : undefined,
       }),
     ],
     [
