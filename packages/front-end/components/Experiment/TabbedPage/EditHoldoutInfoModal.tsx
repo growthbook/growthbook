@@ -86,27 +86,6 @@ export default function EditHoldoutInfoModal({
           onChange={(tags) => form.setValue("tags", tags)}
         />
       </div>
-      {/* <SelectField
-        label={
-          <>
-            Project
-            <Tooltip
-              className="pl-1"
-              body={
-                "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
-              }
-            />
-          </>
-        }
-        autoFocus={focusSelector === "project"}
-        value={form.watch("project")}
-        onChange={(v) => form.setValue("project", v)}
-        options={useProjectOptions(
-          (project) => canUpdateHoldoutProjects(project),
-          experiment.project ? [experiment.project] : []
-        )}
-        initialOption={initialProjectOption}
-      /> */}
       <MultiSelectField
         label={
           <>
