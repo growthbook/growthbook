@@ -92,7 +92,7 @@ function ensureClickhouseEnvVars() {
     !CLICKHOUSE_MAIN_TABLE
   ) {
     throw new Error(
-      "Must specify necessary environment variables to interact with clickhouse."
+      "Must specify necessary environment variables to interact with clickhouse.",
     );
   }
 }
@@ -113,7 +113,7 @@ function createAdminClickhouseClient() {
 }
 
 function getClickhouseDatatype(
-  columnType: FactTableColumnType
+  columnType: FactTableColumnType,
 ): ClickHouseDataType {
   switch (columnType) {
     case "date":
@@ -129,7 +129,7 @@ function getClickhouseDatatype(
 
 function getClickhouseExtractClause(
   sourceField: string,
-  columnType: FactTableColumnType
+  columnType: FactTableColumnType,
 ) {
   // Some fields will eventually be inside attributes instead of top-level
   // This is a temp workaround until then
@@ -166,7 +166,7 @@ export function getReservedColumnNames(): Set<string> {
       "experiment_id",
       "variation_id",
       ...Object.keys(REMAINING_COLUMNS_SCHEMA),
-    ].map((col) => col.toLowerCase())
+    ].map((col) => col.toLowerCase()),
   );
 }
 
@@ -178,13 +178,13 @@ type ColumnDef = {
 
 function getCreateTableColumnList(columns: ColumnDef[]): string[] {
   return columns.map(
-    ({ source, alias, datatype }) => `${alias || source} ${datatype}`
+    ({ source, alias, datatype }) => `${alias || source} ${datatype}`,
   );
 }
 function getSelectColumnList(columns: ColumnDef[]): string[] {
   return columns.map(
     ({ source, alias }) =>
-      `${source}${alias && alias !== source ? ` as ${alias}` : ""}`
+      `${source}${alias && alias !== source ? ` as ${alias}` : ""}`,
   );
 }
 
@@ -196,7 +196,7 @@ function getRemainingColumnDefs(): ColumnDef[] {
 }
 
 function getMaterializedColumnDefs(
-  materializedColumns: MaterializedColumn[]
+  materializedColumns: MaterializedColumn[],
 ): ColumnDef[] {
   return materializedColumns.map(({ columnName, datatype, sourceField }) => ({
     source: getClickhouseExtractClause(sourceField, datatype),
@@ -255,7 +255,7 @@ AS ${select}`;
 
 function getEventsSQL(
   orgId: string,
-  materializedColumns: MaterializedColumn[]
+  materializedColumns: MaterializedColumn[],
 ) {
   return getMaterializedViewSQL({
     orgId,
@@ -276,7 +276,7 @@ function getEventsSQL(
 
 function getExperimentViewSQL(
   orgId: string,
-  materializedColumns: MaterializedColumn[]
+  materializedColumns: MaterializedColumn[],
 ) {
   return getMaterializedViewSQL({
     orgId,
@@ -351,7 +351,7 @@ function getFeatureusageSQL(orgId: string) {
 
 async function runCommand(
   client: ReturnType<typeof createClickhouseClient>,
-  query: string
+  query: string,
 ): Promise<void> {
   await client.command({ query });
 }
@@ -364,7 +364,7 @@ function getTableName(orgId: string, name: string) {
 
 export async function createClickhouseUser(
   context: ReqContext,
-  materializedColumns: MaterializedColumn[] = []
+  materializedColumns: MaterializedColumn[] = [],
 ): Promise<DataSourceParams> {
   const client = createAdminClickhouseClient();
 
@@ -387,18 +387,18 @@ export async function createClickhouseUser(
   logger.info(`Creating Clickhouse user ${user}`);
   await runCommand(
     client,
-    `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`
+    `CREATE USER ${user} IDENTIFIED WITH sha256_hash BY '${hashedPassword}' DEFAULT DATABASE ${database}`,
   );
 
   await createClickhouseTables(client, orgId, materializedColumns);
 
   logger.info(
-    `Granting select permissions on information_schema.columns to ${user}`
+    `Granting select permissions on information_schema.columns to ${user}`,
   );
   // For schema browser.  They can only see info on tables that they have select permissions on.
   await runCommand(
     client,
-    `GRANT SELECT(data_type, table_name, table_catalog, table_schema, column_name) ON information_schema.columns TO ${user}`
+    `GRANT SELECT(data_type, table_name, table_catalog, table_schema, column_name) ON information_schema.columns TO ${user}`,
   );
 
   const url = new URL(CLICKHOUSE_HOST);
@@ -417,7 +417,7 @@ export async function createClickhouseUser(
 export async function createClickhouseTables(
   client: ReturnType<typeof createAdminClickhouseClient>,
   orgId: string,
-  materializedColumns: MaterializedColumn[] = []
+  materializedColumns: MaterializedColumn[] = [],
 ): Promise<void> {
   const user = clickhouseUserId(orgId);
   const database = user;
@@ -455,7 +455,7 @@ export async function createClickhouseTables(
 
 export async function _dangerousRecreateClickhouseTables(
   context: ReqContext,
-  datasource: GrowthbookClickhouseDataSource
+  datasource: GrowthbookClickhouseDataSource,
 ): Promise<void> {
   const client = createAdminClickhouseClient();
 
@@ -477,7 +477,7 @@ export async function _dangerousRecreateClickhouseTables(
     await createClickhouseTables(
       client,
       orgId,
-      datasource.settings.materializedColumns || []
+      datasource.settings.materializedColumns || [],
     );
   } finally {
     await unlockDataSource(context, datasource);
@@ -510,7 +510,7 @@ export async function addCloudSDKMapping(connection: SDKConnectionInterface) {
   } catch (e) {
     logger.error(
       e,
-      `Error inserting sdk key mapping (${key} -> ${organization})`
+      `Error inserting sdk key mapping (${key} -> ${organization})`,
     );
   }
 }
@@ -567,7 +567,7 @@ export async function logCloudAIUsage({
 export async function getDailyCDNUsageForOrg(
   orgId: string,
   start: Date,
-  end: Date
+  end: Date,
 ): Promise<DailyUsage[]> {
   const client = createAdminClickhouseClient();
 
@@ -652,8 +652,8 @@ export async function updateMaterializedColumns({
       .map(
         ({ columnName, datatype }) =>
           `ADD COLUMN IF NOT EXISTS ${columnName} ${getClickhouseDatatype(
-            datatype
-          )}`
+            datatype,
+          )}`,
       )
       .join(", ");
     const dropClauses = columnsToDelete
@@ -675,12 +675,10 @@ export async function updateMaterializedColumns({
     let viewColumns = originalColumns;
 
     // First update the main events table
-    const {
-      tableName: eventsTableName,
-      viewName: eventsViewName,
-    } = getEventsSQL(orgId, []);
+    const { tableName: eventsTableName, viewName: eventsViewName } =
+      getEventsSQL(orgId, []);
     logger.info(
-      `Updating materialized columns; dropping view ${eventsViewName}`
+      `Updating materialized columns; dropping view ${eventsViewName}`,
     );
     await runCommand(client, `DROP VIEW IF EXISTS ${eventsViewName}`);
     let err = undefined;
@@ -701,12 +699,10 @@ export async function updateMaterializedColumns({
     }
 
     // Now update the experiment views table
-    const {
-      tableName: exposureTableName,
-      viewName: exposureViewName,
-    } = getExperimentViewSQL(orgId, []);
+    const { tableName: exposureTableName, viewName: exposureViewName } =
+      getExperimentViewSQL(orgId, []);
     logger.info(
-      `Updating materialized columns; dropping view ${exposureViewName}`
+      `Updating materialized columns; dropping view ${exposureViewName}`,
     );
     await runCommand(client, `DROP VIEW IF EXISTS ${exposureViewName}`);
     err = undefined;
@@ -776,7 +772,7 @@ export async function updateMaterializedColumns({
         { columns: newColumns },
         {
           bypassManagedByCheck: true,
-        }
+        },
       );
     }
   } finally {
