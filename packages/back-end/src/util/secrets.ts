@@ -276,6 +276,8 @@ export const CLICKHOUSE_ADMIN_PASSWORD =
   process.env.CLICKHOUSE_ADMIN_PASSWORD || "";
 export const CLICKHOUSE_DATABASE = process.env.CLICKHOUSE_DATABASE || "";
 export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
+export const CLICKHOUSE_DEV_PREFIX =
+  process.env.CLICKHOUSE_DEV_PREFIX || "test_";
 
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,
