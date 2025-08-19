@@ -24,6 +24,7 @@ import {
 import {
   scrubExperiments,
   scrubFeatures,
+  scrubHoldouts,
   scrubSavedGroups,
   SDKCapability,
 } from "shared/sdk-versioning";
@@ -40,6 +41,7 @@ import {
   AutoExperimentWithProject,
   FeatureDefinition,
   FeatureDefinitionWithProject,
+  FeatureDefinitionWithProjects,
 } from "back-end/types/api";
 import {
   ExperimentRefRule,
@@ -61,6 +63,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   getFeatureDefinition,
+  getHoldoutFeatureDefId,
   getParsedCondition,
 } from "back-end/src/util/features";
 import {
@@ -101,6 +104,7 @@ import { triggerWebhookJobs } from "back-end/src/jobs/updateAllJobs";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -115,6 +119,7 @@ export function generateFeaturesPayload({
   groupMap,
   prereqStateCache = {},
   safeRolloutMap,
+  holdoutsMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -122,6 +127,10 @@ export function generateFeaturesPayload({
   groupMap: GroupMap;
   prereqStateCache?: Record<string, Record<string, PrerequisiteStateResult>>;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  holdoutsMap: Map<
+    string,
+    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+  >;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
 
@@ -131,6 +140,7 @@ export function generateFeaturesPayload({
     environment,
     prereqStateCache,
   );
+
   newFeatures.forEach((feature) => {
     const def = getFeatureDefinition({
       feature,
@@ -138,6 +148,7 @@ export function generateFeaturesPayload({
       groupMap,
       experimentMap,
       safeRolloutMap,
+      holdoutsMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -145,6 +156,49 @@ export function generateFeaturesPayload({
   });
 
   return defs;
+}
+
+export function generateHoldoutsPayload({
+  holdoutsMap,
+}: {
+  holdoutsMap: Map<
+    string,
+    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+  >;
+}): Record<string, FeatureDefinition> {
+  const holdoutDefs: Record<string, FeatureDefinition> = {};
+  holdoutsMap.forEach((holdoutWithExperiment) => {
+    const exp = holdoutWithExperiment.experiment;
+    if (!exp) return;
+
+    const def: FeatureDefinitionWithProjects = {
+      defaultValue: "genpop",
+      rules: [
+        {
+          id: getHoldoutFeatureDefId(holdoutWithExperiment.holdout.id),
+          coverage: exp.phases[0].coverage, // Phases in holdout experiments always have the same coverage
+          hashAttribute: exp.hashAttribute,
+          seed: exp.phases[0].seed, // Phases in holdout experiments always have the same seed
+          hashVersion: 2,
+          variations: ["holdoutcontrol", "holdouttreatment"],
+          weights: [0.5, 0.5],
+          key: exp.trackingKey,
+          phase: `${exp.phases.length - 1}`,
+          meta: [
+            {
+              key: "0",
+            },
+            {
+              key: "1",
+            },
+          ],
+        },
+      ],
+      projects: holdoutWithExperiment.holdout.projects,
+    };
+    holdoutDefs[getHoldoutFeatureDefId(holdoutWithExperiment.holdout.id)] = def;
+  });
+  return holdoutDefs;
 }
 
 export type VisualExperiment = {
@@ -454,6 +508,8 @@ export async function refreshSDKPayloadCache(
 
   const promises: (() => Promise<void>)[] = [];
   for (const environment of environments) {
+    const holdoutsMap =
+      await context.models.holdout.getAllPayloadHoldouts(environment);
     const featureDefinitions = generateFeaturesPayload({
       features: allFeatures,
       environment: environment,
@@ -461,6 +517,11 @@ export async function refreshSDKPayloadCache(
       experimentMap,
       prereqStateCache,
       safeRolloutMap,
+      holdoutsMap,
+    });
+
+    const holdoutFeatureDefinitions = generateHoldoutsPayload({
+      holdoutsMap,
     });
 
     const experimentsDefinitions = generateAutoExperimentsPayload({
@@ -486,6 +547,7 @@ export async function refreshSDKPayloadCache(
         organization: context.org.id,
         environment: environment,
         featureDefinitions,
+        holdoutFeatureDefinitions,
         experimentsDefinitions,
         savedGroupsInUse,
       });
@@ -508,6 +570,7 @@ export async function refreshSDKPayloadCache(
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinitionWithProject>;
   experiments: AutoExperimentWithProject[];
+  holdouts: Record<string, FeatureDefinitionWithProjects>;
   dateUpdated: Date | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
@@ -526,6 +589,7 @@ export type FeatureDefinitionsResponseArgs = {
 export async function getFeatureDefinitionsResponse({
   features,
   experiments,
+  holdouts,
   dateUpdated,
   encryptionKey,
   includeVisualExperiments,
@@ -590,6 +654,16 @@ export async function getFeatureDefinitionsResponse({
     ]),
   );
   experiments = experiments.map((exp) => omit(exp, ["project"]));
+
+  const { holdouts: scrubbedHoldouts, features: scrubbedFeatures } =
+    scrubHoldouts({
+      holdouts,
+      projects,
+      features,
+    });
+
+  // Add holdouts to features
+  features = { ...scrubbedFeatures, ...scrubbedHoldouts };
 
   const hasSecureAttributes = attributes?.some((a) =>
     ["secureString", "secureString[]"].includes(a.datatype),
@@ -752,7 +826,8 @@ export async function getFeatureDefinitions({
       }
       let attributes: SDKAttributeSchema | undefined = undefined;
       let secureAttributeSalt: string | undefined = undefined;
-      const { features, experiments, savedGroupsInUse } = cached.contents;
+      const { features, experiments, savedGroupsInUse, holdouts } =
+        cached.contents;
       const usedSavedGroups = await getSavedGroupsById(
         savedGroupsInUse,
         context.org.id,
@@ -768,6 +843,7 @@ export async function getFeatureDefinitions({
       return await getFeatureDefinitionsResponse({
         features,
         experiments: experiments || [],
+        holdouts: holdouts || {},
         dateUpdated: cached.dateUpdated,
         encryptionKey,
         includeVisualExperiments,
@@ -805,6 +881,8 @@ export async function getFeatureDefinitions({
   const experimentMap = await getAllPayloadExperiments(context);
   const safeRolloutMap =
     await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const holdoutsMap =
+    await context.models.holdout.getAllPayloadHoldouts(environment);
 
   const prereqStateCache: Record<
     string,
@@ -818,6 +896,11 @@ export async function getFeatureDefinitions({
     experimentMap,
     prereqStateCache,
     safeRolloutMap,
+    holdoutsMap,
+  });
+
+  const holdoutFeatureDefinitions = generateHoldoutsPayload({
+    holdoutsMap,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -850,6 +933,7 @@ export async function getFeatureDefinitions({
     organization: context.org.id,
     environment,
     featureDefinitions,
+    holdoutFeatureDefinitions,
     experimentsDefinitions,
     savedGroupsInUse: Object.keys(savedGroupsInUse),
   });
@@ -867,6 +951,7 @@ export async function getFeatureDefinitions({
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,
     experiments: experimentsDefinitions,
+    holdouts: holdoutFeatureDefinitions,
     dateUpdated: new Date(),
     encryptionKey,
     includeVisualExperiments,
@@ -1057,19 +1142,23 @@ export async function evaluateAllFeatures({
     if (!env) {
       continue;
     }
+    const holdoutsMap = await context.models.holdout.getAllPayloadHoldouts(
+      env.id,
+    );
 
-    const featurePayload = generateFeaturesPayload({
+    const featureDefinitions = generateFeaturesPayload({
       features: allFeaturesRaw,
       environment: env.id,
       experimentMap,
       groupMap,
       prereqStateCache: {},
       safeRolloutMap,
+      holdoutsMap,
     });
 
     // now we have all the definitions, lets evaluate them
     const gb = new GrowthBook({
-      features: featurePayload,
+      features: featureDefinitions,
       savedGroups: savedGroups,
       attributes: attributeValues,
     });
@@ -1099,7 +1188,7 @@ export async function evaluateAllFeatures({
         enabled: false,
         defaultValue: revision.defaultValue,
       };
-      if (featurePayload[feature.id]) {
+      if (featureDefinitions[feature.id]) {
         const settings = feature.environmentSettings[env.id] ?? null;
         if (settings) {
           thisFeatureEnvResult.enabled = settings.enabled;

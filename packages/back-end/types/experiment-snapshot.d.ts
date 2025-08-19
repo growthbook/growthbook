@@ -130,6 +130,10 @@ export interface ExperimentSnapshotAnalysisSettings {
   baselineVariationIndex?: number;
   numGoalMetrics: number;
   oneSidedIntervals?: boolean;
+  holdoutAnalysisWindow?: {
+    start: Date;
+    end: Date;
+  };
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";

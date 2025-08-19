@@ -8,6 +8,8 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea, Heading } from "@radix-ui/themes";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { upperFirst } from "lodash";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
@@ -24,10 +26,13 @@ import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import EditDescriptionModal from "../EditDescriptionModal";
+import HoldoutTimeline from "../holdout/HoldoutTimeline";
 import EditHypothesisModal from "../EditHypothesisModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterface;
+  holdoutExperiments?: ExperimentInterfaceStringDates[];
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   editTargeting?: (() => void) | null;
@@ -41,6 +46,8 @@ export interface Props {
 
 export default function SetupTabOverview({
   experiment,
+  holdout,
+  holdoutExperiments,
   visualChangesets,
   mutate,
   editTargeting,
@@ -71,6 +78,7 @@ export default function SetupTabOverview({
     !disableEditing;
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
@@ -100,13 +108,14 @@ export default function SetupTabOverview({
           source="experiment-setup-tab"
           mutate={mutate}
           experimentId={experiment.id}
+          experimentType={experiment.type}
           initialValue={experiment.description}
           close={() => setShowDescriptionModal(false)}
         />
       ) : null}
       <div>
         <h2>Overview</h2>
-        {experiment.status === "draft" ? (
+        {experiment.status === "draft" && experiment.type !== "holdout" ? (
           <PreLaunchChecklist
             experiment={experiment}
             envs={envs}
@@ -170,7 +179,8 @@ export default function SetupTabOverview({
             ) : (
               <Box as="div" className="font-italic text-muted" py="2">
                 Add a description to keep your team informed about the purpose
-                and parameters of your experiment
+                and parameters of your{" "}
+                {upperFirst(experiment.type || "experiment")}.
               </Box>
             )}
             {!customFields.length && experiment.description ? (
@@ -189,7 +199,26 @@ export default function SetupTabOverview({
           </Collapsible>
         </Frame>
 
-        {!isBandit && (
+        {isHoldout &&
+          holdout &&
+          experiment.status !== "draft" &&
+          holdoutExperiments &&
+          holdoutExperiments.length > 0 && (
+            <div className="box p-4 my-4">
+              <HoldoutTimeline
+                experiments={holdoutExperiments}
+                startDate={
+                  new Date(
+                    experiment.phases[0].dateStarted ||
+                      Date.now() - 100 * 24 * 60 * 60 * 7,
+                  ) // 7 days ago
+                }
+                endDate={new Date(experiment.phases[0].dateEnded || Date.now())}
+              />
+            </div>
+          )}
+
+        {!isBandit && !isHoldout && (
           <Frame>
             <Flex align="start" justify="between" mb="3">
               <Heading as="h4" size="3">
