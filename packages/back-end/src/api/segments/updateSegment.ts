@@ -76,7 +76,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
       updates.description = req.body.description;
     }
     if (req.body.datasource) updates.datasource = req.body.datasource;
-    if (req.body.identifierType) updates.userIdType = req.body.identifierType;
+    if (req.body.userIdType) updates.userIdType = req.body.userIdType;
     if (req.body.projects) updates.projects = req.body.projects;
     if (req.body.managedBy !== undefined) {
       updates.managedBy = req.body.managedBy;

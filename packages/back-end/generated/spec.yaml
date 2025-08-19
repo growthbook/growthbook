@@ -1305,7 +1305,7 @@ paths:
         - lang: cURL
           source: |
             curl -X POST https://api.growthbook.io/api/v1/segments \
-              -d '{"name":"Annual Subscribers", "datasource":"ds_123abc", "userIdType":"user_id", "type":"SQL", "query":"SELECT plan FROM subscribers WHERE plan = 'annual'"}' \
+              -d '{"name":"Annual Subscribers", "datasource":"ds_123abc", "identifierType":"user_id", "type":"SQL", "query":"SELECT plan FROM subscribers WHERE plan = 'annual'"}' \
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -1316,20 +1316,22 @@ paths:
               required:
                 - name
                 - datasource
-                - identifierType
+                - userIdType
                 - type
-                - managedBy
               properties:
                 name:
                   type: string
                   description: Name of the segment
+                owner:
+                  type: string
+                  description: Owner of the segment
                 description:
                   type: string
                   description: Description of the segment
                 datasource:
                   type: string
                   description: ID of the datasource this segment belongs to
-                identifierType:
+                userIdType:
                   type: string
                   description: 'Type of identifier (user, anonymous, etc.)'
                 projects:
@@ -1421,10 +1423,13 @@ paths:
                 description:
                   type: string
                   description: Description of the segment
+                owner:
+                  type: string
+                  description: Owner of the segment
                 datasource:
                   type: string
                   description: ID of the datasource this segment belongs to
-                identifierType:
+                userIdType:
                   type: string
                   description: 'Type of identifier (user, anonymous, etc.)'
                 projects:
@@ -6038,7 +6043,7 @@ components:
         - id
         - owner
         - datasourceId
-        - identifierType
+        - userIdType
         - name
         - dateCreated
         - dateUpdated
@@ -6049,7 +6054,7 @@ components:
           type: string
         datasourceId:
           type: string
-        identifierType:
+        userIdType:
           type: string
         name:
           type: string

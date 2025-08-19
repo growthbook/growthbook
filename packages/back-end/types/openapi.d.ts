@@ -523,7 +523,7 @@ export interface components {
       id: string;
       owner: string;
       datasourceId: string;
-      identifierType: string;
+      userIdType: string;
       name: string;
       description?: string;
       query?: string;
@@ -8130,7 +8130,7 @@ export interface operations {
                 id: string;
                 owner: string;
                 datasourceId: string;
-                identifierType: string;
+                userIdType: string;
                 name: string;
                 description?: string;
                 query?: string;
@@ -8165,19 +8165,21 @@ export interface operations {
         "application/json": {
           /** @description Name of the segment */
           name: string;
+          /** @description Owner of the segment */
+          owner?: string;
           /** @description Description of the segment */
           description?: string;
           /** @description ID of the datasource this segment belongs to */
           datasource: string;
           /** @description Type of identifier (user, anonymous, etc.) */
-          identifierType: string;
+          userIdType: string;
           /** @description List of project IDs for projects that can access this segment */
           projects?: (string)[];
           /**
            * @description Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere. 
            * @enum {string}
            */
-          managedBy: "" | "api";
+          managedBy?: "" | "api";
           /**
            * @description GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters. 
            * @enum {string}
@@ -8200,7 +8202,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              identifierType: string;
+              userIdType: string;
               name: string;
               description?: string;
               query?: string;
@@ -8237,7 +8239,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              identifierType: string;
+              userIdType: string;
               name: string;
               description?: string;
               query?: string;
@@ -8273,10 +8275,12 @@ export interface operations {
           name?: string;
           /** @description Description of the segment */
           description?: string;
+          /** @description Owner of the segment */
+          owner?: string;
           /** @description ID of the datasource this segment belongs to */
           datasource?: string;
           /** @description Type of identifier (user, anonymous, etc.) */
-          identifierType?: string;
+          userIdType?: string;
           /** @description List of project IDs for projects that can access this segment */
           projects?: (string)[];
           /**
@@ -8306,7 +8310,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              identifierType: string;
+              userIdType: string;
               name: string;
               description?: string;
               query?: string;

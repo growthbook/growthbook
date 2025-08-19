@@ -7,7 +7,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/segments \
-        -d '{"name":"Annual Subscribers", "datasource":"ds_123abc", "userIdType":"user_id", "type":"SQL", "query":"SELECT plan FROM subscribers WHERE plan = 'annual'"}' \
+        -d '{"name":"Annual Subscribers", "datasource":"ds_123abc", "identifierType":"user_id", "type":"SQL", "query":"SELECT plan FROM subscribers WHERE plan = 'annual'"}' \
         -u secret_abc123DEF456:
 requestBody:
   required: true

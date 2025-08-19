@@ -3,7 +3,7 @@ required:
   - id
   - owner
   - datasourceId
-  - identifierType
+  - userIdType
   - name
   - dateCreated
   - dateUpdated
@@ -14,7 +14,7 @@ properties:
     type: string
   datasourceId:
     type: string
-  identifierType:
+  userIdType:
     type: string
   name:
     type: string

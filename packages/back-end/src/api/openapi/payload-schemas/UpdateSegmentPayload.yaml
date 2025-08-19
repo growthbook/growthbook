@@ -6,10 +6,13 @@ properties:
   description:
     type: string
     description: Description of the segment
+  owner:
+    type: string
+    description: Owner of the segment
   datasource:
     type: string
     description: ID of the datasource this segment belongs to
-  identifierType:
+  userIdType:
     type: string
     description: Type of identifier (user, anonymous, etc.)
   projects:

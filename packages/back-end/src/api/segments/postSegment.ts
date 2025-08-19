@@ -7,6 +7,7 @@ import { PostSegmentResponse } from "back-end/types/openapi";
 export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
   req,
 ): Promise<PostSegmentResponse> => {
+  console.log("req.body", req.body);
   const datasourceDoc = await getDataSourceById(
     req.context,
     req.body.datasource,
@@ -14,13 +15,16 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
+  console.log("about to save");
 
   const segmentData = {
     ...req.body,
     owner: req.context.userId || "",
     description: req.body.description || "",
-    userIdType: req.body.identifierType,
   };
+
+  console.log("segmentData", segmentData);
+
   const segment = await req.context.models.segments.create(segmentData);
 
   return {
