@@ -130,7 +130,9 @@ export const createHoldout = async (
   const data = req.body;
   data.organization = org.id;
 
-  if (!context.permissions.canCreateExperiment(data)) {
+  if (
+    !context.permissions.canCreateHoldout({ projects: data.projects || [] })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -276,13 +278,6 @@ export const createHoldout = async (
       details: auditDetailsCreate(experiment),
     });
 
-    // await upsertWatch({
-    //   userId,
-    //   organization: org.id,
-    //   item: experiment.id,
-    //   type: "experiments",
-    // });
-
     res.status(200).json({
       status: 200,
       experiment,
@@ -396,6 +391,10 @@ export const editStatus = async (
     return res.status(404).json({ status: 404 });
   }
 
+  if (!context.permissions.canUpdateHoldout(holdout, holdout)) {
+    context.permissions.throwPermissionError();
+  }
+
   let phases = [...experiment.phases] as ExperimentPhase[];
 
   if (req.body.status === "stopped" && experiment.status !== "stopped") {
@@ -495,8 +494,6 @@ export const deleteHoldout = async (
 
   const holdout = await context.models.holdout.getById(req.params.id);
 
-  // TODO: Add holdout permissions check
-
   if (!holdout) {
     return res.status(404).json({ status: 404, message: "Holdout not found" });
   }
@@ -519,8 +516,7 @@ export const deleteHoldout = async (
     return;
   }
 
-  // TODO: Replace with holdout permissions check since it's a multi-project resource
-  if (!context.permissions.canDeleteExperiment(experiment)) {
+  if (!context.permissions.canDeleteHoldout(holdout)) {
     context.permissions.throwPermissionError();
   }
 
@@ -552,6 +548,11 @@ export const deleteHoldout = async (
   );
 
   await context.models.holdout.delete(holdout);
+
+  await refreshSDKPayloadCache(
+    context,
+    getAffectedSDKPayloadKeys(holdout, getEnvironmentIdsFromOrg(context.org)),
+  );
 
   return res.status(200).json({ status: 200 });
 };
