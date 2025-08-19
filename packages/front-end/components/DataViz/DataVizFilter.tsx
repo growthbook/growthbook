@@ -1,4 +1,7 @@
-import { FilterConfiguration } from "back-end/src/validators/saved-queries";
+import {
+  FilterConfiguration,
+  DataVizConfig,
+} from "back-end/src/validators/saved-queries";
 import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import { PiTrash } from "react-icons/pi";
 import { Select, SelectItem } from "@/components/Radix/Select";
@@ -7,17 +10,16 @@ import MultiSelectField from "../Forms/MultiSelectField";
 import { ColumnFilterOption } from "./DataVizFilterPanel";
 
 type Props = {
-  filters: FilterConfiguration[];
-  setFilters: (filters: FilterConfiguration[]) => void;
+  dataVizConfig: Partial<DataVizConfig>;
+  onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
   columnFilterOptions: ColumnFilterOption[];
-  setDirty: (dirty: boolean) => void;
   filterIndex: number;
   rows?: Record<string, unknown>[];
 };
 
 function getUniqueValuesFromColumn(
   rows: Record<string, unknown>[],
-  columnName: string
+  columnName: string,
 ): string[] {
   const uniqueValues = new Set<string>();
 
@@ -51,12 +53,38 @@ const filterOptions = [
 
 export default function DataVizFilter({
   filterIndex,
-  filters,
-  setFilters,
-  setDirty,
+  dataVizConfig,
+  onDataVizConfigChange,
   rows,
   columnFilterOptions,
 }: Props) {
+  const filters = dataVizConfig.filter || [];
+  const updateFilter = (updatedFilter: Partial<FilterConfiguration>) => {
+    const newFilters = [...filters];
+    newFilters[filterIndex] = { ...newFilters[filterIndex], ...updatedFilter };
+    onDataVizConfigChange({
+      ...dataVizConfig,
+      filter: newFilters,
+    });
+  };
+
+  const updateFilterConfig = (
+    configUpdates: Record<string, string | number | string[]>,
+  ) => {
+    const currentConfig = filters[filterIndex]?.config || {};
+    const newConfig = { ...currentConfig, ...configUpdates };
+    updateFilter({ config: newConfig });
+  };
+
+  const removeFilter = () => {
+    const newFilters = [...filters];
+    newFilters.splice(filterIndex, 1);
+    onDataVizConfigChange({
+      ...dataVizConfig,
+      filter: newFilters,
+    });
+  };
+
   return (
     <>
       {filterIndex > 0 && <Separator size="4" mt="2" />}
@@ -66,16 +94,7 @@ export default function DataVizFilter({
             <Flex justify="between" align="center">
               <Text as="label">Filter {filterIndex + 1}</Text>
               <Box mb="2">
-                <Button
-                  variant="ghost"
-                  color="red"
-                  onClick={() => {
-                    setDirty(true);
-                    const newFilters = [...filters];
-                    newFilters.splice(filterIndex, 1);
-                    setFilters(newFilters);
-                  }}
-                >
+                <Button variant="ghost" color="red" onClick={removeFilter}>
                   <PiTrash />
                 </Button>
               </Box>
@@ -83,25 +102,24 @@ export default function DataVizFilter({
           }
           value={filters[filterIndex].column}
           setValue={(v) => {
-            setDirty(true);
             const { knownType } = columnFilterOptions.find(
-              (option) => option.column === v
+              (option) => option.column === v,
             ) || { knownType: "string" };
-            const newFilters = [...filters];
+
             // When the column changes, we reset the type and filterType fields to their defaults
             // This means that changing from one date column to another date column will reset the whole form
             // Not ideal
-            newFilters[filterIndex].column = v;
-            newFilters[filterIndex].type = knownType;
-            newFilters[filterIndex].filterType =
-              knownType === "date"
-                ? "today"
-                : knownType === "number"
-                ? "equals"
-                : "contains";
-
-            newFilters[filterIndex].config = undefined;
-            setFilters(newFilters);
+            updateFilter({
+              column: v,
+              type: knownType,
+              filterType:
+                knownType === "date"
+                  ? "today"
+                  : knownType === "number"
+                    ? "equals"
+                    : "contains",
+              config: undefined,
+            });
           }}
           size="2"
           placeholder="Select a column to filter by"
@@ -120,14 +138,13 @@ export default function DataVizFilter({
             style={{ flex: 1 }}
             value={filters[filterIndex].type}
             setValue={(v) => {
-              setDirty(true);
               if (!v) return;
               if (!["string", "number", "date"].includes(v)) {
                 throw new Error(`Invalid filter type: ${v}`);
               }
-              const newFilters = [...filters];
-              newFilters[filterIndex].type = v as "string" | "number" | "date";
-              setFilters(newFilters);
+              updateFilter({
+                type: v as "string" | "number" | "date",
+              });
             }}
             size="2"
             placeholder="Select type"
@@ -149,14 +166,11 @@ export default function DataVizFilter({
                 placeholder="Select Option"
                 value={filters[filterIndex].filterType || ""}
                 setValue={(v) => {
-                  setDirty(true);
                   if (!v) return;
-                  const newFilters = [...filters];
-                  newFilters[
-                    filterIndex
-                  ].filterType = v as FilterConfiguration["filterType"];
-                  newFilters[filterIndex].config = {};
-                  setFilters(newFilters);
+                  updateFilter({
+                    filterType: v as FilterConfiguration["filterType"],
+                    config: {},
+                  });
                 }}
               >
                 {filterOptions
@@ -164,8 +178,8 @@ export default function DataVizFilter({
                     (filterOption) =>
                       filters[filterIndex].type &&
                       filterOption.supportedTypes.includes(
-                        filters[filterIndex].type
-                      )
+                        filters[filterIndex].type,
+                      ),
                   )
                   .map((filterOption) => (
                     <SelectItem
@@ -188,14 +202,11 @@ export default function DataVizFilter({
                 placeholder="Select Option"
                 value={filters[filterIndex].filterType || ""}
                 setValue={(v) => {
-                  setDirty(true);
                   if (!v) return;
-                  const newFilters = [...filters];
-                  newFilters[
-                    filterIndex
-                  ].filterType = v as FilterConfiguration["filterType"];
-                  newFilters[filterIndex].config = {};
-                  setFilters(newFilters);
+                  updateFilter({
+                    filterType: v as FilterConfiguration["filterType"],
+                    config: {},
+                  });
                 }}
               >
                 {filterOptions
@@ -203,8 +214,8 @@ export default function DataVizFilter({
                     (filterOption) =>
                       filters[filterIndex].type &&
                       filterOption.supportedTypes.includes(
-                        filters[filterIndex].type
-                      )
+                        filters[filterIndex].type,
+                      ),
                   )
                   .map((filterOption) => (
                     <SelectItem
@@ -227,14 +238,11 @@ export default function DataVizFilter({
                 placeholder="Select Option"
                 value={filters[filterIndex].filterType || ""}
                 setValue={(v) => {
-                  setDirty(true);
                   if (!v) return;
-                  const newFilters = [...filters];
-                  newFilters[
-                    filterIndex
-                  ].filterType = v as FilterConfiguration["filterType"];
-                  newFilters[filterIndex].config = {};
-                  setFilters(newFilters);
+                  updateFilter({
+                    filterType: v as FilterConfiguration["filterType"],
+                    config: {},
+                  });
                 }}
               >
                 {filterOptions
@@ -242,8 +250,8 @@ export default function DataVizFilter({
                     (filterOption) =>
                       filters[filterIndex].type &&
                       filterOption.supportedTypes.includes(
-                        filters[filterIndex].type
-                      )
+                        filters[filterIndex].type,
+                      ),
                   )
                   .map((filterOption) => (
                     <SelectItem
@@ -271,17 +279,15 @@ export default function DataVizFilter({
                   placeholder="Minimum"
                   value={filters[filterIndex].config?.min?.toString() || ""}
                   onChange={(e) => {
-                    setDirty(true);
                     const value = e.target.value ? e.target.value : undefined;
-                    const newFilters = [...filters];
-                    if (newFilters[filterIndex]?.config) {
-                      if (value !== undefined) {
-                        newFilters[filterIndex].config.min = value;
-                      } else {
-                        delete newFilters[filterIndex].config.min;
-                      }
-                      setFilters(newFilters);
+                    const currentConfig = filters[filterIndex]?.config || {};
+                    const newConfig = { ...currentConfig };
+                    if (value !== undefined) {
+                      newConfig.min = value;
+                    } else {
+                      delete newConfig.min;
                     }
+                    updateFilter({ config: newConfig });
                   }}
                 />
               </Flex>
@@ -296,17 +302,15 @@ export default function DataVizFilter({
                   placeholder="Maximum"
                   value={filters[filterIndex].config?.max?.toString() || ""}
                   onChange={(e) => {
-                    setDirty(true);
                     const value = e.target.value ? e.target.value : undefined;
-                    const newFilters = [...filters];
-                    if (newFilters[filterIndex]?.config) {
-                      if (value !== undefined) {
-                        newFilters[filterIndex].config.max = value;
-                      } else {
-                        delete newFilters[filterIndex].config.max;
-                      }
-                      setFilters(newFilters);
+                    const currentConfig = filters[filterIndex]?.config || {};
+                    const newConfig = { ...currentConfig };
+                    if (value !== undefined) {
+                      newConfig.max = value;
+                    } else {
+                      delete newConfig.max;
                     }
+                    updateFilter({ config: newConfig });
                   }}
                 />
               </Flex>
@@ -328,21 +332,9 @@ export default function DataVizFilter({
                 placeholder="Enter value"
                 value={filters[filterIndex].config?.value?.toString() || ""}
                 onChange={(e) => {
-                  setDirty(true);
                   const value = e.target.value ? e.target.value : undefined;
-                  const newFilters = [...filters];
-                  if (newFilters[filterIndex]?.config) {
-                    if (value !== undefined) {
-                      newFilters[filterIndex].config.value = value;
-                    } else {
-                      delete newFilters[filterIndex].config.value;
-                    }
-                  }
-                  if (newFilters[filterIndex].config?.value === undefined) {
-                    if (value !== undefined) {
-                      newFilters[filterIndex].config = { value };
-                      setFilters(newFilters);
-                    }
+                  if (value !== undefined) {
+                    updateFilterConfig({ value });
                   }
                 }}
               />
@@ -362,24 +354,11 @@ export default function DataVizFilter({
                 placeholder="Enter text to search for"
                 value={String(filters[filterIndex].config?.value || "")}
                 onChange={(e) => {
-                  setDirty(true);
                   const value = e.target.value
                     ? String(e.target.value)
                     : undefined;
-                  const newFilters = [...filters];
-                  if (newFilters[filterIndex]?.config) {
-                    if (value !== undefined) {
-                      newFilters[filterIndex].config.value = value;
-                    } else {
-                      delete newFilters[filterIndex].config.value;
-                    }
-                    setFilters(newFilters);
-                  }
-                  if (newFilters[filterIndex].config?.value === undefined) {
-                    if (value !== undefined) {
-                      newFilters[filterIndex].config = { value };
-                      setFilters(newFilters);
-                    }
+                  if (value !== undefined) {
+                    updateFilterConfig({ value });
                   }
                 }}
               />
@@ -404,22 +383,13 @@ export default function DataVizFilter({
               }
               options={getUniqueValuesFromColumn(
                 rows,
-                filters[filterIndex].column
+                filters[filterIndex].column,
               ).map((value) => ({
                 label: value,
                 value,
               }))}
               onChange={(values) => {
-                setDirty(true);
-                const newFilters = [...filters];
-                if (newFilters[filterIndex]?.config) {
-                  if (values.length > 0) {
-                    newFilters[filterIndex].config.values = values;
-                  } else {
-                    delete newFilters[filterIndex].config.values;
-                  }
-                  setFilters(newFilters);
-                }
+                updateFilterConfig({ values });
               }}
             />
           )}
@@ -436,18 +406,11 @@ export default function DataVizFilter({
                 type="date"
                 value={String(filters[filterIndex].config?.startDate || "")}
                 onChange={(e) => {
-                  setDirty(true);
                   const value = e.target.value
                     ? String(e.target.value)
                     : undefined;
-                  const newFilters = [...filters];
-                  if (newFilters[filterIndex]?.config) {
-                    if (value !== undefined) {
-                      newFilters[filterIndex].config.startDate = value;
-                    } else {
-                      delete newFilters[filterIndex].config.startDate;
-                    }
-                    setFilters(newFilters);
+                  if (value !== undefined) {
+                    updateFilterConfig({ startDate: value });
                   }
                 }}
               />
@@ -462,18 +425,11 @@ export default function DataVizFilter({
                 type="date"
                 value={String(filters[filterIndex].config?.endDate || "")}
                 onChange={(e) => {
-                  setDirty(true);
                   const value = e.target.value
                     ? String(e.target.value)
                     : undefined;
-                  const newFilters = [...filters];
-                  if (newFilters[filterIndex]?.config) {
-                    if (value !== undefined) {
-                      newFilters[filterIndex].config.endDate = value;
-                    } else {
-                      delete newFilters[filterIndex].config.endDate;
-                    }
-                    setFilters(newFilters);
+                  if (value !== undefined) {
+                    updateFilterConfig({ endDate: value });
                   }
                 }}
               />

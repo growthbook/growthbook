@@ -4,11 +4,11 @@ import {
   FilterConfiguration,
 } from "back-end/src/validators/saved-queries";
 import { useEffect, useState } from "react";
-import { FaPlusCircle } from "react-icons/fa";
+import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import { PiSlidersHorizontal } from "react-icons/pi";
+import Collapsible from "react-collapsible";
 import Badge from "@/components/Radix/Badge";
 import { requiresXAxis } from "@/services/dataVizTypeGuards";
-import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import Button from "../Radix/Button";
 import { inferFieldType } from "./DataVizConfigPanel";
 import DataVizFilter from "./DataVizFilter";
@@ -20,14 +20,14 @@ export type ColumnFilterOption = {
 
 type Props = {
   dataVizConfig: Partial<DataVizConfig>;
-  onDataVizConfigChange: (dataVizConfig: DataVizConfig) => void;
+  onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
   sampleRow: Record<string, unknown>;
   rows?: Record<string, unknown>[];
 };
 
 function getColumnFilterOptions(
   dataVizConfig: Partial<DataVizConfig>,
-  sampleRow: Record<string, unknown>
+  sampleRow: Record<string, unknown>,
 ) {
   const filterableColumns: ColumnFilterOption[] = [];
   if (requiresXAxis(dataVizConfig) && dataVizConfig.xAxis) {
@@ -77,18 +77,16 @@ export default function DataVizFilterPanel({
   const [columnFilterOptions, setColumnFilterOptions] = useState<
     ColumnFilterOption[]
   >(() => getColumnFilterOptions(dataVizConfig, sampleRow));
-  const [dirty, setDirty] = useState(false);
-  const [filters, setFilters] = useState<FilterConfiguration[]>(
-    dataVizConfig.filter || []
-  );
 
   useEffect(() => {
     const columnFilterOptions = getColumnFilterOptions(
       dataVizConfig,
-      sampleRow
+      sampleRow,
     );
     setColumnFilterOptions(columnFilterOptions);
   }, [dataVizConfig, sampleRow]);
+
+  const filters = dataVizConfig.filter || [];
 
   // Early return if no column filter options are available
   if (!columnFilterOptions.length) return null;
@@ -96,116 +94,115 @@ export default function DataVizFilterPanel({
   if (!dataVizConfig.chartType) return null;
 
   return (
-    <AreaWithHeader
-      header={
-        <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-          <Flex align="center" gap="1">
-            <PiSlidersHorizontal
+    <>
+      <Flex
+        direction="column"
+        height="100%"
+        style={{
+          border: "1px solid var(--gray-a3)",
+          borderRadius: "var(--radius-4)",
+          overflow: "hidden",
+          backgroundColor: "var(--color-panel-translucent)",
+        }}
+      >
+        <Collapsible
+          open={true}
+          trigger={
+            <div
               style={{
-                color: "var(--violet-11)",
-              }}
-              size={20}
-            />
-            Filters
-            <Badge
-              label={filters.length.toString()}
-              color="violet"
-              radius="full"
-              variant="soft"
-            />
-          </Flex>
-        </Text>
-      }
-    >
-      <Box p="4" height="fit-content">
-        <Flex direction="column" gap="4">
-          {filters.length > 0 &&
-            filters.map((filter, index) => {
-              return (
-                <DataVizFilter
-                  key={index}
-                  filterIndex={index}
-                  columnFilterOptions={columnFilterOptions}
-                  filters={filters}
-                  setFilters={setFilters}
-                  setDirty={setDirty}
-                  rows={rows}
-                />
-              );
-            })}
-          <a
-            role="button"
-            className="d-inline-block link-purple font-weight-bold"
-            onClick={() => {
-              setDirty(true);
-              // I need to get the first column filter option
-              const firstColumnFilterOption = columnFilterOptions[0];
-              const type = firstColumnFilterOption.knownType;
-              // Add new filter with default values
-              setFilters([
-                ...filters,
-                {
-                  column: firstColumnFilterOption.column,
-                  type,
-                  filterType:
-                    type === "date"
-                      ? "today"
-                      : type === "number"
-                      ? "equals"
-                      : "contains",
-                },
-              ]);
-            }}
-          >
-            <FaPlusCircle className="mr-1" />
-            Add Filter
-          </a>
-
-          <Flex direction="column" gap="2">
-            <Button
-              variant="solid"
-              disabled={!dirty}
-              onClick={() => {
-                setDirty(false);
-
-                // Validate each filter has required properties
-                filters.forEach((filter, index) => {
-                  if (!filter.column) {
-                    throw new Error(`Filter ${index + 1} is missing column`);
-                  }
-                  if (!filter.type) {
-                    throw new Error(`Filter ${index + 1} is missing type`);
-                  }
-                  if (!filter.filterType) {
-                    throw new Error(
-                      `Filter ${index + 1} is missing filterType`
-                    );
-                  }
-                });
-
-                //MKTODO: Add validation for specific filterTypes
-                //E.G. If the filterType is "dateRange" it needs a min/max date
-                //E.G. If the filterType is "numberRange" it needs a min/max number
-                //E.G. If the filterType is "includes" it needs a list of values
-                //E.G. If the filterType is "contains" it needs a string
-                //E.G. If the filterType is "equals" it needs a number
-                //E.G. If the filterType is "greaterThan" it needs a number
-                //E.G. If the filterType is "lessThan" it needs a number
-                //E.G. If the filterType is "today" it needs a date
-
-                const newDataVizConfig = {
-                  ...dataVizConfig,
-                  filter: filters,
-                };
-                //MKTODO: Is there a way to do this without the type assertion?
-                onDataVizConfigChange(newDataVizConfig as DataVizConfig);
+                paddingLeft: "12px",
+                paddingRight: "12px",
+                paddingTop: "12px",
+                paddingBottom: "12px",
+                borderBottom: "1px solid var(--gray-a3)",
               }}
             >
-              Apply Filters
-            </Button>
-          </Flex>
-        </Flex>
-      </Box>
-    </AreaWithHeader>
+              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+                <Flex justify="between" align="center">
+                  <Flex align="center" gap="1">
+                    <PiSlidersHorizontal
+                      style={{
+                        color: "var(--violet-11)",
+                      }}
+                      size={20}
+                    />
+                    Filters
+                    <Badge
+                      label={filters.length.toString()}
+                      color="violet"
+                      radius="full"
+                      variant="soft"
+                    />
+                  </Flex>
+                  <Flex align="center" gap="1">
+                    <Button
+                      variant="ghost"
+                      color="red"
+                      disabled={filters.length === 0}
+                      onClick={() => {
+                        onDataVizConfigChange({
+                          ...dataVizConfig,
+                          filter: [],
+                        });
+                      }}
+                    >
+                      Clear
+                    </Button>
+                    <FaAngleRight className="chevron" />
+                  </Flex>
+                </Flex>
+              </Text>
+            </div>
+          }
+          transitionTime={100}
+        >
+          <Box p="4" height="fit-content">
+            <Flex direction="column" gap="4">
+              {filters.length > 0 &&
+                filters.map((filter, index) => {
+                  return (
+                    <DataVizFilter
+                      key={index}
+                      filterIndex={index}
+                      columnFilterOptions={columnFilterOptions}
+                      dataVizConfig={dataVizConfig}
+                      onDataVizConfigChange={onDataVizConfigChange}
+                      rows={rows}
+                    />
+                  );
+                })}
+              <a
+                role="button"
+                className="d-inline-block link-purple font-weight-bold"
+                onClick={() => {
+                  // I need to get the first column filter option
+                  const firstColumnFilterOption = columnFilterOptions[0];
+                  const type = firstColumnFilterOption.knownType;
+                  // Add new filter with default values
+                  const newFilter: FilterConfiguration = {
+                    column: firstColumnFilterOption.column,
+                    type,
+                    filterType:
+                      type === "date"
+                        ? "today"
+                        : type === "number"
+                          ? "equals"
+                          : "contains",
+                  };
+
+                  onDataVizConfigChange({
+                    ...dataVizConfig,
+                    filter: [...filters, newFilter],
+                  });
+                }}
+              >
+                <FaPlusCircle className="mr-1" />
+                Add Filter
+              </a>
+            </Flex>
+          </Box>
+        </Collapsible>
+      </Flex>
+    </>
   );
 }
