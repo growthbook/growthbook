@@ -99,7 +99,7 @@ SUM_COLS = [
     "denominator_post_denominator_pre_sum_product",
 ]
 
-NON_SUMMABLE_COLS = [
+ROW_COLS = SUM_COLS + [
     "quantile_n",
     "quantile_nstar",
     "quantile",
@@ -107,13 +107,6 @@ NON_SUMMABLE_COLS = [
     "quantile_upper",
     "theta",
 ]
-
-ROW_COLS = SUM_COLS + NON_SUMMABLE_COLS
-
-BANDIT_DIMENSION = {
-    "column": "dimension",
-    "value": "All",
-}
 
 
 # Looks for any variation ids that are not in the provided map
@@ -128,20 +121,23 @@ def detect_unknown_variations(
     return set(unknown_var_ids)
 
 
-def get_dimension_column_name(dimension: str) -> str:
-    dimension_column_name = "dimension"
-    if dimension == "pre:date":
-        dimension_column_name = "dim_pre_date"
-    elif dimension == "pre:activation":
-        dimension_column_name = "dim_activation"
-    elif dimension.startswith("exp:"):
-        dimension_column_name = "dim_exp_" + dimension.split(":")[1]
-    elif dimension.startswith("precomputed:"):
-        dimension_column_name = "dim_exp_" + dimension.split(":")[1]
-    elif dimension.startswith("dim_"):
-        dimension_column_name = "dim_unit_" + dimension
-
-    return dimension_column_name
+def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
+    dfc = df.copy()
+    diff_cols = [
+        x
+        for x in [
+            "main_sum",
+            "main_sum_squares",
+            "denominator_sum",
+            "denominator_sum_squares",
+            "main_denominator_sum_product",
+            "main_covariate_sum_product",
+        ]
+        if x in dfc.columns
+    ]
+    dfc.sort_values("dimension", inplace=True)
+    dfc[diff_cols] = dfc.groupby(["variation"])[diff_cols].diff().fillna(dfc[diff_cols])
+    return dfc
 
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
@@ -149,20 +145,13 @@ def get_metric_df(
     rows: pd.DataFrame,
     var_id_map: VarIdMap,
     var_names: List[str],
-    dimension: Optional[str] = None,
 ) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
-        # strip dimension of prefix before `:`
-        dimension_column_name = (
-            "dimension" if not dimension else get_dimension_column_name(dimension)
-        )
-        # if not found, try to find a column with "dimension" for backwards compatibility
-        # fall back to one unnamed dimension if even that column is not found
-        dim = getattr(row, dimension_column_name, getattr(row, "dimension", ""))
+        dim = row.dimension
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
@@ -179,28 +168,17 @@ def get_metric_df(
                 dimensions[dim][f"{prefix}_name"] = var_names[i]
                 for col in ROW_COLS:
                     dimensions[dim][f"{prefix}_{col}"] = 0
-
         # Add this SQL result row into the dimension dict if we recognize the variation
         key = str(row.variation)
         if key in var_id_map:
             i = var_id_map[key]
             dimensions[dim]["total_users"] += row.users
             prefix = f"v{i}" if i > 0 else "baseline"
-
-            # Sum here in case multiple rows per dimension
-            for col in SUM_COLS:
-                # Special handling for count, if missing returns a method, so override with user value
-                if col == "count" and callable(getattr(row, col)):
-                    dimensions[dim][f"{prefix}_count"] += getattr(row, "users", 0)
-                else:
-                    dimensions[dim][f"{prefix}_{col}"] += getattr(row, col, 0)
-            for col in NON_SUMMABLE_COLS:
-                if dimensions[dim][f"{prefix}_{col}"] != 0:
-                    raise ValueError(
-                        f"ImplementationError: Non-summable column {col} already has a value for dimension {dim}"
-                    )
+            for col in ROW_COLS:
                 dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
-
+            # Special handling for count, if missing returns a method, so override with user value
+            if callable(getattr(row, "count")):
+                dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
     return pd.DataFrame(dimensions.values())
 
 
@@ -701,13 +679,12 @@ def process_analysis(
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
 
+    # If we're doing a daily time series, we need to diff the data
+    if analysis.dimension == "pre:datedaily":
+        rows = diff_for_daily_time_series(rows)
+
     # Convert raw SQL result into a dataframe of dimensions
-    df = get_metric_df(
-        rows=rows,
-        var_id_map=var_id_map,
-        var_names=var_names,
-        dimension=analysis.dimension,
-    )
+    df = get_metric_df(rows=rows, var_id_map=var_id_map, var_names=var_names)
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
@@ -760,34 +737,18 @@ def process_single_metric(
     # Detect any variations that are not in the returned metric rows
     all_var_ids: Set[str] = set([v for a in analyses for v in a.var_ids])
     unknown_var_ids = detect_unknown_variations(rows=pdrows, var_ids=all_var_ids)
-
-    results: List[List[DimensionResponse]] = []
-    for a in analyses:
-        # skip pre-computed dimension reaggregation for quantile metrics
-        attempted_quantile_dimension_reaggregation = a.dimension.startswith(
-            "precomputed:"
-        ) and metric.statistic_type in ["quantile_event", "quantile_unit"]
-        attempted_quantile_overall_reaggregation = (
-            a.dimension == ""
-            and metric.statistic_type in ["quantile_event", "quantile_unit"]
-            and pdrows.columns.__contains__("dim_exp")
+    results = [
+        format_results(
+            process_analysis(
+                rows=pdrows,
+                var_id_map=get_var_id_map(a.var_ids),
+                metric=metric,
+                analysis=a,
+            ),
+            baseline_index=a.baseline_index,
         )
-        if (
-            attempted_quantile_dimension_reaggregation
-            or attempted_quantile_overall_reaggregation
-        ):
-            continue
-        results.append(
-            format_results(
-                process_analysis(
-                    rows=pdrows,
-                    var_id_map=get_var_id_map(a.var_ids),
-                    metric=metric,
-                    analysis=a,
-                ),
-                baseline_index=a.baseline_index,
-            )
-        )
+        for a in analyses
+    ]
     return ExperimentMetricAnalysis(
         metric=metric.id,
         analyses=[
@@ -833,13 +794,12 @@ def preprocess_bandits(
         bandit_stats = {}
     else:
         pdrows = pd.DataFrame(rows)
-        pdrows = pdrows.loc[pdrows[BANDIT_DIMENSION["column"]] == dimension]
+        pdrows = pdrows.loc[pdrows["dimension"] == dimension]
         # convert raw sql into df of periods, and output df where n_rows = periods
         df = get_metric_df(
             rows=pdrows,
             var_id_map=get_var_id_map(bandit_settings.var_ids),
             var_names=bandit_settings.var_names,
-            dimension=dimension,
         )
         bandit_stats = create_bandit_statistics(df, metric)
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
@@ -866,11 +826,7 @@ def get_bandit_result(
     bandit_settings: BanditSettingsForStatsEngine,
 ) -> BanditResult:
     single_variation_results = None
-    # "All" is a special dimension that gbstats can handle if there is no dimension
-    # column specified
-    b = preprocess_bandits(
-        rows, metric, bandit_settings, settings.alpha, BANDIT_DIMENSION["value"]
-    )
+    b = preprocess_bandits(rows, metric, bandit_settings, settings.alpha, "")
     if b:
         if any(value is None for value in b.stats):
             return get_error_bandit_result(

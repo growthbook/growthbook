@@ -45,8 +45,6 @@ def truncated_normal_mean(mu, sigma, a, b) -> float:
 # denominator random variable D (mean = mean_d, var = var_d),
 # and covariance cov_m_d, what is the variance of M / D?
 def variance_of_ratios(mean_m, var_m, mean_d, var_d, cov_m_d) -> float:
-    if mean_d == 0:
-        return 0
     return (
         var_m / mean_d**2
         + var_d * mean_m**2 / mean_d**4
