@@ -686,6 +686,14 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<IncrementalWithNoOutputQueryResponse>;
+  // Pipeline validation helpers
+  getPipelineValidationCreateTableQuery?(params: {
+    tableFullName: string;
+  }): string;
+  getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
+  getPipelineValidationDropTableQuery?(params: {
+    tableFullName: string;
+  }): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(

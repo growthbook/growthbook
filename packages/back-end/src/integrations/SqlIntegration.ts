@@ -5519,6 +5519,33 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
+  // Pipeline validation queries (engine-aware)
+  getPipelineValidationCreateTableQuery({
+    tableFullName,
+  }: {
+    tableFullName: string;
+  }): string {
+    return `CREATE TABLE ${tableFullName} (test_col ${this.getDataType(
+      "string",
+    )}, created_at ${this.getDataType("timestamp")})`;
+  }
+
+  getPipelineValidationInsertQuery({
+    tableFullName,
+  }: {
+    tableFullName: string;
+  }): string {
+    return `INSERT INTO ${tableFullName} (test_col, created_at) VALUES ('growthbook', CURRENT_TIMESTAMP)`;
+  }
+
+  getPipelineValidationDropTableQuery({
+    tableFullName,
+  }: {
+    tableFullName: string;
+  }): string {
+    return `DROP TABLE IF EXISTS ${tableFullName}`;
+  }
+
   // Incremental Units
   // Separate "if use old table" vs "not"
   // If restarting/no old table: getCreateExperimentIncrementalUnitsQuery
