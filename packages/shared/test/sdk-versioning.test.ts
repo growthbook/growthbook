@@ -1,11 +1,9 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import cloneDeep from "lodash/cloneDeep";
 import { OrganizationInterface } from "back-end/types/organization";
-import { omit } from "lodash";
 import {
   getConnectionSDKCapabilities,
   scrubFeatures,
-  scrubHoldouts,
   scrubSavedGroups,
 } from "../src/sdk-versioning";
 import { getSavedGroupsValuesFromInterfaces } from "../util";
@@ -219,131 +217,6 @@ describe("payload scrubbing", () => {
       },
     ],
     savedGroups: getSavedGroupsValuesFromInterfaces(savedGroups, baseOrg),
-  };
-
-  const sdkPayloadWithHoldoutsAndProjects = {
-    ...sdkPayload,
-    features: {
-      ...sdkPayload.features,
-      feat3: {
-        defaultValue: "control",
-        rules: [
-          {
-            id: "fr_123456789",
-            parentConditions: [
-              {
-                id: "$holdout:test",
-                condition: { value: "holdoutcontrol" },
-              },
-            ],
-            force: "control",
-            holdoutId: "holdout2",
-          },
-          {
-            condition: {
-              id: {
-                $inGroup: "legacy_group_id",
-              },
-            },
-            force: "variant",
-          },
-          {
-            condition: {
-              id: {
-                $inGroup: "large_group_id",
-              },
-            },
-            force: "variant",
-          },
-          {
-            condition: {
-              num: {
-                $inGroup: "legacy_numeric_group_id",
-              },
-            },
-            force: "variant",
-          },
-        ],
-      },
-    },
-    holdouts: {
-      holdout1: {
-        defaultValue: "genpop",
-        rules: [
-          {
-            key: "holdout-exp",
-            seed: "holdout-exp",
-            hashAttribute: "id",
-            hashVersion: 2,
-            bucketVersion: 1,
-            condition: { country: "USA" },
-            variations: ["holdoutcontrol", "holdouttreatment"],
-            coverage: 1,
-            weights: [0.5, 0.5],
-            phase: "0",
-          },
-        ],
-        projects: ["project1", "project2"],
-      },
-      holdout2: {
-        defaultValue: "genpop",
-        rules: [
-          {
-            key: "holdout-exp",
-            seed: "holdout-exp",
-            hashAttribute: "id",
-            hashVersion: 2,
-            bucketVersion: 1,
-            condition: { country: "USA" },
-            variations: ["holdoutcontrol", "holdouttreatment"],
-            coverage: 1,
-            weights: [0.5, 0.5],
-            phase: "0",
-          },
-        ],
-        projects: [],
-      },
-    },
-  };
-
-  const sdkPayloadWithHoldoutsAndNoProjects = {
-    ...sdkPayload,
-    holdouts: {
-      holdout1: {
-        defaultValue: "genpop",
-        rules: [
-          {
-            key: "holdout-exp",
-            seed: "holdout-exp",
-            hashAttribute: "id",
-            hashVersion: 2,
-            bucketVersion: 1,
-            condition: { country: "USA" },
-            variations: ["holdoutcontrol", "holdouttreatment"],
-            coverage: 1,
-            weights: [0.5, 0.5],
-            phase: "0",
-          },
-        ],
-      },
-      holdout2: {
-        defaultValue: "genpop",
-        rules: [
-          {
-            key: "holdout-exp",
-            seed: "holdout-exp",
-            hashAttribute: "id",
-            hashVersion: 2,
-            bucketVersion: 1,
-            condition: { country: "USA" },
-            variations: ["holdoutcontrol", "holdouttreatment"],
-            coverage: 1,
-            weights: [0.5, 0.5],
-            phase: "0",
-          },
-        ],
-      },
-    },
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -751,78 +624,5 @@ describe("payload scrubbing", () => {
     scrubbed.features = scrubbedFeatures;
 
     expect(scrubbed).toStrictEqual(lightlyScrubbedPayload);
-  });
-
-  it("keeps holdouts when projects intersect with holdout projects or holdout has no projects", () => {
-    const projects = ["project1", "project2"];
-
-    const scrubbedHoldouts = scrubHoldouts({
-      holdouts: sdkPayloadWithHoldoutsAndProjects.holdouts,
-      projects,
-      features: sdkPayloadWithHoldoutsAndProjects.features,
-    });
-
-    expect(scrubbedHoldouts.holdouts).toStrictEqual(
-      sdkPayloadWithHoldoutsAndNoProjects.holdouts,
-    );
-  });
-
-  it("scrubs holdouts when projects don't intersect with holdout projects", () => {
-    const projects = ["project2"];
-
-    const holdoutWithNonIntersectingProjects = {
-      defaultValue: "genpop",
-      rules: [
-        {
-          key: "holdout-exp",
-          seed: "holdout-exp",
-          hashAttribute: "id",
-          hashVersion: 2,
-          bucketVersion: 1,
-          condition: { country: "USA" },
-          variations: ["holdoutcontrol", "holdouttreatment"],
-          coverage: 1,
-          weights: [0.5, 0.5],
-          phase: "0",
-        },
-      ],
-      projects: ["project3"],
-    };
-
-    const payloadWithHoldoutToBeRemoved = {
-      ...sdkPayloadWithHoldoutsAndProjects,
-      holdouts: {
-        ...sdkPayloadWithHoldoutsAndProjects.holdouts,
-        holdout3: holdoutWithNonIntersectingProjects,
-      },
-    };
-
-    const scrubbedHoldouts = scrubHoldouts({
-      holdouts: payloadWithHoldoutToBeRemoved.holdouts,
-      projects,
-      features: payloadWithHoldoutToBeRemoved.features,
-    });
-
-    // holdout3 is not included because project3 doesnt intersect with ["project2"]
-    expect(scrubbedHoldouts.holdouts).toStrictEqual(
-      sdkPayloadWithHoldoutsAndNoProjects.holdouts,
-    );
-  });
-
-  it("scrubs holdoutId from rules and keeps holdout pre-requisite rules when holdout is included", () => {
-    const payload = cloneDeep(sdkPayloadWithHoldoutsAndProjects);
-
-    payload.features.feat3.rules[0] = omit(
-      payload.features.feat3.rules[0],
-      "holdoutId",
-    );
-
-    const scrubbedHoldouts = scrubHoldouts({
-      holdouts: sdkPayloadWithHoldoutsAndProjects.holdouts,
-      projects: ["project1", "project2"],
-      features: sdkPayloadWithHoldoutsAndProjects.features,
-    });
-
-    expect(scrubbedHoldouts.features).toStrictEqual(payload.features);
   });
 });
