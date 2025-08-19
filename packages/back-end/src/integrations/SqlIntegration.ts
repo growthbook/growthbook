@@ -2762,6 +2762,7 @@ export default abstract class SqlIntegration
         startDate: metricStart,
         factTableMap,
         experimentId: settings.experimentId,
+        addFiltersToWhere: true,
       })})
       , __userMetricJoin as (
         SELECT
@@ -4710,9 +4711,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     const metricCols: string[] = [];
     // optionally, you can add metric filters to the WHERE clause
-    // to filter to rows that match a metric. We AND together each metric
-    // filters, before OR together all of the different metrics filters
+    // to filter to rows that match a metric to improve query performance.
+    // We AND together each metric filters, before OR together all of
+    // the different metrics filters
     const filterWhere: string[] = [];
+
+    // We only do this if all metrics have at least one filter
+    let numberOfMetricsWithoutFilters = 0;
+
     metrics.forEach((m, i) => {
       if (m.numerator.factTableId !== factTable.id) {
         throw new Error(
@@ -4737,6 +4743,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       metricCols.push(`-- ${m.name}
       ${column} as m${i}_value`);
 
+      if (!filters.length) {
+        numberOfMetricsWithoutFilters++;
+      }
       if (addFiltersToWhere && filters.length) {
         filterWhere.push(`(${filters.join("\n AND ")})`);
       }
@@ -4769,7 +4778,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       }
     });
 
-    if (filterWhere.length) {
+    // only add filters if all metrics have at least one filter
+    if (filterWhere.length && numberOfMetricsWithoutFilters === 0) {
       where.push("(" + filterWhere.join(" OR ") + ")");
     }
 
