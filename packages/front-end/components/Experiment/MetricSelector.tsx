@@ -14,6 +14,7 @@ export type MetricOption = {
   factTables: string[];
   userIdTypes: string[];
   isBinomial: boolean;
+  isConversionWindowMetric: boolean;
 };
 
 const MetricSelector: FC<
@@ -58,6 +59,7 @@ const MetricSelector: FC<
       factTables: [],
       userIdTypes: m.userIdTypes || [],
       isBinomial: isBinomialMetric(m) && !m.denominator,
+      isConversionWindowMetric: m?.windowSettings?.type === "conversion",
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
@@ -77,6 +79,7 @@ const MetricSelector: FC<
             factTables.find((f) => f.id === m.numerator.factTableId)
               ?.userIdTypes || [],
           isBinomial: isBinomialMetric(m),
+          isConversionWindowMetric: m?.windowSettings?.type === "conversion",
         }))
       : []),
   ].filter((m) => (filterMetrics ? filterMetrics(m) : true));
@@ -115,7 +118,7 @@ const MetricSelector: FC<
     })
     .filter((m) => {
       if (filterConversionWindowMetrics) {
-        return m?.windowSettings?.type !== "conversion";
+        return !m.isConversionWindowMetric;
       }
       return true;
     });
