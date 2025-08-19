@@ -1,4 +1,5 @@
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getFactTable } from "back-end/src/models/FactTableModel";
 import { toSegmentApiInterface } from "back-end/src/services/segments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postSegmentValidator } from "back-end/src/validators/openapi";
@@ -7,7 +8,6 @@ import { PostSegmentResponse } from "back-end/types/openapi";
 export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
   req,
 ): Promise<PostSegmentResponse> => {
-  console.log("req.body", req.body);
   const datasourceDoc = await getDataSourceById(
     req.context,
     req.body.datasource,
@@ -15,15 +15,48 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
-  console.log("about to save");
+
+  // Validate inputs for FACT segments
+  if (req.body.type === "FACT") {
+    if (!req.body.factTableId) {
+      throw new Error("Fact table ID is required for FACT segments");
+    }
+
+    const factTableDoc = await getFactTable(req.context, req.body.factTableId);
+
+    if (!factTableDoc) {
+      throw new Error("Invalid fact table");
+    }
+
+    if (factTableDoc.datasource !== datasourceDoc.id) {
+      throw new Error("Fact table does not belong to the same data source");
+    }
+
+    if (req.body.sql) {
+      throw new Error("SQL query is not allowed for FACT segments");
+    }
+  }
+
+  // Validate inputs for SQL segments
+  if (req.body.type === "SQL") {
+    if (!req.body.sql) {
+      throw new Error("SQL query is required for SQL segments");
+    }
+
+    if (req.body.factTableId) {
+      throw new Error("Fact table ID is not allowed for SQL segments");
+    }
+
+    if (req.body.filters) {
+      throw new Error("Filters are not allowed for SQL segments");
+    }
+  }
 
   const segmentData = {
     ...req.body,
     owner: req.context.userId || "",
     description: req.body.description || "",
   };
-
-  console.log("segmentData", segmentData);
 
   const segment = await req.context.models.segments.create(segmentData);
 
