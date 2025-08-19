@@ -28,7 +28,7 @@ const NUM_PER_PAGE = 20;
 const HoldoutsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
 
-  const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
+  const [tabs, setTabs] = useLocalStorage<string[]>("holdout_tabs", []);
   const { getUserDisplay } = useUser();
   const router = useRouter();
   const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
@@ -149,7 +149,7 @@ const HoldoutsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasHoldouts = allExperiments.length > 0;
+  const hasHoldouts = holdouts.length > 0 && allExperiments.length > 0;
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
 
@@ -230,64 +230,59 @@ const HoldoutsPage = (): React.ReactElement => {
                   </PremiumTooltip>
                 )}
               </div>
-              <div className="mt-5">
-                {/* TODO: Add holdouts empty state image */}
-              </div>
             </div>
           ) : (
             <>
               <div className="row align-items-center mb-3">
                 <div className="col-auto d-flex">
-                  {["running", "drafts", "stopped", "archived"].map(
-                    (tab, i) => {
-                      const active = tabs.includes(tab);
+                  {["running", "draft", "stopped", "archived"].map((tab, i) => {
+                    const active = tabs.includes(tab);
 
-                      if (tab === "archived" && !hasArchived) return null;
+                    if (tab === "archived" && !hasArchived) return null;
 
-                      return (
-                        <button
-                          key={tab}
-                          className={clsx("border mb-0", {
-                            "badge-purple font-weight-bold": active,
-                            "text-secondary": !active,
-                            "rounded-left": i === 0,
-                            "rounded-right":
-                              tab === "archived" ||
-                              (tab === "stopped" && !hasArchived),
-                          })}
-                          style={{
-                            fontSize: "1em",
-                            opacity: active ? 1 : 0.8,
-                            padding: "6px 12px",
-                            backgroundColor: active ? "" : "var(--color-panel)",
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            onToggleTab(tab)();
-                          }}
-                          title={
-                            active && tabs.length > 1
-                              ? `Hide ${tab} holdouts`
-                              : active
-                                ? `Remove filter`
-                                : tabs.length === 0
-                                  ? `View only ${tab} holdouts`
-                                  : `Include ${tab} holdouts`
-                          }
-                        >
-                          <span className="mr-1">
-                            {tab.slice(0, 1).toUpperCase()}
-                            {tab.slice(1)}
+                    return (
+                      <button
+                        key={tab}
+                        className={clsx("border mb-0", {
+                          "badge-purple font-weight-bold": active,
+                          "text-secondary": !active,
+                          "rounded-left": i === 0,
+                          "rounded-right":
+                            tab === "archived" ||
+                            (tab === "stopped" && !hasArchived),
+                        })}
+                        style={{
+                          fontSize: "1em",
+                          opacity: active ? 1 : 0.8,
+                          padding: "6px 12px",
+                          backgroundColor: active ? "" : "var(--color-panel)",
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onToggleTab(tab)();
+                        }}
+                        title={
+                          active && tabs.length > 1
+                            ? `Hide ${tab} holdouts`
+                            : active
+                              ? `Remove filter`
+                              : tabs.length === 0
+                                ? `View only ${tab} holdouts`
+                                : `Include ${tab} holdouts`
+                        }
+                      >
+                        <span className="mr-1">
+                          {tab.slice(0, 1).toUpperCase()}
+                          {tab.slice(1)}
+                        </span>
+                        {tab !== "archived" && (
+                          <span className="badge bg-white border text-dark mr-2">
+                            {tabCounts[tab] || 0}
                           </span>
-                          {tab !== "archived" && (
-                            <span className="badge bg-white border text-dark mr-2">
-                              {tabCounts[tab] || 0}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    },
-                  )}
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="col-auto">
                   <Field

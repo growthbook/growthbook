@@ -7,6 +7,7 @@ import {
 import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -99,9 +100,7 @@ const genFormDefaultValues = ({
   | "environmentSettings"
   | "customFields"
   | "holdout"
-> & {
-  holdoutId: string;
-} => {
+> => {
   const environmentSettings = genEnvironmentSettings({
     environments,
     featureToDuplicate,
@@ -128,7 +127,6 @@ const genFormDefaultValues = ({
         environmentSettings,
         customFields: customFieldValues,
         holdout: featureToDuplicate.holdout,
-        holdoutId: featureToDuplicate.holdout?.id || "",
       }
     : {
         valueType: "" as FeatureValueType,
@@ -139,7 +137,6 @@ const genFormDefaultValues = ({
         tags: [],
         environmentSettings,
         customFields: customFieldValues,
-        holdoutId: "",
       };
 };
 
@@ -163,6 +160,8 @@ export default function FeatureModal({
     "feature",
     project,
   );
+
+  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
 
   const defaultValues = genFormDefaultValues({
     environments,
@@ -230,24 +229,14 @@ export default function FeatureModal({
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
         const valueType = feature.valueType;
-        const { holdoutId, holdout, ...featureWithoutHoldout } = feature;
-
-        const passedHoldout =
-          holdout && holdout.id !== "none"
-            ? {
-                id: holdoutId,
-                value: parseDefaultValue(defaultValue, valueType),
-              }
-            : undefined;
+        const { holdout, ...featureWithoutHoldout } = feature;
 
         if (!valueType) {
           throw new Error("Please select a value type");
         }
 
-        const passedFeature = featureWithoutHoldout as FeatureInterface;
-
         const newDefaultValue = validateFeatureValue(
-          passedFeature,
+          featureWithoutHoldout,
           defaultValue,
           "Value",
         );
@@ -266,7 +255,13 @@ export default function FeatureModal({
         const body = {
           ...feature,
           defaultValue: parseDefaultValue(defaultValue, valueType),
-          holdout: passedHoldout,
+          ...(holdout?.id &&
+            holdout.id !== "none" && {
+              holdout: {
+                id: holdout.id,
+                value: parseDefaultValue(defaultValue, valueType),
+              },
+            }),
         };
 
         const res = await apiCall<{ feature: FeatureInterface }>(`/feature`, {
@@ -364,13 +359,15 @@ export default function FeatureModal({
           </>
         )}
 
-        <HoldoutSelect
-          selectedProject={selectedProject}
-          selectedHoldoutId={form.watch("holdout")?.id ?? ""}
-          setHoldout={(holdoutId) => {
-            form.setValue("holdout", { id: holdoutId, value: "" });
-          }}
-        />
+        {holdoutsEnabled && (
+          <HoldoutSelect
+            selectedProject={selectedProject}
+            selectedHoldoutId={form.watch("holdout")?.id ?? ""}
+            setHoldout={(holdoutId) => {
+              form.setValue("holdout", { id: holdoutId, value: "" });
+            }}
+          />
+        )}
 
         {hasCommercialFeature("custom-metadata") &&
           customFields &&

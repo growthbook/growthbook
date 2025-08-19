@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { PiArrowSquareOut, PiLightbulb } from "react-icons/pi";
+import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,22 +21,18 @@ export const HoldoutSelect = ({
 }) => {
   const { project } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const { holdouts, experimentsMap } = useExperiments(
+  const { holdouts, experimentsMap, loading } = useExperiments(
     project,
     false,
     "holdout",
   );
   const hasHoldouts = hasCommercialFeature("holdouts");
+  const hasSetInitialValue = useRef(false);
 
   const holdoutsWithExperiment = useMemo(() => {
     return holdouts
       .filter((h) => {
         const experiment = experimentsMap.get(h.experimentId);
-        // If the holdout was previously selected, show it
-        if (selectedHoldoutId === h.id) {
-          return true;
-        }
-
         // If the holdout is a part of the current project or all projects, show it
         if (selectedProject) {
           return (
@@ -59,28 +55,27 @@ export const HoldoutSelect = ({
           holdout.experimentId,
         ) as ExperimentInterfaceStringDates,
       }));
-  }, [holdouts, experimentsMap, selectedHoldoutId, selectedProject]);
+  }, [holdouts, experimentsMap, selectedProject]);
 
   useEffect(() => {
-    const current = selectedHoldoutId;
     // If still loading, don't set anything
-    if (holdoutsWithExperiment === undefined) return;
+    if (holdoutsWithExperiment === undefined || loading) return;
 
-    if (holdoutsWithExperiment.length === 0) {
-      // Only set to 'none' if there are truly no holdouts
-      setHoldout("none");
-      return;
+    // Only set initial value once or when project changes
+    if (!hasSetInitialValue.current) {
+      if (holdoutsWithExperiment.length === 0) {
+        setHoldout("none");
+      } else {
+        setHoldout(holdoutsWithExperiment[0].id);
+      }
+      hasSetInitialValue.current = true;
     }
+  }, [holdoutsWithExperiment, setHoldout, loading]);
 
-    // If there are holdouts, and the value is empty, invalid, or 'none', set to the first holdout
-    if (
-      !current ||
-      (!holdoutsWithExperiment.find((h) => h.id === current) &&
-        current !== "none")
-    ) {
-      setHoldout(holdoutsWithExperiment[0].id);
-    }
-  }, [selectedProject, holdoutsWithExperiment, selectedHoldoutId, setHoldout]);
+  // Reset the flag when project changes
+  useEffect(() => {
+    hasSetInitialValue.current = false;
+  }, [selectedProject]);
 
   if (holdoutsWithExperiment.length === 0) {
     if (!hasHoldouts) {
@@ -88,7 +83,8 @@ export const HoldoutSelect = ({
         <PremiumCallout
           id="holdout-select-promo"
           commercialFeature="holdouts"
-          mt="5"
+          mt="3"
+          mb="3"
         >
           <Flex direction="row" gap="3">
             <Text>
@@ -100,7 +96,7 @@ export const HoldoutSelect = ({
       );
     } else {
       return (
-        <Callout mt="5" status="info" icon={<PiLightbulb size={15} />}>
+        <Callout mt="3" mb="3" status="info" icon={<PiLightbulb size={15} />}>
           Use <strong>Holdouts</strong> to isolate units and measure the true
           impact of changes. {/* TODO: Replace with link to holdout docs */}
           <Link target="_blank" href="https://docs.growthbook.io/">
@@ -144,6 +140,11 @@ export const HoldoutSelect = ({
                 style={{ top: 3, cursor: "pointer" }}
               >
                 Identifier Type: <code>{userIdType}</code>
+              </span>
+            ) : value === "none" ? (
+              <span className="text-muted small float-right position-relative">
+                Override Holdout requirement{" "}
+                <PiWarningFill style={{ color: "var(--amber-11)" }} size={15} />
               </span>
             ) : null}
           </div>

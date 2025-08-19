@@ -7,6 +7,7 @@ import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -65,7 +66,7 @@ export default function FeaturesHeader({
   const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -76,6 +77,9 @@ export default function FeaturesHeader({
     project: currentProject,
     projects,
   } = useDefinitions();
+  const hasHoldoutsFeature = hasCommercialFeature("holdouts");
+  const holdoutsEnabled =
+    useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
   const { stale, reason } = useMemo(() => {
     if (!feature) return { stale: false };
@@ -184,7 +188,7 @@ export default function FeaturesHeader({
                     </a>
                   </>
                 )}
-                {canEdit && canPublish && (
+                {canEdit && canPublish && holdoutsEnabled && (
                   <a
                     className="dropdown-item"
                     href="#"

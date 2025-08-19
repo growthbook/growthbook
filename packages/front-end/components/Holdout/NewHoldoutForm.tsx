@@ -17,7 +17,6 @@ import { PiArrowSquareOutFill, PiCaretRightFill } from "react-icons/pi";
 import { FeatureEnvironment } from "back-end/types/feature";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -166,7 +165,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       | undefined,
   });
   const permissionsUtils = usePermissionsUtil();
-  const { refreshWatching } = useWatching();
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
@@ -303,7 +301,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
       numMetrics:
         (data.goalMetrics?.length || 0) + (data.secondaryMetrics?.length || 0),
     });
-    refreshWatching();
 
     data.tags && refreshTags(data.tags);
     if (onCreate) {

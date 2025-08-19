@@ -22,7 +22,7 @@ import {
   FaExclamationCircle,
   FaExternalLinkAlt,
 } from "react-icons/fa";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { PiCaretDownFill } from "react-icons/pi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useWatching } from "@/services/WatchProvider";
@@ -189,21 +189,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [expandSimilarResults, setExpandSimilarResults] = useState(false);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
-
-  const { holdouts, experimentsMap } = useExperiments(
-    project,
-    false,
-    "holdout",
-  );
-
-  const holdoutsWithExperiment = useMemo(() => {
-    return holdouts.map((holdout) => ({
-      ...holdout,
-      experiment: experimentsMap.get(
-        holdout.experimentId,
-      ) as ExperimentInterfaceStringDates,
-    }));
-  }, [holdouts, experimentsMap]);
+  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
 
   const {
     templates: allTemplates,
@@ -704,17 +690,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               </div>
             )}
 
-            {holdoutsWithExperiment.length > 0 && (
-              <HoldoutSelect
-                selectedProject={selectedProject}
-                selectedHoldoutId={form.watch("holdoutId")}
-                setHoldout={(holdoutId) => {
-                  form.setValue("holdoutId", holdoutId);
-                }}
-              />
+            {holdoutsEnabled && (
+              <>
+                <HoldoutSelect
+                  selectedProject={selectedProject}
+                  selectedHoldoutId={form.watch("holdoutId")}
+                  setHoldout={(holdoutId) => {
+                    form.setValue("holdoutId", holdoutId);
+                  }}
+                />
+                <Separator size="4" mt="6" mb="5" />
+              </>
             )}
-
-            <Separator size="4" mt="6" mb="5" />
 
             <Field
               label={isBandit ? "Bandit Name" : "Experiment Name"}

@@ -239,7 +239,7 @@ export const createHoldout = async (
 
     const holdout = await context.models.holdout.create({
       experimentId: experiment.id,
-      projects: experiment.project ? [experiment.project] : [],
+      projects: data.projects || [],
       name: experiment.name,
       environmentSettings: data.environmentSettings || {},
       linkedFeatures: {},

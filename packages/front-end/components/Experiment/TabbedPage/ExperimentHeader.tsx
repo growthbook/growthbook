@@ -11,7 +11,7 @@ import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiCheck, PiEye, PiLink } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -226,6 +226,11 @@ export default function ExperimentHeader({
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
+  const hasHoldoutsFeature = hasCommercialFeature("holdouts");
+  const holdoutsEnabled =
+    useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
+
+  console.log("holdoutsEnabled", holdoutsEnabled);
 
   const hasUpdatePermissions = !holdout
     ? permissionsUtil.canViewExperimentModal(experiment.project)
@@ -810,6 +815,7 @@ export default function ExperimentHeader({
                 )}
                 {canEditExperiment &&
                   !isHoldout &&
+                  holdoutsEnabled &&
                   experiment.status === "draft" && (
                     <DropdownMenuItem
                       onClick={() => {
