@@ -16,7 +16,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
 
     const datasourceDoc = await getDataSourceById(
       req.context,
-      req.body.datasource || existing.datasource
+      req.body.datasource || existing.datasource,
     );
 
     if (!datasourceDoc) {
@@ -27,7 +27,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
     // There are too many ways for this to break trying to manage that.
     if (req.body.type && req.body.type !== existing.type) {
       throw new Error(
-        "Cannot change the type of a segment. Delete and create a new segment instead."
+        "Cannot change the type of a segment. Delete and create a new segment instead.",
       );
     }
 
@@ -39,7 +39,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
 
       const factTableDoc = await getFactTable(
         req.context,
-        req.body.factTableId
+        req.body.factTableId,
       );
 
       if (!factTableDoc) {
@@ -90,5 +90,5 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
     return {
       segment: toSegmentApiInterface(segment),
     };
-  }
+  },
 );
