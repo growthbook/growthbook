@@ -2349,21 +2349,24 @@ export async function putFeature(
     if (!holdoutObj) {
       throw new Error("Holdout not found");
     }
+
     await context.models.holdout.updateById(updates.holdout.id, {
+      // Add new entry for the feature only if it is not already linked to the holdout
       linkedFeatures: {
-        ...holdoutObj.linkedFeatures,
         [id]: { id, dateAdded: new Date() },
+        ...holdoutObj.linkedFeatures,
       },
       ...(feature.linkedExperiments?.length
         ? {
+            // Add new entries for feature linked experiments only if they are not already linked to the holdout
             linkedExperiments: {
-              ...holdoutObj.linkedExperiments,
               ...Object.fromEntries(
                 feature.linkedExperiments.map((experimentId) => [
                   experimentId,
                   { id: experimentId, dateAdded: new Date() },
                 ]),
               ),
+              ...holdoutObj.linkedExperiments,
             },
           }
         : {}),
