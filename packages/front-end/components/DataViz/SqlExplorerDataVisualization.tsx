@@ -256,7 +256,7 @@ export function DataVisualizationDisplay({
                   ? config.values.map((v) => String(v))
                   : [];
                 return selectedValues.length === 0
-                  ? false
+                  ? true
                   : selectedValues.includes(String(rowValue));
               }
 

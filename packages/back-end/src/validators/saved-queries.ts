@@ -60,9 +60,6 @@ const filterConfigurationValidator = z.object({
     "today",
     "last7Days",
     "last30Days",
-    "thisWeek",
-    "thisMonth",
-    "thisYear",
     // Number filters
     "numberRange",
     "greaterThan",

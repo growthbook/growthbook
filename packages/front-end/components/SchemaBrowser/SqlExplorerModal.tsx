@@ -238,6 +238,112 @@ export default function SqlExplorerModal({
           }. Please add a y axis or remove the visualization to save the query.`,
         );
       }
+
+      // Validate filters
+      if (config.filter && config.filter.length > 0) {
+        config.filter.forEach((filter, filterIndex) => {
+          const vizTitle = config.title || `${index + 1}`;
+
+          // Validate required filter fields
+          if (!filter.column) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a column selection.`,
+            );
+          }
+
+          if (!filter.type) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a type selection.`,
+            );
+          }
+
+          if (!filter.filterType) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a filter type selection.`,
+            );
+          }
+
+          // Validate filter type matches the data type
+          const validFilterTypes = {
+            date: ["dateRange", "today", "last7Days", "last30Days"],
+            number: ["numberRange", "greaterThan", "lessThan", "equals"],
+            string: ["includes", "contains"],
+          };
+
+          if (!validFilterTypes[filter.type]?.includes(filter.filterType)) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterType}" for data type "${filter.type}".`,
+            );
+          }
+
+          // Validate required config values based on filter type
+          const filterConfig = filter.config || {};
+          switch (filter.filterType) {
+            case "dateRange":
+              if (!filterConfig.startDate && !filterConfig.endDate) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Date range filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least a start date or end date.`,
+                );
+              }
+              break;
+
+            case "numberRange":
+              if (
+                filterConfig.min === undefined &&
+                filterConfig.max === undefined
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Number range filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least a minimum or maximum value.`,
+                );
+              }
+              break;
+
+            case "greaterThan":
+            case "lessThan":
+            case "equals":
+              if (
+                filterConfig.value === undefined ||
+                filterConfig.value === ""
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Filter ${filterIndex + 1} in Visualization ${vizTitle} requires a value.`,
+                );
+              }
+              break;
+
+            case "contains":
+              if (
+                !filterConfig.value ||
+                String(filterConfig.value).trim() === ""
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Text search filter ${filterIndex + 1} in Visualization ${vizTitle} requires search text.`,
+                );
+              }
+              break;
+
+            case "includes":
+              if (
+                !Array.isArray(filterConfig.values) ||
+                filterConfig.values.length === 0
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Multi-select filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least one selected value.`,
+                );
+              }
+              break;
+          }
+        });
+      }
     });
 
     // If it's a new query (no savedQuery.id), always save
