@@ -34,7 +34,7 @@ const SortableVariationsList: FC<{
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   function getVariationIndex(id: string) {

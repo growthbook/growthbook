@@ -5,6 +5,7 @@ import {
   xAxisDateAggregationUnit,
   yAxisAggregationType,
   BigValueFormat,
+  xAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
 import { PiNetwork, PiWrench } from "react-icons/pi";
 import { FaPlusCircle } from "react-icons/fa";
@@ -15,7 +16,7 @@ import DataVizFilterPanel from "./DataVizFilterPanel";
 
 export function inferFieldType(
   sampleRow: Record<string, unknown>,
-  fieldName: string
+  fieldName: string,
 ): "string" | "number" | "date" {
   const value = sampleRow[fieldName];
 
@@ -32,7 +33,8 @@ export function inferFieldType(
   }
 
   if (typeof value === "string") {
-    const datePattern = /^(\d{4}-\d{2}-\d{2}(T.*)?|\d{2}\/\d{2}\/\d{4}|[A-Za-z]{3,9} \d{1,2}, \d{4})$/;
+    const datePattern =
+      /^(\d{4}-\d{2}-\d{2}(T.*)?|\d{2}\/\d{2}\/\d{4}|[A-Za-z]{3,9} \d{1,2}, \d{4})$/;
     if (datePattern.test(value)) {
       const date = new Date(value);
       if (!isNaN(date.getTime())) {
@@ -65,10 +67,10 @@ export default function DataVizConfigPanel({
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
 }) {
   const getInferredFieldType = useCallback(
-    (fieldName: string): "string" | "number" | "date" => {
+    (fieldName: string): xAxisConfiguration["type"] => {
       return inferFieldType(sampleRow, fieldName);
     },
-    [sampleRow]
+    [sampleRow],
   );
 
   const axisKeys = useMemo(() => {
@@ -239,7 +241,7 @@ export default function DataVizConfigPanel({
                   label="X Axis"
                   value={
                     requiresXAxis(dataVizConfig)
-                      ? dataVizConfig.xAxis?.fieldName ?? ""
+                      ? (dataVizConfig.xAxis?.fieldName ?? "")
                       : ""
                   }
                   setValue={(v) => {
@@ -254,9 +256,9 @@ export default function DataVizConfigPanel({
                           type !== "string"
                             ? "asc"
                             : requiresXAxis(dataVizConfig) &&
-                              dataVizConfig.xAxis?.sort
-                            ? dataVizConfig.xAxis.sort
-                            : "none",
+                                dataVizConfig.xAxis?.sort
+                              ? dataVizConfig.xAxis.sort
+                              : "none",
                         // TODO: infer date aggregation unit based on data
                         dateAggregationUnit: "day",
                       },
@@ -325,7 +327,8 @@ export default function DataVizConfigPanel({
                                 ...dataVizConfig,
                                 xAxis: {
                                   ...dataVizConfig.xAxis,
-                                  dateAggregationUnit: v as xAxisDateAggregationUnit,
+                                  dateAggregationUnit:
+                                    v as xAxisDateAggregationUnit,
                                 },
                               });
                             }}
@@ -407,8 +410,9 @@ export default function DataVizConfigPanel({
                             type === "string" || type === "date"
                               ? "count"
                               : oldType !== "number" && type === "number"
-                              ? "sum"
-                              : dataVizConfig.yAxis?.[0]?.aggregation || "sum",
+                                ? "sum"
+                                : dataVizConfig.yAxis?.[0]?.aggregation ||
+                                  "sum",
                         },
                       ],
                     });
@@ -543,7 +547,7 @@ export default function DataVizConfigPanel({
                 <Select
                   value={
                     supportsDimension(dataVizConfig)
-                      ? dataVizConfig.dimension?.[0]?.fieldName ?? ""
+                      ? (dataVizConfig.dimension?.[0]?.fieldName ?? "")
                       : ""
                   }
                   setValue={(v) => {
@@ -552,9 +556,9 @@ export default function DataVizConfigPanel({
                       dataVizConfig.chartType !== "bar"
                         ? "grouped"
                         : supportsDimension(dataVizConfig) &&
-                          dataVizConfig.dimension?.[0]?.display
-                        ? dataVizConfig.dimension[0].display
-                        : "grouped";
+                            dataVizConfig.dimension?.[0]?.display
+                          ? dataVizConfig.dimension[0].display
+                          : "grouped";
                     onDataVizConfigChange({
                       ...dataVizConfig,
                       dimension: shouldRemove

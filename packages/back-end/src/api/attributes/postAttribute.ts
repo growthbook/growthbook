@@ -17,11 +17,11 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
 
     if (
       org.settings?.attributeSchema?.some(
-        (attr) => attr.property === attribute.property
+        (attr) => attr.property === attribute.property,
       )
     ) {
       throw Error(
-        `An attribute with property ${attribute.property} already exists!`
+        `An attribute with property ${attribute.property} already exists!`,
       );
     }
 
@@ -49,5 +49,5 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
     return {
       attribute,
     };
-  }
+  },
 );

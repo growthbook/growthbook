@@ -41,7 +41,7 @@ export default function BanditSRMCard({
   const srm = getSRMValue("multi-armed-bandit", snapshot);
   const users = experiment.variations.map(
     (_, i) =>
-      currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0
+      currentEvent?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((sum, u) => sum + (u ?? 0), 0) ?? 0;
 
@@ -56,7 +56,7 @@ export default function BanditSRMCard({
         totalUsersCount: totalUsers,
         minUsersPerVariation: DEFAULT_SRM_BANDIT_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [srm, srmThreshold, experiment.variations.length, totalUsers]
+    [srm, srmThreshold, experiment.variations.length, totalUsers],
   );
 
   useEffect(() => {

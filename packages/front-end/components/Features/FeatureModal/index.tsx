@@ -50,7 +50,7 @@ export type Props = {
 
 function parseDefaultValue(
   defaultValue: string,
-  valueType: FeatureValueType
+  valueType: FeatureValueType,
 ): string {
   if (valueType === "boolean") {
     return defaultValue === "true" ? "true" : "false";
@@ -83,10 +83,10 @@ const genEnvironmentSettings = ({
 
   environments.forEach((e) => {
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? e.defaultState ?? true : false;
+    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish
-      ? featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
-        defaultEnabled
+      ? (featureToDuplicate?.environmentSettings?.[e.id]?.enabled ??
+        defaultEnabled)
       : false;
     const rules = featureToDuplicate?.environmentSettings?.[e.id]?.rules ?? [];
 
@@ -130,7 +130,7 @@ const genFormDefaultValues = ({
         customFields.map((field) => [
           field.id,
           featureToDuplicate?.customFields?.[field.id] ?? field.defaultValue,
-        ])
+        ]),
       )
     : {};
 
@@ -175,7 +175,7 @@ export default function FeatureModal({
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "feature",
-    project
+    project,
   );
 
   const defaultValues = genFormDefaultValues({
@@ -194,14 +194,14 @@ export default function FeatureModal({
     (project) =>
       permissionsUtil.canCreateFeature({ project }) &&
       permissionsUtil.canManageFeatureDrafts({ project }),
-    project ? [project] : []
+    project ? [project] : [],
   );
   const selectedProject = form.watch("project");
   const { projectId: demoProjectId } = useDemoDataSourceProject();
 
   const [showTags, setShowTags] = useState(!!featureToDuplicate?.tags?.length);
   const [showDescription, setShowDescription] = useState(
-    !!featureToDuplicate?.description?.length
+    !!featureToDuplicate?.description?.length,
   );
 
   const { apiCall } = useAuth();
@@ -253,7 +253,7 @@ export default function FeatureModal({
         const newDefaultValue = validateFeatureValue(
           passedFeature,
           defaultValue,
-          "Value"
+          "Value",
         );
         let hasChanges = false;
         if (newDefaultValue !== defaultValue) {
@@ -263,7 +263,7 @@ export default function FeatureModal({
 
         if (hasChanges) {
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again."
+            "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
 

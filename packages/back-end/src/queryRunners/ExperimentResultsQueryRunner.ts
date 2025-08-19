@@ -109,7 +109,7 @@ export function getFactMetricGroups(
   metrics: ExperimentMetricInterface[],
   settings: ExperimentSnapshotSettings,
   integration: SourceIntegrationInterface,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): GroupedMetrics {
   const defaultReturn: GroupedMetrics = {
     groups: [],
@@ -178,8 +178,8 @@ export const startExperimentResultQueries = async (
   params: ExperimentResultsQueryParams,
   integration: SourceIntegrationInterface,
   startQuery: (
-    params: StartQueryParams<RowsType, ProcessedRowsType>
-  ) => Promise<QueryPointer>
+    params: StartQueryParams<RowsType, ProcessedRowsType>,
+  ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
   const snapshotType = params.snapshotType;
   const snapshotSettings = params.snapshotSettings;
@@ -190,14 +190,14 @@ export const startExperimentResultQueries = async (
   const hasPipelineModeFeature = orgHasPremiumFeature(org, "pipeline-mode");
 
   const activationMetric = snapshotSettings.activationMetric
-    ? metricMap.get(snapshotSettings.activationMetric) ?? null
+    ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const allMetricGroups = await context.models.metricGroups.getAll();
   const selectedMetrics = expandMetricGroups(
     getAllMetricIdsFromExperiment(snapshotSettings, false),
-    allMetricGroups
+    allMetricGroups,
   )
     .map((m) => metricMap.get(m))
     .filter((m) => m) as ExperimentMetricInterface[];
@@ -208,21 +208,21 @@ export const startExperimentResultQueries = async (
   let segmentObj: SegmentInterface | null = null;
   if (snapshotSettings.segment) {
     segmentObj = await context.models.segments.getById(
-      snapshotSettings.segment
+      snapshotSettings.segment,
     );
   }
 
   const settings = integration.datasource.settings;
 
   const exposureQuery = (settings?.queries?.exposure || []).find(
-    (q) => q.id === snapshotSettings.exposureQueryId
+    (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
   const dimensionObjs: Dimension[] = (
     await Promise.all(
       snapshotSettings.dimensions.map(
-        async (d) => await parseDimension(d.id, d.slices, org.id)
-      )
+        async (d) => await parseDimension(d.id, d.slices, org.id),
+      ),
     )
   ).filter((d): d is Dimension => d !== null);
 
@@ -242,7 +242,7 @@ export const startExperimentResultQueries = async (
           `${UNITS_TABLE_PREFIX}_${queryParentId}`,
           settings.pipelineSettings?.writeDataset,
           settings.pipelineSettings?.writeDatabase,
-          true
+          true,
         )
       : "";
 
@@ -274,7 +274,7 @@ export const startExperimentResultQueries = async (
     // The Mixpanel integration does not support writing tables
     if (!integration.generateTablePath) {
       throw new Error(
-        "Unable to generate table; table path generator not specified."
+        "Unable to generate table; table path generator not specified.",
       );
     }
     unitQuery = await startQuery({
@@ -293,7 +293,7 @@ export const startExperimentResultQueries = async (
     selectedMetrics,
     params.snapshotSettings,
     integration,
-    org
+    org,
   );
 
   for (const m of singles) {
@@ -302,10 +302,10 @@ export const startExperimentResultQueries = async (
       denominatorMetrics.push(
         ...expandDenominatorMetrics(
           m.denominator,
-          metricMap as Map<string, MetricInterface>
+          metricMap as Map<string, MetricInterface>,
         )
           .map((m) => metricMap.get(m) as MetricInterface)
-          .filter(Boolean)
+          .filter(Boolean),
       );
     }
     // Only run overall quantile analysis for standard snapshots
@@ -333,7 +333,7 @@ export const startExperimentResultQueries = async (
           integration.runExperimentMetricQuery(query, setExternalId),
         process: (rows) => rows,
         queryType: "experimentMetric",
-      })
+      }),
     );
   }
 
@@ -369,11 +369,11 @@ export const startExperimentResultQueries = async (
         run: (query, setExternalId) =>
           (integration as SqlIntegration).runExperimentFactMetricsQuery(
             query,
-            setExternalId
+            setExternalId,
           ),
         process: (rows) => rows,
         queryType: "experimentMultiMetric",
-      })
+      }),
     );
   }
 
@@ -428,7 +428,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -442,7 +442,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         this.context,
         params,
         this.integration,
-        this.startQuery.bind(this)
+        this.startQuery.bind(this),
       );
     } else {
       return this.startLegacyQueries(params);
@@ -450,16 +450,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
-    const {
-      results: analysesResults,
-      banditResult,
-    } = await analyzeExperimentResults({
-      queryData: queryMap,
-      snapshotSettings: this.model.settings,
-      analysisSettings: this.model.analyses.map((a) => a.settings),
-      variationNames: this.variationNames,
-      metricMap: this.metricMap,
-    });
+    const { results: analysesResults, banditResult } =
+      await analyzeExperimentResults({
+        queryData: queryMap,
+        snapshotSettings: this.model.settings,
+        analysisSettings: this.model.analyses.map((a) => a.settings),
+        variationNames: this.variationNames,
+        metricMap: this.metricMap,
+      });
 
     const result: SnapshotResult = {
       analyses: this.model.analyses,
@@ -484,7 +482,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     // Run health checks
     const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
     if (healthQuery) {
-      const rows = healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
+      const rows =
+        healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
       const trafficHealth = analyzeExperimentTraffic({
         rows: rows,
         error: healthQuery.error,
@@ -496,7 +495,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       };
 
       const relativeAnalysis = this.model.analyses.find(
-        (a) => a.settings.differenceType === "relative"
+        (a) => a.settings.differenceType === "relative",
       );
 
       const isEligibleForMidExperimentPowerAnalysis =
@@ -508,14 +507,14 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       if (isEligibleForMidExperimentPowerAnalysis) {
         const today = new Date();
         const phaseStartDate = this.model.settings.startDate;
-        const experimentMaxLengthDays = this.context.org.settings
-          ?.experimentMaxLengthDays;
+        const experimentMaxLengthDays =
+          this.context.org.settings?.experimentMaxLengthDays;
 
         const experimentTargetEndDate = addDays(
           phaseStartDate,
           experimentMaxLengthDays && experimentMaxLengthDays > 0
             ? experimentMaxLengthDays
-            : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS
+            : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS,
         );
         const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
         // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
@@ -561,8 +560,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         status === "running"
           ? "running"
           : status === "failed"
-          ? "error"
-          : "success",
+            ? "error"
+            : "success",
     };
     await updateSnapshot({
       organization: this.model.organization,
@@ -585,19 +584,19 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   private async startLegacyQueries(
-    params: ExperimentResultsQueryParams
+    params: ExperimentResultsQueryParams,
   ): Promise<Queries> {
     const snapshotSettings = params.snapshotSettings;
     const metricMap = params.metricMap;
 
     const activationMetric = snapshotSettings.activationMetric
-      ? metricMap.get(snapshotSettings.activationMetric) ?? null
+      ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
       : null;
 
     // Only include metrics tied to this experiment (both goal and guardrail metrics)
     const selectedMetrics = getAllMetricIdsFromExperiment(
       snapshotSettings,
-      false
+      false,
     )
       .map((m) => metricMap.get(m))
       .filter((m) => m) as ExperimentMetricInterface[];
@@ -608,7 +607,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     const dimensionObj = await parseDimension(
       snapshotSettings.dimensions[0]?.id,
       snapshotSettings.dimensions[0]?.slices,
-      this.model.organization
+      this.model.organization,
     );
 
     const dimension =
@@ -617,7 +616,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       snapshotSettings,
       selectedMetrics,
       activationMetric,
-      dimension
+      dimension,
     );
 
     return [
@@ -631,7 +630,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             snapshotSettings,
             selectedMetrics,
             activationMetric,
-            dimension
+            dimension,
             // eslint-disable-next-line
           )) as any[];
           return { rows: rows };
@@ -644,7 +643,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
 
   private processLegacyExperimentResultsResponse(
     snapshotSettings: ExperimentSnapshotSettings,
-    rows: ExperimentQueryResponses
+    rows: ExperimentQueryResponses,
   ): ExperimentResults {
     const ret: ExperimentResults = {
       dimensions: [],

@@ -52,7 +52,7 @@ const experimentTabs = [
   "dashboards",
   "health",
 ] as const;
-type ExperimentTabName = typeof experimentTabs[number];
+type ExperimentTabName = (typeof experimentTabs)[number];
 export type ExperimentTab =
   | ExperimentTabName
   | `${ExperimentTabName}/${string}`;
@@ -99,7 +99,7 @@ export default function TabbedPage({
   const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
-    "overview"
+    "overview",
   );
   const [tabPath, setTabPath] = useState("");
 
@@ -132,7 +132,7 @@ export default function TabbedPage({
     {
       tagOrder: [],
       filterByTag: false,
-    }
+    },
   );
 
   useEffect(() => {
@@ -140,7 +140,7 @@ export default function TabbedPage({
       const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
       let [tabName, ...tabPathSegments] = hash.split("/") as [
         ExperimentTabName,
-        ...string[]
+        ...string[],
       ];
       if (experimentTabs.includes(tabName)) {
         if (tabName === "dashboards" && !dashboardsEnabled) {
@@ -193,7 +193,7 @@ export default function TabbedPage({
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    linkedFeatures.map((f) => f.feature)
+    linkedFeatures.map((f) => f.feature),
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -202,11 +202,11 @@ export default function TabbedPage({
   const projectConnections = connections.filter(
     (connection) =>
       !connection.projects.length ||
-      connection.projects.includes(experiment.project || "")
+      connection.projects.includes(experiment.project || ""),
   );
   const matchingConnections = projectConnections.filter(
     (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments
+      !visualChangesets.length || connection.includeVisualExperiments,
   );
 
   const { data, mutate: mutateWatchers } = useApi<{
@@ -396,7 +396,7 @@ export default function TabbedPage({
         <div
           className={clsx(
             "pt-3",
-            tab === "overview" ? "d-block" : "d-none d-print-block"
+            tab === "overview" ? "d-block" : "d-none d-print-block",
           )}
         >
           <SetupTabOverview

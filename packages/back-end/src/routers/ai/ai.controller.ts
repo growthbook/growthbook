@@ -17,7 +17,7 @@ type GetAIPromptResponse = {
 
 export async function getAIPrompts(
   req: AuthRequest,
-  res: Response<GetAIPromptResponse>
+  res: Response<GetAIPromptResponse>,
 ) {
   const context = getContextFromReq(req);
 
@@ -31,7 +31,7 @@ export async function postAIPrompts(
   req: AuthRequest<{
     prompts: { type: AIPromptType; prompt: string }[];
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { prompts } = req.body;
@@ -49,7 +49,7 @@ export async function postAIPrompts(
           prompt,
         });
       }
-    })
+    }),
   );
 
   return res.status(200).json({
@@ -59,7 +59,7 @@ export async function postAIPrompts(
 
 export async function postReformat(
   req: AuthRequest<{ type: AIPromptType; text: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { aiEnabled } = getAISettingsForOrg(context);
@@ -79,7 +79,7 @@ export async function postReformat(
   }
 
   const secondsUntilReset = await secondsUntilAICanBeUsedAgain(
-    req.organization
+    req.organization,
   );
   if (secondsUntilReset > 0) {
     return res.status(429).json({
@@ -89,10 +89,8 @@ export async function postReformat(
     });
   }
 
-  const {
-    prompt,
-    isDefaultPrompt,
-  } = await context.models.aiPrompts.getAIPrompt(req.body.type);
+  const { prompt, isDefaultPrompt } =
+    await context.models.aiPrompts.getAIPrompt(req.body.type);
   if (!prompt) {
     return res.status(400).json({
       status: 400,

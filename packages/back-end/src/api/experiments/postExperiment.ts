@@ -41,22 +41,22 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     if (
       datasource &&
       !datasource.settings.queries?.exposure?.some(
-        (q) => q.id === req.body.assignmentQueryId
+        (q) => q.id === req.body.assignmentQueryId,
       )
     ) {
       throw new Error(
-        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
+        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`,
       );
     }
 
     // check if tracking key is unique
     const existingByTrackingKey = await getExperimentByTrackingKey(
       req.context,
-      req.body.trackingKey
+      req.body.trackingKey,
     );
     if (existingByTrackingKey) {
       throw new Error(
-        `Experiment with tracking key already exists: ${req.body.trackingKey}`
+        `Experiment with tracking key already exists: ${req.body.trackingKey}`,
       );
     }
 
@@ -65,7 +65,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       const user = await getUserByEmail(ownerEmail);
       // check if the user is a member of the organization
       const isMember = req.organization.members.some(
-        (member) => member.id === user?.id
+        (member) => member.id === user?.id,
       );
       if (!isMember || !user) {
         throw new Error(`Unable to find user: ${ownerEmail}.`);
@@ -92,20 +92,20 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
           if (datasource.id && metric.datasource !== datasource.id) {
             throw new Error(
               "Metrics must be tied to the same datasource as the experiment: " +
-                metricIds[i]
+                metricIds[i],
             );
           }
         } else {
           // check to see if this metric is actually a metric group
           const metricGroup = await req.context.models.metricGroups.getById(
-            metricIds[i]
+            metricIds[i],
           );
           if (metricGroup) {
             // Make sure it is tied to the same datasource as the experiment
             if (datasource.id && metricGroup.datasource !== datasource.id) {
               throw new Error(
                 "Metrics must be tied to the same datasource as the experiment: " +
-                  metricIds[i]
+                  metricIds[i],
               );
             }
           } else {
@@ -127,7 +127,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         ...(ownerId ? { owner: ownerId } : {}),
       },
       req.organization,
-      datasource
+      datasource,
     );
 
     const experiment = await createExperiment({
@@ -147,10 +147,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment
+      experiment,
     );
     return {
       experiment: apiExperiment,
     };
-  }
+  },
 );

@@ -23,7 +23,7 @@ export type Rows = any[];
 function parseYValue(
   row: Rows[number],
   yField: string | undefined,
-  yType: string
+  yType: string,
 ): number | string | undefined {
   if (yField && yField in row) {
     const yValue = row[yField];
@@ -40,7 +40,7 @@ function parseYValue(
 
 function aggregate(
   values: (string | number)[],
-  aggregation: yAxisAggregationType
+  aggregation: yAxisAggregationType,
 ): number {
   const numericValues = values
     .map((v) => {
@@ -69,7 +69,7 @@ function aggregate(
       if (numericValues.length === 0) return 0;
       const sum = numericValues.reduce(
         (acc, value) => acc.plus(value),
-        new Decimal(0)
+        new Decimal(0),
       );
       return sum.dividedBy(numericValues.length).toNumber();
     }
@@ -102,7 +102,7 @@ function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
     case "week": {
       const day = d.getUTCDay(); // Sunday = 0
       const startOfWeek = new Date(
-        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day)
+        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day),
       );
       startOfWeek.setUTCHours(0, 0, 0, 0); // Round to the start of the week
       return startOfWeek;
@@ -624,8 +624,8 @@ export function DataVisualizationDisplay({
           xConfig?.type === "date"
             ? "time"
             : xConfig?.type === "number"
-            ? "value"
-            : "category",
+              ? "value"
+              : "category",
         // axisLabel: { interval: 0, rotate: 30 },
       },
       yAxis: {

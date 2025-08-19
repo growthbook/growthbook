@@ -77,15 +77,13 @@ export default function EditTargetingModal({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    experiment.project
+    experiment.project,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const lastPhase: ExperimentPhaseStringDates | undefined =
@@ -577,8 +575,8 @@ function TargetingForm({
             changeType === "traffic" || type === "multi-armed-bandit"
               ? "Traffic Percentage"
               : changeType === "weights"
-              ? "Variation Weights"
-              : "Traffic Percentage & Variation Weights"
+                ? "Variation Weights"
+                : "Traffic Percentage & Variation Weights"
           }
           startEditingSplits={true}
         />

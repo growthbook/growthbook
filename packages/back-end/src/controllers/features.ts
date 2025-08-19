@@ -145,7 +145,7 @@ class UnrecoverableApiError extends Error {
 
 export async function getPayloadParamsFromApiKey(
   key: string,
-  req: Request
+  req: Request,
 ): Promise<{
   organization: string;
   capabilities: SDKCapability[];
@@ -215,7 +215,7 @@ export async function getPayloadParamsFromApiKey(
     }
     if (secret) {
       throw new UnrecoverableApiError(
-        "Must use a Publishable API key to get feature definitions"
+        "Must use a Publishable API key to get feature definitions",
       );
     }
 
@@ -263,17 +263,17 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
     if (remoteEvalEnabled) {
       throw new UnrecoverableApiError(
-        "Remote evaluation required for this connection"
+        "Remote evaluation required for this connection",
       );
     }
 
     const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === environment
+      (e) => e.id === environment,
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       projects,
       environmentDoc,
-      true
+      true,
     );
 
     const defs = await getFeatureDefinitions({
@@ -296,7 +296,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     // The default is Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
       "Cache-control",
-      `public, max-age=${CACHE_CONTROL_MAX_AGE}, stale-while-revalidate=${CACHE_CONTROL_STALE_WHILE_REVALIDATE}, stale-if-error=${CACHE_CONTROL_STALE_IF_ERROR}`
+      `public, max-age=${CACHE_CONTROL_MAX_AGE}, stale-while-revalidate=${CACHE_CONTROL_STALE_WHILE_REVALIDATE}, stale-if-error=${CACHE_CONTROL_STALE_IF_ERROR}`,
     );
 
     // If using Fastly, add surrogate key header for cache purging
@@ -361,17 +361,17 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 
     if (!remoteEvalEnabled) {
       throw new UnrecoverableApiError(
-        "Remote evaluation disabled for this connection"
+        "Remote evaluation disabled for this connection",
       );
     }
 
     const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === environment
+      (e) => e.id === environment,
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       projects,
       environmentDoc,
-      true
+      true,
     );
 
     // Evaluate features using provided attributes
@@ -381,7 +381,7 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
       req.body?.forcedVariations || {};
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const forcedFeatures: Map<string, any> = new Map(
-      req.body.forcedFeatures || []
+      req.body.forcedFeatures || [],
     );
     const url = req.body?.url;
 
@@ -428,7 +428,7 @@ export async function postFeatures(
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
-  >
+  >,
 ) {
   const context = getContextFromReq(req);
   const { org, userId, userName } = context;
@@ -449,7 +449,7 @@ export async function postFeatures(
     const regex = new RegExp(org.settings.featureRegexValidator);
     if (!regex.test(id)) {
       throw new Error(
-        `Feature key must match the regex validator. '${org.settings.featureRegexValidator}' Example: '${org.settings.featureKeyExample}'`
+        `Feature key must match the regex validator. '${org.settings.featureRegexValidator}' Example: '${org.settings.featureKeyExample}'`,
       );
     }
   }
@@ -460,7 +460,7 @@ export async function postFeatures(
 
   if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
     throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores."
+      "Feature keys can only include letters, numbers, hyphens, and underscores.",
     );
   }
 
@@ -475,7 +475,7 @@ export async function postFeatures(
   const existing = await getFeature(context, id);
   if (existing) {
     throw new Error(
-      "This feature key already exists. Feature keys must be unique."
+      "This feature key already exists. Feature keys must be unique.",
     );
   }
 
@@ -513,14 +513,14 @@ export async function postFeatures(
   // construct environmentSettings, scrub environments if not allowed in project
   feature.environmentSettings = Object.fromEntries(
     Object.entries(environmentSettings).filter(([env]) =>
-      environmentIds.includes(env)
-    )
+      environmentIds.includes(env),
+    ),
   );
 
   if (
     !context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environmentIds))
+      Array.from(getEnabledEnvironments(feature, environmentIds)),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -559,7 +559,7 @@ export async function postFeatureRebase(
     },
     { id: string; version: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -623,11 +623,11 @@ export async function postFeatureRebase(
     base,
     revision,
     environmentIds,
-    strategies || {}
+    strategies || {},
   );
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
-      "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again."
+      "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",
     );
   }
 
@@ -653,7 +653,7 @@ export async function postFeatureRebase(
       subject: `on top of revision #${live.version}`,
       value: JSON.stringify(mergeResult.result),
     },
-    false
+    false,
   );
 
   res.status(200).json({
@@ -667,7 +667,7 @@ export async function postFeatureRequestReview(
     },
     { id: string; version: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
@@ -696,7 +696,7 @@ export async function postFeatureRequestReview(
     context,
     revision,
     res.locals.eventAudit,
-    comment
+    comment,
   );
   res.status(200).json({
     status: 200,
@@ -711,7 +711,7 @@ export async function postFeatureReviewOrComment(
     },
     { id: string; version: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
@@ -755,7 +755,7 @@ export async function postFeatureReviewOrComment(
     revision,
     res.locals.eventAudit,
     review,
-    comment
+    comment,
   );
   res.status(200).json({
     status: 200,
@@ -772,7 +772,7 @@ export async function postFeaturePublish(
     },
     { id: string; version: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -856,7 +856,7 @@ export async function postFeaturePublish(
   const mergeResult = autoMerge(live, base, revision, environmentIds, {});
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
-      "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again."
+      "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",
     );
   }
 
@@ -869,7 +869,7 @@ export async function postFeaturePublish(
     if (
       !context.permissions.canPublishFeature(
         feature,
-        Array.from(getEnabledEnvironments(feature, environmentIds))
+        Array.from(getEnabledEnvironments(feature, environmentIds)),
       )
     ) {
       context.permissions.throwPermissionError();
@@ -893,7 +893,7 @@ export async function postFeaturePublish(
   if (publishExperimentIds && publishExperimentIds.length) {
     const experiments = await getExperimentsByIds(
       context,
-      publishExperimentIds
+      publishExperimentIds,
     );
     if (experiments.length !== publishExperimentIds.length) {
       throw new Error("Invalid experiment IDs");
@@ -938,7 +938,7 @@ export async function postFeaturePublish(
     feature,
     revision,
     mergeResult.result,
-    comment
+    comment,
   );
 
   await req.audit({
@@ -977,7 +977,7 @@ export async function postFeaturePublish(
 
 export async function postFeatureRevert(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1018,7 +1018,7 @@ export async function postFeatureRevert(
     if (
       !context.permissions.canPublishFeature(
         feature,
-        Array.from(getEnabledEnvironments(feature, environmentIds))
+        Array.from(getEnabledEnvironments(feature, environmentIds)),
       )
     ) {
       context.permissions.throwPermissionError();
@@ -1032,7 +1032,7 @@ export async function postFeatureRevert(
       revision.rules[env] &&
       !isEqual(
         revision.rules[env],
-        feature.environmentSettings?.[env]?.rules || []
+        feature.environmentSettings?.[env]?.rules || [],
       )
     ) {
       changedEnvs.push(env);
@@ -1050,14 +1050,14 @@ export async function postFeatureRevert(
     context,
     feature,
     revision,
-    changes
+    changes,
   );
 
   await markRevisionAsPublished(
     context,
     revision,
     res.locals.eventAudit,
-    comment
+    comment,
   );
 
   await req.audit({
@@ -1079,7 +1079,7 @@ export async function postFeatureRevert(
 
 export async function postFeatureFork(
   req: AuthRequest<never, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org, environments } = context;
@@ -1129,7 +1129,7 @@ export async function postFeatureFork(
 
 export async function postFeatureDiscard(
   req: AuthRequest<never, { id: string; version: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1179,7 +1179,7 @@ export async function postFeatureDiscard(
 
 export async function postFeatureRule(
   req: AuthRequest<PostFeatureRuleBody, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1213,7 +1213,7 @@ export async function postFeatureRule(
 
     const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
       omit(safeRolloutFields, "rampUpSchedule"),
-      context
+      context,
     );
 
     // Set default status for safe rollout rule
@@ -1262,7 +1262,7 @@ export async function postFeatureRule(
     environment,
     rule,
     res.locals.eventAudit,
-    resetReview
+    resetReview,
   );
 
   // If referencing a new experiment, add it to linkedExperiments
@@ -1291,7 +1291,7 @@ export async function postFeatureSync(
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
-  >
+  >,
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -1306,7 +1306,7 @@ export async function postFeatureSync(
 
   if (!environments.length) {
     throw new Error(
-      "Must have at least one environment configured to use Feature Flags"
+      "Must have at least one environment configured to use Feature Flags",
     );
   }
 
@@ -1319,7 +1319,7 @@ export async function postFeatureSync(
   if (
     !context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environments))
+      Array.from(getEnabledEnvironments(feature, environments)),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -1327,7 +1327,7 @@ export async function postFeatureSync(
 
   if (data.valueType && data.valueType !== feature.valueType) {
     throw new Error(
-      "Cannot change valueType of feature after it's already been created."
+      "Cannot change valueType of feature after it's already been created.",
     );
   }
 
@@ -1362,7 +1362,7 @@ export async function postFeatureSync(
       data.environmentSettings?.[env] &&
       !isEqual(
         data.environmentSettings[env].rules || [],
-        feature.environmentSettings?.[env]?.rules || []
+        feature.environmentSettings?.[env]?.rules || [],
       )
     ) {
       needsNewRevision = true;
@@ -1406,7 +1406,7 @@ export async function postFeatureSync(
 
 export async function postFeatureExperimentRefRule(
   req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -1424,7 +1424,7 @@ export async function postFeatureExperimentRefRule(
 
   if (!environments.length) {
     throw new Error(
-      "Must have at least one environment configured to use Feature Flags"
+      "Must have at least one environment configured to use Feature Flags",
     );
   }
 
@@ -1440,7 +1440,7 @@ export async function postFeatureExperimentRefRule(
   if (
     !context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environments))
+      Array.from(getEnabledEnvironments(feature, environments)),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -1521,7 +1521,7 @@ export async function postFeatureExperimentRefRule(
     context,
     rule.experimentId,
     feature.id,
-    experiment
+    experiment,
   );
 
   res.status(200).json({
@@ -1533,7 +1533,7 @@ export async function postFeatureExperimentRefRule(
 async function getDraftRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
-  version: number
+  version: number,
 ): Promise<FeatureRevisionInterface> {
   // This is the published version, create a new draft revision
   const { org } = context;
@@ -1580,7 +1580,7 @@ async function getDraftRevision(
 
 export async function putRevisionComment(
   req: AuthRequest<{ comment: string }, { id: string; version: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1619,7 +1619,7 @@ export async function putRevisionComment(
       subject: "",
       value: JSON.stringify({ comment }),
     },
-    false
+    false,
   );
 
   res.status(200).json({
@@ -1629,7 +1629,7 @@ export async function putRevisionComment(
 
 export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -1660,7 +1660,7 @@ export async function postFeatureDefaultValue(
     revision,
     defaultValue,
     res.locals.eventAudit,
-    resetReview
+    resetReview,
   );
 
   res.status(200).json({
@@ -1671,7 +1671,7 @@ export async function postFeatureDefaultValue(
 
 export async function postFeatureSchema(
   req: AuthRequest<Omit<JSONSchemaDef, "date">, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -1710,7 +1710,7 @@ export async function putSafeRolloutStatus(
     { status: SafeRolloutRule["status"]; environment: string; i: number },
     { id: string }
   >,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -1743,7 +1743,7 @@ export async function putSafeRolloutStatus(
     i,
     { status },
     res.locals.eventAudit,
-    resetReview
+    resetReview,
   );
 
   const live = await getRevision({
@@ -1794,7 +1794,7 @@ export async function putSafeRolloutStatus(
       if (
         !context.permissions.canPublishFeature(
           feature,
-          Array.from(getEnabledEnvironments(feature, environmentIds))
+          Array.from(getEnabledEnvironments(feature, environmentIds)),
         )
       ) {
         context.permissions.throwPermissionError();
@@ -1814,7 +1814,7 @@ export async function putSafeRolloutStatus(
       feature,
       revision,
       mergeResult.result,
-      "auto-publish status change"
+      "auto-publish status change",
     );
 
     await req.audit({
@@ -1841,7 +1841,7 @@ export async function putSafeRolloutStatus(
 
 export async function putFeatureRule(
   req: AuthRequest<PutFeatureRuleBody, { id: string; version: string }>,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1873,7 +1873,7 @@ export async function putFeatureRule(
       throw new Error("Safe Rollout rule must have a safeRolloutId");
     }
     const existingSafeRollout = await context.models.safeRollout.getById(
-      rule.safeRolloutId
+      rule.safeRolloutId,
     );
     if (!existingSafeRollout) {
       throw new Error("Safe Rollout must exist");
@@ -1883,7 +1883,7 @@ export async function putFeatureRule(
     if (hasSafeRolloutStarted) {
       const existingRule = getSafeRolloutRuleFromFeature(
         feature,
-        rule.safeRolloutId
+        rule.safeRolloutId,
       );
       if (!existingRule) {
         throw new Error("Unable to update rule that does not exist.");
@@ -1898,12 +1898,12 @@ export async function putFeatureRule(
         "trackingKey",
       ];
       const fieldsBeingUpdated = Object.entries(rule).filter(
-        ([k, v]) => !isEqual(existingRule[k as keyof SafeRolloutRule], v)
+        ([k, v]) => !isEqual(existingRule[k as keyof SafeRolloutRule], v),
       );
 
       // Check if any of the fields that cannot be updated are being updated
       const fieldsBeingUpdatedThatCannotBeUpdated = fieldsBeingUpdated.filter(
-        ([fieldName]) => fieldsThatCannotBeUpdated.includes(fieldName)
+        ([fieldName]) => fieldsThatCannotBeUpdated.includes(fieldName),
       );
 
       if (fieldsBeingUpdatedThatCannotBeUpdated.length > 0) {
@@ -1911,7 +1911,7 @@ export async function putFeatureRule(
           .map(([fieldName]) => fieldName)
           .join(", ");
         throw new Error(
-          `Cannot update the following fields after a Safe Rollout has started: ${fieldNames}`
+          `Cannot update the following fields after a Safe Rollout has started: ${fieldNames}`,
         );
       }
     }
@@ -1932,7 +1932,7 @@ export async function putFeatureRule(
     i,
     rule,
     res.locals.eventAudit,
-    resetReview
+    resetReview,
   );
 
   res.status(200).json({
@@ -1943,7 +1943,7 @@ export async function putFeatureRule(
 
 export async function postFeatureToggle(
   req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { environments } = context;
@@ -1988,7 +1988,7 @@ export async function postFeatureToggle(
     details: auditDetailsUpdate(
       { on: currentState },
       { on: state },
-      { environment }
+      { environment },
     ),
   });
 
@@ -2002,7 +2002,7 @@ export async function postFeatureMoveRule(
     { environment: string; from: number; to: number },
     { id: string; version: string }
   >,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -2049,7 +2049,7 @@ export async function postFeatureMoveRule(
       subject: `in ${environment} from position ${from + 1} to ${to + 1}`,
       value: JSON.stringify(rule),
     },
-    resetReview
+    resetReview,
   );
 
   res.status(200).json({
@@ -2059,7 +2059,7 @@ export async function postFeatureMoveRule(
 }
 export async function getDraftandReviewRevisions(
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const revisions = await getRevisionsByStatus(context, [
@@ -2079,7 +2079,7 @@ export async function deleteFeatureRule(
     { environment: string; i: number },
     { id: string; version: string }
   >,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { environments, org } = context;
@@ -2129,7 +2129,7 @@ export async function deleteFeatureRule(
       subject: `in ${environment} (position ${i + 1})`,
       value: JSON.stringify(rule),
     },
-    resetReview
+    resetReview,
   );
 
   res.status(200).json({
@@ -2143,7 +2143,7 @@ export async function putFeature(
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
-  >
+  >,
 ) {
   const context = getContextFromReq(req);
   const { org, environments } = context;
@@ -2178,11 +2178,11 @@ export async function putFeature(
     if (
       !context.permissions.canPublishFeature(
         feature,
-        Array.from(getEnabledEnvironments(feature, environments))
+        Array.from(getEnabledEnvironments(feature, environments)),
       ) ||
       !context.permissions.canPublishFeature(
         updates,
-        Array.from(getEnabledEnvironments(feature, environments))
+        Array.from(getEnabledEnvironments(feature, environments)),
       )
     ) {
       context.permissions.throwPermissionError();
@@ -2199,7 +2199,7 @@ export async function putFeature(
 
   if (
     Object.keys(updates).filter(
-      (key: keyof FeatureInterface) => !allowedKeys.includes(key)
+      (key: keyof FeatureInterface) => !allowedKeys.includes(key),
     ).length > 0
   ) {
     throw new Error("Invalid update fields for feature");
@@ -2227,7 +2227,7 @@ export async function putFeature(
 
 export async function deleteFeatureById(
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -2244,7 +2244,7 @@ export async function deleteFeatureById(
       !context.permissions.canManageFeatureDrafts(feature) ||
       !context.permissions.canPublishFeature(
         feature,
-        Array.from(getEnabledEnvironments(feature, environmentsIds))
+        Array.from(getEnabledEnvironments(feature, environmentsIds)),
       )
     ) {
       context.permissions.throwPermissionError();
@@ -2278,7 +2278,7 @@ export async function postFeatureEvaluate(
   res: Response<
     { status: 200; results: FeatureTestResult[] },
     EventUserForResponseLocals
-  >
+  >,
 ) {
   const { id, version } = req.params;
   const context = getContextFromReq(req);
@@ -2310,7 +2310,8 @@ export async function postFeatureEvaluate(
   const experimentMap = await getAllPayloadExperiments(context);
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const safeRolloutMap =
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
   const results = evaluateFeature({
     feature,
     revision,
@@ -2342,7 +2343,7 @@ export async function postFeaturesEvaluate(
       results: { [key: string]: FeatureTestResult }[] | undefined;
     },
     EventUserForResponseLocals
-  >
+  >,
 ) {
   const context = getContextFromReq(req);
   const {
@@ -2358,7 +2359,7 @@ export async function postFeaturesEvaluate(
       if (feature) {
         features.push(feature);
       }
-    })
+    }),
   );
 
   // now evaluate all features:
@@ -2367,7 +2368,8 @@ export async function postFeaturesEvaluate(
     environment !== ""
       ? [allEnvironments.find((obj) => obj.id === environment)]
       : getEnvironments(context.org);
-  const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
+  const safeRolloutMap =
+    await context.models.safeRollout.getAllPayloadSafeRollouts();
   const featureResults = await evaluateAllFeatures({
     features,
     context,
@@ -2384,7 +2386,7 @@ export async function postFeaturesEvaluate(
 
 export async function postFeatureArchive(
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -2402,7 +2404,7 @@ export async function postFeatureArchive(
     !context.permissions.canUpdateFeature(feature, {}) ||
     !context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environmentsIds))
+      Array.from(getEnabledEnvironments(feature, environmentsIds)),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -2411,7 +2413,7 @@ export async function postFeatureArchive(
   const updatedFeature = await archiveFeature(
     context,
     feature,
-    !feature.archived
+    !feature.archived,
   );
 
   await req.audit({
@@ -2422,7 +2424,7 @@ export async function postFeatureArchive(
     },
     details: auditDetailsUpdate(
       { archived: feature.archived }, // Old state
-      { archived: updatedFeature.archived } // New state
+      { archived: updatedFeature.archived }, // New state
     ),
   });
 
@@ -2437,7 +2439,7 @@ export async function getFeatures(
     unknown,
     { project?: string; includeArchived?: boolean }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -2452,7 +2454,7 @@ export async function getFeatures(
     {
       project,
       includeArchived,
-    }
+    },
   );
 
   const hasArchived = includeArchived
@@ -2469,7 +2471,10 @@ export async function getFeatures(
 
 export async function getRevisionLog(
   req: AuthRequest<null, { id: string; version: string }>,
-  res: Response<{ status: 200; log: RevisionLog[] }, EventUserForResponseLocals>
+  res: Response<
+    { status: 200; log: RevisionLog[] },
+    EventUserForResponseLocals
+  >,
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
@@ -2492,12 +2497,11 @@ export async function getRevisionLog(
   }
 
   // But now we store logs in a separate table as they are too large
-  const revisionLogs = await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion(
-    {
+  const revisionLogs =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
       featureId: id,
       version: parseInt(version),
-    }
-  );
+    });
 
   // revisionLogs use dateCreated as the timestamp, so we need to convert it to a RevisionLog as that is what the front end expects
   const revisionLogsFormatted: RevisionLog[] = revisionLogs.map((log) => ({
@@ -2519,7 +2523,7 @@ export async function getRevisionLog(
 
 export async function getFeatureById(
   req: AuthRequest<null, { id: string }, { v?: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, environments } = context;
@@ -2570,7 +2574,7 @@ export async function getFeatureById(
   if (fullRevisions.some((r) => r.dateCreated < feature.dateCreated)) {
     await cleanUpPreviousRevisions(org.id, feature.id, feature.dateCreated);
     fullRevisions = fullRevisions.filter(
-      (r) => r.dateCreated >= feature.dateCreated
+      (r) => r.dateCreated >= feature.dateCreated,
     );
   }
 
@@ -2584,8 +2588,8 @@ export async function getFeatureById(
           feature,
           null,
           environments,
-          feature.dateCreated
-        )
+          feature.dateCreated,
+        ),
       );
     } catch (e) {
       // This is not a fatal error, so don't block the request from happening
@@ -2640,7 +2644,7 @@ export async function getFeatureById(
   }
   if (hasSafeRollout) {
     const safeRollouts = await context.models.safeRollout.getAllByFeatureId(
-      feature.id
+      feature.id,
     );
     safeRollouts.forEach((safeRollout: SafeRolloutInterface) => {
       safeRolloutMap.set(safeRollout.id, safeRollout);
@@ -2653,7 +2657,7 @@ export async function getFeatureById(
     try {
       if (live.defaultValue !== feature.defaultValue) {
         throw new Error(
-          `Published revision defaultValue does not match feature ${org.id}.${feature.id}`
+          `Published revision defaultValue does not match feature ${org.id}.${feature.id}`,
         );
       }
       environments.forEach((env) => {
@@ -2661,7 +2665,7 @@ export async function getFeatureById(
         if (!settings) return;
         if (!isEqual(settings.rules || [], live.rules[env] || [])) {
           throw new Error(
-            `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`
+            `Published revision rules.${env} does not match feature ${org.id}.${feature.id}`,
           );
         }
       });
@@ -2688,7 +2692,7 @@ export async function getFeatureById(
 
 export async function getFeatureUsage(
   req: AuthRequest<null, { id: string }, { lookback?: FeatureUsageLookback }>,
-  res: Response<{ status: 200; usage: FeatureUsageData }>
+  res: Response<{ status: 200; usage: FeatureUsageData }>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2719,7 +2723,7 @@ export async function getFeatureUsage(
 
   const { start, rows } = await integration.getFeatureUsage(
     feature.id,
-    lookback
+    lookback,
   );
 
   function createTimeseries() {
@@ -2773,7 +2777,7 @@ export async function getFeatureUsage(
     data: FeatureUsageDataPoint[],
     key: string,
     ts: Date,
-    evaluations: number
+    evaluations: number,
   ) {
     const idx = getTSIndex(ts, data);
     if (!data[idx]) return;
@@ -2801,7 +2805,7 @@ export async function getFeatureUsage(
 
 export async function getRealtimeUsage(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const NUM_MINUTES = 30;
@@ -2810,7 +2814,7 @@ export async function getRealtimeUsage(
   const now = new Date();
   const current = await getRealtimeUsageByHour(
     org.id,
-    now.toISOString().substring(0, 13)
+    now.toISOString().substring(0, 13),
   );
 
   const usage: FeatureUsageRecords = {};
@@ -2834,7 +2838,7 @@ export async function getRealtimeUsage(
 
     const lastHourData = await getRealtimeUsageByHour(
       org.id,
-      lastHour.toISOString().substring(0, 13)
+      lastHour.toISOString().substring(0, 13),
     );
     if (lastHourData) {
       Object.keys(lastHourData.features).forEach((feature) => {
@@ -2877,7 +2881,7 @@ export async function getRealtimeUsage(
 
 export async function toggleStaleFFDetectionForFeature(
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -2902,7 +2906,7 @@ export async function toggleStaleFFDetectionForFeature(
 
 export async function postPrerequisite(
   req: AuthRequest<{ prerequisite: FeaturePrerequisite }, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -2934,7 +2938,7 @@ export async function putPrerequisite(
     { prerequisite: FeaturePrerequisite; i: number },
     { id: string }
   >,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -2967,7 +2971,7 @@ export async function putPrerequisite(
 
 export async function deletePrerequisite(
   req: AuthRequest<{ i: number }, { id: string }>,
-  res: Response<{ status: 200 }, EventUserForResponseLocals>
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -3003,7 +3007,7 @@ export async function postCopyEnvironmentRules(
     { sourceEnv: string; targetEnv: string },
     { id: string; version: string }
   >,
-  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>
+  res: Response<{ status: 200; version: number }, EventUserForResponseLocals>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3051,7 +3055,7 @@ export async function postCopyEnvironmentRules(
     sourceEnv,
     targetEnv,
     res.locals.eventAudit,
-    resetReview
+    resetReview,
   );
 
   res.status(200).json({

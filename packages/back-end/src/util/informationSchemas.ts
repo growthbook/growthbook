@@ -7,7 +7,7 @@ import {
 } from "back-end/src/types/Integration";
 
 export function formatInformationSchema(
-  results: RawInformationSchema[]
+  results: RawInformationSchema[],
 ): InformationSchema[] {
   const databases = new Map<string, InformationSchema>();
   const schemas = new Map<string, Schema>();
@@ -55,7 +55,7 @@ export function formatInformationSchema(
       };
       tables.set(tableKey, table);
       const schemaIndex = database.schemas.findIndex(
-        (schema) => schema.schemaName === row.table_schema
+        (schema) => schema.schemaName === row.table_schema,
       );
       database.schemas[schemaIndex].tables.push(table);
     }

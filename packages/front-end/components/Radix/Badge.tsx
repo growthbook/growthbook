@@ -15,7 +15,7 @@ type Props = {
 
 export default forwardRef<HTMLDivElement, Props>(function Badge(
   { label, title, ...props }: Props,
-  ref
+  ref,
 ) {
   return (
     <RadixBadge ref={ref} title={title} {...props}>

@@ -33,7 +33,7 @@ export default function CopyRuleModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const filteredEnvironments = environments.filter(
-    (env) => env.id !== environment
+    (env) => env.id !== environment,
   );
   const envs = filteredEnvironments.map((e) => e.id);
 
@@ -77,7 +77,7 @@ export default function CopyRuleModal({
                 safeRolloutFields: safeRolloutsMap.get(rule.safeRolloutId),
               }),
             }),
-          }
+          },
         );
         draftVersion = res.version;
       }

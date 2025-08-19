@@ -48,7 +48,7 @@ export async function markUserAsVerified(id: string) {
       $set: {
         verified: true,
       },
-    }
+    },
   );
 }
 
@@ -59,7 +59,7 @@ export async function getAllUsers(): Promise<UserInterface[]> {
 
 export async function getAllUsersFiltered(
   page: number,
-  search?: string
+  search?: string,
 ): Promise<UserInterface[]> {
   const query: {
     $or?: [{ name: unknown }, { email: unknown }];
@@ -103,7 +103,7 @@ export async function getUserById(id: string): Promise<UserInterface | null> {
 }
 
 export async function getUserByEmail(
-  email: string
+  email: string,
 ): Promise<UserInterface | null> {
   const user = await getCollection(COLLECTION).findOne({ email });
   return user ? toInterface(user) : null;
@@ -154,12 +154,12 @@ export async function createUser({
       superAdmin,
       dateCreated: new Date(),
       agreedToTerms,
-    })
+    }),
   );
 }
 
 export async function findVerifiedEmails(
-  emails: string[] | undefined
+  emails: string[] | undefined,
 ): Promise<string[]> {
   let users: Document[] = [];
   if (emails) {
@@ -188,13 +188,13 @@ export async function resetMinTokenDate(userId: string) {
       $set: {
         minTokenDate: new Date(),
       },
-    }
+    },
   );
 }
 
 export async function updateUser(
   id: string,
-  updates: Partial<Pick<UserInterface, "passwordHash" | "name">>
+  updates: Partial<Pick<UserInterface, "passwordHash" | "name">>,
 ) {
   await UserModel.updateOne(
     {
@@ -202,7 +202,7 @@ export async function updateUser(
     },
     {
       $set: updates,
-    }
+    },
   );
 }
 
@@ -214,7 +214,7 @@ export async function hasUser() {
 export async function getUserIdsAndEmailsForAllUsersInDb() {
   if (IS_CLOUD) {
     throw new Error(
-      "getUserIdsAndEmailsForAllUsersInDb() is not supported on cloud"
+      "getUserIdsAndEmailsForAllUsersInDb() is not supported on cloud",
     );
   }
 

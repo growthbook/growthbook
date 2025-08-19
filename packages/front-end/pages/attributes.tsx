@@ -37,91 +37,89 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { features } = useFeaturesList(false);
   const { experiments } = useExperiments();
 
-  const {
-    attributeFeatures,
-    attributeExperiments,
-    attributeGroups,
-  } = useMemo(() => {
-    const attributeKeys = attributeSchema.map((as) => as.property);
-    const attributeFeatureIds: Record<string, Set<string>> = {};
-    const attributeExperimentIds: Record<string, Set<string>> = {};
-    const attributeGroupIds: Record<string, Set<string>> = {};
+  const { attributeFeatures, attributeExperiments, attributeGroups } =
+    useMemo(() => {
+      const attributeKeys = attributeSchema.map((as) => as.property);
+      const attributeFeatureIds: Record<string, Set<string>> = {};
+      const attributeExperimentIds: Record<string, Set<string>> = {};
+      const attributeGroupIds: Record<string, Set<string>> = {};
 
-    for (const feature of features) {
-      for (const envid in feature.environmentSettings) {
-        const env = feature.environmentSettings?.[envid];
-        env?.rules?.forEach((rule) => {
-          try {
-            const parsedCondition = JSON.parse(rule?.condition ?? "{}");
-            recursiveWalk(parsedCondition, (node) => {
-              if (attributeKeys.includes(node[0])) {
-                if (!attributeFeatureIds[node[0]])
-                  attributeFeatureIds[node[0]] = new Set<string>();
-                attributeFeatureIds[node[0]].add(feature.id);
-              }
-            });
-          } catch (e) {
-            // ignore
-          }
-        });
+      for (const feature of features) {
+        for (const envid in feature.environmentSettings) {
+          const env = feature.environmentSettings?.[envid];
+          env?.rules?.forEach((rule) => {
+            try {
+              const parsedCondition = JSON.parse(rule?.condition ?? "{}");
+              recursiveWalk(parsedCondition, (node) => {
+                if (attributeKeys.includes(node[0])) {
+                  if (!attributeFeatureIds[node[0]])
+                    attributeFeatureIds[node[0]] = new Set<string>();
+                  attributeFeatureIds[node[0]].add(feature.id);
+                }
+              });
+            } catch (e) {
+              // ignore
+            }
+          });
+        }
       }
-    }
 
-    for (const experiment of experiments) {
-      try {
-        attributeExperimentIds[experiment.hashAttribute] ||= new Set<string>();
-        attributeExperimentIds[experiment.hashAttribute].add(experiment.id);
-        const phase = experiment.phases?.[experiment.phases.length - 1];
-        const parsedCondition = JSON.parse(phase?.condition ?? "{}");
-        recursiveWalk(parsedCondition, (node) => {
-          if (attributeKeys.includes(node[0])) {
-            if (!attributeExperimentIds[node[0]])
-              attributeExperimentIds[node[0]] = new Set<string>();
-            attributeExperimentIds[node[0]].add(experiment.id);
-          }
-        });
-      } catch (e) {
-        // ignore
+      for (const experiment of experiments) {
+        try {
+          attributeExperimentIds[experiment.hashAttribute] ||=
+            new Set<string>();
+          attributeExperimentIds[experiment.hashAttribute].add(experiment.id);
+          const phase = experiment.phases?.[experiment.phases.length - 1];
+          const parsedCondition = JSON.parse(phase?.condition ?? "{}");
+          recursiveWalk(parsedCondition, (node) => {
+            if (attributeKeys.includes(node[0])) {
+              if (!attributeExperimentIds[node[0]])
+                attributeExperimentIds[node[0]] = new Set<string>();
+              attributeExperimentIds[node[0]].add(experiment.id);
+            }
+          });
+        } catch (e) {
+          // ignore
+        }
       }
-    }
 
-    const conditionGroups = savedGroups.filter((g) => g.type === "condition");
-    for (const group of conditionGroups) {
-      try {
-        const parsedCondition = JSON.parse(group?.condition ?? "{}");
-        recursiveWalk(parsedCondition, (node) => {
-          if (attributeKeys.includes(node[0])) {
-            if (!attributeGroupIds[node[0]])
-              attributeGroupIds[node[0]] = new Set<string>();
-            attributeGroupIds[node[0]].add(group.id);
-          }
-        });
-      } catch (e) {
-        // ignore
+      const conditionGroups = savedGroups.filter((g) => g.type === "condition");
+      for (const group of conditionGroups) {
+        try {
+          const parsedCondition = JSON.parse(group?.condition ?? "{}");
+          recursiveWalk(parsedCondition, (node) => {
+            if (attributeKeys.includes(node[0])) {
+              if (!attributeGroupIds[node[0]])
+                attributeGroupIds[node[0]] = new Set<string>();
+              attributeGroupIds[node[0]].add(group.id);
+            }
+          });
+        } catch (e) {
+          // ignore
+        }
       }
-    }
 
-    const attributeFeatures: Record<string, FeatureInterface[]> = {};
-    const attributeExperiments: Record<
-      string,
-      ExperimentInterfaceStringDates[]
-    > = {};
-    const attributeGroups: Record<string, SavedGroupInterface[]> = {};
+      const attributeFeatures: Record<string, FeatureInterface[]> = {};
+      const attributeExperiments: Record<
+        string,
+        ExperimentInterfaceStringDates[]
+      > = {};
+      const attributeGroups: Record<string, SavedGroupInterface[]> = {};
 
-    attributeKeys.forEach((a) => {
-      attributeFeatures[a] = [...(attributeFeatureIds?.[a] ?? [])]
-        .map((fid) => features.find((feature) => feature.id === fid))
-        .filter(Boolean) as FeatureInterface[];
-      attributeExperiments[a] = [...(attributeExperimentIds?.[a] ?? [])]
-        .map((fid) => experiments.find((exp) => exp.id === fid))
-        .filter(Boolean) as ExperimentInterfaceStringDates[];
-      attributeGroups[a] = [...(attributeGroupIds?.[a] ?? [])]
-        .map((gid) => savedGroups.find((group) => group.id === gid))
-        .filter(Boolean) as SavedGroupInterface[];
-    });
+      attributeKeys.forEach((a) => {
+        attributeFeatures[a] = [...(attributeFeatureIds?.[a] ?? [])]
+          .map((fid) => features.find((feature) => feature.id === fid))
+          .filter(Boolean) as FeatureInterface[];
+        attributeExperiments[a] = [...(attributeExperimentIds?.[a] ?? [])]
+          .map((fid) => experiments.find((exp) => exp.id === fid))
+          .filter(Boolean) as ExperimentInterfaceStringDates[];
+        attributeGroups[a] = [...(attributeGroupIds?.[a] ?? [])]
+          .map((gid) => savedGroups.find((group) => group.id === gid))
+          .filter(Boolean) as SavedGroupInterface[];
+      });
 
-    return { attributeFeatures, attributeExperiments, attributeGroups };
-  }, [features, experiments, savedGroups, attributeSchema]);
+      return { attributeFeatures, attributeExperiments, attributeGroups };
+    }, [features, experiments, savedGroups, attributeSchema]);
 
   const [showReferences, setShowReferences] = useState<number | null>(null);
 

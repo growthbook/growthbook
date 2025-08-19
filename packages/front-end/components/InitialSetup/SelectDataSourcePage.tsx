@@ -85,7 +85,7 @@ const SelectDataSourcePage = ({ eventTracker, setEventTracker }: Props) => {
                       showLabel={true}
                     />
                   </div>
-                )
+                ),
               )}
             </div>
           </div>

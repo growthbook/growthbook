@@ -70,7 +70,7 @@ export class CustomFieldModel extends BaseClass {
     customField: Omit<
       CustomField,
       "dateCreated" | "dateUpdated" | "creator" | "active"
-    >
+    >,
   ) {
     const newCustomField = {
       active: true,
@@ -98,7 +98,7 @@ export class CustomFieldModel extends BaseClass {
 
   public async updateCustomField(
     customFieldId: string,
-    customFieldUpdates: Partial<CustomField>
+    customFieldUpdates: Partial<CustomField>,
   ) {
     const existing = await this.getCustomFields();
     if (!existing) {
@@ -125,7 +125,7 @@ export class CustomFieldModel extends BaseClass {
       return null;
     }
     const newFields = existing.fields.filter(
-      (field) => field.id !== customFieldId
+      (field) => field.id !== customFieldId,
     );
     return await this.update(existing, { fields: newFields });
   }

@@ -47,9 +47,8 @@ const ExperimentsPage = (): React.ReactElement => {
   const { watchedExperiments } = useWatching();
 
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
-  const [openImportExperimentModal, setOpenImportExperimentModal] = useState(
-    false
-  );
+  const [openImportExperimentModal, setOpenImportExperimentModal] =
+    useState(false);
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -95,9 +94,8 @@ const ExperimentsPage = (): React.ReactElement => {
   const showViewSampleButton = !allExperiments.some((e) => e.datasource);
 
   const canAddExperiment = permissionsUtil.canViewExperimentModal(project);
-  const canAddTemplate = permissionsUtil.canViewExperimentTemplateModal(
-    project
-  );
+  const canAddTemplate =
+    permissionsUtil.canViewExperimentTemplateModal(project);
 
   const addExperimentDropdownButton = (
     <DropdownMenu
@@ -219,7 +217,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 )}
                               </TabsTrigger>
                             );
-                          }
+                          },
                         )}
                       </TabsList>
                     </div>

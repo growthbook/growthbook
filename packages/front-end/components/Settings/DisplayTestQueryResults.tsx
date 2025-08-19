@@ -61,7 +61,7 @@ export default function DisplayTestQueryResults({
     const csv = convertToCSV(results);
     if (!csv) {
       throw new Error(
-        "Error downloading results. Reason: Unable to convert results to CSV."
+        "Error downloading results. Reason: Unable to convert results to CSV.",
       );
     }
     downloadCSVFile(csv);

@@ -34,7 +34,7 @@ export default forwardRef<HTMLImageElement, Props>(function Avatar(
     children,
     ...otherProps
   }: Props,
-  ref
+  ref,
 ) {
   return (
     <RadixAvatar

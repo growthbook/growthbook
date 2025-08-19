@@ -64,7 +64,7 @@ export const billingPlanValidator = z.object({
       z.object({
         label: z.string(),
         value: z.string().optional(),
-      })
+      }),
     )
     .optional(),
   disabled: z.boolean().optional(),
@@ -77,7 +77,7 @@ export const billingPlanValidator = z.object({
       z.object({
         label: z.string(),
         value: z.string().optional(),
-      })
+      }),
     )
     .optional(),
   id: z.string(),
@@ -155,7 +155,7 @@ export const resourceValidator = z.object({
       name: z.string(),
       prefix: z.string().optional(),
       value: z.string(),
-    })
+    }),
   ),
   status: statusValidator,
 });

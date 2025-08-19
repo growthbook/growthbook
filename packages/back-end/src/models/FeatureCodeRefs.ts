@@ -27,7 +27,7 @@ const featureCodeRefsSchema = new mongoose.Schema({
 
 featureCodeRefsSchema.index(
   { organization: 1, repo: 1, branch: 1, feature: 1 },
-  { unique: true }
+  { unique: true },
 );
 // Helper for getting a unique string for sorting since the model has no id field
 export function uniqueId(codeRef: FeatureCodeRefsInterface) {
@@ -38,7 +38,7 @@ type FeatureCodeRefsDocument = mongoose.Document & FeatureCodeRefsInterface;
 
 const FeatureCodeRefsModel = mongoose.model<FeatureCodeRefsInterface>(
   "FeatureCodeRefs",
-  featureCodeRefsSchema
+  featureCodeRefsSchema,
 );
 
 function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
@@ -90,7 +90,7 @@ export const upsertFeatureCodeRefs = async ({
       platform,
       dateUpdated: new Date(),
     },
-    { upsert: true }
+    { upsert: true },
   );
 
   return await FeatureCodeRefsModel.find({

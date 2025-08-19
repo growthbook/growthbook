@@ -14,7 +14,7 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
 
     const datasourceDoc = await getDataSourceById(
       req.context,
-      req.body.datasourceId
+      req.body.datasourceId,
     );
     if (!datasourceDoc) {
       throw new Error("Invalid data source");
@@ -37,5 +37,5 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
     return {
       dimension: toDimensionApiInterface(dimension),
     };
-  }
+  },
 );

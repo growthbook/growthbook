@@ -16,7 +16,7 @@ import {
 
 export async function savedGroupUpdated(
   baseContext: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   // This is a background job, so create a new context with full read permissions
   const context = getContextForAgendaJobByOrgObject(baseContext.org);
@@ -25,7 +25,7 @@ export async function savedGroupUpdated(
   const payloadKeys: Map<string, SDKPayloadKey> = new Map();
   const addKeys = (keys: SDKPayloadKey[]) =>
     keys.forEach((key) =>
-      payloadKeys.set(key.environment + "<>" + key.project, key)
+      payloadKeys.set(key.environment + "<>" + key.project, key),
     );
 
   // Get all experiments using this saved group
@@ -39,7 +39,7 @@ export async function savedGroupUpdated(
       if (phase.savedGroups?.some((g) => g.ids.includes(id))) return true;
 
       return false;
-    }
+    },
   );
   const expIds = new Set(savedGroupExperiments.map((exp) => exp.id));
 
@@ -51,10 +51,10 @@ export async function savedGroupUpdated(
         .filter(
           (exp) =>
             includeExperimentInPayload(exp) &&
-            (exp.hasVisualChangesets || exp.hasURLRedirects)
+            (exp.hasVisualChangesets || exp.hasURLRedirects),
         )
-        .map((exp) => exp.project || "")
-    )
+        .map((exp) => exp.project || ""),
+    ),
   );
 
   // Then, add in any feature flags using this saved group
@@ -66,14 +66,14 @@ export async function savedGroupUpdated(
       (rule) =>
         (rule.type === "experiment-ref" && expIds.has(rule.experimentId)) ||
         (rule.condition && rule.condition.includes(id)) ||
-        rule.savedGroups?.some((g) => g.ids.includes(id))
-    )
+        rule.savedGroups?.some((g) => g.ids.includes(id)),
+    ),
   );
 
   await refreshSDKPayloadCache(
     context,
     Array.from(payloadKeys.values()),
     allFeatures,
-    experiments
+    experiments,
   );
 }

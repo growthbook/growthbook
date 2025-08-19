@@ -701,16 +701,19 @@ This is a helper method to evaluate `filters` for both feature flags and experim
 
 1. Loop through filters array
    1. Get the hashAttribute and hashValue
+
    ```ts
    hashAttribute = filter.attribute || "id";
    hashValue = context.attributes[hashAttribute] || "";
    ```
+
    2. If hashValue is empty, return `true`
    3. Determine the bucket for the user
       ```ts
       n = hash(filter.seed, hashValue, filter.hashVersion || 2);
       ```
    4. If `inRange(n, range)` is false for every range in `filter.ranges`, return `true`
+
 2. If you made it through the entire array without returning early, return `false` now
 
 ### private isIncludedInRollout(seed: string, hashAttribute: string | null, range: BucketRange | null, coverage: float | null, hashVersion: integer | null): boolean
@@ -935,13 +938,16 @@ There are a bunch of ordered steps to run an experiment:
         ```
 8.  Return if any conditions are not met, return
     1. If `experiment.condition` is set, return if it evaluates to false
+
     ```ts
     if (!evalCondition(context.attributes, experiment.condition)) {
       return getExperimentResult(experiment);
     }
     ```
+
     2.  If `experiment.parentConditions` is set (prerequisites), return if any of them evaluate to false. See the corresponding logic in **evalFeature** for more details. (Note that the `gate` flag should not be set in an experiment)
     3.  Apply any url targeting based on experiment.urlPatterns, return if no match
+
 9.  Choose a variation
     1.  If a sticky bucket value exists, use it.
         1. If the found sticky bucket version is blocked (doesn't exceed `experiment.minBucketVersion`), then skip enrollment

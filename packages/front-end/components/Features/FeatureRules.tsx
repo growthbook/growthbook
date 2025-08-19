@@ -88,7 +88,7 @@ export default function FeatureRules({
     environments.map((e) => {
       const rules = getRules(feature, e.id);
       return [e.id, rules];
-    })
+    }),
   );
 
   const tabEnvs = environments.slice(0, 4);

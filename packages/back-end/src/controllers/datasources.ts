@@ -67,7 +67,7 @@ import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -85,7 +85,7 @@ export async function deleteDataSource(
   // Make sure this data source isn't the organizations default
   if (org.settings?.defaultDataSource === datasource.id) {
     throw new Error(
-      "Error: This is the default data source for your organization. You must select a new default data source in your Organization Settings before deleting this one."
+      "Error: This is the default data source for your organization. You must select a new default data source in your Organization Settings before deleting this one.",
     );
   }
 
@@ -93,7 +93,7 @@ export async function deleteDataSource(
   const metrics = await getMetricsByDatasource(context, datasource.id);
   if (metrics.length > 0) {
     throw new Error(
-      "Error: Please delete all metrics tied to this datasource first."
+      "Error: Please delete all metrics tied to this datasource first.",
     );
   }
 
@@ -102,18 +102,18 @@ export async function deleteDataSource(
 
   if (segments.length > 0) {
     throw new Error(
-      "Error: Please delete all segments tied to this datasource first."
+      "Error: Please delete all segments tied to this datasource first.",
     );
   }
 
   // Make sure there are no dimensions
   const dimensions = await findDimensionsByDataSource(
     datasource.id,
-    datasource.organization
+    datasource.organization,
   );
   if (dimensions.length > 0) {
     throw new Error(
-      "Error: Please delete all dimensions tied to this datasource first."
+      "Error: Please delete all dimensions tied to this datasource first.",
     );
   }
 
@@ -126,7 +126,7 @@ export async function deleteDataSource(
 
     await deleteInformationSchemaTablesByInformationSchemaId(
       org.id,
-      informationSchemaId
+      informationSchemaId,
     );
   }
 
@@ -166,7 +166,7 @@ export async function getDataSources(req: AuthRequest, res: Response) {
 
 export async function getDataSource(
   req: AuthRequest<null, { id: string }>,
-  res: Response<DataSourceInterfaceWithParams>
+  res: Response<DataSourceInterfaceWithParams>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -177,7 +177,7 @@ export async function getDataSource(
 }
 
 function getDataSourceWithParams(
-  integration: SourceIntegrationInterface
+  integration: SourceIntegrationInterface,
 ): DataSourceInterfaceWithParams {
   const datasource = integration.datasource;
 
@@ -210,7 +210,7 @@ export async function postDataSources(
         status: 400;
         message: string;
       }
-  >
+  >,
 ) {
   const context = getContextFromReq(req);
   const { name, description, type, params, projects } = req.body;
@@ -237,7 +237,7 @@ export async function postDataSources(
       settings,
       undefined,
       description,
-      projects
+      projects,
     );
 
     const integration = getSourceIntegrationObject(context, datasource);
@@ -267,7 +267,7 @@ export async function postManagedWarehouse(
         status: 400 | 403 | 404;
         message: string;
       }
-  >
+  >,
 ) {
   if (!IS_CLOUD) {
     return res.status(403).json({
@@ -312,7 +312,7 @@ export async function postManagedWarehouse(
           columnName: id,
           datatype: "string",
           type: "identifier",
-        } as const)
+        }) as const,
     ),
     ...dimensions.map(
       (dim) =>
@@ -321,7 +321,7 @@ export async function postManagedWarehouse(
           columnName: dim,
           datatype: "string",
           type: "dimension",
-        } as const)
+        }) as const,
     ),
     {
       sourceField: "url_path",
@@ -334,7 +334,7 @@ export async function postManagedWarehouse(
   const params = await createClickhouseUser(context, materializedColumns);
   const datasourceSettings = getManagedWarehouseSettings(
     materializedColumns,
-    {}
+    {},
   );
 
   const datasource = await createDataSource(
@@ -343,7 +343,7 @@ export async function postManagedWarehouse(
     "growthbook_clickhouse",
     params,
     datasourceSettings,
-    "managed_warehouse"
+    "managed_warehouse",
   );
 
   const integration = getSourceIntegrationObject(context, datasource);
@@ -377,7 +377,7 @@ export async function putDataSource(
         status: 400 | 403 | 404;
         message: string;
       }
-  >
+  >,
 ) {
   const userId = req.userId;
 
@@ -458,7 +458,7 @@ export async function putDataSource(
       datasource.id,
       org.id,
       metricsToCreate,
-      userObj
+      userObj,
     );
   }
 
@@ -488,7 +488,7 @@ export async function putDataSource(
     ) {
       const oauth2Client = getOauth2Client();
       const { tokens } = await oauth2Client.getToken(
-        (params as GoogleAnalyticsParams).refreshToken
+        (params as GoogleAnalyticsParams).refreshToken,
       );
       (params as GoogleAnalyticsParams).refreshToken =
         tokens.refresh_token || "";
@@ -530,7 +530,7 @@ export async function updateExposureQuery(
     },
     { datasourceId: string; exposureQueryId: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { datasourceId, exposureQueryId } = req.params;
@@ -551,7 +551,7 @@ export async function updateExposureQuery(
 
   const copy = cloneDeep<DataSourceInterface>(dataSource);
   const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   );
   if (
     exposureQueryIndex === undefined ||
@@ -592,7 +592,7 @@ export async function updateExposureQuery(
 
 export async function postGoogleOauthRedirect(
   req: AuthRequest<{ projects?: string[] }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { projects } = req.body;
@@ -625,7 +625,7 @@ export async function postGoogleOauthRedirect(
 
 export async function getQueries(
   req: AuthRequest<null, { ids: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { ids } = req.params;
@@ -648,7 +648,7 @@ export async function testLimitedQuery(
     templateVariables?: TemplateVariables;
     limit?: number;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -677,7 +677,7 @@ export async function testLimitedQuery(
     datasource,
     query,
     templateVariables,
-    maxLimit
+    maxLimit,
   );
 
   res.status(200).json({
@@ -695,7 +695,7 @@ export async function runQuery(
     datasourceId: string;
     limit?: number;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -713,7 +713,7 @@ export async function runQuery(
     context,
     datasource,
     query,
-    limit
+    limit,
   );
 
   res.status(200).json({
@@ -727,7 +727,7 @@ export async function runQuery(
 
 export async function getDataSourceMetrics(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -742,7 +742,7 @@ export async function getDataSourceMetrics(
 
 export async function getDataSourceQueries(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -754,7 +754,7 @@ export async function getDataSourceQueries(
 
   req.checkPermissions(
     "readData",
-    datasourceObj?.projects?.length ? datasourceObj.projects : []
+    datasourceObj?.projects?.length ? datasourceObj.projects : [],
   );
 
   const queries = await getQueriesByDatasource(context.org.id, id);
@@ -767,7 +767,7 @@ export async function getDataSourceQueries(
 
 export async function getDimensionSlices(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { id } = req.params;
@@ -786,7 +786,7 @@ export async function postDimensionSlices(
     queryId: string;
     lookbackDays: number;
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -795,7 +795,7 @@ export async function postDimensionSlices(
   const integration = await getIntegrationFromDatasourceId(
     context,
     dataSourceId,
-    true
+    true,
   );
 
   const model = await createDimensionSlices({
@@ -807,7 +807,7 @@ export async function postDimensionSlices(
   const queryRunner = new DimensionSlicesQueryRunner(
     context,
     model,
-    integration
+    integration,
   );
   const outputmodel = await queryRunner.startAnalysis({
     exposureQueryId: queryId,
@@ -821,7 +821,7 @@ export async function postDimensionSlices(
 
 export async function cancelDimensionSlices(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -834,13 +834,13 @@ export async function cancelDimensionSlices(
   const integration = await getIntegrationFromDatasourceId(
     context,
     dimensionSlices.datasource,
-    true
+    true,
   );
 
   const queryRunner = new DimensionSlicesQueryRunner(
     context,
     dimensionSlices,
-    integration
+    integration,
   );
   await queryRunner.cancelQueries();
 
@@ -855,7 +855,7 @@ export async function fetchBigQueryDatasets(
     client_email: string;
     private_key: string;
   }>,
-  res: Response
+  res: Response,
 ) {
   const { projectId, client_email, private_key } = req.body;
 
@@ -886,7 +886,7 @@ export async function postMaterializedColumn(
     },
     { datasourceId: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { datasourceId } = req.params;
@@ -903,7 +903,7 @@ export async function postMaterializedColumn(
 
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
-      "Can only create materialized columns for growthbook-clickhouse datasources"
+      "Can only create materialized columns for growthbook-clickhouse datasources",
     );
   }
 
@@ -915,7 +915,7 @@ export async function postMaterializedColumn(
     originalColumns.some(
       (col) =>
         col.columnName === newColumn.columnName ||
-        col.sourceField === newColumn.sourceField
+        col.sourceField === newColumn.sourceField,
     )
   ) {
     throw new Error(`That materialized column already exists`);
@@ -966,7 +966,7 @@ export async function updateMaterializedColumn(
     },
     { datasourceId: string; matColumnName: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { datasourceId, matColumnName } = req.params;
@@ -983,14 +983,14 @@ export async function updateMaterializedColumn(
 
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
-      "Can only manage materialized columns for growthbook-clickhouse datasources"
+      "Can only manage materialized columns for growthbook-clickhouse datasources",
     );
   }
 
   const originalColumns = datasource.settings.materializedColumns || [];
 
   const originalIdx = originalColumns.findIndex(
-    (col) => col.columnName === matColumnName
+    (col) => col.columnName === matColumnName,
   );
   if (originalIdx === -1) {
     throw new Error(`Cannot find materialized column ${matColumnName}`);
@@ -1020,7 +1020,7 @@ export async function updateMaterializedColumn(
     finalColumns.filter(
       (col) =>
         col.sourceField === newColumn.sourceField ||
-        col.columnName === newColumn.columnName
+        col.columnName === newColumn.columnName,
     ).length > 1
   ) {
     throw new Error(`A materialized column for that attribute already exists`);
@@ -1034,7 +1034,7 @@ export async function updateMaterializedColumn(
     if (requiresDropAdd) {
       if (matColumnName === newColumn.columnName) {
         throw new Error(
-          "Cannot modify a column while keeping the same name. Delete the column and create it again instead"
+          "Cannot modify a column while keeping the same name. Delete the column and create it again instead",
         );
       }
 
@@ -1085,7 +1085,7 @@ export async function updateMaterializedColumn(
 
 export async function deleteMaterializedColumn(
   req: AuthRequest<null, { datasourceId: string; matColumnName: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { datasourceId, matColumnName } = req.params;
@@ -1101,14 +1101,14 @@ export async function deleteMaterializedColumn(
 
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
-      "Can only manage materialized columns for growthbook-clickhouse datasources"
+      "Can only manage materialized columns for growthbook-clickhouse datasources",
     );
   }
 
   const originalColumns = datasource.settings.materializedColumns || [];
 
   const originalIdx = originalColumns.findIndex(
-    (col) => col.columnName === matColumnName
+    (col) => col.columnName === matColumnName,
   );
   if (originalIdx === -1) {
     throw new Error(`Cannot find materialized column ${matColumnName}`);
@@ -1154,14 +1154,14 @@ export async function deleteMaterializedColumn(
 
 export async function postRecreateManagedWarehouse(
   req: AuthRequest<null, { datasourceId: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
   // Escape hatch for super admins to re-generate the database and backfill data
   if (!context.superAdmin) {
     throw new Error(
-      "You must be a super admin to recreate a Managed Warehouse datasource"
+      "You must be a super admin to recreate a Managed Warehouse datasource",
     );
   }
 
@@ -1173,7 +1173,7 @@ export async function postRecreateManagedWarehouse(
 
   if (datasource.type !== "growthbook_clickhouse") {
     throw new Error(
-      "Can only recreate a Managed Warehouse datasource, not other types"
+      "Can only recreate a Managed Warehouse datasource, not other types",
     );
   }
 
@@ -1185,7 +1185,7 @@ export async function postRecreateManagedWarehouse(
 }
 
 function sanitizeMatColumnInput(
-  userInput: MaterializedColumn
+  userInput: MaterializedColumn,
 ): MaterializedColumn {
   if (!factTableColumnTypes.includes(userInput.datatype)) {
     throw new Error("Invalid datatype");
@@ -1219,19 +1219,19 @@ function sanitizeMatColumnSourceField(userInput: string) {
   // Invalid characters
   if (!/^[a-zA-Z0-9 _-]*$/.test(userInput)) {
     throw new Error(
-      "Invalid input. Source field must only use alphanumeric characters, ' ', '_', or '-'"
+      "Invalid input. Source field must only use alphanumeric characters, ' ', '_', or '-'",
     );
   }
   // Must have at least 1 alpha character
   if (!/[a-zA-Z]/.test(userInput)) {
     throw new Error(
-      "Invalid input. Source field must contain at least one letter"
+      "Invalid input. Source field must contain at least one letter",
     );
   }
   // Must not have leading or trailing spaces
   if (userInput.startsWith(" ") || userInput.endsWith(" ")) {
     throw new Error(
-      "Invalid input. Source field must not have leading or trailing spaces"
+      "Invalid input. Source field must not have leading or trailing spaces",
     );
   }
 
@@ -1241,7 +1241,7 @@ function sanitizeMatColumnSourceField(userInput: string) {
 function sanitizeMatColumnName(userInput: string) {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(userInput)) {
     throw new Error(
-      "Invalid input. Column names must start with a letter or underscore and only use alphanumeric characters or '_'"
+      "Invalid input. Column names must start with a letter or underscore and only use alphanumeric characters or '_'",
     );
   }
 
@@ -1251,7 +1251,7 @@ function sanitizeMatColumnName(userInput: string) {
   const reservedCols = getReservedColumnNames();
   if (reservedCols.has(cmp)) {
     throw new Error(
-      `Column name "${userInput}" is reserved and cannot be used`
+      `Column name "${userInput}" is reserved and cannot be used`,
     );
   }
 
@@ -1302,7 +1302,7 @@ function sanitizeMatColumnName(userInput: string) {
   ]);
   if (sqlKeywords.has(cmp)) {
     throw new Error(
-      `Column name "${userInput}" is a SQL keyword and cannot be used`
+      `Column name "${userInput}" is a SQL keyword and cannot be used`,
     );
   }
 
@@ -1311,7 +1311,7 @@ function sanitizeMatColumnName(userInput: string) {
 
 function getManagedWarehouseSettings(
   materializedColumns: MaterializedColumn[],
-  existing: GrowthbookClickhouseDataSource["settings"]
+  existing: GrowthbookClickhouseDataSource["settings"],
 ): GrowthbookClickhouseSettings {
   // Require at least 1 identifier type
   if (!materializedColumns.some((c) => c.type === "identifier")) {
@@ -1335,7 +1335,7 @@ function getManagedWarehouseSettings(
 }
 
 function generateManagedWarehouseExposureQueries(
-  materializedColumns: MaterializedColumn[]
+  materializedColumns: MaterializedColumn[],
 ): ExposureQuery[] {
   const identifiers = materializedColumns
     .filter((c) => c.type === "identifier")

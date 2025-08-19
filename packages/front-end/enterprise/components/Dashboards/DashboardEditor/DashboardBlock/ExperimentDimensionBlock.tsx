@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { v4 as uuid4 } from "uuid";
 import { ExperimentDimensionBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import {
@@ -6,6 +7,8 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { expandMetricGroups } from "shared/experiments";
+import { blockHasFieldOfType } from "shared/enterprise";
+import { isString } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -13,8 +16,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { BlockProps } from ".";
 
 export default function ExperimentDimensionBlock({
-  block: {
-    id,
+  block,
+  experiment,
+  snapshot,
+  analysis,
+  ssrPolyfills,
+}: BlockProps<ExperimentDimensionBlockInterface>) {
+  const {
     metricIds,
     baselineRow,
     columnsFilter,
@@ -22,29 +30,26 @@ export default function ExperimentDimensionBlock({
     dimensionId,
     dimensionValues,
     differenceType,
-  },
-  experiment,
-  snapshot,
-  analysis,
-  ssrPolyfills,
-}: BlockProps<ExperimentDimensionBlockInterface> & { block: { id?: string } }) {
-  // todo?: assign stable temp ID when creating new block
-  id = id || "" + Math.floor(Math.random() * 10000);
+  } = block;
+  const blockId = useMemo(
+    () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
+    [block],
+  );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
   const expGoalMetrics = expandMetricGroups(
     experiment.goalMetrics,
-    metricGroups
+    metricGroups,
   );
   const expSecondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
-    metricGroups
+    metricGroups,
   );
   const expGuardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
-    metricGroups
+    metricGroups,
   );
 
   const pValueCorrection =
@@ -73,7 +78,7 @@ export default function ExperimentDimensionBlock({
 
   const queryStatusData = getQueryStatus(
     snapshot.queries || [],
-    snapshot.error
+    snapshot.error,
   );
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
@@ -87,26 +92,26 @@ export default function ExperimentDimensionBlock({
         m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled: !!m.computedSettings
-        ?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable: !!m.computedSettings
-        ?.regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
   const isBandit = experiment.type === "multi-armed-bandit";
 
   const goalMetrics = expGoalMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId)
+    expandedMetricIds.includes(mId),
   );
   const secondaryMetrics = expSecondaryMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId)
+    expandedMetricIds.includes(mId),
   );
   const guardrailMetrics = expGuardrailMetrics.filter((mId) =>
-    expandedMetricIds.includes(mId)
+    expandedMetricIds.includes(mId),
   );
 
   return (
     <BreakDownResults
-      idPrefix={id}
+      idPrefix={blockId}
       key={snapshot.dimension}
       results={analysis.results}
       queryStatusData={queryStatusData}
