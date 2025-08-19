@@ -13,23 +13,29 @@ services:
       - mongo
     environment:
       - MONGODB_URI=mongodb://root:password@mongo:27017/growthbook?authSource=admin
-      - APP_ORIGIN=https://7770a5dbf3dd.ngrok-free.app
-      - API_HOST=https://7770a5dbf3dd.ngrok-free.app
+      - APP_ORIGIN=http://13.251.13.232
+      - API_HOST=http://13.251.13.232
       - JWT_SECRET=your-super-secure-jwt-secret-key-that-should-be-at-least-32-characters-long-for-security
-      - NODE_ENV=development
-      - COOKIE_SECURE=true
-      - COOKIE_SAME_SITE=none
+      - NODE_ENV=production
+      - COOKIE_SECURE=false
+      - COOKIE_SAME_SITE=lax
       - TRUSTED_PROXIES=172.0.0.0/8,127.0.0.1,::1
-      - CORS_ORIGIN=https://7770a5dbf3dd.ngrok-free.app
+      - CORS_ORIGIN=http://13.251.13.232
       - DISABLE_CACHE=true
       - CACHE_CONTROL=no-cache, no-store, must-revalidate
+      - EMAIL_ENABLED=true
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=587
+      - EMAIL_HOST_USER=aman@pelago.co
+      - EMAIL_HOST_PASSWORD=xxxxx
+      - EMAIL_FROM=GrowthBook <no-reply@pelago.co>
     volumes:
       - uploads:/usr/local/src/app/packages/back-end/uploads
   
   nginx:
     image: nginx:alpine
     ports:
-      - "8080:80"
+      - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
