@@ -10,5 +10,5 @@ export const deleteSegment = createApiRequestHandler(deleteSegmentValidator)(
     return {
       deletedId: id,
     };
-  }
+  },
 );
