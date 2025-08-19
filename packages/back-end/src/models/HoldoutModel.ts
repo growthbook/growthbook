@@ -37,7 +37,11 @@ export class HoldoutModel extends BaseClass {
     return this.context.permissions.canDeleteHoldout(doc);
   }
 
-  public async getAllPayloadHoldouts(environment?: string) {
+  public async getAllPayloadHoldouts(
+    environment?: string,
+  ): Promise<
+    Map<string, { holdout: HoldoutInterface; experiment: ExperimentInterface }>
+  > {
     const holdouts = await this._find({});
     const holdoutsWithExperiments = await Promise.all(
       holdouts.map(async (h) => {
@@ -45,22 +49,30 @@ export class HoldoutModel extends BaseClass {
           this.context,
           h.experimentId,
         );
-        return { ...h, experiment };
+        return { holdout: h, experiment };
       }),
     );
 
     const filteredHoldouts = holdoutsWithExperiments.filter(
-      (h): h is HoldoutInterface & { experiment: ExperimentInterface } => {
+      (
+        h,
+      ): h is {
+        holdout: HoldoutInterface;
+        experiment: ExperimentInterface;
+      } => {
         if (!h.experiment) return false;
         if (h.experiment.archived) return false;
         if (h.experiment.status !== "running") return false;
 
         if (
-          Object.keys(h.linkedExperiments).length === 0 &&
-          Object.keys(h.linkedFeatures).length === 0
+          Object.keys(h.holdout.linkedExperiments).length === 0 &&
+          Object.keys(h.holdout.linkedFeatures).length === 0
         )
           return false;
-        if (environment && !h.environmentSettings[environment]?.enabled) {
+        if (
+          environment &&
+          !h.holdout.environmentSettings[environment]?.enabled
+        ) {
           return false;
         }
         return true;
@@ -69,7 +81,7 @@ export class HoldoutModel extends BaseClass {
     if (!filteredHoldouts || filteredHoldouts.length === 0) {
       return new Map();
     }
-    return new Map(filteredHoldouts.map((h) => [h.id, h]));
+    return new Map(filteredHoldouts.map((h) => [h.holdout.id, h]));
   }
 
   public async removeExperimentFromHoldout(

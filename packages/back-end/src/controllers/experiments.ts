@@ -1902,7 +1902,7 @@ export async function postExperimentStatus(
     const clonedPhase = { ...phases[lastIndex] };
     const clonedFirstPhase = { ...phases[0] };
     if (experiment.type === "holdout") {
-      //when setting moving back to running or draft remove the end date of both phases
+      // when setting moving back to running or draft remove the end date of both phases
       delete clonedFirstPhase.dateEnded;
       delete clonedPhase.dateEnded;
       // reset the analysis phase if new status is set to "analysis-period"
@@ -1911,7 +1911,7 @@ export async function postExperimentStatus(
         phases[lastIndex] = clonedPhase;
         // delete analysis phase if new status is set to "running"
       } else {
-        delete phases[lastIndex];
+        phases.pop();
       }
       phases[0] = clonedFirstPhase;
     } else {

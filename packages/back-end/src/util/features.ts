@@ -337,7 +337,10 @@ export function getFeatureDefinition({
   revision?: FeatureRevisionInterface;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
-  holdoutsMap?: Map<string, HoldoutInterface>;
+  holdoutsMap?: Map<
+    string,
+    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+  >;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -360,8 +363,9 @@ export function getFeatureDefinition({
   const holdoutRule: FeatureDefinitionRule[] =
     feature.holdout &&
     holdoutsMap &&
-    holdoutsMap.get(feature.holdout.id)?.environmentSettings?.[environment]
-      ?.enabled
+    holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
+      environment
+    ]?.enabled
       ? [
           {
             id: `holdout_${md5(feature.id + feature.holdout.id)}`,

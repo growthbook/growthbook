@@ -138,13 +138,15 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
         [
           "hld_test_holdout",
           {
-            id: "hld_test_holdout",
-            name: "Test Holdout",
-            projects: ["project-2"], // Same project as feature
-            environment: "production",
-            environmentSettings: {
-              production: {
-                enabled: true,
+            holdout: {
+              id: "hld_test_holdout",
+              name: "Test Holdout",
+              projects: ["project-2"], // Same project as feature
+              environment: "production",
+              environmentSettings: {
+                production: {
+                  enabled: true,
+                },
               },
             },
             experiment: {
@@ -216,13 +218,15 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
         [
           "hld_test_holdout",
           {
-            id: "hld_test_holdout",
-            name: "Test Holdout",
-            projects: ["project-2"], // Different project from feature
-            environment: "production",
-            environmentSettings: {
-              production: {
-                enabled: true,
+            holdout: {
+              id: "hld_test_holdout",
+              name: "Test Holdout",
+              projects: ["project-2"], // Different project from feature
+              environment: "production",
+              environmentSettings: {
+                production: {
+                  enabled: true,
+                },
               },
             },
             experiment: {
@@ -291,13 +295,15 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
         [
           "hld_test_holdout",
           {
-            id: "hld_test_holdout",
-            name: "Test Holdout",
-            projects: ["project-2", "project-3"],
-            environment: "production",
-            environmentSettings: {
-              production: {
-                enabled: true,
+            holdout: {
+              id: "hld_test_holdout",
+              name: "Test Holdout",
+              projects: ["project-2", "project-3"],
+              environment: "production",
+              environmentSettings: {
+                production: {
+                  enabled: true,
+                },
               },
             },
             experiment: {
@@ -409,13 +415,15 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
         [
           "hld_test_holdout",
           {
-            id: "hld_test_holdout",
-            name: "Test Holdout",
-            projects: ["project-1", "project-2"],
-            environment: "production",
-            environmentSettings: {
-              production: {
-                enabled: true,
+            holdout: {
+              id: "hld_test_holdout",
+              name: "Test Holdout",
+              projects: ["project-1", "project-2"],
+              environment: "production",
+              environmentSettings: {
+                production: {
+                  enabled: true,
+                },
               },
             },
             experiment: {

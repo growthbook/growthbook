@@ -129,7 +129,7 @@ export function generateFeaturesPayload({
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   holdoutsMap: Map<
     string,
-    HoldoutInterface & { experiment: ExperimentInterface }
+    { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
 }): Record<string, FeatureDefinition> {
   prereqStateCache[environment] = prereqStateCache[environment] || {};
@@ -163,19 +163,19 @@ export function generateHoldoutsPayload({
 }: {
   holdoutsMap: Map<
     string,
-    HoldoutInterface & { experiment: ExperimentInterface }
+    { holdout: HoldoutInterface; experiment: ExperimentInterface }
   >;
 }): Record<string, FeatureDefinition> {
   const holdoutDefs: Record<string, FeatureDefinition> = {};
-  holdoutsMap.forEach((holdout) => {
-    const exp = holdout.experiment;
+  holdoutsMap.forEach((holdoutWithExperiment) => {
+    const exp = holdoutWithExperiment.experiment;
     if (!exp) return;
 
     const def: FeatureDefinitionWithProjects = {
       defaultValue: "genpop",
       rules: [
         {
-          id: getHoldoutFeatureDefId(holdout.id),
+          id: getHoldoutFeatureDefId(holdoutWithExperiment.holdout.id),
           coverage: exp.phases[0].coverage, // Phases in holdout experiments always have the same coverage
           hashAttribute: exp.hashAttribute,
           seed: exp.phases[0].seed, // Phases in holdout experiments always have the same seed
@@ -194,9 +194,9 @@ export function generateHoldoutsPayload({
           ],
         },
       ],
-      projects: holdout.projects,
+      projects: holdoutWithExperiment.holdout.projects,
     };
-    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = def;
+    holdoutDefs[getHoldoutFeatureDefId(holdoutWithExperiment.holdout.id)] = def;
   });
   return holdoutDefs;
 }
