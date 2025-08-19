@@ -6,7 +6,7 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     id: segment.id,
     name: segment.name,
     owner: segment.owner || "",
-    identifierType: segment.userIdType || "user_id",
+    userIdType: segment.userIdType || "user_id",
     query: segment.sql || "",
     datasourceId: segment.datasource || "",
     type: segment.type,
