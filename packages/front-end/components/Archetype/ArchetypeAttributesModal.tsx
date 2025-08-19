@@ -45,20 +45,20 @@ const ArchetypeAttributesModal: FC<{
       {
         projects: initialValues?.projects ? initialValues.projects : [project],
       },
-      {}
+      {},
     );
   const permissionRequired = (project: string) => {
     return initialValues?.id
       ? permissionsUtil.canUpdateArchetype(
           { projects: initialValues?.projects },
-          { projects: [project] }
+          { projects: [project] },
         )
       : permissionsUtil.canCreateArchetype({ projects: [project] });
   };
 
   const projectOptions = useProjectOptions(
     permissionRequired,
-    form.watch("projects") || []
+    form.watch("projects") || [],
   );
 
   return (

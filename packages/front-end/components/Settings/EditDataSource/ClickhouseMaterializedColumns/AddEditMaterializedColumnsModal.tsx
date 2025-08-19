@@ -86,12 +86,13 @@ export default function AddMaterializedColumnsModal({
 
   const [ftId, contextJsonFields]: [string, JSONColumnFields] = useMemo(() => {
     const clickhouseFactTable = factTables.find(
-      (ft) => getDatasourceById(ft.datasource)?.type === "growthbook_clickhouse"
+      (ft) =>
+        getDatasourceById(ft.datasource)?.type === "growthbook_clickhouse",
     );
     return [
       clickhouseFactTable?.id || "",
       (clickhouseFactTable?.columns || []).find(
-        (col) => col.column === "attributes"
+        (col) => col.column === "attributes",
       )?.jsonFields || {},
     ];
   }, [factTables, getDatasourceById]);
@@ -214,7 +215,7 @@ export default function AddMaterializedColumnsModal({
             onChange={(value) => {
               form.setValue(
                 "datatype",
-                value as MaterializedColumn["datatype"]
+                value as MaterializedColumn["datatype"],
               );
             }}
           />

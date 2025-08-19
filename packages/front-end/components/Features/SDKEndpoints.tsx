@@ -14,7 +14,7 @@ import { getApiBaseUrl } from "./CodeSnippetModal";
 
 export function getPublishableKeys(
   keys: ApiKeyInterface[],
-  project?: string
+  project?: string,
 ): ApiKeyInterface[] {
   return keys
     .filter((k) => !k.secret)
@@ -40,7 +40,7 @@ const SDKEndpoints: FC<{
     if (k.environment) {
       envCounts.set(
         k.environment,
-        envCounts.has(k.environment) ? envCounts.get(k.environment) + 1 : 1
+        envCounts.has(k.environment) ? envCounts.get(k.environment) + 1 : 1,
       );
     }
   });

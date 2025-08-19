@@ -8,7 +8,7 @@ import * as rawSlackIntegrationController from "./slack-integration.controller";
 const router = express.Router();
 
 const slackIntegrationController = wrapController(
-  rawSlackIntegrationController
+  rawSlackIntegrationController,
 );
 
 router.get("/", slackIntegrationController.getSlackIntegrations);
@@ -22,7 +22,7 @@ router.get(
       })
       .strict(),
   }),
-  slackIntegrationController.getSlackIntegration
+  slackIntegrationController.getSlackIntegration,
 );
 
 router.post(
@@ -45,7 +45,7 @@ router.post(
       })
       .strict(),
   }),
-  slackIntegrationController.postSlackIntegration
+  slackIntegrationController.postSlackIntegration,
 );
 
 router.put(
@@ -73,7 +73,7 @@ router.put(
       })
       .strict(),
   }),
-  slackIntegrationController.putSlackIntegration
+  slackIntegrationController.putSlackIntegration,
 );
 
 router.delete(
@@ -85,7 +85,7 @@ router.delete(
       })
       .strict(),
   }),
-  slackIntegrationController.deleteSlackIntegration
+  slackIntegrationController.deleteSlackIntegration,
 );
 
 export { router as slackIntegrationRouter };

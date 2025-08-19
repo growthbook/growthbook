@@ -131,7 +131,8 @@ html[data-theme="dark"] {
       .button-card__inner {
         border: 1px solid var(--custom-color-subtle);
 
-        box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow),
+        box-shadow:
+          var(--tw-ring-offset-shadow), var(--tw-ring-shadow),
           var(--tw-shadow, 0 0 #0000);
       }
     }

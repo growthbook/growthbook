@@ -67,9 +67,10 @@ const NorthStarMetricDisplay = ({
 
   // @todo: get the metric period in days from the 'window'.
   // Disabled window range for now.
-  const experiments = (project
-    ? data.data.experiments.filter((e) => e.project === project)
-    : data.data.experiments
+  const experiments = (
+    project
+      ? data.data.experiments.filter((e) => e.project === project)
+      : data.data.experiments
   ).filter((e) => e.status !== "draft");
 
   const analysis = data.data.analysis;

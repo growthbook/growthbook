@@ -21,7 +21,7 @@ import { Member } from "back-end/types/organization";
 
 export async function patchGroup(
   req: ScimGroupPatchRequest,
-  res: Response<ScimGroup | ScimError>
+  res: Response<ScimGroup | ScimError>,
 ) {
   const { Operations } = req.body;
   const { id } = req.params;
@@ -84,7 +84,7 @@ export async function patchGroup(
         // Replace all team members with requested members
         if (value) {
           const prevMembers: Member[] = org.members.filter((member) =>
-            member.teams?.includes(id)
+            member.teams?.includes(id),
           );
           await removeMembersFromTeam({
             organization: org,

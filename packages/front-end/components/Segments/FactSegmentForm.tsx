@@ -56,16 +56,16 @@ export default function FactSegmentForm({
 
   // Build a list of unique data source ids that have atleast 1 fact table built on it
   const uniqueDatasourcesWithFactTables = Array.from(
-    new Set(factTables.map((ft) => ft.datasource))
+    new Set(factTables.map((ft) => ft.datasource)),
   );
 
   // Filter the list of datasources to only show those that have atleast 1 fact built on it
   const datasourceOptions = filteredDatasources.filter((filteredDs) =>
-    uniqueDatasourcesWithFactTables.includes(filteredDs.id)
+    uniqueDatasourcesWithFactTables.includes(filteredDs.id),
   );
 
   const currentOwner = memberUsernameOptions.find(
-    (member) => member.display === current?.owner
+    (member) => member.display === current?.owner,
   );
 
   const form = useForm({
@@ -102,7 +102,7 @@ export default function FactSegmentForm({
   const projectOptions = useProjectOptions(
     (project) => permissionsUtil.canCreateSegment({ projects: [project] }),
     form.watch("projects") || [],
-    filteredProjects.length ? filteredProjects : undefined
+    filteredProjects.length ? filteredProjects : undefined,
   );
 
   return (
@@ -124,7 +124,7 @@ export default function FactSegmentForm({
           !value.projects.length
         ) {
           throw new Error(
-            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`,
           );
         }
 
@@ -137,7 +137,7 @@ export default function FactSegmentForm({
           current?.projects?.length
         ) {
           throw new Error(
-            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`
+            `This segment can not be in "All Projects" since the connected data source is limited to at least one project.`,
           );
         }
 
@@ -284,7 +284,7 @@ export default function FactSegmentForm({
                   closeMenuOnSelect={true}
                   formatOptionLabel={({ value, label }) => {
                     const filter = factTable?.filters.find(
-                      (f) => f.id === value
+                      (f) => f.id === value,
                     );
                     if (filter) {
                       return (

@@ -90,7 +90,7 @@ const EditFeatureInfoModal: FC<{
             }}
             options={useProjectOptions(
               permissionRequired,
-              feature?.project ? [feature.project] : []
+              feature?.project ? [feature.project] : [],
             )}
             initialOption={initialOption}
             autoFocus={true}

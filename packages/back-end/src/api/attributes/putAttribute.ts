@@ -33,7 +33,7 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       settings: {
         ...org.settings,
         attributeSchema: attributes.map((attr) =>
-          attr.property === property ? updatedAttribute : attr
+          attr.property === property ? updatedAttribute : attr,
         ),
       },
     };
@@ -52,5 +52,5 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     return {
       attribute: updatedAttribute,
     };
-  }
+  },
 );

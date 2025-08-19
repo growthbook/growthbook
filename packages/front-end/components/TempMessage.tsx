@@ -51,7 +51,7 @@ const TempMessage: FC<TempMessageProps> = ({
     <div
       className={clsx(
         "alert alert-success shadow sticky-top text-center",
-        className
+        className,
       )}
       style={{
         top,

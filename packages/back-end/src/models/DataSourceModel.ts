@@ -53,7 +53,7 @@ type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
 const DataSourceModel = mongoose.model<DataSourceInterface>(
   "DataSource",
-  dataSourceSchema
+  dataSourceSchema,
 );
 
 function toInterface(doc: DataSourceDocument): DataSourceInterface {
@@ -75,7 +75,7 @@ export async function getInstallationDatasources(): Promise<
 }
 
 export async function getDataSourcesByOrganization(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ): Promise<DataSourceInterface[]> {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
@@ -89,13 +89,13 @@ export async function getDataSourcesByOrganization(
   const datasources = docs.map(toInterface);
 
   return datasources.filter((ds) =>
-    context.permissions.canReadMultiProjectResource(ds.projects)
+    context.permissions.canReadMultiProjectResource(ds.projects),
   );
 }
 
 // WARNING: This does not restrict by organization
 export async function _dangerourslyGetAllDatasourcesByOrganizations(
-  organizations: string[]
+  organizations: string[],
 ): Promise<DataSourceInterface[]> {
   const docs: DataSourceDocument[] = await DataSourceModel.find({
     organization: { $in: organizations },
@@ -130,7 +130,7 @@ export async function getGrowthbookDatasource(context: ReqContext) {
 
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
@@ -155,17 +155,17 @@ export async function getDataSourceById(
 
 export async function removeProjectFromDatasources(
   project: string,
-  organization: string
+  organization: string,
 ) {
   await DataSourceModel.updateMany(
     { organization, projects: project },
-    { $pull: { projects: project } }
+    { $pull: { projects: project } },
   );
 }
 
 export async function deleteDatasource(
   context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Data sources managed by config.yml");
@@ -219,7 +219,7 @@ export async function createDataSource(
   settings: DataSourceSettings,
   id?: string,
   description: string = "",
-  projects?: string[]
+  projects?: string[],
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
@@ -231,7 +231,7 @@ export async function createDataSource(
   if (type === "google_analytics") {
     const oauth2Client = getOauth2Client();
     const { tokens } = await oauth2Client.getToken(
-      (params as GoogleAnalyticsParams).refreshToken
+      (params as GoogleAnalyticsParams).refreshToken,
     );
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
@@ -256,11 +256,11 @@ export async function createDataSource(
     context,
     datasource,
     settings,
-    true
+    true,
   );
 
   const model = (await DataSourceModel.create(
-    datasource
+    datasource,
   )) as DataSourceDocument;
 
   const integration = getSourceIntegrationObject(context, datasource);
@@ -280,7 +280,7 @@ export async function validateExposureQueriesAndAddMissingIds(
   context: ReqContext,
   datasource: DataSourceInterface,
   updates: Partial<DataSourceSettings>,
-  forceCheckValidity: boolean = false
+  forceCheckValidity: boolean = false,
 ): Promise<Partial<DataSourceSettings>> {
   const updatesCopy = cloneDeep(updates);
   if (updatesCopy.queries?.exposure) {
@@ -292,7 +292,7 @@ export async function validateExposureQueriesAndAddMissingIds(
           checkValidity = true;
         } else if (!forceCheckValidity) {
           const existingQuery = datasource.settings.queries?.exposure?.find(
-            (q) => q.id == exposure.id
+            (q) => q.id == exposure.id,
           );
           if (
             !existingQuery ||
@@ -307,10 +307,10 @@ export async function validateExposureQueriesAndAddMissingIds(
           exposure.error = await testQueryValidity(
             integration,
             exposure,
-            context.org.settings?.testQueryDays
+            context.org.settings?.testQueryDays,
           );
         }
-      })
+      }),
     );
   }
   return updatesCopy;
@@ -319,10 +319,10 @@ export async function validateExposureQueriesAndAddMissingIds(
 // Returns true if there are any actual changes, besides dateUpdated, from the actual datasource
 export function hasActualChanges(
   datasource: DataSourceInterface,
-  updates: Partial<DataSourceInterface>
+  updates: Partial<DataSourceInterface>,
 ) {
   const updateKeys = Object.keys(updates).filter(
-    (key) => key !== "dateUpdated"
+    (key) => key !== "dateUpdated",
   ) as Array<keyof DataSourceInterface>;
 
   return updateKeys.some((key) => !isEqual(datasource[key], updates[key]));
@@ -331,7 +331,7 @@ export function hasActualChanges(
 export async function updateDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
-  updates: Partial<DataSourceInterface>
+  updates: Partial<DataSourceInterface>,
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot update. Data sources managed by config.yml");
@@ -341,7 +341,7 @@ export async function updateDataSource(
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
       datasource,
-      updates.settings
+      updates.settings,
     );
   }
   if (!hasActualChanges(datasource, updates)) {
@@ -355,7 +355,7 @@ export async function updateDataSource(
     },
     {
       $set: updates,
-    }
+    },
   );
 }
 
@@ -367,7 +367,7 @@ function isLocked(datasource: DataSourceInterface): boolean {
 export async function lockDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
-  seconds: number
+  seconds: number,
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot lock. Data sources managed by config.yml");
@@ -379,7 +379,7 @@ export async function lockDataSource(
   // Already locked, throw error
   if (isLocked(datasource)) {
     throw new Error(
-      "Data source is currently being modified. Please try again later."
+      "Data source is currently being modified. Please try again later.",
     );
   }
 
@@ -390,13 +390,13 @@ export async function lockDataSource(
     },
     {
       $set: { lockUntil: new Date(Date.now() + seconds * 1000) },
-    }
+    },
   );
 }
 
 export async function unlockDataSource(
   context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot unlock. Data sources managed by config.yml");
@@ -412,7 +412,7 @@ export async function unlockDataSource(
     },
     {
       $set: { lockUntil: null },
-    }
+    },
   );
 }
 
@@ -426,7 +426,7 @@ export async function _dangerousGetAllDatasources(): Promise<
 }
 
 export function toDataSourceApiInterface(
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ): ApiDataSource {
   const settings = datasource.settings;
   const obj: ApiDataSource = {
@@ -455,7 +455,7 @@ export function toDataSourceApiInterface(
       (q) => ({
         identifierTypes: q.ids,
         sql: q.query,
-      })
+      }),
     ),
     eventTracker: settings?.schemaFormat || "custom",
   };

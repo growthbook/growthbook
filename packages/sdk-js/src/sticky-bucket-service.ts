@@ -19,7 +19,7 @@ export interface JsCookiesCompat<T = string> {
   set(
     name: string,
     value: string | T,
-    options?: CookieAttributes
+    options?: CookieAttributes,
   ): string | undefined;
   get(name: string): string | T | undefined;
   get(): { [key: string]: string };
@@ -39,7 +39,7 @@ export interface ResponseCompat {
   cookie(
     name: string,
     value: string,
-    options?: CookieAttributes
+    options?: CookieAttributes,
   ): ResponseCompat;
   [key: string]: unknown;
 }
@@ -57,7 +57,7 @@ export abstract class StickyBucketService {
 
   abstract getAssignments(
     attributeName: string,
-    attributeValue: string
+    attributeValue: string,
   ): Promise<StickyAssignmentsDocument | null>;
 
   abstract saveAssignments(doc: StickyAssignmentsDocument): Promise<unknown>;
@@ -68,20 +68,20 @@ export abstract class StickyBucketService {
    * instances (i.e. Redis) will instead perform a multi-query inside getAllAssignments instead.
    */
   async getAllAssignments(
-    attributes: Record<string, string>
+    attributes: Record<string, string>,
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
     const docs: Record<string, StickyAssignmentsDocument> = {};
     (
       await Promise.all(
         Object.entries(attributes).map(([attributeName, attributeValue]) =>
-          this.getAssignments(attributeName, attributeValue)
-        )
+          this.getAssignments(attributeName, attributeValue),
+        ),
       )
     ).forEach((doc) => {
       if (doc) {
         const key = getStickyBucketAttributeKey(
           doc.attributeName,
-          doc.attributeValue
+          doc.attributeValue,
         );
         docs[key] = doc;
       }
@@ -97,7 +97,7 @@ export abstract class StickyBucketService {
 export abstract class StickyBucketServiceSync extends StickyBucketService {
   abstract getAssignmentsSync(
     attributeName: string,
-    attributeValue: string
+    attributeValue: string,
   ): StickyAssignmentsDocument | null;
 
   abstract saveAssignmentsSync(doc: StickyAssignmentsDocument): void;
@@ -111,18 +111,18 @@ export abstract class StickyBucketServiceSync extends StickyBucketService {
   }
 
   getAllAssignmentsSync(
-    attributes: Record<string, string>
+    attributes: Record<string, string>,
   ): Record<StickyAttributeKey, StickyAssignmentsDocument> {
     const docs: Record<string, StickyAssignmentsDocument> = {};
     Object.entries(attributes)
       .map(([attributeName, attributeValue]) =>
-        this.getAssignmentsSync(attributeName, attributeValue)
+        this.getAssignmentsSync(attributeName, attributeValue),
       )
       .forEach((doc) => {
         if (doc) {
           const key = getStickyBucketAttributeKey(
             doc.attributeName,
-            doc.attributeValue
+            doc.attributeValue,
           );
           docs[key] = doc;
         }
@@ -219,7 +219,7 @@ export class ExpressCookieStickyBucketService extends StickyBucketServiceSync {
     this.res.cookie(
       encodeURIComponent(key),
       encodeURIComponent(str),
-      this.cookieAttributes
+      this.cookieAttributes,
     );
   }
 }
@@ -279,13 +279,12 @@ export class RedisStickyBucketService extends StickyBucketService {
     this.redis = redis;
   }
   async getAllAssignments(
-    attributes: Record<string, string>
+    attributes: Record<string, string>,
   ): Promise<Record<StickyAttributeKey, StickyAssignmentsDocument>> {
     const docs: Record<StickyAttributeKey, StickyAssignmentsDocument> = {};
-    const keys = Object.entries(
-      attributes
-    ).map(([attributeName, attributeValue]) =>
-      getStickyBucketAttributeKey(attributeName, attributeValue)
+    const keys = Object.entries(attributes).map(
+      ([attributeName, attributeValue]) =>
+        getStickyBucketAttributeKey(attributeName, attributeValue),
     );
     if (!this.redis) return docs;
     await this.redis.mget(...keys).then((values) => {
@@ -299,7 +298,7 @@ export class RedisStickyBucketService extends StickyBucketService {
           ) {
             const key = getStickyBucketAttributeKey(
               data.attributeName,
-              toString(data.attributeValue)
+              toString(data.attributeValue),
             );
             docs[key] = data;
           }

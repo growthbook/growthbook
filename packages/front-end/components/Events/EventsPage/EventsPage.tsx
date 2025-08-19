@@ -194,7 +194,7 @@ export const EventsPageContainer = () => {
     "/events/count?type=" +
       JSON.stringify(eventType) +
       (fromDate ? "&from=" + fromDate?.toISOString() : "") +
-      (toDate ? "&to=" + toDate?.toISOString() : "")
+      (toDate ? "&to=" + toDate?.toISOString() : ""),
   );
   const {
     isDownloading,

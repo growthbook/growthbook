@@ -56,7 +56,7 @@ export default function SetupFlow() {
   const { datasources, mutateDefinitions, project } = useDefinitions();
   const environments = useEnvironments();
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
-    getConnectionLanguageFilter([])
+    getConnectionLanguageFilter([]),
   );
 
   const sdkConnectionForm = useForm<SdkFormValues>({
@@ -181,9 +181,8 @@ export default function SetupFlow() {
 
             const sdkCapabilities = getSDKCapabilities(value.languages[0]);
 
-            const canUseVisualEditor = sdkCapabilities.includes(
-              "visualEditorJS"
-            );
+            const canUseVisualEditor =
+              sdkCapabilities.includes("visualEditorJS");
 
             const canUseUrlRedirects = sdkCapabilities.includes("redirects");
 
@@ -213,7 +212,7 @@ export default function SetupFlow() {
               {
                 method: "POST",
                 body: JSON.stringify(body),
-              }
+              },
             );
             setConnection(res.connection.id);
             track("Create SDK Connection", {

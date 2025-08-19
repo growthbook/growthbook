@@ -151,17 +151,17 @@ describe("Experiments", () => {
       });
       it("returns false for deleted columns", () => {
         expect(canInlineFilterColumn(factTable, deletedColumn.column)).toBe(
-          false
+          false,
         );
       });
       it("returns false for numeric columns", () => {
         expect(canInlineFilterColumn(factTable, numericColumn.column)).toBe(
-          false
+          false,
         );
       });
       it("returns false for userId columns", () => {
         expect(canInlineFilterColumn(factTable, userIdColumn.column)).toBe(
-          false
+          false,
         );
       });
       it("returns false for unknown column", () => {
@@ -169,12 +169,12 @@ describe("Experiments", () => {
       });
       it("returns true for nested JSON string field", () => {
         expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.a`)).toBe(
-          true
+          true,
         );
       });
       it("returns false for nested JSON non-string field", () => {
         expect(canInlineFilterColumn(factTable, `${jsonColumn.column}.b`)).toBe(
-          false
+          false,
         );
       });
     });
@@ -190,8 +190,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([]);
 
         expect(
@@ -204,8 +204,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([]);
 
         expect(
@@ -220,8 +220,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([]);
 
         expect(
@@ -236,8 +236,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([]);
       });
       it("ignores invalid filters, but uses invalid inline filter columns", () => {
@@ -256,8 +256,8 @@ describe("Experiments", () => {
               },
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([
           "(unknown_column = 'unknown_value')",
           `(${numericColumn.column} = '1')`,
@@ -275,8 +275,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${filter.value})`]);
       });
       it("returns where clause for multiple filters", () => {
@@ -289,8 +289,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${filter.value})`, `(${filter2.value})`]);
       });
       it("returns where clause for single inline filter value", () => {
@@ -306,8 +306,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("returns where clause for multiple inline filter values", () => {
@@ -323,8 +323,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
       it("returns where clause for inline filters and filters", () => {
@@ -340,8 +340,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${column.column} = 'login')`, `(${filter.value})`]);
       });
       it("escapes string literals", () => {
@@ -357,8 +357,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${column.column} = 'login''s')`]);
       });
       it("removes duplicate inline filter and filter values", () => {
@@ -374,8 +374,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("removes duplicate inline filter values", () => {
@@ -391,8 +391,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("supports JSON column inline filters", () => {
@@ -408,8 +408,8 @@ describe("Experiments", () => {
               factTableId: "",
             },
             escapeStringLiteral,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toStrictEqual([`(${jsonColumn.column}:'b'::float = 'hello')`]);
       });
     });
@@ -419,7 +419,7 @@ describe("Experiments", () => {
           getAggregateFilters({
             columnRef: null,
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -429,7 +429,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -439,7 +439,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -449,7 +449,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -459,7 +459,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
       });
       it("parses a single filter with different operators", () => {
@@ -471,7 +471,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value > 0"]);
         expect(
           getAggregateFilters({
@@ -481,7 +481,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value < 5"]);
         expect(
           getAggregateFilters({
@@ -491,7 +491,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value >= 10"]);
         expect(
           getAggregateFilters({
@@ -501,7 +501,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value <= 15"]);
         expect(
           getAggregateFilters({
@@ -511,7 +511,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value = 1.5"]);
         expect(
           getAggregateFilters({
@@ -521,7 +521,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value != 0.15"]);
         expect(
           getAggregateFilters({
@@ -531,7 +531,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual(["value <> 0.15"]);
       });
       it("parses multiple filters", () => {
@@ -544,7 +544,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([
           "value > 0",
           "value < 5",
@@ -564,7 +564,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toThrowError("Invalid user filter: %3");
       });
       it("ignores invalid filters when opted in", () => {
@@ -577,7 +577,7 @@ describe("Experiments", () => {
             },
             column: "col",
             ignoreInvalid: true,
-          })
+          }),
         ).toStrictEqual(["col > 5"]);
       });
       it("skips when column is not $$distinctUsers", () => {
@@ -589,7 +589,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
         expect(
           getAggregateFilters({
@@ -599,7 +599,7 @@ describe("Experiments", () => {
               aggregateFilterColumn: "v",
             },
             column: "value",
-          })
+          }),
         ).toStrictEqual([]);
       });
     });
@@ -607,39 +607,39 @@ describe("Experiments", () => {
     describe("getColumnExpression", () => {
       it("replaces JSON column access with proper syntax", () => {
         expect(
-          getColumnExpression(`${jsonColumn.column}.a`, factTable, jsonExtract)
+          getColumnExpression(`${jsonColumn.column}.a`, factTable, jsonExtract),
         ).toBe(`${jsonColumn.column}:'a'`);
 
         expect(
-          getColumnExpression(`${jsonColumn.column}.b`, factTable, jsonExtract)
+          getColumnExpression(`${jsonColumn.column}.b`, factTable, jsonExtract),
         ).toBe(`${jsonColumn.column}:'b'::float`);
 
         expect(
           getColumnExpression(
             `${jsonColumn.column}.c.d`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'c.d'`);
 
         expect(
           getColumnExpression(
             `${jsonColumn.column}.c.e`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'c.e'::float`);
       });
 
       it("returns untransformed column for non-JSON columns", () => {
         expect(getColumnExpression(column.column, factTable, jsonExtract)).toBe(
-          column.column
+          column.column,
         );
       });
 
       it("returns untransformed column for unknown columns", () => {
         expect(
-          getColumnExpression("unknown_column", factTable, jsonExtract)
+          getColumnExpression("unknown_column", factTable, jsonExtract),
         ).toBe("unknown_column");
       });
 
@@ -649,16 +649,16 @@ describe("Experiments", () => {
             `${jsonColumn.column}.b`,
             factTable,
             jsonExtract,
-            "m"
-          )
+            "m",
+          ),
         ).toBe(`m.${jsonColumn.column}:'b'::float`);
 
         expect(
-          getColumnExpression(column.column, factTable, jsonExtract, "m")
+          getColumnExpression(column.column, factTable, jsonExtract, "m"),
         ).toBe(`m.${column.column}`);
 
         expect(
-          getColumnExpression("unknown", factTable, jsonExtract, "m")
+          getColumnExpression("unknown", factTable, jsonExtract, "m"),
         ).toBe(`m.unknown`);
       });
 
@@ -667,46 +667,52 @@ describe("Experiments", () => {
           getColumnExpression(
             `${jsonColumn.column}.unknown`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'unknown'`);
 
         expect(
           getColumnExpression(
             `${jsonColumn.column}.c.unknown`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'c.unknown'`);
 
         expect(
           getColumnExpression(
             `${jsonColumn.column}.unknown.unknown`,
             factTable,
-            jsonExtract
-          )
+            jsonExtract,
+          ),
         ).toBe(`${jsonColumn.column}:'unknown.unknown'`);
       });
     });
     describe("getSelectedColumnDatatype", () => {
       it("returns the datatype of the selected column", () => {
         expect(
-          getSelectedColumnDatatype({ factTable, column: column.column })
+          getSelectedColumnDatatype({ factTable, column: column.column }),
         ).toBe(column.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: column2.column })
+          getSelectedColumnDatatype({ factTable, column: column2.column }),
         ).toBe(column2.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: userIdColumn.column })
+          getSelectedColumnDatatype({ factTable, column: userIdColumn.column }),
         ).toBe(userIdColumn.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: numericColumn.column })
+          getSelectedColumnDatatype({
+            factTable,
+            column: numericColumn.column,
+          }),
         ).toBe(numericColumn.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: deletedColumn.column })
+          getSelectedColumnDatatype({
+            factTable,
+            column: deletedColumn.column,
+          }),
         ).toBe(deletedColumn.datatype);
         expect(
-          getSelectedColumnDatatype({ factTable, column: jsonColumn.column })
+          getSelectedColumnDatatype({ factTable, column: jsonColumn.column }),
         ).toBe(jsonColumn.datatype);
       });
 
@@ -715,38 +721,38 @@ describe("Experiments", () => {
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.a`,
-          })
+          }),
         ).toBe("string");
         expect(
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.b`,
-          })
+          }),
         ).toBe("number");
         expect(
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.c.d`,
-          })
+          }),
         ).toBe("string");
         expect(
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.c.e`,
-          })
+          }),
         ).toBe("number");
       });
 
       it("returns undefined for unknown columns", () => {
         expect(
-          getSelectedColumnDatatype({ factTable, column: "unknown" })
+          getSelectedColumnDatatype({ factTable, column: "unknown" }),
         ).toBe(undefined);
 
         expect(
           getSelectedColumnDatatype({
             factTable,
             column: `${jsonColumn.column}.unknown`,
-          })
+          }),
         ).toBe(undefined);
       });
 
@@ -756,7 +762,7 @@ describe("Experiments", () => {
             factTable,
             column: deletedColumn.column,
             excludeDeleted: true,
-          })
+          }),
         ).toBe(undefined);
       });
     });
@@ -765,7 +771,7 @@ describe("Experiments", () => {
 
 function mockIndexedPvalue(
   pvalues: number[],
-  index?: number[]
+  index?: number[],
 ): IndexedPValue[] {
   // @ts-expect-error IndexedPValue typing here is for convenience
   return pvalues.map((p, i) => {
@@ -777,24 +783,24 @@ describe("pvalue correction method", () => {
   it("does HB procedure correctly", () => {
     expect(
       adjustPValuesHolmBonferroni(
-        mockIndexedPvalue([0.01, 0.04, 0.03, 0.005, 0.55, 0.6])
-      )
+        mockIndexedPvalue([0.01, 0.04, 0.03, 0.005, 0.55, 0.6]),
+      ),
     ).toEqual(
-      mockIndexedPvalue([0.03, 0.05, 0.12, 0.12, 1, 1], [3, 0, 2, 1, 4, 5])
+      mockIndexedPvalue([0.03, 0.05, 0.12, 0.12, 1, 1], [3, 0, 2, 1, 4, 5]),
     );
   });
   it("does BH procedure correctly", () => {
     expect(
       adjustPValuesBenjaminiHochberg(
-        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138])
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138]),
       ).map((x) => {
         return { pValue: +x.pValue.toFixed(8), index: x.index };
-      })
+      }),
     ).toEqual(
       mockIndexedPvalue(
         [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
-        [3, 0, 4, 1, 6, 2, 5]
-      )
+        [3, 0, 4, 1, 6, 2, 5],
+      ),
     );
   });
 });
@@ -876,7 +882,7 @@ describe("pvalue correction on results", () => {
     setAdjustedPValuesOnResults(
       results,
       ["met1", "met2"],
-      "benjamini-hochberg"
+      "benjamini-hochberg",
     );
     expect(results).toEqual(expectedResultsBH);
   });
@@ -884,15 +890,15 @@ describe("pvalue correction on results", () => {
   it("does BH procedure correctly", () => {
     expect(
       adjustPValuesBenjaminiHochberg(
-        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138])
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138]),
       ).map((x) => {
         return { pValue: +x.pValue.toFixed(8), index: x.index };
-      })
+      }),
     ).toEqual(
       mockIndexedPvalue(
         [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
-        [3, 0, 4, 1, 6, 2, 5]
-      )
+        [3, 0, 4, 1, 6, 2, 5],
+      ),
     );
   });
 
@@ -903,7 +909,7 @@ describe("pvalue correction on results", () => {
     expect(adjCIs95pct.map((x) => +x.toFixed(8))).toEqual([0, 0.2]);
 
     expect(
-      adjustedCI(0.0099999999, 0.1, 0.01).map((x) => +x.toFixed(8))
+      adjustedCI(0.0099999999, 0.1, 0.01).map((x) => +x.toFixed(8)),
     ).toEqual([0, 0.2]);
   });
 });
@@ -933,8 +939,8 @@ describe("chanceToWinFlatPrior", () => {
         Number.NEGATIVE_INFINITY,
         Number.POSITIVE_INFINITY,
         alpha,
-        true
-      )
+        true,
+      ),
     ).toEqual(0);
     expect(chanceToWinFlatPrior(0, -1, 1, alpha, true)).toEqual(0.5); //sanity check that effect size of 0 results in 0.5
     expect(chanceToWinFlatPrior(0, 0, 0, alpha, true)).toEqual(0); //sanity check that effect size of 0 and 0 uncertainty results in 0
@@ -947,9 +953,9 @@ describe("chanceToWinFlatPrior", () => {
           lower_two_sided,
           upper_two_sided,
           alpha,
-          false
-        )
-      )
+          false,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truth));
     expect(
       roundToSeventhDecimal(
@@ -958,9 +964,9 @@ describe("chanceToWinFlatPrior", () => {
           lower_two_sided,
           upper_two_sided,
           alpha,
-          true
-        )
-      )
+          true,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
     expect(
       roundToSeventhDecimal(
@@ -969,9 +975,9 @@ describe("chanceToWinFlatPrior", () => {
           Number.NEGATIVE_INFINITY,
           upper_one_sided,
           alpha,
-          false
-        )
-      )
+          false,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truth));
     expect(
       roundToSeventhDecimal(
@@ -980,9 +986,9 @@ describe("chanceToWinFlatPrior", () => {
           Number.NEGATIVE_INFINITY,
           upper_one_sided,
           alpha,
-          true
-        )
-      )
+          true,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
     expect(
       roundToSeventhDecimal(
@@ -991,9 +997,9 @@ describe("chanceToWinFlatPrior", () => {
           lower_one_sided,
           Number.POSITIVE_INFINITY,
           alpha,
-          false
-        )
-      )
+          false,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truth));
     expect(
       roundToSeventhDecimal(
@@ -1002,9 +1008,9 @@ describe("chanceToWinFlatPrior", () => {
           lower_one_sided,
           Number.POSITIVE_INFINITY,
           alpha,
-          true
-        )
-      )
+          true,
+        ),
+      ),
     ).toEqual(roundToSeventhDecimal(truthInverse));
   });
 });
@@ -1017,16 +1023,16 @@ describe("getPredefinedDimensionSlicesByExperiment", () => {
     ];
     // with 2 variations, we should return all dimensions (2 * 4 * 4 = 32 < 1000)
     expect(
-      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 2)
+      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 2),
     ).toEqual(dimensionMetadata);
     // with 100 variations (just as an example) (100 * 4 * 4 = 1600 > 1000), so we only get the
     // first dimension
     expect(
-      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 100)
+      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 100),
     ).toEqual([dimensionMetadata[0]]);
     // with 1000 variations (just as an example) (1000 * 4 * 4 = 16000 > 1000), so we get no dimensions
     expect(
-      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 1000)
+      getPredefinedDimensionSlicesByExperiment(dimensionMetadata, 1000),
     ).toEqual([]);
   });
 

@@ -44,7 +44,7 @@ export default function NamespaceModal({
             {
               method: "PUT",
               body: JSON.stringify(value),
-            }
+            },
           );
         } else {
           await apiCall(`/organization/namespaces`, {

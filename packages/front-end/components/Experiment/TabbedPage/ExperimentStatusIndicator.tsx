@@ -18,7 +18,7 @@ export default function ExperimentStatusIndicator({
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
   const statusIndicatorData = getExperimentStatusIndicator(
     experimentData,
-    skipArchived
+    skipArchived,
   );
 
   return (
@@ -51,13 +51,8 @@ export function ExperimentStatusDetailsWithDot({
 }: {
   statusIndicatorData: StatusIndicatorData;
 }) {
-  const {
-    color,
-    status,
-    detailedStatus,
-    needsAttention,
-    tooltip,
-  } = statusIndicatorData;
+  const { color, status, detailedStatus, needsAttention, tooltip } =
+    statusIndicatorData;
 
   if (!detailedStatus) return null;
 
@@ -102,7 +97,7 @@ export function RawExperimentStatusIndicator({
 function getFormattedLabel(
   labelFormat: LabelFormat,
   status: string,
-  detailedStatus?: string
+  detailedStatus?: string,
 ): string {
   switch (labelFormat) {
     case "full":

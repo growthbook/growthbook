@@ -128,7 +128,7 @@ describe("features events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual(
@@ -172,7 +172,7 @@ describe("features events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 
@@ -238,7 +238,7 @@ describe("features events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual(
@@ -307,7 +307,7 @@ describe("features events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 
@@ -369,7 +369,7 @@ describe("features events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
 
     expect(getLegacyMessageForNotificationEvent(rawPayload)).toEqual(
@@ -413,7 +413,7 @@ describe("features events", () => {
           name: "User Name",
           type: "dashboard",
         },
-      })
+      }),
     );
   });
 });

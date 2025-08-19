@@ -26,7 +26,7 @@ export default async function (agenda: Agenda) {
 
   agenda.define(
     UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT,
-    updateSingleSafeRolloutSnapshot
+    updateSingleSafeRolloutSnapshot,
   );
 
   await startUpdateJob();
@@ -34,7 +34,7 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const updateResultsJob = agenda.create(
       QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES,
-      {}
+      {},
     );
     updateResultsJob.unique({});
     updateResultsJob.repeatEvery("10 minutes");
@@ -42,7 +42,7 @@ export default async function (agenda: Agenda) {
   }
 
   async function queueSafeRolloutSnapshotUpdate(
-    safeRollout: SafeRolloutInterface
+    safeRollout: SafeRolloutInterface,
   ) {
     const job = agenda.create(UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT, {
       safeRollout,
@@ -54,7 +54,7 @@ export default async function (agenda: Agenda) {
 }
 
 const updateSingleSafeRolloutSnapshot = async (
-  job: UpdateSingleSafeRolloutSnapshotJob
+  job: UpdateSingleSafeRolloutSnapshotJob,
 ) => {
   const { safeRollout } = job.attrs.data;
 

@@ -24,22 +24,22 @@ export default function ExperimentMetricBlock({
   const { baselineRow, columnsFilter, variationIds } = block;
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
-    [block]
+    [block],
   );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
   const goalMetrics = useMemo(
     () => expandMetricGroups(experiment.goalMetrics, metricGroups),
-    [experiment, metricGroups]
+    [experiment, metricGroups],
   );
   const secondaryMetrics = useMemo(
     () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
-    [experiment, metricGroups]
+    [experiment, metricGroups],
   );
   const guardrailMetrics = useMemo(
     () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
-    [experiment, metricGroups]
+    [experiment, metricGroups],
   );
 
   const statsEngine = analysis.settings.statsEngine;
@@ -108,7 +108,7 @@ export default function ExperimentMetricBlock({
         resultGroup: getMetricResultGroup(
           metric.id,
           goalMetrics,
-          secondaryMetrics
+          secondaryMetrics,
         ),
         metricOverrideFields: [],
       };

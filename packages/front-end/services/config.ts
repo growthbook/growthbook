@@ -62,7 +62,7 @@ export function useConfigJson({
             userIdType: s.userIdType,
           } as Partial<SegmentInterface>,
         }),
-        {}
+        {},
       );
     }
 

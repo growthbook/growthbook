@@ -13,7 +13,11 @@ import { ArchetypeList } from "@/components/Archetype/ArchetypeList";
 
 const ArchetypesPage = (): React.ReactElement => {
   // get all the archetypes:
-  const { data, error: archErrors, mutate } = useApi<{
+  const {
+    data,
+    error: archErrors,
+    mutate,
+  } = useApi<{
     archetype: ArchetypeInterface[];
   }>("/archetype");
 

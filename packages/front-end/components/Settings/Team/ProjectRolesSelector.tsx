@@ -102,7 +102,7 @@ export default function ProjectRolesSelector({
                   cloneDeep({
                     project: newProject,
                     ...defaultRole,
-                  }) as ProjectMemberRole
+                  }) as ProjectMemberRole,
                 );
                 setProjectRoles(newProjectRoles);
                 setNewProject("");

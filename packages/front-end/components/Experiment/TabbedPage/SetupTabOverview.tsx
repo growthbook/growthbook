@@ -59,7 +59,7 @@ export default function SetupTabOverview({
     `collapse-${experiment.id}-description`,
     localStorage.getItem(`collapse-${experiment.id}-description`) === "true"
       ? false
-      : true
+      : true,
   );
   const customFields = useCustomFields();
 
