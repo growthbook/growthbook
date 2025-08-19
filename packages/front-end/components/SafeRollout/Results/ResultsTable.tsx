@@ -68,10 +68,9 @@ export type ResultsTableProps = {
     label: string,
     metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
-    maxRows?: number
+    maxRows?: number,
   ) => string | ReactElement;
   dateCreated: Date;
-  hasRisk: boolean;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   differenceType: DifferenceType;
@@ -155,25 +154,26 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
-  const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
-    const sorted = variations
-      .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-      .sort((a, b) => {
-        if (a.index === baselineRow) return -1;
-        return a.index - b.index;
-      });
-    // fix browser .sort() quirks. manually move the control row to top:
-    const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
-    if (baselineIndex > -1) {
-      const baseline = sorted[baselineIndex];
-      sorted.splice(baselineIndex, 1);
-      sorted.unshift(baseline);
-    }
-    return sorted;
-  }, [variations, baselineRow]);
+  const orderedVariations: ExperimentReportVariationWithIndex[] =
+    useMemo(() => {
+      const sorted = variations
+        .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
+        .sort((a, b) => {
+          if (a.index === baselineRow) return -1;
+          return a.index - b.index;
+        });
+      // fix browser .sort() quirks. manually move the control row to top:
+      const baselineIndex = sorted.findIndex((v) => v.index === baselineRow);
+      if (baselineIndex > -1) {
+        const baseline = sorted[baselineIndex];
+        sorted.splice(baselineIndex, 1);
+        sorted.unshift(baseline);
+      }
+      return sorted;
+    }, [variations, baselineRow]);
 
   const filteredVariations = orderedVariations.filter(
-    (v) => !variationFilter?.includes(v.index)
+    (v) => !variationFilter?.includes(v.index),
   );
   const compactResults = filteredVariations.length <= 2;
 
@@ -213,11 +213,11 @@ export default function ResultsTable({
 
         const denominator =
           !isFactMetric(row.metric) && row.metric.denominator
-            ? (ssrPolyfills?.getExperimentMetricById?.(
-                row.metric.denominator
+            ? ((ssrPolyfills?.getExperimentMetricById?.(
+                row.metric.denominator,
               ) ||
                 getExperimentMetricById(row.metric.denominator)) ??
-              undefined
+              undefined)
             : undefined;
         const rowResults = getRowResults({
           stats,
@@ -303,15 +303,18 @@ export default function ResultsTable({
   }, [metricTimeSeries]);
 
   const metricTimeSeriesMap = useMemo(() => {
-    return filteredMetricTimeSeries?.reduce((acc, curr) => {
-      acc[curr.metricId] = curr;
-      return acc;
-    }, {} as Record<string, MetricTimeSeries>);
+    return filteredMetricTimeSeries?.reduce(
+      (acc, curr) => {
+        acc[curr.metricId] = curr;
+        return acc;
+      },
+      {} as Record<string, MetricTimeSeries>,
+    );
   }, [filteredMetricTimeSeries]);
 
   const metricTimeSeriesDateExtent = useMemo(() => {
     const dataPoints = filteredMetricTimeSeries?.flatMap((t) =>
-      t.dataPoints.map((d) => getValidDate(d.date))
+      t.dataPoints.map((d) => getValidDate(d.date)),
     );
     if (!dataPoints) return [undefined, undefined] as [undefined, undefined];
     return extent(dataPoints);
@@ -481,7 +484,7 @@ export default function ResultsTable({
                                   {renderLabelColumn(
                                     row.label,
                                     row.metric,
-                                    row
+                                    row,
                                   )}
                                 </div>
                               ) : null}
@@ -505,7 +508,7 @@ export default function ResultsTable({
                       rowResults.resultsStatus,
                       {
                         "non-significant": !rowResults.significant,
-                      }
+                      },
                     );
 
                     const tooltipData = getTooltipData(i, j);
@@ -614,7 +617,7 @@ export default function ResultsTable({
                                     hideScaledImpact={hideScaledImpact}
                                     className={clsx(
                                       "results-pval",
-                                      resultsHighlightClassname
+                                      resultsHighlightClassname,
                                     )}
                                   />
                                   <Popover.Anchor />

@@ -19,6 +19,7 @@ export function getRadixSize(size: Size): Responsive<"2" | "3"> {
 
 export type Props = {
   label?: string | ReactElement;
+  labelSize?: Responsive<"2" | "3">;
   id?: string;
   disabled?: boolean;
   disabledMessage?: string;
@@ -36,6 +37,7 @@ export type Props = {
 export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
   {
     label,
+    labelSize = "2",
     id,
     disabled,
     disabledMessage,
@@ -50,7 +52,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
     containerClassName,
     ...containerProps
   }: Props,
-  ref
+  ref,
 ) {
   const checkboxColor = error ? getRadixColor(errorLevel) : "violet";
 
@@ -71,14 +73,14 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
       <Text
         ref={ref}
         as="label"
-        size="2"
+        size={labelSize}
         className={clsx(
           "rt-CheckboxItem",
           {
             "rt-TextDisabled": disabled,
             disabled: disabled,
           },
-          containerClassName
+          containerClassName,
         )}
         {...containerProps}
       >

@@ -134,13 +134,13 @@ export default function FixConflictsModal({
   const { apiCall } = useAuth();
 
   const [strategies, setStrategies] = useState<Record<string, MergeStrategy>>(
-    {}
+    {},
   );
   const [step, setStep] = useState(0);
 
   const revision = revisions.find((r) => r.version === version);
   const baseRevision = revisions.find(
-    (r) => r.version === revision?.baseVersion
+    (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
@@ -151,7 +151,7 @@ export default function FixConflictsModal({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      strategies
+      strategies,
     );
   }, [revision, baseRevision, liveRevision, environments, strategies]);
 

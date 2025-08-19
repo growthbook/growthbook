@@ -3,13 +3,12 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.0",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/vanilla-typescript",
+        url: "https://github.com/growthbook/examples/tree/main/vanilla-typescript",
         name: "Typescript example app",
       },
     ],
@@ -69,7 +68,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.6.0",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -147,8 +146,7 @@ export default {
       "https://github.com/vercel/flags/tree/main/packages/adapter-growthbook",
     examples: [
       {
-        url:
-          "https://github.com/vercel/examples/tree/main/flags-sdk/growthbook",
+        url: "https://github.com/vercel/examples/tree/main/flags-sdk/growthbook",
         name: "Next.js Flags SDK example app",
       },
     ],
@@ -234,7 +232,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.6.0",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -291,8 +289,7 @@ export default {
     github: "https://github.com/growthbook/growthbook-ruby",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/acme_donuts_rails",
+        url: "https://github.com/growthbook/examples/tree/main/acme_donuts_rails",
         name: "Rails example app",
       },
     ],
@@ -331,7 +328,7 @@ export default {
   },
   python: {
     name: "Python SDK",
-    version: "1.2.1",
+    version: "1.3.1",
     github: "https://github.com/growthbook/growthbook-python",
     examples: [],
     packageRepos: [
@@ -372,7 +369,7 @@ export default {
   },
   go: {
     name: "Go SDK",
-    version: "0.2.3",
+    version: "0.2.4",
     github: "https://github.com/growthbook/growthbook-golang",
     examples: [
       {
@@ -429,8 +426,7 @@ export default {
         name: "JVM with Spring Web example app",
       },
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example",
+        url: "https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example",
         name: "JVM with Kotlin Ktor example app",
       },
       {
@@ -484,8 +480,7 @@ export default {
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/csharp-example/GrowthBookCSharpExamples",
+        url: "https://github.com/growthbook/examples/tree/main/csharp-example/GrowthBookCSharpExamples",
         name: "C# example app",
       },
     ],
@@ -565,7 +560,7 @@ export default {
   },
   kotlin: {
     name: "Kotlin SDK",
-    version: "2.0.0",
+    version: "5.0.1",
     github: "https://github.com/growthbook/growthbook-kotlin",
     examples: [],
     packageRepos: [
@@ -609,7 +604,7 @@ export default {
   },
   swift: {
     name: "Swift SDK",
-    version: "1.0.68",
+    version: "1.0.73",
     github: "https://github.com/growthbook/growthbook-swift",
     examples: [],
     packageRepos: [
@@ -653,13 +648,12 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.0",
+    version: "1.6.1",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/react-native-cli",
+        url: "https://github.com/growthbook/examples/tree/main/react-native-cli",
         name: "React Native CLI example app",
       },
     ],
@@ -724,8 +718,7 @@ export default {
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example",
+        url: "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example",
         name: "Example worker",
       },
     ],
@@ -787,8 +780,7 @@ export default {
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example",
+        url: "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example",
         name: "Example compute worker",
       },
     ],
@@ -959,7 +951,7 @@ export default {
   },
   flutter: {
     name: "Flutter SDK",
-    version: "3.9.9",
+    version: "3.9.11",
     github: "https://github.com/growthbook/growthbook-flutter",
     examples: [],
     packageRepos: [

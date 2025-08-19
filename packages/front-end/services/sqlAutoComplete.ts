@@ -9,38 +9,12 @@ import {
   getSqlKeywords,
   COMPLETION_SCORES,
   COMPLETION_TYPES,
+  getTemplateCompletions,
 } from "./sqlKeywords";
 import {
   getInformationSchemaWithPaths,
   InformationSchemaInterfaceWithPaths,
 } from "./datasources";
-
-export const templateCompletions: AceCompletion[] = [
-  {
-    value: `'{{ startDate }}'`,
-    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
-    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
-    caption: `{{ startDate }}`,
-  },
-  {
-    value: `'{{ startDateISO }}'`,
-    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
-    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
-    caption: `{{ startDateISO }}`,
-  },
-  {
-    value: `'{{ endDate }}'`,
-    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
-    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
-    caption: `{{ endDate }}`,
-  },
-  {
-    value: `'{{ endDateISO }}'`,
-    meta: COMPLETION_TYPES.TEMPLATE_VARIABLE,
-    score: COMPLETION_SCORES.TEMPLATE_VARIABLE,
-    caption: `{{ endDateISO }}`,
-  },
-];
 
 type Keywords = "SELECT" | "FROM" | "WHERE" | "GROUP BY" | "ORDER BY";
 
@@ -58,8 +32,8 @@ async function fetchTableData(
   datasourceId: string,
   apiCall: (
     url: string,
-    options?: RequestInit
-  ) => Promise<{ table: InformationSchemaTablesInterface }>
+    options?: RequestInit,
+  ) => Promise<{ table: InformationSchemaTablesInterface }>,
 ): Promise<InformationSchemaTablesInterface | null> {
   // Check cache first
   if (tableDataCache[tableId]) {
@@ -68,7 +42,7 @@ async function fetchTableData(
 
   try {
     const data = await apiCall(
-      `/datasource/${datasourceId}/schema/table/${tableId}`
+      `/datasource/${datasourceId}/schema/table/${tableId}`,
     );
     if (data.table) {
       tableDataCache[tableId] = data.table;
@@ -87,8 +61,8 @@ async function getTableDataForAutocomplete(
   datasourceId: string,
   apiCall: (
     url: string,
-    options?: RequestInit
-  ) => Promise<{ table: InformationSchemaTablesInterface }>
+    options?: RequestInit,
+  ) => Promise<{ table: InformationSchemaTablesInterface }>,
 ): Promise<Record<string, InformationSchemaTablesInterface>> {
   const tableDataMap: Record<string, InformationSchemaTablesInterface> = {};
 
@@ -99,7 +73,7 @@ async function getTableDataForAutocomplete(
       if (tableData) {
         tableDataMap[tableId] = tableData;
       }
-    })
+    }),
   );
 
   return tableDataMap;
@@ -117,7 +91,7 @@ function addEventTableName(
   selectedTables: string[],
   eventName: string,
   cursorData: CursorData,
-  informationSchema: InformationSchemaInterface
+  informationSchema: InformationSchemaInterface,
 ): string[] {
   const sql = cursorData.input.join("\n");
   if (!sql.includes("eventName")) return selectedTables;
@@ -126,8 +100,8 @@ function addEventTableName(
   const matchingTable = informationSchema.databases
     .flatMap((db) =>
       db.schemas.flatMap((schema) =>
-        schema.tables.find((table) => table.tableName === eventName)
-      )
+        schema.tables.find((table) => table.tableName === eventName),
+      ),
     )
     .filter((table) => table !== undefined)[0];
 
@@ -140,11 +114,16 @@ function addEventTableName(
  * @returns Array of completion suggestions
  */
 function handleColumnCompletions(
-  tableDataMap: Record<string, InformationSchemaTablesInterface>
+  tableDataMap: Record<string, InformationSchemaTablesInterface>,
+  source: "EditSqlModal" | "SqlExplorer",
 ): AceCompletion[] {
+  const baseCompletions = [
+    ...getTemplateCompletions(source),
+    ...getSqlKeywords(),
+  ];
   // If there are no tables, then return template completions and sql keywords
   if (Object.keys(tableDataMap).length === 0) {
-    return [...templateCompletions, ...getSqlKeywords()];
+    return baseCompletions;
   }
 
   // Combine columns from all tables
@@ -154,10 +133,10 @@ function handleColumnCompletions(
       meta: col.dataType,
       score: COMPLETION_SCORES.COLUMN,
       caption: col.columnName,
-    }))
+    })),
   );
 
-  return [...allColumns, ...templateCompletions, ...getSqlKeywords()];
+  return [...allColumns, ...baseCompletions];
 }
 
 /**
@@ -166,7 +145,8 @@ function handleColumnCompletions(
  * @returns Array of completion suggestions including databases, schemas, and tables
  */
 function getAllCompletionsForEmptyFrom(
-  informationSchema: InformationSchemaInterfaceWithPaths
+  informationSchema: InformationSchemaInterfaceWithPaths,
+  source: "EditSqlModal" | "SqlExplorer",
 ): AceCompletion[] {
   const databaseCompletions: AceCompletion[] = [];
   for (const db of informationSchema.databases) {
@@ -188,7 +168,7 @@ function getAllCompletionsForEmptyFrom(
       meta: COMPLETION_TYPES.SCHEMA,
       score: COMPLETION_SCORES.SCHEMA,
       caption: schema.schemaName,
-    }))
+    })),
   );
 
   const tableCompletions = informationSchema.databases.flatMap((db) =>
@@ -198,15 +178,15 @@ function getAllCompletionsForEmptyFrom(
         meta: COMPLETION_TYPES.TABLE,
         score: COMPLETION_SCORES.TABLE,
         caption: table.tableName,
-      }))
-    )
+      })),
+    ),
   );
 
   return [
     ...databaseCompletions,
     ...schemaCompletions,
     ...tableCompletions,
-    ...templateCompletions,
+    ...getTemplateCompletions(source),
     ...getSqlKeywords(),
   ];
 }
@@ -219,11 +199,12 @@ function getAllCompletionsForEmptyFrom(
  */
 function handleFromClauseCompletions(
   textAfterFrom: string,
-  informationSchema: InformationSchemaInterfaceWithPaths
+  informationSchema: InformationSchemaInterfaceWithPaths,
+  source: "EditSqlModal" | "SqlExplorer",
 ): AceCompletion[] {
   // If we're at the start of the FROM clause (no text after FROM), show all options
   if (!textAfterFrom) {
-    return getAllCompletionsForEmptyFrom(informationSchema);
+    return getAllCompletionsForEmptyFrom(informationSchema, source);
   }
 
   // Parse the text to determine what level of completion to provide
@@ -244,7 +225,7 @@ function handleFromClauseCompletions(
 
   // Check if the lastPart is a schema - and if so, return table suggestions
   const hasSchema = informationSchema.databases.some((db) =>
-    db.schemas.some((schema) => schema.schemaName === lastPart)
+    db.schemas.some((schema) => schema.schemaName === lastPart),
   );
 
   if (hasSchema) {
@@ -268,7 +249,7 @@ function handleFromClauseCompletions(
 
   // If the last part isn't a schema, then check if it's a database, and if so, return schema suggestions
   const hasDatabase = informationSchema.databases.some(
-    (db) => db.databaseName === lastPart
+    (db) => db.databaseName === lastPart,
   );
 
   if (hasDatabase) {
@@ -301,7 +282,7 @@ function handleFromClauseCompletions(
  */
 function isInContinuationContext(
   keyword: string,
-  textAfterKeyword: string
+  textAfterKeyword: string,
 ): boolean {
   switch (keyword) {
     case "FROM":
@@ -313,7 +294,7 @@ function isInContinuationContext(
       // Check if we're after AND/OR
       const lastAndOr = Math.max(
         textAfterKeyword.lastIndexOf(" AND "),
-        textAfterKeyword.lastIndexOf(" OR ")
+        textAfterKeyword.lastIndexOf(" OR "),
       );
       return lastAndOr !== -1;
     }
@@ -337,7 +318,7 @@ function isInContinuationContext(
  *
  */
 export function getCurrentContext(
-  cursorData: CursorData
+  cursorData: CursorData,
 ): AutocompleteContext | null {
   const { row, column, input } = cursorData;
   const currentLine = input[row] || "";
@@ -371,7 +352,7 @@ export function getCurrentContext(
 
   // Get the text between the last keyword and the cursor
   const textAfterKeyword = textUpToCursor.slice(
-    lastKeyword.index + lastKeyword.keyword.length
+    lastKeyword.index + lastKeyword.keyword.length,
   );
 
   // Check if we're in a continuation context
@@ -404,7 +385,7 @@ export function getCurrentContext(
  */
 export function getSelectedTables(
   cursorData: CursorData,
-  informationSchema: InformationSchemaInterfaceWithPaths
+  informationSchema: InformationSchemaInterfaceWithPaths,
 ): string[] {
   if (!cursorData || !informationSchema) return [];
 
@@ -418,13 +399,13 @@ export function getSelectedTables(
         name: table.tableName,
         path: table.path,
         id: table.id,
-      }))
-    )
+      })),
+    ),
   );
 
   // Find all FROM clauses in the query
   const fromClauses = (sql.match(
-    /FROM\s+([^;]+?)(?=\s+(?:WHERE|GROUP BY|ORDER BY|$)|$)/gi
+    /FROM\s+([^;]+?)(?=\s+(?:WHERE|GROUP BY|ORDER BY|$)|$)/gi,
   ) || []) as string[];
 
   // Extract tables from FROM clauses
@@ -462,7 +443,7 @@ export function getSelectedTables(
 function formatSchemaCompletion(
   path: string,
   tableName: string,
-  hasDatabase: boolean
+  hasDatabase: boolean,
 ): string {
   if (hasDatabase) {
     return tableName;
@@ -473,7 +454,7 @@ function formatSchemaCompletion(
 function formatTableCompletion(
   tablePath: string,
   tableName: string,
-  hasSchema: boolean
+  hasSchema: boolean,
 ): string {
   if (!hasSchema) {
     return tablePath;
@@ -511,9 +492,10 @@ export async function getAutoCompletions(
   datasourceType: DataSourceType | undefined,
   apiCall: (
     url: string,
-    options?: RequestInit
+    options?: RequestInit,
   ) => Promise<{ table: InformationSchemaTablesInterface }>,
-  eventName?: string
+  source: "EditSqlModal" | "SqlExplorer",
+  eventName?: string,
 ): Promise<AceCompletion[]> {
   const sqlKeywords = getSqlKeywords();
 
@@ -523,7 +505,7 @@ export async function getAutoCompletions(
   // Add path data the informationSchema at db, schema, and table level
   const informationSchemaWithPaths = getInformationSchemaWithPaths(
     informationSchema,
-    datasourceType
+    datasourceType,
   );
 
   const context = getCurrentContext(cursorData);
@@ -534,7 +516,7 @@ export async function getAutoCompletions(
   // Get selected tables and their data
   let selectedTables = getSelectedTables(
     cursorData,
-    informationSchemaWithPaths
+    informationSchemaWithPaths,
   );
 
   // Add event name table if eventName is provided and used in the query
@@ -546,14 +528,14 @@ export async function getAutoCompletions(
       selectedTables,
       eventName,
       cursorData,
-      informationSchemaWithPaths
+      informationSchemaWithPaths,
     );
   }
 
   const tableDataMap = await getTableDataForAutocomplete(
     selectedTables,
     informationSchema.datasourceId,
-    apiCall
+    apiCall,
   );
 
   // Generate suggestions based on context
@@ -565,26 +547,31 @@ export async function getAutoCompletions(
     case "WHERE":
     case "GROUP BY":
     case "ORDER BY":
-      return handleColumnCompletions(tableDataMap);
+      return handleColumnCompletions(tableDataMap, source);
 
     case "FROM": {
-      // Get the text after FROM up to the cursor
+      // Get the sql text up to the cursor's current position
+      // This allows us to ignore additional clauses like WHERE, GROUP BY, ORDER BY, etc.
+      const textUpToCursor = cursorData.input
+        .slice(0, cursorData.row)
+        .concat(
+          (cursorData.input[cursorData.row] || "").substring(
+            0,
+            cursorData.column,
+          ),
+        )
+        .join("\n");
+
+      // Isolate the text after the "FROM" or "from" SQL keyword
+      // This allows us to identify if the FROM clause already has certain tables or schemas
+      // for more accurate completions. e.g. if the FROM clause references a schema, only show tables in that schema
       const textAfterFrom =
-        cursorData.input
-          .slice(0, cursorData.row)
-          .concat(
-            (cursorData.input[cursorData.row] || "").substring(
-              0,
-              cursorData.column
-            )
-          )
-          .join("\n")
-          .split("FROM")[1]
-          ?.trim() || "";
+        textUpToCursor.toLowerCase().split("from")[1]?.trim() || "";
 
       return handleFromClauseCompletions(
         textAfterFrom,
-        informationSchemaWithPaths
+        informationSchemaWithPaths,
+        source,
       );
     }
 

@@ -84,6 +84,7 @@ export default function PublicExperimentAnalysisSettingsBar({
           <div className="col-auto d-flex align-items-end">
             <DimensionChooser
               value={snapshot.dimension ?? ""}
+              precomputedDimensions={snapshot.type === "standard" ? snapshot.settings.dimensions.map((d) => d.id) : []}
               activationMetric={!!snapshot.settings.activationMetric}
               datasourceId={snapshot.settings.datasourceId}
               exposureQueryId={snapshot.settings.exposureQueryId}

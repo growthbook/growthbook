@@ -46,12 +46,12 @@ const DownloadLicenseUsageButton: FC = () => {
               timestamp: res.timestamp,
             },
             null,
-            2
+            2,
           ),
         ],
         {
           type: "application/json",
-        }
+        },
       );
       const href = window.URL.createObjectURL(blob);
       const link = document.createElement("a");

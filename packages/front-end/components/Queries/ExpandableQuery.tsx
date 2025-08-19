@@ -161,7 +161,7 @@ const ExpandableQuery: FC<{
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.startedAt),
-                    getValidDate(query.finishedAt)
+                    getValidDate(query.finishedAt),
                   )}
                 </strong>
               </div>
@@ -170,7 +170,7 @@ const ExpandableQuery: FC<{
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.createdAt),
-                    getValidDate(query.startedAt)
+                    getValidDate(query.startedAt),
                   )}
                 </strong>
               </div>
@@ -189,7 +189,7 @@ const ExpandableQuery: FC<{
               Was queued for{" "}
               {formatDistanceStrict(
                 getValidDate(query.createdAt),
-                getValidDate(query.startedAt)
+                getValidDate(query.startedAt),
               )}
             </HelperText>
           ) : null}

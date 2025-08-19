@@ -40,7 +40,7 @@ import {
 } from "back-end/src/enterprise/billing/index";
 
 function withLicenseServerErrorHandling<T>(
-  fn: (req: AuthRequest<T>, res: Response) => Promise<void>
+  fn: (req: AuthRequest<T>, res: Response) => Promise<void>,
 ) {
   return async (req: AuthRequest<T>, res: Response) => {
     try {
@@ -61,7 +61,7 @@ function withLicenseServerErrorHandling<T>(
 export const postNewProTrialSubscription = withLicenseServerErrorHandling(
   async function (
     req: AuthRequest<{ name: string; email?: string }>,
-    res: Response
+    res: Response,
   ) {
     const { name: nameFromForm, email: emailFromForm } = req.body;
 
@@ -80,7 +80,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
       org.name,
       nameFromForm || userName,
       emailFromForm || email,
-      qty
+      qty,
     );
     if (!org.licenseKey) {
       await updateOrganization(org.id, { licenseKey: result.license.id });
@@ -92,7 +92,7 @@ export const postNewProTrialSubscription = withLicenseServerErrorHandling(
     }
 
     res.status(200).json(result);
-  }
+  },
 );
 
 export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
@@ -109,12 +109,12 @@ export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
       org.id,
       org.name,
       org.ownerEmail,
-      userName
+      userName,
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
     res.status(200).json({ clientSecret: result.clientSecret });
-  }
+  },
 );
 
 export const postNewProSubscription = withLicenseServerErrorHandling(
@@ -141,12 +141,12 @@ export const postNewProSubscription = withLicenseServerErrorHandling(
       org.ownerEmail,
       userName,
       qty,
-      returnUrl
+      returnUrl,
     );
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
     res.status(200).json(result);
-  }
+  },
 );
 
 export const postInlineProSubscription = withLicenseServerErrorHandling(
@@ -158,7 +158,7 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
       name: string;
       address?: StripeAddress;
     }>,
-    res: Response
+    res: Response,
   ) {
     const context = getContextFromReq(req);
 
@@ -183,11 +183,11 @@ export const postInlineProSubscription = withLicenseServerErrorHandling(
       req.body.additionalEmails,
       req.body.name,
       req.body.address,
-      req.body.taxConfig
+      req.body.taxConfig,
     );
 
     res.status(200).json(result);
-  }
+  },
 );
 
 export const postCreateBillingSession = withLicenseServerErrorHandling(
@@ -212,13 +212,13 @@ export const postCreateBillingSession = withLicenseServerErrorHandling(
       status: results.status,
       url: results.url,
     });
-  }
+  },
 );
 
 export const postSubscriptionSuccess = withLicenseServerErrorHandling(
   async function (
     req: AuthRequest<{ checkoutSessionId: string }>,
-    res: Response
+    res: Response,
   ) {
     const context = getContextFromReq(req);
 
@@ -228,7 +228,7 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
 
     const { org } = context;
     const result = await postNewSubscriptionSuccessToLicenseServer(
-      req.body.checkoutSessionId
+      req.body.checkoutSessionId,
     );
     org.licenseKey = result.id;
     await updateOrganization(org.id, { licenseKey: result.id });
@@ -239,7 +239,7 @@ export const postSubscriptionSuccess = withLicenseServerErrorHandling(
     res.status(200).json({
       status: 200,
     });
-  }
+  },
 );
 
 export async function cancelSubscription(req: AuthRequest, res: Response) {
@@ -266,7 +266,7 @@ export async function cancelSubscription(req: AuthRequest, res: Response) {
 
 export async function postSetupIntent(
   req: AuthRequest<null, null>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -289,7 +289,7 @@ export async function postSetupIntent(
 
 export async function updateCustomerDefaultPayment(
   req: AuthRequest<{ paymentMethodId: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -315,7 +315,7 @@ export async function updateCustomerDefaultPayment(
 
 export async function fetchPaymentMethods(
   req: AuthRequest<null, null>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -362,7 +362,7 @@ export async function fetchPaymentMethods(
             type: "us_bank_account",
             last4: method.us_bank_account.last4 || "",
             brand: formatBrandName(
-              method.us_bank_account.bank_name || method.type
+              method.us_bank_account.bank_name || method.type,
             ),
             isDefault,
           };
@@ -374,7 +374,7 @@ export async function fetchPaymentMethods(
             isDefault,
           };
         }
-      }
+      },
     );
 
     return res
@@ -387,7 +387,7 @@ export async function fetchPaymentMethods(
 
 export async function deletePaymentMethod(
   req: AuthRequest<{ paymentMethodId: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -413,7 +413,7 @@ export async function deletePaymentMethod(
 
 export async function getUsage(
   req: AuthRequest<unknown, unknown, { monthsAgo?: number }>,
-  res: Response<{ status: 200; cdnUsage: DailyUsage[]; limits: UsageLimits }>
+  res: Response<{ status: 200; cdnUsage: DailyUsage[]; limits: UsageLimits }>,
 ) {
   const context = getContextFromReq(req);
 
@@ -451,7 +451,7 @@ export async function getUsage(
 
 export async function getCustomerData(
   req: AuthRequest<null, null>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
@@ -470,7 +470,7 @@ export async function getCustomerData(
 
 export async function getPortalUrl(
   req: AuthRequest<null, null>,
-  res: Response<{ status: number; portalUrl?: string; message?: string }>
+  res: Response<{ status: number; portalUrl?: string; message?: string }>,
 ) {
   const context = getContextFromReq(req);
 
@@ -499,7 +499,7 @@ export async function updateCustomerData(
     address?: StripeAddress;
     taxConfig: { type?: TaxIdType; value?: string };
   }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 

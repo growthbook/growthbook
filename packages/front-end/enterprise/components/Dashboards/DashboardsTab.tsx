@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useState } from "react";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
@@ -50,7 +50,7 @@ export type UpdateDashboardArgs = {
   }>;
 };
 export type SubmitDashboard<
-  T extends CreateDashboardArgs | UpdateDashboardArgs
+  T extends CreateDashboardArgs | UpdateDashboardArgs,
 > = (args: T) => Promise<void>;
 
 export const autoUpdateDisabledMessage =
@@ -98,9 +98,8 @@ export default function DashboardsTab({
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
-  const [editLevel, setEditLevel] = useState<DashboardInterface["editLevel"]>(
-    "private"
-  );
+  const [editLevel, setEditLevel] =
+    useState<DashboardInterface["editLevel"]>("private");
   const [enableAutoUpdates, setEnableAutoUpdates] = useState(true);
   const [editDrawerOpen, setEditDrawerOpen] = useState<boolean>(false);
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
@@ -162,7 +161,7 @@ export default function DashboardsTab({
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 experimentId: experiment.id,
-              }
+              },
         ),
       });
       if (res.status === 200) {
@@ -175,7 +174,7 @@ export default function DashboardsTab({
         console.error(res);
       }
     },
-    [apiCall, experiment.id, mutateDashboards]
+    [apiCall, experiment.id, mutateDashboards],
   );
 
   const autoUpdateDisabled =
@@ -330,14 +329,14 @@ export default function DashboardsTab({
                             {dashboards.length > 1 && <SelectSeparator />}
                           </>
                         )}
-                        {dashboards.map((dash) => (
-                          <>
+                        {dashboards.map((dash, i) => (
+                          <Fragment key={`dash-${i}`}>
                             {dash.id === defaultDashboard?.id ? null : (
                               <SelectItem key={dash.id} value={dash.id}>
                                 {dash.title}
                               </SelectItem>
                             )}
-                          </>
+                          </Fragment>
                         ))}
                       </Select>
                       {canCreate && (
@@ -422,7 +421,7 @@ export default function DashboardsTab({
                               onClick={() => {
                                 const url = window.location.href.replace(
                                   /[?#].*/,
-                                  `#dashboards/${dashboardId}`
+                                  `#dashboards/${dashboardId}`,
                                 );
                                 performCopy(url);
                               }}

@@ -94,7 +94,7 @@ const NeedingAttention = (): React.ReactElement | null => {
             safeRollout: item.safeRollout,
             healthSettings: getHealthSettings(
               organization?.settings,
-              hasCommercialFeature("decision-framework")
+              hasCommercialFeature("decision-framework"),
             ),
             daysLeft,
           });
@@ -122,7 +122,7 @@ const NeedingAttention = (): React.ReactElement | null => {
       snapshotWithResults,
       organization?.settings,
       hasCommercialFeature,
-    ]
+    ],
   );
   const { data: safeRolloutData } = useApi<{
     status: number;
@@ -291,10 +291,10 @@ const NeedingAttention = (): React.ReactElement | null => {
           avatar,
           url,
         };
-      }
+      },
     );
 
-    return (
+    return recentFeatures.length > 0 ? (
       <Container className="recent-items-container">
         <Text size="4" weight="medium" as="div">
           Recent
@@ -334,7 +334,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           ))}
         </Grid>
       </Container>
-    );
+    ) : null;
   };
   const getAvatarAndName = (name: string) => {
     if (!name) return null;
@@ -351,7 +351,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     const endIndex = startIndex + ITEMS_PER_PAGE;
     const paginatedExperiments = experimentsNeedingAttention.slice(
       startIndex,
-      endIndex
+      endIndex,
     );
 
     return (
@@ -475,7 +475,7 @@ const NeedingAttention = (): React.ReactElement | null => {
 
     const paginatedFeatureFlags = featureFlagsNeedingAttention.slice(
       startIndex,
-      endIndex
+      endIndex,
     );
     return (
       <Container mt="6">
@@ -564,7 +564,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     );
   };
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
 
   const hasFeatures = features.some((f) => f.project !== demoProjectId);

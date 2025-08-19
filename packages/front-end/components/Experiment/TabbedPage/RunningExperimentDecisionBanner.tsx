@@ -41,11 +41,12 @@ export default function RunningExperimentDecisionBanner({
   )
     return null;
 
-  const decidedVariations: VariationWithIndex[] = runningExperimentStatus.variations
-    .map(({ variationId }) =>
-      indexedVariations.find((v) => v.id === variationId)
-    )
-    .filter((v) => v !== undefined);
+  const decidedVariations: VariationWithIndex[] =
+    runningExperimentStatus.variations
+      .map(({ variationId }) =>
+        indexedVariations.find((v) => v.id === variationId),
+      )
+      .filter((v) => v !== undefined);
 
   const variationNames: Record<string, JSX.Element> = {};
   variations.forEach((v, i) => {

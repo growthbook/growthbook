@@ -16,19 +16,18 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
     const refsByFeature = groupBy(req.body.refs, "flagKey");
     // convert deleteMissing to boolean
     const deleteMissing = deleteMissingString === "true";
-    const allExistingCodeRefs: FeatureCodeRefsInterface[] = await getAllCodeRefsForOrg(
-      {
+    const allExistingCodeRefs: FeatureCodeRefsInterface[] =
+      await getAllCodeRefsForOrg({
         context: req.context,
-      }
-    );
+      });
 
     const existingCodeRefsForRepoBranch = allExistingCodeRefs.filter(
-      (codeRef) => codeRef.repo === repo && codeRef.branch === branch
+      (codeRef) => codeRef.repo === repo && codeRef.branch === branch,
     );
 
     const existingFeatures = [
       ...new Set(
-        existingCodeRefsForRepoBranch.map((codeRef) => codeRef.feature)
+        existingCodeRefsForRepoBranch.map((codeRef) => codeRef.feature),
       ),
     ];
 
@@ -38,7 +37,7 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
 
     if (deleteMissing) {
       featuresToRemove = existingFeatures.filter(
-        (feature) => !requestedFeatures.has(feature)
+        (feature) => !requestedFeatures.has(feature),
       );
 
       // Remove references for features not in the request by setting empty refs
@@ -51,7 +50,7 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
             codeRefs: [], // Empty array will replace all existing refs
             organization: req.context.org,
           });
-        })
+        }),
       );
     }
 
@@ -65,7 +64,7 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
           codeRefs: refs,
           organization: req.context.org,
         });
-      })
+      }),
     );
 
     // Get all features that were updated (both added/updated and removed)
@@ -81,5 +80,5 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
         })
       ).map((f) => f.feature),
     };
-  }
+  },
 );

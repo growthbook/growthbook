@@ -31,7 +31,7 @@ const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
 
   const informationSchema = await getInformationSchemaById(
     organization,
-    informationSchemaId
+    informationSchemaId,
   );
 
   if (!datasource || !informationSchema) return;
@@ -40,7 +40,7 @@ const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
     await updateDatasourceInformationSchema(
       context,
       datasource,
-      informationSchema
+      informationSchema,
     );
   } catch (e) {
     const error: InformationSchemaError = {
@@ -55,7 +55,7 @@ const updateInformationSchema = async (job: UpdateInformationSchemaJob) => {
     }
     const informationSchema = await getInformationSchemaByDatasourceId(
       datasource.id,
-      organization
+      organization,
     );
     if (informationSchema) {
       await updateInformationSchemaById(organization, informationSchema.id, {
@@ -76,7 +76,7 @@ export default function (ag: Agenda) {
 export async function queueUpdateInformationSchema(
   datasourceId: string,
   organization: string,
-  informationSchemaId: string
+  informationSchemaId: string,
 ) {
   if (!datasourceId || !organization) return;
 

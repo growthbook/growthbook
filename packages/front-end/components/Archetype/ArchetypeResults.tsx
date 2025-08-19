@@ -18,19 +18,16 @@ const ArchetypeResults: FC<{
   onChange: () => void;
 }> = ({ feature, archetype, featureResults, onChange }) => {
   const enableAdvDebug = false;
-  const [showExpandedResults, setShowExpandedResults] = useState<boolean>(
-    false
-  );
+  const [showExpandedResults, setShowExpandedResults] =
+    useState<boolean>(false);
   const [showExpandedResultsId, setShowExpandedResultsId] = useState<
     string | null
   >(null);
   const [showExpandedResultsEnv, setShowExpandedResultsEnv] = useState<
     string | null
   >(null);
-  const [
-    editArchetype,
-    setEditArchetype,
-  ] = useState<Partial<ArchetypeInterface> | null>(null);
+  const [editArchetype, setEditArchetype] =
+    useState<Partial<ArchetypeInterface> | null>(null);
 
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -43,12 +40,8 @@ const ArchetypeResults: FC<{
   Object.keys(featureResults).map((id) => {
     const res = featureResults[id];
     res.map((tr: FeatureTestResult) => {
-      const {
-        matchedRule,
-        matchedRuleName,
-        brief,
-        debugLog,
-      } = parseFeatureResult(tr);
+      const { matchedRule, matchedRuleName, brief, debugLog } =
+        parseFeatureResult(tr);
       detailsMap.set(id + tr.env, {
         matchedRuleName,
         matchedRule,
@@ -149,7 +142,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     JSON.parse(details.archetype.attributes),
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -161,7 +154,7 @@ const ArchetypeResults: FC<{
                     code={JSON.stringify(
                       details.results.result.experimentResult,
                       null,
-                      2
+                      2,
                     )}
                   />
                 </div>
@@ -182,7 +175,7 @@ const ArchetypeResults: FC<{
                   code={JSON.stringify(
                     details.results?.featureDefinition,
                     null,
-                    2
+                    2,
                   )}
                 />
               </div>
@@ -285,7 +278,7 @@ const ArchetypeResults: FC<{
                             <span className="text-muted">disabled</span>
                           )}
                         </td>
-                      )
+                      ),
                     )}
                 </tr>
                 {showExpandedResults &&
@@ -293,8 +286,8 @@ const ArchetypeResults: FC<{
                     <>
                       {expandedResults(
                         detailsMap.get(
-                          showExpandedResultsId + showExpandedResultsEnv
-                        )
+                          showExpandedResultsId + showExpandedResultsEnv,
+                        ),
                       )}
                     </>
                   )}

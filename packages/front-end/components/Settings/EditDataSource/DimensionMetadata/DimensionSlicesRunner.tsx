@@ -34,7 +34,7 @@ type DimensionSlicesRunnerProps = {
   datasourceId: string;
   customDimensionMetadata: CustomDimensionMetadata[];
   setCustomDimensionMetadata: (
-    customDimensionMetadata: CustomDimensionMetadata[]
+    customDimensionMetadata: CustomDimensionMetadata[],
   ) => void;
   dimensionSlices?: DimensionSlicesInterface;
   mutateDimensionSlices: () => void;
@@ -61,7 +61,7 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
 
   const { status } = getQueryStatus(
     dimensionSlices?.queries ?? [],
-    dimensionSlices?.error ?? ""
+    dimensionSlices?.error ?? "",
   );
 
   const asyncQueriesButton = dimensionSlices?.queries ? (
@@ -141,7 +141,9 @@ export const DimensionSlicesRunner: FC<DimensionSlicesRunnerProps> = ({
       {status === "succeeded" && dimensionSlices?.results.length === 0 ? (
         <div className="alert alert-warning mt-2">
           <p className="mb-0">
-            <strong>No experiment assignment rows found in data source.</strong>{" "}
+            <strong>
+              No experiment assignment rows found in data source.
+            </strong>{" "}
           </p>{" "}
           <p className="mb-0">
             Ensure that your Experiment Assignment Query is correctly specified
@@ -228,7 +230,7 @@ const RefreshData = ({
 export const DimensionSlicesResults: FC<{
   customDimensionMetadata: CustomDimensionMetadata[];
   setCustomDimensionMetadata: (
-    customDimensionMetadata: CustomDimensionMetadata[]
+    customDimensionMetadata: CustomDimensionMetadata[],
   ) => void;
   dimensionSlices?: DimensionSlicesInterface;
   status: QueryStatus;
@@ -258,7 +260,7 @@ export const DimensionSlicesResults: FC<{
 
   const updatePriority = (dimension: string, priority: number) => {
     const oldPriority = customDimensionMetadata.find(
-      (v) => v.dimension === dimension
+      (v) => v.dimension === dimension,
     )?.priority;
 
     const newCustomDimensionMetadata: CustomDimensionMetadata[] = [];
@@ -292,17 +294,17 @@ export const DimensionSlicesResults: FC<{
         .find((d) => d.dimension === dimension)
         ?.dimensionSlices.map((s) => s.name) || [];
 
-    const newMetadata: CustomDimensionMetadata[] = [];
-    customDimensionMetadata.forEach((v) => {
+    const newMetadata = customDimensionMetadata.map((v) => {
       if (v.dimension === dimension) {
-        newMetadata.push({
+        return {
           dimension,
-          customSlicesArray: trafficValues,
+          customSlicesArray:
+            v.customSlicesArray === undefined ? trafficValues : undefined,
           priority: v.priority,
-        });
-      } else {
-        newMetadata.push(v);
+        };
       }
+
+      return v;
     });
 
     setCustomDimensionMetadata(newMetadata);
@@ -330,7 +332,7 @@ export const DimensionSlicesResults: FC<{
         <tbody>
           {customDimensionMetadata.map((metadata) => {
             const dimensionValueResult = dimensionSlices?.results.find(
-              (d) => d.dimension === metadata.dimension
+              (d) => d.dimension === metadata.dimension,
             );
             let totalPercent = 0;
             return (
@@ -353,7 +355,7 @@ export const DimensionSlicesResults: FC<{
                                 </code>
                               </Fragment>
                               <span>{` (${smallPercentFormatter.format(
-                                d.percent / 100.0
+                                d.percent / 100.0,
                               )})`}</span>
                             </>
                           );
@@ -362,14 +364,14 @@ export const DimensionSlicesResults: FC<{
                       <div>
                         {" "}
                         All other values:
-                        <Fragment key={`${metadata.dimension}--1`}>
+                        <Fragment key={`${metadata.dimension}--other`}>
                           {" "}
                           <code key={`${metadata.dimension}-code-_other_`}>
                             __Other__
                           </code>
                         </Fragment>
                         <span>{` (${smallPercentFormatter.format(
-                          (100.0 - totalPercent) / 100.0
+                          (100.0 - totalPercent) / 100.0,
                         )})`}</span>
                       </div>
                     </>
@@ -379,11 +381,11 @@ export const DimensionSlicesResults: FC<{
                       (!dimensionSlices || !dimensionValueResult)
                         ? "Run dimension slices query to populate"
                         : status === "succeeded" &&
-                          dimensionSlices?.results?.length === 0
-                        ? "No data found"
-                        : status === "running"
-                        ? "Updating data"
-                        : ""}
+                            dimensionSlices?.results?.length === 0
+                          ? "No data found"
+                          : status === "running"
+                            ? "Updating data"
+                            : ""}
                     </div>
                   )}
                 </td>
@@ -396,12 +398,12 @@ export const DimensionSlicesResults: FC<{
                           onChange={(values) =>
                             updateCustomSelectedSlices(
                               metadata.dimension,
-                              values
+                              values,
                             )
                           }
                           options={(
                             dimensionValueResult?.dimensionSlices.map(
-                              (d) => d.name
+                              (d) => d.name,
                             ) ?? []
                           )
                             .concat(metadata?.customSlicesArray || [])
@@ -454,7 +456,7 @@ export const DimensionSlicesResults: FC<{
                         (_, i) => ({
                           value: (i + 1).toString(),
                           label: (i + 1).toString(),
-                        })
+                        }),
                       )}
                     />
                   </td>

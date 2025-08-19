@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import "openai/shims/node";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { getAuthConnection } from "back-end/src/services/auth";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
@@ -22,7 +21,7 @@ jest.mock("back-end/src/services/auth", () => ({
 
 jest.mock("back-end/src/middleware/authenticateApiRequestMiddleware", () => ({
   ...jest.requireActual(
-    "back-end/src/middleware/authenticateApiRequestMiddleware"
+    "back-end/src/middleware/authenticateApiRequestMiddleware",
   ),
   __esModule: true,
   default: jest.fn(),

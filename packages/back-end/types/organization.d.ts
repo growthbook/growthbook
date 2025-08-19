@@ -13,12 +13,14 @@ import {
   LicenseInterface,
   SubscriptionInfo,
 } from "shared/enterprise";
+import { TiktokenModel } from "@dqbd/tiktoken";
 import { environment } from "back-end/src/routers/environment/environment.validators";
 import type { ReqContextClass } from "back-end/src/services/context";
 import { attributeDataTypes } from "back-end/src/util/organization.util";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { TeamInterface } from "back-end/types/team";
+import { AgreementType } from "back-end/src/validators/agreements";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 import {
@@ -27,9 +29,10 @@ import {
   MetricWindowSettings,
 } from "./fact-table";
 
-export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
-export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
-export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
+export type EnvScopedPermission = (typeof ENV_SCOPED_PERMISSIONS)[number];
+export type ProjectScopedPermission =
+  (typeof PROJECT_SCOPED_PERMISSIONS)[number];
+export type GlobalPermission = (typeof GLOBAL_PERMISSIONS)[number];
 
 export type Permission =
   | GlobalPermission
@@ -160,7 +163,7 @@ export interface Namespaces {
 
 export type SDKAttributeFormat = "" | "version" | "date" | "isoCountryCode";
 
-export type SDKAttributeType = typeof attributeDataTypes[number];
+export type SDKAttributeType = (typeof attributeDataTypes)[number];
 
 export type SDKAttribute = {
   property: string;
@@ -212,6 +215,8 @@ export interface OrganizationSettings {
   regressionAdjustmentDays?: number;
   runHealthTrafficQuery?: boolean;
   srmThreshold?: number;
+  aiEnabled?: boolean;
+  openAIDefaultModel?: TiktokenModel;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
@@ -224,6 +229,7 @@ export interface OrganizationSettings {
   defaultDataSource?: string;
   testQueryDays?: number;
   disableMultiMetricQueries?: boolean;
+  disablePrecomputedDimensions?: boolean;
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;
   codeReferencesEnabled?: boolean;
@@ -354,6 +360,7 @@ export type GetOrganizationResponse = {
   members: ExpandedMember[];
   seatsInUse: number;
   roles: Role[];
+  agreements: AgreementType[];
   apiKeys: ApiKeyInterface[];
   enterpriseSSO: Partial<SSOConnectionInterface> | null;
   accountPlan: AccountPlan;

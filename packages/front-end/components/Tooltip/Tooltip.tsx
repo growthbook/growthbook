@@ -32,6 +32,7 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   trackingEventTooltipType?: string;
   trackingEventTooltipSource?: string;
   delay?: number; // Delay in milliseconds before showing the tooltip
+  flipTheme?: boolean;
 }
 const Tooltip: FC<Props> = ({
   body,
@@ -49,6 +50,7 @@ const Tooltip: FC<Props> = ({
   trackingEventTooltipType,
   trackingEventTooltipSource,
   delay = 300,
+  flipTheme = true,
   ...otherProps
 }) => {
   const [open, setOpen] = useState(state ?? false);
@@ -118,7 +120,7 @@ const Tooltip: FC<Props> = ({
       ],
       placement: tipPosition,
       strategy: "fixed",
-    }
+    },
   );
 
   if (!children && children !== 0) children = <GBInfo />;
@@ -138,7 +140,7 @@ const Tooltip: FC<Props> = ({
     <>
       {open && body && shouldDisplay && (
         <Box style={{ position: "absolute" }}>
-          <RadixTheme flip={true}>
+          <RadixTheme flip={flipTheme}>
             <Box
               ref={tooltipRef}
               onMouseEnter={ignoreMouseEvents ? undefined : handleMouseEnter}
@@ -154,7 +156,7 @@ const Tooltip: FC<Props> = ({
               className={clsx(
                 "shadow-lg gb-tooltip",
                 fadeIn ? "tooltip-visible" : "tooltip-hidden",
-                popperClassName
+                popperClassName,
               )}
               role="tooltip"
             >

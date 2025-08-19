@@ -26,7 +26,7 @@ async function fireUpdateWebhook(agenda: Agenda) {
 
 async function queueFeatureUpdate(
   agenda: Agenda,
-  feature: { id: string; organization: string }
+  feature: { id: string; organization: string },
 ) {
   const job = agenda.create(UPDATE_SINGLE_FEATURE, {
     featureId: feature.id,
@@ -71,7 +71,7 @@ const updateSingleFeature = async (job: UpdateSingleFeatureJob) => {
     // Recalculate the feature's new nextScheduledUpdate
     const nextScheduledUpdate = getNextScheduledUpdate(
       feature.environmentSettings || {},
-      context.environments
+      context.environments,
     );
 
     // Update the feature in Mongo

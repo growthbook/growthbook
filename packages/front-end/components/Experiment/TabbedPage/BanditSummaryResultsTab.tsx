@@ -45,13 +45,13 @@ export default function BanditSummaryResultsTab({
     `banditSummaryResultsChartMode__${isPublic ? "public__" : ""}${
       experiment.id
     }`,
-    "values"
+    "values",
   );
   const [chartType, setChartType] = useLocalStorage<"area" | "line">(
     `banditSummaryResultsChartType__${isPublic ? "public__" : ""}${
       experiment.id
     }`,
-    "area"
+    "area",
   );
   const numPhases = experiment.phases.length;
   const [phase, setPhase] = useState<number>(experiment.phases.length - 1);
@@ -78,7 +78,7 @@ export default function BanditSummaryResultsTab({
   const event: BanditEvent | undefined =
     phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
   const users = experiment.variations.map(
-    (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0
+    (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((acc, cur) => acc + cur, 0);
 
@@ -135,7 +135,7 @@ export default function BanditSummaryResultsTab({
             <SRMWarning
               srm={
                 latest
-                  ? getSRMValue("multi-armed-bandit", latest) ?? Infinity
+                  ? (getSRMValue("multi-armed-bandit", latest) ?? Infinity)
                   : Infinity
               }
               users={users}
@@ -157,7 +157,7 @@ export default function BanditSummaryResultsTab({
                   ? getRenderLabelColumn(
                       false,
                       "bayesian",
-                      isPublic
+                      isPublic,
                     )("", metric)
                   : null}
               </div>
@@ -248,8 +248,8 @@ export default function BanditSummaryResultsTab({
                 chartMode === "values"
                   ? undefined
                   : chartMode === "probabilities"
-                  ? "Probability of Winning"
-                  : "Variation Weight"
+                    ? "Probability of Winning"
+                    : "Variation Weight"
               }
               mode={chartMode}
               type={chartMode === "values" ? "line" : chartType}

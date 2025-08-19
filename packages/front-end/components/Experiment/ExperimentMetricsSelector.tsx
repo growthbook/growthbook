@@ -20,6 +20,8 @@ export interface Props {
   goalDisabled?: boolean;
   collapseSecondary?: boolean;
   collapseGuardrail?: boolean;
+  goalMetricsDescription?: string;
+  filterConversionWindowMetrics?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -39,12 +41,14 @@ export default function ExperimentMetricsSelector({
   goalDisabled,
   collapseSecondary,
   collapseGuardrail,
+  goalMetricsDescription,
+  filterConversionWindowMetrics,
 }: Props) {
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
-    !!collapseSecondary && secondaryMetrics.length === 0
+    !!collapseSecondary && secondaryMetrics.length === 0,
   );
   const [guardrailCollapsed, setGuardrailCollapsed] = useState<boolean>(
-    !!collapseGuardrail && guardrailMetrics.length === 0
+    !!collapseGuardrail && guardrailMetrics.length === 0,
   );
   return (
     <>
@@ -59,9 +63,11 @@ export default function ExperimentMetricsSelector({
             style={{ color: "var(--color-text-mid)" }}
             className="mb-1"
           >
-            {!forceSingleGoalMetric
-              ? "The primary metrics you are trying to improve with this experiment. "
-              : "Choose the goal metric that will be used to update variation weights. "}
+            {goalMetricsDescription
+              ? goalMetricsDescription
+              : !forceSingleGoalMetric
+                ? "The primary metrics you are trying to improve with this experiment. "
+                : "Choose the goal metric that will be used to update variation weights. "}
           </Text>
           <MetricsSelector
             selected={goalMetrics}
@@ -74,6 +80,7 @@ export default function ExperimentMetricsSelector({
             forceSingleMetric={forceSingleGoalMetric}
             includeGroups={!forceSingleGoalMetric}
             noPercentile={noPercentileGoalMetrics}
+            filterConversionWindowMetrics={filterConversionWindowMetrics}
             disabled={disabled || goalDisabled}
           />
         </div>
@@ -110,6 +117,7 @@ export default function ExperimentMetricsSelector({
                 exposureQueryId={exposureQueryId}
                 project={project}
                 includeFacts={true}
+                filterConversionWindowMetrics={filterConversionWindowMetrics}
                 disabled={disabled}
               />
             </>
@@ -147,6 +155,7 @@ export default function ExperimentMetricsSelector({
                 exposureQueryId={exposureQueryId}
                 project={project}
                 includeFacts={true}
+                filterConversionWindowMetrics={filterConversionWindowMetrics}
                 disabled={disabled}
               />
             </>

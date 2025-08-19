@@ -4,7 +4,7 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
-import React from "react";
+import React, { ReactElement } from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "back-end/types/stats";
 import {
@@ -24,6 +24,7 @@ interface MetricToolTipCompProps {
   statsEngine?: StatsEngine;
   reportRegressionAdjustmentEnabled?: boolean;
   hideDetails?: boolean;
+  extraInfo?: ReactElement | string;
 }
 
 interface MetricInfo {
@@ -39,6 +40,7 @@ const MetricTooltipBody = ({
   statsEngine,
   reportRegressionAdjustmentEnabled,
   hideDetails,
+  extraInfo,
 }: MetricToolTipCompProps): React.ReactElement => {
   function validMetricDescription(description: string): boolean {
     if (!description) return false;
@@ -109,7 +111,7 @@ const MetricTooltipBody = ({
         (metric.windowSettings.windowValue !== 0 ||
           metricOverrideFields.includes("windowHours")),
       label: `${capitalizeFirstLetter(
-        metric.windowSettings.type || "no"
+        metric.windowSettings.type || "no",
       )} Window`,
       body: (
         <>
@@ -207,6 +209,7 @@ const MetricTooltipBody = ({
       <h4>
         <MetricName id={metric.id} showOfficialLabel disableTooltip />
       </h4>
+      {extraInfo}
       <table className="table gbtable mb-0">
         <tbody>
           {metricInfo

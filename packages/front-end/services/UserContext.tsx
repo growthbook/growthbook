@@ -36,6 +36,7 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { useFeature } from "@growthbook/growthbook-react";
+import { AgreementType } from "back-end/src/validators/agreements";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -55,11 +56,11 @@ export interface PermissionFunctions {
   check(
     permission: EnvScopedPermission,
     project: string[] | string | undefined,
-    envs: string[]
+    envs: string[],
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string[] | string | undefined
+    project: string[] | string | undefined,
   ): boolean;
 }
 
@@ -110,6 +111,7 @@ export interface UserContextValue {
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
+  agreements?: AgreementType[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
@@ -152,6 +154,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  agreements: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -193,7 +196,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
 
-  const { data, mutate: mutateUser, error } = useApi<UserResponse>(`/user`, {
+  const {
+    data,
+    mutate: mutateUser,
+    error,
+  } = useApi<UserResponse>(`/user`, {
     shouldRun: () => isAuthenticated,
     orgScoped: false,
   });
@@ -244,7 +251,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           }
           return res;
         },
-        []
+        [],
       );
       return { ...team, members: hydratedMembers };
     });
@@ -383,7 +390,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     (
       permission: Permission,
       project?: string[] | string,
-      envs?: string[]
+      envs?: string[],
     ): boolean => {
       if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
         return false;
@@ -392,10 +399,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         currentOrg.currentUserPermissions,
         permission,
         project,
-        envs ? [...envs] : undefined
+        envs ? [...envs] : undefined,
       );
     },
-    [currentOrg, data?.userId]
+    [currentOrg, data?.userId],
   );
 
   const permissions = useMemo(() => {
@@ -428,7 +435,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      }
+      },
     );
   }, [currentOrg?.currentUserPermissions]);
 
@@ -438,7 +445,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       if (!u && fallback) return id;
       return u?.name || u?.email || "";
     },
-    [users]
+    [users],
   );
 
   const watching = useMemo(() => {
@@ -509,6 +516,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
+        agreements: currentOrg?.agreements || [],
         apiKeys: currentOrg?.apiKeys || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,

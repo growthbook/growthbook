@@ -37,32 +37,24 @@ export default function UpgradeModal({
   const { apiCall } = useAuth();
 
   const [loading, setLoading] = useState(false);
-  const [
-    trialAndUpgradePreference,
-    setTrialAndUpgradePreference,
-  ] = useState<string>("upgrade");
+  const [trialAndUpgradePreference, setTrialAndUpgradePreference] =
+    useState<string>("upgrade");
   const [showSHProTrial, setShowSHProTrial] = useState(false);
   const [showSHProTrialSuccess, setShowSHProTrialSuccess] = useState(false);
   const [showSHEnterpriseTrial, setShowSHEnterpriseTrial] = useState(false);
-  const [
-    showSHEnterpriseTrialSuccess,
-    setShowSHEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showSHEnterpriseTrialSuccess, setShowSHEnterpriseTrialSuccess] =
+    useState(false);
 
-  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] = useState(
-    false
-  );
-  const [
-    showCloudEnterpriseTrialSuccess,
-    setShowCloudEnterpriseTrialSuccess,
-  ] = useState(false);
+  const [showCloudEnterpriseTrial, setShowCloudEnterpriseTrial] =
+    useState(false);
+  const [showCloudEnterpriseTrialSuccess, setShowCloudEnterpriseTrialSuccess] =
+    useState(false);
   const [cloudProUpgradeSetup, setCloudProUpgradeSetup] = useState<{
     clientSecret: string;
   } | null>(null);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
-  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] = useState(
-    false
-  );
+  const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] =
+    useState(false);
   const {
     name,
     email,
@@ -112,7 +104,7 @@ export default function UpgradeModal({
   const notice =
     license?.dateExpires && new Date(license?.dateExpires) < now
       ? `${licensePlanText} license expired ${date(
-          license.dateExpires || ""
+          license.dateExpires || "",
         )}. Renew to regain access to ${licensePlanText} features and higher usage limits.`
       : null;
 
@@ -131,15 +123,6 @@ export default function UpgradeModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (
-      ["enterprise"].includes(effectiveAccountPlan || "") &&
-      !license?.isTrial
-    ) {
-      close();
-    }
-  }, [effectiveAccountPlan, license, close]);
-
   const startPro = async () => {
     setError("");
     setLoading(true);
@@ -151,7 +134,7 @@ export default function UpgradeModal({
         if (res && res.url) {
           track(
             "Start Stripe Checkout For Pro With Existing Subscription",
-            trackContext
+            trackContext,
           );
           await redirectWithTimeout(res.url);
         } else {
@@ -182,7 +165,7 @@ export default function UpgradeModal({
         if (resp.session?.url) {
           track(
             "Start Stripe Checkout For Pro Without Existing Subscription",
-            trackContext
+            trackContext,
           );
           await redirectWithTimeout(resp.session.url);
         } else {
@@ -200,7 +183,7 @@ export default function UpgradeModal({
     const newWindow = window.open(
       "https://www.growthbook.io/demo",
       "_blank",
-      "noreferrer"
+      "noreferrer",
     );
     if (newWindow) newWindow.opener = null;
   }
@@ -236,7 +219,7 @@ export default function UpgradeModal({
         ...trackContext,
       });
       setError(
-        `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`
+        `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`,
       );
     }
   };
@@ -282,17 +265,17 @@ export default function UpgradeModal({
       switch (txt) {
         case "active license exists":
           setError(
-            "You already have an active license key. Contact us at sales@growthbook.io for more information."
+            "You already have an active license key. Contact us at sales@growthbook.io for more information.",
           );
           break;
         case "expired license exists":
           setError(
-            "Your license key has already expired. Please contact us at sales@growthbook.io for more information."
+            "Your license key has already expired. Please contact us at sales@growthbook.io for more information.",
           );
           break;
         default:
           setError(
-            `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`
+            `There was a server error: ${txt}. Please try again later, or contact us at sales@growthbook.io`,
           );
       }
     }
@@ -610,7 +593,7 @@ export default function UpgradeModal({
                   onClick={() => {
                     track(
                       "Clicked See Recent Usage From Upgrade Modal",
-                      trackContext
+                      trackContext,
                     );
                   }}
                 >
@@ -684,6 +667,28 @@ export default function UpgradeModal({
         await startProTrial(name, email);
       }
     }
+  }
+
+  // Safety check in case an Enterprise org found themselves here
+  if (accountPlan === "enterprise") {
+    return (
+      <Modal
+        trackingEventModalType="upgrade-modal"
+        allowlistedTrackingEventProps={trackContext}
+        open={true}
+        includeCloseCta={true}
+        closeCta="Close"
+        close={close}
+        size="lg"
+        header={null}
+        showHeaderCloseButton={false}
+        ctaEnabled={permissionsUtil.canManageBilling()}
+      >
+        <Callout status="info" mr="5" mb="2">
+          Your organization is already on GrowthBook&apos;s highest plan.
+        </Callout>
+      </Modal>
+    );
   }
 
   return (
@@ -817,8 +822,8 @@ export default function UpgradeModal({
               {showEnterpriseTreatment
                 ? "Schedule Call"
                 : trialAndUpgradePreference === "upgrade"
-                ? "Continue"
-                : "Start Trial"}
+                  ? "Continue"
+                  : "Start Trial"}
               <PiCaretRight />
             </>
           }
@@ -829,7 +834,7 @@ export default function UpgradeModal({
           <div
             className={clsx(
               "container-fluid dashboard p-3 ",
-              styles.upgradeModal
+              styles.upgradeModal,
             )}
           >
             {showEnterpriseTreatment ? enterpriseTreatment() : proTreatment()}

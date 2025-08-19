@@ -44,9 +44,10 @@ export const POLICIES = [
   "TemplatesFullAccess",
   "DecisionCriteriaFullAccess",
   "SqlExplorerFullAccess",
+  "HoldoutsFullAccess",
 ] as const;
 
-export type Policy = typeof POLICIES[number];
+export type Policy = (typeof POLICIES)[number];
 
 export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ReadData: ["readData"],
@@ -125,6 +126,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   CustomFieldsFullAccess: ["readData", "manageCustomFields"],
   TemplatesFullAccess: ["readData", "manageTemplates"],
   SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
+  HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -147,6 +149,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "VisualEditorFullAccess",
       "SuperDeleteReports",
       "TemplatesFullAccess",
+      "HoldoutsFullAccess",
     ],
   },
   {
@@ -377,6 +380,10 @@ export const POLICY_METADATA_MAP: Record<
     description:
       "Create, edit, and delete decision criteria, part of the experiment decision framework.",
   },
+  HoldoutsFullAccess: {
+    displayName: "Holdouts Full Access",
+    description: "Create, edit, and delete holdouts",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -447,6 +454,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "DataSourceConfiguration",
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
+      "HoldoutsFullAccess",
     ],
   },
   experimenter: {
@@ -478,6 +486,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "DataSourceConfiguration",
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
+      "HoldoutsFullAccess",
     ],
   },
   admin: {

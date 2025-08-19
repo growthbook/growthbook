@@ -24,13 +24,22 @@ const CustomFieldInput: FC<{
   const availableFields = filterCustomFieldsForSectionAndProject(
     customFields,
     section,
-    project
+    project,
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
 
+  // todo: investigate further: sometimes custom fields are incorrectly provided as strings (e.g. duplicate exp)
+  if (typeof currentCustomFields === "string") {
+    try {
+      currentCustomFields = JSON.parse(currentCustomFields);
+    } catch (e) {
+      currentCustomFields = {};
+    }
+  }
+
   useEffect(() => {
     if (!loadedDefaults) {
-      // here we are setting the defaults values in the form, otherwise
+      // here we are setting the default values in the form, otherwise
       // boolean/toggles or inputs with default values will not be saved.
       if (availableFields) {
         availableFields.forEach((v) => {

@@ -35,7 +35,7 @@ const EditOrganizationModal: FC<{
       submit={form.handleSubmit(async (value) => {
         if (!canEdit) {
           throw new Error(
-            "You do not have permissions to edit this organization"
+            "You do not have permissions to edit this organization",
           );
         }
         if (
@@ -50,7 +50,7 @@ const EditOrganizationModal: FC<{
         } else {
           if (!existingEmails.includes(value.ownerEmail.trim())) {
             throw new Error(
-              "This email is not associated with any user in your organization"
+              "This email is not associated with any user in your organization",
             );
           }
         }

@@ -153,9 +153,17 @@ paths:
     delete:
       $ref: "./paths/deleteProject.yaml"
   /dimensions:
-    $ref: "./paths/listDimensions.yaml"
+    get:
+      $ref: "./paths/listDimensions.yaml"
+    post:
+      $ref: "./paths/postDimension.yaml"
   /dimensions/{id}:
-    $ref: "./paths/getDimension.yaml"
+    get:
+      $ref: "./paths/getDimension.yaml"
+    post:
+      $ref: "./paths/updateDimension.yaml"
+    delete:
+      $ref: "./paths/deleteDimension.yaml"
   /segments:
     $ref: "./paths/listSegments.yaml"
   /segments/{id}:

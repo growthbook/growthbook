@@ -7,10 +7,10 @@ import {
   getCurrentContext,
   getSelectedTables,
   getAutoCompletions,
-  templateCompletions,
 } from "@/services/sqlAutoComplete";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import { InformationSchemaInterfaceWithPaths } from "@/services/datasources";
+import { getTemplateCompletions } from "@/services/sqlKeywords";
 
 const mockSqlKeywords = [
   { value: "SELECT", meta: "CORE_KEYWORD", score: 500, caption: "SELECT" },
@@ -23,6 +23,37 @@ const mockSqlKeywords = [
 // Mock the sqlKeywords module to return a predictable small set of keywords
 vi.mock("@/services/sqlKeywords", () => ({
   getSqlKeywords: vi.fn(() => mockSqlKeywords),
+  getTemplateCompletions: vi.fn((source: "EditSqlModal" | "SqlExplorer") => {
+    if (source === "EditSqlModal") {
+      return [
+        {
+          value: `'{{ startDate }}'`,
+          meta: "TEMPLATE_VARIABLE",
+          score: 800,
+          caption: `{{ startDate }}`,
+        },
+        {
+          value: `'{{ startDateISO }}'`,
+          meta: "TEMPLATE_VARIABLE",
+          score: 800,
+          caption: `{{ startDateISO }}`,
+        },
+        {
+          value: `'{{ endDate }}'`,
+          meta: "TEMPLATE_VARIABLE",
+          score: 800,
+          caption: `{{ endDate }}`,
+        },
+        {
+          value: `'{{ endDateISO }}'`,
+          meta: "TEMPLATE_VARIABLE",
+          score: 800,
+          caption: `{{ endDateISO }}`,
+        },
+      ];
+    }
+    return [];
+  }),
   COMPLETION_SCORES: {
     CORE_KEYWORD: 500,
     COLUMN: 900,
@@ -256,7 +287,7 @@ const createMockFunction = (returnValue: ApiCallReturn): ApiCallFunction => {
 
 // Mock API call function
 const mockApiCall = createMockFunction(
-  Promise.resolve({ table: mockTableData })
+  Promise.resolve({ table: mockTableData }),
 );
 
 // Helper to reset mocks
@@ -420,7 +451,7 @@ describe("getSelectedTables", () => {
     };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual(["table-users-123"]);
   });
@@ -435,7 +466,7 @@ describe("getSelectedTables", () => {
     };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual(["table-users-123", "table-events-456"]);
   });
@@ -448,7 +479,7 @@ describe("getSelectedTables", () => {
     };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual(["table-users-123"]);
   });
@@ -461,7 +492,7 @@ describe("getSelectedTables", () => {
     };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual(["table-users-123"]);
   });
@@ -476,7 +507,7 @@ describe("getSelectedTables", () => {
     };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual(["table-users-123"]);
   });
@@ -491,7 +522,7 @@ describe("getSelectedTables", () => {
     };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual(["table-users-123"]);
   });
@@ -504,7 +535,7 @@ describe("getSelectedTables", () => {
     };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual([]);
   });
@@ -513,7 +544,7 @@ describe("getSelectedTables", () => {
     const cursorData: CursorData = { input: [""], row: 0, column: 0 };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual([]);
   });
@@ -526,7 +557,7 @@ describe("getSelectedTables", () => {
     };
     const result = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result).toEqual([]);
   });
@@ -543,7 +574,7 @@ describe("getSelectedTables", () => {
     };
     const result1 = getSelectedTables(
       cursorData1,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result1).toEqual(["table-users-123"]);
 
@@ -555,7 +586,7 @@ describe("getSelectedTables", () => {
     };
     const result2 = getSelectedTables(
       cursorData2,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(result2).toEqual(["table-users-123"]);
   });
@@ -571,7 +602,8 @@ describe("getAutoCompletions", () => {
       null,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
     expect(result.length).toBe(mockSqlKeywords.length);
     expect(result).toEqual(mockSqlKeywords);
@@ -583,7 +615,8 @@ describe("getAutoCompletions", () => {
       cursorData,
       undefined,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
     expect(result.length).toBe(mockSqlKeywords.length);
     expect(result).toEqual(mockSqlKeywords);
@@ -595,7 +628,8 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
     expect(result.length).toBe(mockSqlKeywords.length);
     expect(result).toEqual(mockSqlKeywords);
@@ -607,11 +641,14 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
 
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
+
     expect(result.length).toBe(
-      mockSqlKeywords.length + templateCompletions.length
+      mockSqlKeywords.length + templateCompletions.length,
     );
     expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
   });
@@ -624,11 +661,13 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     expect(result.length).toBe(
-      mockSqlKeywords.length + templateCompletions.length
+      mockSqlKeywords.length + templateCompletions.length,
     );
     expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
     // Should NOT make API calls since no tables are selected
@@ -645,13 +684,16 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // Should still return SQL keywords + all iterations of databases, schemas, and tables
     expect(result.length).toBe(
       // 9 because there are 3 databases, 2 schemas, and 4 tables
-      mockSqlKeywords.length + templateCompletions.length + 9
+      mockSqlKeywords.length + templateCompletions.length + 9,
     );
   });
 
@@ -665,7 +707,8 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
     // Results should include the 2 schemas in the analytics database + all of the sqlKeywords
     expect(result.length).toBe(mockSqlKeywords.length + 2);
@@ -684,16 +727,17 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
 
     // Should include the 2 tables from analytics.public schema + all of the sqlKeywords
     expect(result.length).toBe(mockSqlKeywords.length + 2);
     expect(result.some((item) => item.caption === "table-users-123")).toBe(
-      true
+      true,
     );
     expect(result.some((item) => item.caption === "table-events-456")).toBe(
-      true
+      true,
     );
     // table-temp-789 is in analytics.staging not analytics.public
     expect(result.some((item) => item.meta === "table-temp-789")).toBe(false);
@@ -709,7 +753,7 @@ describe("getAutoCompletions", () => {
     // First let's check if getSelectedTables finds the table
     const selectedTables = getSelectedTables(
       cursorData,
-      mockInformationSchemaWithPaths
+      mockInformationSchemaWithPaths,
     );
     expect(selectedTables).toEqual(["table-users-123"]);
 
@@ -717,14 +761,17 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // If getSelectedTables works, then API calls should be made
     expect(mockCalls.length).toEqual(1);
     // Should include 3 columns from the table-users-123 table + all of the sqlKeywords + all of the template completions
     expect(result.length).toBe(
-      mockSqlKeywords.length + 3 + templateCompletions.length
+      mockSqlKeywords.length + 3 + templateCompletions.length,
     );
     expect(result).toEqual([
       ...mockColumnSuggestions,
@@ -746,12 +793,15 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // Should include 3 columns from the table-users-123 table + all of the sqlKeywords + all of the template completions
     expect(result.length).toBe(
-      mockSqlKeywords.length + 3 + templateCompletions.length
+      mockSqlKeywords.length + 3 + templateCompletions.length,
     );
     expect(result).toEqual([
       ...mockColumnSuggestions,
@@ -771,12 +821,15 @@ describe("getAutoCompletions", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // Should include 3 columns from the table-users-123 table + all of the sqlKeywords + all of the template completions
     expect(result.length).toBe(
-      mockSqlKeywords.length + 3 + templateCompletions.length
+      mockSqlKeywords.length + 3 + templateCompletions.length,
     );
     expect(result).toEqual([
       ...mockColumnSuggestions,
@@ -801,12 +854,15 @@ describe("Edge Cases", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // Should still return SQL keywords & template completions
     expect(result.length).toBe(
-      mockSqlKeywords.length + templateCompletions.length
+      mockSqlKeywords.length + templateCompletions.length,
     );
     expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
   });
@@ -817,7 +873,8 @@ describe("Edge Cases", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
 
     expect(result.length).toBe(mockSqlKeywords.length);
@@ -834,7 +891,8 @@ describe("Edge Cases", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
 
     expect(result.length).toBe(mockSqlKeywords.length);
@@ -851,7 +909,8 @@ describe("Edge Cases", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
 
     expect(result.length).toEqual(mockSqlKeywords.length);
@@ -870,12 +929,15 @@ describe("Edge Cases", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      failingApiCall
+      failingApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // Should still return SQL keywords & template completions
     expect(result.length).toBe(
-      mockSqlKeywords.length + templateCompletions.length
+      mockSqlKeywords.length + templateCompletions.length,
     );
     expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
   });
@@ -890,13 +952,16 @@ describe("Edge Cases", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // Should still return SQL keywords + all iterations of databases, schemas, and tables
     expect(result.length).toBe(
       // 9 because there are 3 databases, 2 schemas, and 4 tables
-      mockSqlKeywords.length + templateCompletions.length + 9
+      mockSqlKeywords.length + templateCompletions.length + 9,
     );
   });
 
@@ -910,13 +975,16 @@ describe("Edge Cases", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // Should still return SQL keywords + all iterations of databases, schemas, and tables
     expect(result.length).toBe(
       // 9 because there are 3 databases, 2 schemas, and 4 tables
-      mockSqlKeywords.length + templateCompletions.length + 9
+      mockSqlKeywords.length + templateCompletions.length + 9,
     );
   });
 
@@ -931,12 +999,15 @@ describe("Edge Cases", () => {
       cursorData,
       mockInformationSchema,
       "bigquery",
-      mockApiCall
+      mockApiCall,
+      "EditSqlModal",
     );
+
+    const templateCompletions = getTemplateCompletions("EditSqlModal");
 
     // If there is no known table, we return the SQL keywords & template completions
     expect(result.length).toBe(
-      mockSqlKeywords.length + templateCompletions.length
+      mockSqlKeywords.length + templateCompletions.length,
     );
     expect(result).toEqual([...templateCompletions, ...mockSqlKeywords]);
   });

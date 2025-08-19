@@ -18,12 +18,12 @@ export const listCodeRefs = createApiRequestHandler(listCodeRefsValidator)(
 
     const { filtered, returnFields } = applyPagination(
       allCodeRefs.sort((a, b) => uniqueId(a).localeCompare(uniqueId(b))),
-      req.query
+      req.query,
     );
 
     return {
       codeRefs: filtered.map(toApiInterface),
       ...returnFields,
     };
-  }
+  },
 );

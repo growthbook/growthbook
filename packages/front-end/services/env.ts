@@ -19,11 +19,13 @@ const env: EnvironmentInitValue = {
   usingSSO: false,
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
+  allowCreateDimensions: true,
   usingFileProxy: false,
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
   stripePublishableKey: "",
   experimentRefreshFrequency: 6,
+  hasOpenAIKey: false,
 };
 
 export async function initEnv() {
@@ -81,6 +83,9 @@ export function hasFileConfig() {
 export function envAllowsCreatingMetrics() {
   return env.allowCreateMetrics;
 }
+export function envAllowsCreatingDimensions() {
+  return env.allowCreateDimensions;
+}
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;
 }
@@ -112,6 +117,9 @@ export function getIngestorHost() {
 
 export function getStripePublishableKey() {
   return env.stripePublishableKey;
+}
+export function hasOpenAIKey() {
+  return env.hasOpenAIKey || false;
 }
 
 export function getExperimentRefreshFrequency() {

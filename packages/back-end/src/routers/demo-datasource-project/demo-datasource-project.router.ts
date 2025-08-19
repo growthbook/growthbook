@@ -7,7 +7,7 @@ import * as rawDemoDatasourceProjectController from "./demo-datasource-project.c
 const router = express.Router();
 
 const demoDatasourceProjectController = wrapController(
-  rawDemoDatasourceProjectController
+  rawDemoDatasourceProjectController,
 );
 
 router.post(
@@ -15,7 +15,7 @@ router.post(
   validateRequestMiddleware({
     body: z.object({}).strict(),
   }),
-  demoDatasourceProjectController.postDemoDatasourceProject
+  demoDatasourceProjectController.postDemoDatasourceProject,
 );
 
 export { router as demoDatasourceProjectRouter };

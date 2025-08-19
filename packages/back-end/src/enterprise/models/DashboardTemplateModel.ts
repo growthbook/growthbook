@@ -43,7 +43,7 @@ export class DashboardTemplateModel extends BaseClass {
 
   protected canUpdate(
     existing: DashboardTemplateDocument,
-    updates: UpdateProps<DashboardTemplateDocument>
+    updates: UpdateProps<DashboardTemplateDocument>,
   ): boolean {
     if (!this.context.hasPremiumFeature("dashboards"))
       throw new Error("Must have a commercial License Key to use Dashboards");

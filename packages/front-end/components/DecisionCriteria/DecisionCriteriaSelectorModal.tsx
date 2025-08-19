@@ -92,7 +92,7 @@ const DecisionCriteriaSelectorModal: FC<DecisionCriteriaSelectorModalProps> = ({
             value={selectedCriteria?.id || ""}
             setValue={(value) => {
               setSelectedCriteria(
-                decisionCriterias.find((c) => c.id === value)
+                decisionCriterias.find((c) => c.id === value),
               );
               form.setValue("decisionCriteriaId", value);
             }}

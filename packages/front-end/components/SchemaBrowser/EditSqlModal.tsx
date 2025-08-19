@@ -75,10 +75,8 @@ export default function EditSqlModal({
   templateVariables,
   setTemplateVariables,
 }: Props) {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const [apply5RowLimit, setApply5RowLimit] = useState(true);
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
@@ -87,7 +85,7 @@ export default function EditSqlModal({
   >();
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
     "sql-editor-autocomplete-enabled",
-    true
+    true,
   );
   const form = useForm({
     defaultValues: {
@@ -108,17 +106,17 @@ export default function EditSqlModal({
 
       const requiredColumnsArray = Array.from(requiredColumns);
       const missingColumns = requiredColumnsArray.filter(
-        (col) => !((col as string) in result)
+        (col) => !((col as string) in result),
       );
 
       if (missingColumns.length > 0) {
         throw new Error(
-          `You are missing the following columns: ${missingColumns.join(", ")}`
+          `You are missing the following columns: ${missingColumns.join(", ")}`,
         );
       }
     },
     // eslint-disable-next-line
-    [Array.from(requiredColumns).join("")]
+    [Array.from(requiredColumns).join("")],
   );
 
   const runTestQuery = useCallback(
@@ -154,7 +152,7 @@ export default function EditSqlModal({
       apply5RowLimit,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
-    ]
+    ],
   );
 
   const handleTestQuery = useCallback(async () => {
@@ -182,7 +180,7 @@ export default function EditSqlModal({
 
   // Update autocompletions when cursor or schema changes
   useEffect(() => {
-    const timeoutId = setTimeout(async () => {
+    const fetchCompletions = async () => {
       if (!isAutocompleteEnabled) {
         setAutoCompletions([]);
         return;
@@ -193,15 +191,20 @@ export default function EditSqlModal({
           informationSchema,
           datasource?.type,
           apiCall,
-          templateVariables?.eventName
+          "EditSqlModal",
+          templateVariables?.eventName,
         );
         setAutoCompletions(completions);
       } catch (error) {
         console.error("Failed to fetch autocompletions:", error);
         setAutoCompletions([]);
       }
-    }, 300); // 300ms debounce
+    };
 
+    // // Debounce: wait 300ms after last change before fetching
+    const timeoutId = setTimeout(fetchCompletions, 200);
+
+    // // Cleanup: cancel if dependencies change again
     return () => clearTimeout(timeoutId);
   }, [
     cursorData,

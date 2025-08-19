@@ -18,7 +18,7 @@ type UpdateStaleInformationSchemaTableJob = Job<{
 }>;
 
 const updateStaleInformationSchemaTable = async (
-  job: UpdateStaleInformationSchemaTableJob
+  job: UpdateStaleInformationSchemaTableJob,
 ) => {
   // console.log("starting the job!");
   const { organization, informationSchemaTableId } = job.attrs.data;
@@ -27,13 +27,13 @@ const updateStaleInformationSchemaTable = async (
 
   const informationSchemaTable = await getInformationSchemaTableById(
     organization,
-    informationSchemaTableId
+    informationSchemaTableId,
   );
 
   if (!informationSchemaTable) {
     logger.error(
       "Unable to find information schema table in order to refresh stale data: " +
-        informationSchemaTableId
+        informationSchemaTableId,
     );
     return;
   }
@@ -42,18 +42,18 @@ const updateStaleInformationSchemaTable = async (
 
   const datasource = await getDataSourceById(
     context,
-    informationSchemaTable.datasourceId
+    informationSchemaTable.datasourceId,
   );
 
   const informationSchema = await getInformationSchemaById(
     organization,
-    informationSchemaTable.informationSchemaId
+    informationSchemaTable.informationSchemaId,
   );
 
   if (!datasource || !informationSchema) {
     logger.error(
       "Unable to find datasource or information schema in order to refresh stale data: " +
-        informationSchemaTableId
+        informationSchemaTableId,
     );
     return;
   }
@@ -63,13 +63,13 @@ const updateStaleInformationSchemaTable = async (
       context,
       datasource,
       informationSchema,
-      informationSchemaTableId
+      informationSchemaTableId,
     );
 
     if (!tableData) {
       logger.error(
         "Unable to fetch table data in order to refresh stale data: " +
-          informationSchemaTableId
+          informationSchemaTableId,
       );
       return;
     }
@@ -80,7 +80,7 @@ const updateStaleInformationSchemaTable = async (
           columnName: row.column_name,
           dataType: row.data_type,
         };
-      }
+      },
     );
 
     // update the information schema table
@@ -90,13 +90,13 @@ const updateStaleInformationSchemaTable = async (
       {
         columns,
         dateUpdated: new Date(),
-      }
+      },
     );
   } catch (e) {
     logger.error(
       e,
       "Unable to refresh stale information schema table for: " +
-        informationSchemaTableId
+        informationSchemaTableId,
     );
   }
 };
@@ -107,13 +107,13 @@ export default function (ag: Agenda) {
 
   agenda.define(
     UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME,
-    updateStaleInformationSchemaTable
+    updateStaleInformationSchemaTable,
   );
 }
 
 export async function queueUpdateStaleInformationSchemaTable(
   organization: string,
-  informationSchemaTableId: string
+  informationSchemaTableId: string,
 ) {
   if (!informationSchemaTableId || !organization) return;
 
