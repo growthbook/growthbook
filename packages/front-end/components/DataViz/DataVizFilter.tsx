@@ -69,10 +69,20 @@ export default function DataVizFilter({
   };
 
   const updateFilterConfig = (
-    configUpdates: Record<string, string | number | string[]>,
+    configUpdates: Record<string, string | number | string[] | undefined>,
   ) => {
     const currentConfig = filters[filterIndex]?.config || {};
-    const newConfig = { ...currentConfig, ...configUpdates };
+    const newConfig = { ...currentConfig };
+
+    // Handle undefined values by deleting the key
+    Object.entries(configUpdates).forEach(([key, value]) => {
+      if (value === undefined) {
+        delete newConfig[key];
+      } else {
+        newConfig[key] = value;
+      }
+    });
+
     updateFilter({ config: newConfig });
   };
 
@@ -277,17 +287,11 @@ export default function DataVizFilter({
                   size="2"
                   type="number"
                   placeholder="Minimum"
+                  required
                   value={filters[filterIndex].config?.min?.toString() || ""}
                   onChange={(e) => {
-                    const value = e.target.value ? e.target.value : undefined;
-                    const currentConfig = filters[filterIndex]?.config || {};
-                    const newConfig = { ...currentConfig };
-                    if (value !== undefined) {
-                      newConfig.min = value;
-                    } else {
-                      delete newConfig.min;
-                    }
-                    updateFilter({ config: newConfig });
+                    const value = e.target.value || undefined;
+                    updateFilterConfig({ min: value });
                   }}
                 />
               </Flex>
@@ -299,18 +303,12 @@ export default function DataVizFilter({
                   style={{ flex: 1 }}
                   size="2"
                   type="number"
+                  required
                   placeholder="Maximum"
                   value={filters[filterIndex].config?.max?.toString() || ""}
                   onChange={(e) => {
-                    const value = e.target.value ? e.target.value : undefined;
-                    const currentConfig = filters[filterIndex]?.config || {};
-                    const newConfig = { ...currentConfig };
-                    if (value !== undefined) {
-                      newConfig.max = value;
-                    } else {
-                      delete newConfig.max;
-                    }
-                    updateFilter({ config: newConfig });
+                    const value = e.target.value || undefined;
+                    updateFilterConfig({ max: value });
                   }}
                 />
               </Flex>
@@ -329,13 +327,12 @@ export default function DataVizFilter({
                 style={{ flex: 1 }}
                 size="2"
                 type="number"
+                required
                 placeholder="Enter value"
                 value={filters[filterIndex].config?.value?.toString() || ""}
                 onChange={(e) => {
-                  const value = e.target.value ? e.target.value : undefined;
-                  if (value !== undefined) {
-                    updateFilterConfig({ value });
-                  }
+                  const value = e.target.value || undefined;
+                  updateFilterConfig({ value });
                 }}
               />
             </Flex>
@@ -351,15 +348,12 @@ export default function DataVizFilter({
                 style={{ flex: 1 }}
                 size="2"
                 type="text"
+                required
                 placeholder="Enter text to search for"
                 value={String(filters[filterIndex].config?.value || "")}
                 onChange={(e) => {
-                  const value = e.target.value
-                    ? String(e.target.value)
-                    : undefined;
-                  if (value !== undefined) {
-                    updateFilterConfig({ value });
-                  }
+                  const value = e.target.value || undefined;
+                  updateFilterConfig({ value });
                 }}
               />
             </Flex>
@@ -404,14 +398,11 @@ export default function DataVizFilter({
                 style={{ flex: 1 }}
                 size="2"
                 type="date"
+                required
                 value={String(filters[filterIndex].config?.startDate || "")}
                 onChange={(e) => {
-                  const value = e.target.value
-                    ? String(e.target.value)
-                    : undefined;
-                  if (value !== undefined) {
-                    updateFilterConfig({ startDate: value });
-                  }
+                  const value = e.target.value || undefined;
+                  updateFilterConfig({ startDate: value });
                 }}
               />
             </Flex>
@@ -423,14 +414,11 @@ export default function DataVizFilter({
                 style={{ flex: 1 }}
                 size="2"
                 type="date"
+                required
                 value={String(filters[filterIndex].config?.endDate || "")}
                 onChange={(e) => {
-                  const value = e.target.value
-                    ? String(e.target.value)
-                    : undefined;
-                  if (value !== undefined) {
-                    updateFilterConfig({ endDate: value });
-                  }
+                  const value = e.target.value || undefined;
+                  updateFilterConfig({ endDate: value });
                 }}
               />
             </Flex>
