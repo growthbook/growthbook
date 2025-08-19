@@ -15,8 +15,11 @@ import { ExperimentInterfaceExcludingHoldouts } from "back-end/src/validators/ex
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
   async (req): Promise<GetExperimentResponse> => {
     const experiment = await getExperimentById(req.context, req.params.id);
-    if (!experiment || experiment.type === "holdout") {
+    if (!experiment) {
       throw new Error("Could not find experiment with that id");
+    }
+    if (experiment.type === "holdout") {
+      throw new Error("Holdouts are not supported via this API");
     }
 
     const settings = req.context.org.settings;

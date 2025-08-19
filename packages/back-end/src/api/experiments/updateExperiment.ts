@@ -23,8 +23,11 @@ export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req): Promise<UpdateExperimentResponse> => {
   const experiment = await getExperimentById(req.context, req.params.id);
-  if (!experiment || experiment.type === "holdout") {
+  if (!experiment) {
     throw new Error("Could not find the experiment to update");
+  }
+  if (experiment.type === "holdout") {
+    throw new Error("Holdouts are not supported via this API");
   }
 
   // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
