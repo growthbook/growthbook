@@ -159,12 +159,12 @@ export function DataVisualizationDisplay({
                 const filterDateOnly = new Date(
                   filterDate.getFullYear(),
                   filterDate.getMonth(),
-                  filterDate.getDate()
+                  filterDate.getDate(),
                 );
                 const todayOnly = new Date(
                   today.getFullYear(),
                   today.getMonth(),
-                  today.getDate()
+                  today.getDate(),
                 );
                 return filterDateOnly.getTime() === todayOnly.getTime();
               }
