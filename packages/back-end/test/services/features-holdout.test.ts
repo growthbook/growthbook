@@ -62,7 +62,7 @@ jest.mock("back-end/src/services/python", () => ({
 }));
 
 describe("getFeatureDefinitions - Holdout Tests", () => {
-  const mockContext = ({
+  const mockContext = {
     org: {
       id: "test-org-id",
       name: "Test Organization",
@@ -88,7 +88,7 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     email: "test@example.com",
     userName: "Test User",
     initModels: jest.fn(),
-  } as unknown) as ReqContext;
+  } as unknown as ReqContext;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -130,8 +130,9 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     ]);
 
     // Mock holdouts
-    (mockContext.models.holdout
-      .getAllPayloadHoldouts as jest.Mock).mockResolvedValue(
+    (
+      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+    ).mockResolvedValue(
       new Map([
         [
           "$holdout:hld_test_holdout",
@@ -154,7 +155,7 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
             },
           },
         ],
-      ])
+      ]),
     );
 
     const result = await getFeatureDefinitions({
@@ -167,7 +168,7 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     // Verify holdout is included
     expect(result.features).toHaveProperty("$holdout:hld_test_holdout");
     expect(result.features["$holdout:hld_test_holdout"].defaultValue).toBe(
-      "genpop"
+      "genpop",
     );
   });
 
@@ -199,8 +200,9 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     ]);
 
     // Mock holdouts
-    (mockContext.models.holdout
-      .getAllPayloadHoldouts as jest.Mock).mockResolvedValue(
+    (
+      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+    ).mockResolvedValue(
       new Map([
         [
           "$holdout:hld_test_holdout",
@@ -223,7 +225,7 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
             },
           },
         ],
-      ])
+      ]),
     );
 
     const result = await getFeatureDefinitions({

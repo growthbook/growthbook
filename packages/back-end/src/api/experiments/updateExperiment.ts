@@ -14,13 +14,16 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateExperimentValidator } from "back-end/src/validators/openapi";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { Variation } from "back-end/src/validators/experiments";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  Variation,
+} from "back-end/src/validators/experiments";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req): Promise<UpdateExperimentResponse> => {
   const experiment = await getExperimentById(req.context, req.params.id);
-  if (!experiment) {
+  if (!experiment || experiment.type === "holdout") {
     throw new Error("Could not find the experiment to update");
   }
 
@@ -163,7 +166,7 @@ export const updateExperiment = createApiRequestHandler(
   }
   const apiExperiment = await toExperimentApiInterface(
     req.context,
-    updatedExperiment,
+    updatedExperiment as ExperimentInterfaceExcludingHoldouts,
   );
   return {
     experiment: apiExperiment,

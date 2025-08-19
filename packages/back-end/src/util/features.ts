@@ -357,7 +357,7 @@ export function getFeatureDefinition({
   // If the feature has a holdout and it's enabled for the environment, add holdout as a
   // pseudo force rule with a prerequisite condition. The environment being enabled is
   // already checked in the getAllPayloadHoldouts function.
-  const holdoutRule: FeatureDefinitionRuleWithHoldout[] =
+  const holdoutRule: FeatureDefinitionRule[] =
     feature.holdout &&
     holdoutsMap &&
     holdoutsMap.get(feature.holdout.id)?.environmentSettings?.[environment]
@@ -405,7 +405,7 @@ export function getFeatureDefinition({
         return isRuleEnabled(r, date);
       })
       ?.map((r) => {
-        const rule: FeatureDefinitionRuleWithHoldout = {
+        const rule: FeatureDefinitionRule = {
           id: r.id,
         };
 

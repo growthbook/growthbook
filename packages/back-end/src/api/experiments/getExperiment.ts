@@ -10,11 +10,12 @@ import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentValidator } from "back-end/src/validators/openapi";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ExperimentInterfaceExcludingHoldouts } from "back-end/src/validators/experiments";
 
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
   async (req): Promise<GetExperimentResponse> => {
     const experiment = await getExperimentById(req.context, req.params.id);
-    if (!experiment) {
+    if (!experiment || experiment.type === "holdout") {
       throw new Error("Could not find experiment with that id");
     }
 
@@ -46,7 +47,7 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment,
+      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: { ...apiExperiment, enhancedStatus },

@@ -51,6 +51,7 @@ import {
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
+  ExperimentInterfaceExcludingHoldouts,
 } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -1416,7 +1417,7 @@ function getExperimentMetric(
 
 export async function toExperimentApiInterface(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
+  experiment: ExperimentInterfaceExcludingHoldouts,
 ): Promise<ApiExperiment> {
   const appOrigin = (APP_ORIGIN ?? "").replace(/\/$/, "");
 

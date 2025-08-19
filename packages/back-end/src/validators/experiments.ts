@@ -327,3 +327,11 @@ export const experimentInterface = z
   .strict()
   .merge(experimentAnalysisSettings);
 export type ExperimentInterface = z.infer<typeof experimentInterface>;
+
+// Excludes "holdout" from the type property for the experiments API
+export type ExperimentInterfaceExcludingHoldouts = Omit<
+  ExperimentInterface,
+  "type"
+> & {
+  type?: Exclude<ExperimentInterface["type"], "holdout">;
+};

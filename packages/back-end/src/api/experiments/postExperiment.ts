@@ -15,7 +15,10 @@ import { getUserByEmail } from "back-end/src/models/UserModel";
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { validateVariationIds } from "back-end/src/controllers/experiments";
-import { Variation } from "back-end/src/validators/experiments";
+import {
+  ExperimentInterfaceExcludingHoldouts,
+  Variation,
+} from "back-end/src/validators/experiments";
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
@@ -146,7 +149,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment,
+      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: apiExperiment,
