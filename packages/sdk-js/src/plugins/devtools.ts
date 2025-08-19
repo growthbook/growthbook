@@ -33,7 +33,7 @@ export interface ExpressRequestCompat {
 
 function applyDevtoolsState(
   devtoolsState: DevtoolsState,
-  gb: GrowthBook | UserScopedGrowthBook
+  gb: GrowthBook | UserScopedGrowthBook,
 ) {
   // Only enable in dev mode
   if (!gb.inDevMode()) {
@@ -63,7 +63,7 @@ export function devtoolsPlugin(devtoolsState?: DevtoolsState): Plugin {
     // Only works for user-scoped GrowthBook instances
     if ("createScopedInstance" in gb) {
       throw new Error(
-        "devtoolsPlugin can only be set on a user-scoped instance"
+        "devtoolsPlugin can only be set on a user-scoped instance",
       );
     }
     if (devtoolsState) {
@@ -189,18 +189,18 @@ export type LogEvent = {
  */
 export function getDebugScriptContents(
   gb: GrowthBook,
-  source?: string
+  source?: string,
 ): string {
   const event = getDebugEvent(gb, source);
   if (!event) return "";
   return `(window._gbdebugEvents = (window._gbdebugEvents || [])).push(${JSON.stringify(
-    event
+    event,
   )});`;
 }
 
 export function getDebugEvent(
   gb: GrowthBook | UserScopedGrowthBook,
-  source?: string
+  source?: string,
 ): LogEvent | null {
   if (!("logs" in gb)) return null;
   // Only enable in dev mode

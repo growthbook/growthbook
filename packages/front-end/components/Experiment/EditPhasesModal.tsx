@@ -32,7 +32,7 @@ export default function EditPhasesModal({
   const isHoldout = experiment.type === "holdout";
 
   const [editPhase, setEditPhase] = useState<number | null>(
-    isDraft && !isMultiPhase ? 0 : null
+    isDraft && !isMultiPhase ? 0 : null,
   );
 
   const { apiCall } = useAuth();
@@ -113,7 +113,7 @@ export default function EditPhasesModal({
                 <td>
                   {phaseSummary(
                     phase,
-                    experiment.type === "multi-armed-bandit"
+                    experiment.type === "multi-armed-bandit",
                   )}
                 </td>
               ) : null}
@@ -147,7 +147,7 @@ export default function EditPhasesModal({
                           `/experiment/${experiment.id}/phase/${i}`,
                           {
                             method: "DELETE",
-                          }
+                          },
                         );
                         mutateExperiment();
                       }}

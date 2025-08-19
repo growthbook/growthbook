@@ -26,9 +26,10 @@ import FeatureTest from "@/components/Features/FeatureTest";
 import { useAuth } from "@/services/auth";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
+import { useExperiments } from "@/hooks/useExperiments";
 
 const featureTabs = ["overview", "stats", "test"] as const;
-export type FeatureTab = typeof featureTabs[number];
+export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -73,13 +74,14 @@ export default function FeaturePage() {
   const safeRollouts = data?.safeRollouts;
   const holdout = data?.holdout;
   const [error, setError] = useState<string | null>(null);
+  const { experiments: allExperiments } = useExperiments();
 
   const fetchData = useCallback(
     async (queryString = "") => {
       const mergeArraysByKey = <T, K extends keyof T>(
         existingArray: T[],
         newArray: T[],
-        key: K
+        key: K,
       ): T[] => {
         const keyMap = new Map(existingArray.map((item) => [item[key], item]));
 
@@ -110,17 +112,17 @@ export default function FeaturePage() {
           revisions: mergeArraysByKey<FeatureRevisionInterface, "version">(
             prevData.revisions,
             response.revisions,
-            "version"
+            "version",
           ),
           experiments: mergeArraysByKey<ExperimentInterfaceStringDates, "id">(
             prevData.experiments,
             response.experiments,
-            "id"
+            "id",
           ),
           safeRollouts: mergeArraysByKey<SafeRolloutInterface, "id">(
             prevData.safeRollouts,
             response.safeRollouts,
-            "id"
+            "id",
           ),
           codeRefs: response.codeRefs,
           holdout: response.holdout,
@@ -132,7 +134,7 @@ export default function FeaturePage() {
         setLoading(false);
       }
     },
-    [fid, apiCall] // Dependencies of fetchData
+    [fid, apiCall], // Dependencies of fetchData
   );
 
   // Fetch data on initial load and when the version changes if the version is not in revisions
@@ -163,7 +165,7 @@ export default function FeaturePage() {
 
   const [tab, setTab] = useLocalStorage<FeatureTab>(
     `tabbedPageTab__${fid}`,
-    "overview"
+    "overview",
   );
 
   const setTabAndScroll = (tab: FeatureTab) => {
@@ -209,7 +211,7 @@ export default function FeaturePage() {
         r.status === "draft" ||
         r.status === "approved" ||
         r.status === "changes-requested" ||
-        r.status === "pending-review"
+        r.status === "pending-review",
     );
     setVersion(draft ? draft.version : baseFeatureVersion);
   }, [revisions, version, router.query, baseFeatureVersion]);
@@ -219,7 +221,7 @@ export default function FeaturePage() {
       baseFeature
         ? filterEnvironmentsByFeature(allEnvironments, baseFeature)
         : [],
-    [allEnvironments, baseFeature]
+    [allEnvironments, baseFeature],
   );
   const envs = environments.map((e) => e.id);
 
@@ -232,7 +234,7 @@ export default function FeaturePage() {
     } else if (lastDisplayedVersion) {
       // Keep showing the most recently displayed version until the data is fetched
       const lastMatch = revisions.find(
-        (r) => r.version === lastDisplayedVersion
+        (r) => r.version === lastDisplayedVersion,
       );
       if (lastMatch) {
         return lastMatch;
@@ -269,7 +271,7 @@ export default function FeaturePage() {
       ? mergeRevision(
           baseFeature,
           revision,
-          environments.map((e) => e.id)
+          environments.map((e) => e.id),
         )
       : baseFeature;
   }, [baseFeature, revision, environments]);
@@ -280,9 +282,9 @@ export default function FeaturePage() {
   }, [feature, features, envs]);
 
   const dependentExperiments = useMemo(() => {
-    if (!feature || !experiments) return [];
-    return getDependentExperiments(feature, experiments);
-  }, [feature, experiments]);
+    if (!feature || !allExperiments) return [];
+    return getDependentExperiments(feature, allExperiments);
+  }, [feature, allExperiments]);
 
   const dependents = dependentFeatures.length + dependentExperiments.length;
 
@@ -312,6 +314,7 @@ export default function FeaturePage() {
         setEditFeatureInfoModal={setEditFeatureInfoModal}
         dependents={dependents}
         holdout={holdout}
+        dependentExperiments={dependentExperiments}
       />
 
       {tab === "overview" && (

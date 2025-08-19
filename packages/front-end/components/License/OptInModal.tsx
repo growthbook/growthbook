@@ -145,7 +145,7 @@ const OptInModal = ({
           agreement,
           version,
         }),
-      }
+      },
     );
     setLoading(false);
     if (!res || res.status !== 200) {

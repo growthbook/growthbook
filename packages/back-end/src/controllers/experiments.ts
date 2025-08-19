@@ -147,7 +147,7 @@ export async function getExperiments(
       type?: ExperimentType;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   let project = "";
@@ -192,7 +192,7 @@ export async function postAIExperimentAnalysis(
     data?: {
       description: string;
     };
-  }>
+  }>,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -239,7 +239,7 @@ export async function postAIExperimentAnalysis(
   const allMetricGroups = await context.models.metricGroups.getAll();
   const experimentMetricIds = expandMetricGroups(
     getAllMetricIdsFromExperiment(experiment, false),
-    allMetricGroups
+    allMetricGroups,
   );
 
   const allOrgMetrics = await getMetricMap(context);
@@ -356,10 +356,8 @@ export async function postAIExperimentAnalysis(
     releasedVariationName;
 
   const type = "experiment-analysis";
-  const {
-    isDefaultPrompt,
-    prompt,
-  } = await context.models.aiPrompts.getAIPrompt(type);
+  const { isDefaultPrompt, prompt } =
+    await context.models.aiPrompts.getAIPrompt(type);
 
   const aiResults = await simpleCompletion({
     context,
@@ -394,7 +392,7 @@ export async function postSimilarExperiments(
       experiment: ExperimentInterface;
       similarity: number;
     }[];
-  }>
+  }>,
 ) {
   const context = getContextFromReq(req);
   const { hypothesis, name, description, project, full } = req.body;
@@ -429,7 +427,7 @@ export async function postSimilarExperiments(
     {
       project: project ? project : "",
       includeArchived: false,
-    }
+    },
   );
   // filter to only experiments that have hypothesises, and enough words to make a good search:
   const filteredPreviousExps = previousExperiments.filter((e) => {
@@ -445,24 +443,22 @@ export async function postSimilarExperiments(
   }
   // get Experiment embeddings/vectors.
   const experimentIds = filteredPreviousExps.map((e) => e.id);
-  let existingVectors = await context.models.vectors.getByExperimentIds(
-    experimentIds
-  );
+  let existingVectors =
+    await context.models.vectors.getByExperimentIds(experimentIds);
   // check to see if we need to generate any missing vectors/embeddings:
   if (existingVectors.length !== experimentIds.length) {
     // get the ids of the existing vectors:
     const existingVectorIds = existingVectors.map((v) => v.joinId);
     // check to see if there are any experiments that do not have an entry in the ExperimentVectorsModel, or don't have embeddings:
     const missingVectors = filteredPreviousExps.filter(
-      (exp) => !existingVectorIds.includes(exp.id)
+      (exp) => !existingVectorIds.includes(exp.id),
     );
     // if there are any missing vectors, we need to generate them:
     if (missingVectors.length > 0) {
       await generateExperimentEmbeddings(context, missingVectors);
       // now fetch the updated vectors:
-      existingVectors = await context.models.vectors.getByExperimentIds(
-        experimentIds
-      );
+      existingVectors =
+        await context.models.vectors.getByExperimentIds(experimentIds);
     }
   }
 
@@ -522,7 +518,7 @@ export async function postSimilarExperiments(
     })
     .filter(
       (item): item is { experiment: ExperimentInterface; similarity: number } =>
-        item !== null
+        item !== null,
     );
 
   return res.status(200).json({
@@ -535,7 +531,7 @@ export async function postRegenerateEmbeddings(
   req: AuthRequest<null, null, { project?: string }>,
   res: ResponseWithStatusAndError<{
     message: string;
-  }>
+  }>,
 ) {
   const context = getContextFromReq(req);
   const project =
@@ -578,7 +574,7 @@ export async function postRegenerateEmbeddings(
 
 export async function getExperimentsFrequencyMonth(
   req: AuthRequest<null, { num: string }, { project?: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   let project = "";
@@ -675,7 +671,7 @@ export async function getExperimentsFrequencyMonth(
 
 export async function lookupExperimentByTrackingKey(
   req: AuthRequest<unknown, unknown, { trackingKey: string }>,
-  res: ResponseWithStatusAndError<{ experimentId: string | null }>
+  res: ResponseWithStatusAndError<{ experimentId: string | null }>,
 ) {
   const context = getContextFromReq(req);
   const { trackingKey } = req.query;
@@ -689,7 +685,7 @@ export async function lookupExperimentByTrackingKey(
 
   const experiment = await getExperimentByTrackingKey(
     context,
-    trackingKey + ""
+    trackingKey + "",
   );
 
   return res.status(200).json({
@@ -700,7 +696,7 @@ export async function lookupExperimentByTrackingKey(
 
 export async function getExperiment(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -727,11 +723,11 @@ export async function getExperiment(
 
   const visualChangesets = await findVisualChangesetsByExperiment(
     experiment.id,
-    org.id
+    org.id,
   );
 
   const urlRedirects = await context.models.urlRedirects.findByExperiment(
-    experiment.id
+    experiment.id,
   );
 
   const linkedFeatureInfo = await getLinkedFeatureInfo(context, experiment);
@@ -759,7 +755,7 @@ export async function getExperiment(
 
 export async function getExperimentPublic(
   req: AuthRequest<null, { uid: string }>,
-  res: Response
+  res: Response,
 ) {
   const { uid } = req.params;
   const experiment = await getExperimentByUid(uid);
@@ -787,11 +783,11 @@ export async function getExperimentPublic(
 
   const visualChangesets = await findVisualChangesetsByExperiment(
     experiment.id,
-    experiment.organization
+    experiment.organization,
   );
 
   const urlRedirects = await context.models.urlRedirects.findByExperiment(
-    experiment.id
+    experiment.id,
   );
 
   const linkedFeatures = await getLinkedFeatureInfo(context, experiment);
@@ -859,7 +855,7 @@ export async function getSnapshotWithDimension(
     { id: string; phase: string; dimension: string },
     { type?: SnapshotType }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
@@ -903,7 +899,7 @@ export async function getSnapshot(
     { id: string; phase: string },
     { type?: SnapshotType }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
@@ -927,7 +923,7 @@ export async function getSnapshot(
 
 export async function getSnapshotById(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -950,7 +946,7 @@ export async function getSnapshotById(
 
 export async function postSnapshotNotebook(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -965,7 +961,7 @@ export async function postSnapshotNotebook(
 
 export async function getSnapshots(
   req: AuthRequest<unknown, unknown, { experiments?: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const idsString = (req.query?.experiments as string) || "";
@@ -1024,7 +1020,7 @@ export async function postExperiments(
     | { status: 200; duplicateTrackingKey: boolean; existingId: string }
     | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -1108,8 +1104,8 @@ export async function postExperiments(
     sequentialTestingEnabled:
       experimentType === "multi-armed-bandit"
         ? false
-        : data.sequentialTestingEnabled ??
-          !!org?.settings?.sequentialTestingEnabled,
+        : (data.sequentialTestingEnabled ??
+          !!org?.settings?.sequentialTestingEnabled),
     sequentialTestingTuningParameter:
       data.sequentialTestingTuningParameter ??
       org?.settings?.sequentialTestingTuningParameter ??
@@ -1139,7 +1135,7 @@ export async function postExperiments(
     if (obj.trackingKey && !req.query.allowDuplicateTrackingKey) {
       const existing = await getExperimentByTrackingKey(
         context,
-        obj.trackingKey
+        obj.trackingKey,
       );
       if (existing) {
         return res.status(200).json({
@@ -1156,7 +1152,7 @@ export async function postExperiments(
         resetExperimentBanditSettings({
           experiment: obj,
           settings,
-        })
+        }),
       );
     }
 
@@ -1181,7 +1177,7 @@ export async function postExperiments(
     if (req.query.originalId) {
       const visualChangesets = await findVisualChangesetsByExperiment(
         req.query.originalId,
-        org.id
+        org.id,
       );
       for (const visualChangeset of visualChangesets) {
         await createVisualChangeset({
@@ -1194,7 +1190,7 @@ export async function postExperiments(
       }
 
       const urlRedirects = await context.models.urlRedirects.findByExperiment(
-        req.query.originalId
+        req.query.originalId,
       );
       for (const urlRedirect of urlRedirects) {
         const props: CreateURLRedirectProps = {
@@ -1273,7 +1269,7 @@ export async function postExperiment(
     | { status: number; experiment?: ExperimentInterface | null }
     | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -1324,7 +1320,7 @@ export async function postExperiment(
   // Validate that specified metrics exist and belong to the organization
   const oldMetricIds = getAllMetricIdsFromExperiment(experiment);
   const newMetricIds = getAllMetricIdsFromExperiment(data).filter(
-    (m) => !oldMetricIds.includes(m)
+    (m) => !oldMetricIds.includes(m),
   );
 
   const metricMap = await getMetricMap(context);
@@ -1346,7 +1342,7 @@ export async function postExperiment(
       } else {
         // check to see if this metric is actually a metric group
         const metricGroup = await context.models.metricGroups.getById(
-          newMetricIds[i]
+          newMetricIds[i],
         );
         if (metricGroup) {
           // Make sure it is tied to the same datasource as the experiment
@@ -1383,12 +1379,12 @@ export async function postExperiment(
       (experiment.linkedFeatures && experiment.linkedFeatures.length > 0)
     ) {
       throw new Error(
-        "Cannot change holdout after experiment has been run or linked changes have been added"
+        "Cannot change holdout after experiment has been run or linked changes have been added",
       );
     }
     await context.models.holdout.removeExperimentFromHoldout(
       experiment.holdoutId,
-      experiment.id
+      experiment.id,
     );
   }
 
@@ -1556,24 +1552,26 @@ export async function postExperiment(
   }
 
   // Only some fields affect production SDK payloads
-  const needsRunExperimentsPermission = ([
-    "phases",
-    "variations",
-    "project",
-    "name",
-    "trackingKey",
-    "archived",
-    "status",
-    "releasedVariationId",
-    "excludeFromPayload",
-    "type",
-    "banditStage",
-    "banditStageDateStarted",
-    "banditScheduleValue",
-    "banditScheduleUnit",
-    "banditBurnInValue",
-    "banditBurnInUnit",
-  ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
+  const needsRunExperimentsPermission = (
+    [
+      "phases",
+      "variations",
+      "project",
+      "name",
+      "trackingKey",
+      "archived",
+      "status",
+      "releasedVariationId",
+      "excludeFromPayload",
+      "type",
+      "banditStage",
+      "banditStageDateStarted",
+      "banditScheduleValue",
+      "banditScheduleUnit",
+      "banditBurnInValue",
+      "banditBurnInUnit",
+    ] as (keyof ExperimentInterfaceStringDates)[]
+  ).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
     const linkedFeatureIds = experiment.linkedFeatures || [];
 
@@ -1608,7 +1606,7 @@ export async function postExperiment(
   if (changes.variations && updated) {
     const visualChangesets = await findVisualChangesetsByExperiment(
       experiment.id,
-      org.id
+      org.id,
     );
 
     if (visualChangesets.length) {
@@ -1618,22 +1616,22 @@ export async function postExperiment(
             visualChangeset: vc,
             experiment: updated,
             context,
-          })
-        )
+          }),
+        ),
       );
     }
 
     const urlRedirects = await context.models.urlRedirects.findByExperiment(
-      experiment.id
+      experiment.id,
     );
     if (urlRedirects.length) {
       await Promise.all(
         urlRedirects.map((urlRedirect) =>
           context.models.urlRedirects.syncURLRedirectsWithVariations(
             urlRedirect,
-            updated
-          )
-        )
+            updated,
+          ),
+        ),
       );
     }
   }
@@ -1672,7 +1670,7 @@ export async function postExperiment(
 
 export async function postExperimentArchive(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1749,7 +1747,7 @@ export async function postExperimentArchive(
 
 export async function postExperimentUnarchive(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1817,7 +1815,7 @@ export async function postExperimentStatus(
     },
     { id: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -1890,7 +1888,7 @@ export async function postExperimentStatus(
   ) {
     const additionalChanges: Changeset = await getChangesToStartExperiment(
       context,
-      experiment
+      experiment,
     );
     Object.assign(changes, additionalChanges);
   }
@@ -1953,7 +1951,7 @@ export async function postExperimentStatus(
           experiment,
           changes,
           settings,
-        })
+        }),
       );
     }
   }
@@ -1985,7 +1983,7 @@ export async function postExperimentStop(
     { reason: string; dateEnded: string } & Partial<ExperimentInterface>,
     { id: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2106,7 +2104,7 @@ export async function postExperimentStop(
 
 export async function deleteExperimentPhase(
   req: AuthRequest<null, { id: string; phase: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2198,7 +2196,7 @@ export async function deleteExperimentPhase(
 
 export async function putExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string; phase: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2269,7 +2267,7 @@ export async function putExperimentPhase(
         experiment,
         changes,
         settings,
-      })
+      }),
     );
   }
 
@@ -2295,7 +2293,7 @@ export async function putExperimentPhase(
 
 export async function postExperimentTargeting(
   req: AuthRequest<ExperimentTargetingData, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -2409,7 +2407,7 @@ export async function postExperimentTargeting(
         experiment,
         changes,
         settings,
-      })
+      }),
     );
   }
 
@@ -2460,7 +2458,7 @@ export async function postExperimentTargeting(
 
 export async function postExperimentPhase(
   req: AuthRequest<ExperimentPhase, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -2574,7 +2572,7 @@ export async function postExperimentPhase(
 
 export async function getWatchingUsers(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { id } = req.params;
@@ -2590,7 +2588,7 @@ export async function deleteExperiment(
   res: Response<
     { status: 200 } | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2646,8 +2644,8 @@ export async function deleteExperiment(
     promises.push(
       context.models.holdout.removeExperimentFromHoldout(
         experiment.holdoutId,
-        experiment.id
-      )
+        experiment.id,
+      ),
     );
   }
 
@@ -2669,7 +2667,7 @@ export async function deleteExperiment(
 
 export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2693,13 +2691,13 @@ export async function cancelSnapshot(
 
   const integration = await getIntegrationFromDatasourceId(
     context,
-    snapshot.settings.datasourceId
+    snapshot.settings.datasourceId,
   );
 
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
     snapshot,
-    integration
+    integration,
   );
   await queryRunner.cancelQueries();
   await deleteSnapshotById(org.id, snapshot.id);
@@ -2767,7 +2765,8 @@ export async function createExperimentSnapshot({
   }
 
   const { org } = context;
-  const orgSettings: OrganizationSettings = org.settings as OrganizationSettings;
+  const orgSettings: OrganizationSettings =
+    org.settings as OrganizationSettings;
   const { settings } = getScopedSettings({
     organization: org,
     project: project ?? undefined,
@@ -2782,31 +2781,29 @@ export async function createExperimentSnapshot({
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[]
+      .filter((d) => d && typeof d === "string") as string[],
   );
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-  const {
-    settingsForSnapshotMetrics,
-    regressionAdjustmentEnabled,
-  } = getAllMetricSettingsForSnapshot({
-    allExperimentMetrics,
-    denominatorMetrics,
-    orgSettings,
-    experimentRegressionAdjustmentEnabled:
-      experiment.regressionAdjustmentEnabled,
-    experimentMetricOverrides: experiment.metricOverrides,
-    datasourceType: datasource?.type,
-    hasRegressionAdjustmentFeature: true,
-  });
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled,
+      experimentMetricOverrides: experiment.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+    });
 
   const analysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
     experiment,
     org,
     regressionAdjustmentEnabled,
-    dimension
+    dimension,
   );
 
   const factTableMap = await getFactTableMap(context);
@@ -2817,9 +2814,8 @@ export async function createExperimentSnapshot({
     phaseIndex: phase,
     useCache,
     defaultAnalysisSettings: analysisSettings,
-    additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-      analysisSettings
-    ),
+    additionalAnalysisSettings:
+      getAdditionalExperimentAnalysisSettings(analysisSettings),
     settingsForSnapshotMetrics,
     metricMap,
     factTableMap,
@@ -2843,7 +2839,7 @@ export async function postSnapshot(
     { id: string },
     { force?: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -2891,7 +2887,7 @@ export async function postSnapshot(
       experiment,
       org,
       false,
-      dimension
+      dimension,
     );
 
     const metricMap = await getMetricMap(context);
@@ -2991,7 +2987,7 @@ export async function postSnapshotAnalysis(
     },
     { id: string }
   >,
-  res: Response
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3059,7 +3055,7 @@ export async function postBanditSnapshot(
     },
     { id: string }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { reweight } = req.body;
@@ -3161,7 +3157,7 @@ export async function postBanditSnapshot(
 function addCoverageToSnapshotIfMissing(
   snapshot: ExperimentSnapshotInterface,
   experiment: ExperimentInterface,
-  phase?: number
+  phase?: number,
 ): ExperimentSnapshotInterface {
   if (snapshot.settings.coverage === undefined) {
     const latestPhase = experiment.phases.length - 1;
@@ -3175,7 +3171,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   req: AuthRequest<{
     experiments: string[];
   }>,
-  res: Response<{ status: 200 } | PrivateApiErrorResponse>
+  res: Response<{ status: 200 } | PrivateApiErrorResponse>,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3222,7 +3218,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     await createSnapshotAnalyses(snapshotAnalysesToCreate, context).catch(
       (e) => {
         req.log.error(e);
-      }
+      },
     );
   }
   res.status(200).json({
@@ -3233,7 +3229,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
 
 export async function deleteScreenshot(
   req: AuthRequest<{ url: string }, { id: string; variation: number }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3292,7 +3288,7 @@ export async function deleteScreenshot(
     details: auditDetailsUpdate(
       experiment.variations[variation].screenshots,
       updated?.variations[variation].screenshots,
-      { variation }
+      { variation },
     ),
   });
 
@@ -3307,7 +3303,7 @@ type AddScreenshotRequestBody = {
 };
 export async function addScreenshot(
   req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -3392,7 +3388,7 @@ export async function addScreenshot(
 
 export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3404,13 +3400,13 @@ export async function cancelPastExperiments(
 
   const integration = await getIntegrationFromDatasourceId(
     context,
-    pastExperiments.datasource
+    pastExperiments.datasource,
   );
 
   const queryRunner = new PastExperimentsQueryRunner(
     context,
     pastExperiments,
-    integration
+    integration,
   );
   await queryRunner.cancelQueries();
 
@@ -3419,7 +3415,7 @@ export async function cancelPastExperiments(
 
 export async function getPastExperimentsList(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3432,7 +3428,7 @@ export async function getPastExperimentsList(
 
   const experiments = await getPastExperimentsByDatasource(
     context,
-    pastExperiments.datasource
+    pastExperiments.datasource,
   );
 
   const experimentMap = new Map<string, string>();
@@ -3463,7 +3459,7 @@ export async function getPastExperimentsList(
 //experiments/import, sent here right after "add experiment"
 export async function postPastExperiments(
   req: AuthRequest<{ datasource: string; force: boolean; refresh?: boolean }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3472,12 +3468,12 @@ export async function postPastExperiments(
   const integration = await getIntegrationFromDatasourceId(
     context,
     datasource,
-    true
+    true,
   );
 
   let pastExperiments = await getPastExperimentsModelByDatasource(
     org.id,
-    datasource
+    datasource,
   );
 
   const start = new Date();
@@ -3511,7 +3507,7 @@ export async function postPastExperiments(
     const queryRunner = new PastExperimentsQueryRunner(
       context,
       pastExperiments,
-      integration
+      integration,
     );
     pastExperiments = await queryRunner.startAnalysis({
       from: start,
@@ -3537,7 +3533,7 @@ export async function postPastExperiments(
 
 export async function postVisualChangeset(
   req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   if (!req.body.urlPatterns) {
@@ -3586,7 +3582,7 @@ export async function postVisualChangeset(
 
 export async function putVisualChangeset(
   req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3598,7 +3594,7 @@ export async function putVisualChangeset(
 
   const experiment = await getExperimentById(
     context,
-    visualChangeset.experiment
+    visualChangeset.experiment,
   );
   if (!experiment) {
     throw new Error("Could not find experiment");
@@ -3644,7 +3640,7 @@ export async function putVisualChangeset(
 
 export async function deleteVisualChangeset(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -3656,7 +3652,7 @@ export async function deleteVisualChangeset(
 
   const experiment = await getExperimentById(
     context,
-    visualChangeset.experiment
+    visualChangeset.experiment,
   );
 
   const linkedFeatureIds = experiment?.linkedFeatures || [];
@@ -3687,7 +3683,7 @@ export async function deleteVisualChangeset(
 
 export async function findOrCreateVisualEditorToken(
   req: AuthRequest,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
 
@@ -3715,7 +3711,7 @@ export async function getExperimentTimeSeries(
     { id: string },
     { phase: string; metricIds: string[] }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -3735,14 +3731,13 @@ export async function getExperimentTimeSeries(
     throw new Error("Invalid phase");
   }
 
-  const timeSeries = await context.models.metricTimeSeries.getBySourceAndMetricIds(
-    {
+  const timeSeries =
+    await context.models.metricTimeSeries.getBySourceAndMetricIds({
       source: "experiment",
       sourceId: id,
       sourcePhase: phaseIndex,
       metricIds,
-    }
-  );
+    });
 
   res.status(200).json({
     status: 200,

@@ -1,7 +1,7 @@
 import type { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 
 export function filterInvalidMetricTimeSeries(
-  metricTimeSeries: MetricTimeSeries[]
+  metricTimeSeries: MetricTimeSeries[],
 ): MetricTimeSeries[] {
   return metricTimeSeries
     .map((ts) => ({
@@ -17,7 +17,7 @@ export function isValidMetricTimeSeries(metricTimeSeries: MetricTimeSeries) {
 }
 
 export function isValidDataPoint(
-  dataPoint: MetricTimeSeries["dataPoints"][number]
+  dataPoint: MetricTimeSeries["dataPoints"][number],
 ) {
   // If there are not variations or only control it is not a valid data point at the moment
   if (!dataPoint.variations || dataPoint.variations.length <= 1) {

@@ -123,12 +123,12 @@ export function getNewExperimentDatasourceDefaults(
   datasources: DataSourceInterfaceWithParams[],
   settings: OrganizationSettings,
   project?: string,
-  initialValue?: Partial<ExperimentInterfaceStringDates>
+  initialValue?: Partial<ExperimentInterfaceStringDates>,
 ): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
@@ -145,7 +145,7 @@ export function getNewExperimentDatasourceDefaults(
       getExposureQuery(
         initialDatasource.settings,
         initialValue?.exposureQueryId,
-        initialValue?.userIdType
+        initialValue?.userIdType,
       )?.id || "",
   };
 }
@@ -172,18 +172,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
 
-  const {
-    datasources,
-    getDatasourceById,
-    refreshTags,
-    project,
-    projects,
-  } = useDefinitions();
+  const { datasources, getDatasourceById, refreshTags, project, projects } =
+    useDefinitions();
   const { aiEnabled } = useAISettings();
   const gb = useGrowthBook<AppFeatures>();
   const useCheckForSimilar = gb?.isOn("similar-experiments") || true;
@@ -199,14 +193,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { holdouts, experimentsMap } = useExperiments(
     project,
     false,
-    "holdout"
+    "holdout",
   );
 
   const holdoutsWithExperiment = useMemo(() => {
     return holdouts.map((holdout) => ({
       ...holdout,
       experiment: experimentsMap.get(
-        holdout.experimentId
+        holdout.experimentId,
       ) as ExperimentInterfaceStringDates,
     }));
   }, [holdouts, experimentsMap]);
@@ -218,10 +212,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   } = useTemplates();
   const envs = environments.map((e) => e.id);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
   const minWordsForSimilarityCheck = 4;
 
@@ -238,7 +230,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   const [conditionKey, forceConditionRender] = useIncrementer();
@@ -263,7 +255,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         datasources,
         settings,
         initialValue?.project || project || "",
-        initialValue
+        initialValue,
       ),
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
@@ -293,12 +285,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 ...initialValue.phases[lastPhase],
                 coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
                 dateStarted: getValidDate(
-                  initialValue.phases?.[lastPhase]?.dateStarted ?? ""
+                  initialValue.phases?.[lastPhase]?.dateStarted ?? "",
                 )
                   .toISOString()
                   .substr(0, 16),
                 dateEnded: getValidDate(
-                  initialValue.phases?.[lastPhase]?.dateEnded ?? ""
+                  initialValue.phases?.[lastPhase]?.dateEnded ?? "",
                 )
                   .toISOString()
                   .substr(0, 16),
@@ -307,7 +299,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 variationWeights:
                   initialValue.phases?.[lastPhase]?.variationWeights ||
                   getEqualWeights(
-                    initialValue.variations ? initialValue.variations.length : 2
+                    initialValue.variations
+                      ? initialValue.variations.length
+                      : 2,
                   ),
               },
             ]
@@ -322,7 +316,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   (initialValue?.variations
                     ? initialValue.variations
                     : getDefaultVariations(initialNumVariations)
-                  )?.length || 2
+                  )?.length || 2,
                 ),
               },
             ]),
@@ -345,7 +339,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
-    selectedProject
+    selectedProject,
   );
 
   const datasource = form.watch("datasource")
@@ -442,7 +436,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
       throw new Error(
-        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
+        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.",
       );
     }
 
@@ -475,10 +469,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const availableTemplates = allTemplates
     .slice()
     .sort((a, b) =>
-      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
+      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
     .filter((t) =>
-      isProjectListValidForProject(t.project ? [t.project] : [], project)
+      isProjectListValidForProject(t.project ? [t.project] : [], project),
     )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
@@ -604,7 +598,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           console.error("Error in checkForSimilar:", error);
         }
       }, 3000),
-    []
+    [],
   );
   useEffect(() => {
     return () => {
@@ -662,9 +656,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       const template = templatesMap.get(t);
                       if (!template) return;
 
-                      const templateAsExperiment = convertTemplateToExperiment(
-                        template
-                      );
+                      const templateAsExperiment =
+                        convertTemplateToExperiment(template);
                       form.reset(templateAsExperiment, {
                         keepDefaultValues: true,
                       });
@@ -744,7 +737,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   async (key: string) =>
                     (experiments.find((exp) => exp.trackingKey === key) as
                       | ExperimentInterfaceStringDates
-                      | undefined) ?? null
+                      | undefined) ?? null,
                 );
                 form.setValue("trackingKey", trackingKey);
                 queueCheckForSimilar();
@@ -831,7 +824,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setExpandSimilarResults(
-                                    !expandSimilarResults
+                                    !expandSimilarResults,
                                   );
                                 }}
                                 gap="2"
@@ -973,7 +966,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     setDate={(v) => {
                       form.setValue(
                         "phases.0.dateStarted",
-                        v ? datetime(v) : ""
+                        v ? datetime(v) : "",
                       );
                     }}
                     scheduleEndDate={form.watch("phases.0.dateEnded")}
@@ -995,17 +988,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
-              <CustomFieldInput
-                customFields={customFields}
-                currentCustomFields={form.watch("customFields") || {}}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                section={"experiment"}
-                project={selectedProject}
-              />
-            )}
+            {hasCommercialFeature("custom-metadata") &&
+              !!customFields?.length && (
+                <CustomFieldInput
+                  customFields={customFields}
+                  currentCustomFields={form.watch("customFields") || {}}
+                  setCustomFields={(value) => {
+                    form.setValue("customFields", value);
+                  }}
+                  section={"experiment"}
+                  project={selectedProject}
+                />
+              )}
           </div>
         </Page>
 
@@ -1056,7 +1050,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                             value: v.key || "",
                             name: v.name,
                             weight: form.watch(
-                              `phases.0.variationWeights.${i}`
+                              `phases.0.variationWeights.${i}`,
                             ),
                             id: v.id,
                           };
@@ -1073,11 +1067,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                               ...data,
                               key: data.value || `${i}` || "",
                             };
-                          })
+                          }),
                         );
                         form.setValue(
                           "phases.0.variationWeights",
-                          v.map((v) => v.weight)
+                          v.map((v) => v.weight),
                         );
                       }}
                       variationValuesAsIds={true}
@@ -1136,7 +1130,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                             value: v.key || "",
                             name: v.name,
                             weight: form.watch(
-                              `phases.0.variationWeights.${i}`
+                              `phases.0.variationWeights.${i}`,
                             ),
                             id: v.id,
                           };
@@ -1153,11 +1147,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                               ...data,
                               key: data.value || `${i}` || "",
                             };
-                          })
+                          }),
                         );
                         form.setValue(
                           "phases.0.variationWeights",
-                          v.map((v) => v.weight)
+                          v.map((v) => v.weight),
                         );
                       }}
                     />
@@ -1289,11 +1283,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         // use value as key if provided to maintain backwards compatibility
                         key: data.value || `${i}` || "",
                       };
-                    })
+                    }),
                   );
                   form.setValue(
                     "phases.0.variationWeights",
-                    v.map((v) => v.weight)
+                    v.map((v) => v.weight),
                   );
                 }}
                 hideVariationIds={false}
@@ -1348,7 +1342,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   })}
                   formatOptionLabel={({ label, value }) => {
                     const userIdType = exposureQueries?.find(
-                      (e) => e.id === value
+                      (e) => e.id === value,
                     )?.userIdType;
                     return (
                       <>

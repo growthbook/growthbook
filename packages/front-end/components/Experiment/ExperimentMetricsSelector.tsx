@@ -45,10 +45,10 @@ export default function ExperimentMetricsSelector({
   filterConversionWindowMetrics,
 }: Props) {
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
-    !!collapseSecondary && secondaryMetrics.length === 0
+    !!collapseSecondary && secondaryMetrics.length === 0,
   );
   const [guardrailCollapsed, setGuardrailCollapsed] = useState<boolean>(
-    !!collapseGuardrail && guardrailMetrics.length === 0
+    !!collapseGuardrail && guardrailMetrics.length === 0,
   );
   return (
     <>
@@ -66,8 +66,8 @@ export default function ExperimentMetricsSelector({
             {goalMetricsDescription
               ? goalMetricsDescription
               : !forceSingleGoalMetric
-              ? "The primary metrics you are trying to improve with this experiment. "
-              : "Choose the goal metric that will be used to update variation weights. "}
+                ? "The primary metrics you are trying to improve with this experiment. "
+                : "Choose the goal metric that will be used to update variation weights. "}
           </Text>
           <MetricsSelector
             selected={goalMetrics}

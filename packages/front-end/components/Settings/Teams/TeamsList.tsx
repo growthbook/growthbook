@@ -68,7 +68,7 @@ const TeamsList: FC = () => {
                         <div>
                           <Badge
                             label={`Managed by ${capitalizeFirstLetter(
-                              t.managedBy.type
+                              t.managedBy.type,
                             )}`}
                           />
                         </div>
@@ -101,7 +101,7 @@ const TeamsList: FC = () => {
                       const access = roleHasAccessToEnv(
                         t,
                         env.id,
-                        organization
+                        organization,
                       );
                       return (
                         <td key={env.id}>

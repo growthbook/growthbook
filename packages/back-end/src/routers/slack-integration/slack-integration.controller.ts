@@ -26,7 +26,7 @@ type GetSlackIntegrationsResponse = {
  */
 export const getSlackIntegrations = async (
   req: GetSlackIntegrationsRequest,
-  res: Response<GetSlackIntegrationsResponse | ApiErrorResponse>
+  res: Response<GetSlackIntegrationsResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -35,7 +35,7 @@ export const getSlackIntegrations = async (
   }
 
   const slackIntegrations = await SlackIntegration.getSlackIntegrations(
-    context.org.id
+    context.org.id,
   );
 
   return res.json({
@@ -65,7 +65,7 @@ type GetSlackIntegrationResponse = {
  */
 export const getSlackIntegration = async (
   req: GetSlackIntegrationRequest,
-  res: Response<GetSlackIntegrationResponse | ApiErrorResponse>
+  res: Response<GetSlackIntegrationResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -116,7 +116,7 @@ type CreateSlackIntegrationResponse = {
  */
 export const postSlackIntegration = async (
   req: CreateSlackIntegrationRequest,
-  res: Response<CreateSlackIntegrationResponse | ApiErrorResponse>
+  res: Response<CreateSlackIntegrationResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -184,7 +184,7 @@ type PutSlackIntegrationResponse = {
  */
 export const putSlackIntegration = async (
   req: PutSlackIntegrationRequest,
-  res: Response<PutSlackIntegrationResponse | ApiErrorResponse>
+  res: Response<PutSlackIntegrationResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -218,7 +218,7 @@ export const putSlackIntegration = async (
       slackSigningKey,
       slackIncomingWebHook,
       tags,
-    }
+    },
   );
 
   const status = successful ? 200 : 404;
@@ -246,7 +246,7 @@ type DeleteSlackIntegrationResponse = {
  */
 export const deleteSlackIntegration = async (
   req: DeleteSlackIntegrationRequest,
-  res: Response<DeleteSlackIntegrationResponse | ApiErrorResponse>
+  res: Response<DeleteSlackIntegrationResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   if (!context.permissions.canManageIntegrations()) {

@@ -81,9 +81,8 @@ const AnalysisForm: FC<{
   const orgSettings = useOrgSettings();
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const pid = experiment?.project;
@@ -95,11 +94,10 @@ const AnalysisForm: FC<{
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   let canRunExperiment = !experiment.archived;
   if (envs.length > 0) {
@@ -118,7 +116,7 @@ const AnalysisForm: FC<{
         getExposureQuery(
           getDatasourceById(experiment.datasource)?.settings,
           experiment.exposureQueryId,
-          experiment.userIdType
+          experiment.userIdType,
         )?.id || "",
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
@@ -144,15 +142,15 @@ const AnalysisForm: FC<{
       sequentialTestingTuningParameter:
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingTuningParameter
-          : orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          : (orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER),
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
-        orgSettings
+        orgSettings,
       ),
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
@@ -170,21 +168,19 @@ const AnalysisForm: FC<{
     },
   });
 
-  const [
-    usingSequentialTestingDefault,
-    setUsingSequentialTestingDefault,
-  ] = useState(experiment.sequentialTestingEnabled === undefined);
+  const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
+    useState(experiment.sequentialTestingEnabled === undefined);
   const setSequentialTestingToDefault = useCallback(
     (enable: boolean) => {
       if (enable) {
         form.setValue(
           "sequentialTestingEnabled",
-          !!orgSettings.sequentialTestingEnabled
+          !!orgSettings.sequentialTestingEnabled,
         );
         form.setValue(
           "sequentialTestingTuningParameter",
           orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
         );
       }
       setUsingSequentialTestingDefault(enable);
@@ -194,7 +190,7 @@ const AnalysisForm: FC<{
       setUsingSequentialTestingDefault,
       orgSettings.sequentialTestingEnabled,
       orgSettings.sequentialTestingTuningParameter,
-    ]
+    ],
   );
 
   const { apiCall } = useAuth();
@@ -203,7 +199,7 @@ const AnalysisForm: FC<{
   const datasourceProperties = datasource?.properties;
 
   const filteredSegments = segments.filter(
-    (s) => s.datasource === datasource?.id
+    (s) => s.datasource === datasource?.id,
   );
 
   // Error: Type instantiation is excessively deep and possibly infinite.
@@ -265,7 +261,8 @@ const AnalysisForm: FC<{
         }
         if (usingSequentialTestingDefault) {
           // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled = !!orgSettings.sequentialTestingEnabled;
+          body.sequentialTestingEnabled =
+            !!orgSettings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
             orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
@@ -289,7 +286,7 @@ const AnalysisForm: FC<{
           const phaseId = (body.phases?.length ?? 0) - 1;
           if (body.phases?.[phaseId] && body.variations) {
             body.phases[phaseId].variationWeights = body.variations.map(
-              () => 1 / (body?.variations?.length || 2)
+              () => 1 / (body?.variations?.length || 2),
             );
           }
           const banditScheduleHours =
@@ -373,7 +370,7 @@ const AnalysisForm: FC<{
             const secondaryMetrics = form.watch("secondaryMetrics");
             form.setValue(
               "secondaryMetrics",
-              secondaryMetrics.filter(isValidMetric)
+              secondaryMetrics.filter(isValidMetric),
             );
 
             const guardrails = form.watch("guardrailMetrics");
@@ -383,7 +380,7 @@ const AnalysisForm: FC<{
             .filter(
               (ds) =>
                 ds.id === experiment.datasource ||
-                isProjectListValidForProject(ds.projects, experiment.project)
+                isProjectListValidForProject(ds.projects, experiment.project),
             )
             .map((d) => ({
               value: d.id,
@@ -418,8 +415,9 @@ const AnalysisForm: FC<{
               };
             })}
             formatOptionLabel={({ label, value }) => {
-              const userIdType = exposureQueries?.find((e) => e.id === value)
-                ?.userIdType;
+              const userIdType = exposureQueries?.find(
+                (e) => e.id === value,
+              )?.userIdType;
               return (
                 <>
                   {label}
@@ -461,7 +459,7 @@ const AnalysisForm: FC<{
                 <div
                   className={`col-${Math.max(
                     Math.round(12 / variations.fields.length),
-                    3
+                    3,
                   )} mb-2`}
                   key={i}
                 >
@@ -529,22 +527,24 @@ const AnalysisForm: FC<{
             helpText="Users must convert on this metric before being included"
           />
         )}
-        {datasourceProperties?.experimentSegments && !isBandit && !isHoldout && (
-          <SelectField
-            label="Segment"
-            labelClassName="font-weight-bold"
-            value={form.watch("segment")}
-            onChange={(value) => form.setValue("segment", value || "")}
-            initialOption="None (All Users)"
-            options={filteredSegments.map((s) => {
-              return {
-                label: s.name,
-                value: s.id,
-              };
-            })}
-            helpText="Only users in this segment will be included"
-          />
-        )}
+        {datasourceProperties?.experimentSegments &&
+          !isBandit &&
+          !isHoldout && (
+            <SelectField
+              label="Segment"
+              labelClassName="font-weight-bold"
+              value={form.watch("segment")}
+              onChange={(value) => form.setValue("segment", value || "")}
+              initialOption="None (All Users)"
+              options={filteredSegments.map((s) => {
+                return {
+                  label: s.name,
+                  value: s.id,
+                };
+              })}
+              helpText="Only users in this segment will be included"
+            />
+          )}
         {datasourceProperties?.separateExperimentResultQueries &&
           !isBandit &&
           !isHoldout && (
@@ -802,7 +802,7 @@ const AnalysisForm: FC<{
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={
-                    (form as unknown) as UseFormReturn<EditMetricsFormInterface>
+                    form as unknown as UseFormReturn<EditMetricsFormInterface>
                   }
                   disabled={!hasOverrideMetricsFeature}
                   setHasMetricOverrideRiskError={(v: boolean) =>

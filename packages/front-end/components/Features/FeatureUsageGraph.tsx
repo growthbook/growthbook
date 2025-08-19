@@ -73,7 +73,7 @@ function generateTimeSeries(lookback: FeatureUsageLookback, keys: string[]) {
     timeSeries.push({
       t: time.getTime(),
       v: Object.fromEntries(
-        keys.map((key) => [key, Math.floor(Math.random() * 1000)])
+        keys.map((key) => [key, Math.floor(Math.random() * 1000)]),
       ),
     });
   }
@@ -83,7 +83,7 @@ function generateTimeSeries(lookback: FeatureUsageLookback, keys: string[]) {
 
 function getDummyData(
   feature: FeatureInterface,
-  lookback: FeatureUsageLookback
+  lookback: FeatureUsageLookback,
 ): FeatureUsageData {
   const ruleIds = new Set<string>();
   const sources = new Set<string>(["defaultValue"]);
@@ -164,13 +164,13 @@ export function FeatureUsageProvider({
 
   const [lookback, setLookback] = useLocalStorage<FeatureUsageLookback>(
     "featureUsageLookback",
-    "15minute"
+    "15minute",
   );
 
   const { datasources } = useDefinitions();
 
   const hasGrowthbookClickhouseDatasource = datasources.find(
-    (ds) => ds.type === "growthbook_clickhouse"
+    (ds) => ds.type === "growthbook_clickhouse",
   )
     ? true
     : false;
@@ -193,7 +193,7 @@ export function FeatureUsageProvider({
     {
       withData: 0,
       withoutData: 0,
-    }
+    },
   );
 
   useEffect(() => {
@@ -211,7 +211,7 @@ export function FeatureUsageProvider({
         mutateFeatureUsage();
       },
       // We might want to update slower when there's no data yet
-      interval
+      interval,
     );
     return () => clearInterval(timer);
   }, [
@@ -512,7 +512,7 @@ export default function FeatureUsageGraph({
                                 });
                               }}
                             />
-                          ))
+                          )),
                         )
                       }
                     </BarStack>
@@ -598,7 +598,7 @@ export default function FeatureUsageGraph({
                             <div>
                               <strong>
                                 {formatter.format(
-                                  tooltipData.bar?.data?.v?.[key] || 0
+                                  tooltipData.bar?.data?.v?.[key] || 0,
                                 )}
                               </strong>
                             </div>

@@ -36,7 +36,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     triggerClassName,
     ...containerProps
   }: SelectProps,
-  ref
+  ref,
 ) {
   return (
     <Flex direction="column" {...containerProps} ref={ref}>
@@ -97,5 +97,5 @@ export const SelectItem = forwardRef<
 export const SelectSeparator = forwardRef<HTMLDivElement>(
   function SelectSeparator(props, ref) {
     return <RadixSelect.Separator {...props} ref={ref} />;
-  }
+  },
 );

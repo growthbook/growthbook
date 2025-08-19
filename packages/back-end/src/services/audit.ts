@@ -8,7 +8,7 @@ export function isValidAuditEntityType(type: string): type is EntityType {
 
 export async function getRecentWatchedAudits(
   userId: string,
-  organization: string
+  organization: string,
 ) {
   const userWatches = await getWatchedByUser(organization, userId);
 
@@ -51,14 +51,14 @@ export async function getRecentWatchedAudits(
     organization,
     "experiment",
     userWatches.experiments,
-    experimentsFilter
+    experimentsFilter,
   );
 
   const features = await findAuditByEntityList(
     organization,
     "feature",
     userWatches.features,
-    featuresFilter
+    featuresFilter,
   );
 
   const all = experiments
@@ -69,7 +69,7 @@ export async function getRecentWatchedAudits(
 
 export function auditDetailsCreate<T>(
   post: T,
-  context: Record<string, unknown> = {}
+  context: Record<string, unknown> = {},
 ): string {
   return JSON.stringify({
     post,
@@ -79,7 +79,7 @@ export function auditDetailsCreate<T>(
 export function auditDetailsUpdate<T>(
   pre: T,
   post: T,
-  context: Record<string, unknown> = {}
+  context: Record<string, unknown> = {},
 ): string {
   return JSON.stringify({
     pre,
@@ -90,7 +90,7 @@ export function auditDetailsUpdate<T>(
 
 export function auditDetailsDelete<T>(
   pre: T,
-  context: Record<string, unknown> = {}
+  context: Record<string, unknown> = {},
 ): string {
   return JSON.stringify({
     pre,

@@ -13,7 +13,7 @@ export const experimentResultsType = [
   "lost",
   "inconclusive",
 ] as const;
-export type ExperimentResultsType = typeof experimentResultsType[number];
+export type ExperimentResultsType = (typeof experimentResultsType)[number];
 
 export const singleVariationResult = z.object({
   users: z.number().optional(),
@@ -71,7 +71,7 @@ export const experimentPhase = z
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
 
 export const experimentStatus = ["draft", "running", "stopped"] as const;
-export type ExperimentStatus = typeof experimentStatus[number];
+export type ExperimentStatus = (typeof experimentStatus)[number];
 
 export const screenshot = z
   .object({
@@ -98,7 +98,7 @@ export const attributionModel = [
   "firstExposure",
   "experimentDuration",
 ] as const;
-export type AttributionModel = typeof attributionModel[number];
+export type AttributionModel = (typeof attributionModel)[number];
 
 export const implementationType = [
   "visual",
@@ -106,7 +106,7 @@ export const implementationType = [
   "configuration",
   "custom",
 ] as const;
-export type ImplementationType = typeof implementationType[number];
+export type ImplementationType = (typeof implementationType)[number];
 
 export const experimentNotification = [
   "auto-update",
@@ -114,7 +114,7 @@ export const experimentNotification = [
   "srm",
   "significance",
 ] as const;
-export type ExperimentNotification = typeof experimentNotification[number];
+export type ExperimentNotification = (typeof experimentNotification)[number];
 
 export const metricOverride = z
   .object({
@@ -140,10 +140,10 @@ export const experimentType = [
   "multi-armed-bandit",
   "holdout",
 ] as const;
-export type ExperimentType = typeof experimentType[number];
+export type ExperimentType = (typeof experimentType)[number];
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;
-export type BanditStageType = typeof banditStageType[number];
+export type BanditStageType = (typeof banditStageType)[number];
 
 export const decisionFrameworkMetricOverrides = z.object({
   id: z.string(),
@@ -211,10 +211,10 @@ export type ExperimentAnalysisSummaryHealth = z.infer<
 >;
 
 export const goalMetricStatus = ["won", "lost", "neutral"] as const;
-export type GoalMetricStatus = typeof goalMetricStatus[number];
+export type GoalMetricStatus = (typeof goalMetricStatus)[number];
 
 export const guardrailMetricStatus = ["safe", "lost", "neutral"] as const;
-export type GuardrailMetricStatus = typeof guardrailMetricStatus[number];
+export type GuardrailMetricStatus = (typeof guardrailMetricStatus)[number];
 
 export const goalMetricResult = z.object({
   status: z.enum(goalMetricStatus),
@@ -248,6 +248,7 @@ export const experimentAnalysisSummary = z
     snapshotId: z.string(),
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
+    precomputedDimensions: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -306,7 +307,7 @@ export const experimentInterface = z
             key: z.string(),
             status: z.enum(["complete", "incomplete"]),
           })
-          .strict()
+          .strict(),
       )
       .optional(),
     type: z.enum(experimentType).optional(),

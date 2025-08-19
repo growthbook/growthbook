@@ -16,7 +16,7 @@ export const AI_PROMPT_TYPES = [
   "visual-changeset-copy-transform-concise",
   "visual-changeset-copy-transform-humorous",
 ] as const;
-export type AIPromptType = typeof AI_PROMPT_TYPES[number];
+export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
 export interface AIPromptInterface {
   id?: string;

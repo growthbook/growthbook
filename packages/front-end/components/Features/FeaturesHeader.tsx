@@ -43,6 +43,7 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal,
   dependents,
   holdout,
+  dependentExperiments,
 }: {
   feature: FeatureInterface;
   features: FeatureInterface[];
@@ -53,6 +54,7 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal: (open: boolean) => void;
   dependents: number;
   holdout: HoldoutInterface | undefined;
+  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -81,9 +83,10 @@ export default function FeaturesHeader({
       feature,
       features,
       experiments,
+      dependentExperiments,
       environments: envs,
     });
-  }, [feature, features, experiments, envs]);
+  }, [feature, features, experiments, dependentExperiments, envs]);
 
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;

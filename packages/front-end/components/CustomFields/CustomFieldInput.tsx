@@ -24,7 +24,7 @@ const CustomFieldInput: FC<{
   const availableFields = filterCustomFieldsForSectionAndProject(
     customFields,
     section,
-    project
+    project,
   );
   const [loadedDefaults, setLoadedDefaults] = useState(false);
 

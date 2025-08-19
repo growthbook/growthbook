@@ -98,7 +98,7 @@ export default function EditStatusModal({
             });
             mutate();
           }
-        }
+        },
       )}
     >
       {hasLinkedChanges && (
@@ -117,23 +117,24 @@ export default function EditStatusModal({
         value={form.watch("status")}
         sort={false}
       />
-      {form.watch("status") === "stopped" && experiment.status === "running" && (
-        <>
-          <Field
-            label="Reason for stopping the test"
-            textarea
-            {...form.register("reason")}
-            placeholder="(optional)"
-          />
-          <DatePicker
-            label="Stop Time (UTC)"
-            date={form.watch("dateEnded")}
-            setDate={(v) => {
-              form.setValue("dateEnded", v ? datetime(v) : "");
-            }}
-          />
-        </>
-      )}
+      {form.watch("status") === "stopped" &&
+        experiment.status === "running" && (
+          <>
+            <Field
+              label="Reason for stopping the test"
+              textarea
+              {...form.register("reason")}
+              placeholder="(optional)"
+            />
+            <DatePicker
+              label="Stop Time (UTC)"
+              date={form.watch("dateEnded")}
+              setDate={(v) => {
+                form.setValue("dateEnded", v ? datetime(v) : "");
+              }}
+            />
+          </>
+        )}
     </Modal>
   );
 }

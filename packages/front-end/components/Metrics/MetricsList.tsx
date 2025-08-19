@@ -216,10 +216,8 @@ export function useCombinedMetrics({
 const MetricsList = (): React.ReactElement => {
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
 
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
+  const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
+    useState(false);
 
   const {
     getDatasourceById,
@@ -251,7 +249,7 @@ const MetricsList = (): React.ReactElement => {
         : undefined,
       ownerName: getUserDisplay(m.owner),
     }),
-    [getDatasourceById]
+    [getDatasourceById],
   );
   const filteredMetrics = project
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
@@ -267,7 +265,7 @@ const MetricsList = (): React.ReactElement => {
       }
       return items;
     },
-    [showArchived]
+    [showArchived],
   );
   const {
     items,
@@ -326,7 +324,7 @@ const MetricsList = (): React.ReactElement => {
       (filter) =>
         filter.field === "is" &&
         !filter.negated &&
-        filter.values.includes("archived")
+        filter.values.includes("archived"),
     );
     setShowArchived(isArchivedFilter);
   }, [syntaxFilters]);
@@ -443,7 +441,7 @@ const MetricsList = (): React.ReactElement => {
                   }}
                 >
                   Duplicate
-                </button>
+                </button>,
               );
             }
 
@@ -457,7 +455,7 @@ const MetricsList = (): React.ReactElement => {
                   }}
                 >
                   Edit
-                </button>
+                </button>,
               );
             }
 
@@ -471,7 +469,7 @@ const MetricsList = (): React.ReactElement => {
                   }}
                 >
                   {metric.archived ? "Unarchive" : "Archive"}
-                </button>
+                </button>,
               );
             }
 
@@ -487,7 +485,7 @@ const MetricsList = (): React.ReactElement => {
                   text="Delete"
                   canDelete={true}
                   disabled={false}
-                />
+                />,
               );
             }
 

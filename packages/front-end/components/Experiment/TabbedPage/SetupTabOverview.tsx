@@ -64,7 +64,9 @@ export default function SetupTabOverview({
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
   const [expandDescription, setExpandDescription] = useLocalStorage(
     `collapse-${experiment.id}-description`,
-    localStorage.getItem(`collapse-${experiment.id}-description`) !== "true"
+    localStorage.getItem(`collapse-${experiment.id}-description`) === "true"
+      ? false
+      : true,
   );
   const customFields = useCustomFields();
 
@@ -208,7 +210,7 @@ export default function SetupTabOverview({
                 startDate={
                   new Date(
                     experiment.phases[0].dateStarted ||
-                      Date.now() - 100 * 24 * 60 * 60 * 7
+                      Date.now() - 100 * 24 * 60 * 60 * 7,
                   ) // 7 days ago
                 }
                 endDate={new Date(experiment.phases[0].dateEnded || Date.now())}

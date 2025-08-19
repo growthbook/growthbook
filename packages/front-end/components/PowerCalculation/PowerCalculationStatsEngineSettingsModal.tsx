@@ -27,8 +27,8 @@ export default function PowerCalculationStatsEngineSettingsModal({
     currentParams.type === "bayesian"
       ? "bayesian"
       : currentParams.sequentialTesting
-      ? "sequential"
-      : "frequentist";
+        ? "sequential"
+        : "frequentist";
 
   return (
     <Modal

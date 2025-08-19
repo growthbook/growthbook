@@ -19,9 +19,10 @@ import Checkbox from "../Radix/Checkbox";
 import Callout from "../Radix/Callout";
 import Link from "../Radix/Link";
 
-function validateUrl(
-  urlString: string
-): { isValid: boolean; message?: string } {
+function validateUrl(urlString: string): {
+  isValid: boolean;
+  message?: string;
+} {
   try {
     const url = new URL(urlString);
     if (url.pathname.includes("*")) {
@@ -87,7 +88,7 @@ const UrlRedirectModal: FC<{
           const initialArray = Array(experiment.variations.length).fill(true);
           initialArray[0] = false;
           return initialArray;
-        }
+        },
   );
 
   const onSubmit = form.handleSubmit(async (value) => {
@@ -107,7 +108,7 @@ const UrlRedirectModal: FC<{
         {
           method: "POST",
           body: JSON.stringify({ ...payload, experiment: experiment.id }),
-        }
+        },
       );
       mutate();
     } else {
@@ -116,7 +117,7 @@ const UrlRedirectModal: FC<{
         {
           method: "PUT",
           body: JSON.stringify(payload),
-        }
+        },
       );
       mutate();
     }
@@ -231,7 +232,7 @@ const UrlRedirectModal: FC<{
               if (
                 destinationMatchesOrigin &&
                 Array.from(variantUrl.searchParams.keys()).some(
-                  (k) => !originUrl.searchParams.has(k)
+                  (k) => !originUrl.searchParams.has(k),
                 )
               ) {
                 warning = (

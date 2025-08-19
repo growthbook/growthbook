@@ -11,7 +11,7 @@ const AIController = wrapController(rawAIController);
 router.get(
   "/prompts",
   validateRequestMiddleware({}),
-  AIController.getAIPrompts
+  AIController.getAIPrompts,
 );
 
 router.post(
@@ -22,11 +22,11 @@ router.post(
         z.object({
           type: z.string(),
           prompt: z.string(),
-        })
+        }),
       ),
     }),
   }),
-  AIController.postAIPrompts
+  AIController.postAIPrompts,
 );
 
 router.post(
@@ -34,7 +34,7 @@ router.post(
   validateRequestMiddleware({
     body: z.object({ type: z.string(), text: z.string() }),
   }),
-  AIController.postReformat
+  AIController.postReformat,
 );
 
 export { router as aiRouter };

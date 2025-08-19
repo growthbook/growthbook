@@ -131,7 +131,7 @@ export default function FeaturesOverview({
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [hideInactive, setHideInactive] = useLocalStorage(
     `hide-disabled-rules`,
-    false
+    false,
   );
   const [logModal, setLogModal] = useState(false);
   const [prerequisiteModal, setPrerequisiteModal] = useState<{
@@ -159,7 +159,7 @@ export default function FeaturesOverview({
   const mergeResult = useMemo(() => {
     if (!feature || !revision) return null;
     const baseRevision = revisions.find(
-      (r) => r.version === revision?.baseVersion
+      (r) => r.version === revision?.baseVersion,
     );
     const liveRevision = revisions.find((r) => r.version === feature.version);
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -168,7 +168,7 @@ export default function FeaturesOverview({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revisions, revision, feature, environments]);
 
@@ -185,13 +185,13 @@ export default function FeaturesOverview({
           feature,
           featuresMap,
           env,
-          true
+          true,
         );
       });
       return states;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [feature, features, envsStr]
+    [feature, features, envsStr],
   );
 
   const experimentsMap = useMemo<
@@ -206,12 +206,8 @@ export default function FeaturesOverview({
     return new Map(safeRollouts.map((rollout) => [rollout.id, rollout]));
   }, [safeRollouts]);
 
-  const {
-    showFeatureUsage,
-    featureUsage,
-    lookback,
-    setLookback,
-  } = useFeatureUsage();
+  const { showFeatureUsage, featureUsage, lookback, setLookback } =
+    useFeatureUsage();
 
   if (!baseFeature || !feature || !revision) {
     return <LoadingOverlay />;
@@ -221,9 +217,8 @@ export default function FeaturesOverview({
     prereqStates &&
     Object.values(prereqStates).some((s) => s.state === "conditional");
 
-  const hasPrerequisitesCommercialFeature = hasCommercialFeature(
-    "prerequisites"
-  );
+  const hasPrerequisitesCommercialFeature =
+    hasCommercialFeature("prerequisites");
 
   const currentVersion = version || baseFeature.version;
 
@@ -259,13 +254,13 @@ export default function FeaturesOverview({
     (approved &&
       permissionsUtil.canPublishFeature(
         feature,
-        getAffectedRevisionEnvs(feature, revision, environments)
+        getAffectedRevisionEnvs(feature, revision, environments),
       )) ||
     (isDraft &&
       !requireReviews &&
       permissionsUtil.canPublishFeature(
         feature,
-        getAffectedRevisionEnvs(feature, revision, environments)
+        getAffectedRevisionEnvs(feature, revision, environments),
       ));
 
   const drafts = revisions.filter(
@@ -273,7 +268,7 @@ export default function FeaturesOverview({
       r.status === "draft" ||
       r.status === "pending-review" ||
       r.status === "changes-requested" ||
-      r.status === "approved"
+      r.status === "approved",
   );
   const isLocked =
     (revision.status === "published" || revision.status === "discarded") &&
@@ -359,7 +354,7 @@ export default function FeaturesOverview({
             title="Create a new Draft based on this revision"
           >
             Revert to this version
-          </Button>
+          </Button>,
         );
       } else if (revision.version > 1 && isLive) {
         actions.push(
@@ -369,7 +364,8 @@ export default function FeaturesOverview({
             onClick={() => {
               const previousRevision = revisions
                 .filter(
-                  (r) => r.status === "published" && r.version < feature.version
+                  (r) =>
+                    r.status === "published" && r.version < feature.version,
                 )
                 .sort((a, b) => b.version - a.version)[0];
               if (previousRevision) {
@@ -379,7 +375,7 @@ export default function FeaturesOverview({
             title="Create a new Draft based on this revision"
           >
             Revert to Previous
-          </Button>
+          </Button>,
         );
       }
 
@@ -392,7 +388,7 @@ export default function FeaturesOverview({
             }}
           >
             View active draft
-          </Button>
+          </Button>,
         );
       }
 
@@ -406,7 +402,7 @@ export default function FeaturesOverview({
             }}
           >
             Discard draft
-          </Button>
+          </Button>,
         );
 
         if (mergeResult?.success) {
@@ -428,7 +424,7 @@ export default function FeaturesOverview({
                 >
                   {renderDraftBannerCopy()}
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           } else {
             // no review is required
@@ -438,8 +434,8 @@ export default function FeaturesOverview({
                   !revisionHasChanges
                     ? "Draft is identical to the live version. Make changes first before publishing"
                     : !hasDraftPublishPermission
-                    ? "You do not have permission to publish this draft."
-                    : ""
+                      ? "You do not have permission to publish this draft."
+                      : ""
                 }
               >
                 <Button
@@ -450,7 +446,7 @@ export default function FeaturesOverview({
                 >
                   Review &amp; Publish
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           }
         } else {
@@ -466,7 +462,7 @@ export default function FeaturesOverview({
                 >
                   Fix conflicts
                 </Button>
-              </Tooltip>
+              </Tooltip>,
             );
           }
         }
@@ -723,7 +719,7 @@ export default function FeaturesOverview({
                   </tr>
                   {prerequisites.map(({ ...item }, i) => {
                     const parentFeature = features.find(
-                      (f) => f.id === item.id
+                      (f) => f.id === item.id,
                     );
                     return (
                       <PrerequisiteStatusRow
@@ -1158,7 +1154,7 @@ export default function FeaturesOverview({
             feature={baseFeature}
             revision={
               revisions.find(
-                (r) => r.version === revertIndex
+                (r) => r.version === revertIndex,
               ) as FeatureRevisionInterface
             }
             mutate={mutate}
@@ -1222,7 +1218,7 @@ export default function FeaturesOverview({
                   `/feature/${feature.id}/${revision.version}/discard`,
                   {
                     method: "POST",
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();

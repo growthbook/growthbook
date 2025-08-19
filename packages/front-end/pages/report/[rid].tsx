@@ -26,7 +26,7 @@ export default function ReportPage() {
 
   const { rid } = router.query;
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
-    `/report/${rid}`
+    `/report/${rid}`,
   );
   const report = data?.report;
   const loading = !data;
@@ -105,13 +105,13 @@ export default function ReportPage() {
             display: isBandit
               ? `Bandits`
               : isHoldout
-              ? `Holdouts`
-              : `Experiments`,
+                ? `Holdouts`
+                : `Experiments`,
             href: isBandit
               ? `/bandits`
               : isHoldout
-              ? `/holdouts`
-              : `/experiments`,
+                ? `/holdouts`
+                : `/experiments`,
           },
           {
             display: `${experiment?.name ?? "Report"}`,
@@ -120,8 +120,8 @@ export default function ReportPage() {
                 ? `/${isBandit ? `bandit` : `experiment`}/${experiment.id}`
                 : undefined
               : experiment.holdoutId
-              ? `/holdout/${experiment.holdoutId}`
-              : undefined,
+                ? `/holdout/${experiment.holdoutId}`
+                : undefined,
           },
           { display: report.title },
         ]}
@@ -157,10 +157,10 @@ export default function ReportPage() {
           snapshotError
             ? snapshotError
             : snapshot?.error
-            ? new Error(snapshot.error)
-            : snapshot?.status === "error"
-            ? new Error("Report analysis failed")
-            : undefined
+              ? new Error(snapshot.error)
+              : snapshot?.status === "error"
+                ? new Error("Report analysis failed")
+                : undefined
         }
         mutateReport={mutate}
         mutateSnapshot={mutateSnapshot}

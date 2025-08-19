@@ -16,7 +16,7 @@ const DataSources: FC = () => {
   const { datasources, project, error, ready } = useDefinitions();
   const filteredDatasources = project
     ? datasources.filter((ds) =>
-        isProjectListValidForProject(ds.projects, project)
+        isProjectListValidForProject(ds.projects, project),
       )
     : datasources;
 

@@ -12,7 +12,7 @@ const DynamicPresentation = dynamic<PresentationProps>(
   {
     ssr: false,
     //loading: () => (<p>Loading...</p>) // this causes a lint error
-  }
+  },
 );
 
 const Preview: FC<{

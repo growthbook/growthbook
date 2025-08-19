@@ -10,7 +10,7 @@ export default forwardRef<
   } & BoxProps
 >(function Frame(
   { children, noBackground, className, ...containerProps },
-  ref
+  ref,
 ) {
   return (
     <Box

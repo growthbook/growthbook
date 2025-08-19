@@ -45,7 +45,7 @@ const experimentsController = wrapController(experimentsControllerRaw);
 
 import * as experimentLaunchChecklistControllerRaw from "./controllers/experimentLaunchChecklist";
 const experimentLaunchChecklistController = wrapController(
-  experimentLaunchChecklistControllerRaw
+  experimentLaunchChecklistControllerRaw,
 );
 
 import * as metricsControllerRaw from "./controllers/metrics";
@@ -77,7 +77,7 @@ const featuresController = wrapController(featuresControllerRaw);
 
 import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
 const informationSchemasController = wrapController(
-  informationSchemasControllerRaw
+  informationSchemasControllerRaw,
 );
 
 // End Controllers
@@ -126,7 +126,9 @@ if (!process.env.NO_INIT && process.env.NODE_ENV !== "test") {
   init();
 }
 
-app.set("port", process.env.PORT || 3100);
+// Some platforms set the PORT env var, causing the back-end and front-end to both try to listen on the same port.
+// BACKEND_PORT allows specifying a different port for the back-end to mitigate this conflict.
+app.set("port", process.env.BACKEND_PORT || process.env.PORT || 3100);
 app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
 
 // Pretty print on dev
@@ -154,7 +156,7 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
           .status(500)
           .json({ error: error.message || "Internal Server Error" });
       }
-    }
+    },
   );
 }
 
@@ -234,7 +236,7 @@ app.get(
     credentials: false,
     origin: "*",
   }),
-  getExperimentConfig
+  getExperimentConfig,
 );
 
 // Public features for SDKs
@@ -244,7 +246,7 @@ app.get(
     credentials: false,
     origin: "*",
   }),
-  featuresController.getFeaturesPublic
+  featuresController.getFeaturesPublic,
 );
 // For preflight requests
 app.options(
@@ -253,7 +255,7 @@ app.options(
     credentials: false,
     origin: "*",
   }),
-  (req, res) => res.send(200)
+  (req, res) => res.send(200),
 );
 
 if (!IS_CLOUD) {
@@ -265,7 +267,7 @@ if (!IS_CLOUD) {
       credentials: false,
       origin: "*",
     }),
-    featuresController.getEvaluatedFeaturesPublic
+    featuresController.getEvaluatedFeaturesPublic,
   );
   // For preflight requests
   app.options(
@@ -274,7 +276,7 @@ if (!IS_CLOUD) {
       credentials: false,
       origin: "*",
     }),
-    (req, res) => res.send(200)
+    (req, res) => res.send(200),
   );
 }
 
@@ -285,7 +287,7 @@ app.get(
     credentials: false,
     origin: "*",
   }),
-  reportsController.getReportPublic
+  reportsController.getReportPublic,
 );
 // public shareable experiments
 app.get(
@@ -294,7 +296,7 @@ app.get(
     credentials: false,
     origin: "*",
   }),
-  experimentsController.getExperimentPublic
+  experimentsController.getExperimentPublic,
 );
 
 // Secret API routes (no JWT or CORS)
@@ -304,7 +306,7 @@ app.use(
   cors({
     origin: "*",
   }),
-  apiRouter
+  apiRouter,
 );
 
 // SCIM API routes (no JWT or CORS)
@@ -316,7 +318,7 @@ app.use(
   cors({
     origin: "*",
   }),
-  scimRouter
+  scimRouter,
 );
 
 // Accept cross-origin requests from the frontend app
@@ -332,7 +334,7 @@ if (IS_CLOUD) {
       credentials: false,
       origin: "*",
     }),
-    vercelRouter
+    vercelRouter,
   );
 
   app.post(
@@ -341,7 +343,7 @@ if (IS_CLOUD) {
       credentials: true,
       origin: origins,
     }),
-    vercelController.postVercelIntegrationSSO
+    vercelController.postVercelIntegrationSSO,
   );
 }
 
@@ -349,7 +351,7 @@ app.use(
   cors({
     credentials: true,
     origin: origins,
-  })
+  }),
 );
 
 const useSSO = usingOpenId();
@@ -386,7 +388,7 @@ app.use(
   (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
     res.log = req.log = req.log.child(getCustomLogProps(req as Request));
     next();
-  }
+  },
 );
 
 // Add logged in user to Sentry if configured
@@ -402,7 +404,7 @@ if (SENTRY_DSN) {
         Sentry.setTag("organization", req.organization.id);
       }
       next();
-    }
+    },
   );
 }
 
@@ -420,7 +422,7 @@ app.use(
       throw new Error("Must be authenticated.  Try refreshing the page.");
     }
     next();
-  })
+  }),
 );
 
 // Organization and Settings
@@ -431,54 +433,54 @@ app.use("/environment", environmentRouter);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post(
   "/subscription/new-pro-trial",
-  subscriptionController.postNewProTrialSubscription
+  subscriptionController.postNewProTrialSubscription,
 );
 
 if (IS_CLOUD) {
   app.post(
     "/subscription/payment-methods/setup-intent",
-    subscriptionController.postSetupIntent
+    subscriptionController.postSetupIntent,
   );
   app.get(
     "/subscription/payment-methods",
-    subscriptionController.fetchPaymentMethods
+    subscriptionController.fetchPaymentMethods,
   );
   app.post(
     "/subscription/payment-methods/detach",
-    subscriptionController.deletePaymentMethod
+    subscriptionController.deletePaymentMethod,
   );
   app.post(
     "/subscription/payment-methods/set-default",
-    subscriptionController.updateCustomerDefaultPayment
+    subscriptionController.updateCustomerDefaultPayment,
   );
   app.post(
     "/subscription/setup-intent",
-    subscriptionController.postNewProSubscriptionIntent
+    subscriptionController.postNewProSubscriptionIntent,
   );
   app.post(
     "/subscription/start-new-pro",
-    subscriptionController.postInlineProSubscription
+    subscriptionController.postInlineProSubscription,
   );
   app.post("/subscription/cancel", subscriptionController.cancelSubscription);
   app.get("/subscription/portal-url", subscriptionController.getPortalUrl);
   app.get(
     "/subscription/customer-data",
-    subscriptionController.getCustomerData
+    subscriptionController.getCustomerData,
   );
   app.post(
     "/subscription/update-customer-data",
-    subscriptionController.updateCustomerData
+    subscriptionController.updateCustomerData,
   );
   app.get("/billing/usage", subscriptionController.getUsage);
 }
 app.post("/subscription/new", subscriptionController.postNewProSubscription);
 app.post(
   "/subscription/manage",
-  subscriptionController.postCreateBillingSession
+  subscriptionController.postCreateBillingSession,
 );
 app.post(
   "/subscription/success",
-  subscriptionController.postSubscriptionSuccess
+  subscriptionController.postSubscriptionSuccess,
 );
 
 app.get("/queries/:ids", datasourcesController.getQueries);
@@ -488,7 +490,7 @@ app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
   "/dimension-slices/:id/cancel",
-  datasourcesController.cancelDimensionSlices
+  datasourcesController.cancelDimensionSlices,
 );
 
 app.use("/tag", tagRouter);
@@ -516,7 +518,7 @@ app.get("/metrics", metricsController.getMetrics);
 app.post("/metrics", metricsController.postMetrics);
 app.post(
   "/metrics/tracked-events/:datasourceId",
-  metricsController.getMetricsFromTrackedEvents
+  metricsController.getMetricsFromTrackedEvents,
 );
 app.post("/metrics/auto-metrics", metricsController.postAutoGeneratedMetrics);
 app.get("/metric/:id", metricsController.getMetric);
@@ -526,16 +528,16 @@ app.get("/metric/:id/usage", metricsController.getMetricUsage);
 app.post("/metric/:id/analysis", metricsController.postLegacyMetricAnalysis);
 app.post(
   "/metric/:id/analysis/cancel",
-  metricsController.cancelLegacyMetricAnalysis
+  metricsController.cancelLegacyMetricAnalysis,
 );
 app.get(
   "/metrics/:id/experiments",
-  metricsController.getMetricExperimentResults
+  metricsController.getMetricExperimentResults,
 );
 app.get("/metrics/:id/northstar", metricsController.getMetricNorthstarData);
 app.get(
   "/metrics/:id/gen-description",
-  metricsController.getGeneratedDescription
+  metricsController.getGeneratedDescription,
 );
 
 // Metric Analyses
@@ -552,11 +554,11 @@ app.get("/experiments", experimentsController.getExperiments);
 app.post("/experiments", experimentsController.postExperiments);
 app.get(
   "/experiments/frequency/month/:num",
-  experimentsController.getExperimentsFrequencyMonth
+  experimentsController.getExperimentsFrequencyMonth,
 );
 app.get(
   "/experiments/tracking-key",
-  experimentsController.lookupExperimentByTrackingKey
+  experimentsController.lookupExperimentByTrackingKey,
 );
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
@@ -566,23 +568,23 @@ app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
-  experimentsController.getSnapshotWithDimension
+  experimentsController.getSnapshotWithDimension,
 );
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(
   "/experiment/:id/banditSnapshot",
-  experimentsController.postBanditSnapshot
+  experimentsController.postBanditSnapshot,
 );
 
 app.get("/experiments/snapshots", experimentsController.getSnapshots);
 app.post(
   "/experiments/snapshots/scaled",
-  experimentsController.postSnapshotsWithScaledImpactAnalysis
+  experimentsController.postSnapshotsWithScaledImpactAnalysis,
 );
 app.post("/experiments/similar", experimentsController.postSimilarExperiments);
 app.post(
   "/experiments/regenerate-embeddings",
-  experimentsController.postRegenerateEmbeddings
+  experimentsController.postRegenerateEmbeddings,
 );
 app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
@@ -590,93 +592,93 @@ app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
 app.post(
   "/experiment/:id/targeting",
-  experimentsController.postExperimentTargeting
+  experimentsController.postExperimentTargeting,
 );
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.put(
   "/experiment/:id/phase/:phase",
-  experimentsController.putExperimentPhase
+  experimentsController.putExperimentPhase,
 );
 app.delete(
   "/experiment/:id/phase/:phase",
-  experimentsController.deleteExperimentPhase
+  experimentsController.deleteExperimentPhase,
 );
 app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.addScreenshot
+  experimentsController.addScreenshot,
 );
 app.delete(
   "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.deleteScreenshot
+  experimentsController.deleteScreenshot,
 );
 app.post(
   "/experiment/:id/archive",
-  experimentsController.postExperimentArchive
+  experimentsController.postExperimentArchive,
 );
 app.post(
   "/experiment/:id/unarchive",
-  experimentsController.postExperimentUnarchive
+  experimentsController.postExperimentUnarchive,
 );
 app.post("/experiments/import", experimentsController.postPastExperiments);
 app.get(
   "/experiments/import/:id",
-  experimentsController.getPastExperimentsList
+  experimentsController.getPastExperimentsList,
 );
 app.post(
   "/experiments/import/:id/cancel",
-  experimentsController.cancelPastExperiments
+  experimentsController.cancelPastExperiments,
 );
 app.post(
   "/experiments/notebook/:id",
-  experimentsController.postSnapshotNotebook
+  experimentsController.postSnapshotNotebook,
 );
 app.post(
   "/experiment/:id/analysis/ai-suggest",
-  experimentsController.postAIExperimentAnalysis
+  experimentsController.postAIExperimentAnalysis,
 );
 app.post(
   "/experiments/report/:snapshot",
-  reportsController.postReportFromSnapshot
+  reportsController.postReportFromSnapshot,
 );
 app.post(
   "/experiments/launch-checklist",
-  experimentLaunchChecklistController.postExperimentLaunchChecklist
+  experimentLaunchChecklistController.postExperimentLaunchChecklist,
 );
 app.put(
   "/experiments/launch-checklist/:id",
-  experimentLaunchChecklistController.putExperimentLaunchChecklist
+  experimentLaunchChecklistController.putExperimentLaunchChecklist,
 );
 app.get(
   "/experiments/launch-checklist",
-  experimentLaunchChecklistController.getExperimentCheckListByOrg
+  experimentLaunchChecklistController.getExperimentCheckListByOrg,
 );
 app.put(
   "/experiment/:id/launch-checklist",
-  experimentLaunchChecklistController.putManualLaunchChecklist
+  experimentLaunchChecklistController.putManualLaunchChecklist,
 );
 
 // Visual Changesets
 app.post(
   "/experiments/:id/visual-changeset",
-  experimentsController.postVisualChangeset
+  experimentsController.postVisualChangeset,
 );
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
 app.delete(
   "/visual-changesets/:id",
-  experimentsController.deleteVisualChangeset
+  experimentsController.deleteVisualChangeset,
 );
 
 // Time Series
 app.get(
   "/experiments/:id/time-series",
-  experimentsController.getExperimentTimeSeries
+  experimentsController.getExperimentTimeSeries,
 );
 
 // Visual editor auth
 app.get(
   "/visual-editor/key",
-  experimentsController.findOrCreateVisualEditorToken
+  experimentsController.findOrCreateVisualEditorToken,
 );
 
 // Experiment Templates
@@ -726,25 +728,25 @@ app.put("/feature/:id", featuresController.putFeature);
 app.delete("/feature/:id", featuresController.deleteFeatureById);
 app.post(
   "/feature/:id/:version/defaultvalue",
-  featuresController.postFeatureDefaultValue
+  featuresController.postFeatureDefaultValue,
 );
 app.post("/feature/:id/sync", featuresController.postFeatureSync);
 app.post("/feature/:id/schema", featuresController.postFeatureSchema);
 app.post(
   "/feature/:id/:version/discard",
-  featuresController.postFeatureDiscard
+  featuresController.postFeatureDiscard,
 );
 app.post(
   "/feature/:id/:version/publish",
-  featuresController.postFeaturePublish
+  featuresController.postFeaturePublish,
 );
 app.post(
   "/feature/:id/:version/request",
-  featuresController.postFeatureRequestReview
+  featuresController.postFeatureRequestReview,
 );
 app.post(
   "/feature/:id/:version/submit-review",
-  featuresController.postFeatureReviewOrComment
+  featuresController.postFeatureReviewOrComment,
 );
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
@@ -755,13 +757,13 @@ app.post("/feature/:id/:version/revert", featuresController.postFeatureRevert);
 app.post("/feature/:id/:version/rule", featuresController.postFeatureRule);
 app.post(
   "/feature/:id/:version/experiment",
-  featuresController.postFeatureExperimentRefRule
+  featuresController.postFeatureExperimentRefRule,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
 app.put(
   "/feature/:id/safeRollout/status",
-  featuresController.putSafeRolloutStatus
+  featuresController.putSafeRolloutStatus,
 );
 app.delete("/feature/:id/:version/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/prerequisite", featuresController.postPrerequisite);
@@ -769,22 +771,22 @@ app.put("/feature/:id/prerequisite", featuresController.putPrerequisite);
 app.delete("/feature/:id/prerequisite", featuresController.deletePrerequisite);
 app.post(
   "/feature/:id/:version/reorder",
-  featuresController.postFeatureMoveRule
+  featuresController.postFeatureMoveRule,
 );
 app.post("/features/eval", featuresController.postFeaturesEvaluate);
 app.post("/feature/:id/:version/eval", featuresController.postFeatureEvaluate);
 app.get("/usage/features", featuresController.getRealtimeUsage);
 app.post(
   "/feature/:id/toggleStaleDetection",
-  featuresController.toggleStaleFFDetectionForFeature
+  featuresController.toggleStaleFFDetectionForFeature,
 );
 app.post(
   "/feature/:id/:version/comment",
-  featuresController.postFeatureReviewOrComment
+  featuresController.postFeatureReviewOrComment,
 );
 app.post(
   "/feature/:id/:version/copyEnvironment",
-  featuresController.postCopyEnvironmentRules
+  featuresController.postCopyEnvironmentRules,
 );
 
 app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
@@ -799,56 +801,56 @@ app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.put(
   "/datasource/:datasourceId/exposureQuery/:exposureQueryId",
-  datasourcesController.updateExposureQuery
+  datasourcesController.updateExposureQuery,
 );
 app.post(
   "/datasources/fetch-bigquery-datasets",
-  datasourcesController.fetchBigQueryDatasets
+  datasourcesController.fetchBigQueryDatasets,
 );
 app.post(
   "/datasource/:datasourceId/materializedColumn",
-  datasourcesController.postMaterializedColumn
+  datasourcesController.postMaterializedColumn,
 );
 app.put(
   "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.updateMaterializedColumn
+  datasourcesController.updateMaterializedColumn,
 );
 app.delete(
   "/datasource/:datasourceId/materializedColumn/:matColumnName",
-  datasourcesController.deleteMaterializedColumn
+  datasourcesController.deleteMaterializedColumn,
 );
 app.post(
   "/datasource/:datasourceId/recreate-managed-warehouse",
-  datasourcesController.postRecreateManagedWarehouse
+  datasourcesController.postRecreateManagedWarehouse,
 );
 
 if (IS_CLOUD) {
   app.post(
     "/datasources/managed-warehouse",
-    datasourcesController.postManagedWarehouse
+    datasourcesController.postManagedWarehouse,
   );
 }
 
 // Information Schemas
 app.get(
   "/datasource/:datasourceId/schema/table/:tableId",
-  informationSchemasController.getTableData
+  informationSchemasController.getTableData,
 );
 app.put(
   "/datasource/:datasourceId/schema/table/:tableId",
-  informationSchemasController.putTableData
+  informationSchemasController.putTableData,
 );
 app.post(
   "/datasource/:datasourceId/schema",
-  informationSchemasController.postInformationSchema
+  informationSchemasController.postInformationSchema,
 );
 app.put(
   "/datasource/:datasourceId/schema",
-  informationSchemasController.putInformationSchema
+  informationSchemasController.putInformationSchema,
 );
 app.get(
   "/datasource/:datasourceId/schema",
-  informationSchemasController.getInformationSchema
+  informationSchemasController.getInformationSchema,
 );
 
 // Events
@@ -873,19 +875,19 @@ app.delete("/presentation/:id", presentationController.deletePresentation);
 // Discussions
 app.get(
   "/discussion/:parentType/:parentId",
-  discussionsController.getDiscussion
+  discussionsController.getDiscussion,
 );
 app.post(
   "/discussion/:parentType/:parentId",
-  discussionsController.postDiscussions
+  discussionsController.postDiscussions,
 );
 app.put(
   "/discussion/:parentType/:parentId/:index",
-  discussionsController.putComment
+  discussionsController.putComment,
 );
 app.delete(
   "/discussion/:parentType/:parentId/:index",
-  discussionsController.deleteComment
+  discussionsController.deleteComment,
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
 app.use("/upload", uploadRouter);
@@ -900,7 +902,7 @@ app.put("/admin/organization/disable", adminController.disableOrganization);
 app.put("/admin/organization/enable", adminController.enableOrganization);
 app.get(
   "/admin/organization/:orgId/members",
-  adminController.getOrganizationMembers
+  adminController.getOrganizationMembers,
 );
 app.get("/admin/members", adminController.getMembers);
 app.put("/admin/member", adminController.putMember);
@@ -910,11 +912,11 @@ app.get("/license", licenseController.getLicenseData);
 app.get("/license/report", licenseController.getLicenseReport);
 app.post(
   "/license/enterprise-trial",
-  licenseController.postCreateTrialEnterpriseLicense
+  licenseController.postCreateTrialEnterpriseLicense,
 );
 app.post(
   "/license/resend-verification-email",
-  licenseController.postResendEmailVerificationEmail
+  licenseController.postResendEmailVerificationEmail,
 );
 app.post("/license/verify-email", licenseController.postVerifyEmail);
 
@@ -924,10 +926,10 @@ app.get(
     const context = getContextFromReq(req);
     const generatedHypothesis = await findOrCreateGeneratedHypothesis(
       context,
-      req.params.uuid
+      req.params.uuid,
     );
     return res.json({ generatedHypothesis });
-  }
+  },
 );
 
 // Dashboards
@@ -959,7 +961,7 @@ const errorHandler: ErrorRequestHandler = (
   req,
   res: Response & { sentry?: string },
   // eslint-disable-next-line
-  next
+  next,
 ) => {
   const status = err.status || 400;
 

@@ -51,7 +51,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
     persistInURL = false,
     ...props
   }: TabsProps,
-  ref
+  ref,
 ) {
   let rootProps: React.ComponentProps<typeof RadixTabs.Root> = {};
 
@@ -133,7 +133,7 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
         {children}
       </RadixTabs.List>
     );
-  }
+  },
 );
 
 type StickyTabsListProps = { pinnedClass?: string } & TabsListProps;
@@ -154,7 +154,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
           root: null, // Use the viewport as the root
           rootMargin: `-${TABS_HEADER_HEIGHT_PX}px`,
           threshold: 0.01, // Trigger when first pixel leaves
-        }
+        },
       );
       if (tabsRef.current) {
         observer.observe(tabsRef.current);
@@ -178,7 +178,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
         <TabsList {...props} ref={ref} />
       </Box>
     );
-  }
+  },
 );
 
 export const TabsTrigger = forwardRef<

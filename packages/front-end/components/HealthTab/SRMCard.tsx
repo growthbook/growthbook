@@ -60,12 +60,12 @@ export default function SRMCard({
         totalUsersCount: totalUsers,
         minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
       }),
-    [traffic.overall.srm, srmThreshold, variations.length, totalUsers]
+    [traffic.overall.srm, srmThreshold, variations.length, totalUsers],
   );
 
   function onResize() {
-    const childHeight = document.getElementById("child-container")
-      ?.clientHeight;
+    const childHeight =
+      document.getElementById("child-container")?.clientHeight;
     const parentElement = document.getElementById("parent-container");
 
     parentElement && (parentElement.style.height = `${childHeight}px`);
@@ -116,9 +116,8 @@ export default function SRMCard({
             ref={(node) => {
               if (node) {
                 const childHeight = node.clientHeight;
-                const parentElement = document.getElementById(
-                  "parent-container"
-                );
+                const parentElement =
+                  document.getElementById("parent-container");
 
                 parentElement &&
                   (parentElement.style.height = `${childHeight}px`);

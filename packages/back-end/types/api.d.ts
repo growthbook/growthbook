@@ -18,14 +18,10 @@ export interface ExperimentOverride {
   url?: string;
 }
 
-export type FeatureDefinitionRuleWithHoldout = FeatureDefinitionRule & {
-  holdoutId?: string;
-};
-
 export interface FeatureDefinition {
   // eslint-disable-next-line
   defaultValue: any;
-  rules?: FeatureDefinitionRuleWithHoldout[];
+  rules?: FeatureDefinitionRule[];
 }
 
 export type FeatureDefinitionWithProject = FeatureDefinition & {

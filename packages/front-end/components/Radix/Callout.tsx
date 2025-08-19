@@ -32,7 +32,7 @@ export default forwardRef<
     contentsAs = "text",
     ...containerProps
   },
-  ref
+  ref,
 ) {
   const renderedIcon = (() => {
     if (icon === null) {

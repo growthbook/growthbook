@@ -67,14 +67,14 @@ export function getAffectedEnvsForExperiment({
         orgEnvIds,
         undefined,
         // the boolean below skips environments if they are disabled on the feature
-        true
+        true,
       );
 
       // if we find any matching rules get the environments that are affected
       if (matches.length) {
         matches.forEach((match) => {
           const env = orgEnvironments.find(
-            (env) => env.id === match.environmentId
+            (env) => env.id === match.environmentId,
           );
 
           if (env) {
@@ -92,7 +92,7 @@ export function getAffectedEnvsForExperiment({
 
 export function getSnapshotAnalysis(
   snapshot: ExperimentSnapshotInterface,
-  analysisSettings?: ExperimentSnapshotAnalysisSettings | null
+  analysisSettings?: ExperimentSnapshotAnalysisSettings | null,
 ): ExperimentSnapshotAnalysis | null {
   // TODO make it so order doesn't matter
   return (
@@ -104,7 +104,7 @@ export function getSnapshotAnalysis(
 
 export function getSafeRolloutSnapshotAnalysis(
   snapshot: SafeRolloutSnapshotInterface,
-  analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null
+  analysisSettings?: SafeRolloutSnapshotAnalysisSettings | null,
 ): SafeRolloutSnapshotAnalysis | null {
   return (
     (analysisSettings
@@ -114,7 +114,7 @@ export function getSafeRolloutSnapshotAnalysis(
 }
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],
-  baselineVariationIndex: number | null
+  baselineVariationIndex: number | null,
 ): ExperimentReportVariation[] {
   if (baselineVariationIndex === null) return variations;
 
@@ -126,7 +126,7 @@ export function putBaselineVariationFirst(
 
 export function isAnalysisAllowed(
   snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
   const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
@@ -150,7 +150,7 @@ export function generateVariationId() {
 }
 
 export function experimentHasLinkedChanges(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
 ): boolean {
   if (exp.hasVisualChangesets) return true;
   if (exp.hasURLRedirects) return true;
@@ -160,7 +160,7 @@ export function experimentHasLinkedChanges(
 
 export function experimentHasLiveLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: LinkedFeatureInfo[]
+  linkedFeatures: LinkedFeatureInfo[],
 ) {
   if (!experimentHasLinkedChanges(exp)) return false;
   if (linkedFeatures.length > 0) {
@@ -174,7 +174,7 @@ export function experimentHasLiveLinkedChanges(
 
 export function includeExperimentInPayload(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
-  linkedFeatures: FeatureInterface[] = []
+  linkedFeatures: FeatureInterface[] = [],
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
@@ -208,7 +208,7 @@ export function includeExperimentInPayload(
       const rules = getMatchingRules(
         feature,
         (r) => r.type === "experiment-ref" && r.experimentId === exp.id,
-        Object.keys(feature.environmentSettings)
+        Object.keys(feature.environmentSettings),
       );
       return rules.some((r) => {
         if (!r.environmentEnabled) return false;
@@ -227,7 +227,7 @@ export function includeExperimentInPayload(
 
 export function includeHoldoutInPayload(
   holdout: HoldoutInterface,
-  exp: ExperimentInterface | ExperimentInterfaceStringDates
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
@@ -252,7 +252,7 @@ export function includeHoldoutInPayload(
 
 export function isValidEnvironment(
   env: string,
-  environments: string[]
+  environments: string[],
 ): boolean {
   return environments.includes(env);
 }
@@ -272,7 +272,7 @@ export function getMatchingRules(
   filter: (rule: FeatureRule) => boolean,
   environments: string[],
   revision?: FeatureRevisionInterface,
-  omitDisabledEnvironments: boolean = false
+  omitDisabledEnvironments: boolean = false,
 ): MatchingRule[] {
   const matches: MatchingRule[] = [];
 
@@ -297,7 +297,7 @@ export function getMatchingRules(
             }
           });
         }
-      }
+      },
     );
   }
 
@@ -306,7 +306,7 @@ export function getMatchingRules(
 
 export function isProjectListValidForProject(
   projects?: string[],
-  project?: string
+  project?: string,
 ) {
   // If project list is empty, it's always valid no matter what
   if (!projects || !projects.length) return true;
@@ -320,7 +320,7 @@ export function isProjectListValidForProject(
 
 export function stringToBoolean(
   value: string | undefined,
-  defaultValue = false
+  defaultValue = false,
 ): boolean {
   if (value === undefined) return defaultValue;
   if (["true", "yes", "on", "1"].includes(value.toLowerCase())) return true;
@@ -394,7 +394,7 @@ export function formatByteSizeString(numBytes: number, inferDigits = false) {
 export function meanVarianceFromSums(
   sum: number,
   sum_squares: number,
-  n: number
+  n: number,
 ): number {
   const variance = (sum_squares - Math.pow(sum, 2) / n) / (n - 1);
   return returnZeroIfNotFinite(variance);
@@ -425,17 +425,17 @@ export function ratioVarianceFromSums({
   const numerator_variance = meanVarianceFromSums(
     numerator_sum,
     numerator_sum_squares,
-    n
+    n,
   );
   const denominator_mean = returnZeroIfNotFinite(denominator_sum / n);
   const denominator_variance = meanVarianceFromSums(
     denominator_sum,
     denominator_sum_squares,
-    n
+    n,
   );
   const covariance =
     returnZeroIfNotFinite(
-      numerator_denominator_sum_product - (numerator_sum * denominator_sum) / n
+      numerator_denominator_sum_product - (numerator_sum * denominator_sum) / n,
     ) /
     (n - 1);
 
@@ -443,7 +443,7 @@ export function ratioVarianceFromSums({
     numerator_variance / Math.pow(denominator_mean, 2) -
       (2 * covariance * numerator_mean) / Math.pow(denominator_mean, 3) +
       (Math.pow(numerator_mean, 2) * denominator_variance) /
-        Math.pow(denominator_mean, 4)
+        Math.pow(denominator_mean, 4),
   );
 }
 
@@ -465,7 +465,7 @@ export function featuresReferencingSavedGroups({
           rule.condition?.includes(savedGroup.id) ||
           rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
           false,
-        environments.map((e) => e.id)
+        environments.map((e) => e.id),
       );
 
       if (matches.length > 0) {
@@ -494,7 +494,7 @@ export function experimentsReferencingSavedGroups({
         (phase) =>
           phase.condition?.includes(savedGroup.id) ||
           phase.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false
+          false,
       );
 
       if (matchingPhases.length > 0) {

@@ -160,10 +160,8 @@ export default function ExperimentHeader({
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showBanditModal, setShowBanditModal] = useState(false);
   const [showEditInfoModal, setShowEditInfoModal] = useState(false);
-  const [
-    editInfoFocusSelector,
-    setEditInfoFocusSelector,
-  ] = useState<FocusSelector>("name");
+  const [editInfoFocusSelector, setEditInfoFocusSelector] =
+    useState<FocusSelector>("name");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showAddToHoldoutModal, setShowAddToHoldoutModal] = useState(false);
 
@@ -172,7 +170,7 @@ export default function ExperimentHeader({
 
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareLevel, setShareLevel] = useState<ShareLevel>(
-    experiment.shareLevel || "organization"
+    experiment.shareLevel || "organization",
   );
   const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
     null | "loading" | "success" | "fail"
@@ -191,7 +189,7 @@ export default function ExperimentHeader({
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   )?.userIdType;
 
   const reportArgs: ExperimentSnapshotReportArgs = {
@@ -226,7 +224,7 @@ export default function ExperimentHeader({
   const [showStartExperiment, setShowStartExperiment] = useState(false);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
+    "multi-armed-bandits",
   );
 
   const hasUpdatePermissions = !holdout
@@ -257,13 +255,11 @@ export default function ExperimentHeader({
 
   const hasResults = !!analysis?.results?.[0];
 
-  const {
-    getDecisionCriteria,
-    getRunningExperimentResultStatus,
-  } = useRunningExperimentStatus();
+  const { getDecisionCriteria, getRunningExperimentResultStatus } =
+    useRunningExperimentStatus();
 
   const decisionCriteria = getDecisionCriteria(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId
+    experiment.decisionFrameworkSettings?.decisionCriteriaId,
   );
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
@@ -281,7 +277,7 @@ export default function ExperimentHeader({
       `/user/${watch ? "watch" : "unwatch"}/experiment/${experiment.id}`,
       {
         method: "POST",
-      }
+      },
     );
     refreshWatching();
     mutateWatchers();
@@ -329,14 +325,14 @@ export default function ExperimentHeader({
           setSaveShareLevelStatus("success");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         })
         .catch(() => {
           setSaveShareLevelStatus("fail");
           saveShareLevelTimeout.current = window.setTimeout(
             () => setSaveShareLevelStatus(null),
-            SAVE_SETTING_TIMEOUT_MS
+            SAVE_SETTING_TIMEOUT_MS,
           );
         });
       track("Experiment: Set Share Level", {
@@ -495,11 +491,11 @@ export default function ExperimentHeader({
                         .map((_, i) =>
                           i < 3
                             ? formatPercent(
-                                1 / (experiment.variations.length ?? 2)
+                                1 / (experiment.variations.length ?? 2),
                               )
                             : i === 3
-                            ? "..."
-                            : null
+                              ? "..."
+                              : null,
                         )
                         .filter(Boolean)
                         .join(", ")}
@@ -542,10 +538,14 @@ export default function ExperimentHeader({
                   body: JSON.stringify({
                     id: isHoldout ? holdout?.id : experiment.id,
                   }),
-                }
+                },
               );
               router.push(
-                isBandit ? "/bandits" : isHoldout ? "/holdouts" : "/experiments"
+                isBandit
+                  ? "/bandits"
+                  : isHoldout
+                    ? "/holdouts"
+                    : "/experiments",
               );
             } catch (e) {
               console.error(e);
@@ -584,7 +584,7 @@ export default function ExperimentHeader({
                 }`,
                 {
                   method: "POST",
-                }
+                },
               );
               mutate();
             } catch (e) {
@@ -686,66 +686,74 @@ export default function ExperimentHeader({
         />
       ) : null}
 
-      <div className="container-fluid pagecontents position-relative experiment-header px-3 pt-3">
-        <div className="d-flex align-items-center flex-wrap">
-          <Flex direction="row" align="center" wrap="wrap" overflow="auto">
-            <h1 className="mb-0">{experiment.name}</h1>
-            <Box ml="2">
+      <div className="container-fluid pagecontents position-relative px-3 pt-3">
+        <Flex direction="row" align="start" justify="between" gap="5">
+          <Box>
+            <h1
+              className="mb-0"
+              style={{ display: "inline", verticalAlign: "middle" }}
+            >
+              {experiment.name}
+            </h1>
+            <Box ml="2" mt="1" display="inline-block">
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
-          </Flex>
-          <div className="ml-auto flex-1"></div>
-          {canRunExperiment ? (
-            <div className="ml-2 flex-shrink-0">
-              {experiment.status === "running" ? (
-                <ExperimentActionButtons
-                  editResult={editResult}
-                  editTargeting={editTargeting}
-                  isBandit={isBandit}
-                  runningExperimentStatus={runningExperimentStatus}
-                  holdout={holdout}
-                />
-              ) : experiment.status === "draft" ? (
-                <Tooltip
-                  shouldDisplay={
-                    isBandit &&
-                    !experimentHasLiveLinkedChanges(experiment, linkedFeatures)
-                  }
-                  body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
-                >
-                  <button
-                    className="btn btn-teal"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setShowStartExperiment(true);
-                    }}
-                    disabled={
+          </Box>
+
+          <Flex direction="row" align="center" gap="2" flexShrink="0">
+            {canRunExperiment ? (
+              <div>
+                {experiment.status === "running" ? (
+                  <ExperimentActionButtons
+                    editResult={editResult}
+                    editTargeting={editTargeting}
+                    isBandit={isBandit}
+                    runningExperimentStatus={runningExperimentStatus}
+                    holdout={holdout}
+                  />
+                ) : experiment.status === "draft" ? (
+                  <Tooltip
+                    shouldDisplay={
                       isBandit &&
                       !experimentHasLiveLinkedChanges(
                         experiment,
-                        linkedFeatures
+                        linkedFeatures,
                       )
                     }
+                    body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
-                    Start {holdout ? "Holdout" : "Experiment"}{" "}
-                    <MdRocketLaunch />
-                  </button>
-                </Tooltip>
-              ) : null}
-              {experiment.status === "stopped" && experiment.results ? (
-                <>
-                  {canEditExperiment ? (
-                    <Button onClick={() => setShareModalOpen(true)}>
-                      Share...
-                    </Button>
-                  ) : shareLevel === "public" ? (
-                    shareLinkButton
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="ml-2">
+                    <button
+                      className="btn btn-teal"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowStartExperiment(true);
+                      }}
+                      disabled={
+                        isBandit &&
+                        !experimentHasLiveLinkedChanges(
+                          experiment,
+                          linkedFeatures,
+                        )
+                      }
+                    >
+                      Start {holdout ? "Holdout" : "Experiment"}{" "}
+                      <MdRocketLaunch />
+                    </button>
+                  </Tooltip>
+                ) : null}
+                {experiment.status === "stopped" && experiment.results ? (
+                  <>
+                    {canEditExperiment ? (
+                      <Button onClick={() => setShareModalOpen(true)}>
+                        Share...
+                      </Button>
+                    ) : shareLevel === "public" ? (
+                      shareLinkButton
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             <DropdownMenu
               trigger={
                 <IconButton
@@ -754,6 +762,7 @@ export default function ExperimentHeader({
                   radius="full"
                   size="3"
                   highContrast
+                  ml="2"
                 >
                   <BsThreeDotsVertical size={18} />
                 </IconButton>
@@ -928,7 +937,7 @@ export default function ExperimentHeader({
                         body: reportArgs
                           ? JSON.stringify(reportArgs)
                           : undefined,
-                      }
+                      },
                     );
                     if (!res.report) {
                       throw new Error("Failed to create report");
@@ -1007,8 +1016,8 @@ export default function ExperimentHeader({
                 )}
               </DropdownMenuGroup>
             </DropdownMenu>
-          </div>
-        </div>
+          </Flex>
+        </Flex>
         <ProjectTagBar
           experiment={experiment}
           holdout={holdout}

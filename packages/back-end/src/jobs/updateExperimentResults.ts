@@ -44,7 +44,7 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
       );
     }
   });
@@ -63,7 +63,7 @@ export default async function (agenda: Agenda) {
     for (let i = 0; i < experiments.length; i++) {
       await queueExperimentUpdate(
         experiments[i].organization,
-        experiments[i].id
+        experiments[i].id,
       );
     }
 
@@ -79,7 +79,7 @@ export default async function (agenda: Agenda) {
 
   async function queueExperimentUpdate(
     organization: string,
-    experimentId: string
+    experimentId: string,
   ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
       organization,
@@ -136,22 +136,20 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
       context,
-      experiment.datasource || ""
+      experiment.datasource || "",
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
     }
 
-    const {
-      regressionAdjustmentEnabled,
-      settingsForSnapshotMetrics,
-    } = await getSettingsForSnapshotMetrics(context, experiment);
+    const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
+      await getSettingsForSnapshotMetrics(context, experiment);
 
     const analysisSettings = getDefaultExperimentAnalysisSettings(
       experiment.statsEngine || scopedSettings.statsEngine.value,
       experiment,
       organization,
-      regressionAdjustmentEnabled
+      regressionAdjustmentEnabled,
     );
 
     const metricMap = await getMetricMap(context);
@@ -177,9 +175,8 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       context,
       phaseIndex: experiment.phases.length - 1,
       defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings
-      ),
+      additionalAnalysisSettings:
+        getAdditionalExperimentAnalysisSettings(analysisSettings),
       settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
       metricMap,
       factTableMap,
@@ -192,7 +189,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     const currentSnapshot = queryRunner.model;
 
     logger.info(
-      "Successfully Refreshed Results for experiment " + experimentId
+      "Successfully Refreshed Results for experiment " + experimentId,
     );
 
     if (experiment.type === "multi-armed-bandit") {
