@@ -2,7 +2,7 @@ type: object
 required:
   - name
   - datasource
-  - userIdType
+  - identifierType
   - type
   - managedBy
 properties:
@@ -15,7 +15,7 @@ properties:
   datasource:
     type: string
     description: ID of the datasource this segment belongs to
-  userIdType:
+  identifierType:
     type: string
     description: Type of identifier (user, anonymous, etc.)
   projects:

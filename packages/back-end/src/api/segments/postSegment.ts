@@ -19,8 +19,8 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
     ...req.body,
     owner: req.context.userId || "",
     description: req.body.description || "",
+    userIdType: req.body.identifierType,
   };
-
   const segment = await req.context.models.segments.create(segmentData);
 
   return {

@@ -1316,7 +1316,7 @@ paths:
               required:
                 - name
                 - datasource
-                - userIdType
+                - identifierType
                 - type
                 - managedBy
               properties:
@@ -1329,7 +1329,7 @@ paths:
                 datasource:
                   type: string
                   description: ID of the datasource this segment belongs to
-                userIdType:
+                identifierType:
                   type: string
                   description: 'Type of identifier (user, anonymous, etc.)'
                 projects:
@@ -1424,7 +1424,7 @@ paths:
                 datasource:
                   type: string
                   description: ID of the datasource this segment belongs to
-                userIdType:
+                identifierType:
                   type: string
                   description: 'Type of identifier (user, anonymous, etc.)'
                 projects:
@@ -6049,7 +6049,7 @@ components:
           type: string
         datasourceId:
           type: string
-        userIdType:
+        identifierType:
           type: string
         name:
           type: string

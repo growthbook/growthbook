@@ -523,7 +523,7 @@ export interface components {
       id: string;
       owner: string;
       datasourceId: string;
-      userIdType?: string;
+      identifierType: string;
       name: string;
       description?: string;
       query?: string;
@@ -8130,7 +8130,7 @@ export interface operations {
                 id: string;
                 owner: string;
                 datasourceId: string;
-                userIdType?: string;
+                identifierType: string;
                 name: string;
                 description?: string;
                 query?: string;
@@ -8170,7 +8170,7 @@ export interface operations {
           /** @description ID of the datasource this segment belongs to */
           datasource: string;
           /** @description Type of identifier (user, anonymous, etc.) */
-          userIdType: string;
+          identifierType: string;
           /** @description List of project IDs for projects that can access this segment */
           projects?: (string)[];
           /**
@@ -8200,7 +8200,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              userIdType?: string;
+              identifierType: string;
               name: string;
               description?: string;
               query?: string;
@@ -8237,7 +8237,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              userIdType?: string;
+              identifierType: string;
               name: string;
               description?: string;
               query?: string;
@@ -8276,7 +8276,7 @@ export interface operations {
           /** @description ID of the datasource this segment belongs to */
           datasource?: string;
           /** @description Type of identifier (user, anonymous, etc.) */
-          userIdType?: string;
+          identifierType?: string;
           /** @description List of project IDs for projects that can access this segment */
           projects?: (string)[];
           /**
@@ -8306,7 +8306,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              userIdType?: string;
+              identifierType: string;
               name: string;
               description?: string;
               query?: string;
