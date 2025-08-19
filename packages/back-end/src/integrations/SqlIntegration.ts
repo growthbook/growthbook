@@ -4717,7 +4717,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const filterWhere: string[] = [];
 
     // We only do this if all metrics have at least one filter
-    let numberOfMetricsWithoutFilters = 0;
+    let numberOfNumeratorsOrDenominatorsWithoutFilters = 0;
 
     metrics.forEach((m, i) => {
       if (m.numerator.factTableId !== factTable.id) {
@@ -4744,7 +4744,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       ${column} as m${i}_value`);
 
       if (!filters.length) {
-        numberOfMetricsWithoutFilters++;
+        numberOfNumeratorsOrDenominatorsWithoutFilters++;
       }
       if (addFiltersToWhere && filters.length) {
         filterWhere.push(`(${filters.join("\n AND ")})`);
@@ -4772,6 +4772,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         metricCols.push(`-- ${m.name} (denominator)
         ${column} as m${i}_denominator`);
 
+        if (!filters.length) {
+          numberOfNumeratorsOrDenominatorsWithoutFilters++;
+        }
+
         if (addFiltersToWhere && filters.length) {
           filterWhere.push(`(${filters.join(" AND ")})`);
         }
@@ -4779,7 +4783,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     });
 
     // only add filters if all metrics have at least one filter
-    if (filterWhere.length && numberOfMetricsWithoutFilters === 0) {
+    if (
+      filterWhere.length &&
+      numberOfNumeratorsOrDenominatorsWithoutFilters === 0
+    ) {
       where.push("(" + filterWhere.join(" OR ") + ")");
     }
 
