@@ -26,6 +26,7 @@ export const HoldoutSelect = ({
     false,
     "holdout",
   );
+
   const hasHoldouts = hasCommercialFeature("holdouts");
   const hasSetInitialValue = useRef(false);
 
@@ -33,12 +34,6 @@ export const HoldoutSelect = ({
     return holdouts
       .filter((h) => {
         const experiment = experimentsMap.get(h.experimentId);
-        // If the holdout is a part of the current project or all projects, show it
-        if (selectedProject) {
-          return (
-            h.projects.length === 0 || h.projects.includes(selectedProject)
-          );
-        }
 
         // If the holdout is in draft or is in the analysis period, don't show it
         if (!!h.analysisStartDate || experiment?.status === "draft") {
