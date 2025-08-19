@@ -60,6 +60,7 @@ export type CommercialFeature =
   | "managed-warehouse"
   | "safe-rollout"
   | "require-project-for-features-setting"
+  | "holdouts"
   | "saveSqlExplorerQueries"
   | "metric-effects"
   | "metric-correlations"
@@ -290,6 +291,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-warehouse",
     "require-project-for-features-setting",
+    "holdouts",
     "saveSqlExplorerQueries",
     "metric-effects",
     "metric-correlations",
