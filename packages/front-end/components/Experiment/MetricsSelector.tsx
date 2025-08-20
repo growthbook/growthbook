@@ -84,6 +84,7 @@ const MetricsSelector: FC<{
   forceSingleMetric?: boolean;
   noPercentile?: boolean;
   noManual?: boolean;
+  filterConversionWindowMetrics?: boolean;
   disabled?: boolean;
   helpText?: ReactNode;
 }> = ({
@@ -99,6 +100,7 @@ const MetricsSelector: FC<{
   forceSingleMetric = false,
   noPercentile = false,
   noManual = false,
+  filterConversionWindowMetrics,
   disabled,
   helpText,
 }) => {
@@ -120,9 +122,15 @@ const MetricsSelector: FC<{
 
   const options: MetricOption[] = [
     ...metrics
-      .filter((m) =>
-        noPercentile ? m.cappingSettings.type !== "percentile" : true,
-      )
+      .filter((m) => {
+        if (noPercentile) {
+          return m.cappingSettings.type !== "percentile";
+        }
+        if (filterConversionWindowMetrics) {
+          return m?.windowSettings?.type !== "conversion";
+        }
+        return true;
+      })
       .filter((m) => (noManual ? m.datasource : true))
       .map((m) => ({
         id: m.id,
@@ -143,6 +151,9 @@ const MetricsSelector: FC<{
             }
             if (noPercentile) {
               return m.cappingSettings.type !== "percentile";
+            }
+            if (filterConversionWindowMetrics) {
+              return m?.windowSettings?.type !== "conversion";
             }
             return true;
           })
@@ -266,6 +277,7 @@ const MetricsSelector: FC<{
             showDescription={context !== "value"}
             isGroup={isGroup}
             metrics={metricsWithJoinableStatus}
+            filterConversionWindowMetrics={filterConversionWindowMetrics}
           />
         ) : (
           label

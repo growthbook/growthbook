@@ -10,6 +10,7 @@ import {
   CLICKHOUSE_MAIN_TABLE,
   ENVIRONMENT,
   IS_CLOUD,
+  CLICKHOUSE_DEV_PREFIX,
 } from "back-end/src/util/secrets";
 import {
   GrowthbookClickhouseDataSource,
@@ -77,7 +78,9 @@ function clickhouseUserId(orgId: string) {
     throw new Error("Invalid organization id");
   }
 
-  return ENVIRONMENT === "production" ? `${orgId}` : `test_${orgId}`;
+  return ENVIRONMENT === "production"
+    ? `${orgId}`
+    : `${CLICKHOUSE_DEV_PREFIX}${orgId}`;
 }
 
 function ensureClickhouseEnvVars() {

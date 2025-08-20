@@ -11,6 +11,7 @@ import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
@@ -63,6 +64,7 @@ interface SortableProps {
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   hideInactive?: boolean;
   isDraft: boolean;
+  holdout: HoldoutInterface | undefined;
 }
 
 type RuleProps = SortableProps &
@@ -123,6 +125,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       safeRolloutsMap,
       hideInactive,
       isDraft,
+      holdout,
       ...props
     },
     ref,
@@ -220,7 +223,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 )}
               </Box>
               <Box>
-                <Badge label={<>{i + 1}</>} radius="full" color="gray" />
+                {/* If there is a holdout, we need to add 1 to the index since the holdout rule is added above the other rules */}
+                <Badge
+                  label={<>{holdout ? i + 2 : i + 1}</>}
+                  radius="full"
+                  color="gray"
+                />
               </Box>
               <Box flexGrow="1" flexShrink="5" overflowX="auto">
                 <Flex align="center" mb="3" flexGrow="1">
