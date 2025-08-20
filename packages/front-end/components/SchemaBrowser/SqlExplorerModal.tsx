@@ -280,11 +280,10 @@ export default function SqlExplorerModal({
             );
           }
 
-          // Validate required config values based on filter type
-          const filterConfig = filter.config || {};
+          // Validate required config values based on filter type using discriminated union
           switch (filter.filterType) {
             case "dateRange":
-              if (!filterConfig.startDate && !filterConfig.endDate) {
+              if (!filter.config.startDate && !filter.config.endDate) {
                 setTab(`visualization-${index}`);
                 throw new Error(
                   `Date range filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least a start date or end date.`,
@@ -294,8 +293,8 @@ export default function SqlExplorerModal({
 
             case "numberRange":
               if (
-                filterConfig.min === undefined &&
-                filterConfig.max === undefined
+                filter.config.min === undefined &&
+                filter.config.max === undefined
               ) {
                 setTab(`visualization-${index}`);
                 throw new Error(
@@ -308,8 +307,8 @@ export default function SqlExplorerModal({
             case "lessThan":
             case "equals":
               if (
-                filterConfig.value === undefined ||
-                filterConfig.value === ""
+                filter.config.value === undefined ||
+                filter.config.value === ""
               ) {
                 setTab(`visualization-${index}`);
                 throw new Error(
@@ -320,8 +319,8 @@ export default function SqlExplorerModal({
 
             case "contains":
               if (
-                !filterConfig.value ||
-                String(filterConfig.value).trim() === ""
+                !filter.config.value ||
+                String(filter.config.value).trim() === ""
               ) {
                 setTab(`visualization-${index}`);
                 throw new Error(
@@ -332,8 +331,8 @@ export default function SqlExplorerModal({
 
             case "includes":
               if (
-                !Array.isArray(filterConfig.values) ||
-                filterConfig.values.length === 0
+                !Array.isArray(filter.config.values) ||
+                filter.config.values.length === 0
               ) {
                 setTab(`visualization-${index}`);
                 throw new Error(
