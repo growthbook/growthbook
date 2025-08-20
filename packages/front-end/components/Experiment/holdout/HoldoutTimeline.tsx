@@ -55,14 +55,13 @@ const HoldoutTimeline: React.FC<{
   // Find the earliest start date from all experiment phases
   const [endDateIsNow, setEndDateIsNow] = useState(false);
   // this is to prevent the now line moving when it renders
-  const [initialNow] = useState(new Date());
   const endDate = useMemo(() => {
     if (!holdoutEndDate) {
       setEndDateIsNow(true);
-      return initialNow;
+      return new Date();
     }
     return holdoutEndDate;
-  }, [setEndDateIsNow, holdoutEndDate, initialNow]);
+  }, [setEndDateIsNow, holdoutEndDate]);
   const [width, setWidth] = useState(800); // Default width
   const rowHeight = 50; // Much taller rows to match the image design
   const height = margin.top + margin.bottom + experiments.length * rowHeight;
@@ -517,16 +516,16 @@ const HoldoutTimeline: React.FC<{
               {endDateIsNow && (
                 <g>
                   <line
-                    x1={xScale(new Date())}
+                    x1={xScale(endDate)}
                     y1={margin.top}
-                    x2={xScale(new Date())}
+                    x2={xScale(endDate)}
                     y2={height - margin.bottom}
                     stroke="var(--red-9)"
                     strokeWidth={2}
                     strokeDasharray="5,5"
                   />
                   <text
-                    x={xScale(new Date()) + 8}
+                    x={xScale(endDate) + 8}
                     y={margin.top - 8}
                     fontSize={11}
                     fill="var(--red-9)"
@@ -545,13 +544,13 @@ const HoldoutTimeline: React.FC<{
                     const end =
                       experiment.status === "stopped"
                         ? (getValidDate(phase.dateEnded) ?? "")
-                        : new Date();
+                        : endDate;
                     const colors = getPhaseColor(experiment, "running");
                     const winColors = getPhaseColor(experiment, "won");
                     const xStart = xScale(start);
                     const xEnd = xScale(end);
                     const rectWidth = Math.max(xEnd - xStart, 2); // Ensure minimal visibility
-                    const winWidth = Math.max(xScale(new Date()) - xEnd, 2);
+                    const winWidth = Math.max(xScale(endDate) - xEnd, 2);
                     const rectHeight = yScale.bandwidth() * 0.5; // Thinner bars to match image
                     const yPosition = yScale(experiment.name);
                     if (yPosition === undefined) return null;
