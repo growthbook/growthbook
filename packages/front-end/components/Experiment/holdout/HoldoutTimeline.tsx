@@ -41,30 +41,53 @@ const HoldoutTimeline: React.FC<{
   experiments: ExperimentInterfaceStringDates[];
   startDate?: Date;
   endDate?: Date;
-}> = ({
-  experiments,
-  startDate = new Date(Date.now() - 100 * 24 * 60 * 60 * 7),
-  endDate = new Date(),
-}) => {
+}> = ({ experiments }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipTimeout = useRef<NodeJS.Timeout | null>(null);
+  // Find the earliest start date from all experiment phases
+  const startDate = useMemo(() => {
+    let earliest: Date | null = null;
 
-  // we need to filter the experiments to only those that have phases within the selected date range:
-  const filteredExperiments = useMemo(() => {
-    return experiments.filter((experiment) => {
-      return experiment.phases.some((phase) => {
+    experiments.forEach((experiment) => {
+      experiment.phases.forEach((phase) => {
         const start = getValidDate(phase.dateStarted);
-        const end =
-          experiment.status === "stopped"
-            ? getValidDate(phase.dateEnded)
-            : new Date();
-        return (
-          (start && start >= startDate && start <= endDate) ||
-          (end && end >= startDate && end <= endDate)
-        );
+        if (start && (!earliest || start < earliest)) {
+          earliest = start;
+        }
       });
     });
-  }, [endDate, experiments, startDate]);
+
+    return earliest || new Date();
+  }, [experiments]);
+  const [endDateIsNow, setEndDateIsNow] = useState(false);
+  // Find the latest end date from all experiment phases, or use current date
+  const endDate = useMemo(() => {
+    let latest: Date | null = null;
+
+    for (const experiment of experiments) {
+      for (const phase of experiment.phases) {
+        let end: Date;
+        if (experiment.status === "stopped") {
+          end = getValidDate(phase.dateEnded);
+          if (end && (!latest || end > latest)) {
+            latest = end;
+          }
+        } else {
+          setEndDateIsNow(true);
+          latest = new Date();
+        }
+      }
+    }
+
+    return latest || new Date();
+  }, [experiments, setEndDateIsNow]);
+
+  // Filter experiments to only those that have phases
+  const filteredExperiments = useMemo(() => {
+    return experiments.filter(
+      (experiment) => experiment.phases && experiment.phases.length > 0,
+    );
+  }, [experiments]);
 
   const [width, setWidth] = useState(800); // Default width
   const rowHeight = 50; // Much taller rows to match the image design
@@ -161,7 +184,10 @@ const HoldoutTimeline: React.FC<{
   const getScaleDomain = () => {
     const rangeInDays =
       (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-    startDate.setHours(0, 0, 0, 0);
+
+    if (rangeInDays > 1) {
+      startDate.setHours(0, 0, 0, 0);
+    }
 
     if (rangeInDays < 7) {
       // Less than a week - use start and end dates as is
@@ -370,7 +396,6 @@ const HoldoutTimeline: React.FC<{
                     const rangeInDays =
                       (endDate.getTime() - startDate.getTime()) /
                       (1000 * 60 * 60 * 24);
-
                     if (rangeInDays < 7) {
                       // Less than a week - show day format
                       return format(d, "MMM d");
@@ -392,6 +417,7 @@ const HoldoutTimeline: React.FC<{
                   const rangeInDays =
                     (end.getTime() - startDate.getTime()) /
                     (1000 * 60 * 60 * 24);
+                  console.log(rangeInDays, "rangeInDays");
 
                   if (rangeInDays < 7) {
                     // Less than a week - show days
@@ -454,10 +480,9 @@ const HoldoutTimeline: React.FC<{
                       current.setMonth(current.getMonth() + 1);
                     }
                   }
-
-                  // Add end date
-                  ticks.push(new Date(endDate));
-
+                  if (!endDateIsNow) {
+                    ticks.push(new Date(endDate));
+                  }
                   return ticks;
                 })()}
                 tickLabelProps={() => ({
@@ -512,6 +537,29 @@ const HoldoutTimeline: React.FC<{
                   fill={i % 2 === 0 ? "var(--gray-2)" : "transparent"}
                 />
               ))}
+
+              {endDateIsNow && (
+                <g>
+                  <line
+                    x1={xScale(new Date())}
+                    y1={margin.top}
+                    x2={xScale(new Date())}
+                    y2={height - margin.bottom}
+                    stroke="var(--red-9)"
+                    strokeWidth={2}
+                    strokeDasharray="5,5"
+                  />
+                  <text
+                    x={xScale(new Date()) + 8}
+                    y={margin.top - 8}
+                    fontSize={11}
+                    fill="var(--red-9)"
+                    fontWeight="bold"
+                  >
+                    Now
+                  </text>
+                </g>
+              )}
 
               {/* Experiment Timelines - simplified bars */}
               {filteredExperiments.map((experiment) => {
