@@ -54,13 +54,15 @@ const HoldoutTimeline: React.FC<{
   const tooltipTimeout = useRef<NodeJS.Timeout | null>(null);
   // Find the earliest start date from all experiment phases
   const [endDateIsNow, setEndDateIsNow] = useState(false);
+  // this is to prevent the now line moving when it renders
+  const [initialNow] = useState(new Date());
   const endDate = useMemo(() => {
     if (!holdoutEndDate) {
       setEndDateIsNow(true);
-      return new Date();
+      return initialNow;
     }
     return holdoutEndDate;
-  }, [setEndDateIsNow, holdoutEndDate]);
+  }, [setEndDateIsNow, holdoutEndDate, initialNow]);
   const [width, setWidth] = useState(800); // Default width
   const rowHeight = 50; // Much taller rows to match the image design
   const height = margin.top + margin.bottom + experiments.length * rowHeight;
