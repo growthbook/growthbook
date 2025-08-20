@@ -200,7 +200,7 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
   unitsTableFullName: string;
-  partitionSettings: PartitionSettings;
+  partitionSettings: PartitionSettings | undefined;
 }
 
 export interface UpdateExperimentIncrementalUnitsQueryParams

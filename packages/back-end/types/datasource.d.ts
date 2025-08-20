@@ -1,3 +1,4 @@
+import { PartitionSettings } from "../src/types/Integration";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
@@ -190,12 +191,7 @@ export type DataSourcePipelineSettings = {
   writeDataset?: string; // the mid level name (aka schema)
   unitsTableRetentionHours?: number;
   unitsTableDeletion?: boolean;
-  partitionSettings?: {
-    type: "timestamp" | "yearMonthDate";
-    yearColumn?: string;
-    monthColumn?: string;
-    dateColumn?: string;
-  };
+  partitionSettings?: PartitionSettings;
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";

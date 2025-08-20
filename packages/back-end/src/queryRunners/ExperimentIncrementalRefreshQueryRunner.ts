@@ -176,12 +176,8 @@ export const startExperimentIncrementalRefreshQueries = async (
       activationMetric: activationMetric,
       dimensions: [], // TODO experiment dimensions
       lastMaxTimestamp: lastMaxTimestamp,
-      partitionSettings: {
-        type: "yearMonthDate",
-        yearColumn: "year",
-        monthColumn: "month",
-        dateColumn: "day",
-      }, // TODO pass from front end
+      partitionSettings:
+        integration.datasource.settings.pipelineSettings?.partitionSettings,
     }),
     dependencies: [
       dropTempUnitsTableQuery.query,
