@@ -197,7 +197,6 @@ export function DataVisualizationDisplay({
             return true;
           }
 
-          // Number filters
           case "numberRange": {
             if (isNaN(rowValue)) return false;
 
@@ -214,7 +213,7 @@ export function DataVisualizationDisplay({
             if (max !== null && rowValue > max) return false;
             return true;
           }
-
+          // Number filters
           case "greaterThan": {
             if (isNaN(rowValue)) return false;
 
@@ -229,7 +228,7 @@ export function DataVisualizationDisplay({
             return rowValue < threshold;
           }
 
-          case "equals": {
+          case "equalTo": {
             if (isNaN(rowValue)) return false;
 
             const target = Number(filter.config.value);

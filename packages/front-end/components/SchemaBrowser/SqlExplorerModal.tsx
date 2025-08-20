@@ -269,7 +269,7 @@ export default function SqlExplorerModal({
           // Validate filter type matches the data type
           const validFilterTypes = {
             date: ["dateRange", "today", "last7Days", "last30Days"],
-            number: ["numberRange", "greaterThan", "lessThan", "equals"],
+            number: ["numberRange", "greaterThan", "lessThan", "equalTo"],
             string: ["includes", "contains"],
           };
 
@@ -305,7 +305,7 @@ export default function SqlExplorerModal({
 
             case "greaterThan":
             case "lessThan":
-            case "equals":
+            case "equalTo":
               if (
                 filter.config.value === undefined ||
                 filter.config.value === ""

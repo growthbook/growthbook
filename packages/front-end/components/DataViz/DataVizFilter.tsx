@@ -44,7 +44,7 @@ const filterOptions = [
   { value: "numberRange", label: "Custom Range", supportedTypes: ["number"] },
   { value: "greaterThan", label: "Greater Than", supportedTypes: ["number"] },
   { value: "lessThan", label: "Less Than", supportedTypes: ["number"] },
-  { value: "equals", label: "Equals", supportedTypes: ["number"] },
+  { value: "equalTo", label: "Equals", supportedTypes: ["number"] },
 
   // String filters
   { value: "includes", label: "Select Values", supportedTypes: ["string"] },
@@ -126,7 +126,7 @@ export default function DataVizFilter({
       return {
         column,
         type: "number",
-        filterType: "equals",
+        filterType: "equalTo",
         config: { value: "0" }, // Store as string initially to match schema
       };
     } else {
@@ -178,7 +178,7 @@ export default function DataVizFilter({
         updateFilter({
           column: currentFilter.column,
           type: "number",
-          filterType: newFilterType as "greaterThan" | "lessThan" | "equals",
+          filterType: newFilterType as "greaterThan" | "lessThan" | "equalTo",
           config: { value: "0" },
         });
       }
@@ -340,7 +340,7 @@ export default function DataVizFilter({
         {filters[filterIndex].type === "number" &&
           (filters[filterIndex].filterType === "greaterThan" ||
             filters[filterIndex].filterType === "lessThan" ||
-            filters[filterIndex].filterType === "equals") && (
+            filters[filterIndex].filterType === "equalTo") && (
             <Flex direction="row" justify="between" align="center">
               <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
                 Value

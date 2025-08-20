@@ -183,17 +183,25 @@ export default function DataVizFilterPanel({
                   let newFilter: FilterConfiguration;
 
                   if (type === "date") {
+                    // Default to last 30 days for date filters
+                    const today = new Date();
+                    const thirtyDaysAgo = new Date(today);
+                    thirtyDaysAgo.setDate(today.getDate() - 30);
+
                     newFilter = {
                       column: firstColumnFilterOption.column,
                       type: "date",
-                      filterType: "today",
-                      config: {},
+                      filterType: "dateRange",
+                      config: {
+                        startDate: thirtyDaysAgo.toISOString().split("T")[0],
+                        endDate: today.toISOString().split("T")[0],
+                      },
                     };
                   } else if (type === "number") {
                     newFilter = {
                       column: firstColumnFilterOption.column,
                       type: "number",
-                      filterType: "equals",
+                      filterType: "equalTo",
                       config: { value: "0" },
                     };
                   } else {

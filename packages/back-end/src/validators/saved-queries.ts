@@ -50,7 +50,7 @@ export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
 
-const filterConfigurationValidator = z.discriminatedUnion("filterType", [
+const filterConfigurationValidator = z.union([
   // Date filters
   z.object({
     column: z.string(),
@@ -89,7 +89,7 @@ const filterConfigurationValidator = z.discriminatedUnion("filterType", [
   z.object({
     column: z.string(),
     type: z.literal("number"),
-    filterType: z.enum(["greaterThan", "lessThan", "equals"]),
+    filterType: z.enum(["greaterThan", "lessThan", "equalTo"]),
     config: z.object({
       value: z.union([z.string(), z.number()]),
     }),
