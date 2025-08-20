@@ -175,20 +175,35 @@ export default function DataVizFilterPanel({
                 role="button"
                 className="d-inline-block link-purple font-weight-bold"
                 onClick={() => {
-                  // I need to get the first column filter option
+                  // Get the first column filter option
                   const firstColumnFilterOption = columnFilterOptions[0];
                   const type = firstColumnFilterOption.knownType;
-                  // Add new filter with default values
-                  const newFilter: FilterConfiguration = {
-                    column: firstColumnFilterOption.column,
-                    type,
-                    filterType:
-                      type === "date"
-                        ? "today"
-                        : type === "number"
-                          ? "equals"
-                          : "contains",
-                  };
+
+                  // Add new filter with default values based on the type
+                  let newFilter: FilterConfiguration;
+
+                  if (type === "date") {
+                    newFilter = {
+                      column: firstColumnFilterOption.column,
+                      type: "date",
+                      filterType: "today",
+                      config: {},
+                    };
+                  } else if (type === "number") {
+                    newFilter = {
+                      column: firstColumnFilterOption.column,
+                      type: "number",
+                      filterType: "equals",
+                      config: { value: "0" },
+                    };
+                  } else {
+                    newFilter = {
+                      column: firstColumnFilterOption.column,
+                      type: "string",
+                      filterType: "contains",
+                      config: { value: "" },
+                    };
+                  }
 
                   onDataVizConfigChange({
                     ...dataVizConfig,

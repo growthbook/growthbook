@@ -50,30 +50,69 @@ export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
 
-//MKTODO: Need to refactor this so the filterType is a subset of the 'type' field
-const filterConfigurationValidator = z.object({
-  column: z.string(),
-  type: z.enum(["string", "number", "date"]),
-  filterType: z.enum([
-    // Date filters
-    "dateRange",
-    "today",
-    "last7Days",
-    "last30Days",
-    // Number filters
-    "numberRange",
-    "greaterThan",
-    "lessThan",
-    "equals",
-    // String filters
-    "includes", // Multi-select from unique values
-    "contains", // Text search/substring match
-  ]),
-  // Static configuration values (e.g., for custom ranges)
-  config: z
-    .record(z.union([z.string(), z.number(), z.array(z.string())]))
-    .optional(),
-});
+const filterConfigurationValidator = z.discriminatedUnion("filterType", [
+  // Date filters
+  z.object({
+    column: z.string(),
+    type: z.literal("date"),
+    filterType: z.literal("dateRange"),
+    config: z
+      .object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      })
+      .refine((data) => data.startDate || data.endDate, {
+        message: "At least one of startDate or endDate is required",
+      }),
+  }),
+  z.object({
+    column: z.string(),
+    type: z.literal("date"),
+    filterType: z.enum(["today", "last7Days", "last30Days"]),
+    config: z.object({}).optional(), // No config needed
+  }),
+
+  // Number filters
+  z.object({
+    column: z.string(),
+    type: z.literal("number"),
+    filterType: z.literal("numberRange"),
+    config: z
+      .object({
+        min: z.union([z.string(), z.number()]).optional(),
+        max: z.union([z.string(), z.number()]).optional(),
+      })
+      .refine((data) => data.min !== undefined || data.max !== undefined, {
+        message: "At least one of min or max is required",
+      }),
+  }),
+  z.object({
+    column: z.string(),
+    type: z.literal("number"),
+    filterType: z.enum(["greaterThan", "lessThan", "equals"]),
+    config: z.object({
+      value: z.union([z.string(), z.number()]),
+    }),
+  }),
+
+  // String filters
+  z.object({
+    column: z.string(),
+    type: z.literal("string"),
+    filterType: z.literal("contains"),
+    config: z.object({
+      value: z.string(),
+    }),
+  }),
+  z.object({
+    column: z.string(),
+    type: z.literal("string"),
+    filterType: z.literal("includes"),
+    config: z.object({
+      values: z.array(z.string()),
+    }),
+  }),
+]);
 
 export type FilterConfiguration = z.infer<typeof filterConfigurationValidator>;
 

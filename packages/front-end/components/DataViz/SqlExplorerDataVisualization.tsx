@@ -140,123 +140,115 @@ export function DataVisualizationDisplay({
 
     return rows.filter((row) => {
       return filters.every((filter) => {
-        const { column, type, filterType, config = {} } = filter;
+        const { column } = filter;
         const rowValue = row[column];
 
         // Handle null/undefined values
         if (rowValue == null) return false;
 
-        // Apply filter based on type and filterType
-        switch (type) {
-          case "date": {
-            // Parse date - if invalid, exclude this row from results
+        switch (filter.filterType) {
+          // Date filters
+          case "today": {
             const filterDate = new Date(rowValue);
             if (isNaN(filterDate.getTime())) return false;
 
             const now = new Date();
-
-            switch (filterType) {
-              case "today": {
-                // Compare only the date parts (year/month/day) in UTC
-                return (
-                  filterDate.getFullYear() === now.getUTCFullYear() &&
-                  filterDate.getMonth() === now.getUTCMonth() &&
-                  filterDate.getDate() === now.getUTCDate()
-                );
-              }
-
-              case "last7Days": {
-                const sevenDaysAgo = new Date(now);
-                sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
-                return filterDate >= sevenDaysAgo;
-              }
-
-              case "last30Days": {
-                const thirtyDaysAgo = new Date(now);
-                thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
-                return filterDate >= thirtyDaysAgo;
-              }
-
-              case "dateRange": {
-                const startDate = config.startDate
-                  ? new Date((config.startDate as string) + "T00:00:00.000Z")
-                  : null;
-                const endDate = config.endDate
-                  ? new Date((config.endDate as string) + "T23:59:59.999Z")
-                  : null;
-
-                if (startDate && filterDate < startDate) return false;
-                if (endDate && filterDate > endDate) return false;
-                return true;
-              }
-
-              default:
-                return true;
-            }
+            // Compare only the date parts (year/month/day) in UTC
+            return (
+              filterDate.getFullYear() === now.getUTCFullYear() &&
+              filterDate.getMonth() === now.getUTCMonth() &&
+              filterDate.getDate() === now.getUTCDate()
+            );
           }
 
-          case "number": {
+          case "last7Days": {
+            const filterDate = new Date(rowValue);
+            if (isNaN(filterDate.getTime())) return false;
+
+            const now = new Date();
+            const sevenDaysAgo = new Date(now);
+            sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+            return filterDate >= sevenDaysAgo;
+          }
+
+          case "last30Days": {
+            const filterDate = new Date(rowValue);
+            if (isNaN(filterDate.getTime())) return false;
+
+            const now = new Date();
+            const thirtyDaysAgo = new Date(now);
+            thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+            return filterDate >= thirtyDaysAgo;
+          }
+
+          case "dateRange": {
+            const filterDate = new Date(rowValue);
+            if (isNaN(filterDate.getTime())) return false;
+
+            const startDate = filter.config.startDate
+              ? new Date(filter.config.startDate + "T00:00:00.000Z")
+              : null;
+            const endDate = filter.config.endDate
+              ? new Date(filter.config.endDate + "T23:59:59.999Z")
+              : null;
+
+            if (startDate && filterDate < startDate) return false;
+            if (endDate && filterDate > endDate) return false;
+            return true;
+          }
+
+          // Number filters
+          case "numberRange": {
             if (isNaN(rowValue)) return false;
 
-            switch (filterType) {
-              case "numberRange": {
-                const min =
-                  config.min !== undefined ? Number(config.min) : null;
-                const max =
-                  config.max !== undefined ? Number(config.max) : null;
+            const min =
+              filter.config.min !== undefined
+                ? Number(filter.config.min)
+                : null;
+            const max =
+              filter.config.max !== undefined
+                ? Number(filter.config.max)
+                : null;
 
-                if (min !== null && rowValue < min) return false;
-                if (max !== null && rowValue > max) return false;
-                return true;
-              }
-
-              case "greaterThan": {
-                const threshold =
-                  config.value !== undefined ? Number(config.value) : null;
-                return threshold !== null ? rowValue > threshold : true;
-              }
-
-              case "lessThan": {
-                const threshold =
-                  config.value !== undefined ? Number(config.value) : null;
-                return threshold !== null ? rowValue < threshold : true;
-              }
-
-              case "equals": {
-                const target =
-                  config.value !== undefined ? Number(config.value) : null;
-                return target !== null ? rowValue === target : true;
-              }
-
-              default:
-                return true;
-            }
+            if (min !== null && rowValue < min) return false;
+            if (max !== null && rowValue > max) return false;
+            return true;
           }
 
-          case "string": {
-            switch (filterType) {
-              case "contains": {
-                const searchText =
-                  config.value !== undefined ? String(config.value) : null;
-                return searchText !== null
-                  ? String(rowValue)
-                      .toLowerCase()
-                      .includes(searchText.toLowerCase())
-                  : true;
-              }
+          case "greaterThan": {
+            if (isNaN(rowValue)) return false;
 
-              case "includes": {
-                const selectedValues = Array.isArray(config.values)
-                  ? config.values.map((v) => String(v))
-                  : [];
-                return selectedValues.length === 0
-                  ? true
-                  : selectedValues.includes(String(rowValue));
-              }
+            const threshold = Number(filter.config.value);
+            return rowValue > threshold;
+          }
 
-              default:
-                return true;
-            }
+          case "lessThan": {
+            if (isNaN(rowValue)) return false;
+
+            const threshold = Number(filter.config.value);
+            return rowValue < threshold;
+          }
+
+          case "equals": {
+            if (isNaN(rowValue)) return false;
+
+            const target = Number(filter.config.value);
+            return rowValue === target;
+          }
+
+          // String filters
+          case "contains": {
+            const searchText = filter.config.value;
+            return String(rowValue)
+              .toLowerCase()
+              .includes(searchText.toLowerCase());
+          }
+
+          case "includes": {
+            const selectedValues = filter.config.values;
+            return selectedValues.length === 0
+              ? true
+              : selectedValues.includes(String(rowValue));
           }
 
           default:

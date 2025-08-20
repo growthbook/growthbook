@@ -59,9 +59,10 @@ export default function DataVizFilter({
   columnFilterOptions,
 }: Props) {
   const filters = dataVizConfig.filter || [];
-  const updateFilter = (updatedFilter: Partial<FilterConfiguration>) => {
+
+  const updateFilter = (newFilter: FilterConfiguration) => {
     const newFilters = [...filters];
-    newFilters[filterIndex] = { ...newFilters[filterIndex], ...updatedFilter };
+    newFilters[filterIndex] = newFilter;
     onDataVizConfigChange({
       ...dataVizConfig,
       filter: newFilters,
@@ -71,10 +72,11 @@ export default function DataVizFilter({
   const updateFilterConfig = (
     configUpdates: Record<string, string | number | string[] | undefined>,
   ) => {
-    const currentConfig = filters[filterIndex]?.config || {};
-    const newConfig = { ...currentConfig };
+    const currentFilter = filters[filterIndex];
+    const currentConfig = currentFilter?.config || {};
 
     // Handle undefined values by deleting the key
+    const newConfig = { ...currentConfig };
     Object.entries(configUpdates).forEach(([key, value]) => {
       if (value === undefined) {
         delete newConfig[key];
@@ -83,7 +85,13 @@ export default function DataVizFilter({
       }
     });
 
-    updateFilter({ config: newConfig });
+    // Create updated filter with new config, maintaining discriminated union structure
+    const updatedFilter: FilterConfiguration = {
+      ...currentFilter,
+      config: newConfig,
+    } as FilterConfiguration;
+
+    updateFilter(updatedFilter);
   };
 
   const removeFilter = () => {
@@ -93,6 +101,88 @@ export default function DataVizFilter({
       ...dataVizConfig,
       filter: newFilters,
     });
+  };
+
+  const createDefaultFilterForType = (
+    column: string,
+    type: "string" | "number" | "date",
+  ): FilterConfiguration => {
+    if (type === "date") {
+      return {
+        column,
+        type: "date",
+        filterType: "today",
+        config: {},
+      };
+    } else if (type === "number") {
+      return {
+        column,
+        type: "number",
+        filterType: "equals",
+        config: { value: "0" }, // Store as string initially to match schema
+      };
+    } else {
+      return {
+        column,
+        type: "string",
+        filterType: "contains",
+        config: { value: "" },
+      };
+    }
+  };
+
+  const changeFilterType = (newFilterType: string) => {
+    const currentFilter = filters[filterIndex];
+
+    if (currentFilter.type === "date") {
+      if (newFilterType === "dateRange") {
+        updateFilter({
+          column: currentFilter.column,
+          type: "date",
+          filterType: "dateRange",
+          config: { startDate: "", endDate: "" },
+        });
+      } else {
+        updateFilter({
+          column: currentFilter.column,
+          type: "date",
+          filterType: newFilterType as "today" | "last7Days" | "last30Days",
+          config: {},
+        });
+      }
+    } else if (currentFilter.type === "number") {
+      if (newFilterType === "numberRange") {
+        updateFilter({
+          column: currentFilter.column,
+          type: "number",
+          filterType: "numberRange",
+          config: { min: "0", max: "100" },
+        });
+      } else {
+        updateFilter({
+          column: currentFilter.column,
+          type: "number",
+          filterType: newFilterType as "greaterThan" | "lessThan" | "equals",
+          config: { value: "0" },
+        });
+      }
+    } else if (currentFilter.type === "string") {
+      if (newFilterType === "includes") {
+        updateFilter({
+          column: currentFilter.column,
+          type: "string",
+          filterType: "includes",
+          config: { values: [] },
+        });
+      } else {
+        updateFilter({
+          column: currentFilter.column,
+          type: "string",
+          filterType: "contains",
+          config: { value: "" },
+        });
+      }
+    }
   };
 
   return (
@@ -116,20 +206,9 @@ export default function DataVizFilter({
               (option) => option.column === v,
             ) || { knownType: "string" };
 
-            // When the column changes, we reset the type and filterType fields to their defaults
-            // This means that changing from one date column to another date column will reset the whole form
-            // Not ideal
-            updateFilter({
-              column: v,
-              type: knownType,
-              filterType:
-                knownType === "date"
-                  ? "today"
-                  : knownType === "number"
-                    ? "equals"
-                    : "contains",
-              config: undefined,
-            });
+            // When the column changes, create a completely new filter
+            const newFilter = createDefaultFilterForType(v, knownType);
+            updateFilter(newFilter);
           }}
           size="2"
           placeholder="Select a column to filter by"
@@ -140,6 +219,7 @@ export default function DataVizFilter({
             </SelectItem>
           ))}
         </Select>
+
         <Flex direction="row" justify="between" align="center">
           <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
             Type
@@ -152,9 +232,13 @@ export default function DataVizFilter({
               if (!["string", "number", "date"].includes(v)) {
                 throw new Error(`Invalid filter type: ${v}`);
               }
-              updateFilter({
-                type: v as "string" | "number" | "date",
-              });
+
+              const currentFilter = filters[filterIndex];
+              const newFilter = createDefaultFilterForType(
+                currentFilter.column,
+                v as "string" | "number" | "date",
+              );
+              updateFilter(newFilter);
             }}
             size="2"
             placeholder="Select type"
@@ -164,117 +248,38 @@ export default function DataVizFilter({
             <SelectItem value="date">Date</SelectItem>
           </Select>
         </Flex>
+
         <Flex direction="row" justify="between" align="center">
-          {filters[filterIndex].type === "date" ? (
-            <>
-              <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                Filter Options
-              </Text>
-              <Select
-                style={{ flex: 1 }}
-                size="2"
-                placeholder="Select Option"
-                value={filters[filterIndex].filterType || ""}
-                setValue={(v) => {
-                  if (!v) return;
-                  updateFilter({
-                    filterType: v as FilterConfiguration["filterType"],
-                    config: {},
-                  });
-                }}
-              >
-                {filterOptions
-                  .filter(
-                    (filterOption) =>
-                      filters[filterIndex].type &&
-                      filterOption.supportedTypes.includes(
-                        filters[filterIndex].type,
-                      ),
-                  )
-                  .map((filterOption) => (
-                    <SelectItem
-                      key={filterOption.value}
-                      value={filterOption.value}
-                    >
-                      {filterOption.label}
-                    </SelectItem>
-                  ))}
-              </Select>
-            </>
-          ) : filters[filterIndex].type === "number" ? (
-            <>
-              <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                Filter Options
-              </Text>
-              <Select
-                style={{ flex: 1 }}
-                size="2"
-                placeholder="Select Option"
-                value={filters[filterIndex].filterType || ""}
-                setValue={(v) => {
-                  if (!v) return;
-                  updateFilter({
-                    filterType: v as FilterConfiguration["filterType"],
-                    config: {},
-                  });
-                }}
-              >
-                {filterOptions
-                  .filter(
-                    (filterOption) =>
-                      filters[filterIndex].type &&
-                      filterOption.supportedTypes.includes(
-                        filters[filterIndex].type,
-                      ),
-                  )
-                  .map((filterOption) => (
-                    <SelectItem
-                      key={filterOption.value}
-                      value={filterOption.value}
-                    >
-                      {filterOption.label}
-                    </SelectItem>
-                  ))}
-              </Select>
-            </>
-          ) : filters[filterIndex].type === "string" ? (
-            <>
-              <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                Filter Options
-              </Text>
-              <Select
-                style={{ flex: 1 }}
-                size="2"
-                placeholder="Select Option"
-                value={filters[filterIndex].filterType || ""}
-                setValue={(v) => {
-                  if (!v) return;
-                  updateFilter({
-                    filterType: v as FilterConfiguration["filterType"],
-                    config: {},
-                  });
-                }}
-              >
-                {filterOptions
-                  .filter(
-                    (filterOption) =>
-                      filters[filterIndex].type &&
-                      filterOption.supportedTypes.includes(
-                        filters[filterIndex].type,
-                      ),
-                  )
-                  .map((filterOption) => (
-                    <SelectItem
-                      key={filterOption.value}
-                      value={filterOption.value}
-                    >
-                      {filterOption.label}
-                    </SelectItem>
-                  ))}
-              </Select>
-            </>
-          ) : null}
+          <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+            Filter Options
+          </Text>
+          <Select
+            style={{ flex: 1 }}
+            size="2"
+            placeholder="Select Option"
+            value={filters[filterIndex].filterType || ""}
+            setValue={(v) => {
+              if (!v) return;
+              changeFilterType(v);
+            }}
+          >
+            {filterOptions
+              .filter(
+                (filterOption) =>
+                  filters[filterIndex].type &&
+                  filterOption.supportedTypes.includes(
+                    filters[filterIndex].type,
+                  ),
+              )
+              .map((filterOption) => (
+                <SelectItem key={filterOption.value} value={filterOption.value}>
+                  {filterOption.label}
+                </SelectItem>
+              ))}
+          </Select>
         </Flex>
+
+        {/* Number Range Inputs */}
         {filters[filterIndex].type === "number" &&
           filters[filterIndex].filterType === "numberRange" && (
             <>
@@ -303,8 +308,8 @@ export default function DataVizFilter({
                   style={{ flex: 1 }}
                   size="2"
                   type="number"
-                  required
                   placeholder="Maximum"
+                  required
                   value={filters[filterIndex].config?.max?.toString() || ""}
                   onChange={(e) => {
                     const value = e.target.value || undefined;
@@ -315,6 +320,7 @@ export default function DataVizFilter({
             </>
           )}
 
+        {/* Single Number Value Input */}
         {filters[filterIndex].type === "number" &&
           (filters[filterIndex].filterType === "greaterThan" ||
             filters[filterIndex].filterType === "lessThan" ||
@@ -327,8 +333,8 @@ export default function DataVizFilter({
                 style={{ flex: 1 }}
                 size="2"
                 type="number"
-                required
                 placeholder="Enter value"
+                required
                 value={filters[filterIndex].config?.value?.toString() || ""}
                 onChange={(e) => {
                   const value = e.target.value || undefined;
@@ -338,6 +344,7 @@ export default function DataVizFilter({
             </Flex>
           )}
 
+        {/* String Contains Input */}
         {filters[filterIndex].type === "string" &&
           filters[filterIndex].filterType === "contains" && (
             <Flex direction="row" justify="between" align="center">
@@ -348,8 +355,8 @@ export default function DataVizFilter({
                 style={{ flex: 1 }}
                 size="2"
                 type="text"
-                required
                 placeholder="Enter text to search for"
+                required
                 value={String(filters[filterIndex].config?.value || "")}
                 onChange={(e) => {
                   const value = e.target.value || undefined;
@@ -359,6 +366,7 @@ export default function DataVizFilter({
             </Flex>
           )}
 
+        {/* String Multi-Select */}
         {filters[filterIndex].type === "string" &&
           filters[filterIndex].filterType === "includes" &&
           rows && (
@@ -388,6 +396,7 @@ export default function DataVizFilter({
             />
           )}
 
+        {/* Date Range Inputs */}
         {filters[filterIndex].filterType === "dateRange" && (
           <>
             <Flex direction="row" justify="between" align="center">
