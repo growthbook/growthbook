@@ -1,8 +1,8 @@
 type: object
 required:
   - name
-  - datasource
-  - userIdType
+  - datasourceId
+  - identifierType
   - type
 properties:
   name:
@@ -14,10 +14,10 @@ properties:
   description:
     type: string
     description: Description of the segment
-  datasource:
+  datasourceId:
     type: string
     description: ID of the datasource this segment belongs to
-  userIdType:
+  identifierType:
     type: string
     description: Type of identifier (user, anonymous, etc.)
   projects:
@@ -37,7 +37,7 @@ properties:
     enum:
       - SQL
       - FACT
-  sql:
+  query:
     type: string
     description: SQL query that defines the Segment. This is required for SQL segments.
   factTableId:

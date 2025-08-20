@@ -3,7 +3,7 @@ required:
   - id
   - owner
   - datasourceId
-  - userIdType
+  - identifierType
   - name
   - dateCreated
   - dateUpdated
@@ -14,7 +14,7 @@ properties:
     type: string
   datasourceId:
     type: string
-  userIdType:
+  identifierType:
     type: string
   name:
     type: string
@@ -40,6 +40,10 @@ properties:
   factTableId:
     type: string
   filters:
+    type: array
+    items:
+      type: string
+  projects:
     type: array
     items:
       type: string

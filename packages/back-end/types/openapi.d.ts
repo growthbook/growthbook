@@ -523,7 +523,7 @@ export interface components {
       id: string;
       owner: string;
       datasourceId: string;
-      userIdType: string;
+      identifierType: string;
       name: string;
       description?: string;
       query?: string;
@@ -538,6 +538,7 @@ export interface components {
       type?: "SQL" | "FACT";
       factTableId?: string;
       filters?: (string)[];
+      projects?: (string)[];
     };
     /**
      * @description An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule. 
@@ -8130,7 +8131,7 @@ export interface operations {
                 id: string;
                 owner: string;
                 datasourceId: string;
-                userIdType: string;
+                identifierType: string;
                 name: string;
                 description?: string;
                 query?: string;
@@ -8145,6 +8146,7 @@ export interface operations {
                 type?: "SQL" | "FACT";
                 factTableId?: string;
                 filters?: (string)[];
+                projects?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -8170,9 +8172,9 @@ export interface operations {
           /** @description Description of the segment */
           description?: string;
           /** @description ID of the datasource this segment belongs to */
-          datasource: string;
+          datasourceId: string;
           /** @description Type of identifier (user, anonymous, etc.) */
-          userIdType: string;
+          identifierType: string;
           /** @description List of project IDs for projects that can access this segment */
           projects?: (string)[];
           /**
@@ -8186,7 +8188,7 @@ export interface operations {
            */
           type: "SQL" | "FACT";
           /** @description SQL query that defines the Segment. This is required for SQL segments. */
-          sql?: string;
+          query?: string;
           /** @description ID of the fact table this segment belongs to. This is required for FACT segments. */
           factTableId?: string;
           /** @description Optional array of fact table filter ids that can further define the Fact Table based Segment. */
@@ -8202,7 +8204,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              userIdType: string;
+              identifierType: string;
               name: string;
               description?: string;
               query?: string;
@@ -8217,6 +8219,7 @@ export interface operations {
               type?: "SQL" | "FACT";
               factTableId?: string;
               filters?: (string)[];
+              projects?: (string)[];
             };
           };
         };
@@ -8239,7 +8242,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              userIdType: string;
+              identifierType: string;
               name: string;
               description?: string;
               query?: string;
@@ -8254,6 +8257,7 @@ export interface operations {
               type?: "SQL" | "FACT";
               factTableId?: string;
               filters?: (string)[];
+              projects?: (string)[];
             };
           };
         };
@@ -8278,9 +8282,9 @@ export interface operations {
           /** @description Owner of the segment */
           owner?: string;
           /** @description ID of the datasource this segment belongs to */
-          datasource?: string;
+          datasourceId?: string;
           /** @description Type of identifier (user, anonymous, etc.) */
-          userIdType?: string;
+          identifierType?: string;
           /** @description List of project IDs for projects that can access this segment */
           projects?: (string)[];
           /**
@@ -8294,7 +8298,7 @@ export interface operations {
            */
           type?: "SQL" | "FACT";
           /** @description SQL query that defines the Segment. This is required for SQL segments. */
-          sql?: string;
+          query?: string;
           /** @description ID of the fact table this segment belongs to. This is required for FACT segments. */
           factTableId?: string;
           /** @description Optional array of fact table filter ids that can further define the Fact Table based Segment. */
@@ -8310,7 +8314,7 @@ export interface operations {
               id: string;
               owner: string;
               datasourceId: string;
-              userIdType: string;
+              identifierType: string;
               name: string;
               description?: string;
               query?: string;
@@ -8325,6 +8329,7 @@ export interface operations {
               type?: "SQL" | "FACT";
               factTableId?: string;
               filters?: (string)[];
+              projects?: (string)[];
             };
           };
         };

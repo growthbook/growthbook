@@ -6,7 +6,7 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     id: segment.id,
     name: segment.name,
     owner: segment.owner || "",
-    userIdType: segment.userIdType || "user_id",
+    identifierType: segment.userIdType,
     query: segment.sql || "",
     datasourceId: segment.datasource || "",
     type: segment.type,
@@ -14,5 +14,7 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     filters: segment.filters || [],
     dateCreated: segment.dateCreated?.toISOString() || "",
     dateUpdated: segment.dateUpdated?.toISOString() || "",
+    managedBy: segment.managedBy || "",
+    projects: segment.projects || [],
   };
 }

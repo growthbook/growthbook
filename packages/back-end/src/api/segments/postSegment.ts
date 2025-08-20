@@ -10,7 +10,7 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
 ): Promise<PostSegmentResponse> => {
   const datasourceDoc = await getDataSourceById(
     req.context,
-    req.body.datasource,
+    req.body.datasourceId,
   );
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
@@ -32,14 +32,14 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
       throw new Error("Fact table does not belong to the same data source");
     }
 
-    if (req.body.sql) {
+    if (req.body.query) {
       throw new Error("SQL query is not allowed for FACT segments");
     }
   }
 
   // Validate inputs for SQL segments
   if (req.body.type === "SQL") {
-    if (!req.body.sql) {
+    if (!req.body.query) {
       throw new Error("SQL query is required for SQL segments");
     }
 
@@ -53,9 +53,17 @@ export const postSegment = createApiRequestHandler(postSegmentValidator)(async (
   }
 
   const segmentData = {
-    ...req.body,
+    name: req.body.name,
     owner: req.context.userId || "",
     description: req.body.description || "",
+    userIdType: req.body.identifierType,
+    sql: req.body.query,
+    datasource: req.body.datasourceId,
+    type: req.body.type,
+    factTableId: req.body.factTableId,
+    filters: req.body.filters,
+    projects: req.body.projects,
+    managedBy: req.body.managedBy,
   };
 
   const segment = await req.context.models.segments.create(segmentData);

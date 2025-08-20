@@ -16,7 +16,7 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
 
     const datasourceDoc = await getDataSourceById(
       req.context,
-      req.body.datasource || existing.datasource,
+      req.body.datasourceId || existing.datasource,
     );
 
     if (!datasourceDoc) {
@@ -50,14 +50,14 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
         throw new Error("Fact table does not belong to the same data source");
       }
 
-      if (req.body.sql) {
+      if (req.body.query) {
         throw new Error("SQL query is not allowed for FACT segments");
       }
     }
 
     // Validate inputs for SQL segments
     if (req.body.type === "SQL") {
-      if (!req.body.sql) {
+      if (!req.body.query) {
         throw new Error("SQL query is required for SQL segments");
       }
 
@@ -75,13 +75,13 @@ export const updateSegment = createApiRequestHandler(updateSegmentValidator)(
     if (req.body.description !== undefined) {
       updates.description = req.body.description;
     }
-    if (req.body.datasource) updates.datasource = req.body.datasource;
-    if (req.body.userIdType) updates.userIdType = req.body.userIdType;
+    if (req.body.datasourceId) updates.datasource = req.body.datasourceId;
+    if (req.body.identifierType) updates.userIdType = req.body.identifierType;
     if (req.body.projects) updates.projects = req.body.projects;
     if (req.body.managedBy !== undefined) {
       updates.managedBy = req.body.managedBy;
     }
-    if (req.body.sql) updates.sql = req.body.sql;
+    if (req.body.query) updates.sql = req.body.query;
     if (req.body.factTableId) updates.factTableId = req.body.factTableId;
     if (req.body.filters) updates.filters = req.body.filters;
 

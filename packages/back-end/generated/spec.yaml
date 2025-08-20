@@ -1315,8 +1315,8 @@ paths:
               type: object
               required:
                 - name
-                - datasource
-                - userIdType
+                - datasourceId
+                - identifierType
                 - type
               properties:
                 name:
@@ -1328,10 +1328,10 @@ paths:
                 description:
                   type: string
                   description: Description of the segment
-                datasource:
+                datasourceId:
                   type: string
                   description: ID of the datasource this segment belongs to
-                userIdType:
+                identifierType:
                   type: string
                   description: 'Type of identifier (user, anonymous, etc.)'
                 projects:
@@ -1351,7 +1351,7 @@ paths:
                   enum:
                     - SQL
                     - FACT
-                sql:
+                query:
                   type: string
                   description: SQL query that defines the Segment. This is required for SQL segments.
                 factTableId:
@@ -1426,10 +1426,10 @@ paths:
                 owner:
                   type: string
                   description: Owner of the segment
-                datasource:
+                datasourceId:
                   type: string
                   description: ID of the datasource this segment belongs to
-                userIdType:
+                identifierType:
                   type: string
                   description: 'Type of identifier (user, anonymous, etc.)'
                 projects:
@@ -1449,7 +1449,7 @@ paths:
                   enum:
                     - SQL
                     - FACT
-                sql:
+                query:
                   type: string
                   description: SQL query that defines the Segment. This is required for SQL segments.
                 factTableId:
@@ -6043,7 +6043,7 @@ components:
         - id
         - owner
         - datasourceId
-        - userIdType
+        - identifierType
         - name
         - dateCreated
         - dateUpdated
@@ -6054,7 +6054,7 @@ components:
           type: string
         datasourceId:
           type: string
-        userIdType:
+        identifierType:
           type: string
         name:
           type: string
@@ -6080,6 +6080,10 @@ components:
         factTableId:
           type: string
         filters:
+          type: array
+          items:
+            type: string
+        projects:
           type: array
           items:
             type: string
