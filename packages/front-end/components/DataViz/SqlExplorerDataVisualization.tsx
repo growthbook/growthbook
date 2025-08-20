@@ -149,46 +149,40 @@ export function DataVisualizationDisplay({
         // Apply filter based on type and filterType
         switch (type) {
           case "date": {
-            //MKTODO: This needs to be more robust - we should support both numbers and strings
-            const filterDate = new Date(rowValue as string);
+            // Parse date - if invalid, exclude this row from results
+            const filterDate = new Date(rowValue);
             if (isNaN(filterDate.getTime())) return false;
+
+            const now = new Date();
 
             switch (filterType) {
               case "today": {
-                const today = new Date();
-                const filterDateOnly = new Date(
-                  filterDate.getFullYear(),
-                  filterDate.getMonth(),
-                  filterDate.getDate(),
+                // Compare only the date parts (year/month/day) in UTC
+                return (
+                  filterDate.getFullYear() === now.getUTCFullYear() &&
+                  filterDate.getMonth() === now.getUTCMonth() &&
+                  filterDate.getDate() === now.getUTCDate()
                 );
-                const todayOnly = new Date(
-                  today.getFullYear(),
-                  today.getMonth(),
-                  today.getDate(),
-                );
-                return filterDateOnly.getTime() === todayOnly.getTime();
               }
 
               case "last7Days": {
-                const now = new Date();
                 const sevenDaysAgo = new Date(now);
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                return filterDate >= sevenDaysAgo && filterDate <= now;
+                sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+                return filterDate >= sevenDaysAgo;
               }
 
               case "last30Days": {
-                const now = new Date();
                 const thirtyDaysAgo = new Date(now);
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                return filterDate >= thirtyDaysAgo && filterDate <= now;
+                thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+                return filterDate >= thirtyDaysAgo;
               }
 
               case "dateRange": {
                 const startDate = config.startDate
-                  ? new Date(config.startDate as string)
+                  ? new Date((config.startDate as string) + "T00:00:00.000Z")
                   : null;
                 const endDate = config.endDate
-                  ? new Date(config.endDate as string)
+                  ? new Date((config.endDate as string) + "T23:59:59.999Z")
                   : null;
 
                 if (startDate && filterDate < startDate) return false;
