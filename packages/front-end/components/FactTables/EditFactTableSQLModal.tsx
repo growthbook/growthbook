@@ -70,8 +70,8 @@ export default function EditFactTableSQLModal({
         if (!newUserIdTypes.length) {
           throw new Error(
             `You must select at least 1 of the following identifier columns: ${possibleUserIdTypes.join(
-              ", "
-            )}`
+              ", ",
+            )}`,
           );
         }
 

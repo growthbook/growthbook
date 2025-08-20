@@ -16,7 +16,7 @@ import Pagination from "@/components/Pagination";
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
   add: (item: T) => ExtraFields,
-  dependencies: unknown[] = []
+  dependencies: unknown[] = [],
 ): (T & ExtraFields)[] {
   return useMemo(() => {
     return (items || []).map((item) => ({
@@ -40,7 +40,7 @@ export type SyntaxFilter = {
   negated: boolean;
 };
 
-export type SearchTermFilterOperator = typeof searchTermOperators[number];
+export type SearchTermFilterOperator = (typeof searchTermOperators)[number];
 
 export interface SearchProps<T> {
   items: T[];
@@ -49,9 +49,10 @@ export interface SearchProps<T> {
   defaultSortField: keyof T;
   defaultSortDir?: number;
   undefinedLast?: boolean;
+  defaultMappings?: Partial<Record<keyof T, unknown>>;
   searchTermFilters?: {
     [key: string]: (
-      item: T
+      item: T,
     ) =>
       | number
       | string
@@ -71,6 +72,7 @@ export interface SearchReturn<T> {
   items: T[];
   unpaginatedItems: T[];
   isFiltered: boolean;
+  filteredItems: T[];
   clear: () => void;
   syntaxFilters: SyntaxFilter[];
   searchInputProps: {
@@ -97,6 +99,7 @@ export function useSearch<T>({
   defaultSortField,
   defaultSortDir,
   undefinedLast,
+  defaultMappings = {},
   searchTermFilters,
   updateSearchQueryOnChange,
   pageSize,
@@ -163,7 +166,7 @@ export function useSearch<T>({
             undefined,
             {
               shallow: true,
-            }
+            },
           )
           .then();
       }
@@ -181,7 +184,7 @@ export function useSearch<T>({
           });
 
           return filter.negated ? !res : res;
-        })
+        }),
       );
     }
 
@@ -200,8 +203,8 @@ export function useSearch<T>({
     const sorted = [...filtered];
 
     sorted.sort((a, b) => {
-      const comp1 = a[sort.field];
-      const comp2 = b[sort.field];
+      const comp1 = a[sort.field] || defaultMappings[sort.field];
+      const comp2 = b[sort.field] || defaultMappings[sort.field];
       if (undefinedLast) {
         if (comp1 === undefined && comp2 !== undefined) return 1;
         if (comp2 === undefined && comp1 !== undefined) return -1;
@@ -305,6 +308,7 @@ export function useSearch<T>({
     items: paginated,
     unpaginatedItems: sorted,
     isFiltered,
+    filteredItems: filtered,
     clear,
     syntaxFilters,
     searchInputProps: {
@@ -330,7 +334,7 @@ export function useSearch<T>({
 export function filterSearchTerm(
   itemValue: unknown,
   op: SearchTermFilterOperator,
-  searchValue: string
+  searchValue: string,
 ): boolean {
   if ((!itemValue && itemValue !== 0) || !searchValue) {
     return false;
@@ -349,8 +353,8 @@ export function filterSearchTerm(
     typeof itemValue === "number"
       ? [itemValue, parseFloat(searchValue)]
       : (op === ">" || op === "<") && itemValue instanceof Date
-      ? [itemValue, new Date(Date.parse(searchValue))]
-      : [strVal, searchValue];
+        ? [itemValue, new Date(Date.parse(searchValue))]
+        : [strVal, searchValue];
 
   switch (op) {
     case ">":
@@ -377,17 +381,17 @@ export function filterSearchTerm(
 
 export function transformQuery(
   searchTerm: string,
-  searchTermFilterKeys: string[]
+  searchTermFilterKeys: string[],
 ) {
   // split up the string into the search term and the filters, and support OR'ing
   // multiple search terms, even if they are in quotes
   const regex = new RegExp(
     `(^|\\s)(${searchTermFilterKeys.join(
-      "|"
+      "|",
     )}):(\\!?)([${searchTermOperators.join(
-      ""
+      "",
     )}]?)((?:"[^"]*"|[^\\s,]+)(?:,(?:"[^"]*"|[^\\s,]+))*)`,
-    "gi"
+    "gi",
   );
   return parseQuery(searchTerm, regex);
 }

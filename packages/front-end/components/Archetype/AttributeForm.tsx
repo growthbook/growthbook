@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { SDKAttribute, SDKAttributeSchema } from "back-end/types/organization";
 import { ArchetypeAttributeValues } from "back-end/types/archetype";
-import { datetime } from "shared/dates";
 import isEqual from "lodash/isEqual";
 import { Switch } from "@radix-ui/themes";
+import format from "date-fns/format";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import {
@@ -36,7 +36,7 @@ export default function AttributeForm({
 }: Props) {
   const [formValues, setFormValues] = useState({});
   const [jsonAttributes, setJsonAttributes] = useState<string>(
-    JSON.stringify(formValues)
+    JSON.stringify(formValues),
   );
   const [jsonErrors, setJsonErrors] = useState<string | null>();
   const [activeTab, setActiveTab] = useState<"simple" | "adv">("simple");
@@ -48,7 +48,7 @@ export default function AttributeForm({
       ...attributeSchema.filter((o) => !o.archived),
       ...attributeSchema.filter((o) => o.archived),
     ],
-    [attributeSchema]
+    [attributeSchema],
   );
 
   const attributesMap = useMemo(() => {
@@ -57,10 +57,10 @@ export default function AttributeForm({
         const defaultValue = attributeValues[attr.property]
           ? attributeValues[attr.property]
           : attr.datatype === "boolean"
-          ? false
-          : attr.datatype === "string[]" || attr.datatype === "number[]"
-          ? []
-          : undefined;
+            ? false
+            : attr.datatype === "string[]" || attr.datatype === "number[]"
+              ? []
+              : undefined;
         return [
           attr.property,
           {
@@ -69,7 +69,7 @@ export default function AttributeForm({
             value: attributeValues[attr.property] ?? defaultValue,
           },
         ];
-      })
+      }),
     );
   }, [orderedAttributes, attributeValues]);
 
@@ -80,7 +80,7 @@ export default function AttributeForm({
         attributeValues[attr.property] ??
           attributesMap.get(attr.property)?.defaultValue ??
           "",
-      ])
+      ]),
     );
   }, [orderedAttributes, attributeValues, attributesMap]);
 
@@ -116,7 +116,7 @@ export default function AttributeForm({
         onChange(filteredValues);
       }
     },
-    [attributeFormValues, attributesMap, formValues, onChange]
+    [attributeFormValues, attributesMap, formValues, onChange],
   );
 
   useEffect(() => {
@@ -193,12 +193,12 @@ export default function AttributeForm({
               <>
                 {attribute.format === "date" ? (
                   <DatePicker
-                    precision="date"
+                    precision="datetime"
                     date={dateValue ? new Date(dateValue) : undefined}
                     setDate={(v) => {
                       attributeFormValues.set(
                         attribute.property,
-                        v ? datetime(v) : ""
+                        v ? format(v, "yyyy-MM-dd'T'HH:mm") : "",
                       );
                       updateFormValues();
                     }}
@@ -210,7 +210,7 @@ export default function AttributeForm({
                     onChange={(e) => {
                       attributeFormValues.set(
                         attribute.property,
-                        e.target.value
+                        e.target.value,
                       );
                       updateFormValues();
                     }}
@@ -287,7 +287,7 @@ export default function AttributeForm({
                 </div>
                 {orderedAttributes.length ? (
                   orderedAttributes.map((attribute, i) =>
-                    attributeInput(attribute, i)
+                    attributeInput(attribute, i),
                   )
                 ) : (
                   <>No attributes defined yet</>

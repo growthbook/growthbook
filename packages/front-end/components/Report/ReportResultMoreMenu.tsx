@@ -86,7 +86,7 @@ export default function ReportResultMoreMenu({
             const url = URL.createObjectURL(
               new Blob([res.notebook], {
                 type: "application/json",
-              })
+              }),
             );
 
             const name = notebookFilename
@@ -131,7 +131,7 @@ export default function ReportResultMoreMenu({
                 `/report/${report.id}`,
                 {
                   method: "DELETE",
-                }
+                },
               );
               router.push(`/experiment/${report.experimentId}#results`);
             }}

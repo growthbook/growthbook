@@ -1,6 +1,7 @@
 import { Select as RadixSelect, Text, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactNode } from "react";
+import clsx from "clsx";
 import HelperText from "./HelperText";
 
 type SelectProps = {
@@ -16,6 +17,7 @@ type SelectProps = {
   placeholder?: string;
   variant?: "classic" | "surface" | "soft" | "ghost";
   style?: React.CSSProperties;
+  triggerClassName?: string;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -31,9 +33,10 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     size = "3",
     placeholder,
     variant = "surface",
+    triggerClassName,
     ...containerProps
   }: SelectProps,
-  ref
+  ref,
 ) {
   return (
     <Flex direction="column" {...containerProps} ref={ref}>
@@ -53,7 +56,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
       >
         <RadixSelect.Trigger
           placeholder={placeholder}
-          className={error ? "error" : undefined}
+          className={clsx(triggerClassName, { error: error })}
           disabled={disabled}
           variant={variant}
         />
@@ -79,7 +82,13 @@ export const SelectItem = forwardRef<
   }
 >(function SelectItem({ value, children, disabled = false, ...props }, ref) {
   return (
-    <RadixSelect.Item value={value} disabled={disabled} {...props} ref={ref}>
+    <RadixSelect.Item
+      value={value}
+      disabled={disabled}
+      {...props}
+      ref={ref}
+      className="w-full"
+    >
       {children}
     </RadixSelect.Item>
   );
@@ -88,5 +97,5 @@ export const SelectItem = forwardRef<
 export const SelectSeparator = forwardRef<HTMLDivElement>(
   function SelectSeparator(props, ref) {
     return <RadixSelect.Separator {...props} ref={ref} />;
-  }
+  },
 );

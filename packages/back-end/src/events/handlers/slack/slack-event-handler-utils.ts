@@ -31,7 +31,7 @@ export type DataForNotificationEvent = {
 
 export const getSlackMessageForNotificationEvent = async (
   event: NotificationEvent,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage | null> => {
   let invalidEvent: never;
 
@@ -42,49 +42,49 @@ export const getSlackMessageForNotificationEvent = async (
     case "feature.created":
       return buildSlackMessageForFeatureCreatedEvent(
         event.data.object.id,
-        eventId
+        eventId,
       );
 
     case "feature.updated":
       return buildSlackMessageForFeatureUpdatedEvent(
         event.data.object.id,
-        eventId
+        eventId,
       );
 
     case "feature.deleted":
       return buildSlackMessageForFeatureDeletedEvent(
         event.data.object.id,
-        eventId
+        eventId,
       );
 
     case "feature.saferollout.ship":
       return buildSlackMessageForSafeRolloutShipEvent(
         event.data.object,
-        eventId
+        eventId,
       );
 
     case "feature.saferollout.rollback":
       return buildSlackMessageForSafeRolloutRollbackEvent(
         event.data.object,
-        eventId
+        eventId,
       );
 
     case "feature.saferollout.unhealthy":
       return buildSlackMessageForSafeRolloutUnhealthyEvent(
         event.data.object,
-        eventId
+        eventId,
       );
 
     case "experiment.created":
       return buildSlackMessageForExperimentCreatedEvent(
         event.data.object,
-        eventId
+        eventId,
       );
 
     case "experiment.updated":
       return buildSlackMessageForExperimentUpdatedEvent(
         event.data.object,
-        eventId
+        eventId,
       );
 
     case "experiment.warning":
@@ -92,13 +92,13 @@ export const getSlackMessageForNotificationEvent = async (
 
     case "experiment.info.significance":
       return buildSlackMessageForExperimentInfoSignificanceEvent(
-        event.data.object
+        event.data.object,
       );
 
     case "experiment.deleted":
       return buildSlackMessageForExperimentDeletedEvent(
         event.data.object.name,
-        eventId
+        eventId,
       );
 
     case "experiment.decision.ship":
@@ -121,7 +121,7 @@ export const getSlackMessageForNotificationEvent = async (
 
 export const getSlackMessageForLegacyNotificationEvent = async (
   event: LegacyNotificationEvent,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage | null> => {
   let invalidEvent: never;
 
@@ -132,31 +132,31 @@ export const getSlackMessageForLegacyNotificationEvent = async (
     case "feature.created":
       return buildSlackMessageForFeatureCreatedEvent(
         event.data.current.id,
-        eventId
+        eventId,
       );
 
     case "feature.updated":
       return buildSlackMessageForFeatureUpdatedEvent(
         event.data.current.id,
-        eventId
+        eventId,
       );
 
     case "feature.deleted":
       return buildSlackMessageForFeatureDeletedEvent(
         event.data.previous.id,
-        eventId
+        eventId,
       );
 
     case "experiment.created":
       return buildSlackMessageForExperimentCreatedEvent(
         event.data.current,
-        eventId
+        eventId,
       );
 
     case "experiment.updated":
       return buildSlackMessageForExperimentUpdatedEvent(
         event.data.current,
-        eventId
+        eventId,
       );
 
     case "experiment.warning":
@@ -165,7 +165,7 @@ export const getSlackMessageForLegacyNotificationEvent = async (
     case "experiment.deleted":
       return buildSlackMessageForExperimentDeletedEvent(
         event.data.previous.name,
-        eventId
+        eventId,
       );
 
     case "webhook.test":
@@ -178,7 +178,7 @@ export const getSlackMessageForLegacyNotificationEvent = async (
 };
 
 export const getSlackDataForNotificationEvent = async (
-  event: EventInterface
+  event: EventInterface,
 ): Promise<DataForNotificationEvent | null> => {
   if (event.event === "webhook.test") return null;
 
@@ -205,7 +205,7 @@ export const getSlackDataForNotificationEvent = async (
  * @param slackIntegration
  */
 export const getSlackIntegrationContextBlock = (
-  slackIntegration: SlackIntegrationInterface
+  slackIntegration: SlackIntegrationInterface,
 ): KnownBlock => {
   return {
     type: "context",
@@ -241,14 +241,14 @@ export const getEventUserFormatted = async (eventId: string) => {
 
   if (event.data.user.type === "api_key")
     return `an API request with key ending in ...${event.data.user.apiKey.slice(
-      -4
+      -4,
     )}`;
   return `${event.data.user.name} (${event.data.user.email})`;
 };
 
 const buildSlackMessageForFeatureCreatedEvent = async (
   featureId: string,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
 
@@ -273,7 +273,7 @@ const buildSlackMessageForFeatureCreatedEvent = async (
 
 const buildSlackMessageForFeatureUpdatedEvent = async (
   featureId: string,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
 
@@ -298,7 +298,7 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
 
 const buildSlackMessageForFeatureDeletedEvent = async (
   featureId: string,
-  eventId: string
+  eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
   const text = `The feature ${featureId} has been deleted by ${eventUser}.`;
@@ -321,7 +321,7 @@ const buildSlackMessageForFeatureDeletedEvent = async (
 
 const buildSlackMessageForSafeRolloutShipEvent = (
   data: SafeRolloutDecisionNotificationPayload,
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} is ready to ship to 100% of traffic.`;
   return {
@@ -343,7 +343,7 @@ const buildSlackMessageForSafeRolloutShipEvent = (
 
 const buildSlackMessageForSafeRolloutRollbackEvent = (
   data: SafeRolloutDecisionNotificationPayload,
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} has a failing guardrail and should be rolled back.`;
   return {
@@ -365,7 +365,7 @@ const buildSlackMessageForSafeRolloutRollbackEvent = (
 
 const buildSlackMessageForSafeRolloutUnhealthyEvent = (
   data: SafeRolloutUnhealthyNotificationPayload,
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const text = `A Safe Rollout on feature ${data.featureId} in environment ${data.environment} is failing a health check and may not be working as expected.`;
   return {
@@ -394,12 +394,12 @@ export const getExperimentUrlFormatted = (experimentId: string): string =>
 
 export const getExperimentUrlAndNameFormatted = (
   experimentId: string,
-  experimentName: string
+  experimentName: string,
 ): string => `<${APP_ORIGIN}/experiment/${experimentId}|${experimentName}>`;
 
 const buildSlackMessageForExperimentCreatedEvent = (
   { id: experimentId, name: experimentName }: { id: string; name: string },
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const text = `The experiment ${experimentName} has been created`;
 
@@ -422,7 +422,7 @@ const buildSlackMessageForExperimentCreatedEvent = (
 
 const buildSlackMessageForExperimentUpdatedEvent = (
   { id: experimentId, name: experimentName }: { id: string; name: string },
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const text = `The experiment ${experimentName} has been updated`;
 
@@ -444,7 +444,7 @@ const buildSlackMessageForExperimentUpdatedEvent = (
 };
 
 const buildSlackMessageForWebhookTestEvent = (
-  webhookId: string
+  webhookId: string,
 ): SlackMessage => ({
   text: `This is a test event for webhook ${webhookId}`,
   blocks: [
@@ -460,7 +460,7 @@ const buildSlackMessageForWebhookTestEvent = (
 
 const buildSlackMessageForExperimentDeletedEvent = (
   experimentName: string,
-  eventId: string
+  eventId: string,
 ): SlackMessage => {
   const text = `The experiment ${experimentName} has been deleted`;
 
@@ -512,7 +512,7 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
       return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} is ${
         winning ? "beating" : "losing to"
       } the baseline and has reached statistical significance (p-value = ${criticalValue.toFixed(
-        3
+        3,
       )}).`;
     }
     return `In experiment ${experimentName}: metric ${metricName} for variation ${variationName} has ${
@@ -531,7 +531,7 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
             metricName: `*${metricName}*`,
             experimentName: getExperimentUrlAndNameFormatted(
               experimentId,
-              experimentName
+              experimentName,
             ),
             variationName: `*${variationName}*`,
           }),
@@ -542,7 +542,7 @@ const buildSlackMessageForExperimentInfoSignificanceEvent = ({
 };
 
 const buildSlackMessageForExperimentWarningEvent = (
-  data: ExperimentWarningNotificationPayload
+  data: ExperimentWarningNotificationPayload,
 ): SlackMessage => {
   let invalidData: never;
 
@@ -575,9 +575,9 @@ const buildSlackMessageForExperimentWarningEvent = (
 
       const text = (experimentName: string) =>
         `Multiple Exposures Warning for experiment ${experimentName}: ${numberFormatter(
-          data.usersCount
+          data.usersCount,
         )} users (${percentFormatter(
-          data.percent
+          data.percent,
         )}) saw multiple variations and were automatically removed from results.`;
 
       return {
@@ -623,7 +623,7 @@ const buildSlackMessageForExperimentWarningEvent = (
 };
 
 const buildSlackMessageForExperimentShipEvent = (
-  data: ExperimentDecisionNotificationPayload
+  data: ExperimentDecisionNotificationPayload,
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Ship now" status.${
@@ -646,7 +646,7 @@ const buildSlackMessageForExperimentShipEvent = (
 };
 
 const buildSlackMessageForExperimentRollbackEvent = (
-  data: ExperimentDecisionNotificationPayload
+  data: ExperimentDecisionNotificationPayload,
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Roll back now" status.${
@@ -669,7 +669,7 @@ const buildSlackMessageForExperimentRollbackEvent = (
 };
 
 const buildSlackMessageForExperimentReviewEvent = (
-  data: ExperimentDecisionNotificationPayload
+  data: ExperimentDecisionNotificationPayload,
 ): SlackMessage => {
   const text = (experimentName: string, description?: string) =>
     `Experiment ${experimentName} has reached the "Ready for review" status.${
@@ -708,7 +708,7 @@ export type SlackMessage = {
  */
 export const sendSlackMessage = async (
   slackMessage: SlackMessage,
-  webHookEndpoint: string
+  webHookEndpoint: string,
 ): Promise<boolean> => {
   try {
     const { stringBody, responseWithoutBody } = await cancellableFetch(
@@ -720,13 +720,16 @@ export const sendSlackMessage = async (
       {
         maxTimeMs: 15000,
         maxContentSize: 500,
-      }
+      },
     );
 
     if (!responseWithoutBody.ok) {
-      logger.error("Failed to send Slack integration message", {
-        text: stringBody,
-      });
+      logger.error(
+        {
+          text: stringBody,
+        },
+        "Failed to send Slack integration message",
+      );
     }
 
     return responseWithoutBody.ok;

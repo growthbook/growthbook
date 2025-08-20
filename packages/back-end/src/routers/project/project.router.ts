@@ -18,7 +18,7 @@ router.post(
       })
       .strict(),
   }),
-  projectController.postProject
+  projectController.postProject,
 );
 
 router.put(
@@ -36,7 +36,7 @@ router.put(
       })
       .strict(),
   }),
-  projectController.putProject
+  projectController.putProject,
 );
 
 router.delete(
@@ -48,7 +48,7 @@ router.delete(
       })
       .strict(),
   }),
-  projectController.deleteProject
+  projectController.deleteProject,
 );
 
 router.put(
@@ -62,7 +62,7 @@ router.put(
       })
       .strict(),
   }),
-  projectController.putProjectSettings
+  projectController.putProjectSettings,
 );
 
 export { router as projectRouter };

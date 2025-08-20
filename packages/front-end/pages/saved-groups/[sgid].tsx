@@ -7,7 +7,7 @@ import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
 import {
   experimentsReferencingSavedGroups,
   featuresReferencingSavedGroups,
-  isIdListSupportedDatatype,
+  isIdListSupportedAttribute,
 } from "shared/util";
 import Link from "next/link";
 import { FeatureInterface } from "back-end/types/feature";
@@ -45,7 +45,7 @@ export default function EditSavedGroupPage() {
   const router = useRouter();
   const { sgid } = router.query;
   const { data, error, mutate } = useApi<{ savedGroup: SavedGroupInterface }>(
-    `/saved-groups/${sgid}`
+    `/saved-groups/${sgid}`,
   );
   const savedGroup = data?.savedGroup;
   const { features } = useFeaturesList(false);
@@ -70,20 +70,16 @@ export default function EditSavedGroupPage() {
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
   const [importOperation, setImportOperation] = useState<"replace" | "append">(
-    "replace"
+    "replace",
   );
   const { attributeSchema } = useOrgSettings();
   const { projects } = useDefinitions();
 
-  const {
-    hasLargeSavedGroupFeature,
-    unsupportedConnections,
-  } = useLargeSavedGroupSupport();
+  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+    useLargeSavedGroupSupport();
 
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -97,7 +93,7 @@ export default function EditSavedGroupPage() {
         },
       });
     },
-    [mutate, savedGroup]
+    [mutate, savedGroup],
   );
 
   const referencingFeatures = useMemo(() => {
@@ -122,9 +118,8 @@ export default function EditSavedGroupPage() {
   }, [referencingFeatures, referencingExperiments]);
 
   const attr = (attributeSchema || []).find(
-    (attr) => attr.property === savedGroup?.attributeKey
+    (attr) => attr.property === savedGroup?.attributeKey,
   );
-  const dataType = attr?.datatype;
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -287,7 +282,7 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div>{savedGroup.description}</div>
-        {!isIdListSupportedDatatype(dataType) && (
+        {!isIdListSupportedAttribute(attr) && (
           <div className="alert alert-danger">
             <PiWarningFill style={{ marginTop: "-2px" }} />
             The attribute for this saved group has an unsupported datatype. It
@@ -358,10 +353,10 @@ export default function EditSavedGroupPage() {
                       {
                         method: "POST",
                         body: JSON.stringify({ items: [...selected] }),
-                      }
+                      },
                     );
                     const newValues = values.filter(
-                      (value) => !selected.has(value)
+                      (value) => !selected.has(value),
                     );
                     mutateValues(newValues);
                     setSelected(new Set());

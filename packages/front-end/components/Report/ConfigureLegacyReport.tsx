@@ -82,23 +82,22 @@ export default function ConfigureLegacyReport({
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     report.args,
-    false
+    false,
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m)
+    getExperimentMetricById(m),
   );
   const denominatorMetricIds = uniq(
     allExperimentMetrics
       .map((m) => m?.denominator)
-      .filter((m) => m && typeof m === "string") as string[]
+      .filter((m) => m && typeof m === "string") as string[],
   );
   const denominatorMetrics: MetricInterface[] = useMemo(() => {
     return denominatorMetricIds
@@ -115,7 +114,7 @@ export default function ConfigureLegacyReport({
         getExposureQuery(
           datasource?.settings,
           report.args.exposureQueryId,
-          report.args.userIdType
+          report.args.userIdType,
         )?.id || "",
       attributionModel:
         report.args.attributionModel ||
@@ -150,7 +149,7 @@ export default function ConfigureLegacyReport({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
-          `regressionAdjustmentEnabled`
+          `regressionAdjustmentEnabled`,
         ),
         organizationSettings: orgSettings,
         metricOverrides: report.args.metricOverrides,
@@ -167,7 +166,7 @@ export default function ConfigureLegacyReport({
   ]);
 
   const filteredSegments = segments.filter(
-    (s) => s.datasource === report.args.datasource
+    (s) => s.datasource === report.args.datasource,
   );
 
   const datasourceProperties = datasource?.properties;
@@ -204,13 +203,13 @@ export default function ConfigureLegacyReport({
             body: JSON.stringify({
               args,
             }),
-          }
+          },
         );
         trackReport(
           "update",
           "SaveAndRunButton",
           datasource?.type || null,
-          res.updatedReport
+          res.updatedReport,
         );
         mutate();
         viewResults();
@@ -230,7 +229,7 @@ export default function ConfigureLegacyReport({
             <div
               className={`col-${Math.max(
                 Math.round(12 / variations.fields.length),
-                3
+                3,
               )} mb-2`}
               key={i}
             >
@@ -255,7 +254,7 @@ export default function ConfigureLegacyReport({
             <div
               className={`col-${Math.max(
                 Math.round(12 / variations.fields.length),
-                3
+                3,
               )} mb-2`}
               key={i}
             >
@@ -294,8 +293,9 @@ export default function ConfigureLegacyReport({
             };
           })}
           formatOptionLabel={({ label, value }) => {
-            const userIdType = exposureQueries?.find((e) => e.id === value)
-              ?.userIdType;
+            const userIdType = exposureQueries?.find(
+              (e) => e.id === value,
+            )?.userIdType;
             return (
               <>
                 {label}

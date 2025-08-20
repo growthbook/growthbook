@@ -42,7 +42,7 @@ export interface DataPointVariation {
 
 export interface ExperimentTimeSeriesGraphDataPoint {
   d: Date;
-  variations?: DataPointVariation[]; // undefined === missing date
+  variations?: Array<DataPointVariation | null>; // undefined === missing date, null === variation not present
   helperText?: string;
 }
 
@@ -85,17 +85,17 @@ const getTooltipContents = (
   usesPValueAdjustment: boolean,
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions?: Intl.NumberFormatOptions,
-  hasStats: boolean = true
+  hasStats: boolean = true,
 ) => {
   const { d, yaxis } = data;
 
-  const bayesian = d.variations?.some((v) => v.ctw !== undefined);
-  const frequentist = d.variations?.some((v) => v.p !== undefined);
+  const bayesian = d.variations?.some((v) => v?.ctw !== undefined);
+  const frequentist = d.variations?.some((v) => v?.p !== undefined);
   const usedStatsEngine = bayesian
     ? "bayesian"
     : frequentist
-    ? "frequentist"
-    : statsEngine;
+      ? "frequentist"
+      : statsEngine;
 
   const showAdjustmentNote =
     usesPValueAdjustment &&
@@ -138,6 +138,7 @@ const getTooltipContents = (
             if (!d.variations) return null;
             if (!showVariations[i]) return null;
             const variation = d.variations[i];
+            if (!variation) return null;
             const variationColor = getVariationColor(i, true);
             return (
               <TableRow
@@ -173,11 +174,9 @@ const getTooltipContents = (
                 </TableRowHeaderCell>
                 {yaxis === "effect" && (
                   <>
+                    <TableCell justify="center">{variation.users}</TableCell>
                     <TableCell justify="center">
-                      {d.variations[i].users}
-                    </TableCell>
-                    <TableCell justify="center">
-                      {d.variations[i].v_formatted}
+                      {variation.v_formatted}
                     </TableCell>
                     <TableCell justify="center">
                       {i > 0 && (
@@ -195,12 +194,12 @@ const getTooltipContents = (
                               [
                               {formatter(
                                 variation?.ci?.[0] ?? 0,
-                                formatterOptions
+                                formatterOptions,
                               )}
                               ,{" "}
                               {formatter(
                                 variation?.ci?.[1] ?? 0,
-                                formatterOptions
+                                formatterOptions,
                               )}
                               ]
                             </>
@@ -243,7 +242,7 @@ const getTooltipData = (
   datapoints: ExperimentTimeSeriesGraphDataPoint[],
   yScale: ScaleLinear<number, number, never>,
   xScale: ScaleTime<number, number, never>,
-  yaxis: AxisType
+  yaxis: AxisType,
 ): TooltipData => {
   // Calculate x-coordinates for all data points
   const xCoords = datapoints.map((d) => xScale(d.d));
@@ -262,13 +261,13 @@ const getTooltipData = (
 
   // Ensure we use the latest point in case of multiple values in the same coord
   closestIndex = datapoints.findLastIndex(
-    (_, index) => xCoords[index] === xCoords[closestIndex]
+    (_, index) => xCoords[index] === xCoords[closestIndex],
   );
   const d = datapoints[closestIndex];
   const x = xCoords[closestIndex];
   const y = d.variations
     ? d.variations.map(
-        (variation) => yScale(getYVal(variation, yaxis) ?? 0) ?? 0
+        (variation) => yScale(getYVal(variation ?? undefined, yaxis) ?? 0) ?? 0,
       )
     : undefined;
   return { x, y, d, yaxis };
@@ -300,7 +299,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
     {
       scroll: true,
       detectBounds: true,
-    }
+    },
   );
 
   const {
@@ -315,9 +314,9 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   const sortedDates = useMemo(
     () =>
       cloneDeep(_datapoints).sort(
-        (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime()
+        (a, b) => getValidDate(a.d).getTime() - getValidDate(b.d).getTime(),
       ),
-    [_datapoints]
+    [_datapoints],
   );
 
   const sortedDatesWithData = useMemo(() => {
@@ -332,7 +331,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
         const currentDate = getValidDate(sortedDates[i].d);
         const nextDate = getValidDate(sortedDates[i + 1].d);
         let expectedDate = new Date(
-          currentDate.getTime() + maxGapHours * 60 * 60 * 1000
+          currentDate.getTime() + maxGapHours * 60 * 60 * 1000,
         );
 
         while (expectedDate < nextDate) {
@@ -347,7 +346,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             });
           }
           expectedDate = new Date(
-            expectedDate.getTime() + maxGapHours * 60 * 60 * 1000
+            expectedDate.getTime() + maxGapHours * 60 * 60 * 1000,
           );
         }
       }
@@ -363,10 +362,12 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
           ? Math.min(
               ...d.variations
                 .filter((_, i) => showVariations[i])
-                .map((variation) => getYVal(variation, yaxis) ?? 0)
+                .map(
+                  (variation) => getYVal(variation ?? undefined, yaxis) ?? 0,
+                ),
             )
-          : 0
-      )
+          : 0,
+      ),
     );
     const maxValue = Math.max(
       ...datapoints.map((d) =>
@@ -374,10 +375,12 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
           ? Math.max(
               ...d.variations
                 .filter((_, i) => showVariations[i])
-                .map((variation) => getYVal(variation, yaxis) ?? 0)
+                .map(
+                  (variation) => getYVal(variation ?? undefined, yaxis) ?? 0,
+                ),
             )
-          : 0
-      )
+          : 0,
+      ),
     );
     const minError = Math.min(
       ...datapoints.map((d) =>
@@ -386,13 +389,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
               ...d.variations
                 .filter((_, i) => showVariations[i])
                 .map((variation) =>
-                  variation.ci?.[0]
+                  variation?.ci?.[0]
                     ? variation.ci[0]
-                    : getYVal(variation, yaxis) ?? 0
-                )
+                    : (getYVal(variation ?? undefined, yaxis) ?? 0),
+                ),
             )
-          : 0
-      )
+          : 0,
+      ),
     );
     const maxError = Math.max(
       ...datapoints.map((d) =>
@@ -401,13 +404,13 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
               ...d.variations
                 .filter((_, i) => showVariations[i])
                 .map((variation) =>
-                  variation.ci?.[1]
+                  variation?.ci?.[1]
                     ? variation.ci[1]
-                    : getYVal(variation, yaxis) ?? 0
-                )
+                    : (getYVal(variation ?? undefined, yaxis) ?? 0),
+                ),
             )
-          : 0
-      )
+          : 0,
+      ),
     );
 
     const lastDataPointWithData =
@@ -419,8 +422,11 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
           ...lastDataPointWithData.variations
             .filter((_, i) => showVariations[i])
             .map(
-              (variation) => variation.ci?.[0] ?? getYVal(variation, yaxis) ?? 0
-            )
+              (variation) =>
+                variation?.ci?.[0] ??
+                getYVal(variation ?? undefined, yaxis) ??
+                0,
+            ),
         )
       : 0;
 
@@ -429,8 +435,11 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
           ...lastDataPointWithData.variations
             .filter((_, i) => showVariations[i])
             .map(
-              (variation) => variation.ci?.[1] ?? getYVal(variation, yaxis) ?? 0
-            )
+              (variation) =>
+                variation?.ci?.[1] ??
+                getYVal(variation ?? undefined, yaxis) ??
+                0,
+            ),
         )
       : 0;
 
@@ -444,12 +453,12 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
     const min = Math.min(
       minValue,
       latestMinCI,
-      Math.max(expandedMin, minError)
+      Math.max(expandedMin, minError),
     );
     const max = Math.max(
       maxValue,
       latestMaxCI,
-      Math.min(expandedMax, maxError)
+      Math.min(expandedMax, maxError),
     );
     const range = max - min;
     const expandedRange2 = range * 1.05;
@@ -462,19 +471,25 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   const max = Math.max(...datapoints.map((d) => d.d.getTime()));
 
   const lastDataPointIndexWithHelperText = sortedDatesWithData.findLastIndex(
-    (it) => it.helperText
+    (it) => it.helperText,
   );
 
   // If any point or variation has a valid CI we should render it
   const variationsWithCI = useMemo(() => {
     return variationNames.map((_, i) =>
-      sortedDatesWithData.some((d) => d.variations?.[i]?.ci !== undefined)
+      sortedDatesWithData.some((d) => d.variations?.[i]?.ci !== undefined),
     );
   }, [sortedDatesWithData, variationNames]);
 
   const hasDataForDay = useMemo(() => {
     const firstDateWithData =
-      sortedDatesWithData[lastDataPointIndexWithHelperText + 1].d;
+      sortedDatesWithData[
+        // Ensure we don't go past the end of the array
+        Math.min(
+          lastDataPointIndexWithHelperText + 1,
+          sortedDatesWithData.length - 1,
+        )
+      ].d;
     const lastDateWithData =
       sortedDatesWithData[sortedDatesWithData.length - 1].d;
 
@@ -516,12 +531,27 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             datapoints,
             yScale,
             xScale,
-            yaxis
+            yaxis,
           );
           if (!data?.y || data.y.every((v) => v === undefined)) {
             hideTooltip();
             return;
           }
+
+          // Check if there are any non-control variations with data at this specific point
+          const hasNonControlVariations = data.d.variations?.some((v, i) => {
+            if (i === 0) return false; // Skip control for effect axis
+            return showVariations[i] && v !== null && v !== undefined;
+          });
+
+          if (!hasNonControlVariations) {
+            hideTooltip();
+            return;
+          }
+
+          // const validYValues = data.y.filter(
+          //   (v): v is number => v !== undefined
+          // );
           showTooltip({
             tooltipLeft: data.x,
             tooltipTop: Math.max(Math.min(...data.y), 150),
@@ -549,7 +579,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       usesPValueAdjustment,
                       formatter,
                       formatterOptions,
-                      hasStats
+                      hasStats,
                     )}
                   </div>
                 </RadixTheme>
@@ -569,11 +599,12 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             >
               {tooltipOpen && (
                 <>
-                  {variationNames.map((v, i) => {
+                  {variationNames.map((variationName, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return;
                     }
+                    if (!tooltipData?.d.variations?.[i]) return null;
                     // Render a dot at the current x location for each variation
                     return (
                       <div
@@ -593,18 +624,20 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
               {sortedDatesWithData.map((d) => {
                 // Render a dot at the current x location for each variation
-                return d.variations?.map((v, i) => {
+                return variationNames.map((_, i) => {
                   if (yaxis === "effect" && i === 0) {
                     return;
                   }
                   if (!showVariations[i]) return null;
+                  const variation = d.variations?.[i];
+                  if (!variation) return null;
                   return (
                     <div
                       key={`${d.d.getTime()}_${i}`}
                       className={timeSeriesStyles.positionWithData}
                       style={{
                         transform: `translate(${xScale(d.d)}px, ${
-                          yScale(getYVal(v, yaxis) ?? 0) ?? 0
+                          yScale(getYVal(variation, yaxis) ?? 0) ?? 0
                         }px)`,
                         background: getVariationColor(i, true),
                       }}
@@ -640,25 +673,37 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                 />
 
                 <Group clipPath="url(#experiment-date-graph-clip)">
-                  {variationNames.map((v, i) => {
+                  {variationNames.map((_, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
                       return <></>;
                     }
-                    // Render a shaded area for error bars for each variation if defined
+
+                    const sortedDataForVariation = sortedDatesWithData
+                      .map((d) => ({
+                        d: d.d,
+                        variation: d.variations?.[i],
+                        helperText: d.helperText,
+                      }))
+                      .filter(
+                        (item) =>
+                          item.variation !== null &&
+                          item.variation !== undefined,
+                      );
+
                     return (
                       variationsWithCI[i] && (
                         <AreaClosed
                           key={`ci_${i}`}
                           yScale={yScale}
-                          data={sortedDatesWithData}
+                          data={sortedDataForVariation}
                           x={(d) => xScale(d.d) ?? 0}
-                          y0={(d) =>
-                            yScale(d?.variations?.[i]?.ci?.[0] ?? 0) ?? 0
-                          }
-                          y1={(d) =>
-                            yScale(d?.variations?.[i]?.ci?.[1] ?? 0) ?? 0
-                          }
+                          y0={(d) => {
+                            return yScale(d?.variation?.ci?.[0] ?? 0) ?? 0;
+                          }}
+                          y1={(d) => {
+                            return yScale(d?.variation?.ci?.[1] ?? 0) ?? 0;
+                          }}
                           fill={getVariationColor(i, true)}
                           opacity={0.12}
                           curve={curveMonotoneX}
@@ -675,12 +720,26 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
                     // NB: We include the last index in both arrays as we need
                     // to draw the dashed line to it, and the solid line from it onwards
-                    const previousSettingsDataPoints = sortedDatesWithData.filter(
-                      (_, idx) => idx <= lastDataPointIndexWithHelperText
-                    );
-                    const currentSettingsDataPoints = sortedDatesWithData.filter(
-                      (_, idx) => idx >= lastDataPointIndexWithHelperText
-                    );
+                    const sortedDataForVariation = sortedDatesWithData
+                      .map((d) => ({
+                        d: d.d,
+                        variation: d.variations?.[i],
+                        helperText: d.helperText,
+                      }))
+                      .filter(
+                        (item) =>
+                          item.variation !== null &&
+                          item.variation !== undefined,
+                      );
+
+                    const previousSettingsDataPoints =
+                      sortedDataForVariation.filter(
+                        (_, idx) => idx <= lastDataPointIndexWithHelperText,
+                      );
+                    const currentSettingsDataPoints =
+                      sortedDataForVariation.filter(
+                        (_, idx) => idx >= lastDataPointIndexWithHelperText,
+                      );
 
                     return (
                       <>
@@ -689,9 +748,11 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                           key={`linepath_dashed_${i}`}
                           data={previousSettingsDataPoints}
                           x={(d) => xScale(d.d)}
-                          y={(d) =>
-                            yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
-                          }
+                          y={(d) => {
+                            return yScale(
+                              getYVal(d.variation ?? undefined, yaxis) ?? 0,
+                            );
+                          }}
                           stroke={getVariationColor(i, true)}
                           strokeWidth={2}
                           strokeDasharray={3}
@@ -703,9 +764,11 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                           key={`linepath_solid_${i}`}
                           data={currentSettingsDataPoints}
                           x={(d) => xScale(d.d)}
-                          y={(d) =>
-                            yScale(getYVal(d?.variations?.[i], yaxis) ?? 0)
-                          }
+                          y={(d) => {
+                            return yScale(
+                              getYVal(d.variation ?? undefined, yaxis) ?? 0,
+                            );
+                          }}
                           stroke={getVariationColor(i, true)}
                           strokeWidth={2}
                           curve={curveLinear}

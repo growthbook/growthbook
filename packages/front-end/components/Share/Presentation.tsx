@@ -218,7 +218,7 @@ const Presentation = ({
           </div>
           {sideExtra}
         </div>
-      </Slide>
+      </Slide>,
     );
     if (e?.snapshot) {
       // const variationNames = e.experiment.variations.map((v) => v.name);
@@ -240,10 +240,10 @@ const Presentation = ({
             m.computedSettings?.regressionAdjustmentReason || "",
           regressionAdjustmentDays:
             m.computedSettings?.regressionAdjustmentDays || 0,
-          regressionAdjustmentEnabled: !!m.computedSettings
-            ?.regressionAdjustmentEnabled,
-          regressionAdjustmentAvailable: !!m.computedSettings
-            ?.regressionAdjustmentAvailable,
+          regressionAdjustmentEnabled:
+            !!m.computedSettings?.regressionAdjustmentEnabled,
+          regressionAdjustmentAvailable:
+            !!m.computedSettings?.regressionAdjustmentAvailable,
         })) || [];
 
       expSlides.push(
@@ -294,6 +294,7 @@ const Presentation = ({
               startDate={phase?.dateStarted ?? ""}
               endDate={phase?.dateEnded ?? ""}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
+              phase={snapshot.phase}
               status={experiment.status}
               goalMetrics={experiment.goalMetrics}
               secondaryMetrics={experiment.secondaryMetrics}
@@ -316,7 +317,7 @@ const Presentation = ({
               noTooltip={true}
             />
           </div>
-        </Slide>
+        </Slide>,
       );
     } else {
       expSlides.push(
@@ -325,7 +326,7 @@ const Presentation = ({
           <div className={clsx("alert", "alert-warning", "mt-3")}>
             <strong>No data for this experiment</strong>
           </div>
-        </Slide>
+        </Slide>,
       );
     }
   });
@@ -401,8 +402,8 @@ const Presentation = ({
               {presentation?.title
                 ? presentation.title
                 : title
-                ? title
-                : "A/B Tests Review"}
+                  ? title
+                  : "A/B Tests Review"}
               {presentation?.description ? (
                 <Text className="subtitle" fontSize={20}>
                   {presentation.description}

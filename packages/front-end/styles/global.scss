@@ -1,4 +1,5 @@
 @use "colors";
+@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -548,8 +549,10 @@ pre {
 
 .main.experiment,
 .main.bandit,
+.main.holdout,
 .public.experiment,
-.public.bandit {
+.public.bandit,
+.public.holdout {
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);
@@ -605,7 +608,9 @@ pre {
       position: sticky;
       z-index: 930;
       // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        0 4px 4px rgba(0, 0, 0, 0.025);
       .header-tabs .tab-wrapper {
         overflow: hidden;
       }
@@ -625,7 +630,9 @@ pre {
   &.pinned {
     background-color: var(--color-surface-solid);
     // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 4px 4px rgba(0, 0, 0, 0.025);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 4px 4px rgba(0, 0, 0, 0.025);
     .header-tabs .tab-wrapper {
       overflow: hidden;
     }
@@ -985,7 +992,7 @@ main.main {
   margin: 0 auto;
 }
 .gbtable {
-  background-color: var(--surface-background-color);
+  background-color: var(--color-panel-solid); //var(--surface-background-color);
   margin-bottom: 0;
   thead {
     th {
@@ -1458,7 +1465,9 @@ main.main {
   text-transform: initial;
   font-weight: normal;
   opacity: 0;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease;
 
   .arrow {
     position: absolute;
@@ -2046,9 +2055,10 @@ main.main {
 }
 
 .variation {
-  $colors: colors.$variant-0, colors.$variant-1, colors.$variant-2,
-    colors.$variant-3, colors.$variant-4, colors.$variant-5, colors.$variant-6,
-    colors.$variant-7, colors.$variant-8;
+  $colors:
+    colors.$variant-0, colors.$variant-1, colors.$variant-2, colors.$variant-3,
+    colors.$variant-4, colors.$variant-5, colors.$variant-6, colors.$variant-7,
+    colors.$variant-8;
 
   &.with-variation-label {
     .label {
@@ -2960,11 +2970,8 @@ html {
     }
   }
   .secondary-box {
-    background: linear-gradient(
-        0deg,
-        rgba(124, 69, 234, 0.06),
-        rgba(124, 69, 234, 0.06)
-      ),
+    background:
+      linear-gradient(0deg, rgba(124, 69, 234, 0.06), rgba(124, 69, 234, 0.06)),
       #ffffff;
     box-shadow: 0px 1px 3px rgba(23, 18, 33, 0.08);
     border-radius: 3px;
@@ -3133,7 +3140,8 @@ html {
 .rta__autocomplete {
   margin-top: 25px;
   z-index: 998;
-  box-shadow: 0 4px 8px 0 var(--border-color-300),
+  box-shadow:
+    0 4px 8px 0 var(--border-color-300),
     0 6px 20px 0 var(--border-color-300);
 }
 .rta__list {
@@ -3577,4 +3585,144 @@ input:disabled {
 }
 .ace_editor .ace_gutter {
   background: var(--color-panel-solid) !important;
+}
+.ace_editor.ace_autocomplete {
+  width: 500px !important;
+  background-color: var(--color-surface-solid) !important;
+}
+
+/* Radix-style pagination for ReactPaginate */
+.pagination-radix-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  list-style: none !important;
+  list-style-type: none !important;
+  padding: 0;
+  margin: 0;
+  flex-direction: row;
+}
+.pagination-radix-container li {
+  list-style: none !important;
+  list-style-type: none !important;
+  margin: 0;
+  padding: 0;
+}
+.pagination-page {
+  margin: 0;
+}
+.pagination-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gray-11);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.pagination-link:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+.pagination-active .pagination-link {
+  background: var(--violet-9);
+  color: white;
+  font-weight: 600;
+}
+.pagination-active .pagination-link:hover {
+  background: var(--violet-10);
+}
+.pagination-arrow-container {
+  margin: 0;
+}
+.pagination-link-arrow {
+  display: flex;
+  align-items: left;
+  justify-content: left;
+  min-width: 32px;
+  height: 32px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--gray-11);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+.pagination-link-arrow:hover {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+.pagination-disabled .pagination-link-arrow {
+  color: var(--gray-6);
+  cursor: not-allowed;
+}
+.pagination-disabled .pagination-link-arrow:hover {
+  background: transparent;
+  color: var(--gray-6);
+}
+.pagination-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  color: var(--gray-9);
+  font-size: 14px;
+}
+.pagination-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-area-radix {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+}
+
+.needs-attentions-table {
+  thead th {
+    font-weight: 600;
+  }
+  tbody td {
+    font-weight: 400;
+  }
+}
+
+.border-violet {
+  border-color: var(--violet-a7);
+}
+
+.dashboard-disabled {
+  opacity: 50%;
+  pointer-events: none;
+}
+
+// For absolute or fixed containers that should position themselves after the sidebar
+.sidebarLeft {
+  left: variables.$sidebarwidth;
+}
+// Conditionally add these classes based on the SidebarOpenProvider
+@media (max-width: 1180px) {
+  .sidebarLeftOpen {
+    left: variables.$sidebarwidth !important;
+  }
+  .sidebarLeftClosed {
+    left: 0 !important;
+  }
 }

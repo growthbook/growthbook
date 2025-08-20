@@ -11,12 +11,14 @@ export type Props = {
   commercialFeature?: CommercialFeature;
   premiumText?: string | JSX.Element;
   useTip?: boolean;
+  variant?: "outline" | "solid";
 } & MarginProps;
 
 const PaidFeatureBadge = ({
   commercialFeature,
   premiumText,
   useTip = true,
+  variant = "outline",
   ...badgeProps
 }: Props) => {
   const { hasCommercialFeature, commercialFeatureLowestPlan } = useUser();
@@ -47,11 +49,11 @@ const PaidFeatureBadge = ({
         lowestPlanLevel === "pro"
           ? "Pro"
           : lowestPlanLevel === "enterprise"
-          ? "Enterprise"
-          : "Paid"
+            ? "Enterprise"
+            : "Paid"
       }
       color={badgeColor as RadixColor}
-      variant="outline"
+      variant={variant}
       radius="full"
       style={{
         cursor: "default",

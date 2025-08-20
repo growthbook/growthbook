@@ -80,7 +80,7 @@ const VisualChangesetModal: FC<{
         {
           method: "POST",
           body: JSON.stringify(payload),
-        }
+        },
       );
       mutate();
       res.visualChangeset && onCreate && onCreate(res.visualChangeset);
@@ -106,7 +106,7 @@ const VisualChangesetModal: FC<{
     !showAdvanced ||
     isURLTargeted(
       form.watch("editorUrl"),
-      form.watch("urlPatterns") as UrlTarget[]
+      form.watch("urlPatterns") as UrlTarget[],
     );
 
   return (

@@ -3,9 +3,10 @@
 2. Demonstrating equivalence to numpy methods that take raw data"""
 
 from unittest import TestCase, main as unittest_main
-
+import copy
 import numpy as np
 
+from gbstats.messages import ZERO_NEGATIVE_VARIANCE_MESSAGE
 from gbstats.models.statistics import (
     ProportionStatistic,
     RatioStatistic,
@@ -15,7 +16,12 @@ from gbstats.models.statistics import (
     compute_theta,
 )
 
-from gbstats.models.tests import sum_stats
+from gbstats.models.tests import (
+    EffectMoments,
+    EffectMomentsConfig,
+    EffectMomentsResult,
+    sum_stats,
+)
 
 N = 4
 METRIC_1 = np.array([0.3, 0.5, 0.9, 22])
@@ -229,6 +235,47 @@ class TestSumStats(TestCase):
     def test_quantile_failure(self):
         with self.assertRaises(ValueError):
             sum_stats([(self.q_stat_c, self.q_stat_t), (self.q_stat_c, self.q_stat_t)])
+
+
+# Statistics for EffectMoments
+RASTAT_A = RegressionAdjustedStatistic(
+    post_statistic=ProportionStatistic(n=4, sum=1),
+    pre_statistic=ProportionStatistic(n=4, sum=0),
+    n=4,
+    post_pre_sum_of_products=0,
+    theta=None,
+)
+
+RASTAT_B = RegressionAdjustedStatistic(
+    post_statistic=ProportionStatistic(n=3, sum=1),
+    pre_statistic=ProportionStatistic(n=3, sum=1),
+    n=3,
+    post_pre_sum_of_products=1,
+    theta=None,
+)
+
+
+class TestEffectMomentsResult(TestCase):
+    def test_initialize_theta(self):
+        stat_a = RASTAT_A
+        stat_b = RASTAT_B
+        moments = EffectMoments(
+            [(stat_a, stat_b)], config=EffectMomentsConfig(difference_type="absolute")
+        )
+        self.assertEqual(moments.stat_a.theta, 0.8333333333333334)  # type: ignore
+        self.assertEqual(moments.stat_b.theta, 0.8333333333333334)  # type: ignore
+
+    def test_negative_variance(self):
+        stat_a = copy.deepcopy(RASTAT_A)
+        stat_b = RASTAT_B
+        stat_a.post_statistic.sum = -7
+        moments = EffectMoments(
+            [(stat_a, stat_b)], config=EffectMomentsConfig(difference_type="absolute")
+        )
+        self.assertEqual(moments.variance, -1.2010673868312758)
+        self.assertEqual(
+            moments.compute_result().error_message, ZERO_NEGATIVE_VARIANCE_MESSAGE
+        )
 
 
 if __name__ == "__main__":

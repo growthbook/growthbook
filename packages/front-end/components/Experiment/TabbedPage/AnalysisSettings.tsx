@@ -67,7 +67,7 @@ export default function AnalysisSettings({
 
   const { getDecisionCriteria } = useRunningExperimentStatus();
   const decisionCriteria = getDecisionCriteria(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId
+    experiment.decisionFrameworkSettings?.decisionCriteriaId,
   );
 
   const [analysisModal, setAnalysisModal] = useState(false);
@@ -82,37 +82,35 @@ export default function AnalysisSettings({
     : null;
 
   const assignmentQuery = datasource?.settings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        experiment.goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        experiment.secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        experiment.guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
       experiment.goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
       experiment.secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
       experiment.guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+    ]);
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    experiment.goalMetrics,
-    experiment.secondaryMetrics,
-    experiment.guardrailMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-  ]);
-
-  const goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[] = [];
+  const goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[] =
+    [];
   expandedGoals.forEach((m) => {
     const metric =
       ssrPolyfills?.getExperimentMetricById?.(m) || getExperimentMetricById(m);
@@ -145,6 +143,7 @@ export default function AnalysisSettings({
   });
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -224,17 +223,18 @@ export default function AnalysisSettings({
                 </div>
               </div>
             )}
-
-            <div className="col-4 mb-4">
-              <div className="h5">Segment</div>
-              <div>
-                {experiment.segment ? (
-                  <>{getSegmentById(experiment.segment)?.name}</>
-                ) : (
-                  <em>none (all users)</em>
-                )}
+            {!isHoldout && (
+              <div className="col-4 mb-4">
+                <div className="h5">Segment</div>
+                <div>
+                  {experiment.segment ? (
+                    <>{getSegmentById(experiment.segment)?.name}</>
+                  ) : (
+                    <em>none (all users)</em>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -279,25 +279,28 @@ export default function AnalysisSettings({
               )}
             </div>
           </div>
-
-          <div className="col-4">
-            <div className="h5">Guardrail Metrics</div>
-            <div>
-              {guardrails.length ? (
-                <ul className="list-unstyled mb-0">
-                  {guardrails.map((metric, i) => (
-                    <li key={`guardrail-${i}`}>
-                      <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <em>none</em>
-              )}
+          {!isHoldout && (
+            <div className="col-4">
+              <div className="h5">Guardrail Metrics</div>
+              <div>
+                {guardrails.length ? (
+                  <ul className="list-unstyled mb-0">
+                    {guardrails.map((metric, i) => (
+                      <li key={`guardrail-${i}`}>
+                        <Link href={getMetricLink(metric.id)}>
+                          {metric.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <em>none</em>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
-        {!isBandit && hasDecisionFramework && (
+        {!isBandit && !isHoldout && hasDecisionFramework && (
           <div className="row mt-4">
             <div className="col-4">
               <div className="h5">Target MDE</div>

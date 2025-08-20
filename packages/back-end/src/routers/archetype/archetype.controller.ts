@@ -39,7 +39,7 @@ type GetArchetypeResponse = {
 
 export const getArchetype = async (
   req: AuthRequest,
-  res: Response<GetArchetypeResponse>
+  res: Response<GetArchetypeResponse>,
 ) => {
   const { org, userId } = getContextFromReq(req);
 
@@ -69,7 +69,7 @@ export const getArchetypeAndEval = async (
       project?: string;
     }
   >,
-  res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>
+  res: Response<GetArchetypeAndEvalResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -119,7 +119,8 @@ export const getArchetypeAndEval = async (
     const experimentMap = await getAllPayloadExperiments(context);
     const allEnvironments = getEnvironments(org);
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-    const safeRolloutMap = await context.models.safeRollout.getAllPayloadSafeRollouts();
+    const safeRolloutMap =
+      await context.models.safeRollout.getAllPayloadSafeRollouts();
 
     archetype.forEach((arch) => {
       try {
@@ -169,7 +170,7 @@ type CreateArchetypeResponse = {
 
 export const postArchetype = async (
   req: CreateArchetypeRequest,
-  res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>
+  res: Response<CreateArchetypeResponse | PrivateApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
   const { org, userId } = context;
@@ -232,7 +233,7 @@ export const putArchetype = async (
   req: PutArchetypeRequest,
   res: Response<
     PutArchetypeResponse | ApiErrorResponse | PrivateApiErrorResponse
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -304,7 +305,7 @@ type DeleteArchetypeResponse =
 
 export const deleteArchetype = async (
   req: DeleteArchetypeRequest,
-  res: Response<DeleteArchetypeResponse>
+  res: Response<DeleteArchetypeResponse>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);

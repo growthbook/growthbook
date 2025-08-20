@@ -3,18 +3,18 @@
  * bundles Infima by default. Infima is a CSS framework designed to
  * work well for content-centric websites.
  */
-@use './components/admonition';
-@use './components/markdown';
-@use './components/code';
-@use './components/menus';
-@use './components/button-card';
-@use './components/pill';
-@use './components/toc';
-@use './components/button';
-@use './components/feedback-widget';
-@use './components/max-width-image';
-@use './components/sdk-resources';
-@use './components/sdk-supported-features';
+@use "./components/admonition";
+@use "./components/markdown";
+@use "./components/code";
+@use "./components/menus";
+@use "./components/button-card";
+@use "./components/pill";
+@use "./components/toc";
+@use "./components/button";
+@use "./components/feedback-widget";
+@use "./components/max-width-image";
+@use "./components/sdk-resources";
+@use "./components/sdk-supported-features";
 //@use './components/navbar';
 
 // Radix color palette
@@ -100,6 +100,7 @@
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
   --ifm-alert-border-color: #8a26e7;
   --color-border: #0009321f;
+  --ifm-background-color: #fff;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */

@@ -44,8 +44,8 @@ export default function CustomFieldModal({
       defaultValue: existing.defaultValue
         ? existing.defaultValue
         : existing.type === "boolean"
-        ? existing.defaultValue ?? false
-        : "",
+          ? (existing.defaultValue ?? false)
+          : "",
       section: existing.section || section,
       projects: existing.projects || [project] || [],
       required: existing.required ?? false,

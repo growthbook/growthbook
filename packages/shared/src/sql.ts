@@ -1,10 +1,12 @@
 import { format as sqlFormat } from "sql-formatter";
 import { FormatDialect, FormatError } from "./types";
 
+export const SQL_ROW_LIMIT = 1000;
+
 export function format(
   sql: string,
   dialect?: FormatDialect,
-  onError?: (error: FormatError) => void
+  onError?: (error: FormatError) => void,
 ): string {
   if (!dialect) return sql;
 
@@ -36,7 +38,7 @@ export function ensureLimit(sql: string, limit: number): string {
     }
     return sql.replace(
       /LIMIT\s+\d+\s+OFFSET\s+(\d+)$/i,
-      `LIMIT ${limit} OFFSET $1`
+      `LIMIT ${limit} OFFSET $1`,
     );
   }
   // Case 2: Has OFFSET clause only (BigQuery is the only one that supports this)
@@ -76,7 +78,7 @@ export function isReadOnlySQL(sql: string) {
 
   // Check the first keyword (e.g. "select", "with", etc.)
   const match = normalized.match(
-    /^\s*(with|select|explain|show|describe|desc)\b/
+    /^\s*(with|select|explain|show|describe|desc)\b/,
   );
   if (!match) return false;
 

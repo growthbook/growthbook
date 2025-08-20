@@ -111,6 +111,8 @@ export interface DimensionForSnapshot {
   // The same format we use today that encodes both the type and id
   // For example: `exp:country` or `pre:date`
   id: string;
+  // Pre-defined dimension levels, if they exist
+  slices?: string[];
   // Dimension settings at the time the snapshot was created
   // Used to show an "out-of-date" warning on the front-end
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
@@ -128,6 +130,10 @@ export interface ExperimentSnapshotAnalysisSettings {
   baselineVariationIndex?: number;
   numGoalMetrics: number;
   oneSidedIntervals?: boolean;
+  holdoutAnalysisWindow?: {
+    start: Date;
+    end: Date;
+  };
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";

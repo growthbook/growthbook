@@ -71,6 +71,7 @@ const ScreenshotCarousel: FC<{
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
+  variationsList?: string[];
   canEditExperiment: boolean;
   // for some experiments, screenshots don't make sense - this is for a future state where you can mark exp as such.
   allowImages?: boolean;
@@ -236,6 +237,7 @@ export function VariationBox({
 
 const VariationsTable: FC<Props> = ({
   experiment,
+  variationsList,
   canEditExperiment,
   allowImages = true,
   mutate,
@@ -273,24 +275,26 @@ const VariationsTable: FC<Props> = ({
           md: cols.toString(),
         }}
       >
-        {variations.map((v, i) => (
-          <VariationBox
-            key={i}
-            i={i}
-            v={v}
-            experiment={experiment}
-            showDescription={hasDescriptions}
-            showIds={hasUniqueIDs}
-            height={maxImageHeight}
-            canEdit={canEditExperiment}
-            allowImages={allowImages}
-            openCarousel={(variationId, index) => {
-              setOpenCarousel({ variationId, index });
-            }}
-            mutate={mutate}
-            percent={percentages?.[i]}
-          />
-        ))}
+        {variations.map((v, i) =>
+          variationsList && !variationsList.includes(v.id) ? null : (
+            <VariationBox
+              key={i}
+              i={i}
+              v={v}
+              experiment={experiment}
+              showDescription={hasDescriptions}
+              showIds={hasUniqueIDs}
+              height={maxImageHeight}
+              canEdit={canEditExperiment}
+              allowImages={allowImages}
+              openCarousel={(variationId, index) => {
+                setOpenCarousel({ variationId, index });
+              }}
+              mutate={mutate}
+              percent={percentages?.[i]}
+            />
+          ),
+        )}
       </Grid>
       {openCarousel && (
         <ExperimentCarouselModal
@@ -316,12 +320,12 @@ const VariationsTable: FC<Props> = ({
                       body: JSON.stringify({
                         url: screenshotPath,
                       }),
-                    }
+                    },
                   );
 
                   if (status >= 400) {
                     throw new Error(
-                      message || "There was an error deleting the image"
+                      message || "There was an error deleting the image",
                     );
                   }
 

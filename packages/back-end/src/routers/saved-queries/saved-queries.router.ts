@@ -8,10 +8,16 @@ const savedQueriesController = wrapController(rawSavedQueriesController);
 
 router.get("/", savedQueriesController.getSavedQueries);
 
+router.get("/:id", savedQueriesController.getSavedQuery);
+
 router.post("/", savedQueriesController.postSavedQuery);
+
+router.post("/:id/refresh", savedQueriesController.refreshSavedQuery);
 
 router.put("/:id", savedQueriesController.putSavedQuery);
 
 router.delete("/:id", savedQueriesController.deleteSavedQuery);
+
+router.post("/generateSQL", savedQueriesController.postGenerateSQL);
 
 export { router as savedQueriesRouter };

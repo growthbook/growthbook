@@ -1,6 +1,8 @@
 import {
   AutoExperimentWithProject,
+  FeatureDefinition,
   FeatureDefinitionWithProject,
+  FeatureDefinitionWithProjects,
 } from "back-end/types/api";
 import { pick, omit } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
@@ -54,7 +56,7 @@ export const scrubFeatures = (
   capabilities: SDKCapability[],
   savedGroups: SavedGroupInterface[],
   savedGroupReferencesEnabled: boolean,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): Record<string, FeatureDefinitionWithProject> => {
   const allowedFeatureKeys = [...strictFeatureKeys];
   const allowedFeatureRuleKeys = [...strictFeatureRuleKeys];
@@ -72,7 +74,7 @@ export const scrubFeatures = (
     !savedGroupReferencesEnabled
   ) {
     const savedGroupsMap = Object.fromEntries(
-      savedGroups.map((group) => [group.id, group])
+      savedGroups.map((group) => [group.id, group]),
     );
     Object.values(features).forEach((feature) => {
       if (!feature.rules) {
@@ -81,11 +83,11 @@ export const scrubFeatures = (
       feature.rules.forEach((rule) => {
         recursiveWalk(
           rule.condition,
-          replaceSavedGroups(savedGroupsMap, organization)
+          replaceSavedGroups(savedGroupsMap, organization),
         );
         recursiveWalk(
           rule.parentConditions,
-          replaceSavedGroups(savedGroupsMap, organization)
+          replaceSavedGroups(savedGroupsMap, organization),
         );
       });
     });
@@ -101,7 +103,7 @@ export const scrubFeatures = (
       // delete feature
       if (
         newFeatures[k]?.rules?.some((rule) =>
-          rule?.parentConditions?.some((pc) => !!pc.gate)
+          rule?.parentConditions?.some((pc) => !!pc.gate),
         )
       ) {
         delete newFeatures[k];
@@ -109,7 +111,7 @@ export const scrubFeatures = (
       }
       // delete rules
       newFeatures[k].rules = newFeatures[k].rules?.filter(
-        (rule) => (rule.parentConditions?.length ?? 0) === 0
+        (rule) => (rule.parentConditions?.length ?? 0) === 0,
       );
     }
   }
@@ -121,7 +123,7 @@ export const scrubFeatures = (
   for (const k in newFeatures) {
     newFeatures[k] = pick(
       newFeatures[k],
-      allowedFeatureKeys
+      allowedFeatureKeys,
     ) as FeatureDefinitionWithProject;
     if (newFeatures[k]?.rules) {
       newFeatures[k].rules = newFeatures[k].rules?.map((rule) => {
@@ -141,7 +143,7 @@ export const scrubExperiments = (
   capabilities: SDKCapability[],
   savedGroups: SavedGroupInterface[],
   savedGroupReferencesEnabled: boolean,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): AutoExperimentWithProject[] => {
   const removedExperimentKeys: string[] = [];
   const supportsPrerequisites = capabilities.includes("prerequisites");
@@ -152,16 +154,16 @@ export const scrubExperiments = (
     !savedGroupReferencesEnabled
   ) {
     const savedGroupsMap = Object.fromEntries(
-      savedGroups.map((group) => [group.id, group])
+      savedGroups.map((group) => [group.id, group]),
     );
     experiments.forEach((experimentDefinition) => {
       recursiveWalk(
         experimentDefinition.condition,
-        replaceSavedGroups(savedGroupsMap, organization)
+        replaceSavedGroups(savedGroupsMap, organization),
       );
       recursiveWalk(
         experimentDefinition.parentConditions,
-        replaceSavedGroups(savedGroupsMap, organization)
+        replaceSavedGroups(savedGroupsMap, organization),
       );
     });
   }
@@ -194,7 +196,7 @@ export const scrubExperiments = (
     // Scrub fields from the experiment
     experiment = omit(
       experiment,
-      removedExperimentKeys
+      removedExperimentKeys,
     ) as AutoExperimentWithProject;
 
     newExperiments.push(experiment);
@@ -205,7 +207,7 @@ export const scrubExperiments = (
 export const scrubSavedGroups = (
   savedGroupsValues: SavedGroupsValues,
   capabilities: SDKCapability[],
-  savedGroupReferencesEnabled: boolean
+  savedGroupReferencesEnabled: boolean,
 ): SavedGroupsValues | undefined => {
   if (
     !capabilities.includes("savedGroupReferences") ||
@@ -219,10 +221,10 @@ export const scrubSavedGroups = (
 // Returns a handler which modifies the object in place, replacing saved group IDs with the contents of those groups
 const replaceSavedGroups: (
   savedGroups: Record<string, SavedGroupInterface>,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ) => NodeHandler = (
   savedGroups: Record<string, SavedGroupInterface>,
-  organization
+  organization,
 ) => {
   return ([key, value], object) => {
     if (key === "$inGroup" || key === "$notInGroup") {
@@ -231,7 +233,7 @@ const replaceSavedGroups: (
       const values = group
         ? getTypedSavedGroupValues(
             group.values || [],
-            getSavedGroupValueType(group, organization)
+            getSavedGroupValueType(group, organization),
           )
         : [];
       object[savedGroupOperatorReplacements[key]] = values;
@@ -239,4 +241,83 @@ const replaceSavedGroups: (
       delete object[key];
     }
   };
+};
+
+export const scrubHoldouts = ({
+  holdouts,
+  projects,
+  features,
+}: {
+  holdouts: Record<string, FeatureDefinitionWithProjects>;
+  projects: string[];
+  features: Record<string, FeatureDefinition>;
+}): {
+  holdouts: Record<string, FeatureDefinition>;
+  features: Record<string, FeatureDefinition>;
+} => {
+  // Filter list of holdouts to the selected projects
+  if (projects && projects.length > 0) {
+    holdouts = Object.fromEntries(
+      Object.entries(holdouts).filter(([_, holdout]) => {
+        // If the holdout has no projects, it's a part of all projects and we want to include it
+        if (!holdout.projects || holdout.projects.length === 0) {
+          return true;
+        }
+        const holdoutProjects = holdout.projects;
+        return projects.some((p) => holdoutProjects.includes(p));
+      }),
+    );
+  }
+
+  const holdoutIds = new Set(Object.keys(holdouts));
+
+  // keep track of references to each holdoutId in the loop below
+  const holdoutReferences = new Set<string>();
+
+  // Filter out holdout pre-requisite rules that do not have associated holdout feature definitions
+  // Also scrub holdoutId from all rules that have it
+  for (const k in features) {
+    if (features[k]?.rules) {
+      features[k].rules = features[k].rules?.filter((rule) => {
+        // If the rule id does not have the prefix "holdout_", it's not a holdout rule. Do not filter it out
+        if (rule.id && !rule.id.startsWith("holdout_")) {
+          return true;
+        }
+
+        // If the rule id has the prefix "holdout_", it's a holdout rule. Filter it out if it does not have an associated holdout feature definition
+        if (rule.id && rule.id.startsWith("holdout_")) {
+          // A holdout rule must have a parent condition because it's a prerequisite rule
+          if (!rule.parentConditions || rule.parentConditions.length === 0) {
+            return false;
+          }
+
+          const holdoutId = rule.parentConditions[0].id;
+          if (!holdoutIds.has(holdoutId)) {
+            return false;
+          }
+          // Document that this holdoutId is referenced by a feature rule
+          holdoutReferences.add(holdoutId);
+        }
+
+        return true;
+      });
+    }
+  }
+
+  // Remove holdouts that are not referenced by any feature rules
+  holdouts = Object.fromEntries(
+    Object.entries(holdouts).filter(([key, _]) => {
+      return holdoutReferences.has(key);
+    }),
+  );
+
+  // Remove `projects` from holdouts
+  holdouts = Object.fromEntries(
+    Object.entries(holdouts).map(([key, holdout]) => [
+      key,
+      omit(holdout, ["projects"]),
+    ]),
+  );
+
+  return { holdouts, features };
 };

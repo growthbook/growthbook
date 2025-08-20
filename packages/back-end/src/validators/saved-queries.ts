@@ -50,13 +50,73 @@ export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
 
-export const dataVizConfigValidator = z.object({
+const formatEnum = z.enum([
+  "shortNumber",
+  "longNumber",
+  "currency",
+  "percentage",
+  "accounting",
+]);
+
+// Base chart components for composition
+const baseChartConfig = z.object({
   title: z.string().optional(),
-  chartType: z.enum(["bar", "line", "area", "scatter"]),
-  xAxis: xAxisConfigurationValidator,
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+});
+
+const withXAxis = z.object({
+  xAxis: xAxisConfigurationValidator,
+});
+
+const withDimensions = z.object({
   dimension: z.array(dimensionAxisConfigurationValidator).nonempty().optional(),
 });
+
+const withFormat = z.object({
+  format: formatEnum,
+});
+
+// Chart type definitions using composition
+const barChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("bar") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
+const lineChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("line") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
+const areaChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("area") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
+const scatterChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("scatter") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
+const bigValueChartValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("big-value") }))
+  .merge(withFormat);
+
+// Union of all chart type validators
+export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
+  barChartValidator,
+  lineChartValidator,
+  areaChartValidator,
+  scatterChartValidator,
+  bigValueChartValidator,
+]);
+
+// Type helpers for better TypeScript inference
+export type BarChart = z.infer<typeof barChartValidator>;
+export type LineChart = z.infer<typeof lineChartValidator>;
+export type AreaChart = z.infer<typeof areaChartValidator>;
+export type ScatterChart = z.infer<typeof scatterChartValidator>;
+export type BigValueChart = z.infer<typeof bigValueChartValidator>;
+export type BigValueFormat = z.infer<typeof formatEnum>;
 
 export const testQueryRowSchema = z.record(z.any());
 
@@ -79,6 +139,7 @@ export const savedQueryValidator = z
     sql: z.string(),
     dataVizConfig: z.array(dataVizConfigValidator).optional(),
     results: queryExecutionResultValidator,
+    linkedDashboardIds: z.array(z.string()).optional(),
   })
   .strict();
 

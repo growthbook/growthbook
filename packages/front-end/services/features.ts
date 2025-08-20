@@ -69,6 +69,7 @@ export interface AttributeData {
   enum: string[];
   archived: boolean;
   format?: SDKAttributeFormat;
+  disableEqualityConditions?: boolean;
 }
 
 export type NewExperimentRefRule = {
@@ -144,10 +145,8 @@ export function useFeatureSearch({
       environments,
     });
     // Invert the map from groupId->featureList to featureId->groupList
-    const savedGroupReferencesByFeature: Record<
-      string,
-      SavedGroupInterface[]
-    > = {};
+    const savedGroupReferencesByFeature: Record<string, SavedGroupInterface[]> =
+      {};
     Object.keys(savedGroupReferencesByGroup).forEach((groupId) => {
       const savedGroup = getSavedGroupById(groupId);
       if (!savedGroup) return;
@@ -171,12 +170,12 @@ export function useFeatureSearch({
         projectName,
         projectIsDeReferenced,
         savedGroups: (savedGroupReferencesByFeature[f.id] || []).map(
-          (grp) => grp.groupName
+          (grp) => grp.groupName,
         ),
         ownerName: getUserDisplay(f.owner, false) || "",
       };
     },
-    [getProjectById, savedGroupReferencesByFeature]
+    [getProjectById, savedGroupReferencesByFeature],
   );
   return useSearch({
     items: features,
@@ -210,13 +209,13 @@ export function useFeatureSearch({
         const rules = getMatchingRules(
           item,
           () => true,
-          environments.map((e) => e.id)
+          environments.map((e) => e.id),
         );
 
         if (rules.length) has.push("rule", "rules");
         if (
           rules.some((r) =>
-            ["experiment", "experiment-ref"].includes(r.rule.type)
+            ["experiment", "experiment-ref"].includes(r.rule.type),
           )
         ) {
           has.push("experiment", "experiments");
@@ -248,7 +247,7 @@ export function useFeatureSearch({
         const rules = getMatchingRules(
           item,
           () => true,
-          environments.map((e) => e.id)
+          environments.map((e) => e.id),
         );
         return rules.length;
       },
@@ -299,7 +298,7 @@ export function getTotalVariationWeight(weights: number[]): number {
 
 export function getVariationDefaultName(
   val: ExperimentValue,
-  type: FeatureValueType
+  type: FeatureValueType,
 ) {
   if (val.name) {
     return val.name;
@@ -318,7 +317,7 @@ export function getVariationDefaultName(
 
 export function isRuleInactive(
   rule: FeatureRule,
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
 ): boolean {
   // Explicitly disabled
   if (!rule.enabled) return true;
@@ -364,7 +363,7 @@ export function findGaps(
   namespaces: NamespaceUsage,
   namespace: string,
   featureId: string = "",
-  trackingKey: string = ""
+  trackingKey: string = "",
 ): NamespaceGaps {
   const experiments = namespaces?.[namespace] || [];
 
@@ -372,7 +371,7 @@ export function findGaps(
   const ranges = [
     ...experiments.filter(
       // Exclude the current feature/experiment
-      (e) => e.id !== featureId || e.trackingKey !== trackingKey
+      (e) => e.id !== featureId || e.trackingKey !== trackingKey,
     ),
     { start: 1, end: 1 },
   ];
@@ -468,7 +467,7 @@ export function getVariationColor(i: number, experimentTheme = false) {
 
 export function useAttributeSchema(
   showArchived = false,
-  projectFilter?: string
+  projectFilter?: string,
 ) {
   const attributeSchema = useOrgSettings().attributeSchema || [];
 
@@ -489,7 +488,7 @@ export function useAttributeSchema(
 
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -503,7 +502,7 @@ export function validateFeatureRule(
         hasChanges = true;
         ruleCopy.condition = condition;
       },
-      false
+      false,
     );
   }
   if (rule.prerequisites) {
@@ -515,7 +514,7 @@ export function validateFeatureRule(
     const newValue = validateFeatureValue(
       feature,
       rule.value,
-      "Value to Force"
+      "Value to Force",
     );
     if (newValue !== rule.value) {
       hasChanges = true;
@@ -534,7 +533,7 @@ export function validateFeatureRule(
       const newValue = validateFeatureValue(
         feature,
         val.value,
-        "Variation #" + i
+        "Variation #" + i,
       );
       if (newValue !== val.value) {
         hasChanges = true;
@@ -546,7 +545,7 @@ export function validateFeatureRule(
 
     if (totalWeight > 1) {
       throw new Error(
-        `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
+        `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`,
       );
     }
   } else if (rule.type === "experiment-ref") {
@@ -554,7 +553,7 @@ export function validateFeatureRule(
       const newValue = validateFeatureValue(
         feature,
         v.value,
-        "Variation #" + i
+        "Variation #" + i,
       );
       if (newValue !== v.value) {
         hasChanges = true;
@@ -565,7 +564,7 @@ export function validateFeatureRule(
     const newVariationValue = validateFeatureValue(
       feature,
       rule.variationValue,
-      "Value to Rollout"
+      "Value to Rollout",
     );
     if (newVariationValue !== rule.variationValue) {
       hasChanges = true;
@@ -574,7 +573,7 @@ export function validateFeatureRule(
     const newControlValue = validateFeatureValue(
       feature,
       rule.controlValue,
-      "Control Value"
+      "Control Value",
     );
     if (newControlValue !== rule.controlValue) {
       hasChanges = true;
@@ -584,7 +583,7 @@ export function validateFeatureRule(
     const newValue = validateFeatureValue(
       feature,
       rule.value,
-      "Value to Rollout"
+      "Value to Rollout",
     );
     if (newValue !== rule.value) {
       hasChanges = true;
@@ -601,7 +600,7 @@ export function validateFeatureRule(
 
 export function getEnabledEnvironments(
   feature: FeatureInterface,
-  environments: Environment[]
+  environments: Environment[],
 ) {
   return Object.keys(feature.environmentSettings ?? {}).filter((env) => {
     if (!environments.some((e) => e.id === env)) return false;
@@ -611,7 +610,7 @@ export function getEnabledEnvironments(
 
 export function getAffectedEnvs(
   feature: FeatureInterface,
-  changedEnvs: string[]
+  changedEnvs: string[],
 ): string[] {
   const settings = feature.environmentSettings;
   if (!settings) return [];
@@ -638,7 +637,7 @@ export function getDefaultValue(valueType: FeatureValueType): string {
 export function getAffectedRevisionEnvs(
   liveFeature: FeatureInterface,
   revision: FeatureRevisionInterface,
-  environments: Environment[]
+  environments: Environment[],
 ): string[] {
   const enabledEnvs = getEnabledEnvironments(liveFeature, environments);
   if (revision.defaultValue !== liveFeature.defaultValue) return enabledEnvs;
@@ -870,7 +869,7 @@ export function getDefaultRuleValue({
 
 export function getUnreachableRuleIndex(
   rules: FeatureRule[],
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
 ) {
   for (let i = 0; i < rules.length; i++) {
     const rule = rules[i];
@@ -911,7 +910,7 @@ export function getUnreachableRuleIndex(
 
 export function jsonToConds(
   json: string,
-  attributes?: Map<string, AttributeData>
+  attributes?: Map<string, AttributeData>,
 ): null | Condition[] {
   if (!json || json === "{}") return [];
   // Advanced use case where we can't use the simple editor
@@ -1097,7 +1096,7 @@ export function jsonToConds(
 
 function parseValue(
   value: string,
-  type?: "string" | "number" | "boolean" | "secureString"
+  type?: "string" | "number" | "boolean" | "secureString",
 ) {
   if (type === "number") return parseFloat(value) || 0;
   if (type === "boolean") return value === "false" ? false : true;
@@ -1106,7 +1105,7 @@ function parseValue(
 
 export function condToJson(
   conds: Condition[],
-  attributes: Map<string, AttributeData>
+  attributes: Map<string, AttributeData>,
 ) {
   const obj = {};
   conds.forEach(({ field, operator, value }) => {
@@ -1172,7 +1171,7 @@ function getAttributeDataType(type: SDKAttributeType) {
 }
 
 export function useAttributeMap(
-  projectFilter?: string
+  projectFilter?: string,
 ): Map<string, AttributeData> {
   const attributeSchema = useAttributeSchema(true, projectFilter);
 
@@ -1191,11 +1190,12 @@ export function useAttributeMap(
           schema.datatype === "enum" && schema.enum
             ? schema.enum.split(",").map((x) => x.trim())
             : schema.format === "isoCountryCode"
-            ? ALL_COUNTRY_CODES
-            : [],
+              ? ALL_COUNTRY_CODES
+              : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
         format: schema.format || "",
+        disableEqualityConditions: !!schema.disableEqualityConditions,
       });
     });
 
@@ -1205,7 +1205,7 @@ export function useAttributeMap(
 
 export function getExperimentDefinitionFromFeature(
   feature: FeatureInterface,
-  expRule: ExperimentRule
+  expRule: ExperimentRule,
 ) {
   const trackingKey = expRule?.trackingKey || feature.id;
   if (!trackingKey) {
@@ -1255,11 +1255,11 @@ export function getExperimentDefinitionFromFeature(
 export function useRealtimeData(
   features: FeatureInterface[] = [],
   mock = false,
-  update = false
+  update = false,
 ): { usage: FeatureUsageRecords; usageDomain: [number, number] } {
   const { data, mutate } = useApi<{ usage: FeatureUsageRecords }>(
     `/usage/features`,
-    { shouldRun: () => !!update }
+    { shouldRun: () => !!update },
   );
 
   // Mock data
@@ -1276,7 +1276,7 @@ export function useRealtimeData(
         usage[f.id].realtime.push({
           used: Math.floor(Math.random() * 1000 * usedRatio * volumeRatio),
           skipped: Math.floor(
-            Math.random() * 1000 * (1 - usedRatio) * volumeRatio
+            Math.random() * 1000 * (1 - usedRatio) * volumeRatio,
           ),
         });
       }
@@ -1303,7 +1303,7 @@ export function useRealtimeData(
       1,
       ...Object.values(usage).map((d) => {
         return Math.max(1, ...d.realtime.map((u) => u.used + u.skipped));
-      })
+      }),
     );
   }, [usage]);
 
@@ -1315,6 +1315,8 @@ export function getDefaultOperator(attribute: AttributeData) {
     return "$true";
   } else if (attribute.array) {
     return "$includes";
+  } else if (attribute.disableEqualityConditions) {
+    return "$regex";
   }
   return "$eq";
 }
@@ -1355,12 +1357,12 @@ export function getNewDraftExperimentsToPublish({
     getMatchingRules(
       feature,
       (rule) => rule.type === "experiment-ref",
-      environmentIds
-    ).map((result) => (result.rule as ExperimentRefRule).experimentId)
+      environmentIds,
+    ).map((result) => (result.rule as ExperimentRefRule).experimentId),
   );
 
   function isExp(
-    exp: ExperimentInterfaceStringDates | undefined
+    exp: ExperimentInterfaceStringDates | undefined,
   ): exp is ExperimentInterfaceStringDates {
     return !!exp;
   }
@@ -1386,10 +1388,10 @@ export function getNewDraftExperimentsToPublish({
       return true;
     },
     environmentIds,
-    revision
+    revision,
   )
     .map((result) =>
-      experimentsMap.get((result.rule as ExperimentRefRule).experimentId)
+      experimentsMap.get((result.rule as ExperimentRefRule).experimentId),
     )
     .filter(isExp);
 
@@ -1436,7 +1438,7 @@ export function useFeatureExperimentChecklists({
       const projectConnections = connections.filter(
         (connection) =>
           !connection.projects.length ||
-          connection.projects.includes(exp.project || "")
+          connection.projects.includes(exp.project || ""),
       );
 
       const checklist = getChecklistItems({
@@ -1450,7 +1452,7 @@ export function useFeatureExperimentChecklists({
       });
 
       const failedRequired = checklist.some(
-        (item) => item.status === "incomplete" && item.required
+        (item) => item.status === "incomplete" && item.required,
       );
 
       experimentData.push({ checklist, experiment: exp, failedRequired });
@@ -1468,4 +1470,24 @@ export function useFeatureExperimentChecklists({
   return {
     experimentData,
   };
+}
+
+export function parseDefaultValue(
+  defaultValue: string,
+  valueType: FeatureValueType,
+): string {
+  if (valueType === "boolean") {
+    return defaultValue === "true" ? "true" : "false";
+  }
+  if (valueType === "number") {
+    return parseFloat(defaultValue) + "";
+  }
+  if (valueType === "string") {
+    return defaultValue;
+  }
+  try {
+    return JSON.stringify(JSON.parse(defaultValue), null, 2);
+  } catch (e) {
+    throw new Error(`JSON parse error for default value`);
+  }
 }

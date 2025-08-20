@@ -67,10 +67,10 @@ const EditVariationsForm: FC<{
                 Math.max(
                   data.variationWeights?.[i] ??
                     1 / (data.variations?.length || 2),
-                  0
+                  0,
                 ),
-                1
-              )
+                1,
+              ),
             ),
           ];
           data.variationWeights = distributeWeights(newWeights, true);
@@ -82,7 +82,7 @@ const EditVariationsForm: FC<{
             // only recompute weights if original weights are the wrong size
             data.variationWeights = getEqualWeights(
               data.variations.length || 2,
-              4
+              4,
             );
           } else {
             data.variationWeights = [...lastPhase.variationWeights];
@@ -131,11 +131,11 @@ const EditVariationsForm: FC<{
                 ...newData,
                 key: value,
               };
-            })
+            }),
           );
           form.setValue(
             `variationWeights`,
-            v.map((v) => v.weight)
+            v.map((v) => v.weight),
           );
         }}
         showPreview={false}

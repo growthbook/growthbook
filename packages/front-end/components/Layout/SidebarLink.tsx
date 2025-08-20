@@ -24,6 +24,7 @@ export type SidebarLinkProps = {
   sectionTitle?: string;
   className?: string;
   autoClose?: boolean;
+  navigateOnExpand?: boolean;
   filter?: (props: {
     permissionsUtils: Permissions;
     permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
@@ -73,7 +74,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   }
 
   const permittedSubLinks = (props.subLinks || []).filter(
-    (l) => !l.filter || l.filter(filterProps)
+    (l) => !l.filter || l.filter(filterProps),
   );
 
   if (props.subLinks && !permittedSubLinks.length) {
@@ -108,6 +109,11 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           onClick={(e) => {
             e.preventDefault();
             if (props.subLinks) {
+              // If it's currently closed and it's set to navigate on expand
+              if (!open && !selected && props.navigateOnExpand && props.href) {
+                router.push(props.href);
+              }
+
               setOpen(!open);
               e.stopPropagation();
             } else {
@@ -158,7 +164,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                     [styles.selected]: sublinkSelected,
                     selected: sublinkSelected,
                     [styles.collapsed]: !open && !sublinkSelected,
-                  }
+                  },
                 )}
               >
                 <Link href={l.href} className="align-middle">

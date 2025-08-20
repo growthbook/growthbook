@@ -28,15 +28,13 @@ export const IdListItemInput: FC<{
 
   const [importMethod, setImportMethod] = useState("file");
   const [numValuesToImport, setNumValuesToImport] = useState<number | null>(
-    null
+    null,
   );
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const {
-    unsupportedConnections,
-    hasLargeSavedGroupFeature,
-  } = useLargeSavedGroupSupport();
+  const { unsupportedConnections, hasLargeSavedGroupFeature } =
+    useLargeSavedGroupSupport();
 
   const resetFile = () => {
     setValues([]);
@@ -113,7 +111,7 @@ export const IdListItemInput: FC<{
                       const str = e.target?.result;
                       if (typeof str !== "string") {
                         setFileErrorMessage(
-                          "Failed to import file. Please try again"
+                          "Failed to import file. Please try again",
                         );
                         return;
                       }

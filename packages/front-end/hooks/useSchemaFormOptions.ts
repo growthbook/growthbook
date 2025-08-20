@@ -5,10 +5,11 @@ import {
 } from "back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import { getTablePath } from "@/services/datasources";
 import useApi from "./useApi";
 
 export default function useSchemaFormOptions(
-  datasource: DataSourceInterfaceWithParams
+  datasource: DataSourceInterfaceWithParams,
 ) {
   const [tableId, setTableId] = useState("");
 
@@ -36,11 +37,16 @@ export default function useSchemaFormOptions(
         }
 
         schema?.tables?.forEach((table) => {
+          const tablePath = getTablePath(datasource.type, {
+            catalog: database.databaseName,
+            schema: schema.schemaName,
+            tableName: table.tableName,
+          });
           group?.options?.push({
             label: table.tableName,
-            value: table.path,
+            value: tablePath,
           });
-          tableIdMapping.set(table.path, table.id);
+          tableIdMapping.set(tablePath, table.id);
         });
       });
     });

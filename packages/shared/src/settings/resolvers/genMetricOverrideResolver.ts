@@ -19,11 +19,11 @@ export default function genMetricOverrideResolver(
     | "properPriorEnabled"
     | "properPriorMean"
     | "properPriorStdDev"
-  >
+  >,
 ): SettingsResolver<Settings[keyof Settings]> {
   return (ctx) => {
     const metricOverride = ctx.scopes?.experiment?.metricOverrides?.find(
-      (mo) => mo.id === ctx.scopes?.metric?.id
+      (mo) => mo.id === ctx.scopes?.metric?.id,
     );
 
     let metricValue:

@@ -86,17 +86,17 @@ export default function FeatureVariationsInput({
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
-    (w) => Math.abs(w - weights[0]) < 0.0001
+    (w) => Math.abs(w - weights[0]) < 0.0001,
   );
 
   const idsMatchIndexes = variations?.every((v, i) => v.value === i + "");
 
   const [editingSplits, setEditingSplits] = useState(startEditingSplits);
   const [editingIds, setEditingIds] = useState(
-    startEditingIndexes || !idsMatchIndexes
+    startEditingIndexes || !idsMatchIndexes,
   );
   const [numberOfVariations, setNumberOfVariations] = useState(
-    Math.max(variations?.length ?? 2, 2) + ""
+    Math.max(variations?.length ?? 2, 2) + "",
   );
 
   const setEqualWeights = () => {
@@ -109,12 +109,12 @@ export default function FeatureVariationsInput({
   const label = _label
     ? _label
     : simple
-    ? "Traffic Percentage & Variations"
-    : setVariations
-    ? "Traffic Percentage, Variations, and Weights"
-    : hideCoverage || hideVariations
-    ? "Traffic Percentage"
-    : "Traffic Percentage & Variation Weights";
+      ? "Traffic Percentage & Variations"
+      : setVariations
+        ? "Traffic Percentage, Variations, and Weights"
+        : hideCoverage || hideVariations
+          ? "Traffic Percentage"
+          : "Traffic Percentage & Variation Weights";
 
   return (
     <div className="form-group">
@@ -395,16 +395,15 @@ export default function FeatureVariationsInput({
                                 onClick={() => {
                                   const newWeights = distributeWeights(
                                     [...weights, 0],
-                                    editingSplits
+                                    editingSplits,
                                   );
 
                                   // Add a new value and update weights
                                   const newValues = [
                                     ...variations,
                                     {
-                                      value: getDefaultVariationValue(
-                                        defaultValue
-                                      ),
+                                      value:
+                                        getDefaultVariationValue(defaultValue),
                                       name: `Variation ${variations.length}`,
                                       weight: 0,
                                       id: generateVariationId(),
@@ -415,9 +414,9 @@ export default function FeatureVariationsInput({
                                   });
                                   setVariations(newValues);
                                   if (isEqualWeights) {
-                                    getEqualWeights(
-                                      newValues.length
-                                    ).forEach((w, i) => setWeight(i, w));
+                                    getEqualWeights(newValues.length).forEach(
+                                      (w, i) => setWeight(i, w),
+                                    );
                                   }
                                 }}
                               >

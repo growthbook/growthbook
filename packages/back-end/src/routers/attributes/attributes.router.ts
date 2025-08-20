@@ -22,7 +22,7 @@ router.post(
       hashAttribute: z.boolean().optional(),
     }),
   }),
-  AttributeController.postAttribute
+  AttributeController.postAttribute,
 );
 
 router.put(
@@ -40,7 +40,7 @@ router.put(
       previousName: z.string().optional(),
     }),
   }),
-  AttributeController.putAttribute
+  AttributeController.putAttribute,
 );
 
 router.delete(
@@ -50,7 +50,7 @@ router.delete(
       id: z.string(),
     }),
   }),
-  AttributeController.deleteAttribute
+  AttributeController.deleteAttribute,
 );
 
 export { router as AttributeRouter };

@@ -54,7 +54,7 @@ describe("AccountPlanNotices", () => {
     render(<AccountPlanNotices />);
 
     expect(
-      screen.getByText(/Approaching CDN usage limit/i)
+      screen.getByText(/Approaching CDN usage limit/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/Upgrade license/i)).toBeInTheDocument();
   });
@@ -80,8 +80,8 @@ describe("AccountPlanNotices", () => {
 
       expect(
         screen.queryByText((content) =>
-          content.includes("License seat quota exceeded")
-        )
+          content.includes("License seat quota exceeded"),
+        ),
       ).not.toBeInTheDocument();
     });
 
@@ -105,8 +105,8 @@ describe("AccountPlanNotices", () => {
 
       expect(
         screen.queryByText((content) =>
-          content.includes("License seat quota exceeded")
-        )
+          content.includes("License seat quota exceeded"),
+        ),
       ).not.toBeInTheDocument();
     });
 
@@ -130,8 +130,8 @@ describe("AccountPlanNotices", () => {
 
       expect(
         screen.queryByText((content) =>
-          content.includes("License seat quota exceeded")
-        )
+          content.includes("License seat quota exceeded"),
+        ),
       ).toBeInTheDocument();
     });
 
@@ -154,8 +154,8 @@ describe("AccountPlanNotices", () => {
 
       expect(
         screen.queryByText((content) =>
-          content.includes("License seat quota exceeded")
-        )
+          content.includes("License seat quota exceeded"),
+        ),
       ).toBeInTheDocument();
     });
   });

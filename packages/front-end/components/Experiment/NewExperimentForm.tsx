@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useState, useCallback, useMemo } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -15,8 +15,16 @@ import {
 } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { generateTrackingKey, getEqualWeights } from "shared/experiments";
-import { kebabCase } from "lodash";
-import { Flex, Text } from "@radix-ui/themes";
+import { kebabCase, debounce } from "lodash";
+import { Box, Flex, Text, Heading, Separator } from "@radix-ui/themes";
+import {
+  FaCheckCircle,
+  FaExclamationCircle,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
+import { useFeatureIsOn, useGrowthBook } from "@growthbook/growthbook-react";
+import { PiCaretDownFill } from "react-icons/pi";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -31,7 +39,7 @@ import {
   useAttributeSchema,
   useEnvironments,
 } from "@/services/features";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useIncrementer } from "@/hooks/useIncrementer";
@@ -66,6 +74,11 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { useTemplates } from "@/hooks/useTemplates";
 import { convertTemplateToExperiment } from "@/services/experiments";
+import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
+import Link from "@/components/Radix/Link";
+import Markdown from "@/components/Markdown/Markdown";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { AppFeatures } from "@/types/app-features";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
@@ -110,12 +123,12 @@ export function getNewExperimentDatasourceDefaults(
   datasources: DataSourceInterfaceWithParams[],
   settings: OrganizationSettings,
   project?: string,
-  initialValue?: Partial<ExperimentInterfaceStringDates>
+  initialValue?: Partial<ExperimentInterfaceStringDates>,
 ): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
   const validDatasources = datasources.filter(
     (d) =>
       d.id === initialValue?.datasource ||
-      isProjectListValidForProject(d.projects, project)
+      isProjectListValidForProject(d.projects, project),
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
@@ -132,7 +145,7 @@ export function getNewExperimentDatasourceDefaults(
       getExposureQuery(
         initialDatasource.settings,
         initialValue?.exposureQueryId,
-        initialValue?.userIdType
+        initialValue?.userIdType,
       )?.id || "",
   };
 }
@@ -159,21 +172,25 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
 
-  const {
-    datasources,
-    getDatasourceById,
-    refreshTags,
-    project,
-    projects,
-  } = useDefinitions();
-
+  const { datasources, getDatasourceById, refreshTags, project, projects } =
+    useDefinitions();
+  const { aiEnabled } = useAISettings();
+  const gb = useGrowthBook<AppFeatures>();
+  const useCheckForSimilar = gb?.isOn("similar-experiments") || true;
+  const [similarExperiments, setSimilarExperiments] = useState<
+    { experiment: ExperimentInterfaceStringDates; similarity: number }[]
+  >([]);
+  const [aiLoading, setAiLoading] = useState<boolean>(false);
+  const [enoughWords, setEnoughWords] = useState(false);
+  const [expandSimilarResults, setExpandSimilarResults] = useState(false);
   const environments = useEnvironments();
   const { experiments } = useExperiments();
+  const holdoutsEnabled = useFeatureIsOn("holdouts_feature");
+
   const {
     templates: allTemplates,
     templatesMap,
@@ -181,11 +198,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   } = useTemplates();
   const envs = environments.map((e) => e.id);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
+  const minWordsForSimilarityCheck = 4;
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({
@@ -200,7 +216,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   const [conditionKey, forceConditionRender] = useIncrementer();
@@ -225,7 +241,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         datasources,
         settings,
         initialValue?.project || project || "",
-        initialValue
+        initialValue,
       ),
       name: initialValue?.name || "",
       type: initialValue?.type ?? "standard",
@@ -255,12 +271,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 ...initialValue.phases[lastPhase],
                 coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
                 dateStarted: getValidDate(
-                  initialValue.phases?.[lastPhase]?.dateStarted ?? ""
+                  initialValue.phases?.[lastPhase]?.dateStarted ?? "",
                 )
                   .toISOString()
                   .substr(0, 16),
                 dateEnded: getValidDate(
-                  initialValue.phases?.[lastPhase]?.dateEnded ?? ""
+                  initialValue.phases?.[lastPhase]?.dateEnded ?? "",
                 )
                   .toISOString()
                   .substr(0, 16),
@@ -269,7 +285,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 variationWeights:
                   initialValue.phases?.[lastPhase]?.variationWeights ||
                   getEqualWeights(
-                    initialValue.variations ? initialValue.variations.length : 2
+                    initialValue.variations
+                      ? initialValue.variations.length
+                      : 2,
                   ),
               },
             ]
@@ -284,7 +302,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   (initialValue?.variations
                     ? initialValue.variations
                     : getDefaultVariations(initialNumVariations)
-                  )?.length || 2
+                  )?.length || 2,
                 ),
               },
             ]),
@@ -299,6 +317,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
+      holdoutId: initialValue?.holdoutId || "",
     },
   });
 
@@ -306,7 +325,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
-    selectedProject
+    selectedProject,
   );
 
   const datasource = form.watch("datasource")
@@ -317,7 +336,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
-
+    if (value.holdoutId === "none") {
+      delete value.holdoutId;
+    }
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
       setStep(0);
@@ -401,7 +422,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if ("duplicateTrackingKey" in res) {
       setAllowDuplicateTrackingKey(true);
       throw new Error(
-        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
+        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.",
       );
     }
 
@@ -434,10 +455,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const availableTemplates = allTemplates
     .slice()
     .sort((a, b) =>
-      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1
+      a.templateMetadata.name > b.templateMetadata.name ? 1 : -1,
     )
     .filter((t) =>
-      isProjectListValidForProject(t.project ? [t.project] : [], project)
+      isProjectListValidForProject(t.project ? [t.project] : [], project),
     )
     .map((t) => ({ value: t.id, label: t.templateMetadata.name }));
 
@@ -479,7 +500,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     availableTemplates.length >= 1;
 
   const { currentProjectIsDemo } = useDemoDataSourceProject();
-
   useEffect(() => {
     if (!exposureQueries.find((q) => q.id === exposureQueryId)) {
       form.setValue("exposureQueryId", exposureQueries?.[0]?.id ?? "");
@@ -500,6 +520,77 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     setValueAs: (s) => s?.trim(),
   });
   const trackingKeyFieldHandlers = form.register("trackingKey");
+
+  const checkForSimilar = useCallback(async () => {
+    if (!aiEnabled || !useCheckForSimilar) return;
+
+    // check how many words we're sending in the hypothesis, name, and description:
+    const wordCount =
+      (form.watch("hypothesis")?.split(/\s+/).length || 0) +
+      (form.watch("name")?.split(/\s+/).length || 0) +
+      (form.watch("description")?.split(/\s+/).length || 0);
+    if (wordCount < minWordsForSimilarityCheck) {
+      setEnoughWords(false);
+      setSimilarExperiments([]);
+      return;
+    }
+    setEnoughWords(true);
+    setAiLoading(true);
+    try {
+      queueCheckForSimilar.cancel();
+      const response = await apiCall<{
+        status: number;
+        message?: string;
+        similar?: {
+          experiment: ExperimentInterfaceStringDates;
+          similarity: number;
+        }[];
+      }>(`/experiments/similar`, {
+        method: "POST",
+        body: JSON.stringify({
+          hypothesis: form.watch("hypothesis"),
+          name: form.watch("name"),
+          description: form.watch("description"),
+        }),
+      });
+
+      if (
+        response &&
+        response.status === 200 &&
+        response.similar &&
+        response.similar.length
+      ) {
+        if (response.similar) {
+          setSimilarExperiments(response.similar);
+        } else {
+          setSimilarExperiments([]);
+        }
+      } else {
+        setSimilarExperiments([]);
+      }
+      setAiLoading(false);
+    } catch (error) {
+      // ignore the errors.
+      setAiLoading(false);
+    }
+  }, [form, apiCall]);
+
+  const queueCheckForSimilar = useMemo(
+    () =>
+      debounce(async () => {
+        try {
+          await checkForSimilar();
+        } catch (error) {
+          console.error("Error in checkForSimilar:", error);
+        }
+      }, 3000),
+    [],
+  );
+  useEffect(() => {
+    return () => {
+      queueCheckForSimilar.cancel();
+    };
+  }, [queueCheckForSimilar]);
 
   return (
     <FormProvider {...form}>
@@ -551,9 +642,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       const template = templatesMap.get(t);
                       if (!template) return;
 
-                      const templateAsExperiment = convertTemplateToExperiment(
-                        template
-                      );
+                      const templateAsExperiment =
+                        convertTemplateToExperiment(template);
                       form.reset(templateAsExperiment, {
                         keepDefaultValues: true,
                       });
@@ -584,6 +674,35 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 </div>
               )}
 
+            {projects.length >= 1 && (
+              <div className="form-group">
+                <label>Project</label>
+                <SelectField
+                  value={form.watch("project") ?? ""}
+                  onChange={(p) => {
+                    form.setValue("project", p);
+                    setSelectedProject(p);
+                  }}
+                  name="project"
+                  initialOption={allowAllProjects ? "All Projects" : undefined}
+                  options={availableProjects}
+                />
+              </div>
+            )}
+
+            {holdoutsEnabled && (
+              <>
+                <HoldoutSelect
+                  selectedProject={selectedProject}
+                  selectedHoldoutId={form.watch("holdoutId")}
+                  setHoldout={(holdoutId) => {
+                    form.setValue("holdoutId", holdoutId);
+                  }}
+                />
+                <Separator size="4" mt="6" mb="5" />
+              </>
+            )}
+
             <Field
               label={isBandit ? "Bandit Name" : "Experiment Name"}
               required
@@ -605,9 +724,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   async (key: string) =>
                     (experiments.find((exp) => exp.trackingKey === key) as
                       | ExperimentInterfaceStringDates
-                      | undefined) ?? null
+                      | undefined) ?? null,
                 );
                 form.setValue("trackingKey", trackingKey);
+                queueCheckForSimilar();
               }}
             />
 
@@ -622,40 +742,186 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setLinkNameWithTrackingKey(false);
               }}
             />
-            {projects.length >= 1 && (
-              <div className="form-group">
-                <label>Project</label>
-                <SelectField
-                  value={form.watch("project") ?? ""}
-                  onChange={(p) => {
-                    form.setValue("project", p);
-                    setSelectedProject(p);
-                  }}
-                  name="project"
-                  initialOption={allowAllProjects ? "All Projects" : undefined}
-                  options={availableProjects}
-                />
-              </div>
-            )}
             {!isBandit && (
               <Field
                 label="Hypothesis"
                 textarea
-                minRows={1}
+                minRows={2}
                 placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-                {...form.register("hypothesis")}
+                {...form.register("hypothesis", {
+                  onChange: () => {
+                    queueCheckForSimilar(); // Debounced call
+                  },
+                  onBlur: () => {
+                    // cancel any pending debounced calls
+                    queueCheckForSimilar.cancel();
+                    checkForSimilar(); // Immediate call on blur
+                  },
+                })}
               />
             )}
             {includeDescription && (
               <Field
                 label="Description"
                 textarea
-                minRows={1}
-                {...form.register("description")}
+                minRows={2}
+                {...form.register("description", {
+                  onChange: () => {
+                    queueCheckForSimilar(); // Debounced call
+                  },
+                  onBlur: () => {
+                    // cancel any pending debounced calls
+                    queueCheckForSimilar.cancel();
+                    checkForSimilar(); // Immediate call on blur
+                  },
+                })}
                 placeholder={`Short human-readable description of the ${
                   isBandit ? "Bandit" : "Experiment"
                 }`}
               />
+            )}
+            {useCheckForSimilar && (
+              <>
+                {!enoughWords ? (
+                  <Box my="4">
+                    <Flex gap="2" className="text-muted" align="center">
+                      <FaExclamationCircle />
+                      <Text size="2" weight="light">
+                        Enter more details to check for similar experiments
+                      </Text>
+                    </Flex>
+                  </Box>
+                ) : (
+                  <>
+                    {aiLoading ? (
+                      <Box my="4">
+                        <Flex gap="2" className="text-muted">
+                          <LoadingSpinner />
+                          <Text size="2">
+                            Checking for similar experiments...
+                          </Text>
+                        </Flex>
+                      </Box>
+                    ) : (
+                      <>
+                        <Box my="4">
+                          <Text size="2" color="violet">
+                            {similarExperiments.length > 0 ? (
+                              <Flex
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setExpandSimilarResults(
+                                    !expandSimilarResults,
+                                  );
+                                }}
+                                gap="2"
+                                align="center"
+                              >
+                                <PiCaretDownFill
+                                  style={{
+                                    transition: "transform 0.3s ease",
+                                    transform: expandSimilarResults
+                                      ? "none"
+                                      : "rotate(-90deg)",
+                                  }}
+                                />
+                                <Text
+                                  weight="medium"
+                                  style={{
+                                    cursor: "pointer",
+                                    color: "violet-11",
+                                  }}
+                                >
+                                  Similar experiment
+                                  {similarExperiments.length === 1 ? "" : "s"} (
+                                  {similarExperiments.length})
+                                </Text>
+                              </Flex>
+                            ) : (
+                              <Flex gap="2" align="center">
+                                <FaCheckCircle />
+                                No similar experiments found
+                              </Flex>
+                            )}
+                          </Text>
+                          {expandSimilarResults && (
+                            <Flex
+                              gap="3"
+                              direction="column"
+                              my="3"
+                              p="4"
+                              style={{
+                                backgroundColor: "var(--accent-a3)",
+                                borderRadius: "4px",
+                              }}
+                            >
+                              {similarExperiments.map((s, i) => (
+                                <Box
+                                  key={`similar-${i}`}
+                                  className="appbox"
+                                  p="3"
+                                  width="100%"
+                                  style={{
+                                    marginBottom: 0,
+                                    maxHeight: "430px",
+                                    overflowY: "auto",
+                                    color: "var(--text-color-main)",
+                                  }}
+                                >
+                                  <Flex
+                                    direction="column"
+                                    gap="3"
+                                    justify="start"
+                                  >
+                                    <Flex gap="3" justify="between">
+                                      <Flex gap="3" align="start">
+                                        <Link
+                                          href="/experiment/[id]"
+                                          as={`/experiment/${s.experiment.id}`}
+                                          target="_blank"
+                                        >
+                                          <Heading size="2">
+                                            {s.experiment.name}
+                                          </Heading>
+                                        </Link>
+                                        <span style={{ fontSize: "0.8rem" }}>
+                                          <FaExternalLinkAlt />
+                                        </span>
+                                      </Flex>
+                                      <Flex gap="3" align="center">
+                                        <Text size="1" className="text-muted">
+                                          {date(s.experiment.dateCreated)}
+                                        </Text>
+                                        <ExperimentStatusIndicator
+                                          experimentData={s.experiment}
+                                        />
+                                      </Flex>
+                                    </Flex>
+                                    {s.experiment.description && (
+                                      <Box style={{ fontSize: "0.9em" }}>
+                                        <strong>Description:</strong>{" "}
+                                        <Markdown>
+                                          {s.experiment.description}
+                                        </Markdown>
+                                      </Box>
+                                    )}
+                                    <Box style={{ fontSize: "0.9em" }}>
+                                      <strong>Hypothesis:</strong>{" "}
+                                      <Markdown>
+                                        {s.experiment.hypothesis}
+                                      </Markdown>
+                                    </Box>
+                                  </Flex>
+                                </Box>
+                              ))}
+                            </Flex>
+                          )}
+                        </Box>
+                      </>
+                    )}
+                  </>
+                )}
+              </>
             )}
             <div className="form-group">
               <label>Tags</label>
@@ -687,7 +953,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                     setDate={(v) => {
                       form.setValue(
                         "phases.0.dateStarted",
-                        v ? datetime(v) : ""
+                        v ? datetime(v) : "",
                       );
                     }}
                     scheduleEndDate={form.watch("phases.0.dateEnded")}
@@ -709,17 +975,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 )}
               </>
             )}
-            {hasCommercialFeature("custom-metadata") && !!customFields?.length && (
-              <CustomFieldInput
-                customFields={customFields}
-                currentCustomFields={form.watch("customFields") || {}}
-                setCustomFields={(value) => {
-                  form.setValue("customFields", value);
-                }}
-                section={"experiment"}
-                project={selectedProject}
-              />
-            )}
+            {hasCommercialFeature("custom-metadata") &&
+              !!customFields?.length && (
+                <CustomFieldInput
+                  customFields={customFields}
+                  currentCustomFields={form.watch("customFields") || {}}
+                  setCustomFields={(value) => {
+                    form.setValue("customFields", value);
+                  }}
+                  section={"experiment"}
+                  project={selectedProject}
+                />
+              )}
           </div>
         </Page>
 
@@ -729,72 +996,76 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               if (i === 0) return null;
               return (
                 <Page display={p} key={i}>
-                  <ExperimentRefNewFields
-                    step={i}
-                    source="experiment"
-                    project={project}
-                    environments={envs}
-                    noSchedule={true}
-                    prerequisiteValue={
-                      form.watch("phases.0.prerequisites") || []
-                    }
-                    setPrerequisiteValue={(prerequisites) =>
-                      form.setValue("phases.0.prerequisites", prerequisites)
-                    }
-                    setPrerequisiteTargetingSdkIssues={
-                      setPrerequisiteTargetingSdkIssues
-                    }
-                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
-                    setSavedGroupValue={(savedGroups) =>
-                      form.setValue("phases.0.savedGroups", savedGroups)
-                    }
-                    defaultConditionValue={
-                      form.watch("phases.0.condition") || ""
-                    }
-                    setConditionValue={(value) =>
-                      form.setValue("phases.0.condition", value)
-                    }
-                    conditionKey={conditionKey}
-                    namespaceFormPrefix={"phases.0."}
-                    coverage={form.watch("phases.0.coverage")}
-                    setCoverage={(coverage) =>
-                      form.setValue("phases.0.coverage", coverage)
-                    }
-                    setWeight={(i, weight) =>
-                      form.setValue(`phases.0.variationWeights.${i}`, weight)
-                    }
-                    variations={
-                      form.watch("variations")?.map((v, i) => {
-                        return {
-                          value: v.key || "",
-                          name: v.name,
-                          weight: form.watch(`phases.0.variationWeights.${i}`),
-                          id: v.id,
-                        };
-                      }) ?? []
-                    }
-                    setVariations={(v) => {
-                      form.setValue(
-                        "variations",
-                        v.map((data, i) => {
+                  <div className="px-2">
+                    <ExperimentRefNewFields
+                      step={i}
+                      source="experiment"
+                      project={project}
+                      environments={envs}
+                      noSchedule={true}
+                      prerequisiteValue={
+                        form.watch("phases.0.prerequisites") || []
+                      }
+                      setPrerequisiteValue={(prerequisites) =>
+                        form.setValue("phases.0.prerequisites", prerequisites)
+                      }
+                      setPrerequisiteTargetingSdkIssues={
+                        setPrerequisiteTargetingSdkIssues
+                      }
+                      savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                      setSavedGroupValue={(savedGroups) =>
+                        form.setValue("phases.0.savedGroups", savedGroups)
+                      }
+                      defaultConditionValue={
+                        form.watch("phases.0.condition") || ""
+                      }
+                      setConditionValue={(value) =>
+                        form.setValue("phases.0.condition", value)
+                      }
+                      conditionKey={conditionKey}
+                      namespaceFormPrefix={"phases.0."}
+                      coverage={form.watch("phases.0.coverage")}
+                      setCoverage={(coverage) =>
+                        form.setValue("phases.0.coverage", coverage)
+                      }
+                      setWeight={(i, weight) =>
+                        form.setValue(`phases.0.variationWeights.${i}`, weight)
+                      }
+                      variations={
+                        form.watch("variations")?.map((v, i) => {
                           return {
-                            // default values
-                            name: "",
-                            screenshots: [],
-                            ...data,
-                            key: data.value || `${i}` || "",
+                            value: v.key || "",
+                            name: v.name,
+                            weight: form.watch(
+                              `phases.0.variationWeights.${i}`,
+                            ),
+                            id: v.id,
                           };
-                        })
-                      );
-                      form.setValue(
-                        "phases.0.variationWeights",
-                        v.map((v) => v.weight)
-                      );
-                    }}
-                    variationValuesAsIds={true}
-                    hideVariationIds={!isImport}
-                    orgStickyBucketing={orgStickyBucketing}
-                  />
+                        }) ?? []
+                      }
+                      setVariations={(v) => {
+                        form.setValue(
+                          "variations",
+                          v.map((data, i) => {
+                            return {
+                              // default values
+                              name: "",
+                              screenshots: [],
+                              ...data,
+                              key: data.value || `${i}` || "",
+                            };
+                          }),
+                        );
+                        form.setValue(
+                          "phases.0.variationWeights",
+                          v.map((v) => v.weight),
+                        );
+                      }}
+                      variationValuesAsIds={true}
+                      hideVariationIds={!isImport}
+                      orgStickyBucketing={orgStickyBucketing}
+                    />
+                  </div>
                 </Page>
               );
             })
@@ -806,68 +1077,72 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               if (i === 0) return null;
               return (
                 <Page display={p} key={i}>
-                  <BanditRefNewFields
-                    step={i}
-                    source="experiment"
-                    project={project}
-                    environments={envs}
-                    prerequisiteValue={
-                      form.watch("phases.0.prerequisites") || []
-                    }
-                    setPrerequisiteValue={(prerequisites) =>
-                      form.setValue("phases.0.prerequisites", prerequisites)
-                    }
-                    setPrerequisiteTargetingSdkIssues={
-                      setPrerequisiteTargetingSdkIssues
-                    }
-                    savedGroupValue={form.watch("phases.0.savedGroups") || []}
-                    setSavedGroupValue={(savedGroups) =>
-                      form.setValue("phases.0.savedGroups", savedGroups)
-                    }
-                    defaultConditionValue={
-                      form.watch("phases.0.condition") || ""
-                    }
-                    setConditionValue={(value) =>
-                      form.setValue("phases.0.condition", value)
-                    }
-                    conditionKey={conditionKey}
-                    namespaceFormPrefix={"phases.0."}
-                    coverage={form.watch("phases.0.coverage")}
-                    setCoverage={(coverage) =>
-                      form.setValue("phases.0.coverage", coverage)
-                    }
-                    setWeight={(i, weight) =>
-                      form.setValue(`phases.0.variationWeights.${i}`, weight)
-                    }
-                    variations={
-                      form.watch("variations")?.map((v, i) => {
-                        return {
-                          value: v.key || "",
-                          name: v.name,
-                          weight: form.watch(`phases.0.variationWeights.${i}`),
-                          id: v.id,
-                        };
-                      }) ?? []
-                    }
-                    setVariations={(v) => {
-                      form.setValue(
-                        "variations",
-                        v.map((data, i) => {
+                  <div className="px-2">
+                    <BanditRefNewFields
+                      step={i}
+                      source="experiment"
+                      project={project}
+                      environments={envs}
+                      prerequisiteValue={
+                        form.watch("phases.0.prerequisites") || []
+                      }
+                      setPrerequisiteValue={(prerequisites) =>
+                        form.setValue("phases.0.prerequisites", prerequisites)
+                      }
+                      setPrerequisiteTargetingSdkIssues={
+                        setPrerequisiteTargetingSdkIssues
+                      }
+                      savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                      setSavedGroupValue={(savedGroups) =>
+                        form.setValue("phases.0.savedGroups", savedGroups)
+                      }
+                      defaultConditionValue={
+                        form.watch("phases.0.condition") || ""
+                      }
+                      setConditionValue={(value) =>
+                        form.setValue("phases.0.condition", value)
+                      }
+                      conditionKey={conditionKey}
+                      namespaceFormPrefix={"phases.0."}
+                      coverage={form.watch("phases.0.coverage")}
+                      setCoverage={(coverage) =>
+                        form.setValue("phases.0.coverage", coverage)
+                      }
+                      setWeight={(i, weight) =>
+                        form.setValue(`phases.0.variationWeights.${i}`, weight)
+                      }
+                      variations={
+                        form.watch("variations")?.map((v, i) => {
                           return {
-                            // default values
-                            name: "",
-                            screenshots: [],
-                            ...data,
-                            key: data.value || `${i}` || "",
+                            value: v.key || "",
+                            name: v.name,
+                            weight: form.watch(
+                              `phases.0.variationWeights.${i}`,
+                            ),
+                            id: v.id,
                           };
-                        })
-                      );
-                      form.setValue(
-                        "phases.0.variationWeights",
-                        v.map((v) => v.weight)
-                      );
-                    }}
-                  />
+                        }) ?? []
+                      }
+                      setVariations={(v) => {
+                        form.setValue(
+                          "variations",
+                          v.map((data, i) => {
+                            return {
+                              // default values
+                              name: "",
+                              screenshots: [],
+                              ...data,
+                              key: data.value || `${i}` || "",
+                            };
+                          }),
+                        );
+                        form.setValue(
+                          "phases.0.variationWeights",
+                          v.map((v) => v.weight),
+                        );
+                      }}
+                    />
+                  </div>
                 </Page>
               );
             })
@@ -995,11 +1270,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                         // use value as key if provided to maintain backwards compatibility
                         key: data.value || `${i}` || "",
                       };
-                    })
+                    }),
                   );
                   form.setValue(
                     "phases.0.variationWeights",
-                    v.map((v) => v.weight)
+                    v.map((v) => v.weight),
                   );
                 }}
                 hideVariationIds={false}
@@ -1054,7 +1329,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   })}
                   formatOptionLabel={({ label, value }) => {
                     const userIdType = exposureQueries?.find(
-                      (e) => e.id === value
+                      (e) => e.id === value,
                     )?.userIdType;
                     return (
                       <>

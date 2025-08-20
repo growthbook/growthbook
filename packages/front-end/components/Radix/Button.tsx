@@ -28,7 +28,7 @@ export type Props = {
   style?: CSSProperties;
   tabIndex?: number;
 } & MarginProps &
-  Pick<ButtonProps, "title" | "type" | "aria-label">;
+  Pick<ButtonProps, "title" | "type" | "aria-label" | "className">;
 
 export function getRadixSize(size: Size): Responsive<"1" | "2" | "3" | "4"> {
   switch (size) {
@@ -60,7 +60,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
       children,
       ...otherProps
     },
-    ref: ForwardedRef<HTMLButtonElement>
+    ref: ForwardedRef<HTMLButtonElement>,
   ) => {
     const [_internalLoading, setLoading] = useState(false);
     const loading = _externalLoading || _internalLoading;
@@ -98,7 +98,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(
         {icon && iconPosition === "right" ? icon : null}
       </RadixButton>
     );
-  }
+  },
 );
 Button.displayName = "Button";
 export default Button;
@@ -120,7 +120,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
       tabIndex,
       ...otherProps
     }: WhiteButtonProps,
-    ref: ForwardedRef<HTMLButtonElement>
+    ref: ForwardedRef<HTMLButtonElement>,
   ) {
     const [_internalLoading, setLoading] = useState(false);
     const loading = _externalLoading || _internalLoading;
@@ -165,5 +165,5 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
         {icon && iconPosition === "right" ? icon : null}
       </RadixButton>
     );
-  }
+  },
 );

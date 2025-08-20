@@ -12,11 +12,10 @@ import { fetchTableData } from "back-end/src/services/informationSchema";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { Column } from "back-end/src/types/Integration";
-import { getPath } from "back-end/src/util/informationSchemas";
 
 export async function getInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -33,7 +32,7 @@ export async function getInformationSchema(
 
   const informationSchema = await getInformationSchemaByDatasourceId(
     datasource.id,
-    org.id
+    org.id,
   );
 
   res.status(200).json({
@@ -50,7 +49,7 @@ export async function getTableData(
       tableId: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -59,7 +58,7 @@ export async function getTableData(
 
   const informationSchema = await getInformationSchemaByDatasourceId(
     datasourceId,
-    org.id
+    org.id,
   );
 
   if (!informationSchema) {
@@ -71,7 +70,7 @@ export async function getTableData(
 
   const datasource = await getDataSourceById(
     context,
-    informationSchema.datasourceId
+    informationSchema.datasourceId,
   );
 
   if (!datasource) {
@@ -104,13 +103,8 @@ export async function getTableData(
   }
 
   // Otherwise, the table doesn't exist yet, so we need to create it.
-  const {
-    tableData,
-    refreshMS,
-    databaseName,
-    tableSchema,
-    tableName,
-  } = await fetchTableData(context, datasource, informationSchema, tableId);
+  const { tableData, refreshMS, databaseName, tableSchema, tableName } =
+    await fetchTableData(context, datasource, informationSchema, tableId);
 
   if (!tableData) {
     res
@@ -124,14 +118,8 @@ export async function getTableData(
       return {
         columnName: row.column_name,
         dataType: row.data_type,
-        path: getPath(datasource.type, {
-          tableCatalog: databaseName,
-          tableSchema: tableSchema,
-          tableName: tableName,
-          columnName: row.column_name,
-        }),
       };
-    }
+    },
   );
 
   // Create the table record in Mongo.
@@ -158,7 +146,7 @@ export async function putTableData(
       tableId: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { tableId } = req.params;
@@ -180,7 +168,7 @@ export async function putTableData(
 
 export async function postInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -206,7 +194,7 @@ export async function postInformationSchema(
 
 export async function putInformationSchema(
   req: AuthRequest<{ informationSchemaId: string }, { datasourceId: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -229,7 +217,7 @@ export async function putInformationSchema(
   await queueUpdateInformationSchema(
     datasource.id,
     org.id,
-    informationSchemaId
+    informationSchemaId,
   );
 
   res.status(200).json({ message: "Job scheduled successfully" });

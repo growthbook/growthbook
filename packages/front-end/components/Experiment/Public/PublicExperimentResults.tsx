@@ -74,8 +74,6 @@ export default function PublicExperimentResults({
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
-  const isBandit = experiment?.type === "multi-armed-bandit";
-
   const showBreakDownResults =
     hasData &&
     !!snapshot?.dimension &&
@@ -144,6 +142,7 @@ export default function PublicExperimentResults({
                 metricOverrides={experiment.metricOverrides ?? []}
                 dimensionId={snapshot.dimension ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}
+                phase={phase}
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
                 reportDate={snapshot.dateCreated}
@@ -155,7 +154,7 @@ export default function PublicExperimentResults({
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
                 differenceType={analysis.settings?.differenceType}
-                isBandit={isBandit}
+                experimentType={experiment.type}
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={true}
               />
@@ -169,6 +168,7 @@ export default function PublicExperimentResults({
                 startDate={phaseObj?.dateStarted ?? ""}
                 endDate={phaseObj?.dateEnded ?? ""}
                 isLatestPhase={phase === experiment.phases.length - 1}
+                phase={phase}
                 status={experiment.status}
                 goalMetrics={experiment.goalMetrics}
                 secondaryMetrics={experiment.secondaryMetrics}

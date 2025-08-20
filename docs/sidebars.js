@@ -294,6 +294,12 @@ const sidebars = {
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
+        {
+          type: "doc",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
+          className: "pill-new",
+        },
       ],
     },
     {
@@ -554,6 +560,7 @@ const sidebars = {
         "self-host/production",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },
@@ -598,14 +605,12 @@ const sidebars = {
           label: "MCP Server",
           className: "pill-new",
         },
-        /*
         {
           type: "doc",
           id: "integrations/vercel",
           label: "Vercel",
           className: "pill-new",
         },
-        */
         {
           type: "doc",
           id: "integrations/framer",
@@ -659,6 +664,12 @@ const sidebars = {
           label: "Jira",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "integrations/ai",
+          label: "AI",
+          className: "pill-new",
+        },
       ],
     },
     {
@@ -700,6 +711,11 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/sanity",
+          label: "Sanity",
+        },
         {
           type: "doc",
           id: "guide/strapi",

@@ -119,7 +119,7 @@ export default function RuleModal({
   const attributeSchema = useAttributeSchema(false, feature.project);
 
   const rules = getRules(feature, environment);
-  const rule: typeof rules[number] | undefined = rules[i];
+  const rule: (typeof rules)[number] | undefined = rules[i];
   const isNewRule = !rule;
   const safeRollout =
     rule?.type === "safe-rollout"
@@ -130,16 +130,15 @@ export default function RuleModal({
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates();
 
-  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
-    false
-  );
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
+    useState(false);
 
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
 
   const isSafeRolloutRampUpEnabled = growthbook.isOn("safe-rollout-ramp-up");
   const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
-    "safe-rollout-auto-rollback"
+    "safe-rollout-auto-rollback",
   );
 
   const defaultRuleValues = getDefaultRuleValue({
@@ -165,13 +164,10 @@ export default function RuleModal({
   };
 
   // Overview Page
-  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
-    isNewRule
-  );
-  const [
-    overviewRadioSelectorRuleType,
-    setOverviewRadioSelectorRuleType,
-  ] = useState<RadioSelectorRuleType | "">("");
+  const [newRuleOverviewPage, setNewRuleOverviewPage] =
+    useState<boolean>(isNewRule);
+  const [overviewRadioSelectorRuleType, setOverviewRadioSelectorRuleType] =
+    useState<RadioSelectorRuleType | "">("");
   const [overviewRuleType, setOverviewRuleType] = useState<
     OverviewRuleType | ""
   >("");
@@ -188,16 +184,15 @@ export default function RuleModal({
   });
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
-    (scheduleRule) => scheduleRule.timestamp !== null
+    (scheduleRule) => scheduleRule.timestamp !== null,
   );
-  const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
-    defaultHasSchedule
-  );
+  const [scheduleToggleEnabled, setScheduleToggleEnabled] =
+    useState(defaultHasSchedule);
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
+    "multi-armed-bandits",
   );
 
   const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollout");
@@ -211,22 +206,22 @@ export default function RuleModal({
       ? "bandit"
       : "experiment"
     : overviewRadioSelectorRuleType === "bandit"
-    ? "bandit"
-    : overviewRadioSelectorRuleType === "experiment"
-    ? "experiment"
-    : null;
+      ? "bandit"
+      : overviewRadioSelectorRuleType === "experiment"
+        ? "experiment"
+        : null;
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    feature.project
+    feature.project,
   );
   const availableTemplates = currentProject
     ? allTemplates.filter((t) =>
         isProjectListValidForProject(
           t.project ? [t.project] : [],
-          currentProject
-        )
+          currentProject,
+        ),
       )
     : allTemplates;
 
@@ -263,10 +258,8 @@ export default function RuleModal({
     i,
   ]);
 
-  const [
-    prerequisiteTargetingSdkIssues,
-    setPrerequisiteTargetingSdkIssues,
-  ] = useState(false);
+  const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
+    useState(false);
   const canSubmit = useMemo(() => {
     return !isCyclic && !prerequisiteTargetingSdkIssues;
   }, [isCyclic, prerequisiteTargetingSdkIssues]);
@@ -312,23 +305,23 @@ export default function RuleModal({
         form.setValue("experimentType", "multi-armed-bandit");
         form.setValue(
           "regressionAdjustmentEnabled",
-          scopedSettings.regressionAdjustmentEnabled.value
+          scopedSettings.regressionAdjustmentEnabled.value,
         );
         form.setValue(
           "banditScheduleValue",
-          scopedSettings.banditScheduleValue.value
+          scopedSettings.banditScheduleValue.value,
         );
         form.setValue(
           "banditScheduleUnit",
-          scopedSettings.banditScheduleUnit.value
+          scopedSettings.banditScheduleUnit.value,
         );
         form.setValue(
           "banditBurnInValue",
-          scopedSettings.banditBurnInValue.value
+          scopedSettings.banditBurnInValue.value,
         );
         form.setValue(
           "banditBurnInUnit",
-          scopedSettings.banditScheduleUnit.value
+          scopedSettings.banditScheduleUnit.value,
         );
       }
     }
@@ -350,8 +343,8 @@ export default function RuleModal({
     const ruleAction = duplicate
       ? "duplicate"
       : i === rules.length
-      ? "add"
-      : "edit";
+        ? "add"
+        : "edit";
 
     // If the user built a schedule, but disabled the toggle, we ignore the schedule
     if (!scheduleToggleEnabled) {
@@ -396,7 +389,7 @@ export default function RuleModal({
             ...values,
             type: "experiment",
           },
-          feature
+          feature,
         );
         if (newRule) {
           form.reset({
@@ -405,7 +398,7 @@ export default function RuleModal({
             name: values.name,
           });
           throw new Error(
-            "We fixed some errors in the rule. If it looks correct, submit again."
+            "We fixed some errors in the rule. If it looks correct, submit again.",
           );
         }
 
@@ -448,7 +441,7 @@ export default function RuleModal({
           ...getNewExperimentDatasourceDefaults(
             datasources,
             settings,
-            feature.project || ""
+            feature.project || "",
           ),
           hashAttribute: values.hashAttribute,
           fallbackAttribute: values.fallbackAttribute || "",
@@ -501,8 +494,8 @@ export default function RuleModal({
           sequentialTestingEnabled:
             values.experimentType === "multi-armed-bandit"
               ? false
-              : values.sequentialTestingEnabled ??
-                !!settings?.sequentialTestingEnabled,
+              : (values.sequentialTestingEnabled ??
+                !!settings?.sequentialTestingEnabled),
           sequentialTestingTuningParameter:
             values.sequentialTestingTuningParameter ??
             settings?.sequentialTestingTuningParameter ??
@@ -511,6 +504,10 @@ export default function RuleModal({
             values.regressionAdjustmentEnabled ?? undefined,
           statsEngine: values.statsEngine ?? undefined,
           type: values.experimentType,
+          holdoutId:
+            values.experimentType === "standard"
+              ? feature.holdout?.id
+              : undefined,
         };
 
         if (values?.customFields) {
@@ -535,13 +532,13 @@ export default function RuleModal({
           {
             method: "POST",
             body: JSON.stringify(exp),
-          }
+          },
         );
 
         if ("duplicateTrackingKey" in res) {
           setAllowDuplicateTrackingKey(true);
           throw new Error(
-            "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
+            "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.",
           );
         }
 
@@ -554,7 +551,7 @@ export default function RuleModal({
             numTags: feature.tags?.length || 0,
             numMetrics: 0,
             numVariations: values.values.length || 0,
-          }
+          },
         );
 
         // Experiment created, treat it as an experiment ref rule now
@@ -581,7 +578,7 @@ export default function RuleModal({
 
         const valuesByIndex = values.variations.map((v) => v.value);
         const valuesByVariationId = new Map(
-          values.variations.map((v) => [v.variationId, v.value])
+          values.variations.map((v) => [v.variationId, v.value]),
         );
 
         values.variations = exp.variations.map((v, i) => {
@@ -637,7 +634,7 @@ export default function RuleModal({
       if (correctedRule) {
         form.reset(correctedRule);
         throw new Error(
-          "We fixed some errors in the rule. If it looks correct, submit again."
+          "We fixed some errors in the rule. If it looks correct, submit again.",
         );
       }
 
@@ -677,7 +674,7 @@ export default function RuleModal({
                 environment,
                 i,
               } as PutFeatureRuleBody),
-            }
+            },
           );
         }
       } else {
@@ -690,7 +687,7 @@ export default function RuleModal({
               environment,
               safeRolloutFields,
             } as PostFeatureRuleBody),
-          }
+          },
         );
       }
 
@@ -760,7 +757,7 @@ export default function RuleModal({
             ]}
             value={overviewRadioSelectorRuleType}
             setValue={(
-              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
+              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit",
             ) => {
               setOverviewRadioSelectorRuleType(v);
               if (v === "force") {
@@ -848,7 +845,7 @@ export default function RuleModal({
             ]}
             value={overviewRadioSelectorRuleType}
             setValue={(
-              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit"
+              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit",
             ) => {
               setOverviewRadioSelectorRuleType(v);
               if (v === "force") {
@@ -910,22 +907,22 @@ export default function RuleModal({
     ruleType === "force"
       ? `${isNewRule ? "new " : ""}Force Value Rule`
       : ruleType === "rollout"
-      ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
-      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-          ruleType ?? ""
-        ) && experimentType === "bandit"
-      ? `${
-          ruleType === "experiment-ref-new" ? "new" : "existing"
-        } Bandit as Rule`
-      : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
-          ruleType ?? ""
-        ) && experimentType === "experiment"
-      ? `${
-          ruleType === "experiment-ref-new" ? "new" : "existing"
-        } Experiment as Rule`
-      : ruleType === "safe-rollout"
-      ? "Safe Rollout Rule"
-      : "Rule";
+        ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
+        : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+              ruleType ?? "",
+            ) && experimentType === "bandit"
+          ? `${
+              ruleType === "experiment-ref-new" ? "new" : "existing"
+            } Bandit as Rule`
+          : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
+                ruleType ?? "",
+              ) && experimentType === "experiment"
+            ? `${
+                ruleType === "experiment-ref-new" ? "new" : "existing"
+              } Experiment as Rule`
+            : ruleType === "safe-rollout"
+              ? "Safe Rollout Rule"
+              : "Rule";
   const trackingEventModalType = kebabCase(headerText);
   headerText += ` in ${environment}`;
 

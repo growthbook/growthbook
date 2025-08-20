@@ -39,6 +39,13 @@ const formatDateForURL = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+// Helper function to parse date strings from URL as local time instead of UTC
+const parseDateFromURL = (dateString: string): Date => {
+  const [year, month, day] = dateString.split("-").map(Number);
+  // Create date in local timezone (month is 0-indexed in Date constructor)
+  return new Date(year, month - 1, day);
+};
+
 export default function ExecReport() {
   const { project: currentProject, projects } = useDefinitions();
   const settings = useOrgSettings();
@@ -49,31 +56,31 @@ export default function ExecReport() {
   const [selectedProjects, setSelectedProjects] = useState<string[]>(
     searchParams.get("selectedProjects")?.split(",") || currentProject === ""
       ? []
-      : [currentProject]
+      : [currentProject],
   );
   const [dateRange, setDateRange] = useState(
-    searchParams.get("dateRange") || "90"
+    searchParams.get("dateRange") || "90",
   );
   const defaultStartDate = new Date();
   defaultStartDate.setDate(defaultStartDate.getDate() - parseInt(dateRange));
   const [startDate, setStartDate] = useState<Date>(
     searchParams.get("startDate")
-      ? new Date(searchParams.get("startDate")!)
-      : defaultStartDate
+      ? parseDateFromURL(searchParams.get("startDate")!)
+      : defaultStartDate,
   );
   const [endDate, setEndDate] = useState<Date>(
     searchParams.get("endDate")
-      ? new Date(searchParams.get("endDate")!)
-      : new Date()
+      ? parseDateFromURL(searchParams.get("endDate")!)
+      : new Date(),
   );
   // const [tag, setTag] = useState("");
   const [selectedMetric, setSelectedMetric] = useState(
     searchParams.get("selectedMetric") ||
       settings?.northStar?.metricIds?.[0] ||
-      ""
+      "",
   );
   const [experimentsToShow, setExperimentsToShow] = useState(
-    searchParams.get("show") || "all"
+    searchParams.get("show") || "all",
   );
 
   const { hasCommercialFeature } = useUser();
@@ -81,7 +88,7 @@ export default function ExecReport() {
 
   const disallowedProjects = getDisallowedProjects(
     projects,
-    selectedProjects ?? []
+    selectedProjects ?? [],
   );
 
   const projectsOptions = useProjectOptions(
@@ -89,14 +96,14 @@ export default function ExecReport() {
       return true;
     },
     selectedProjects || [],
-    [...projects, ...disallowedProjects]
+    [...projects, ...disallowedProjects],
   );
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    "",
-    true,
-    "standard"
-  );
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+  } = useExperiments("", true, "standard");
 
   //const tagsFilter = useTagsFilter("experiments");
 
@@ -145,7 +152,7 @@ export default function ExecReport() {
 
       return items;
     },
-    [endDate, selectedProjects, startDate]
+    [endDate, selectedProjects, startDate],
   );
 
   const { items } = useExperimentSearch({
@@ -167,7 +174,7 @@ export default function ExecReport() {
           return true;
         });
       },
-      [selectedProjects]
+      [selectedProjects],
     ),
   });
 
@@ -222,7 +229,7 @@ export default function ExecReport() {
           undefined,
           {
             shallow: true,
-          }
+          },
         )
         .then();
     }

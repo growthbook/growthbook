@@ -15,6 +15,7 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { getTablePath } from "@/services/datasources";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -69,13 +70,13 @@ export default function SchemaBrowser({
         setError(e.message);
       }
     },
-    [apiCall, datasource.id, informationSchema?.id]
+    [apiCall, datasource.id, informationSchema?.id],
   );
 
   function pastePathIntoExistingQuery(
     existingQuery: string,
     index: number,
-    pathToPaste: string
+    pathToPaste: string,
   ) {
     if (index === existingQuery.length - 1) return existingQuery + pathToPaste;
     return (
@@ -92,7 +93,7 @@ export default function SchemaBrowser({
       const updatedStr = pastePathIntoExistingQuery(
         inputArray[row] || "",
         column,
-        path
+        path,
       );
 
       const updatedInputArray = cloneDeep(inputArray);
@@ -116,7 +117,7 @@ export default function SchemaBrowser({
       } else if (retryCount > 8) {
         setFetching(false);
         setError(
-          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
+          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes.",
         );
         setRetryCount(1);
       } else {
@@ -196,7 +197,7 @@ export default function SchemaBrowser({
                               onTriggerOpening={async () => {
                                 const currentDate = new Date();
                                 const dateLastUpdated = new Date(
-                                  informationSchema.dateUpdated
+                                  informationSchema.dateUpdated,
                                 );
                                 // To calculate the time difference of two dates
                                 const diffInMilliseconds =
@@ -205,7 +206,7 @@ export default function SchemaBrowser({
 
                                 // To calculate the no. of days between two dates
                                 const diffInDays = Math.floor(
-                                  diffInMilliseconds / (1000 * 3600 * 24)
+                                  diffInMilliseconds / (1000 * 3600 * 24),
                                 );
 
                                 if (diffInDays > 30) {
@@ -222,7 +223,7 @@ export default function SchemaBrowser({
                               }}
                               trigger={
                                 ["bigquery", "postgres"].includes(
-                                  datasource.type
+                                  datasource.type,
                                 ) ? (
                                   <>
                                     <FaAngleRight />
@@ -243,7 +244,7 @@ export default function SchemaBrowser({
                               }
                               triggerWhenOpen={
                                 ["bigquery", "postgres"].includes(
-                                  datasource.type
+                                  datasource.type,
                                 ) ? (
                                   <>
                                     <FaAngleDown />
@@ -268,18 +269,27 @@ export default function SchemaBrowser({
                               transitionTime={100}
                             >
                               {schema.tables.map((table, k) => {
+                                // Generate the appropriate path for this datasource type using context
+                                const tablePath = getTablePath(
+                                  datasource.type,
+                                  {
+                                    catalog: database.databaseName,
+                                    schema: schema.schemaName,
+                                    tableName: table.tableName,
+                                  },
+                                );
                                 return (
                                   <div
                                     className={clsx(
                                       table.id === currentTable &&
                                         "bg-secondary rounded text-white",
-                                      "pl-3 py-1"
+                                      "pl-3 py-1",
                                     )}
                                     style={{ userSelect: "none" }}
                                     role="button"
                                     key={k}
                                     onClick={async (e) =>
-                                      handleTableClick(e, table.path, table.id)
+                                      handleTableClick(e, tablePath, table.id)
                                     }
                                   >
                                     <FaTable /> {table.tableName}

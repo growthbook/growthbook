@@ -77,7 +77,7 @@ async function getUserFromJWT(info: JWTInfo): Promise<null | UserInterface> {
   if (!usingOpenId() && user.minTokenDate && info.issuedAt) {
     if (info.issuedAt < Math.floor(user.minTokenDate.getTime() / 1000)) {
       throw new Error(
-        "Your session has been revoked. Please refresh the page and login."
+        "Your session has been revoked. Please refresh the page and login.",
       );
     }
   }
@@ -109,7 +109,7 @@ export async function processJWT(
   // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventUserForResponseLocals>,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
   const parsedJWT = getInitialDataFromJWT(req.user);
   const { email, name, verified } = parsedJWT;
@@ -131,14 +131,14 @@ export async function processJWT(
   req.checkPermissions = (
     permission: Permission,
     project?: string | string[],
-    envs?: string[] | Set<string>
+    envs?: string[] | Set<string>,
   ) => {
     if (!req.userId || !req.organization) return false;
 
     const userPermissions = getUserPermissions(
       req.currentUser,
       req.organization,
-      req.teams
+      req.teams,
     );
 
     if (
@@ -146,7 +146,7 @@ export async function processJWT(
         userPermissions,
         permission,
         project,
-        envs ? [...envs] : undefined
+        envs ? [...envs] : undefined,
       )
     ) {
       throw new Error("You do not have permission to complete that action.");
@@ -196,7 +196,7 @@ export async function processJWT(
         }
 
         const memberRecord = req.organization.members.find(
-          (m) => m.id === req.userId
+          (m) => m.id === req.userId,
         );
         if (memberRecord) {
           const lastLoginDate = memberRecord.lastLoginDate;
@@ -211,11 +211,14 @@ export async function processJWT(
                 lastLoginDate: now,
               });
             } catch (e) {
-              logger.error("error updating last login date", {
-                organization: req.organization.id,
-                member: memberRecord.id,
-                error: e,
-              });
+              logger.error(
+                {
+                  organization: req.organization.id,
+                  member: memberRecord.id,
+                  err: e,
+                },
+                "error updating last login date",
+              );
             }
           }
         }
@@ -237,7 +240,7 @@ export async function processJWT(
         await licenseInit(
           req.organization,
           getUserCodesForOrg,
-          getLicenseMetaData
+          getLicenseMetaData,
         );
       } else {
         res.status(404).json({
@@ -257,7 +260,10 @@ export async function processJWT(
     res.locals.eventAudit = eventAudit;
 
     req.audit = async (
-      data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
+      data: Omit<
+        AuditInterface,
+        "user" | "organization" | "dateCreated" | "id"
+      >,
     ) => {
       await insertAudit({
         ...data,

@@ -63,7 +63,7 @@ export const ExperimentVariationRow = forwardRef<
       feature,
       ...props
     },
-    ref
+    ref,
   ) => {
     const weights = variations.map((v) => v.weight);
     const weight = weights[i];
@@ -79,7 +79,7 @@ export const ExperimentVariationRow = forwardRef<
     const rebalanceAndUpdate = (
       i: number,
       newValue: number,
-      precision: number = 4
+      precision: number = 4,
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
@@ -196,7 +196,7 @@ export const ExperimentVariationRow = forwardRef<
                       disabled={variations.length <= 2}
                       className={clsx(
                         "dropdown-item",
-                        variations.length > 2 && "text-danger"
+                        variations.length > 2 && "text-danger",
                       )}
                       onClick={(e) => {
                         e.preventDefault();
@@ -206,7 +206,7 @@ export const ExperimentVariationRow = forwardRef<
 
                         const newWeights = distributeWeights(
                           newValues.map((v) => v.weight),
-                          customSplit
+                          customSplit,
                         );
 
                         newValues.forEach((v, j) => {
@@ -226,19 +226,14 @@ export const ExperimentVariationRow = forwardRef<
         </td>
       </tr>
     );
-  }
+  },
 );
 
 ExperimentVariationRow.displayName = "ExperimentVariationRow";
 
 export function SortableExperimentVariationRow(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: props.variation.id });
+  const { attributes, listeners, setNodeRef, transform, transition } =
+    useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

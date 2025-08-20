@@ -120,6 +120,9 @@ tags:
   - name: Attribute_model
     x-displayName: Attribute
     description: <SchemaDefinition schemaRef="#/components/schemas/Attribute" />
+  - name: CodeRef_model
+    x-displayName: CodeRef
+    description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -174,6 +177,9 @@ tags:
   - name: FeatureForceRule_model
     x-displayName: FeatureForceRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureForceRule" />
+  - name: FeatureRevision_model
+    x-displayName: FeatureRevision
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRevision" />
   - name: FeatureRolloutRule_model
     x-displayName: FeatureRolloutRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureRolloutRule" />
@@ -207,6 +213,9 @@ tags:
   - name: SavedGroup_model
     x-displayName: SavedGroup
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: ScheduleRule_model
+    x-displayName: ScheduleRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
   - name: SdkConnection_model
     x-displayName: SdkConnection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
@@ -353,16 +362,12 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    type: object
-                                    required:
-                                      - enabled
-                                      - timestamp
-                                    properties:
-                                      enabled:
-                                        type: boolean
-                                      timestamp:
-                                        type: string
-                                        nullable: true
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 id:
                                   type: string
                                 enabled:
@@ -421,16 +426,12 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    type: object
-                                    required:
-                                      - enabled
-                                      - timestamp
-                                    properties:
-                                      enabled:
-                                        type: boolean
-                                      timestamp:
-                                        type: string
-                                        nullable: true
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 id:
                                   type: string
                                 enabled:
@@ -501,16 +502,12 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    type: object
-                                    required:
-                                      - enabled
-                                      - timestamp
-                                    properties:
-                                      enabled:
-                                        type: boolean
-                                      timestamp:
-                                        type: string
-                                        nullable: true
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 variations:
                                   type: array
                                   items:
@@ -579,16 +576,12 @@ paths:
                                 scheduleRules:
                                   type: array
                                   items:
-                                    type: object
-                                    required:
-                                      - enabled
-                                      - timestamp
-                                    properties:
-                                      enabled:
-                                        type: boolean
-                                      timestamp:
-                                        type: string
-                                        nullable: true
+                                    $ref: '#/components/schemas/ScheduleRule'
+                                  example:
+                                    - enabled: true
+                                      timestamp: null
+                                    - enabled: false
+                                      timestamp: '2025-06-23T16:09:37.769Z'
                                 values:
                                   type: array
                                   items:
@@ -825,6 +818,74 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+  '/features/{id}/revert':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      summary: Revert a feature to a specific revision
+      tags:
+        - features
+      operationId: revertFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features/my-feature/revert \
+              -d '{ "revision": 3, "comment": "Bug found" }' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - revision
+              properties:
+                revision:
+                  type: number
+                comment:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
+  '/features/{id}/revisions':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      summary: Get all revisions for a feature
+      tags:
+        - features
+      operationId: getFeatureRevisions
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/features/my_feature/revisions?limit=10&offset=0 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - revisions
+                    properties:
+                      revisions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FeatureRevision'
+                  - $ref: '#/components/schemas/PaginationFields'
   /feature-keys:
     get:
       summary: Get list of feature keys
@@ -1041,10 +1102,69 @@ paths:
                         items:
                           $ref: '#/components/schemas/Dimension'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - dimensions
+      summary: Create a single dimension
+      operationId: postDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/dimensions \
+              -d '{"name":"User Country", "datasourceId":"ds_123abc", "identifierType":"user", "query":"SELECT country FROM users"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - datasourceId
+                - identifierType
+                - name
+                - query
+              properties:
+                name:
+                  type: string
+                  description: Name of the dimension
+                description:
+                  type: string
+                  description: Description of the dimension
+                owner:
+                  type: string
+                  description: Owner of the dimension
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this dimension belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                query:
+                  type: string
+                  description: SQL query or equivalent for the dimension
+                managedBy:
+                  type: string
+                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dimension
+                properties:
+                  dimension:
+                    $ref: '#/components/schemas/Dimension'
   '/dimensions/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single dimension
       tags:
         - dimensions
@@ -1065,6 +1185,86 @@ paths:
                 properties:
                   dimension:
                     $ref: '#/components/schemas/Dimension'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dimensions
+      summary: Update a single dimension
+      operationId: updateDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+              -d '{"name":"User Region"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the dimension
+                description:
+                  type: string
+                  description: Description of the dimension
+                owner:
+                  type: string
+                  description: Owner of the dimension
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this dimension belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                query:
+                  type: string
+                  description: SQL query or equivalent for the dimension
+                managedBy:
+                  type: string
+                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - dimension
+                properties:
+                  dimension:
+                    $ref: '#/components/schemas/Dimension'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dimensions
+      summary: Deletes a single dimension
+      operationId: deleteDimension
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/dimensions/dim_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted dimension
+                    example: dim_123abc
   /segments:
     get:
       summary: Get all segments
@@ -3668,7 +3868,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
-        - member
+        - members
       operationId: deleteMember
       x-codeSamples:
         - lang: cURL
@@ -5008,6 +5208,17 @@ paths:
         - code-references
       summary: Submit list of code references
       operationId: postCodeRefs
+      parameters:
+        - name: deleteMissing
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - 'true'
+              - 'false'
+          default: 'false'
+          description: Whether to delete code references that are no longer present in the submitted data
       x-codeSamples:
         - lang: cURL
           source: |
@@ -5061,6 +5272,60 @@ paths:
                     type: array
                     items:
                       type: string
+    get:
+      summary: Get list of all code references for the current organization
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      tags:
+        - code-references
+      operationId: listCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/code-refs/ \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - codeRefs
+                    properties:
+                      codeRefs:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CodeRef'
+                  - $ref: '#/components/schemas/PaginationFields'
+  '/code-refs/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      summary: Get list of code references for a single feature id
+      tags:
+        - code-references
+      operationId: getCodeRefs
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/code-refs/my_feature \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - codeRefs
+                properties:
+                  codeRefs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CodeRef'
   '/queries/{id}':
     get:
       parameters:
@@ -5236,8 +5501,17 @@ components:
           type: string
         name:
           type: string
+        description:
+          type: string
         query:
           type: string
+        managedBy:
+          type: string
+          description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+            - config
     Metric:
       type: object
       required:
@@ -5623,6 +5897,29 @@ components:
           type: array
           items:
             type: string
+    ScheduleRule:
+      type: object
+      description: An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule.
+      minItems: 2
+      maxItems: 2
+      required:
+        - enabled
+        - timestamp
+      properties:
+        enabled:
+          type: boolean
+          description: Whether the rule should be enabled or disabled at the specified timestamp.
+        timestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO timestamp when the rule should activate.
+          example: '2025-06-23T16:09:37.769Z'
+      example:
+        - enabled: true
+          timestamp: null
+        - enabled: false
+          timestamp: '2025-06-23T16:09:37.769Z'
     Feature:
       type: object
       required:
@@ -5705,39 +6002,7 @@ components:
             revisions:
               type: array
               items:
-                type: object
-                required:
-                  - baseVersion
-                  - version
-                  - comment
-                  - date
-                  - status
-                  - rules
-                properties:
-                  baseVersion:
-                    type: integer
-                  version:
-                    type: integer
-                  comment:
-                    type: string
-                  date:
-                    type: string
-                    format: date-time
-                  status:
-                    type: string
-                  publishedBy:
-                    type: string
-                  rules:
-                    type: object
-                    additionalProperties:
-                      type: array
-                      items:
-                        $ref: '#/components/schemas/FeatureRule'
-                  definitions:
-                    type: object
-                    additionalProperties:
-                      type: string
-                      description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                $ref: '#/components/schemas/FeatureRevision'
     FeatureEnvironment:
       type: object
       required:
@@ -5891,16 +6156,12 @@ components:
         scheduleRules:
           type: array
           items:
-            type: object
-            required:
-              - enabled
-              - timestamp
-            properties:
-              enabled:
-                type: boolean
-              timestamp:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         id:
           type: string
         enabled:
@@ -5948,16 +6209,12 @@ components:
         scheduleRules:
           type: array
           items:
-            type: object
-            required:
-              - enabled
-              - timestamp
-            properties:
-              enabled:
-                type: boolean
-              timestamp:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         id:
           type: string
         enabled:
@@ -6042,6 +6299,15 @@ components:
             - released
             - rolled-back
             - stopped
+        scheduleRules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
     FeatureExperimentRule:
       type: object
       required:
@@ -6097,16 +6363,12 @@ components:
         scheduleRules:
           type: array
           items:
-            type: object
-            required:
-              - enabled
-              - timestamp
-            properties:
-              enabled:
-                type: boolean
-              timestamp:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         value:
           type: array
           items:
@@ -6146,16 +6408,12 @@ components:
         scheduleRules:
           type: array
           items:
-            type: object
-            required:
-              - enabled
-              - timestamp
-            properties:
-              enabled:
-                type: boolean
-              timestamp:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ScheduleRule'
+          example:
+            - enabled: true
+              timestamp: null
+            - enabled: false
+              timestamp: '2025-06-23T16:09:37.769Z'
         variations:
           type: array
           items:
@@ -6170,6 +6428,40 @@ components:
                 type: string
         experimentId:
           type: string
+    FeatureRevision:
+      type: object
+      required:
+        - baseVersion
+        - version
+        - comment
+        - date
+        - status
+        - rules
+      properties:
+        baseVersion:
+          type: integer
+        version:
+          type: integer
+        comment:
+          type: string
+        date:
+          type: string
+          format: date-time
+        status:
+          type: string
+        publishedBy:
+          type: string
+        rules:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/FeatureRule'
+        definitions:
+          type: object
+          additionalProperties:
+            type: string
+            description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
     SdkConnection:
       type: object
       required:
@@ -7446,6 +7738,61 @@ components:
             type: string
         runAtEnd:
           type: boolean
+    CodeRef:
+      type: object
+      required:
+        - organization
+        - dateUpdated
+        - feature
+        - repo
+        - branch
+        - refs
+      properties:
+        organization:
+          type: string
+          description: The organization name
+        dateUpdated:
+          type: string
+          format: date-time
+          description: When the code references were last updated
+        feature:
+          type: string
+          description: Feature identifier
+        repo:
+          type: string
+          description: Repository name
+        branch:
+          type: string
+          description: Branch name
+        platform:
+          type: string
+          enum:
+            - github
+            - gitlab
+            - bitbucket
+          description: Source control platform
+        refs:
+          type: array
+          items:
+            type: object
+            required:
+              - filePath
+              - startingLineNumber
+              - lines
+              - flagKey
+            properties:
+              filePath:
+                type: string
+                description: Path to the file containing the reference
+              startingLineNumber:
+                type: integer
+                description: Line number where the reference starts
+              lines:
+                type: string
+                description: The code lines containing the reference
+              flagKey:
+                type: string
+                description: The feature flag key referenced
   securitySchemes:
     bearerAuth:
       type: http
@@ -7505,6 +7852,7 @@ x-tagGroups:
     tags:
       - Archetype_model
       - Attribute_model
+      - CodeRef_model
       - DataSource_model
       - Dimension_model
       - Environment_model
@@ -7523,6 +7871,7 @@ x-tagGroups:
       - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
+      - FeatureRevision_model
       - FeatureRolloutRule_model
       - FeatureRule_model
       - FeatureSafeRolloutRule_model
@@ -7534,6 +7883,7 @@ x-tagGroups:
       - Project_model
       - Query_model
       - SavedGroup_model
+      - ScheduleRule_model
       - SdkConnection_model
       - Segment_model
       - VisualChange_model

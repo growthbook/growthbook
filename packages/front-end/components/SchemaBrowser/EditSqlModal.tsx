@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
-import { TestQueryRow } from "back-end/src/types/Integration";
+import {
+  InformationSchemaInterface,
+  TestQueryRow,
+} from "back-end/src/types/Integration";
 import { TemplateVariables } from "back-end/types/sql";
-import { Flex, Text, Box } from "@radix-ui/themes";
+import { Flex, Text, Box, IconButton } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { SQL_ROW_LIMIT } from "shared/sql";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
-import CodeTextArea from "@/components/Forms/CodeTextArea";
+import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
@@ -26,6 +31,13 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
+import { getAutoCompletions } from "@/services/sqlAutoComplete";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+} from "@/components/Radix/DropdownMenu";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Checkbox from "../Radix/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
 import { AreaWithHeader } from "./SqlExplorerModal";
 import styles from "./EditSqlModal.module.scss";
@@ -63,11 +75,18 @@ export default function EditSqlModal({
   templateVariables,
   setTemplateVariables,
 }: Props) {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
+  const [testQueryResults, setTestQueryResults] =
+    useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
+  const [apply5RowLimit, setApply5RowLimit] = useState(true);
+  const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
+  const [informationSchema, setInformationSchema] = useState<
+    InformationSchemaInterface | undefined
+  >();
+  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
+    "sql-editor-autocomplete-enabled",
+    true,
+  );
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -87,17 +106,17 @@ export default function EditSqlModal({
 
       const requiredColumnsArray = Array.from(requiredColumns);
       const missingColumns = requiredColumnsArray.filter(
-        (col) => !((col as string) in result)
+        (col) => !((col as string) in result),
       );
 
       if (missingColumns.length > 0) {
         throw new Error(
-          `You are missing the following columns: ${missingColumns.join(", ")}`
+          `You are missing the following columns: ${missingColumns.join(", ")}`,
         );
       }
     },
     // eslint-disable-next-line
-    [Array.from(requiredColumns).join("")]
+    [Array.from(requiredColumns).join("")],
   );
 
   const runTestQuery = useCallback(
@@ -110,6 +129,7 @@ export default function EditSqlModal({
           query: sql,
           datasourceId: datasourceId,
           templateVariables: templateVariables,
+          limit: apply5RowLimit ? 5 : undefined,
         }),
       });
 
@@ -129,9 +149,10 @@ export default function EditSqlModal({
       datasourceId,
       validateRequiredColumns,
       validateResponseOverride,
+      apply5RowLimit,
       // eslint-disable-next-line
       JSON.stringify(templateVariables),
-    ]
+    ],
   );
 
   const handleTestQuery = useCallback(async () => {
@@ -156,6 +177,63 @@ export default function EditSqlModal({
 
   const hasEventName = usesEventName(form.watch("sql"));
   const hasValueCol = usesValueColumn(form.watch("sql"));
+
+  // Update autocompletions when cursor or schema changes
+  useEffect(() => {
+    const fetchCompletions = async () => {
+      if (!isAutocompleteEnabled) {
+        setAutoCompletions([]);
+        return;
+      }
+      try {
+        const completions = await getAutoCompletions(
+          cursorData,
+          informationSchema,
+          datasource?.type,
+          apiCall,
+          "EditSqlModal",
+          templateVariables?.eventName,
+        );
+        setAutoCompletions(completions);
+      } catch (error) {
+        console.error("Failed to fetch autocompletions:", error);
+        setAutoCompletions([]);
+      }
+    };
+
+    // // Debounce: wait 300ms after last change before fetching
+    const timeoutId = setTimeout(fetchCompletions, 200);
+
+    // // Cleanup: cancel if dependencies change again
+    return () => clearTimeout(timeoutId);
+  }, [
+    cursorData,
+    informationSchema,
+    datasource?.type,
+    apiCall,
+    templateVariables?.eventName,
+    isAutocompleteEnabled,
+  ]);
+
+  useEffect(() => {
+    const fetchSchema = async () => {
+      if (!isAutocompleteEnabled) {
+        setInformationSchema(undefined);
+        return;
+      }
+      try {
+        const response = await apiCall<{
+          informationSchema: InformationSchemaInterface;
+        }>(`/datasource/${datasourceId}/schema`);
+        setInformationSchema(response.informationSchema);
+      } catch (error) {
+        console.error("Failed to fetch schema:", error);
+        setInformationSchema(undefined);
+      }
+    };
+
+    fetchSchema();
+  }, [datasourceId, apiCall, isAutocompleteEnabled]);
 
   const handleFormatClick = () => {
     const result = formatSql(form.watch("sql"), datasource?.type);
@@ -236,15 +314,32 @@ export default function EditSqlModal({
                       >
                         SQL
                       </Text>
-                      <Flex gap="3">
+                      <Flex gap="3" align="center">
                         {formatError && (
                           <Tooltip body={formatError}>
                             <FaExclamationTriangle className="text-danger" />
                           </Tooltip>
                         )}
+
+                        <Tooltip
+                          className="pt-1"
+                          shouldDisplay={!!canRunQueries}
+                          body={`If unchecked, GrowthBook will automatically apply a ${SQL_ROW_LIMIT} row limit for optimal performance.`}
+                        >
+                          <Checkbox
+                            label="Limit 5"
+                            weight="regular"
+                            disabled={!canRunQueries}
+                            value={apply5RowLimit}
+                            setValue={(v) => {
+                              setApply5RowLimit(v);
+                            }}
+                            mb="0"
+                          />
+                        </Tooltip>
                         {canFormat ? (
                           <RadixButton
-                            size="xs"
+                            size="sm"
                             variant="ghost"
                             onClick={handleFormatClick}
                             disabled={!form.watch("sql")}
@@ -252,26 +347,10 @@ export default function EditSqlModal({
                             Format
                           </RadixButton>
                         ) : null}
-                        {!canRunQueries ? (
-                          <Tooltip
-                            body="You do not have permission to run test queries"
-                            shouldDisplay={true}
-                          >
-                            <Button
-                              color="primary"
-                              className="btn-sm"
-                              onClick={handleTestQuery}
-                              loading={testingQuery}
-                              disabled={!canRunQueries}
-                              type="button"
-                            >
-                              <span className="pr-2">
-                                <FaPlay />
-                              </span>
-                              Test Query
-                            </Button>
-                          </Tooltip>
-                        ) : (
+                        <Tooltip
+                          body="You do not have permission to run test queries"
+                          shouldDisplay={!canRunQueries}
+                        >
                           <Button
                             color="primary"
                             className="btn-sm"
@@ -285,7 +364,29 @@ export default function EditSqlModal({
                             </span>
                             Test Query
                           </Button>
-                        )}
+                        </Tooltip>
+                        <DropdownMenu
+                          trigger={
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              radius="full"
+                              size="3"
+                            >
+                              <BsThreeDotsVertical size={16} />
+                            </IconButton>
+                          }
+                        >
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setIsAutocompleteEnabled(!isAutocompleteEnabled);
+                            }}
+                          >
+                            {isAutocompleteEnabled
+                              ? "Disable Autocomplete"
+                              : "Enable Autocomplete"}
+                          </DropdownMenuItem>
+                        </DropdownMenu>
                       </Flex>
                     </Flex>
                   }
@@ -385,7 +486,7 @@ export default function EditSqlModal({
                       fullHeight
                       setCursorData={setCursorData}
                       onCtrlEnter={handleTestQuery}
-                      resizeDependency={!!testQueryResults}
+                      completions={autoCompletions}
                     />
                   </Box>
                 </AreaWithHeader>
@@ -420,14 +521,6 @@ export default function EditSqlModal({
                     </Text>
                   }
                 >
-                  {/* <div> */}
-                  {/* <div
-                    style={{
-                      height: "100%",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                  > */}
                   <Flex direction="column" height="100%" p="4">
                     <SchemaBrowser
                       updateSqlInput={(sql: string) => {

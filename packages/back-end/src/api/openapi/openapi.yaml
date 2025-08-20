@@ -132,6 +132,11 @@ paths:
       $ref: "./paths/deleteFeature.yaml"
   /features/{id}/toggle:
     $ref: "./paths/toggleFeature.yaml"
+  /features/{id}/revert:
+    $ref: "./paths/revertFeature.yaml"
+  /features/{id}/revisions:
+    get:
+      $ref: "./paths/getFeatureRevisions.yaml"
   /feature-keys:
     get:
       $ref: "./paths/getFeatureKeys.yaml"
@@ -148,9 +153,17 @@ paths:
     delete:
       $ref: "./paths/deleteProject.yaml"
   /dimensions:
-    $ref: "./paths/listDimensions.yaml"
+    get:
+      $ref: "./paths/listDimensions.yaml"
+    post:
+      $ref: "./paths/postDimension.yaml"
   /dimensions/{id}:
-    $ref: "./paths/getDimension.yaml"
+    get:
+      $ref: "./paths/getDimension.yaml"
+    post:
+      $ref: "./paths/updateDimension.yaml"
+    delete:
+      $ref: "./paths/deleteDimension.yaml"
   /segments:
     $ref: "./paths/listSegments.yaml"
   /segments/{id}:
@@ -319,6 +332,11 @@ paths:
   /code-refs:
     post:
       $ref: "./paths/postCodeRefs.yaml"
+    get:
+      $ref: "./paths/listCodeRefs.yaml"
+  /code-refs/{id}:
+    get:
+      $ref: "./paths/getCodeRefs.yaml"
   /queries/{id}:
     get:
       $ref: "./paths/getQuery.yaml"

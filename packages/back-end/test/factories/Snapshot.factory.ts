@@ -47,5 +47,5 @@ export const snapshotFactory = Factory.define<ExperimentSnapshotInterface>(
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [],
-  })
+  }),
 );

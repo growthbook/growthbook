@@ -5,14 +5,14 @@ import { Context } from "back-end/src/models/BaseModel";
 
 const auditLogMock = jest.fn();
 
-const context = ({
+const context = {
   org: { id: "a" },
   auditLog: auditLogMock,
   permissions: {
     canCreateEnvironment: () => true,
     canUpdateEnvironment: () => true,
   },
-} as unknown) as Context;
+} as unknown as Context;
 
 describe("environment utils", () => {
   describe("addEnvironmentToOrganizationEnvironments", () => {
@@ -46,7 +46,7 @@ describe("environment utils", () => {
       const result = addEnvironmentToOrganizationEnvironments(
         context,
         input,
-        existingEnvironments
+        existingEnvironments,
       );
 
       expect(result).toEqual([
@@ -82,7 +82,7 @@ describe("environment utils", () => {
           context,
           input,
           existingEnvironments,
-          true
+          true,
         );
 
         expect(result).toEqual([
@@ -111,7 +111,7 @@ describe("environment utils", () => {
           context,
           input,
           existingEnvironments,
-          false
+          false,
         );
 
         expect(result).toEqual([
@@ -135,7 +135,7 @@ describe("environment utils", () => {
           const result = addEnvironmentToOrganizationEnvironments(
             context,
             input,
-            existingEnvironments
+            existingEnvironments,
           );
 
           expect(result).toEqual([

@@ -21,7 +21,7 @@ export default function SqlExplorer() {
   }>("/saved-queries");
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project)
+    isProjectListValidForProject(d.projects, project),
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -108,7 +108,11 @@ export default function SqlExplorer() {
       )}
 
       {showModal && (
-        <SqlExplorerModal close={() => setShowModal(false)} mutate={mutate} />
+        <SqlExplorerModal
+          close={() => setShowModal(false)}
+          mutate={mutate}
+          trackingEventModalSource="saved-queries-index-page"
+        />
       )}
     </div>
   );

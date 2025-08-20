@@ -279,7 +279,7 @@ const filterResults = useCallback(
   (features: FeatureInterface[]) => {
     return features.filter((feature) => showArchived || !feature.archived);
   },
-  [showArchived]
+  [showArchived],
 );
 
 useSearch({
@@ -322,7 +322,7 @@ const withMetricNames = useAddComputedFields(
     metricName: getMetricById(item.metricId)?.name || "",
   }),
   // Dependencies
-  [getMetricById]
+  [getMetricById],
 );
 
 const { items, SortableTH } = useSearch({

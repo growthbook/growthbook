@@ -24,6 +24,7 @@ export type Props = {
   expandable?: boolean;
   allowDownload?: boolean;
   showSampleHeader?: boolean;
+  renderedSQLLabel?: string;
 };
 
 export default function DisplayTestQueryResults({
@@ -35,6 +36,7 @@ export default function DisplayTestQueryResults({
   expandable,
   allowDownload,
   showSampleHeader = true,
+  renderedSQLLabel = "Rendered SQL",
 }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const cols = Object.keys(results?.[0] || {});
@@ -59,7 +61,7 @@ export default function DisplayTestQueryResults({
     const csv = convertToCSV(results);
     if (!csv) {
       throw new Error(
-        "Error downloading results. Reason: Unable to convert results to CSV."
+        "Error downloading results. Reason: Unable to convert results to CSV.",
       );
     }
     downloadCSVFile(csv);
@@ -83,7 +85,7 @@ export default function DisplayTestQueryResults({
             {!forceShowSql && (
               <TabsTrigger value="results">Results</TabsTrigger>
             )}
-            <TabsTrigger value="sql">Rendered SQL</TabsTrigger>
+            <TabsTrigger value="sql">{renderedSQLLabel}</TabsTrigger>
             <div className="flex-grow-1">
               {close ? (
                 <button

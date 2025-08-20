@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { stringToBoolean } from "../util";
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export const accountPlans: Set<AccountPlan> = new Set([
@@ -10,6 +11,7 @@ export const accountPlans: Set<AccountPlan> = new Set([
 ]);
 
 export type CommercialFeature =
+  | "ai-suggestions"
   | "scim"
   | "sso"
   | "advanced-permissions"
@@ -55,11 +57,15 @@ export type CommercialFeature =
   | "historical-power"
   | "decision-framework"
   | "unlimited-cdn-usage"
+  | "managed-warehouse"
   | "safe-rollout"
   | "require-project-for-features-setting"
+  | "holdouts"
   | "saveSqlExplorerQueries"
   | "metric-effects"
-  | "metric-correlations";
+  | "metric-correlations"
+  | "dashboards"
+  | "precomputed-dimensions";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -200,7 +206,9 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-warehouse",
     "saveSqlExplorerQueries",
+    "precomputed-dimensions",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -229,9 +237,12 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-warehouse",
     "saveSqlExplorerQueries",
+    "precomputed-dimensions",
   ]),
   enterprise: new Set<CommercialFeature>([
+    "ai-suggestions",
     "scim",
     "sso",
     "advanced-permissions",
@@ -277,12 +288,22 @@ export const accountFeatures: CommercialFeaturesMap = {
     "historical-power",
     "decision-framework",
     "safe-rollout",
+    "managed-warehouse",
     "require-project-for-features-setting",
+    "holdouts",
     "saveSqlExplorerQueries",
     "metric-effects",
     "metric-correlations",
+    "dashboards",
+    "precomputed-dimensions",
   ]),
 };
+
+if (stringToBoolean(process.env.IS_CLOUD)) {
+  Object.values(accountFeatures).forEach((features) => {
+    features.add("ai-suggestions"); // All plans on cloud have ai-suggestions, though the usage limits vary
+  });
+}
 
 export interface LicenseUserCodes {
   invites: string[];

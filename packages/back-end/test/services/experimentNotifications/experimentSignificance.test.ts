@@ -1,4 +1,5 @@
 import { Promise as BluebirdPromise } from "bluebird";
+import { ensureAndReturn } from "shared/util";
 import { setupApp } from "back-end/test/api/api.setup";
 import { insertMetric } from "back-end/src/models/MetricModel";
 import { ExperimentModel } from "back-end/src/models/ExperimentModel";
@@ -9,7 +10,6 @@ import {
 } from "back-end/src/services/organizations";
 import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { computeExperimentChanges } from "back-end/src/services/experimentNotifications";
-import { ensureAndReturn } from "back-end/src/util/types";
 import {
   metrics,
   snapshots,
@@ -116,15 +116,15 @@ describe("Experiment Significance notifications", () => {
       async ({ beforeSnapshot, currentSnapshot, expected, ...params }) => {
         getLatestSnapshot.mockReturnValue(beforeSnapshot);
         getConfidenceLevelsForOrg.mockReturnValue(
-          params.getConfidenceLevelsForOrg
+          params.getConfidenceLevelsForOrg,
         );
         getMetricDefaultsForOrg.mockReturnValue(params.getMetricDefaultsForOrg);
         getPValueThresholdForOrg.mockReturnValue(
-          params.getPValueThresholdForOrg
+          params.getPValueThresholdForOrg,
         );
 
         const experiment = ensureAndReturn(
-          await ExperimentModel.findOne({ id: currentSnapshot.experiment })
+          await ExperimentModel.findOne({ id: currentSnapshot.experiment }),
         );
 
         const results = await computeExperimentChanges({
@@ -137,9 +137,9 @@ describe("Experiment Significance notifications", () => {
         });
 
         expect(results).toEqual(
-          expected.map((r) => expect.objectContaining(r))
+          expected.map((r) => expect.objectContaining(r)),
         );
-      }
+      },
     );
   });
 });

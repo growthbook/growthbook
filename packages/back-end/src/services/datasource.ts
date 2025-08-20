@@ -29,7 +29,7 @@ import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
-  encrypted: string
+  encrypted: string,
 ): T {
   return JSON.parse(AES.decrypt(encrypted, ENCRYPTION_KEY).toString(enc.Utf8));
 }
@@ -50,7 +50,7 @@ export function getNonSensitiveParams(integration: SourceIntegrationInterface) {
 
 export function mergeParams(
   integration: SourceIntegrationInterface,
-  newParams: Partial<DataSourceParams>
+  newParams: Partial<DataSourceParams>,
 ) {
   const secretKeys = integration.getSensitiveParamKeys();
   Object.keys(newParams).forEach((k: keyof DataSourceParams) => {
@@ -62,7 +62,7 @@ export function mergeParams(
 
 function getIntegrationObj(
   context: ReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ): SourceIntegrationInterface {
   switch (datasource.type) {
     case "growthbook_clickhouse":
@@ -99,7 +99,7 @@ function getIntegrationObj(
 export async function getIntegrationFromDatasourceId(
   context: ReqContext | ApiReqContext,
   id: string,
-  throwOnDecryptionError: boolean = false
+  throwOnDecryptionError: boolean = false,
 ) {
   const datasource = await getDataSourceById(context, id);
   if (!datasource) {
@@ -108,14 +108,14 @@ export async function getIntegrationFromDatasourceId(
   return getSourceIntegrationObject(
     context,
     datasource,
-    throwOnDecryptionError
+    throwOnDecryptionError,
   );
 }
 
 export function getSourceIntegrationObject(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
-  throwOnDecryptionError: boolean = false
+  throwOnDecryptionError: boolean = false,
 ) {
   const obj = getIntegrationObj(context, datasource);
 
@@ -126,7 +126,7 @@ export function getSourceIntegrationObject(
 
   if (throwOnDecryptionError && obj.decryptionError) {
     throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
+      "Could not decrypt data source credentials. View the data source settings for more info.",
     );
   }
 
@@ -135,7 +135,7 @@ export function getSourceIntegrationObject(
 
 export async function testDataSourceConnection(
   context: ReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ) {
   const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
@@ -145,7 +145,7 @@ export async function runFreeFormQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
-  limit?: number
+  limit?: number,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -190,7 +190,8 @@ export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
-  templateVariables?: TemplateVariables
+  templateVariables?: TemplateVariables,
+  limit?: number,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -212,6 +213,7 @@ export async function testQuery(
     query,
     templateVariables,
     testDays: context.org.settings?.testQueryDays,
+    limit,
   });
   try {
     const { results, duration } = await integration.runTestQuery(sql, [
@@ -234,7 +236,7 @@ export async function testQuery(
 export async function testQueryValidity(
   integration: SourceIntegrationInterface,
   query: ExposureQuery,
-  testDays?: number
+  testDays?: number,
 ): Promise<string | undefined> {
   // The Mixpanel integration does not support test queries
   if (!integration.getTestValidityQuery || !integration.runTestQuery) {
@@ -267,7 +269,7 @@ export async function testQueryValidity(
 
     if (missingColumns.length > 0) {
       return `Missing required columns in response: ${missingColumns.join(
-        ", "
+        ", ",
       )}`;
     }
 

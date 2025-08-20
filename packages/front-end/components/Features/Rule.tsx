@@ -11,6 +11,7 @@ import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
@@ -35,7 +36,6 @@ import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
-import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
@@ -64,6 +64,7 @@ interface SortableProps {
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
   hideInactive?: boolean;
   isDraft: boolean;
+  holdout: HoldoutInterface | undefined;
 }
 
 type RuleProps = SortableProps &
@@ -124,19 +125,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       safeRolloutsMap,
       hideInactive,
       isDraft,
+      holdout,
       ...props
     },
-    ref
+    ref,
   ) => {
     const { apiCall } = useAuth();
 
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-    const { featureUsage } = useFeatureUsage();
-    const [
-      safeRolloutStatusModalOpen,
-      setSafeRolloutStatusModalOpen,
-    ] = useState(false);
+    const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
+      useState(false);
     let title: string | ReactElement =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -205,10 +204,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   info.sideColor === "disabled"
                     ? "var(--gray-5)"
                     : info.sideColor === "unreachable"
-                    ? "var(--orange-7)"
-                    : info.sideColor === "skipped"
-                    ? "var(--amber-7)"
-                    : "var(--green-9)",
+                      ? "var(--orange-7)"
+                      : info.sideColor === "skipped"
+                        ? "var(--amber-7)"
+                        : "var(--green-9)",
               }}
             ></div>
             <Flex align="start" justify="between" gap="3" p="1" px="2">
@@ -224,7 +223,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 )}
               </Box>
               <Box>
-                <Badge label={<>{i + 1}</>} radius="full" color="gray" />
+                {/* If there is a holdout, we need to add 1 to the index since the holdout rule is added above the other rules */}
+                <Badge
+                  label={<>{holdout ? i + 2 : i + 1}</>}
+                  radius="full"
+                  color="gray"
+                />
               </Box>
               <Box flexGrow="1" flexShrink="5" overflowX="auto">
                 <Flex align="center" mb="3" flexGrow="1">
@@ -357,7 +361,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       feature={feature}
                       experiment={Array.from(experimentsMap.values()).find(
                         (exp) =>
-                          exp.trackingKey === (rule.trackingKey || feature.id)
+                          exp.trackingKey === (rule.trackingKey || feature.id),
                       )}
                       rule={rule}
                     />
@@ -373,17 +377,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Box>
               </Box>
               <Flex>
-                {featureUsage && (
-                  <div className="ml-auto">
-                    <FeatureUsageGraph
-                      data={
-                        featureUsage?.environments?.[environment]?.rules?.[
-                          rule.id
-                        ]
-                      }
-                    />
-                  </div>
-                )}
                 {canEdit && (
                   <MoreMenu useRadix={true} size={14}>
                     <a
@@ -408,7 +401,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             ruleIndex: i,
                             environment,
                             type: rule.type,
-                          }
+                          },
                         );
                         const res = await apiCall<{ version: number }>(
                           `/feature/${feature.id}/${version}/rule`,
@@ -422,7 +415,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               },
                               i,
                             }),
-                          }
+                          },
                         );
                         await mutate();
                         res.version && setVersion(res.version);
@@ -471,7 +464,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               environment,
                               i,
                             }),
-                          }
+                          },
                         );
                         await mutate();
                         res.version && setVersion(res.version);
@@ -496,18 +489,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ) : (
       contents
     );
-  }
+  },
 );
 
 export function SortableRule(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    active,
-  } = useSortable({ id: props.rule.id });
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
+    useSortable({ id: props.rule.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

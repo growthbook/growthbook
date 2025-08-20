@@ -78,7 +78,7 @@ export default function RoleList() {
                             className="dropdown-item"
                             onClick={async () => {
                               await router.push(
-                                `/settings/role/${r.id}?edit=true`
+                                `/settings/role/${r.id}?edit=true`,
                               );
                             }}
                           >
@@ -128,7 +128,7 @@ export default function RoleList() {
                             }`,
                             {
                               method: "POST",
-                            }
+                            },
                           );
                           refreshOrganization();
                         }}
