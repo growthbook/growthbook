@@ -504,6 +504,10 @@ export default function RuleModal({
             values.regressionAdjustmentEnabled ?? undefined,
           statsEngine: values.statsEngine ?? undefined,
           type: values.experimentType,
+          holdoutId:
+            values.experimentType === "standard"
+              ? feature.holdout?.id
+              : undefined,
         };
 
         if (values?.customFields) {

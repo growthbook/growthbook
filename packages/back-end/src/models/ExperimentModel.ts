@@ -44,6 +44,7 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
+import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -307,6 +308,7 @@ const experimentSchema = new mongoose.Schema({
     precomputedDimensions: [String],
   },
   dismissedWarnings: [String],
+  holdoutId: String,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -404,6 +406,10 @@ export async function getAllExperiments(
     query.type = "multi-armed-bandit";
   } else if (type === "standard") {
     query.type = { $in: ["standard", null] };
+  } else if (type === "holdout") {
+    query.type = "holdout";
+  } else if (!type) {
+    query.type = { $ne: "holdout" };
   }
 
   return await findExperiments(context, query);
@@ -873,7 +879,12 @@ export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  const apiExperiment = await toExperimentApiInterface(context, experiment);
+  if (experiment.type === "holdout") return;
+
+  const apiExperiment = await toExperimentApiInterface(
+    context,
+    experiment as ExperimentInterfaceExcludingHoldouts,
+  );
 
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
@@ -910,20 +921,20 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
+  if (current.type === "holdout") return;
+
   const previousApiExperimentPromise = toExperimentApiInterface(
     context,
-    previous,
+    previous as ExperimentInterfaceExcludingHoldouts,
   );
-
   const currentApiExperimentPromise = toExperimentApiInterface(
     context,
-    current,
+    current as ExperimentInterfaceExcludingHoldouts,
   );
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     previousApiExperimentPromise,
     currentApiExperimentPromise,
   ]);
-
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any
   const hasPayloadChanges = hasChangesForSDKPayloadRefresh(previous, current);
@@ -1269,7 +1280,10 @@ export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  const apiExperiment = await toExperimentApiInterface(context, experiment);
+  const apiExperiment = await toExperimentApiInterface(
+    context,
+    experiment as ExperimentInterfaceExcludingHoldouts,
+  );
 
   // If experiment is part of the SDK payload, it affects all environments
   // Otherwise, it doesn't affect any

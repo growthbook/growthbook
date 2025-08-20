@@ -28,6 +28,7 @@ import { FeatureUsageLookback } from "back-end/src/types/Integration";
 import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import Button from "@/components/Radix/Button";
 import { GBAddCircle, GBEdit } from "@/components/Icons";
@@ -99,6 +100,7 @@ export default function FeaturesOverview({
   dependentFeatures,
   dependentExperiments,
   safeRollouts,
+  holdout,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
@@ -108,6 +110,7 @@ export default function FeaturesOverview({
   revisions: FeatureRevisionInterface[];
   experiments: ExperimentInterfaceStringDates[] | undefined;
   safeRollouts: SafeRolloutInterface[] | undefined;
+  holdout: HoldoutInterface | undefined;
   mutate: () => Promise<unknown>;
   editProjectModal: boolean;
   setEditProjectModal: (b: boolean) => void;
@@ -1082,6 +1085,7 @@ export default function FeaturesOverview({
                       hideInactive={hideInactive}
                       isDraft={isDraft}
                       safeRolloutsMap={safeRolloutsMap}
+                      holdout={holdout}
                     />
                   </>
                 ) : (

@@ -7,6 +7,7 @@ import {
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getVisualChangesetValidator } from "back-end/src/validators/openapi";
+import { ExperimentInterfaceExcludingHoldouts } from "back-end/src/validators/experiments";
 
 export const getVisualChangeset = createApiRequestHandler(
   getVisualChangesetValidator,
@@ -28,9 +29,13 @@ export const getVisualChangeset = createApiRequestHandler(
       ? await getExperimentById(req.context, visualChangeset.experiment)
       : null;
 
-  const apiExperiment = experiment
-    ? await toExperimentApiInterface(req.context, experiment)
-    : null;
+  const apiExperiment =
+    experiment && experiment.type !== "holdout"
+      ? await toExperimentApiInterface(
+          req.context,
+          experiment as ExperimentInterfaceExcludingHoldouts,
+        )
+      : null;
 
   return {
     visualChangeset: toVisualChangesetApiInterface(visualChangeset),
