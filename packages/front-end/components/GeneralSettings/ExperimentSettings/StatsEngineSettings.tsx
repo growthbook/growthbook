@@ -34,6 +34,7 @@ interface FormValues {
   sequentialTestingEnabled: boolean;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
+  postStratificationEnabled: boolean;
 }
 
 export type StatsEngineSettingsForm = UseFormReturn<FormValues>;
@@ -180,7 +181,7 @@ export default function StatsEngineSettings() {
       <Box className="appbox" mb="6" p="4">
         <Heading as="h4" size="3" mb="4">
           <PremiumTooltip commercialFeature="regression-adjustment">
-            Regression Adjustment (CUPED)
+            Variance Reduction (CUPEDps)
           </PremiumTooltip>
         </Heading>
         <Flex align="start" gap="3">
@@ -197,7 +198,7 @@ export default function StatsEngineSettings() {
           <Box>
             <Text size="2" className="font-weight-semibold">
               <label htmlFor="toggle-regressionAdjustmentEnabled">
-                Apply regression adjustment by default
+                Apply variance reduction by default
               </label>
             </Text>
             <Box
@@ -208,8 +209,21 @@ export default function StatsEngineSettings() {
                   : "0.5",
               }}
             >
+              {/* TODO add check that you must enable pre-computed dimensions for PS to work */}
+              <Checkbox
+                label="Use pre-computed dimensions for variance reduction"
+                id="toggle-postStratification"
+                value={form.watch("postStratificationEnabled")}
+                setValue={(v) => {
+                  form.setValue("postStratificationEnabled", v);
+                }}
+                disabled={
+                  !hasCommercialFeature("regression-adjustment") ||
+                  hasFileConfig()
+                }
+              />
               <Text as="p" mb="1" size="2" className="font-weight-semibold">
-                Pre-exposure lookback period (days)
+                CUPED pre-exposure lookback period (days)
               </Text>
               <Box mb="2">
                 <Text as="span" className="text-muted">
