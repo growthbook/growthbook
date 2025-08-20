@@ -108,11 +108,19 @@ export default function DataVizFilter({
     type: "string" | "number" | "date",
   ): FilterConfiguration => {
     if (type === "date") {
+      // Default to last 30 days for date filters
+      const today = new Date();
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(today.getDate() - 30);
+
       return {
         column,
         type: "date",
-        filterType: "today",
-        config: {},
+        filterType: "dateRange",
+        config: {
+          startDate: thirtyDaysAgo.toISOString().split("T")[0], // YYYY-MM-DD format
+          endDate: today.toISOString().split("T")[0],
+        },
       };
     } else if (type === "number") {
       return {
@@ -136,11 +144,19 @@ export default function DataVizFilter({
 
     if (currentFilter.type === "date") {
       if (newFilterType === "dateRange") {
+        // Calculate last 30 days as default
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+
         updateFilter({
           column: currentFilter.column,
           type: "date",
           filterType: "dateRange",
-          config: { startDate: "", endDate: "" },
+          config: {
+            startDate: thirtyDaysAgo.toISOString().split("T")[0], // YYYY-MM-DD format
+            endDate: today.toISOString().split("T")[0],
+          },
         });
       } else {
         updateFilter({
