@@ -82,7 +82,6 @@ const MetricsSelector: FC<{
   includeGroups?: boolean;
   excludeQuantiles?: boolean;
   forceSingleMetric?: boolean;
-  noPercentile?: boolean;
   noManual?: boolean;
   filterConversionWindowMetrics?: boolean;
   disabled?: boolean;
@@ -98,7 +97,6 @@ const MetricsSelector: FC<{
   includeGroups = true,
   excludeQuantiles,
   forceSingleMetric = false,
-  noPercentile = false,
   noManual = false,
   filterConversionWindowMetrics,
   disabled,
@@ -123,9 +121,6 @@ const MetricsSelector: FC<{
   const options: MetricOption[] = [
     ...metrics
       .filter((m) => {
-        if (noPercentile) {
-          return m.cappingSettings.type !== "percentile";
-        }
         if (filterConversionWindowMetrics) {
           return m?.windowSettings?.type !== "conversion";
         }
@@ -148,9 +143,6 @@ const MetricsSelector: FC<{
           .filter((m) => {
             if (quantileMetricType(m) && excludeQuantiles) {
               return false;
-            }
-            if (noPercentile) {
-              return m.cappingSettings.type !== "percentile";
             }
             if (filterConversionWindowMetrics) {
               return m?.windowSettings?.type !== "conversion";
