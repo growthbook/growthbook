@@ -34,13 +34,13 @@ type MetricOption = {
 
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
-  noPercentileGoalMetrics?: boolean;
+  noQuantileGoalMetrics?: boolean;
   isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
-  noPercentileGoalMetrics = false,
+  noQuantileGoalMetrics = false,
   isSingular = false,
 }: MetricsSelectorTooltipProps) => {
   return (
@@ -61,8 +61,12 @@ export const MetricsSelectorTooltip = ({
             {onlyBinomial ? (
               <li>{isSingular ? "is" : "are"} a binomial metric</li>
             ) : null}
-            {noPercentileGoalMetrics ? (
-              <li>{isSingular ? "does" : "do"} not use percentile capping</li>
+            {noQuantileGoalMetrics ? (
+              <li>
+                {isSingular
+                  ? "is not a quantile metric"
+                  : "are not quantile metrics"}
+              </li>
             ) : null}
           </ul>
         </>
