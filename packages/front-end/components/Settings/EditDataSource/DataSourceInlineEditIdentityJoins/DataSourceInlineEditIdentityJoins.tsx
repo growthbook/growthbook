@@ -11,8 +11,8 @@ import { AddEditIdentityJoinModal } from "@/components/Settings/EditDataSource/D
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 
 type DataSourceInlineEditIdentityJoinsProps =
   DataSourceQueryEditingModalBaseProps;

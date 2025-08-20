@@ -5,7 +5,7 @@ import { upperFirst } from "lodash";
 import { useAuth } from "@/services/auth";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import Link from "../Radix/Link";
+import Link from "../../ui/Link";
 
 interface Props {
   source: string;

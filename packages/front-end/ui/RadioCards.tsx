@@ -6,7 +6,7 @@ import {
 } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 
 export type RadioOptions = {
   value: string;

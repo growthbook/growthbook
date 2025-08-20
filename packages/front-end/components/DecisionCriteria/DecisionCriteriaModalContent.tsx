@@ -9,7 +9,7 @@ import {
   PiMinusCircle,
   PiTrash,
 } from "react-icons/pi";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { Select, SelectItem } from "@/ui/Select";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 
 // Match options

@@ -8,7 +8,7 @@ import ExperimentList from "@/components/Experiment/ExperimentList";
 import ExperimentGraph from "@/components/Experiment/ExperimentGraph";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import ExecReport from "@/components/ExecReports/ExecReport";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import styles from "./Dashboard.module.scss";
 import IdeasFeed from "./IdeasFeed";
 import NorthStar from "./NorthStar";

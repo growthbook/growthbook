@@ -5,7 +5,7 @@ import { Box, Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
 import Tooltip from "../Tooltip/Tooltip";
-import Callout from "../Radix/Callout";
+import Callout from "../../ui/Callout";
 import FeatureValueField from "./FeatureValueField";
 
 interface Props {

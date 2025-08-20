@@ -29,7 +29,7 @@ import { formatNumber } from "@/services/metrics";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
 import Pagination from "@/components/Pagination";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 interface Props {
   experimentsWithSnapshot: ExperimentWithSnapshot[];

@@ -3,10 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
 import { useEnvironments } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
   BaseSearchFiltersProps,
   FilterHeading,

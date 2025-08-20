@@ -8,19 +8,14 @@ import {
 import { getValidDate } from "shared/dates";
 import { DifferenceType } from "back-end/types/stats";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";

@@ -20,12 +20,12 @@ import {
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/react";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useExperiments } from "@/hooks/useExperiments";
 import {
   DashboardSnapshotContext,

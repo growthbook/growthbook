@@ -1,7 +1,7 @@
 import { ExperimentTrafficGraphBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import TrafficCard from "@/components/HealthTab/TrafficCard";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { BlockProps } from ".";
 
 export default function TrafficGraphBlock({

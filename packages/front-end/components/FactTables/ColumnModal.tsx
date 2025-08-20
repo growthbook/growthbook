@@ -17,8 +17,8 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Checkbox from "@/components/Radix/Checkbox";
-import Button from "@/components/Radix/Button";
+import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 
 export interface Props {
   factTable: FactTableInterface;

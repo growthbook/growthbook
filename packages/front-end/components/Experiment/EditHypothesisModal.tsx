@@ -5,7 +5,7 @@ import { useState } from "react";
 import { PiArrowClockwise } from "react-icons/pi";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import Markdown from "@/components/Markdown/Markdown";
 import LoadingSpinner from "@/components/LoadingSpinner";

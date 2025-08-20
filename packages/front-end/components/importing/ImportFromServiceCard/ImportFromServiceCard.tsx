@@ -1,5 +1,5 @@
 import React, { FC, PropsWithChildren } from "react";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 
 type ImportFromServiceCardProps = PropsWithChildren<{
   service: string;

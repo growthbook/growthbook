@@ -1,7 +1,7 @@
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useMemo } from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 type Props = {
   setShowAutoGenerateMetricsModal: (value: boolean) => void;

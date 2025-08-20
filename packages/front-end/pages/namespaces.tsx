@@ -9,7 +9,7 @@ import NamespaceTableRow from "@/components/Settings/NamespaceTableRow";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;

@@ -17,7 +17,7 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {

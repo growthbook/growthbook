@@ -17,7 +17,7 @@ import {
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import { useExperiments } from "@/hooks/useExperiments";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 
 export default function ExperimentRefFields({

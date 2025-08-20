@@ -5,8 +5,8 @@ import { Text, Container } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import { RadixColor } from "@/components/Radix/HelperText";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { RadixColor } from "@/ui/HelperText";
+import { Select, SelectItem } from "@/ui/Select";
 import Tag from "./Tag";
 
 export const TAG_COLORS = [

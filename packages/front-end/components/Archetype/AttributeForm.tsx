@@ -6,12 +6,7 @@ import { Switch } from "@radix-ui/themes";
 import format from "date-fns/format";
 import { useAttributeSchema } from "@/services/features";
 import Field from "@/components/Forms/Field";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";

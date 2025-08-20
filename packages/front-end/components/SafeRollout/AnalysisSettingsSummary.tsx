@@ -17,7 +17,7 @@ import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OverflowText from "../Experiment/TabbedPage/OverflowText";
-import Metadata from "../Radix/Metadata";
+import Metadata from "../../ui/Metadata";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 
 const numberFormatter = Intl.NumberFormat();
