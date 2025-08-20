@@ -39,60 +39,31 @@ const getPhaseColor = (
 };
 const HoldoutTimeline: React.FC<{
   experiments: ExperimentInterfaceStringDates[];
-  startDate?: Date;
-  endDate?: Date;
-}> = ({ experiments }) => {
+  startDate: Date;
+  holdoutEndDate?: Date;
+}> = ({ experiments, startDate, holdoutEndDate }) => {
+  console.log(
+    holdoutEndDate,
+    "holdoutEndDate",
+    startDate,
+    "startDate",
+    experiments,
+    "experiments",
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipTimeout = useRef<NodeJS.Timeout | null>(null);
   // Find the earliest start date from all experiment phases
-  const startDate = useMemo(() => {
-    let earliest: Date | null = null;
-
-    experiments.forEach((experiment) => {
-      experiment.phases.forEach((phase) => {
-        const start = getValidDate(phase.dateStarted);
-        if (start && (!earliest || start < earliest)) {
-          earliest = start;
-        }
-      });
-    });
-
-    return earliest || new Date();
-  }, [experiments]);
   const [endDateIsNow, setEndDateIsNow] = useState(false);
-  // Find the latest end date from all experiment phases, or use current date
   const endDate = useMemo(() => {
-    let latest: Date | null = null;
-
-    for (const experiment of experiments) {
-      for (const phase of experiment.phases) {
-        let end: Date;
-        if (experiment.status === "stopped") {
-          end = getValidDate(phase.dateEnded);
-          if (end && (!latest || end > latest)) {
-            latest = end;
-          }
-        } else {
-          setEndDateIsNow(true);
-          latest = new Date();
-        }
-      }
+    if (!holdoutEndDate) {
+      setEndDateIsNow(true);
+      return new Date();
     }
-
-    return latest || new Date();
-  }, [experiments, setEndDateIsNow]);
-
-  // Filter experiments to only those that have phases
-  const filteredExperiments = useMemo(() => {
-    return experiments.filter(
-      (experiment) => experiment.phases && experiment.phases.length > 0,
-    );
-  }, [experiments]);
-
+    return holdoutEndDate;
+  }, [setEndDateIsNow, holdoutEndDate]);
   const [width, setWidth] = useState(800); // Default width
   const rowHeight = 50; // Much taller rows to match the image design
-  const height =
-    margin.top + margin.bottom + filteredExperiments.length * rowHeight;
+  const height = margin.top + margin.bottom + experiments.length * rowHeight;
 
   const {
     showTooltip,
@@ -165,42 +136,51 @@ const HoldoutTimeline: React.FC<{
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {
-        setWidth(containerRef.current.offsetWidth);
+        const newWidth = containerRef.current.offsetWidth;
+        if (newWidth !== width) {
+          setWidth(newWidth);
+        }
       }
     };
 
-    handleResize(); // Set initial width
+    // Set initial width with a small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      handleResize();
+    }, 0);
+
     window.addEventListener("resize", handleResize);
     return () => {
       window.removeEventListener("resize", handleResize);
+      clearTimeout(timer);
       // Clear any pending tooltip timeout
       if (tooltipTimeout.current) {
         clearTimeout(tooltipTimeout.current);
       }
     };
-  }, []);
+  }, [width]);
 
   // Calculate scale domain to align with ticks
-  const getScaleDomain = () => {
+  const getScaleDomain = useMemo(() => {
     const rangeInDays =
       (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
 
+    // Create a copy of startDate to avoid mutating the original
+    const adjustedStartDate = new Date(startDate);
     if (rangeInDays > 1) {
-      startDate.setHours(0, 0, 0, 0);
+      adjustedStartDate.setHours(0, 0, 0, 0);
     }
 
     if (rangeInDays < 7) {
       // Less than a week - use start and end dates as is
-      return [startDate, endDate];
+      return [adjustedStartDate, endDate];
     } else if (rangeInDays < 30) {
       // Less than a month - use start and end dates as is
-      //
-      const previousMonday = new Date(startDate);
+      const previousMonday = new Date(adjustedStartDate);
       previousMonday.setDate(previousMonday.getDate() - 1);
       previousMonday.setDate(
         previousMonday.getDate() - (previousMonday.getDay() - 1),
       );
-      const nextMonday = new Date(startDate);
+      const nextMonday = new Date(adjustedStartDate);
       const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
       if (daysUntilMonday > 0) {
         nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
@@ -208,7 +188,7 @@ const HoldoutTimeline: React.FC<{
       return [previousMonday, endDate];
     } else {
       // More than a month - align with month boundaries
-      const scaleStart = new Date(startDate);
+      const scaleStart = new Date(adjustedStartDate);
       scaleStart.setDate(1); // Start at first day of the month
 
       const scaleEnd = new Date(endDate);
@@ -217,25 +197,121 @@ const HoldoutTimeline: React.FC<{
 
       return [scaleStart, scaleEnd];
     }
-  };
+  }, [startDate, endDate]);
 
   // Scales
   const xScale = scaleTime({
-    domain: getScaleDomain(),
+    domain: getScaleDomain,
     range: [margin.left, width - margin.right],
   });
   const yScale = scaleBand({
-    domain: filteredExperiments.map((e) => e.name),
+    domain: experiments.map((e) => e.name),
     range: [margin.top, height - margin.bottom],
     padding: 0.05, // Minimal padding for tighter spacing
   });
+  const tickValues = useMemo(() => {
+    const [scaleStart, scaleEnd] = getScaleDomain;
+    const ticks: Date[] = [];
+    const current = new Date(scaleStart);
+    const end = new Date(scaleEnd);
+    const rangeInDays =
+      (end.getTime() - scaleStart.getTime()) / (1000 * 60 * 60 * 24);
 
+    if (rangeInDays < 7) {
+      // Less than a week - show days
+      ticks.push(new Date(scaleStart));
+      while (current <= end) {
+        if (
+          current.getTime() !== scaleStart.getTime() &&
+          current.getTime() !== scaleEnd.getTime()
+        ) {
+          ticks.push(new Date(current));
+        }
+        current.setDate(current.getDate() + 1);
+      }
+    } else if (rangeInDays < 30) {
+      // Less than a month - show week boundaries (Mondays)
+      const previousMonday = new Date(scaleStart);
+      previousMonday.setDate(previousMonday.getDate() - 1);
+      previousMonday.setDate(
+        previousMonday.getDate() - (previousMonday.getDay() - 1),
+      );
+      ticks.push(new Date(previousMonday));
+
+      const nextMonday = new Date(scaleStart);
+      const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
+      if (daysUntilMonday > 0) {
+        nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
+      }
+
+      current.setTime(nextMonday.getTime());
+      while (current <= end) {
+        if (
+          current.getTime() !== scaleStart.getTime() &&
+          current.getTime() !== scaleEnd.getTime()
+        ) {
+          ticks.push(new Date(current));
+        }
+        current.setDate(current.getDate() + 7);
+      }
+    } else {
+      // More than a month - show month boundaries
+      const nextMonth = new Date(scaleStart);
+      nextMonth.setDate(1);
+      ticks.push(new Date(nextMonth)); // Add the first month
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      current.setTime(nextMonth.getTime());
+      while (current <= end) {
+        if (
+          current.getTime() !== scaleStart.getTime() &&
+          current.getTime() !== scaleEnd.getTime()
+        ) {
+          ticks.push(new Date(current));
+        }
+        current.setMonth(current.getMonth() + 1);
+      }
+    }
+    if (!endDateIsNow) {
+      ticks.push(new Date(endDate));
+    }
+    return ticks;
+  }, [getScaleDomain, endDate, endDateIsNow]);
+
+  const tickComponent = ({ x, y, formattedValue }) => {
+    // Check if this is the last tick (end date) and adjust positioning
+    const isLastTick = x >= width - margin.right - 50; // 50px buffer from right edge
+    const textAnchor = isLastTick ? "end" : "middle";
+    const textX = isLastTick ? x - 5 : x; // Move text left for last tick
+
+    return (
+      <g>
+        <text
+          x={textX}
+          y={y - 4}
+          textAnchor={textAnchor}
+          fill="var(--gray-11)"
+          fontSize={11}
+        >
+          {formattedValue}
+        </text>
+        <line
+          x1={x}
+          y1={y}
+          x2={x}
+          y2={margin.top + experiments.length * rowHeight}
+          stroke={"var(--gray-6)"}
+          strokeWidth={isLastTick ? 2 : 1}
+        />
+      </g>
+    );
+  };
   return (
     <Box>
       {experiments.length === 0 ? (
         <EmptyState
           title="No experiments found"
-          description="No experiments match your search criteria. Try adjusting your filters."
+          description="No Experiments in the holdout"
           rightButton={null}
           leftButton={null}
         />
@@ -251,7 +327,7 @@ const HoldoutTimeline: React.FC<{
               height: height - margin.top - margin.bottom,
             }}
           >
-            {filteredExperiments.map((experiment, i) => (
+            {experiments.map((experiment, i) => (
               <Box
                 key={`name-${experiment.id}`}
                 style={{
@@ -373,7 +449,7 @@ const HoldoutTimeline: React.FC<{
               </Flex>
             </TooltipWithBounds>
           )}
-          <svg width={width} height={height}>
+          <svg key={width} width={width} height={height}>
             <rect width={width} height={height} fill="none" />
             <Group>
               <GridColumns
@@ -409,119 +485,17 @@ const HoldoutTimeline: React.FC<{
                   }
                   return "-";
                 }}
-                tickValues={(() => {
-                  startDate.setHours(0, 0, 0, 0);
-                  const ticks: Date[] = [];
-                  const current = new Date(startDate);
-                  const end = new Date(endDate);
-                  const rangeInDays =
-                    (end.getTime() - startDate.getTime()) /
-                    (1000 * 60 * 60 * 24);
-                  console.log(rangeInDays, "rangeInDays");
-
-                  if (rangeInDays < 7) {
-                    // Less than a week - show days
-                    ticks.push(startDate);
-                    while (current <= end) {
-                      if (
-                        current.getTime() !== startDate.getTime() &&
-                        current.getTime() !== endDate.getTime()
-                      ) {
-                        ticks.push(new Date(current));
-                      }
-                      current.setDate(current.getDate() + 1);
-                    }
-                  } else if (rangeInDays < 30) {
-                    // Less than a month - show week boundaries (Mondays)
-                    // Find the next Monday from start date
-                    //get previous monday
-                    const previousMonday = new Date(startDate);
-                    previousMonday.setDate(previousMonday.getDate() - 1);
-                    previousMonday.setDate(
-                      previousMonday.getDate() - (previousMonday.getDay() - 1),
-                    );
-                    ticks.push(new Date(previousMonday));
-
-                    const nextMonday = new Date(startDate);
-                    const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
-                    if (daysUntilMonday > 0) {
-                      nextMonday.setDate(
-                        nextMonday.getDate() + daysUntilMonday,
-                      );
-                    }
-
-                    current.setTime(nextMonday.getTime());
-                    while (current <= end) {
-                      if (
-                        current.getTime() !== startDate.getTime() &&
-                        current.getTime() !== endDate.getTime()
-                      ) {
-                        ticks.push(new Date(current));
-                      }
-                      current.setDate(current.getDate() + 7);
-                    }
-                  } else {
-                    // More than a month - show month boundaries
-                    // Find the first day of the next month
-
-                    const nextMonth = new Date(startDate);
-                    nextMonth.setDate(1);
-                    ticks.push(new Date(nextMonth)); // Add the first month
-                    nextMonth.setMonth(nextMonth.getMonth() + 1);
-
-                    current.setTime(nextMonth.getTime());
-                    while (current <= end) {
-                      if (
-                        current.getTime() !== startDate.getTime() &&
-                        current.getTime() !== endDate.getTime()
-                      ) {
-                        ticks.push(new Date(current));
-                      }
-                      current.setMonth(current.getMonth() + 1);
-                    }
-                  }
-                  if (!endDateIsNow) {
-                    ticks.push(new Date(endDate));
-                  }
-                  return ticks;
-                })()}
+                tickValues={tickValues}
                 tickLabelProps={() => ({
                   fontSize: 11,
                   textAnchor: "middle",
                 })}
-                tickComponent={({ x, y, formattedValue }) => {
-                  // Check if this is the last tick (end date) and adjust positioning
-                  const isLastTick = x >= width - margin.right - 50; // 50px buffer from right edge
-                  const textAnchor = isLastTick ? "end" : "middle";
-                  const textX = isLastTick ? x - 5 : x; // Move text left for last tick
-
-                  return (
-                    <g>
-                      <text
-                        x={textX}
-                        y={y - 4}
-                        textAnchor={textAnchor}
-                        fill="var(--gray-11)"
-                        fontSize={11}
-                      >
-                        {formattedValue}
-                      </text>
-                      <line
-                        x1={x}
-                        y1={y}
-                        x2={x}
-                        y2={margin.top + filteredExperiments.length * rowHeight}
-                        stroke={"var(--gray-6)"}
-                        strokeWidth={isLastTick ? 2 : 1}
-                      />
-                    </g>
-                  );
-                }}
+                tickComponent={tickComponent}
                 hideTicks={true}
               />
 
               {/* Experiment Row Backgrounds */}
-              {filteredExperiments.map((experiment, i) => (
+              {experiments.map((experiment, i) => (
                 <rect
                   key={`bg-${experiment.id}`}
                   x={margin.left}
@@ -562,7 +536,7 @@ const HoldoutTimeline: React.FC<{
               )}
 
               {/* Experiment Timelines - simplified bars */}
-              {filteredExperiments.map((experiment) => {
+              {experiments.map((experiment) => {
                 if (experiment.phases) {
                   return experiment.phases.map((phase, i) => {
                     const start = getValidDate(phase.dateStarted) ?? "";
