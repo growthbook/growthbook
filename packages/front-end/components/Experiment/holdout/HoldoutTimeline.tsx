@@ -328,6 +328,30 @@ const HoldoutTimeline: React.FC<{
               height: height - margin.top - margin.bottom,
             }}
           >
+            {/* Experiment label header */}
+            <Box
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: -29.5,
+                height: 30,
+                display: "flex",
+                alignItems: "center",
+                padding: "0 12px",
+                borderBottom: "1px solid",
+              }}
+            >
+              <Text
+                size="2"
+                weight="bold"
+                style={{
+                  color: "var(--gray-11)",
+                }}
+              >
+                Experiment
+              </Text>
+            </Box>
             {experiments.map((experiment, i) => (
               <Box
                 key={`name-${experiment.id}`}
