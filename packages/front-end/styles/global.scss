@@ -549,8 +549,15 @@ pre {
 
 .main.experiment,
 .main.bandit,
+.main.holdout,
 .public.experiment,
-.public.bandit {
+.public.bandit,
+.public.holdout {
+  .experiment-header {
+    .border {
+      border-bottom: 1px solid var(--border-color-200);
+    }
+  }
   .experiment-tabs {
     background-color: var(--color-background);
     // NB: Keep top property in sync with TABS_HEADER_HEIGHT_PX in ExperimentHeader.tsx

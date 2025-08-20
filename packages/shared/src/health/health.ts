@@ -107,6 +107,7 @@ export function getSRMValue(
         snapshot.banditResult?.srm ?? snapshot.health?.traffic?.overall?.srm
       );
 
+    case "holdout":
     case "standard": {
       const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
 

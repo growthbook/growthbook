@@ -143,6 +143,7 @@ export default function AnalysisSettings({
   });
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -222,17 +223,18 @@ export default function AnalysisSettings({
                 </div>
               </div>
             )}
-
-            <div className="col-4 mb-4">
-              <div className="h5">Segment</div>
-              <div>
-                {experiment.segment ? (
-                  <>{getSegmentById(experiment.segment)?.name}</>
-                ) : (
-                  <em>none (all users)</em>
-                )}
+            {!isHoldout && (
+              <div className="col-4 mb-4">
+                <div className="h5">Segment</div>
+                <div>
+                  {experiment.segment ? (
+                    <>{getSegmentById(experiment.segment)?.name}</>
+                  ) : (
+                    <em>none (all users)</em>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -277,25 +279,28 @@ export default function AnalysisSettings({
               )}
             </div>
           </div>
-
-          <div className="col-4">
-            <div className="h5">Guardrail Metrics</div>
-            <div>
-              {guardrails.length ? (
-                <ul className="list-unstyled mb-0">
-                  {guardrails.map((metric, i) => (
-                    <li key={`guardrail-${i}`}>
-                      <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <em>none</em>
-              )}
+          {!isHoldout && (
+            <div className="col-4">
+              <div className="h5">Guardrail Metrics</div>
+              <div>
+                {guardrails.length ? (
+                  <ul className="list-unstyled mb-0">
+                    {guardrails.map((metric, i) => (
+                      <li key={`guardrail-${i}`}>
+                        <Link href={getMetricLink(metric.id)}>
+                          {metric.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <em>none</em>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
-        {!isBandit && hasDecisionFramework && (
+        {!isBandit && !isHoldout && hasDecisionFramework && (
           <div className="row mt-4">
             <div className="col-4">
               <div className="h5">Target MDE</div>

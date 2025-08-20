@@ -26,6 +26,7 @@ import {
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { PiWarningFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -43,6 +44,7 @@ import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
+import HelperText from "@/components/Radix/HelperText";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -372,6 +374,7 @@ const CompactResults: FC<{
             regressionAdjustmentEnabled,
             statsEngine,
             hideDetails,
+            experimentType,
           )}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
@@ -389,6 +392,7 @@ const CompactResults: FC<{
           isGoalMetrics={true}
           ssrPolyfills={ssrPolyfills}
           disableTimeSeriesButton={disableTimeSeriesButton}
+          isHoldout={experimentType === "holdout"}
         />
       ) : null}
 
@@ -428,6 +432,7 @@ const CompactResults: FC<{
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
+            isHoldout={experimentType === "holdout"}
           />
         </div>
       ) : null}
@@ -468,6 +473,7 @@ const CompactResults: FC<{
             isBandit={isBandit}
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
+            isHoldout={experimentType === "holdout"}
           />
         </div>
       ) : (
@@ -482,6 +488,7 @@ export function getRenderLabelColumn(
   regressionAdjustmentEnabled?: boolean,
   statsEngine?: StatsEngine,
   hideDetails?: boolean,
+  experimentType?: ExperimentType,
 ) {
   return function renderLabelColumn(
     label: string,
@@ -489,6 +496,9 @@ export function getRenderLabelColumn(
     row?: ExperimentTableRow,
     maxRows?: number,
   ) {
+    const invalidHoldoutMetric =
+      experimentType === "holdout" &&
+      metric?.windowSettings?.type === "conversion";
     const metricLink = (
       <Tooltip
         body={
@@ -498,6 +508,16 @@ export function getRenderLabelColumn(
             statsEngine={statsEngine}
             reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
             hideDetails={hideDetails}
+            extraInfo={
+              invalidHoldoutMetric ? (
+                <div className="mb-2">
+                  <HelperText status="warning">
+                    Metrics with conversion windows are not supported in
+                    holdouts
+                  </HelperText>
+                </div>
+              ) : undefined
+            }
           />
         }
         tipPosition="right"
@@ -535,6 +555,12 @@ export function getRenderLabelColumn(
               />
             }
           >
+            {invalidHoldoutMetric ? (
+              <PiWarningFill
+                style={{ color: "var(--amber-11)" }}
+                className="mr-1"
+              />
+            ) : null}
             <MetricName metric={metric} disableTooltip />
             <PercentileLabel metric={metric} />
           </ConditionalWrapper>

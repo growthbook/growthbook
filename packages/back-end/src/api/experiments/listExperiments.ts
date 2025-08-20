@@ -7,6 +7,7 @@ import {
   createApiRequestHandler,
 } from "back-end/src/util/handler";
 import { listExperimentsValidator } from "back-end/src/validators/openapi";
+import { ExperimentInterfaceExcludingHoldouts } from "back-end/src/validators/experiments";
 
 export const listExperiments = createApiRequestHandler(
   listExperimentsValidator,
@@ -22,14 +23,18 @@ export const listExperiments = createApiRequestHandler(
         (exp) =>
           applyFilter(req.query.experimentId, exp.trackingKey) &&
           applyFilter(req.query.datasourceId, exp.datasource) &&
-          applyFilter(req.query.projectId, exp.project),
+          applyFilter(req.query.projectId, exp.project) &&
+          exp.type !== "holdout",
       )
       .sort((a, b) => a.dateCreated.getTime() - b.dateCreated.getTime()),
     req.query,
   );
 
   const promises = filtered.map((experiment) =>
-    toExperimentApiInterface(req.context, experiment),
+    toExperimentApiInterface(
+      req.context,
+      experiment as ExperimentInterfaceExcludingHoldouts,
+    ),
   );
   const apiExperiments = await Promise.all(promises);
 
