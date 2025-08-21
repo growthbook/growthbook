@@ -326,7 +326,7 @@ export default function DataVizFilter({
                   required
                   value={filters[filterIndex].config?.min?.toString() || ""}
                   onChange={(e) => {
-                    const value = e.target.value || undefined;
+                    const value = e.target.value || "";
                     updateFilterConfig({ min: value });
                   }}
                 />
@@ -343,7 +343,7 @@ export default function DataVizFilter({
                   required
                   value={filters[filterIndex].config?.max?.toString() || ""}
                   onChange={(e) => {
-                    const value = e.target.value || undefined;
+                    const value = e.target.value || "";
                     updateFilterConfig({ max: value });
                   }}
                 />
@@ -370,7 +370,7 @@ export default function DataVizFilter({
                 required
                 value={filters[filterIndex].config?.value?.toString() || ""}
                 onChange={(e) => {
-                  const value = e.target.value || undefined;
+                  const value = e.target.value || "";
                   updateFilterConfig({ value });
                 }}
               />
@@ -392,7 +392,7 @@ export default function DataVizFilter({
                 required
                 value={String(filters[filterIndex].config?.value || "")}
                 onChange={(e) => {
-                  const value = e.target.value || undefined;
+                  const value = e.target.value || "";
                   updateFilterConfig({ value });
                 }}
               />

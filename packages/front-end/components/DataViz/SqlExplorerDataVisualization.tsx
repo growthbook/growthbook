@@ -215,6 +215,7 @@ export function DataVisualizationDisplay({
           }
           // Number filters
           case "greaterThan": {
+            if (!filter.config.value) return true;
             if (isNaN(rowValue)) return false;
 
             const threshold = Number(filter.config.value);
@@ -222,6 +223,7 @@ export function DataVisualizationDisplay({
           }
 
           case "greaterThanOrEqualTo": {
+            if (!filter.config.value) return true;
             if (isNaN(rowValue)) return false;
 
             const threshold = Number(filter.config.value);
@@ -229,6 +231,7 @@ export function DataVisualizationDisplay({
           }
 
           case "lessThan": {
+            if (!filter.config.value) return true;
             if (isNaN(rowValue)) return false;
 
             const threshold = Number(filter.config.value);
@@ -236,6 +239,7 @@ export function DataVisualizationDisplay({
           }
 
           case "lessThanOrEqualTo": {
+            if (!filter.config.value) return true;
             if (isNaN(rowValue)) return false;
 
             const threshold = Number(filter.config.value);
@@ -243,6 +247,7 @@ export function DataVisualizationDisplay({
           }
 
           case "equalTo": {
+            if (!filter.config.value) return true;
             if (isNaN(rowValue)) return false;
 
             const target = Number(filter.config.value);
@@ -252,6 +257,9 @@ export function DataVisualizationDisplay({
           // String filters
           case "contains": {
             const searchText = filter.config.value;
+            if (!searchText) {
+              return true;
+            }
             return String(rowValue)
               .toLowerCase()
               .includes(searchText.toLowerCase());
@@ -259,6 +267,9 @@ export function DataVisualizationDisplay({
 
           case "includes": {
             const selectedValues = filter.config.values;
+            if (!selectedValues) {
+              return true;
+            }
             return selectedValues.length === 0
               ? true
               : selectedValues.includes(String(rowValue));
