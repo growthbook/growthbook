@@ -255,7 +255,7 @@ export default function SafeRolloutFields({
               includeFacts={true}
               forceSingleMetric={false}
               includeGroups={true}
-              noPercentile={false}
+              excludeQuantiles={true}
               selected={
                 form.watch("safeRolloutFields.guardrailMetricIds") || []
               }
