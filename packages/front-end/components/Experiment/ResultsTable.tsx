@@ -440,7 +440,7 @@ export default function ResultsTable({
         <div className="w-100" style={{ minWidth: 700 }}>
           <table id="main-results" className="experiment-results table-sm">
             <thead>
-              <tr className="results-top-row">
+              <tr className="results-top-row" style={{ height: 45 }}>
                 {columnsToDisplay.includes("Metric & Variation Names") && (
                   <th
                     className={clsx("axis-col header-label", {

@@ -8,15 +8,19 @@ import {
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { blockHasFieldOfType } from "shared/enterprise";
+import { MetricSnapshotSettings } from "back-end/types/report";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
+import { applyMetricOverrides } from "@/services/experiments";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
   block,
   experiment,
+  snapshot,
   analysis,
   ssrPolyfills,
   metrics,
@@ -81,11 +85,40 @@ export default function ExperimentMetricBlock({
 
   const result = analysis.results[0];
 
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
+    snapshot?.settings?.metricSettings?.map((m) => ({
+      metric: m.id,
+      properPrior: m.computedSettings?.properPrior ?? false,
+      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+      properPriorStdDev:
+        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+      regressionAdjustmentReason:
+        m.computedSettings?.regressionAdjustmentReason || "",
+      regressionAdjustmentDays:
+        m.computedSettings?.regressionAdjustmentDays || 0,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
+    })) || [];
+
   const allRows = sortedMetrics
     .map((metric) => {
-      return {
-        label: metric.name,
+      const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
+        experiment.metricOverrides ?? [],
+      );
+      let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+      if (settingsForSnapshotMetrics) {
+        metricSnapshotSettings = settingsForSnapshotMetrics.find(
+          (s) => s.metric === metric.id,
+        );
+      }
+      return {
+        label: newMetric?.name,
+        metric: newMetric,
+        metricOverrideFields: overrideFields,
+        rowClass: newMetric?.inverse ? "inverse" : "",
         variations: result.variations.map((v) => ({
           value: v.metrics[metric.id]?.value || 0,
           cr: v.metrics[metric.id]?.cr || 0,
@@ -110,7 +143,8 @@ export default function ExperimentMetricBlock({
           goalMetrics,
           secondaryMetrics,
         ),
-        metricOverrideFields: [],
+        metricSnapshotSettings,
+        metricOverrideFields: overrideFields,
       };
     })
     .filter(isDefined);

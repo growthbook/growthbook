@@ -20,7 +20,6 @@ type UpdateStaleInformationSchemaTableJob = Job<{
 const updateStaleInformationSchemaTable = async (
   job: UpdateStaleInformationSchemaTableJob,
 ) => {
-  // console.log("starting the job!");
   const { organization, informationSchemaTableId } = job.attrs.data;
 
   if (!informationSchemaTableId || !organization) return;
