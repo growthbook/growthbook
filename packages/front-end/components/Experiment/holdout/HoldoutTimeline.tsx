@@ -289,10 +289,10 @@ const HoldoutTimeline: React.FC<{
       <g>
         <text
           x={textX}
-          y={y - 4}
+          y={y - 6}
           textAnchor={textAnchor}
-          fill="var(--gray-11)"
-          fontSize={11}
+          fontSize={14}
+          fontWeight="medium"
         >
           {formattedValue}
         </text>
@@ -334,23 +334,15 @@ const HoldoutTimeline: React.FC<{
                 position: "absolute",
                 left: 0,
                 right: 0,
-                top: -29.5,
-                height: 30,
+                top: -33,
+                height: 33.5,
                 display: "flex",
                 alignItems: "center",
                 padding: "0 12px",
                 borderBottom: "1px solid",
               }}
             >
-              <Text
-                size="2"
-                weight="bold"
-                style={{
-                  color: "var(--gray-11)",
-                }}
-              >
-                Experiment
-              </Text>
+              <Text size="2">Experiment</Text>
             </Box>
             {experiments.map((experiment, i) => (
               <Box
@@ -387,7 +379,6 @@ const HoldoutTimeline: React.FC<{
                   <Link
                     href={`/experiment/${experiment.id}`}
                     style={{
-                      color: "var(--gray-12)",
                       textDecoration: "none",
                     }}
                   >
