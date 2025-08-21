@@ -89,7 +89,13 @@ const filterConfigurationValidator = z.union([
   z.object({
     column: z.string(),
     type: z.literal("number"),
-    filterType: z.enum(["greaterThan", "lessThan", "equalTo"]),
+    filterType: z.enum([
+      "greaterThan",
+      "lessThan",
+      "equalTo",
+      "greaterThanOrEqualTo",
+      "lessThanOrEqualTo",
+    ]),
     config: z.object({
       value: z.union([z.string(), z.number()]),
     }),

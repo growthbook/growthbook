@@ -221,11 +221,25 @@ export function DataVisualizationDisplay({
             return rowValue > threshold;
           }
 
+          case "greaterThanOrEqualTo": {
+            if (isNaN(rowValue)) return false;
+
+            const threshold = Number(filter.config.value);
+            return rowValue >= threshold;
+          }
+
           case "lessThan": {
             if (isNaN(rowValue)) return false;
 
             const threshold = Number(filter.config.value);
             return rowValue < threshold;
+          }
+
+          case "lessThanOrEqualTo": {
+            if (isNaN(rowValue)) return false;
+
+            const threshold = Number(filter.config.value);
+            return rowValue <= threshold;
           }
 
           case "equalTo": {

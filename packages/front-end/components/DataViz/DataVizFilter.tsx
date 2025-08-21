@@ -43,7 +43,17 @@ const filterOptions = [
   // Number filters
   { value: "numberRange", label: "Custom Range", supportedTypes: ["number"] },
   { value: "greaterThan", label: "Greater Than", supportedTypes: ["number"] },
+  {
+    value: "greaterThanOrEqualTo",
+    label: "Greater Than or Equal To",
+    supportedTypes: ["number"],
+  },
   { value: "lessThan", label: "Less Than", supportedTypes: ["number"] },
+  {
+    value: "lessThanOrEqualTo",
+    label: "Less Than or Equal To",
+    supportedTypes: ["number"],
+  },
   { value: "equalTo", label: "Equals", supportedTypes: ["number"] },
 
   // String filters
@@ -178,7 +188,12 @@ export default function DataVizFilter({
         updateFilter({
           column: currentFilter.column,
           type: "number",
-          filterType: newFilterType as "greaterThan" | "lessThan" | "equalTo",
+          filterType: newFilterType as
+            | "greaterThan"
+            | "lessThan"
+            | "equalTo"
+            | "greaterThanOrEqualTo"
+            | "lessThanOrEqualTo",
           config: { value: "0" },
         });
       }
@@ -339,7 +354,9 @@ export default function DataVizFilter({
         {/* Single Number Value Input */}
         {filters[filterIndex].type === "number" &&
           (filters[filterIndex].filterType === "greaterThan" ||
+            filters[filterIndex].filterType === "greaterThanOrEqualTo" ||
             filters[filterIndex].filterType === "lessThan" ||
+            filters[filterIndex].filterType === "lessThanOrEqualTo" ||
             filters[filterIndex].filterType === "equalTo") && (
             <Flex direction="row" justify="between" align="center">
               <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
