@@ -89,7 +89,7 @@ Options options = Options.builder()
 // Create growthbook instance using the options you need
 GrowthBookClient gb = new GrowthBookClient(options);
 
-// call the init method to load features 
+// call the init method to load features
 gb.initialize();
 
 gb.isOn("featureKey", UserContext.builder()
@@ -109,7 +109,7 @@ Options options = Options.builder()
 // Create growthbook instance using the options you need
 GrowthBookClient gb = new GrowthBookClient(options);
 
-// call the init method to load features 
+// call the init method to load features
 gb.initialize();
 
 // Use the same client instance with different user contexts
@@ -702,13 +702,13 @@ Any time a feature is evaluated (regardless of experiment participation), this c
 FeatureUsageCallback featureUsageCallback = new FeatureUsageCallback() {
     @Override
     public <ValueType> void onFeatureUsage(
-        String featureKey, 
+        String featureKey,
         FeatureResult<ValueType> featureResult
     ) {
         // Log feature usage
-        logger.info("Feature '{}' evaluated with value: {}", 
+        logger.info("Feature '{}' evaluated with value: {}",
                    featureKey, featureResult.getValue());
-        
+
         // Send to analytics
         analytics.track("feature_used", Map.of(
             "feature_key", featureKey,
@@ -748,11 +748,11 @@ boolean darkMode = gb.isOn("dark_mode", userContext);
 FeatureUsageCallback featureUsageCallback = new FeatureUsageCallback() {
     @Override
     public <ValueType> void onFeatureUsage(
-        String featureKey, 
+        String featureKey,
         FeatureResult<ValueType> featureResult
     ) {
         // Log feature usage
-        System.out.println("Feature used: " + featureKey + 
+        System.out.println("Feature used: " + featureKey +
                           " = " + featureResult.getValue());
     }
 };
@@ -899,7 +899,7 @@ ExperimentRunCallback analyticsCallback = (experiment, result) -> {
 
 ExperimentRunCallback loggingCallback = (experiment, result) -> {
     // Log for debugging
-    logger.debug("Experiment {} evaluated for user {}", 
+    logger.debug("Experiment {} evaluated for user {}",
                 experiment.getKey(), result.getHashAttribute());
 };
 
@@ -1051,10 +1051,10 @@ You will need to add the following to your `proguard-rules.pro` file to ensure t
 ```java
 @RestController
 public class FeatureController {
-    
+
     // Singleton enhanced client instance
     private final GrowthBookClient growthBookClient;
-    
+
     @Autowired
     public FeatureController() {
         // build options to configure your Growthbook instance
@@ -1062,67 +1062,67 @@ public class FeatureController {
                 .apiHost("https://cdn.growthbook.io")
                 .clientKey("sdk-abc123")
                 .build();
-        
+
         // Create growthbook instance using the options you need
         this.growthBookClient = new GrowthBookClient(options);
-        
+
         // Initialize features once
         this.growthBookClient.initialize();
     }
-    
+
     @GetMapping("/api/features")
     public ResponseEntity<Map<String, Object>> getFeatures(HttpServletRequest request) {
         // Create user context per request
         UserContext userContext = createUserContext(request);
-        
+
         // Evaluate features using shared client
         Map<String, Object> features = new HashMap<>();
         features.put("darkMode", growthBookClient.isOn("dark-mode", userContext));
         features.put("maxItems", growthBookClient.getFeatureValue("max-items", 10, userContext));
         features.put("newLayout", growthBookClient.isOn("new-layout", userContext));
-        
+
         return ResponseEntity.ok(features);
     }
-    
+
     @GetMapping("/api/user/{userId}/features")
     public ResponseEntity<Map<String, Object>> getUserFeatures(@PathVariable String userId) {
         // Create user-specific context
         UserContext userContext = UserContext.builder()
             .attributesJson(String.format("{\"id\":\"%s\",\"loggedIn\":true}", userId))
             .build();
-        
+
         // Evaluate features for specific user
         Map<String, Object> features = new HashMap<>();
         features.put("premiumFeature", growthBookClient.isOn("premium-feature", userContext));
         features.put("theme", growthBookClient.getFeatureValue("theme", "light", userContext));
-        
+
         return ResponseEntity.ok(features);
     }
-    
+
     private UserContext createUserContext(HttpServletRequest request) {
         // Extract user attributes from request
         String userId = getUserIdFromSession(request);
         String userAgent = request.getHeader("User-Agent");
         String country = getCountryFromRequest(request);
-        
+
         // Build attributes JSON
         String attributesJson = String.format(
             "{\"id\":\"%s\",\"userAgent\":\"%s\",\"country\":\"%s\",\"loggedIn\":%s}",
             userId, userAgent, country, userId != null
         );
-        
+
         return UserContext.builder()
             .attributesJson(attributesJson)
             .build();
     }
-    
+
     private String getUserIdFromSession(HttpServletRequest request) {
         // Your implementation to extract user ID from session/JWT/etc
-        return request.getSession().getAttribute("userId") != null 
-            ? request.getSession().getAttribute("userId").toString() 
+        return request.getSession().getAttribute("userId") != null
+            ? request.getSession().getAttribute("userId").toString()
             : null;
     }
-    
+
     private String getCountryFromRequest(HttpServletRequest request) {
         // Your implementation to determine user's country
         return request.getHeader("CF-IPCountry"); // Example using Cloudflare header
