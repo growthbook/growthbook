@@ -29,6 +29,7 @@ type EventPayload = {
   sdk_language: string;
   sdk_version: string;
   url: string;
+  timestamp: string;
   context_json: Record<string, unknown>;
   user_id: string | null;
   device_id: string | null;
@@ -107,6 +108,7 @@ function getEventPayload({
   properties,
   attributes,
   url,
+  timestamp,
 }: EventData): EventPayload {
   const { nested, topLevel } = parseAttributes(attributes || {});
 
@@ -117,6 +119,7 @@ function getEventPayload({
     sdk_language: "js",
     sdk_version: SDK_VERSION,
     url: url,
+    timestamp,
     context_json: nested,
   };
 }

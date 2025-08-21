@@ -179,7 +179,7 @@ if (cwvSamplingRate || errorSamplingRate || pageViewSamplingRate) {
       cwvSamplingRate,
       errorSamplingRate,
       pageViewSamplingRate,
-    })
+    }),
   );
 }
 

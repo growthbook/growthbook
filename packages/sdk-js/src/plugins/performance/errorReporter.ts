@@ -70,16 +70,20 @@ export function createErrorReporter({
           stack,
         };
         if (growthbook.logEvent.length === 3) {
-          (growthbook.logEvent as (
-            eventName: string,
-            properties: EventProperties,
-            userContext: UserContext
-          ) => void)("browser-error", properties, userContext || {});
+          (
+            growthbook.logEvent as (
+              eventName: string,
+              properties: EventProperties,
+              userContext: UserContext,
+            ) => void
+          )("browser-error", properties, userContext || {});
         } else {
-          (growthbook.logEvent as (
-            eventName: string,
-            properties?: EventProperties
-          ) => void)("browser-error", properties);
+          (
+            growthbook.logEvent as (
+              eventName: string,
+              properties?: EventProperties,
+            ) => void
+          )("browser-error", properties);
         }
       }
     });
@@ -92,16 +96,20 @@ export function createErrorReporter({
       };
       if (shouldLogError(message, stack)) {
         if (growthbook.logEvent.length === 3) {
-          (growthbook.logEvent as (
-            eventName: string,
-            properties: EventProperties,
-            userContext: UserContext
-          ) => void)("browser-error", properties, userContext || {});
+          (
+            growthbook.logEvent as (
+              eventName: string,
+              properties: EventProperties,
+              userContext: UserContext,
+            ) => void
+          )("browser-error", properties, userContext || {});
         } else {
-          (growthbook.logEvent as (
-            eventName: string,
-            properties?: EventProperties
-          ) => void)("browser-error", properties);
+          (
+            growthbook.logEvent as (
+              eventName: string,
+              properties?: EventProperties,
+            ) => void
+          )("browser-error", properties);
         }
       }
     });

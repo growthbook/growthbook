@@ -193,7 +193,7 @@ export function createCWVReporter({
     // TTFB
     if (trackTTFB) {
       const navEntry = performance.getEntriesByType(
-        "navigation"
+        "navigation",
       )[0] as PerformanceNavigationTiming;
       if (navEntry) {
         growthbook.logEvent("CWV:TTFB", { value: navEntry.responseStart });
@@ -210,7 +210,7 @@ export function createCWVReporter({
           }
           // If fcpTime is not set, ignore this long task
         }
-      }).observe({ type: "long-task", buffered: true });
+      }).observe({ type: "longtask", buffered: true });
     }
   } catch {
     // noop

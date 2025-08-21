@@ -50,7 +50,7 @@ describe("growthbookTrackingPlugin", () => {
 
     const calledWith = fetchMock.mock.calls[0];
     expect(calledWith[0]).toBe(
-      `https://us1.gb-ingest.com/track?client_key=test`
+      `https://us1.gb-ingest.com/track?client_key=test`,
     );
     expect(calledWith[1]).toMatchObject({
       method: "POST",
@@ -308,7 +308,7 @@ describe("growthbookTrackingPlugin", () => {
     await sleep(150);
 
     expect(fetchMock.mock.calls[2][0]).toBe(
-      "https://us1.gb-ingest.com/track?client_key=test2"
+      "https://us1.gb-ingest.com/track?client_key=test2",
     );
     const bodyEvents3 = JSON.parse(fetchMock.mock.calls[2][1].body).events;
     expect(bodyEvents3.length).toBe(1);
