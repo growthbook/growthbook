@@ -145,8 +145,11 @@ describe("growthbookTrackingPlugin", () => {
 
     gb.logEvent("test", { bar: "baz" });
 
+    const calledWith = log.mock.calls[0];
+
     // Should have been logged to console
-    expect(log).toHaveBeenCalledWith("Logging event to GrowthBook", {
+    expect(calledWith[0]).toBe("Logging event to GrowthBook");
+    expect(calledWith[1]).toMatchObject({
       context_json: { foo: "bar" },
       device_id: "123",
       event_name: "test",
@@ -156,6 +159,7 @@ describe("growthbookTrackingPlugin", () => {
       sdk_version: "",
       session_id: null,
       url: "http://localhost:3000",
+      timestamp: expect.any(String),
       user_id: null,
     });
 
