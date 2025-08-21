@@ -1082,6 +1082,20 @@ export default function ResultsTable({
                                 additionalButton={
                                   compactResults ? timeSeriesButton : undefined
                                 }
+                                onMouseMove={(e) =>
+                                  onPointerMove(e, {
+                                    x: "element-left",
+                                    targetClassName: "hover-target",
+                                    offsetY: -8,
+                                  })
+                                }
+                                onMouseLeave={onPointerLeave}
+                                onClick={(e) =>
+                                  onPointerMove(e, {
+                                    x: "element-left",
+                                    offsetY: -8,
+                                  })
+                                }
                               />
                             ) : (
                               <td></td>
@@ -1175,7 +1189,7 @@ function drawEmptyRow({
   renderLastColumn: boolean;
 }) {
   return (
-    <tr key={key} style={style} className={className}>
+    <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
       {renderLabel && (
         <td colSpan={labelColSpan}>
           <div style={{ marginTop: "var(--space-3)" }}>{label}</div>
