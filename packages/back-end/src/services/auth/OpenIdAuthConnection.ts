@@ -186,7 +186,7 @@ export class OpenIdAuthConnection implements AuthConnection {
             cache: true,
             cacheMaxEntries: 50,
             rateLimit: true,
-            jwksRequestsPerMinute: 5,
+            jwksRequestsPerMinute: 10,
             jwksUri,
           }),
           audience: connection.clientId,
