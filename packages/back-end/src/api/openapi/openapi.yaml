@@ -165,9 +165,17 @@ paths:
     delete:
       $ref: "./paths/deleteDimension.yaml"
   /segments:
-    $ref: "./paths/listSegments.yaml"
+    get:
+      $ref: "./paths/listSegments.yaml"
+    post:
+      $ref: "./paths/postSegment.yaml"
   /segments/{id}:
-    $ref: "./paths/getSegment.yaml"
+    get:
+      $ref: "./paths/getSegment.yaml"
+    post:
+      $ref: "./paths/updateSegment.yaml"
+    delete:
+      $ref: "./paths/deleteSegment.yaml"
   /sdk-connections:
     get:
       $ref: "./paths/listSdkConnections.yaml"
