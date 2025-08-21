@@ -31,6 +31,7 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
 import Callout from "@/components/Radix/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import Link from "../Radix/Link";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 
@@ -77,6 +78,7 @@ export default function FeaturesHeader({
     project: currentProject,
     projects,
   } = useDefinitions();
+  const { holdouts } = useHoldouts(feature.project);
   const hasHoldoutsFeature = hasCommercialFeature("holdouts");
   const holdoutsEnabled =
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
@@ -188,18 +190,21 @@ export default function FeaturesHeader({
                     </a>
                   </>
                 )}
-                {canEdit && canPublish && holdoutsEnabled && (
-                  <a
-                    className="dropdown-item"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setAddToHoldoutModal(true);
-                    }}
-                  >
-                    Add to holdout
-                  </a>
-                )}
+                {canEdit &&
+                  canPublish &&
+                  holdoutsEnabled &&
+                  holdouts.length > 0 && (
+                    <a
+                      className="dropdown-item"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setAddToHoldoutModal(true);
+                      }}
+                    >
+                      Add to holdout
+                    </a>
+                  )}
                 {canEdit && canPublish && (
                   <a
                     className="dropdown-item"

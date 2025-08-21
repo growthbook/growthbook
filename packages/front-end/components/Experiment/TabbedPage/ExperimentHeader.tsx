@@ -55,6 +55,7 @@ import HelperText from "@/components/Radix/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import TemplateForm from "../Templates/TemplateForm";
 import AddToHoldoutModal from "../holdout/AddToHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
@@ -229,8 +230,7 @@ export default function ExperimentHeader({
   const hasHoldoutsFeature = hasCommercialFeature("holdouts");
   const holdoutsEnabled =
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
-
-  console.log("holdoutsEnabled", holdoutsEnabled);
+  const { holdouts } = useHoldouts(experiment.project);
 
   const hasUpdatePermissions = !holdout
     ? permissionsUtil.canViewExperimentModal(experiment.project)
@@ -816,6 +816,7 @@ export default function ExperimentHeader({
                 {canEditExperiment &&
                   !isHoldout &&
                   holdoutsEnabled &&
+                  holdouts.length > 0 &&
                   experiment.status === "draft" && (
                     <DropdownMenuItem
                       onClick={() => {
