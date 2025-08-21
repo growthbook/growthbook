@@ -861,6 +861,9 @@ export default function ResultsTable({
                       <tr
                         className="results-variation-row align-items-center"
                         key={j}
+                        style={{
+                          height: compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT,
+                        }}
                       >
                         {columnsToDisplay.includes(
                           "Metric & Variation Names",
