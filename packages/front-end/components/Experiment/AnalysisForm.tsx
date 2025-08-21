@@ -783,7 +783,7 @@ const AnalysisForm: FC<{
                   : undefined
               }
               forceSingleGoalMetric={isBandit}
-              noPercentileGoalMetrics={isBandit}
+              noQuantileGoalMetrics={isBandit}
               filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
             />
