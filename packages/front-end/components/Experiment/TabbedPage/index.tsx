@@ -525,17 +525,19 @@ export default function TabbedPage({
         />
       </div>
 
-      <div className="mt-4 px-4 border-top pb-3">
-        <div className="pt-2 pt-4 pb-5 container pagecontents">
-          <div className="h3 mb-4">Comments</div>
-          <DiscussionThread
-            type="experiment"
-            id={experiment.id}
-            allowNewComments={!experiment.archived}
-            projects={experiment.project ? [experiment.project] : []}
-          />
+      {tab !== "dashboards" && (
+        <div className="mt-4 px-4 border-top pb-3">
+          <div className="pt-2 pt-4 pb-5 container pagecontents">
+            <div className="h3 mb-4">Comments</div>
+            <DiscussionThread
+              type="experiment"
+              id={experiment.id}
+              allowNewComments={!experiment.archived}
+              projects={experiment.project ? [experiment.project] : []}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

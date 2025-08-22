@@ -18,6 +18,9 @@ body {
   -webkit-font-smoothing: antialiased;
   background-color: var(--background-color);
   color: var(--text-color-main);
+  &.no-scroll {
+    overflow: hidden;
+  }
 }
 
 .text-main {
@@ -3704,6 +3707,20 @@ input:disabled {
 .dashboard-disabled {
   opacity: 50%;
   pointer-events: none;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
+.hover-border-violet {
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0);
+  border-radius: 2px;
+  &:hover {
+    border-color: var(--violet-11);
+  }
 }
 
 // For absolute or fixed containers that should position themselves after the sidebar

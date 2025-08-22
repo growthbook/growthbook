@@ -16,9 +16,14 @@ import {
 import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { isNumber, isString } from "../../util/types";
-import { expandMetricGroups } from "../../experiments";
 
 export const differenceTypes = ["absolute", "relative", "scaled"] as const;
+export const metricSelectors = [
+  "experiment-goal",
+  "experiment-secondary",
+  "experiment-guardrail",
+  "custom",
+] as const;
 
 export function getBlockData<T extends DashboardBlockInterface>(
   block: DashboardBlockInterfaceOrData<T>,
@@ -37,6 +42,12 @@ export function isDifferenceType(
   value: string,
 ): value is (typeof differenceTypes)[number] {
   return (differenceTypes as readonly string[]).includes(value);
+}
+
+export function isMetricSelector(
+  value: string,
+): value is (typeof metricSelectors)[number] {
+  return (metricSelectors as readonly string[]).includes(value);
 }
 
 export function blockHasFieldOfType<Field extends string, T>(
@@ -121,26 +132,15 @@ export const CREATE_BLOCK_TYPE: {
     content: "",
     ...(initialValues || {}),
   }),
-  "experiment-description": ({ initialValues, experiment }) => ({
-    type: "experiment-description",
-    title: "Experiment Description",
+  "experiment-metadata": ({ initialValues, experiment }) => ({
+    type: "experiment-metadata",
+    title: "Experiment Metadata",
     description: "",
     experimentId: experiment.id,
-    ...(initialValues || {}),
-  }),
-  "experiment-hypothesis": ({ initialValues, experiment }) => ({
-    type: "experiment-hypothesis",
-    title: "Experiment Hypothesis",
-    description: "",
-    experimentId: experiment.id,
-    ...(initialValues || {}),
-  }),
-  "experiment-variation-image": ({ initialValues, experiment }) => ({
-    type: "experiment-variation-image",
-    title: "",
-    description: "",
+    showDescription: true,
+    showHypothesis: true,
+    showVariationImages: true,
     variationIds: [],
-    experimentId: experiment.id,
     ...(initialValues || {}),
   }),
   "experiment-metric": ({ initialValues, experiment }) => ({
@@ -148,7 +148,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricIds: experiment.goalMetrics,
+    metricSelector: "experiment-goal",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     differenceType: "relative",
@@ -161,7 +161,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricIds: experiment.goalMetrics,
+    metricSelector: "experiment-goal",
     dimensionId: "",
     dimensionValues: [],
     snapshotId: experiment.analysisSummary?.snapshotId || "",
@@ -171,28 +171,23 @@ export const CREATE_BLOCK_TYPE: {
     columnsFilter: [],
     ...(initialValues || {}),
   }),
-  "experiment-time-series": ({ initialValues, experiment, metricGroups }) => ({
+  "experiment-time-series": ({ initialValues, experiment }) => ({
     type: "experiment-time-series",
     title: "",
     description: "",
     experimentId: experiment.id,
-    metricId: expandMetricGroups(experiment.goalMetrics, metricGroups)[0] || "",
+    metricSelector: "experiment-goal",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     ...(initialValues || {}),
   }),
-  "experiment-traffic-graph": ({ initialValues, experiment }) => ({
-    type: "experiment-traffic-graph",
+  "experiment-traffic": ({ initialValues, experiment }) => ({
+    type: "experiment-traffic",
     title: "",
     description: "",
     experimentId: experiment.id,
-    ...(initialValues || {}),
-  }),
-  "experiment-traffic-table": ({ initialValues, experiment }) => ({
-    type: "experiment-traffic-table",
-    title: "",
-    description: "",
-    experimentId: experiment.id,
+    showTable: true,
+    showTimeseries: false,
     ...(initialValues || {}),
   }),
   "sql-explorer": ({ initialValues }) => ({

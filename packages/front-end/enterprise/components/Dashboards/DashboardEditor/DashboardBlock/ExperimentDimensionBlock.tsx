@@ -21,9 +21,9 @@ export default function ExperimentDimensionBlock({
   snapshot,
   analysis,
   ssrPolyfills,
+  metrics,
 }: BlockProps<ExperimentDimensionBlockInterface>) {
   const {
-    metricIds,
     baselineRow,
     columnsFilter,
     variationIds,
@@ -38,7 +38,7 @@ export default function ExperimentDimensionBlock({
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
-  const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
+  const expandedMetricIds = metrics.map((m) => m.id);
   const expGoalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups,

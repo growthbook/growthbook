@@ -12,9 +12,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Radix/Button";
 import { useUser } from "@/services/UserContext";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
+import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
 function SnapshotStatusSummary({
   blocks,
@@ -57,7 +56,7 @@ function SnapshotStatusSummary({
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (
-    <Flex gap="2" align="center">
+    <Flex gap="1" align="center">
       <Text size="1">
         {autoUpdateEnabled &&
           nextUpdate &&
@@ -66,12 +65,14 @@ function SnapshotStatusSummary({
               tipPosition="top"
               body={`Next auto-update ${ago(nextUpdate)}`}
             >
-              <PiLightning />{" "}
+              <PiLightning style={{ color: "var(--violet-11)" }} />{" "}
             </Tooltip>
           )}
       </Text>
-      <Text color={textColor}>{content}</Text>
-      {tooltipBody ? (
+      <Text size="1" color={textColor}>
+        {content}
+      </Text>
+      {tooltipBody && (
         <Tooltip
           body={tooltipBody}
           delay={0}
@@ -84,14 +85,6 @@ function SnapshotStatusSummary({
             </Text>
           </Flex>
         </Tooltip>
-      ) : (
-        <MoreMenu useRadix size={10}>
-          <ViewAsyncQueriesButton
-            queries={allQueries.map((q) => q.query) ?? []}
-            className="dropdown-item"
-            display="View Queries"
-          />
-        </MoreMenu>
       )}
     </Flex>
   );
@@ -101,12 +94,14 @@ interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
   disabled: boolean;
+  isEditing: boolean;
 }
 
 export default function DashboardUpdateDisplay({
   blocks,
   enableAutoUpdates,
   disabled,
+  isEditing,
 }: Props) {
   const {
     defaultSnapshot: snapshot,
@@ -142,6 +137,14 @@ export default function DashboardUpdateDisplay({
         blocks={blocks}
         enableAutoUpdates={enableAutoUpdates}
       />
+      {isEditing && (
+        <DashboardViewQueriesButton
+          size="1"
+          buttonProps={{ variant: "ghost" }}
+          hideQueryCount
+        />
+      )}
+
       <div className="position-relative">
         <Button
           size="xs"
