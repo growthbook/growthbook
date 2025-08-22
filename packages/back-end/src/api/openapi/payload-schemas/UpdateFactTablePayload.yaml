@@ -32,3 +32,6 @@ properties:
     enum:
       - ""
       - api
+  archived:
+    type: boolean
+    description: Set this to true to archive the fact table
