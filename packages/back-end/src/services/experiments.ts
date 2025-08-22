@@ -146,6 +146,7 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
+import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -1070,7 +1071,9 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-}): Promise<ExperimentResultsQueryRunner> {
+}): Promise<
+  ExperimentResultsQueryRunner | ExperimentIncrementalRefreshQueryRunner
+> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
@@ -1160,6 +1163,25 @@ export async function createSnapshot({
   const snapshot = await createExperimentSnapshotModel({ data });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
+
+  if (datasource.settings.pipelineSettings?.mode === "incremental") {
+    const queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+      context,
+      snapshot,
+      integration,
+      false, // always ignore cache for incremental refresh queries
+    );
+    await queryRunner.startAnalysis({
+      snapshotSettings: data.settings,
+      variationNames: experiment.variations.map((v) => v.name),
+      metricMap,
+      // experiment ID used for table name
+      queryParentId: experiment.id,
+      factTableMap,
+      recreateUnitsTable: !useCache, // TODO have different upstream setting govern whether to refresh entire pipeline
+    });
+    return queryRunner;
+  }
 
   const queryRunner = new ExperimentResultsQueryRunner(
     context,

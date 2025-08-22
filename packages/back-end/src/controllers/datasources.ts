@@ -523,6 +523,138 @@ export async function putDataSource(
   }
 }
 
+export async function validatePipeline(
+  req: AuthRequest<
+    {
+      pipelineSettings?: DataSourceSettings["pipelineSettings"];
+    },
+    { id: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Cannot find data source" });
+  }
+
+  const settingsToTest: DataSourceSettings["pipelineSettings"] =
+    req.body.pipelineSettings || datasource.settings.pipelineSettings;
+
+  if (!settingsToTest?.allowWriting) {
+    return res.status(200).json({
+      status: 200,
+      results: {
+        create: { success: true, skipped: true },
+        insert: { success: true, skipped: true },
+        drop: { success: true, skipped: true },
+      },
+    });
+  }
+
+  // Build an integration with the updated settings to generate paths correctly
+  const integration = getSourceIntegrationObject(context, {
+    ...datasource,
+    settings: {
+      ...datasource.settings,
+      pipelineSettings: settingsToTest,
+    },
+  });
+
+  if (
+    !integration.runTestQuery ||
+    !integration.getPipelineValidationCreateTableQuery ||
+    !integration.getPipelineValidationInsertQuery ||
+    !integration.getPipelineValidationDropTableQuery
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "Testing not supported on this data source",
+    });
+  }
+
+  const randomSuffix = Math.floor(Math.random() * 1e9);
+  const testTableName = `growthbook_pipeline_validate_${randomSuffix}`;
+  const fullName =
+    (integration.generateTablePath &&
+      integration.generateTablePath(
+        testTableName,
+        settingsToTest.writeDataset,
+        settingsToTest.writeDatabase,
+        true,
+      )) ??
+    testTableName;
+
+  if (!fullName) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Unable to generate full table path with provided configuration.",
+    });
+  }
+
+  const results: {
+    create: { success: boolean; error?: string };
+    insert: { success: boolean; error?: string };
+    drop: { success: boolean; error?: string };
+  } = {
+    create: { success: false },
+    insert: { success: false },
+    drop: { success: false },
+  };
+
+  try {
+    await integration.runTestQuery(
+      integration.getPipelineValidationCreateTableQuery({
+        tableFullName: fullName,
+      }),
+    );
+    results.create.success = true;
+  } catch (e) {
+    results.create = {
+      success: false,
+      error: (e as Error).message || String(e),
+    };
+  }
+
+  try {
+    if (results.create.success) {
+      await integration.runTestQuery(
+        integration.getPipelineValidationInsertQuery({
+          tableFullName: fullName,
+        }),
+      );
+      results.insert.success = true;
+    } else {
+      results.insert = {
+        success: false,
+        error: "Skipped due to create failure",
+      };
+    }
+  } catch (e) {
+    results.insert = {
+      success: false,
+      error: (e as Error).message || String(e),
+    };
+  }
+
+  try {
+    await integration.runTestQuery(
+      integration.getPipelineValidationDropTableQuery({
+        tableFullName: fullName,
+      }),
+    );
+    results.drop.success = true;
+  } catch (e) {
+    results.drop = { success: false, error: (e as Error).message || String(e) };
+  }
+
+  res.status(200).json({ status: 200, table: fullName, results });
+}
+
 export async function updateExposureQuery(
   req: AuthRequest<
     {
