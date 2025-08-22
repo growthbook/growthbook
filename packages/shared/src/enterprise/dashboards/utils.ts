@@ -110,7 +110,7 @@ export function dashboardCanAutoUpdate({
 }) {
   // Only update dashboards where all the blocks will stay up to date with each other
   return !blocks.find((block) =>
-    ["sql-explorer", "dimension"].includes(block.type),
+    ["sql-explorer", "experiment-dimension"].includes(block.type),
   );
 }
 
