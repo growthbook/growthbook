@@ -4,7 +4,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { Fragment } from "react";
+import React, { Fragment, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical } from "react-icons/pi";
@@ -24,6 +24,19 @@ import {
 import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO } from "..";
 import EditSingleBlock from "./EditSingleBlock";
 
+function moveBlocks<T>(
+  blocks: Array<T>,
+  draggingBlockIndex: number,
+  dropLocation: number,
+) {
+  const otherBlocks = blocks.toSpliced(draggingBlockIndex, 1);
+  return [
+    ...otherBlocks.slice(0, dropLocation),
+    blocks[draggingBlockIndex],
+    ...otherBlocks.slice(dropLocation),
+  ];
+}
+
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   open: boolean;
@@ -33,6 +46,9 @@ interface Props {
   stagedBlock:
     | DashboardBlockInterfaceOrData<DashboardBlockInterface>
     | undefined;
+  setBlocks: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
+  >;
   setStagedBlock: React.Dispatch<
     DashboardBlockInterfaceOrData<DashboardBlockInterface> | undefined
   >;
@@ -50,6 +66,7 @@ export default function DashboardEditorSidebar({
   submit,
   blocks,
   stagedBlock,
+  setBlocks,
   setStagedBlock,
   addBlockType,
   focusBlock,
@@ -57,6 +74,31 @@ export default function DashboardEditorSidebar({
   duplicateBlock,
   deleteBlock,
 }: Props) {
+  const [draggingBlockIndex, setDraggingBlockIndex] = useState<
+    number | undefined
+  >(undefined);
+  const [previewBlockPlacement, setPreviewBlockPlacement] = useState<
+    number | undefined
+  >(undefined);
+
+  const resetDragState = () => {
+    setDraggingBlockIndex(undefined);
+    setPreviewBlockPlacement(undefined);
+  };
+
+  const onDrop = (dropLocation: number) => {
+    if (!isDefined(draggingBlockIndex) || draggingBlockIndex === dropLocation)
+      return;
+    setBlocks(moveBlocks(blocks, draggingBlockIndex, dropLocation));
+    resetDragState();
+  };
+
+  const displayBlocks = useMemo(() => {
+    if (!isDefined(draggingBlockIndex) || !isDefined(previewBlockPlacement))
+      return blocks;
+    return moveBlocks(blocks, draggingBlockIndex, previewBlockPlacement);
+  }, [blocks, draggingBlockIndex, previewBlockPlacement]);
+
   return (
     <div
       id="edit-drawer"
@@ -128,7 +170,7 @@ export default function DashboardEditorSidebar({
               <Text style={{ color: "var(--color-text-mid)" }} my="3">
                 Drag to reorder blocks. Click to bring block into focus.
               </Text>
-              {blocks.map((block, i) => (
+              {displayBlocks.map((block, i) => (
                 <Flex
                   width="100%"
                   justify="between"
@@ -139,6 +181,20 @@ export default function DashboardEditorSidebar({
                   align="center"
                   p="1"
                   style={{ cursor: "pointer" }}
+                  draggable={true}
+                  onDragStart={() => setDraggingBlockIndex(i)}
+                  onDragEnd={() => resetDragState()}
+                  onDrop={() => onDrop(i)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragEnter={(e) => {
+                    if (!isDefined(draggingBlockIndex)) return;
+                    if (draggingBlockIndex === i) {
+                      setPreviewBlockPlacement(undefined);
+                      return;
+                    }
+                    setPreviewBlockPlacement(i);
+                    e.preventDefault();
+                  }}
                 >
                   {/* TODO: icon */}
                   <Text>{BLOCK_TYPE_INFO[block.type].name}</Text>

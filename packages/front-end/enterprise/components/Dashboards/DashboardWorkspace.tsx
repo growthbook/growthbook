@@ -324,6 +324,7 @@ export default function DashboardWorkspace({
               stagedBlock={
                 isDefined(stagedAddBlock) ? stagedAddBlock : stagedEditBlock
               }
+              setBlocks={setBlocksAndSubmit}
               setStagedBlock={(block) => {
                 isDefined(stagedAddBlock)
                   ? setStagedAddBlock(block)
