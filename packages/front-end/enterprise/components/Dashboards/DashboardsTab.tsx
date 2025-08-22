@@ -465,8 +465,6 @@ export default function DashboardsTab({
                         blocks={blocks}
                         isEditing={false}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
-                        stagedBlockIndex={undefined}
-                        editSidebarDirty={false}
                         setBlock={(i, block) => {
                           const newBlocks = [
                             ...blocks.slice(0, i),
@@ -483,11 +481,14 @@ export default function DashboardsTab({
                           });
                         }}
                         // TODO: reduce unnecessary props
+                        stagedBlockIndex={undefined}
+                        editSidebarDirty={false}
                         moveBlock={(_i, _direction) => {}}
                         addBlockType={() => {}}
                         editBlock={() => {}}
                         duplicateBlock={() => {}}
                         deleteBlock={() => {}}
+                        focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
                       />
                     )}
