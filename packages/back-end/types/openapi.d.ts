@@ -11855,7 +11855,6 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api";
-          /** @description Set this to true to archive the fact table */
           archived?: boolean;
         };
       };
