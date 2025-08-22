@@ -19,13 +19,10 @@ const MetricGroupsList: FC = () => {
   const [openModal, setOpenModal] = useState(false);
   const [editModal, setEditModal] = useState<MetricGroupInterface | null>(null);
   const [archiveModal, setArchiveModal] = useState<MetricGroupInterface | null>(
-    null
+    null,
   );
-  const {
-    metricGroups,
-    mutateDefinitions,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metricGroups, mutateDefinitions, getDatasourceById } =
+    useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasGroupsFeature = hasCommercialFeature("metric-groups");
 
@@ -37,7 +34,7 @@ const MetricGroupsList: FC = () => {
 
   const updateArchiveState = async (
     metricGroup: MetricGroupInterface,
-    archived: boolean
+    archived: boolean,
   ) => {
     await apiCall<{ metricGroup: MetricGroupInterface }>(
       `/metric-group/${metricGroup.id}`,
@@ -46,7 +43,7 @@ const MetricGroupsList: FC = () => {
         body: JSON.stringify({
           archived: archived,
         }),
-      }
+      },
     );
   };
 

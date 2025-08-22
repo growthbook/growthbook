@@ -31,7 +31,7 @@ export const featureValueType = [
   "json",
 ] as const;
 
-export type FeatureValueType = typeof featureValueType[number];
+export type FeatureValueType = (typeof featureValueType)[number];
 
 const scheduleRule = z
   .object({
@@ -269,6 +269,12 @@ export const featureInterface = z
     legacyDraftMigrated: z.boolean().optional(),
     neverStale: z.boolean().optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
+    holdout: z
+      .object({
+        id: z.string(),
+        value: z.string(),
+      })
+      .optional(),
   })
   .strict();
 

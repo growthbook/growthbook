@@ -30,7 +30,7 @@ export const numberFormatValidator = z.enum([
 ]);
 
 export const jsonColumnFieldsValidator = z.record(
-  z.object({ datatype: factTableColumnTypeValidator })
+  z.object({ datatype: factTableColumnTypeValidator }),
 );
 
 export const createColumnPropsValidator = z

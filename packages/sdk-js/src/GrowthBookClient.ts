@@ -46,7 +46,7 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBookClient<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 > {
   public debug: boolean;
   public ready: boolean;
@@ -146,7 +146,7 @@ export class GrowthBookClient<
   }
 
   public async refreshFeatures(
-    options?: RefreshFeaturesOptions
+    options?: RefreshFeaturesOptions,
   ): Promise<void> {
     const res = await this._refresh({
       ...(options || {}),
@@ -238,7 +238,7 @@ export class GrowthBookClient<
   public logEvent(
     eventName: string,
     properties: EventProperties,
-    userContext: UserContext
+    userContext: UserContext,
   ) {
     if (this._options.eventLogger) {
       const ctx = this._getEvalContext(userContext);
@@ -248,12 +248,12 @@ export class GrowthBookClient<
 
   public runInlineExperiment<T>(
     experiment: Experiment<T>,
-    userContext: UserContext
+    userContext: UserContext,
   ): Result<T> {
     const { result } = runExperiment(
       experiment,
       null,
-      this._getEvalContext(userContext)
+      this._getEvalContext(userContext),
     );
     return result;
   }
@@ -295,30 +295,32 @@ export class GrowthBookClient<
 
   public isOn<K extends string & keyof AppFeatures = string>(
     key: K,
-    userContext: UserContext
+    userContext: UserContext,
   ): boolean {
     return this.evalFeature(key, userContext).on;
   }
 
   public isOff<K extends string & keyof AppFeatures = string>(
     key: K,
-    userContext: UserContext
+    userContext: UserContext,
   ): boolean {
     return this.evalFeature(key, userContext).off;
   }
 
   public getFeatureValue<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V, userContext: UserContext): WidenPrimitives<V> {
-    const value = this.evalFeature<WidenPrimitives<V>, K>(key, userContext)
-      .value;
+    const value = this.evalFeature<WidenPrimitives<V>, K>(
+      key,
+      userContext,
+    ).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
   }
 
   public evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K, userContext: UserContext): FeatureResult<V | null> {
     return _evalFeature(id, this._getEvalContext(userContext));
   }
@@ -338,13 +340,13 @@ export class GrowthBookClient<
       UserContext,
       "stickyBucketService" | "stickyBucketAssignmentDocs"
     >,
-    stickyBucketService: StickyBucketService
+    stickyBucketService: StickyBucketService,
   ): Promise<UserContext> {
     const ctx = this._getEvalContext(partialContext);
 
     const stickyBucketAssignmentDocs = await getAllStickyBucketAssignmentDocs(
       ctx,
-      stickyBucketService
+      stickyBucketService,
     );
 
     return {
@@ -357,7 +359,7 @@ export class GrowthBookClient<
 
   public createScopedInstance(
     userContext: UserContext,
-    userPlugins?: Plugin[]
+    userPlugins?: Plugin[],
   ) {
     return new UserScopedGrowthBook(this, userContext, [
       ...(this._options.plugins || []),
@@ -368,7 +370,7 @@ export class GrowthBookClient<
 
 export class UserScopedGrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 > {
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
@@ -377,7 +379,7 @@ export class UserScopedGrowthBook<
   constructor(
     gb: GrowthBookClient<AppFeatures>,
     userContext: UserContext,
-    plugins?: Plugin[]
+    plugins?: Plugin[],
   ) {
     this._gb = gb;
     this._userContext = userContext;
@@ -410,14 +412,14 @@ export class UserScopedGrowthBook<
 
   public getFeatureValue<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V): WidenPrimitives<V> {
     return this._gb.getFeatureValue(key, defaultValue, this._userContext);
   }
 
   public evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return this._gb.evalFeature(id, this._userContext);
   }

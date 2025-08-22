@@ -16,10 +16,8 @@ const DecisionCTA = ({
   openStatusModal: () => void;
   rule: SafeRolloutRule;
 }) => {
-  const {
-    safeRollout,
-    snapshot: snapshotWithResults,
-  } = useSafeRolloutSnapshot();
+  const { safeRollout, snapshot: snapshotWithResults } =
+    useSafeRolloutSnapshot();
 
   const { hasCommercialFeature, organization } = useUser();
   const settings = organization?.settings;
@@ -42,7 +40,7 @@ const DecisionCTA = ({
     safeRollout,
     healthSettings: getHealthSettings(
       settings,
-      hasCommercialFeature("decision-framework")
+      hasCommercialFeature("decision-framework"),
     ),
     daysLeft,
   });

@@ -11,11 +11,11 @@ export default function VerifyingEmailModal() {
   const { refreshOrganization, license } = useUser();
 
   const emailVerificationToken = String(
-    router.query["email-verification-token"] || ""
+    router.query["email-verification-token"] || "",
   );
 
   const [verifyingEmail, setVerifyingEmail] = useState(
-    !!emailVerificationToken
+    !!emailVerificationToken,
   );
 
   const [verifyEmailSuccess, setVerifyEmailSuccess] = useState(false);

@@ -10,7 +10,7 @@ function getNumberOfMetricsInQuery(q: QueryInterface) {
   if (q.queryType === "experimentMultiMetric") {
     return (
       Object.keys(q.rawResult?.[0] || {}).filter((col) =>
-        col.match(/^m(\d+)_id$/)
+        col.match(/^m(\d+)_id$/),
       ).length || 1
     );
   }
@@ -31,7 +31,7 @@ export default function QueryStatsRow({
   if (!queryStats.length) return null;
 
   const usingPipelineMode = queries.some(
-    (q) => q.queryType === "experimentUnits"
+    (q) => q.queryType === "experimentUnits",
   );
   const factTableOptimizedMetrics = queries
     .filter((q) => q.queryType === "experimentMultiMetric")

@@ -7,9 +7,9 @@ export const listAttributes = createApiRequestHandler(listAttributesValidator)(
     const attributes = (req.context.org.settings?.attributeSchema || []).filter(
       (attribute) =>
         !attribute.archived &&
-        req.context.permissions.canReadMultiProjectResource(attribute.projects)
+        req.context.permissions.canReadMultiProjectResource(attribute.projects),
     );
 
     return { attributes };
-  }
+  },
 );

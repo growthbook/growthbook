@@ -11,6 +11,8 @@ import { useRouter } from "next/router";
 import { DifferenceType } from "back-end/types/stats";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import { FaChartBar } from "react-icons/fa";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { FeatureInterface } from "back-end/types/feature";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
@@ -52,14 +54,17 @@ const experimentTabs = [
   "dashboards",
   "health",
 ] as const;
-type ExperimentTabName = typeof experimentTabs[number];
+type ExperimentTabName = (typeof experimentTabs)[number];
 export type ExperimentTab =
   | ExperimentTabName
   | `${ExperimentTabName}/${string}`;
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterface;
   linkedFeatures: LinkedFeatureInfo[];
+  holdoutFeatures?: FeatureInterface[];
+  holdoutExperiments?: ExperimentInterfaceStringDates[];
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
@@ -75,11 +80,15 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
+  stop?: (() => void) | null;
 }
 
 export default function TabbedPage({
   experiment,
+  holdout,
   linkedFeatures,
+  holdoutFeatures,
+  holdoutExperiments,
   mutate,
   duplicate,
   editTags,
@@ -94,12 +103,13 @@ export default function TabbedPage({
   editResult,
   checklistItemsRemaining,
   setChecklistItemsRemaining,
+  stop,
 }: Props) {
   const growthbook = useGrowthBook();
   const dashboardsEnabled = growthbook.isOn("experiment-dashboards-enabled");
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
-    "overview"
+    "overview",
   );
   const [tabPath, setTabPath] = useState("");
 
@@ -116,17 +126,23 @@ export default function TabbedPage({
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
 
   // Results tab filters
-  const [baselineRow, setBaselineRow] = useState<number>(0);
-  const [differenceType, setDifferenceType] = useState<DifferenceType>(
-    "relative"
-  );
-  const [variationFilter, setVariationFilter] = useState<number[]>([]);
+  const [analysisBarSettings, setAnalysisBarSettings] = useState<{
+    dimension: string;
+    baselineRow: number;
+    differenceType: DifferenceType;
+    variationFilter: number[];
+  }>({
+    dimension: "",
+    baselineRow: 0,
+    variationFilter: [],
+    differenceType: "relative",
+  });
   const [metricFilter, setMetricFilter] = useLocalStorage<ResultsMetricFilters>(
     `experiment-page__${experiment.id}__metric_filter`,
     {
       tagOrder: [],
       filterByTag: false,
-    }
+    },
   );
 
   useEffect(() => {
@@ -134,7 +150,7 @@ export default function TabbedPage({
       const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
       let [tabName, ...tabPathSegments] = hash.split("/") as [
         ExperimentTabName,
-        ...string[]
+        ...string[],
       ];
       if (experimentTabs.includes(tabName)) {
         if (tabName === "dashboards" && !dashboardsEnabled) {
@@ -187,7 +203,7 @@ export default function TabbedPage({
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
-    linkedFeatures.map((f) => f.feature)
+    linkedFeatures.map((f) => f.feature),
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -196,11 +212,11 @@ export default function TabbedPage({
   const projectConnections = connections.filter(
     (connection) =>
       !connection.projects.length ||
-      connection.projects.includes(experiment.project || "")
+      connection.projects.includes(experiment.project || ""),
   );
   const matchingConnections = projectConnections.filter(
     (connection) =>
-      !visualChangesets.length || connection.includeVisualExperiments
+      !visualChangesets.length || connection.includeVisualExperiments,
   );
 
   const { data, mutate: mutateWatchers } = useApi<{
@@ -238,6 +254,8 @@ export default function TabbedPage({
 
     return false;
   };
+
+  const isHoldout = experiment.type === "holdout";
 
   return (
     <>
@@ -302,6 +320,7 @@ export default function TabbedPage({
           close={() => setStatusModal(false)}
           mutate={mutate}
           source={trackSource}
+          holdout={holdout}
         />
       )}
       {featureModal && (
@@ -316,6 +335,7 @@ export default function TabbedPage({
 
       <ExperimentHeader
         experiment={experiment}
+        holdout={holdout}
         envs={envs}
         tab={tab}
         setTab={setTabAndScroll}
@@ -335,6 +355,7 @@ export default function TabbedPage({
         healthNotificationCount={healthNotificationCount}
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
+        stop={stop}
       />
 
       <div className="container-fluid pagecontents">
@@ -353,8 +374,9 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        <CustomMarkdown page={"experiment"} variables={variables} />
-
+        {experiment.type !== "holdout" && (
+          <CustomMarkdown page={"experiment"} variables={variables} />
+        )}
         {experiment.status === "stopped" && (
           <div className="pt-3">
             <StoppedExperimentBanner
@@ -370,7 +392,9 @@ export default function TabbedPage({
             (isBandit && tab === "explore")) && (
             <div className="alert alert-warning mt-3">
               <div>
-                You are viewing the results of a previous experiment phase.{" "}
+                {isHoldout
+                  ? "You are viewing the results of the entire holdout period."
+                  : "You are viewing the results of a previous experiment phase."}{" "}
                 <a
                   role="button"
                   onClick={(e) => {
@@ -378,23 +402,29 @@ export default function TabbedPage({
                     setPhase(experiment.phases.length - 1);
                   }}
                 >
-                  Switch to the latest phase
+                  {isHoldout
+                    ? "Switch to the analysis period to view results with a lookback based on the analysis period start date."
+                    : "Switch to the latest phase"}
                 </a>
               </div>
-              <div className="mt-1">
-                <strong>Phase settings:</strong>{" "}
-                {phaseSummary(experiment?.phases?.[phase])}
-              </div>
+              {!isHoldout && (
+                <div className="mt-1">
+                  <strong>Phase settings:</strong>{" "}
+                  {phaseSummary(experiment?.phases?.[phase])}
+                </div>
+              )}
             </div>
           )}
         <div
           className={clsx(
             "pt-3",
-            tab === "overview" ? "d-block" : "d-none d-print-block"
+            tab === "overview" ? "d-block" : "d-none d-print-block",
           )}
         >
           <SetupTabOverview
             experiment={experiment}
+            holdout={holdout}
+            holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             disableEditing={viewingOldPhase}
             linkedFeatures={linkedFeatures}
@@ -407,6 +437,9 @@ export default function TabbedPage({
           />
           <Implementation
             experiment={experiment}
+            holdout={holdout}
+            holdoutFeatures={holdoutFeatures}
+            holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             editVariations={editVariations}
             setFeatureModal={setFeatureModal}
@@ -482,13 +515,9 @@ export default function TabbedPage({
           editTargeting={editTargeting}
           isTabActive={tab === "results"}
           safeToEdit={safeToEdit}
-          baselineRow={baselineRow}
-          setBaselineRow={setBaselineRow}
-          differenceType={differenceType}
-          setDifferenceType={setDifferenceType}
-          variationFilter={variationFilter}
-          setVariationFilter={setVariationFilter}
           metricFilter={metricFilter}
+          analysisBarSettings={analysisBarSettings}
+          setAnalysisBarSettings={setAnalysisBarSettings}
           setMetricFilter={setMetricFilter}
         />
       </div>
@@ -513,9 +542,12 @@ export default function TabbedPage({
           onHealthNotify={handleIncrementHealthNotifications}
           onSnapshotUpdate={handleSnapshotChange}
           resetResultsSettings={() => {
-            setBaselineRow(0);
-            setDifferenceType("relative");
-            setVariationFilter([]);
+            setAnalysisBarSettings({
+              ...analysisBarSettings,
+              baselineRow: 0,
+              differenceType: "relative",
+              variationFilter: [],
+            });
           }}
         />
       </div>

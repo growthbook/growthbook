@@ -146,7 +146,7 @@ const VariationIdWarning: FC<{
           ids:{" "}
           <CommaList
             vals={definedVariations.filter(
-              (v) => !returnedVariations.includes(v)
+              (v) => !returnedVariations.includes(v),
             )}
           />
         </div>

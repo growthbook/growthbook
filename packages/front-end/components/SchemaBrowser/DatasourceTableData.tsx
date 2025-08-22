@@ -46,7 +46,7 @@ export default function DatasourceSchema({
       } else if (retryCount > 8) {
         setFetching(false);
         setError(
-          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
+          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes.",
         );
         setRetryCount(1);
       } else {
@@ -110,7 +110,7 @@ export default function DatasourceSchema({
                   <div>
                     <div>
                       {`Last Updated: ${new Date(
-                        table.dateUpdated
+                        table.dateUpdated,
                       ).toLocaleString()}`}
                     </div>
                     {!canRunQueries ? (
@@ -138,7 +138,7 @@ export default function DatasourceSchema({
                         `/datasource/${datasourceId}/schema/table/${table.id}`,
                         {
                           method: "PUT",
-                        }
+                        },
                       );
                       setFetching(true);
                     } catch (e) {

@@ -56,6 +56,7 @@ export const entityEvents = {
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],
   execReport: ["create", "update", "delete"],
+  holdout: ["create", "update", "delete"],
   savedQuery: ["create", "update", "delete"],
   dashboard: ["create", "update", "delete"],
   dashboardTemplate: ["create", "update", "delete"],
@@ -64,7 +65,7 @@ export const entityEvents = {
 
 export type EntityEvents = typeof entityEvents;
 export const EntityType = Object.keys(entityEvents) as [keyof EntityEvents];
-export type EntityType = typeof EntityType[number];
+export type EntityType = (typeof EntityType)[number];
 
 export type EventTypes<K> = K extends EntityType
   ? `${K}.${EntityEvents[K][number]}`

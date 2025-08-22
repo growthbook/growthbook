@@ -16,10 +16,8 @@ import { GBInfo } from "@/components/Icons";
 import Frame from "@/components/Radix/Frame";
 
 export default function FeaturesSettings() {
-  const [
-    codeRefsBranchesToFilterStr,
-    setCodeRefsBranchesToFilterStr,
-  ] = useState<string>("");
+  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
+    useState<string>("");
 
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
@@ -27,7 +25,7 @@ export default function FeaturesSettings() {
   const { projects } = useDefinitions();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes"
+    "hash-secure-attributes",
   );
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
@@ -48,7 +46,7 @@ export default function FeaturesSettings() {
       codeRefsBranchesToFilterStr
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
   }, [form, codeRefsBranchesToFilterStr]);
 
@@ -243,7 +241,7 @@ export default function FeaturesSettings() {
                           setValue={(value) => {
                             form.setValue(
                               `requireReviews.${i}.requireReviewOn`,
-                              value
+                              value,
                             );
                           }}
                         />
@@ -258,7 +256,7 @@ export default function FeaturesSettings() {
                           </Text>
 
                           {!!form.watch(
-                            `requireReviews.${i}.requireReviewOn`
+                            `requireReviews.${i}.requireReviewOn`,
                           ) && (
                             <Box mt="4">
                               <Text
@@ -277,7 +275,7 @@ export default function FeaturesSettings() {
                                 onChange={(projects) => {
                                   form.setValue(
                                     `requireReviews.${i}.projects`,
-                                    projects
+                                    projects,
                                   );
                                 }}
                                 options={projects.map((e) => {
@@ -300,13 +298,13 @@ export default function FeaturesSettings() {
                                 id={`environments-${i}`}
                                 value={
                                   form.watch(
-                                    `requireReviews.${i}.environments`
+                                    `requireReviews.${i}.environments`,
                                   ) || []
                                 }
                                 onChange={(environments) => {
                                   form.setValue(
                                     `requireReviews.${i}.environments`,
-                                    environments
+                                    environments,
                                   );
                                 }}
                                 options={environments.map((e) => {
@@ -322,13 +320,13 @@ export default function FeaturesSettings() {
                                   id={`toggle-reset-review-on-change-${i}`}
                                   value={
                                     !!form.watch(
-                                      `requireReviews.${i}.resetReviewOnChange`
+                                      `requireReviews.${i}.resetReviewOnChange`,
                                     )
                                   }
                                   setValue={(value) => {
                                     form.setValue(
                                       `requireReviews.${i}.resetReviewOnChange`,
-                                      value
+                                      value,
                                     );
                                   }}
                                 />

@@ -29,4 +29,4 @@ jobs:
           webhook-type: webhook-trigger
           payload: |
             workflow_name: "${{ github.event.workflow_run.name }}"
-            workflow_url: "${{ github.event.workflow_run.url }}"
+            workflow_url: "${{ github.event.workflow_run.html_url }}"

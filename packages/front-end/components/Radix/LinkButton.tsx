@@ -9,7 +9,7 @@ export type Props = {
 
 export default forwardRef<HTMLButtonElement, Props>(function LinkButton(
   { href, external, ...otherProps }: Props,
-  ref
+  ref,
 ) {
   return (
     <Link href={href} target={external ? "_blank" : "_self"}>

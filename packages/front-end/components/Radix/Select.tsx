@@ -36,7 +36,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     triggerClassName,
     ...containerProps
   }: SelectProps,
-  ref
+  ref,
 ) {
   return (
     <Flex direction="column" {...containerProps} ref={ref}>
@@ -82,7 +82,13 @@ export const SelectItem = forwardRef<
   }
 >(function SelectItem({ value, children, disabled = false, ...props }, ref) {
   return (
-    <RadixSelect.Item value={value} disabled={disabled} {...props} ref={ref}>
+    <RadixSelect.Item
+      value={value}
+      disabled={disabled}
+      {...props}
+      ref={ref}
+      className="w-full"
+    >
       {children}
     </RadixSelect.Item>
   );
@@ -91,5 +97,5 @@ export const SelectItem = forwardRef<
 export const SelectSeparator = forwardRef<HTMLDivElement>(
   function SelectSeparator(props, ref) {
     return <RadixSelect.Separator {...props} ref={ref} />;
-  }
+  },
 );

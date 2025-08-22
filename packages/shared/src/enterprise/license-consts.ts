@@ -60,10 +60,12 @@ export type CommercialFeature =
   | "managed-warehouse"
   | "safe-rollout"
   | "require-project-for-features-setting"
+  | "holdouts"
   | "saveSqlExplorerQueries"
   | "metric-effects"
   | "metric-correlations"
-  | "dashboards";
+  | "dashboards"
+  | "precomputed-dimensions";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -206,6 +208,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-warehouse",
     "saveSqlExplorerQueries",
+    "precomputed-dimensions",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -236,6 +239,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-warehouse",
     "saveSqlExplorerQueries",
+    "precomputed-dimensions",
   ]),
   enterprise: new Set<CommercialFeature>([
     "ai-suggestions",
@@ -286,10 +290,12 @@ export const accountFeatures: CommercialFeaturesMap = {
     "safe-rollout",
     "managed-warehouse",
     "require-project-for-features-setting",
+    "holdouts",
     "saveSqlExplorerQueries",
     "metric-effects",
     "metric-correlations",
     "dashboards",
+    "precomputed-dimensions",
   ]),
 };
 

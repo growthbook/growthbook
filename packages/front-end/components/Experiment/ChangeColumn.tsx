@@ -63,7 +63,7 @@ export default function ChangeColumn({
       : getExperimentMetricFormatter(
           metric,
           getFactTableById,
-          differenceType === "absolute" ? "percentagePoints" : "number"
+          differenceType === "absolute" ? "percentagePoints" : "number",
         );
   const formatterOptions: Intl.NumberFormatOptions = {
     currency: displayCurrency,

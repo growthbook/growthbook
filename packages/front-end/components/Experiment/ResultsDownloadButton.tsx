@@ -90,7 +90,7 @@ export default function ResultsDownloadButton({
             index,
             row,
             metricDefaults,
-            differenceType
+            differenceType,
           );
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),

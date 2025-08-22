@@ -34,14 +34,14 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
     decisionFrameworkMetricOverrides?.reduce((acc, metric) => {
       acc[metric.id] = metric;
       return acc;
-    }, {}) ?? {}
+    }, {}) ?? {},
   );
   const { apiCall } = useAuth();
 
   const handleOverrideChange = (
     metricId: string,
     checked: boolean,
-    targetMDE: number
+    targetMDE: number,
   ) => {
     setOverrides((prev) => {
       if (checked) {
@@ -69,9 +69,8 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
       open={true}
       header="Edit Target MDEs"
       submit={() => {
-        const newOverrides: DecisionFrameworkMetricOverrides[] = Object.values(
-          overrides
-        );
+        const newOverrides: DecisionFrameworkMetricOverrides[] =
+          Object.values(overrides);
         apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify({
@@ -112,7 +111,7 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                         handleOverrideChange(
                           metric.id,
                           checked,
-                          metric.computedTargetMDE
+                          metric.computedTargetMDE,
                         )
                       }
                       label={`Override metric default`}
@@ -125,13 +124,13 @@ const TargetMDEModal: FC<TargetMDEModalProps> = ({
                   value={parseFloat(
                     (
                       (overrides[metric.id]?.targetMDE ?? currentValue) * 100
-                    ).toFixed(9)
+                    ).toFixed(9),
                   )}
                   onChange={(e) =>
                     handleOverrideChange(
                       metric.id,
                       isOverridden,
-                      parseFloat(e.target.value) / 100
+                      parseFloat(e.target.value) / 100,
                     )
                   }
                   step={"any"}

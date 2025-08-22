@@ -35,7 +35,7 @@ export const getSDKConnections = async (
   res: Response<{
     status: 200;
     connections: SDKConnectionInterface[];
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
   const connections = await findSDKConnectionsByOrganization(context);
@@ -50,7 +50,7 @@ export const postSDKConnection = async (
   res: Response<{
     status: 200;
     connection: SDKConnectionInterface;
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -97,7 +97,7 @@ export const postSDKConnection = async (
 
 export const putSDKConnection = async (
   req: AuthRequest<EditSDKConnectionParams, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -114,7 +114,7 @@ export const putSDKConnection = async (
   let encryptPayload = req.body.encryptPayload || false;
   const encryptionPermitted = orgHasPremiumFeature(
     context.org,
-    "encrypt-features-endpoint"
+    "encrypt-features-endpoint",
   );
   const changingFromUnencryptedToEncrypted =
     !connection.encryptPayload && encryptPayload;
@@ -150,7 +150,7 @@ export const putSDKConnection = async (
 
 export const deleteSDKConnection = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -176,7 +176,7 @@ export const checkSDKConnectionProxyStatus = async (
   res: Response<{
     status: 200;
     result?: ProxyTestResult;
-  }>
+  }>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -199,14 +199,14 @@ export const getSDKConnectionsWebhooks = async (
   res: Response<{
     status: 200;
     connections: Record<string, WebhookSummary[]>;
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
   const connections = await findSDKConnectionsByOrganization(context);
   const connectionIds = connections.map((conn) => conn.id);
   const allWebhooks = await findAllSdkWebhooksByConnectionIds(
     context,
-    connectionIds
+    connectionIds,
   );
 
   const webhooksByConnection: Record<string, WebhookSummary[]> = {};
@@ -239,7 +239,7 @@ export const getSDKConnectionWebhooks = async (
   res: Response<{
     status: 200;
     webhooks: WebhookInterface[];
-  }>
+  }>,
 ) => {
   const context = getContextFromReq(req);
   const { id } = req.params;
@@ -266,7 +266,7 @@ export const getSDKConnectionWebhooks = async (
 
 export async function postSDKConnectionWebhook(
   req: AuthRequest<CreateSdkWebhookProps, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -284,7 +284,7 @@ export async function postSDKConnectionWebhook(
   const webhookcount = await countSdkWebhooksByOrg(org.id);
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
     org,
-    "multiple-sdk-webhooks"
+    "multiple-sdk-webhooks",
   );
   if (!canAddMultipleSdkWebhooks && webhookcount > 0) {
     throw new Error("your webhook limit has been reached");

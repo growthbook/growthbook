@@ -10,6 +10,7 @@ import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getExperimentValidator } from "back-end/src/validators/openapi";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { ExperimentInterfaceExcludingHoldouts } from "back-end/src/validators/experiments";
 
 export const getExperiment = createApiRequestHandler(getExperimentValidator)(
   async (req): Promise<GetExperimentResponse> => {
@@ -17,18 +18,21 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
     if (!experiment) {
       throw new Error("Could not find experiment with that id");
     }
+    if (experiment.type === "holdout") {
+      throw new Error("Holdouts are not supported via this API");
+    }
 
     const settings = req.context.org.settings;
     const healthSettings = getHealthSettings(
       settings,
-      orgHasPremiumFeature(req.context.org, "decision-framework")
+      orgHasPremiumFeature(req.context.org, "decision-framework"),
     );
     let decisionCriteria = getPresetDecisionCriteriaForOrg(settings);
     if (settings?.defaultDecisionCriteriaId) {
       try {
         decisionCriteria ||=
           (await req.context.models.decisionCriteria.getById(
-            settings.defaultDecisionCriteriaId
+            settings.defaultDecisionCriteriaId,
           )) ?? PRESET_DECISION_CRITERIA;
       } catch {
         // Empty catch - we fall back to the default below if the query failed.
@@ -40,16 +44,16 @@ export const getExperiment = createApiRequestHandler(getExperimentValidator)(
       experiment,
       false,
       healthSettings,
-      decisionCriteria
+      decisionCriteria,
     );
     const enhancedStatus = { status, detailedStatus };
 
     const apiExperiment = await toExperimentApiInterface(
       req.context,
-      experiment
+      experiment as ExperimentInterfaceExcludingHoldouts,
     );
     return {
       experiment: { ...apiExperiment, enhancedStatus },
     };
-  }
+  },
 );

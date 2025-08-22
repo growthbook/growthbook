@@ -29,7 +29,7 @@ export const getSavedGroupMessage = (
   featuresUsingSavedGroups?: FeatureInterface[],
   experimentsUsingSavedGroups?: Array<
     ExperimentInterface | ExperimentInterfaceStringDates
-  >
+  >,
 ) => {
   return async () => {
     if (
@@ -116,7 +116,7 @@ export default function SavedGroupsPage() {
     // Not using $groups attribute in a any saved groups
     if (
       !savedGroups?.some(
-        (g) => g.type === "condition" && g.condition?.includes("$groups")
+        (g) => g.type === "condition" && g.condition?.includes("$groups"),
       )
     ) {
       return;

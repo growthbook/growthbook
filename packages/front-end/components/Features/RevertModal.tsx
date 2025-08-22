@@ -32,7 +32,7 @@ export default function RevertModal({
   const { apiCall } = useAuth();
 
   const [comment, setComment] = useState(
-    revision.comment || `Revert from #${feature.version}`
+    revision.comment || `Revert from #${feature.version}`,
   );
 
   const diffs = useMemo(() => {
@@ -63,7 +63,7 @@ export default function RevertModal({
 
   const hasPermission = permissionsUtil.canPublishFeature(
     feature,
-    getAffectedRevisionEnvs(feature, revision, environments)
+    getAffectedRevisionEnvs(feature, revision, environments),
   );
 
   return (
@@ -81,7 +81,7 @@ export default function RevertModal({
                   body: JSON.stringify({
                     comment,
                   }),
-                }
+                },
               );
               await mutate();
               res && res.version && setVersion(res.version);

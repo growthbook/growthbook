@@ -37,7 +37,7 @@ export interface EditMetricsFormInterface {
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
-  settings: OrganizationSettings
+  settings: OrganizationSettings,
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
@@ -57,7 +57,7 @@ export function getDefaultMetricOverridesFormValue(
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
       const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
+        defaultMetricOverrides[i].id,
       );
       if (metricDefinition?.regressionAdjustmentOverride) {
         defaultMetricOverrides[i].regressionAdjustmentDays =
@@ -73,7 +73,7 @@ export function getDefaultMetricOverridesFormValue(
       isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN)
     ) {
       const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
+        defaultMetricOverrides[i].id,
       );
       const defaultValues = metricDefinition?.priorSettings?.override
         ? {
@@ -133,9 +133,8 @@ const EditMetricsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
@@ -145,10 +144,11 @@ const EditMetricsForm: FC<{
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
     getExperimentMetricById,
-    settings
+    settings,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
@@ -209,9 +209,13 @@ const EditMetricsForm: FC<{
         setSecondaryMetrics={(secondaryMetrics) =>
           form.setValue("secondaryMetrics", secondaryMetrics)
         }
-        setGuardrailMetrics={(guardrailMetrics) =>
-          form.setValue("guardrailMetrics", guardrailMetrics)
+        setGuardrailMetrics={
+          !isHoldout
+            ? (guardrailMetrics) =>
+                form.setValue("guardrailMetrics", guardrailMetrics)
+            : undefined
         }
+        filterConversionWindowMetrics={isHoldout}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (
@@ -227,7 +231,7 @@ const EditMetricsForm: FC<{
         </PremiumCallout>
       ) : null}
 
-      {!(isBandit && experiment.status === "running") && (
+      {!isHoldout && !(isBandit && experiment.status === "running") ? (
         <>
           <div className="form-group">
             <label className="font-weight-bold mb-1">Activation Metric</label>
@@ -278,7 +282,7 @@ const EditMetricsForm: FC<{
             )}
           </div>
         </>
-      )}
+      ) : null}
     </Modal>
   );
 };

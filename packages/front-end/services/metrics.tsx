@@ -34,12 +34,12 @@ import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewE
 
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
-  existingInlineFilters?: Record<string, string[]>
+  existingInlineFilters?: Record<string, string[]>,
 ) {
   const inlineFilters = { ...existingInlineFilters };
   factTable.columns
     .filter(
-      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column)
+      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
     )
     .forEach((c) => {
       if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
@@ -86,7 +86,7 @@ export function getDefaultFactMetricProps({
         datasources,
         settings,
         project,
-        initialFactTable ? { datasource: initialFactTable?.datasource } : {}
+        initialFactTable ? { datasource: initialFactTable?.datasource } : {},
       ).datasource,
     inverse: existing?.inverse || false,
     cappingSettings: existing?.cappingSettings || {
@@ -161,7 +161,7 @@ export function getPercentileLabel(quantile: number): string {
 
 export function formatCurrency(
   value: number,
-  options: Intl.NumberFormatOptions
+  options: Intl.NumberFormatOptions,
 ) {
   const cleanedOptions = {
     ...options,
@@ -230,7 +230,7 @@ export function formatDurationSeconds(value: number) {
 
 export function formatNumber(
   value: number,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ) {
   const digits = getNumberFormatDigits(value);
   // Show fewer fractional digits for bigger numbers
@@ -243,7 +243,7 @@ export function formatNumber(
 }
 export function formatPercent(
   value: number,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ) {
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
@@ -275,7 +275,7 @@ export function formatKilobytes(value: number) {
 }
 
 export function getColumnFormatter(
-  column: ColumnInterface
+  column: ColumnInterface,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   switch (column.numberFormat) {
     case "":
@@ -293,7 +293,7 @@ export function getColumnFormatter(
 
 export function getColumnRefFormatter(
   columnRef: ColumnRef,
-  getFactTableById: (id: string) => FactTableInterface | null
+  getFactTableById: (id: string) => FactTableInterface | null,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (
     columnRef.column === "$$count" ||
@@ -303,7 +303,7 @@ export function getColumnRefFormatter(
   }
 
   const fact = getFactTableById(columnRef.factTableId)?.columns?.find(
-    (c) => c.column === columnRef.column
+    (c) => c.column === columnRef.column,
   );
   if (!fact) return formatNumber;
 
@@ -313,7 +313,7 @@ export function getColumnRefFormatter(
 export function getExperimentMetricFormatter(
   metric: ExperimentMetricInterface,
   getFactTableById: (id: string) => FactTableInterface | null,
-  proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage"
+  proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage",
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   // Old metric
   if ("type" in metric) {
@@ -347,12 +347,12 @@ export function getExperimentMetricFormatter(
         // If the metric is ratio of the same unit, they cancel out
         // For example: profit/revenue = $/$ = plain number
         const numerator = getFactTableById(
-          metric.numerator.factTableId
+          metric.numerator.factTableId,
         )?.columns?.find((c) => c.column === metric.numerator.column);
         const denominator =
           metric.denominator &&
           getFactTableById(metric.denominator.factTableId)?.columns?.find(
-            (c) => c.column === metric.denominator?.column
+            (c) => c.column === metric.denominator?.column,
           );
         if (
           numerator &&
@@ -374,7 +374,7 @@ export function getExperimentMetricFormatter(
 }
 
 export function getMetricFormatter(
-  type: MetricType
+  type: MetricType,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (type === "count") {
     return formatNumber;

@@ -72,7 +72,7 @@ export default function SafeRolloutFields({
       value: ds.id,
     })) || [];
   const dataSource = datasources?.find(
-    (ds) => ds.id === form.watch("safeRolloutFields.datasourceId")
+    (ds) => ds.id === form.watch("safeRolloutFields.datasourceId"),
   );
   const settings = useOrgSettings();
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
@@ -81,7 +81,7 @@ export default function SafeRolloutFields({
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
   const growthbook = useGrowthBook<AppFeatures>();
   const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
-    "safe-rollout-auto-rollback"
+    "safe-rollout-auto-rollback",
   );
   const unitMultipliers = {
     days: 24 * 60 * 60 * 1000,
@@ -91,7 +91,7 @@ export default function SafeRolloutFields({
 
   const dateMonitoredUntil = durationValue
     ? new Date(
-        new Date().getTime() + durationValue * (unitMultipliers[unit] || 0)
+        new Date().getTime() + durationValue * (unitMultipliers[unit] || 0),
       )
     : null;
 
@@ -220,8 +220,9 @@ export default function SafeRolloutFields({
                 form.setValue("safeRolloutFields.exposureQueryId", v)
               }
               formatOptionLabel={({ label, value }) => {
-                const userIdType = exposureQueries?.find((e) => e.id === value)
-                  ?.userIdType;
+                const userIdType = exposureQueries?.find(
+                  (e) => e.id === value,
+                )?.userIdType;
                 return (
                   <>
                     {label}
@@ -254,7 +255,7 @@ export default function SafeRolloutFields({
               includeFacts={true}
               forceSingleMetric={false}
               includeGroups={true}
-              noPercentile={false}
+              excludeQuantiles={true}
               selected={
                 form.watch("safeRolloutFields.guardrailMetricIds") || []
               }

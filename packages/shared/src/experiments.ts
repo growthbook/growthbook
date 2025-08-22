@@ -28,6 +28,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
+  ExperimentDimensionMetadata,
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
@@ -55,14 +56,14 @@ export function isMetricGroupId(id: string): boolean {
 }
 
 export function isFactMetric(
-  m: ExperimentMetricInterface
+  m: ExperimentMetricInterface,
 ): m is FactMetricInterface {
   return "metricType" in m;
 }
 
 export function canInlineFilterColumn(
   factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
-  column: string
+  column: string,
 ): boolean {
   // If the column is one of the identifier columns, it is not eligible for prompting
   if (factTable.userIdTypes.includes(column)) return false;
@@ -81,7 +82,7 @@ export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
-  alias: string = ""
+  alias: string = "",
 ): string {
   const parts = column.split(".");
   if (parts.length > 1) {
@@ -95,7 +96,7 @@ export function getColumnExpression(
       return jsonExtract(
         alias ? `${alias}.${parts[0]}` : parts[0],
         path,
-        isNumeric
+        isNumeric,
       );
     }
   }
@@ -108,7 +109,7 @@ export function getColumnRefWhereClause(
   columnRef: ColumnRef,
   escapeStringLiteral: (s: string) => string,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
-  showSourceComment = false
+  showSourceComment = false,
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
   const filterIds = columnRef.filters || [];
@@ -120,7 +121,7 @@ export function getColumnRefWhereClause(
     const escapedValues = new Set(
       values
         .filter((v) => v.length > 0)
-        .map((v) => "'" + escapeStringLiteral(v) + "'")
+        .map((v) => "'" + escapeStringLiteral(v) + "'"),
     );
 
     const columnExpr = getColumnExpression(column, factTable, jsonExtract);
@@ -133,7 +134,7 @@ export function getColumnRefWhereClause(
       where.add(`(${columnExpr} = ${[...escapedValues][0]})`);
     } else {
       where.add(
-        `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`
+        `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`,
       );
     }
   });
@@ -190,7 +191,7 @@ export function getAggregateFilters({
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
   factTableMap: FactTableMap,
-  useDenominator?: boolean
+  useDenominator?: boolean,
 ): TemplateVariables {
   if (isFactMetric(m)) {
     const columnRef = useDenominator ? m.denominator : m.numerator;
@@ -219,14 +220,14 @@ export function isRetentionMetric(m: ExperimentMetricInterface) {
 
 export function isRatioMetric(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ): boolean {
   if (isFactMetric(m)) return m.metricType === "ratio";
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
 export function quantileMetricType(
-  m: ExperimentMetricInterface
+  m: ExperimentMetricInterface,
 ): "" | MetricQuantileSettings["type"] {
   if (isFactMetric(m) && m.metricType === "quantile") {
     return m.quantileSettings?.type || "";
@@ -236,7 +237,7 @@ export function quantileMetricType(
 
 export function isFunnelMetric(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ): boolean {
   if (isFactMetric(m)) return false;
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
@@ -244,7 +245,7 @@ export function isFunnelMetric(
 
 export function isRegressionAdjusted(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ) {
   const isLegacyRatioMetric: boolean =
     isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
@@ -257,7 +258,7 @@ export function isRegressionAdjusted(
 }
 
 export function getConversionWindowHours(
-  windowSettings: MetricWindowSettings
+  windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.windowValue;
   if (windowSettings.windowUnit === "minutes") return value / 60;
@@ -269,7 +270,7 @@ export function getConversionWindowHours(
 }
 
 export function getDelayWindowHours(
-  windowSettings: MetricWindowSettings
+  windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.delayValue;
   if (windowSettings.delayUnit === "minutes") return value / 60;
@@ -312,13 +313,13 @@ export function getSelectedColumnDatatype({
 export function getUserIdTypes(
   metric: ExperimentMetricInterface,
   factTableMap: FactTableMap,
-  useDenominator?: boolean
+  useDenominator?: boolean,
 ): string[] {
   if (isFactMetric(metric)) {
     const factTable = factTableMap.get(
       useDenominator
         ? metric.denominator?.factTableId || ""
-        : metric.numerator.factTableId
+        : metric.numerator.factTableId,
     );
     return factTable?.userIdTypes || [];
   }
@@ -415,7 +416,8 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
     // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled =
+        !!metricOverride?.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
@@ -455,7 +457,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
     if (metric?.denominator) {
       // is this a classic "ratio" metric (denominator unsupported type)?
       const denominator = denominatorMetrics.find(
-        (m) => m.id === metric?.denominator
+        (m) => m.id === metric?.denominator,
       );
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
@@ -559,7 +561,7 @@ export function getAllMetricSettingsForSnapshot({
 
 export function isExpectedDirection(
   stats: SnapshotMetric,
-  metric: { inverse?: boolean }
+  metric: { inverse?: boolean },
 ): boolean {
   const expected: number = stats?.expected ?? 0;
   if (metric.inverse) {
@@ -597,7 +599,7 @@ export function shouldHighlight({
 export function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: ExperimentMetricInterface
+  metric: ExperimentMetricInterface,
 ): { baselineValue?: number; variationValue?: number } {
   return quantileMetricType(metric)
     ? {
@@ -611,12 +613,12 @@ export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: ExperimentMetricInterface,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
 ): boolean {
   const { baselineValue, variationValue } = getMetricSampleSize(
     baseline,
     stats,
-    metric
+    metric,
   );
   if (!baselineValue || !variationValue) return false;
 
@@ -631,7 +633,7 @@ export function isSuspiciousUplift(
   stats: SnapshotMetric,
   metric: { maxPercentChange?: number },
   metricDefaults: MetricDefaults,
-  differenceType: DifferenceType
+  differenceType: DifferenceType,
 ): boolean {
   if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
@@ -660,7 +662,7 @@ export function isBelowMinChange(
   stats: SnapshotMetric,
   metric: { minPercentChange?: number },
   metricDefaults: MetricDefaults,
-  differenceType: DifferenceType
+  differenceType: DifferenceType,
 ): boolean {
   if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
@@ -714,7 +716,7 @@ export function getMetricResultStatus({
     stats,
     metric,
     metricDefaults,
-    differenceType
+    differenceType,
   );
   const _shouldHighlight = shouldHighlight({
     metric,
@@ -740,7 +742,7 @@ export function getMetricResultStatus({
   } else {
     significant = isStatSig(
       stats.pValueAdjusted ?? stats.pValue ?? 1,
-      pValueThreshold
+      pValueThreshold,
     );
     significantUnadjusted = isStatSig(stats.pValue ?? 1, pValueThreshold);
   }
@@ -791,7 +793,7 @@ export function getMetricResultStatus({
   } else {
     const clearStatSig = isStatSig(
       stats.pValueAdjusted ?? stats.pValue ?? 1,
-      Math.min(pValueThreshold, 0.001)
+      Math.min(pValueThreshold, 0.001),
     );
     if (_shouldHighlight && clearStatSig && directionalStatus === "winning") {
       clearSignalResultsStatus = "won";
@@ -814,7 +816,7 @@ export function getMetricResultStatus({
         ciLowerGuardrail,
         ciUpperGuardrail,
         pValueThreshold,
-        metric.inverse
+        metric.inverse,
       );
     guardrailSafeStatus = guardrailChanceToWin > 1 - DEFAULT_GUARDRAIL_ALPHA;
   }
@@ -835,7 +837,7 @@ export function chanceToWinFlatPrior(
   lower: number,
   upper: number,
   pValueThreshold: number,
-  inverse: boolean = false
+  inverse: boolean = false,
 ): number {
   if (
     lower === Number.NEGATIVE_INFINITY &&
@@ -847,14 +849,14 @@ export function chanceToWinFlatPrior(
     lower === Number.NEGATIVE_INFINITY
       ? "oneSidedLesser"
       : upper === Number.POSITIVE_INFINITY
-      ? "oneSidedGreater"
-      : "twoSided";
+        ? "oneSidedGreater"
+        : "twoSided";
   const halfwidth =
     confidenceIntervalType === "twoSided"
       ? 0.5 * (upper - lower)
       : confidenceIntervalType === "oneSidedGreater"
-      ? expected - lower
-      : upper - expected;
+        ? expected - lower
+        : upper - expected;
   const numTails = confidenceIntervalType === "twoSided" ? 2 : 1;
   const zScore = normal.quantile(1 - pValueThreshold / numTails, 0, 1);
   const s = halfwidth / zScore;
@@ -880,7 +882,7 @@ export function getAllMetricIdsFromExperiment(
     activationMetric?: string | null;
   },
   includeActivationMetric: boolean = true,
-  metricGroups: MetricGroupInterface[] = []
+  metricGroups: MetricGroupInterface[] = [],
 ) {
   return Array.from(
     new Set(
@@ -893,9 +895,9 @@ export function getAllMetricIdsFromExperiment(
             ? [exp.activationMetric]
             : []),
         ],
-        metricGroups
-      )
-    )
+        metricGroups,
+      ),
+    ),
   );
 }
 
@@ -931,8 +933,8 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
 export async function generateTrackingKey(
   exp: Partial<ExperimentInterface>,
   getExperimentByKey?: (
-    key: string
-  ) => Promise<ExperimentInterface | ExperimentInterfaceStringDates | null>
+    key: string,
+  ) => Promise<ExperimentInterface | ExperimentInterfaceStringDates | null>,
 ): Promise<string> {
   // Try to generate a unique tracking key based on the experiment name
   let n = 1;
@@ -958,7 +960,7 @@ export async function generateTrackingKey(
       // Remove stopwords
       .replace(
         /-((a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)-)+/g,
-        "-"
+        "-",
       )
       // Collapse duplicate hyphens
       .replace(/-{2,}/g, "-")
@@ -976,7 +978,7 @@ export async function generateTrackingKey(
 
 export function expandMetricGroups(
   metricIds: string[],
-  metricGroups: MetricGroupInterface[]
+  metricGroups: MetricGroupInterface[],
 ): string[] {
   const metricGroupMap = new Map(metricGroups.map((mg) => [mg.id, mg]));
   const expandedMetricIds: string[] = [];
@@ -993,7 +995,7 @@ export function expandMetricGroups(
 export function isMetricJoinable(
   metricIdTypes: string[],
   userIdType: string,
-  settings?: DataSourceSettings
+  settings?: DataSourceSettings,
 ): boolean {
   if (metricIdTypes.includes(userIdType)) return true;
 
@@ -1002,7 +1004,7 @@ export function isMetricJoinable(
       settings.queries.identityJoins.some(
         (j) =>
           j.ids.includes(userIdType) &&
-          j.ids.some((jid) => metricIdTypes.includes(jid))
+          j.ids.some((jid) => metricIdTypes.includes(jid)),
       )
     ) {
       return true;
@@ -1023,7 +1025,7 @@ export function isMetricJoinable(
 }
 
 export function adjustPValuesBenjaminiHochberg(
-  indexedPValues: IndexedPValue[]
+  indexedPValues: IndexedPValue[],
 ): IndexedPValue[] {
   const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
   const m = newIndexedPValues.length;
@@ -1047,7 +1049,7 @@ export function adjustPValuesBenjaminiHochberg(
 }
 
 export function adjustPValuesHolmBonferroni(
-  indexedPValues: IndexedPValue[]
+  indexedPValues: IndexedPValue[],
 ): IndexedPValue[] {
   const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
   const m = newIndexedPValues.length;
@@ -1072,7 +1074,7 @@ export function adjustPValuesHolmBonferroni(
 export function setAdjustedPValuesOnResults(
   results: ExperimentReportResultDimension[],
   nonGuardrailMetrics: string[],
-  adjustment: PValueCorrection
+  adjustment: PValueCorrection,
 ): void {
   if (!adjustment) {
     return;
@@ -1115,12 +1117,12 @@ export function setAdjustedPValuesOnResults(
 export function adjustedCI(
   adjustedPValue: number,
   lift: number | undefined,
-  pValueThreshold: number
+  pValueThreshold: number,
 ): [number, number] {
   if (!lift) return [0, 0];
   const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
   const adjStdDev = Math.abs(
-    lift / normal.quantile(1 - adjustedPValue / 2, 0, 1)
+    lift / normal.quantile(1 - adjustedPValue / 2, 0, 1),
   );
   const width = zScore * adjStdDev;
   return [lift - width, lift + width];
@@ -1128,7 +1130,7 @@ export function adjustedCI(
 
 export function setAdjustedCIs(
   results: ExperimentReportResultDimension[],
-  pValueThreshold: number
+  pValueThreshold: number,
 ): void {
   results.forEach((r) => {
     r.variations.forEach((v) => {
@@ -1148,7 +1150,7 @@ export function setAdjustedCIs(
           pValueAdjusted,
           uplift.mean,
           pValueThreshold,
-          ci
+          ci,
         );
         if (adjCI) {
           v.metrics[key].ciAdjusted = adjCI;
@@ -1165,7 +1167,7 @@ export function getAdjustedCI(
   pValueAdjusted: number,
   lift: number | undefined,
   pValueThreshold: number,
-  ci: [number, number]
+  ci: [number, number],
 ): [number, number] | undefined {
   // set to Inf if adjusted pValue is 1
   if (pValueAdjusted > 0.999999) {
@@ -1179,4 +1181,41 @@ export function getAdjustedCI(
   } else {
     return ci;
   }
+}
+
+export function getPredefinedDimensionSlicesByExperiment(
+  dimensionMetadata: ExperimentDimensionMetadata[],
+  nVariations: number,
+): ExperimentDimensionMetadata[] {
+  // Ensure we return no more than 1k rows in full joint distribution
+  // for post-stratification
+  let dimensions = dimensionMetadata;
+
+  // remove dimensions that have no slices
+  dimensions = dimensions.filter((d) => d.specifiedSlices.length > 0);
+
+  let totalLevels = countDimensionLevels(dimensions, nVariations);
+  const maxLevels = 1000;
+  while (totalLevels > maxLevels) {
+    dimensions = dimensions.slice(0, -1);
+    if (dimensions.length === 0) {
+      break;
+    }
+    totalLevels = countDimensionLevels(dimensions, nVariations);
+  }
+
+  return dimensions;
+}
+
+export function countDimensionLevels(
+  dimensionMetadata: { specifiedSlices: string[] }[],
+  nVariations: number,
+): number {
+  const nLevels: number[] = [];
+  dimensionMetadata.forEach((dim) => {
+    // add 1 for __other__ slice
+    nLevels.push(dim.specifiedSlices.length + 1);
+  });
+
+  return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
 }

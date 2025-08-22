@@ -47,14 +47,14 @@ export async function updateRampUpSchedule({
       : rampUpSchedule.step + 1;
     const { nextRampUp } = determineNextSafeRolloutSnapshotAttempt(
       safeRollout,
-      context.org
+      context.org,
     );
     await context.models.safeRollout.update(safeRollout, {
       rampUpSchedule: {
         ...rampUpSchedule,
         step,
         steps: rampUpSchedule.steps.map((stepObj, index) =>
-          index === step ? { ...stepObj, dateRampedUp: new Date() } : stepObj
+          index === step ? { ...stepObj, dateRampedUp: new Date() } : stepObj,
         ),
         rampUpCompleted,
         lastUpdate: new Date(),
@@ -86,7 +86,7 @@ export async function checkAndRollbackSafeRollout({
   });
   const healthSettings = getHealthSettings(
     context.org.settings,
-    orgHasPremiumFeature(context.org, "decision-framework")
+    orgHasPremiumFeature(context.org, "decision-framework"),
   );
   const safeRolloutStatus = getSafeRolloutResultStatus({
     safeRollout: updatedSafeRollout,
@@ -114,7 +114,7 @@ export async function checkAndRollbackSafeRollout({
       ruleIndex,
       { status },
       context.auditUser,
-      false
+      false,
     );
     const live = await getRevision({
       context,
@@ -144,7 +144,7 @@ export async function checkAndRollbackSafeRollout({
       base,
       revision,
       [updatedSafeRollout.environment],
-      {}
+      {},
     );
     if (!mergeResult.success) {
       throw new Error("could not merge the status");
@@ -155,7 +155,7 @@ export async function checkAndRollbackSafeRollout({
       feature,
       revision,
       mergeResult.result,
-      "auto-publish status change"
+      "auto-publish status change",
     );
   }
   return status;
@@ -163,7 +163,7 @@ export async function checkAndRollbackSafeRollout({
 
 export function determineNextSafeRolloutSnapshotAttempt(
   safeRollout: SafeRolloutInterface,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ): { nextSnapshot: Date; nextRampUp: Date } {
   const rampUpSchedule = safeRollout?.rampUpSchedule;
   const nextUpdate =
@@ -205,12 +205,12 @@ export function determineNextSafeRolloutSnapshotAttempt(
       Math.min(
         (rampUpSchedule.lastUpdate?.getTime() ?? Date.now()) +
           rampUpTimeBetweenStepsInSeconds * 1000,
-        rampUpSchedule.nextUpdate?.getTime() ?? Infinity
-      )
+        rampUpSchedule.nextUpdate?.getTime() ?? Infinity,
+      ),
     ),
     nextRampUp: new Date(
       (rampUpSchedule.lastUpdate?.getTime() ?? Date.now()) +
-        rampUpTimeBetweenStepsInSeconds * 1000
+        rampUpTimeBetweenStepsInSeconds * 1000,
     ),
   };
 }

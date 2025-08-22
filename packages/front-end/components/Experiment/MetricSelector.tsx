@@ -14,6 +14,7 @@ export type MetricOption = {
   factTables: string[];
   userIdTypes: string[];
   isBinomial: boolean;
+  isConversionWindowMetric: boolean;
 };
 
 const MetricSelector: FC<
@@ -25,6 +26,7 @@ const MetricSelector: FC<
     includeFacts?: boolean;
     availableIds?: string[];
     onlyBinomial?: boolean;
+    filterConversionWindowMetrics?: boolean;
     sortMetrics?: (a: MetricOption, b: MetricOption) => number;
     filterMetrics?: (m: MetricOption) => boolean;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
@@ -38,17 +40,14 @@ const MetricSelector: FC<
   placeholder,
   availableIds,
   onlyBinomial,
+  filterConversionWindowMetrics,
   sortMetrics,
   filterMetrics,
   onPaste,
   ...selectProps
 }) => {
-  const {
-    metrics,
-    factMetrics,
-    factTables,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metrics, factMetrics, factTables, getDatasourceById } =
+    useDefinitions();
 
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
@@ -60,6 +59,7 @@ const MetricSelector: FC<
       factTables: [],
       userIdTypes: m.userIdTypes || [],
       isBinomial: isBinomialMetric(m) && !m.denominator,
+      isConversionWindowMetric: m?.windowSettings?.type === "conversion",
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
@@ -79,6 +79,7 @@ const MetricSelector: FC<
             factTables.find((f) => f.id === m.numerator.factTableId)
               ?.userIdTypes || [],
           isBinomial: isBinomialMetric(m),
+          isConversionWindowMetric: m?.windowSettings?.type === "conversion",
         }))
       : []),
   ].filter((m) => (filterMetrics ? filterMetrics(m) : true));
@@ -94,7 +95,7 @@ const MetricSelector: FC<
     ? getDatasourceById(datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   )?.userIdType;
 
   const filteredOptions = options
@@ -104,7 +105,7 @@ const MetricSelector: FC<
     .filter((m) =>
       userIdType && m.userIdTypes.length
         ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
-        : true
+        : true,
     )
     .filter((m) => {
       if (projects && !project) {
@@ -114,6 +115,12 @@ const MetricSelector: FC<
         );
       }
       return isProjectListValidForProject(m.projects, project);
+    })
+    .filter((m) => {
+      if (filterConversionWindowMetrics) {
+        return !m.isConversionWindowMetric;
+      }
+      return true;
     });
 
   return (

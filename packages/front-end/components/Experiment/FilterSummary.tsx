@@ -22,11 +22,8 @@ const FilterSummary: FC<{
     snapshot.settings.segment ||
     snapshot.settings.queryFilter ||
     snapshot.settings.activationMetric;
-  const {
-    getSegmentById,
-    getExperimentMetricById,
-    getDatasourceById,
-  } = useDefinitions();
+  const { getSegmentById, getExperimentMetricById, getDatasourceById } =
+    useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
   return (
@@ -73,7 +70,7 @@ const FilterSummary: FC<{
                 {getExposureQuery(
                   datasource?.settings,
                   experiment.exposureQueryId,
-                  experiment.userIdType
+                  experiment.userIdType,
                 )?.name || "None"}
               </div>
             </div>
@@ -103,7 +100,8 @@ const FilterSummary: FC<{
               </div>
               <div className="col">
                 {snapshot.settings.segment ? (
-                  getSegmentById(snapshot.settings.segment)?.name ?? "(unknown)"
+                  (getSegmentById(snapshot.settings.segment)?.name ??
+                  "(unknown)")
                 ) : (
                   <>
                     <em>none</em> (all users included)
@@ -121,8 +119,8 @@ const FilterSummary: FC<{
             </div>
             <div className="col">
               {snapshot.settings.activationMetric ? (
-                getExperimentMetricById(snapshot.settings.activationMetric)
-                  ?.name ?? "(unknown)"
+                (getExperimentMetricById(snapshot.settings.activationMetric)
+                  ?.name ?? "(unknown)")
               ) : (
                 <em>none</em>
               )}

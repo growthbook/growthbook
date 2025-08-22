@@ -18,7 +18,7 @@ const PendingMemberList: FC<{
 }> = ({ pendingMembers, mutate, project }) => {
   const { apiCall } = useAuth();
   const [roleModalUser, setRoleModalUser] = useState<PendingMember | null>(
-    null
+    null,
   );
   const { projects } = useDefinitions();
   const environments = useEnvironments();
@@ -101,7 +101,7 @@ const PendingMemberList: FC<{
                   const access = roleHasAccessToEnv(
                     roleInfo,
                     env.id,
-                    organization
+                    organization,
                   );
                   return (
                     <td key={env.id}>

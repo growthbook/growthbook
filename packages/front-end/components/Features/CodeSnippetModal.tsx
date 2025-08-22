@@ -44,7 +44,7 @@ export function getApiBaseUrl(connection?: SDKConnectionInterface): string {
     return trimTrailingSlash(
       connection.proxy.hostExternal ||
         connection.proxy.host ||
-        "https://proxy.yoursite.io"
+        "https://proxy.yoursite.io",
     );
   }
 
@@ -81,7 +81,7 @@ export default function CodeSnippetModal({
 
   useEffect(() => {
     setCurrentConnectionId(
-      currentConnectionId || sdkConnection?.id || connections?.[0]?.id || ""
+      currentConnectionId || sdkConnection?.id || connections?.[0]?.id || "",
     );
   }, [connections]);
 
@@ -92,7 +92,7 @@ export default function CodeSnippetModal({
 
   const [language, setLanguage] = useState<SDKLanguage>("javascript");
   const [version, setVersion] = useState<string>(
-    getLatestSDKVersion("javascript")
+    getLatestSDKVersion("javascript"),
   );
 
   const [configOpen, setConfigOpen] = useState(true);
@@ -133,7 +133,7 @@ export default function CodeSnippetModal({
   const hashSecureAttributes = !!currentConnection.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
-      ["secureString", "secureString[]"].includes(a.datatype)
+      ["secureString", "secureString[]"].includes(a.datatype),
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
   const remoteEvalEnabled = !!currentConnection.remoteEvalEnabled;
@@ -185,11 +185,11 @@ export default function CodeSnippetModal({
                 setShowTestModal(true);
               }
             : submit
-            ? async () => {
-                submit();
-                close && close();
-              }
-            : undefined
+              ? async () => {
+                  submit();
+                  close && close();
+                }
+              : undefined
         }
         cta={cta}
       >
@@ -393,7 +393,7 @@ export default function CodeSnippetModal({
                         />
                         View on{" "}
                         {getPackageRepositoryName(
-                          languageMapping[language].packageUrl
+                          languageMapping[language].packageUrl,
                         )}
                       </a>
                     </div>

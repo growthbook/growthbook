@@ -39,7 +39,7 @@ const SortableMultiValue = SortableElement(
     const innerProps = { ...props.innerProps, onMouseDown };
     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ innerProps: { onMouseDown: MouseEventHandl... Remove this comment to see the full error message
     return <components.MultiValue {...props} innerProps={innerProps} />;
-  }
+  },
 );
 
 // eslint-disable-next-line
@@ -55,7 +55,7 @@ const SortableMultiValueLabel = SortableHandle<any>(
         {label}
       </div>
     );
-  }
+  },
 );
 
 const OptionWithTitle = (props: OptionProps<SingleValue>) => {
@@ -74,7 +74,7 @@ const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
 >;
 
 const SortableCreatableSelect = SortableContainer(
-  CreatableSelect
+  CreatableSelect,
 ) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
 
 const Input = (props: InputProps) => {
@@ -99,7 +99,7 @@ export type MultiSelectFieldProps = Omit<
   creatable?: boolean;
   formatOptionLabel?: (
     value: SingleValue,
-    meta: FormatOptionLabelMeta<SingleValue>
+    meta: FormatOptionLabelMeta<SingleValue>,
   ) => ReactNode;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
@@ -138,8 +138,8 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       arrayMove(
         selected.map((v) => v.value),
         oldIndex,
-        newIndex
-      )
+        newIndex,
+      ),
     );
   };
   const mergeStyles = customStyles ? { styles: customStyles } : {};
@@ -162,7 +162,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
               // if react-select and react-sortable fixes it.
               setTimeout(() => {
                 const nodes = document.querySelectorAll(
-                  "body > .multi-select-container"
+                  "body > .multi-select-container",
                 );
                 nodes.forEach((n) => {
                   n.remove();
@@ -192,25 +192,25 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     IndicatorSeparator: () => null,
                   }
                 : creatable
-                ? {
-                    MenuList: (props) => {
-                      return (
-                        <>
-                          <div
-                            className="px-2 py-1"
-                            style={{
-                              fontWeight: 500,
-                              fontSize: "85%",
-                            }}
-                          >
-                            <strong>Select an option or create one</strong>
-                          </div>
-                          <components.MenuList {...props} />
-                        </>
-                      );
-                    },
-                  }
-                : {}),
+                  ? {
+                      MenuList: (props) => {
+                        return (
+                          <>
+                            <div
+                              className="px-2 py-1"
+                              style={{
+                                fontWeight: 500,
+                                fontSize: "85%",
+                              }}
+                            >
+                              <strong>Select an option or create one</strong>
+                            </div>
+                            <components.MenuList {...props} />
+                          </>
+                        );
+                      },
+                    }
+                  : {}),
             }}
             {...(creatable && noMenu
               ? {

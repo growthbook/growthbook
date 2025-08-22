@@ -63,16 +63,16 @@ export default function SafeRolloutSnapshotProvider({
         snapshot: data?.snapshot,
         latest: data?.latest,
         analysis: data?.snapshot
-          ? getSafeRolloutSnapshotAnalysis(
+          ? (getSafeRolloutSnapshotAnalysis(
               data?.snapshot,
-              defaultAnalysisSettings
-            ) ?? undefined
+              defaultAnalysisSettings,
+            ) ?? undefined)
           : undefined,
         latestAnalysis: data?.latest
-          ? getSafeRolloutSnapshotAnalysis(
+          ? (getSafeRolloutSnapshotAnalysis(
               data?.latest,
-              defaultAnalysisSettings
-            ) ?? undefined
+              defaultAnalysisSettings,
+            ) ?? undefined)
           : undefined,
         mutateSnapshot,
         analysisSettings: defaultAnalysisSettings,

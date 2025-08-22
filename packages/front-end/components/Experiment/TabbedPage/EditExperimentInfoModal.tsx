@@ -11,7 +11,7 @@ import Callout from "@/components/Radix/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 
-export type FocusSelector = "project" | "tags" | "name";
+export type FocusSelector = "project" | "tags" | "name" | "projects";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -102,7 +102,7 @@ export default function EditExperimentInfoModal({
         onChange={(v) => form.setValue("project", v)}
         options={useProjectOptions(
           (project) => canUpdateExperimentProject(project),
-          experiment.project ? [experiment.project] : []
+          experiment.project ? [experiment.project] : [],
         )}
         initialOption={initialProjectOption}
       />
