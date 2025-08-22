@@ -399,13 +399,13 @@ export type OrganizationUsage = {
   limits: {
     requests: UsageLimit;
     bandwidth: UsageLimit;
-    managedClickhouseEvents: UsageLimit;
+    managedClickhouseEvents?: UsageLimit;
   };
   cdn: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };
-  managedClickhouse: {
+  managedClickhouse?: {
     lastUpdated: Date;
     status: "under" | "approaching" | "over";
   };
