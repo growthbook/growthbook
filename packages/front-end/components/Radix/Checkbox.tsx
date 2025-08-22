@@ -6,10 +6,12 @@ import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
-export type Size = "md" | "lg";
+export type Size = "sm" | "md" | "lg";
 
-export function getRadixSize(size: Size): Responsive<"2" | "3"> {
+export function getRadixSize(size: Size): Responsive<"1" | "2" | "3"> {
   switch (size) {
+    case "sm":
+      return "1";
     case "md":
       return "2";
     case "lg":
