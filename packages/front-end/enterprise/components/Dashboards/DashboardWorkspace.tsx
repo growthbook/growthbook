@@ -26,6 +26,7 @@ import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 
 export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "60px";
 interface Props {
+  isTabActive: boolean;
   experiment: ExperimentInterfaceStringDates;
   dashboard: DashboardInterface;
   mutate: () => void;
@@ -33,6 +34,7 @@ interface Props {
   close: () => void;
 }
 export default function DashboardWorkspace({
+  isTabActive,
   experiment,
   dashboard,
   mutate,
@@ -50,6 +52,13 @@ export default function DashboardWorkspace({
       }
     };
   }, []);
+  useEffect(() => {
+    if (dashboard) {
+      setBlocks(dashboard.blocks);
+    } else {
+      setBlocks([]);
+    }
+  }, [dashboard]);
   const { metricGroups } = useDefinitions();
 
   const [blocks, setBlocks] = useState<
@@ -223,6 +232,7 @@ export default function DashboardWorkspace({
       >
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <DashboardEditor
+            isTabActive={isTabActive}
             experiment={experiment}
             title={dashboard.title}
             blocks={effectiveBlocks}

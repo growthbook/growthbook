@@ -501,7 +501,11 @@ export default function TabbedPage({
             : "d-none d-print-block"
         }
       >
-        <DashboardsTab experiment={experiment} initialDashboardId={tabPath} />
+        <DashboardsTab
+          experiment={experiment}
+          initialDashboardId={tabPath}
+          isTabActive={tab === "dashboards"}
+        />
       </div>
       <div
         className={

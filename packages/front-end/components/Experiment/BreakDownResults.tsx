@@ -107,6 +107,7 @@ const BreakDownResults: FC<{
   renderMetricName?: (
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
+  noStickyHeader?: boolean;
 }> = ({
   dimensionId,
   dimensionValuesFilter,
@@ -141,6 +142,7 @@ const BreakDownResults: FC<{
   ssrPolyfills,
   hideDetails,
   renderMetricName,
+  noStickyHeader,
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
@@ -443,6 +445,7 @@ const BreakDownResults: FC<{
               isTabActive={true}
               isBandit={isBandit}
               ssrPolyfills={ssrPolyfills}
+              noStickyHeader={noStickyHeader}
             />
             <div className="mb-5" />
           </>

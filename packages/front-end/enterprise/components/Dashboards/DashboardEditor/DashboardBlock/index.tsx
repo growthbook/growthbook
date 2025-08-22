@@ -72,6 +72,7 @@ type ObjectProps<Block> = {
 };
 
 export type BlockProps<T extends DashboardBlockInterface> = {
+  isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
   setBlock: React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
@@ -82,6 +83,7 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 } & ObjectProps<T>;
 
 interface Props<DashboardBlock extends DashboardBlockInterface> {
+  isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
   dashboardExperiment: ExperimentInterfaceStringDates;
   isFocused: boolean;
@@ -112,6 +114,7 @@ const BLOCK_COMPONENTS: {
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
+  isTabActive,
   block,
   isEditing,
   isFocused,
@@ -383,6 +386,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       ) : (
         <ErrorBoundary fallback={<BlockRenderError block={block} />}>
           <BlockComponent
+            isTabActive={isTabActive}
             block={block}
             setBlock={setBlock}
             isEditing={isEditing}

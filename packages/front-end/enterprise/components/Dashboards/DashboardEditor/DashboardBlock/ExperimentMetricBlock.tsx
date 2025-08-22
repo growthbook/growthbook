@@ -15,6 +15,7 @@ import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
+  isTabActive,
   block,
   experiment,
   analysis,
@@ -121,6 +122,7 @@ export default function ExperimentMetricBlock({
     <div>
       {Object.entries(rowGroups).map(([resultGroup, rows]) => (
         <ResultsTable
+          noStickyHeader
           key={resultGroup}
           id={blockId}
           phase={experiment.phases.length - 1}
@@ -142,7 +144,7 @@ export default function ExperimentMetricBlock({
           statsEngine={statsEngine}
           pValueCorrection={pValueCorrection}
           differenceType={analysis?.settings?.differenceType || "relative"}
-          isTabActive={true}
+          isTabActive={isTabActive}
           isGoalMetrics={resultGroup === "goal"}
         />
       ))}

@@ -112,6 +112,7 @@ function AddBlockDropdown({
 }
 
 interface Props {
+  isTabActive: boolean;
   experiment: ExperimentInterfaceStringDates;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
@@ -133,6 +134,7 @@ interface Props {
 }
 
 function DashboardEditor({
+  isTabActive,
   experiment,
   title,
   blocks,
@@ -182,6 +184,7 @@ function DashboardEditor({
     return (
       <Flex direction="column" key={key}>
         <DashboardBlock
+          isTabActive={isTabActive}
           block={block}
           dashboardExperiment={experiment}
           isEditing={isEditing}

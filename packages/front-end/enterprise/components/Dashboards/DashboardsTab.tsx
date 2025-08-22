@@ -66,11 +66,13 @@ export const autoUpdateDisabledMessage =
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
+  isTabActive: boolean;
 }
 
 export default function DashboardsTab({
   experiment,
   initialDashboardId,
+  isTabActive,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
@@ -199,6 +201,7 @@ export default function DashboardsTab({
           submitDashboard={submitDashboard}
           mutate={mutateDashboards}
           close={() => setIsEditing(false)}
+          isTabActive={isTabActive}
         />
       ) : (
         <div>
@@ -474,6 +477,7 @@ export default function DashboardsTab({
                       </Flex>
                     ) : (
                       <DashboardEditor
+                        isTabActive={isTabActive}
                         experiment={experiment}
                         title={dashboard.title}
                         blocks={blocks}
