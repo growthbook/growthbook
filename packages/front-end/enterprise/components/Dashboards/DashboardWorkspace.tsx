@@ -63,6 +63,21 @@ export default function DashboardWorkspace({
   const { metricGroups } = useDefinitions();
 
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | undefined>(undefined);
+  const submit: SubmitDashboard<UpdateDashboardArgs> = useMemo(
+    () => async (args) => {
+      setSaving(true);
+      setSaveError(undefined);
+      try {
+        await submitDashboard(args);
+      } catch (e) {
+        setSaveError(e.message);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [submitDashboard],
+  );
 
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
@@ -73,17 +88,15 @@ export default function DashboardWorkspace({
     ) => {
       setBlocks(blocks);
       setHasMadeChanges(true);
-      setSaving(true);
-      await submitDashboard({
+      await submit({
         method: "PUT",
         dashboardId: dashboard.id,
         data: {
           blocks,
         },
       });
-      setSaving(false);
     };
-  }, [setBlocks, submitDashboard, dashboard.id]);
+  }, [setBlocks, submit, dashboard.id]);
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
   const [hasMadeChanges, setHasMadeChanges] = useState(false);
@@ -186,7 +199,14 @@ export default function DashboardWorkspace({
         }}
       >
         <Flex align="center" gap="1">
-          {saving ? (
+          {saveError ? (
+            <Tooltip body={saveError} delay={0}>
+              <PiX color="red" />
+              <Text color="red" ml="1" size="1">
+                Error saving dashboard
+              </Text>
+            </Tooltip>
+          ) : saving ? (
             <>
               <LoadingSpinner />
               <Text size="1">Saving...</Text>
@@ -205,9 +225,11 @@ export default function DashboardWorkspace({
               tipPosition="top"
             >
               <Button
+                className={clsx({
+                  "dashboard-disabled": editSidebarDirty,
+                })}
                 onClick={async () => {
-                  setSaving(true);
-                  await submitDashboard({
+                  await submit({
                     method: "PUT",
                     dashboardId: dashboard.id,
                     data: pick(dashboardCopy, [
@@ -217,8 +239,6 @@ export default function DashboardWorkspace({
                       "enableAutoUpdates",
                     ]),
                   });
-                  // TODO: catch error and surface
-                  setSaving(false);
                   close();
                 }}
                 variant="ghost"
