@@ -111,7 +111,7 @@ export default function AccountPlanNotices() {
   );
 
   let managedWarehouseUsageMessage: JSX.Element | null = null;
-  if (usage?.managedClickhouse.status === "approaching") {
+  if (usage?.managedClickhouse?.status === "approaching") {
     managedWarehouseUsageMessage = (
       <>
         {upgradeModal && (
@@ -133,7 +133,7 @@ export default function AccountPlanNotices() {
         </Tooltip>
       </>
     );
-  } else if (usage?.managedClickhouse.status === "over") {
+  } else if (usage?.managedClickhouse?.status === "over") {
     managedWarehouseUsageMessage = (
       <>
         {upgradeModal && (
