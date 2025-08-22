@@ -20,6 +20,7 @@ import { isDefined } from "shared/util";
 import Button from "@/components/Radix/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import DashboardEditor, { DASHBOARD_TOPBAR_HEIGHT } from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
@@ -61,22 +62,26 @@ export default function DashboardWorkspace({
   }, [dashboard]);
   const { metricGroups } = useDefinitions();
 
+  const [saving, setSaving] = useState(false);
+
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >(dashboard.blocks);
   const setBlocksAndSubmit = useMemo(() => {
-    return (
+    return async (
       blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
     ) => {
       setBlocks(blocks);
       setHasMadeChanges(true);
-      submitDashboard({
+      setSaving(true);
+      await submitDashboard({
         method: "PUT",
         dashboardId: dashboard.id,
         data: {
           blocks,
         },
       });
+      setSaving(false);
     };
   }, [setBlocks, submitDashboard, dashboard.id]);
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
@@ -181,9 +186,17 @@ export default function DashboardWorkspace({
         }}
       >
         <Flex align="center" gap="1">
-          {/* TODO: change icon to show saving in progress */}
-          <PiCheckCircle style={{ color: "var(--violet-11)" }} />
-          <Text size="1">Edits are saved automatically</Text>
+          {saving ? (
+            <>
+              <LoadingSpinner />
+              <Text size="1">Saving...</Text>
+            </>
+          ) : (
+            <>
+              <PiCheckCircle style={{ color: "var(--violet-11)" }} />
+              <Text size="1">Edits are saved automatically</Text>
+            </>
+          )}
         </Flex>
         <Flex align="center" gap="4">
           {dashboardCopy && hasMadeChanges && (
@@ -193,6 +206,7 @@ export default function DashboardWorkspace({
             >
               <Button
                 onClick={async () => {
+                  setSaving(true);
                   await submitDashboard({
                     method: "PUT",
                     dashboardId: dashboard.id,
@@ -203,6 +217,8 @@ export default function DashboardWorkspace({
                       "enableAutoUpdates",
                     ]),
                   });
+                  // TODO: catch error and surface
+                  setSaving(false);
                   close();
                 }}
                 variant="ghost"
