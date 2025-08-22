@@ -167,6 +167,7 @@ function DashboardEditor({
     isFocused,
     setBlock,
     isEditingBlock,
+    isLastBlock,
   }: {
     i: number;
     key: number | string;
@@ -176,6 +177,7 @@ function DashboardEditor({
       DashboardBlockInterfaceOrData<DashboardBlockInterface>
     >;
     isEditingBlock: boolean;
+    isLastBlock: boolean;
   }) => {
     return (
       <Flex direction="column" key={key}>
@@ -226,7 +228,6 @@ function DashboardEditor({
                       width: "100%",
                       height: "50%",
                       borderBottom: "1px solid var(--violet-a9)",
-                      zIndex: -1,
                     }}
                   />
                 )}
@@ -245,7 +246,7 @@ function DashboardEditor({
                       setHoverAddBlock(undefined);
                     }}
                     className={clsx({
-                      "opacity-0": showAddBlock !== i,
+                      "opacity-0": showAddBlock !== i && !isLastBlock,
                     })}
                     size="1"
                   >
@@ -343,6 +344,7 @@ function DashboardEditor({
               isFocused: focusedBlockIndex === i,
               setBlock: (block) => setBlock(i, block),
               isEditingBlock: stagedBlockIndex === i,
+              isLastBlock: i === blocks.length - 1,
             }),
           )
         )}

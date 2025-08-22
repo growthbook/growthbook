@@ -1,4 +1,4 @@
-import { Flex, Grid, IconButton, Text } from "@radix-ui/themes";
+import { Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -305,7 +305,7 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showDescription: value });
                     }}
-                    label="Show Description"
+                    label={<Text weight="regular">Show Description</Text>}
                   />
                   <Checkbox
                     size="sm"
@@ -313,7 +313,7 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showHypothesis: value });
                     }}
-                    label="Show Hypothesis"
+                    label={<Text weight="regular">Show Hypothesis</Text>}
                   />
                   <Checkbox
                     size="sm"
@@ -325,7 +325,7 @@ export default function EditSingleBlock({
                         variationIds: value ? [] : undefined,
                       });
                     }}
-                    label="Show Variations"
+                    label={<Text weight="regular">Show Variations</Text>}
                   />
                 </Grid>
               </>
@@ -340,7 +340,7 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showTable: value });
                     }}
-                    label="Show Table"
+                    label={<Text weight="regular">Show Table</Text>}
                   />
                   <Checkbox
                     size="sm"
@@ -348,7 +348,7 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showTimeseries: value });
                     }}
-                    label="Show Timeseries"
+                    label={<Text weight="regular">Show Timeseries</Text>}
                   />
                 </Grid>
               </>
@@ -359,7 +359,6 @@ export default function EditSingleBlock({
                 label="Metric"
                 labelClassName="font-weight-bold"
                 value={block.metricId}
-                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
                 onChange={(value) => {
                   setBlock({ ...block, metricId: value });
@@ -385,7 +384,6 @@ export default function EditSingleBlock({
                   label="Metrics"
                   labelClassName="font-weight-bold"
                   value={block.metricSelector}
-                  containerStyle={{ flexBasis: "32%" }}
                   containerClassName="mb-0"
                   onChange={(value) =>
                     setBlock({
@@ -406,7 +404,6 @@ export default function EditSingleBlock({
                     label="Custom Metric Selection"
                     labelClassName="font-weight-bold"
                     value={block.metricIds ?? []}
-                    containerStyle={{ flexBasis: "32%" }}
                     containerClassName="mb-0"
                     onChange={(value) =>
                       setBlock({ ...block, metricIds: value })
@@ -449,18 +446,40 @@ export default function EditSingleBlock({
                 labelClassName="font-weight-bold"
                 placeholder="Choose which dimension to use"
                 value={block.dimensionId}
-                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, dimensionId: value })}
                 options={dimensionOptions}
               />
             )}
+            {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (
+              <>
+                <SelectField
+                  label="Difference Type"
+                  labelClassName="font-weight-bold"
+                  containerClassName="mb-0"
+                  value={block.differenceType}
+                  onChange={(value) =>
+                    setBlock({
+                      ...block,
+                      differenceType: isDifferenceType(value)
+                        ? value
+                        : "absolute",
+                    })
+                  }
+                  options={[
+                    { label: "Relative", value: "relative" },
+                    { label: "Absolute", value: "absolute" },
+                    { label: "Scaled", value: "scaled" },
+                  ]}
+                  sort={false}
+                />
+                <Separator style={{ width: "100%" }} />
+              </>
+            )}
             {blockHasFieldOfType(block, "baselineRow", isNumber) && (
               <SelectField
                 sort={false}
-                label="Baseline Variation"
-                labelClassName="font-weight-bold"
-                containerStyle={{ flexBasis: "32%" }}
+                label="Baseline"
                 containerClassName="mb-0"
                 value={block.baselineRow.toString()}
                 onChange={(value) =>
@@ -497,10 +516,8 @@ export default function EditSingleBlock({
               <MultiSelectField
                 sort={false}
                 label="Variations"
-                labelClassName="font-weight-bold"
                 placeholder="Showing all variations"
                 value={block.variationIds}
-                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
                 onChange={(value) => setVariations(block, value)}
                 disabled={variationOptions.length < 2}
@@ -536,10 +553,8 @@ export default function EditSingleBlock({
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
                 label="Dimension Values"
-                labelClassName="font-weight-bold"
                 placeholder="Showing all values"
                 value={block.dimensionValues}
-                containerStyle={{ flexBasis: "32%" }}
                 containerClassName="mb-0"
                 onChange={(value) =>
                   setBlock({ ...block, dimensionValues: value })
@@ -547,54 +562,57 @@ export default function EditSingleBlock({
                 options={dimensionValueOptions}
               />
             )}
-            {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (
-              <SelectField
-                label="Difference Type"
-                labelClassName="font-weight-bold"
-                containerStyle={{ flexBasis: "32%" }}
-                containerClassName="mb-0"
-                value={block.differenceType}
-                onChange={(value) =>
-                  setBlock({
-                    ...block,
-                    differenceType: isDifferenceType(value)
-                      ? value
-                      : "absolute",
-                  })
-                }
-                options={[
-                  { label: "Relative", value: "relative" },
-                  { label: "Absolute", value: "absolute" },
-                  { label: "Scaled", value: "scaled" },
-                ]}
-                sort={false}
-              />
-            )}
             {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
-              <MultiSelectField
-                sort={false}
-                label="Display Columns"
-                labelClassName="font-weight-bold"
-                placeholder="Showing all columns"
-                value={block.columnsFilter}
-                containerStyle={{ flexBasis: "32%" }}
-                containerClassName="mb-0"
-                onChange={(value) =>
-                  setBlock({
-                    ...block,
-                    columnsFilter: value as Array<
-                      (typeof RESULTS_TABLE_COLUMNS)[number]
-                    >,
-                  })
-                }
-                options={RESULTS_TABLE_COLUMNS.map((colName) => ({
-                  label: colName,
-                  value: colName,
-                }))}
-              />
+              <>
+                <Text weight="medium">Columns</Text>
+                <Grid columns="2">
+                  <Checkbox
+                    size="sm"
+                    value={
+                      block.columnsFilter.length === 0 ||
+                      block.columnsFilter.length ===
+                        RESULTS_TABLE_COLUMNS.length
+                        ? true
+                        : "indeterminate"
+                    }
+                    setValue={() => {
+                      setBlock({
+                        ...block,
+                        columnsFilter: [],
+                      });
+                    }}
+                    label="Select All"
+                  />
+                  {RESULTS_TABLE_COLUMNS.map((colName) => (
+                    <Checkbox
+                      key={colName}
+                      size="sm"
+                      value={
+                        block.columnsFilter.length === 0 ||
+                        block.columnsFilter.includes(colName)
+                      }
+                      label={<Text weight="regular">{colName}</Text>}
+                      setValue={(value) =>
+                        setBlock({
+                          ...block,
+                          columnsFilter: value
+                            ? block.columnsFilter.concat([colName])
+                            : block.columnsFilter.length === 0
+                              ? RESULTS_TABLE_COLUMNS.filter(
+                                  (col) => col !== colName,
+                                )
+                              : block.columnsFilter.filter(
+                                  (el) => el !== colName,
+                                ),
+                        })
+                      }
+                    />
+                  ))}
+                </Grid>
+              </>
             )}
             {block.type === "markdown" && (
-              <div style={{ flexBasis: "100%" }}>
+              <div style={{ flexGrow: 1 }}>
                 <label className="font-weight-bold">Content</label>
                 <MarkdownInput
                   hidePreview
@@ -629,7 +647,6 @@ export default function EditSingleBlock({
                     }
                     labelClassName="flex-grow-1"
                     containerClassName="mb-0"
-                    containerStyle={{ flexBasis: "32%" }}
                     value={block.savedQueryId}
                     placeholder="Choose a saved query"
                     options={savedQueryOptions}
@@ -648,7 +665,6 @@ export default function EditSingleBlock({
                     markRequired
                     label="Data Visualization"
                     labelClassName="font-weight-bold"
-                    containerStyle={{ flexBasis: "32%" }}
                     containerClassName="mb-0"
                     forceUndefinedValueToNull
                     value={block.dataVizConfigIndex.toString()}

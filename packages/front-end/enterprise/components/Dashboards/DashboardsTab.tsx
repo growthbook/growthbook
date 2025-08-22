@@ -29,6 +29,7 @@ import { DropdownMenuSeparator } from "@/components/Radix/DropdownMenu";
 import { useDashboards } from "@/hooks/useDashboards";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
@@ -77,8 +78,18 @@ export default function DashboardsTab({
       setDashboardId(initialDashboardId);
     }
   }, [initialDashboardId]);
-  const { dashboards, mutateDashboards } = useDashboards(experiment.id);
+  const {
+    dashboards,
+    mutateDashboards,
+    loading: loadingDashboards,
+  } = useDashboards(experiment.id);
   const defaultDashboard = dashboards.find((dash) => dash.isDefault);
+  const [dashboardMounted, setDashboardMounted] = useState(false);
+
+  // Adds an extra render cycle for other useEffects to trigger before rendering children
+  useEffect(() => {
+    setDashboardMounted(!loadingDashboards);
+  }, [loadingDashboards]);
 
   useEffect(() => {
     if (!dashboardId && dashboards.length > 0) {
@@ -123,6 +134,8 @@ export default function DashboardsTab({
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
+    } else {
+      setBlocks([]);
     }
   }, [dashboard]);
 
@@ -172,6 +185,7 @@ export default function DashboardsTab({
     [experiment, updateSchedule, dashboard],
   );
 
+  if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
   return (
     <DashboardSnapshotProvider
       experiment={experiment}
