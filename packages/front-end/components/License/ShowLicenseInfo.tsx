@@ -7,7 +7,7 @@ import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 

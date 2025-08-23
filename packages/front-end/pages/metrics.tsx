@@ -4,15 +4,10 @@ import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
-import Button from "@/components/Radix/Button";
-import {
-  Tabs,
-  TabsTrigger,
-  TabsList,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import Button from "@/ui/Button";
+import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
 import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 

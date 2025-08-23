@@ -10,7 +10,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { useAuth } from "@/services/auth";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { getStripePublishableKey } from "@/services/env";
 

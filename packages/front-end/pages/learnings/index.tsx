@@ -11,7 +11,7 @@ import CompletedExperimentList from "@/components/Experiment/CompletedExperiment
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
 
 const LearningsPage = (): React.ReactElement => {

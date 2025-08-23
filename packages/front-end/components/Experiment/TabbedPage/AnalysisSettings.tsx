@@ -14,7 +14,7 @@ import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";

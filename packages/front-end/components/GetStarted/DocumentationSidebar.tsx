@@ -1,8 +1,8 @@
 import { PiSealQuestion } from "react-icons/pi";
 import { Card, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
-import Link from "@/components/Radix/Link";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PaidFeatureBadge from "./PaidFeatureBadge";
 

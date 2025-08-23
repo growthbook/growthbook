@@ -31,12 +31,7 @@ import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { growthbook } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 
 function generateTimeSeries(lookback: FeatureUsageLookback, keys: string[]) {

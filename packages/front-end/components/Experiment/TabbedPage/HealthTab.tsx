@@ -16,7 +16,7 @@ import track from "@/services/track";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import BanditSRMCard from "@/components/HealthTab/BanditSRMCard";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { PowerCard } from "@/components/HealthTab/PowerCard";
 import {
   HealthTabConfigParams,

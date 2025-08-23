@@ -6,7 +6,7 @@ import DataSourceLogo, {
 } from "@/components/DataSources/DataSourceLogo";
 import InviteModal from "@/components/Settings/Team/InviteModal";
 import { useUser } from "@/services/UserContext";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import DataSourceDiagram from "@/components/InitialSetup/DataSourceDiagram";
 
 interface Props {

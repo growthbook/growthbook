@@ -5,7 +5,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 
 export interface Props {

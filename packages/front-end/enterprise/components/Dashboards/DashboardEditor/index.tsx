@@ -11,15 +11,15 @@ import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { withErrorBoundary } from "@sentry/react";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardBlock from "./DashboardBlock";
 import DashboardBlockEditDrawer from "./DashboardBlockEditDrawer";

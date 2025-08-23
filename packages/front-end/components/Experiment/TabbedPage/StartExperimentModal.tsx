@@ -3,9 +3,9 @@ import { useState } from "react";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import PremiumCallout from "@/ui/PremiumCallout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

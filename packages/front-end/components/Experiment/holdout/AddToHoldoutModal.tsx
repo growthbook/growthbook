@@ -3,7 +3,7 @@ import { Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import Modal from "../../Modal";
-import Callout from "../../Radix/Callout";
+import Callout from "../../../ui/Callout";
 import { HoldoutSelect } from "../../Holdout/HoldoutSelect";
 
 const AddToHoldoutModal = ({

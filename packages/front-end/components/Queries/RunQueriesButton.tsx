@@ -13,7 +13,7 @@ import { getValidDate } from "shared/dates";
 import { FaXmark } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 function getTimeDisplay(seconds: number): string {
   if (seconds < 120) {

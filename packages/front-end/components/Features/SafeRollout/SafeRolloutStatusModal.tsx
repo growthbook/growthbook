@@ -18,7 +18,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 

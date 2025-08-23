@@ -1,7 +1,7 @@
 import { UseFormReturn } from "react-hook-form";
 import SDKLanguageSelector from "@/components/Features/SDKConnections/SDKLanguageSelector";
 import { SdkFormValues } from "@/pages/setup";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioGroup from "@/ui/RadioGroup";
 
 interface Props {
   connection: string | null;

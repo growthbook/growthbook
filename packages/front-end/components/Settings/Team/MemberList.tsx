@@ -18,7 +18,7 @@ import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const MemberList: FC<{
   mutate: () => void;

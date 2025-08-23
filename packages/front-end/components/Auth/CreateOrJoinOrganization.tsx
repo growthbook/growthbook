@@ -21,7 +21,7 @@ import Field from "@/components/Forms/Field";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useProject } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import style from "./CreateOrJoinOrganization.module.scss";
 import WelcomeFrame from "./WelcomeFrame";
 

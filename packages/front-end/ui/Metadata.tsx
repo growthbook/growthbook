@@ -1,8 +1,6 @@
-// react component for metadata that would display like title: data
-
 import { forwardRef } from "react";
 import { Flex, Text } from "@radix-ui/themes";
-import styles from "./Styles/Metadata.module.scss";
+import styles from "./Metadata.module.scss";
 
 type Props = {
   label: string;
