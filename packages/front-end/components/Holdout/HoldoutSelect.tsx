@@ -19,7 +19,7 @@ export const HoldoutSelect = ({
   setHoldout: (holdoutId: string) => void;
   selectedHoldoutId: string | undefined;
 }) => {
-  const { project } = useDefinitions();
+  const { project, getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
   const { holdouts, experimentsMap, loading } = useExperiments(
     project,
@@ -31,26 +31,38 @@ export const HoldoutSelect = ({
   const hasSetInitialValue = useRef(false);
 
   const holdoutsWithExperiment = useMemo(() => {
-    return holdouts
-      .filter((h) => {
-        const experiment = experimentsMap.get(h.experimentId);
+    const filteredHoldouts = holdouts.filter((h) => {
+      const experiment = experimentsMap.get(h.experimentId);
 
-        // If the holdout is in draft or is in the analysis period, don't show it
-        if (!!h.analysisStartDate || experiment?.status === "draft") {
-          return false;
-        }
-        // If the holdout is a part of the current project or all projects, show it
-        return selectedProject
-          ? h.projects.length === 0 || h.projects.includes(selectedProject)
-          : true;
-      })
-      .map((holdout) => ({
+      // If the holdout is in draft or is in the analysis period, don't show it
+      if (!!h.analysisStartDate || experiment?.status === "draft") {
+        return false;
+      }
+      // If the holdout is a part of the current project or all projects, show it
+      return selectedProject
+        ? h.projects.length === 0 || h.projects.includes(selectedProject)
+        : true;
+    });
+
+    return filteredHoldouts.map((holdout) => {
+      const experiment = experimentsMap.get(holdout.experimentId);
+      const datasource = experiment?.datasource
+        ? getDatasourceById(experiment?.datasource ?? "")
+        : null;
+      const exposureQueries = datasource?.settings?.queries?.exposure || [];
+      const userIdType = experiment
+        ? exposureQueries?.find((e) => e.id === experiment.exposureQueryId)
+            ?.userIdType
+        : "";
+      return {
         ...holdout,
         experiment: experimentsMap.get(
           holdout.experimentId,
         ) as ExperimentInterfaceStringDates,
-      }));
-  }, [holdouts, experimentsMap, selectedProject]);
+        userIdType,
+      };
+    });
+  }, [holdouts, experimentsMap, selectedProject, getDatasourceById]);
 
   useEffect(() => {
     // If still loading, don't set anything
@@ -124,8 +136,9 @@ export const HoldoutSelect = ({
       disabled={holdoutsWithExperiment.length === 0}
       sort={false}
       formatOptionLabel={({ label, value }) => {
-        const userIdType = holdoutsWithExperiment?.find((h) => h.id === value)
-          ?.experiment.exposureQueryId;
+        const userIdType = holdoutsWithExperiment?.find(
+          (h) => h.id === value,
+        )?.userIdType;
         return (
           <div className="cursor-pointer">
             {label}

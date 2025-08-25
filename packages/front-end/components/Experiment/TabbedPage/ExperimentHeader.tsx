@@ -836,7 +836,7 @@ export default function ExperimentHeader({
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               {isHoldout &&
-                experiment.status !== "stopped" &&
+                experiment.status === "running" &&
                 experiment.phases.length < 2 && (
                   <>
                     <DropdownMenuSeparator />
