@@ -5715,26 +5715,51 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   getUpdateExperimentIncrementalUnitsQuery(
     params: UpdateExperimentIncrementalUnitsQueryParams,
   ): string {
-    const { settings, partitionSettings } = params;
+    const { settings, partitionSettings, segment, factTableMap } = params;
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
+    if (!partitionSettings) {
+      throw new Error(
+        "Partition settings are required for incremental refresh",
+      );
+    }
     const partitionWhereClause = this.getPartitionWhereClause(
       partitionSettings,
       params.lastMaxTimestamp,
       "onOrAfter",
     );
 
-    // TODO: id joins
-    // TODO: sql filter and segments
+    // TODO test joins, re-use this logic for create;
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: [
+        [exposureQuery.userIdType],
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
+        segment ? [segment.userIdType || "user_id"] : [],
+      ],
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: settings.experimentId,
+    });
+
     // TODO: activation metric
+    if (activationMetric) {
+      throw new Error(
+        "Activation metrics are not supported for incremental refresh",
+      );
+    }
+
+    // Segment and SQL only checks against new exposures
+    // TODO: test segment, SQL filter, and ID joins
     // TODO: partitioning for quick max timestamp retrieval
     return format(
       `
       CREATE TABLE ${params.unitsTableFullName}_tmp AS (
-        WITH __existingUnits AS (
+        WITH ${idJoinSQL}
+        __existingUnits AS (
           SELECT 
-            ${exposureQuery.userIdType}
+            ${baseIdType}
             , variation
             , first_exposure_timestamp AS timestamp
             ${
@@ -5747,6 +5772,21 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           -- Redundant where statement could be used for safety to prevent counting units twice
           -- WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}
         ),
+        ${
+          segment
+            ? `, __segment as (${this.getSegmentCTE(
+                segment,
+                baseIdType,
+                idJoinMap,
+                factTableMap,
+                {
+                  startDate: settings.startDate,
+                  endDate: settings.endDate,
+                  experimentId: settings.experimentId,
+                },
+              )})`
+            : ""
+        }
         __newExposures AS (
           ${compileSqlTemplate(exposureQuery.query, {
             startDate: settings.startDate,
@@ -5757,42 +5797,42 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ),
         __filteredNewExposures AS (
           SELECT 
-            ${this.castToString(exposureQuery.userIdType)} AS ${
-              exposureQuery.userIdType
-            }
-            , variation_id AS variation
-            , ${this.castUserDateCol("timestamp")} AS timestamp
+            ${this.castToString(`n.${baseIdType}`)} AS ${baseIdType}
+            , n.variation_id AS variation
+            , ${this.castUserDateCol("n.timestamp")} AS timestamp
             -- TODO activation metric timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
-              .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
+              .map((d) => `, n.${d.id} AS dim_exp_${d.id}`)
               .join(",\n")}
-          FROM __newExposures
+          FROM __newExposures n
           -- TODO: confirm this always works for all incremental refresh datasources
           -- and their partitioning strategy
+          ${
+            segment
+              ? `JOIN __segment s ON (s.${baseIdType} = n.${baseIdType})`
+              : ""
+          }
           WHERE 
             timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
-            ${partitionWhereClause ? `AND ${partitionWhereClause}` : ""}
+            ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
+            ${partitionWhereClause ? `AND (${partitionWhereClause})` : ""}
         ),
         __jointExposures AS (
           SELECT * FROM __existingUnits
           UNION ALL
           SELECT * FROM __filteredNewExposures
         ),
+        -- TODO refactor this to a shared CTE
         __experimentUnits AS (
           SELECT
-            e.${exposureQuery.userIdType} AS ${exposureQuery.userIdType}
+            e.${baseIdType} AS ${baseIdType}
             , ${this.ifElse(
               "COUNT(DISTINCT e.variation) > 1",
               "'__multiple__'",
               "MAX(e.variation)",
             )} AS variation
             , MIN(e.timestamp) AS first_exposure_timestamp
-            ${
-              activationMetric
-                ? `, MIN(e.activation_timestamp) AS first_activation_timestamp`
-                : ""
-            }
             ${experimentDimensions
               .map(
                 (d) => `
@@ -5801,10 +5841,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               .join("\n")}
           FROM __jointExposures e
           GROUP BY
-            ${exposureQuery.userIdType}
+            ${baseIdType}
         )
         SELECT 
-          ${exposureQuery.userIdType}
+          ${baseIdType}
           , variation
           , first_exposure_timestamp
           ${activationMetric ? `, first_activation_timestamp` : ""}

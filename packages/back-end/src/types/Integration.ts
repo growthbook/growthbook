@@ -197,8 +197,10 @@ export type PartitionSettings =
     };
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: ExperimentSnapshotSettings;
+  segment: SegmentInterface | null;
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
+  factTableMap: FactTableMap;
   unitsTableFullName: string;
   partitionSettings: PartitionSettings | undefined;
 }
