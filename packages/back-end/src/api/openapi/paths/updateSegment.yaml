@@ -1,14 +1,21 @@
 parameters:
   - $ref: "../parameters.yaml#/id"
-summary: Get a single segment
 tags:
-  - segments
-operationId: getSegment
+  - dimensions
+summary: Update a single segment
+operationId: updateSegment
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl https://api.growthbook.io/api/v1/segments/seg_123abc \
+      curl -X POST https://api.growthbook.io/api/v1/segment/seg_123abc \
+        -d '{"name":"User Region"}' \
         -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/UpdateSegmentPayload.yaml"
 responses:
   "200":
     content:

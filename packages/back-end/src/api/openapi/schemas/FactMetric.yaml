@@ -232,3 +232,5 @@ properties:
   dateUpdated:
     type: string
     format: date-time
+  archived:
+    type: boolean
