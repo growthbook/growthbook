@@ -20,7 +20,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 
 export interface Props {
   value: string;
-  setValue?: (value: string) => void;
+  setValue?: (value: string, resetOtherSettings?: boolean) => void;
   // Array of dimensions that should have been precomputed; the name
   // prepended with "precomputed:"
   precomputedDimensions?: string[];
@@ -155,7 +155,6 @@ export default function DimensionChooser({
   mutate,
   setSnapshotDimension,
   setAnalysisSettings,
-  resetAnalysisBarSettings,
   disabled,
   ssrPolyfills,
 }: Props) {
@@ -219,6 +218,8 @@ export default function DimensionChooser({
           initialOption="None"
           value={value}
           onChange={(v) => {
+            console.log(v);
+            console.log(value);
             if (v === value) return;
             setPostLoading(true);
             setValue?.(v);
@@ -273,10 +274,9 @@ export default function DimensionChooser({
                   setValue?.(value);
                 });
             } else {
-              resetAnalysisBarSettings?.();
               // if the dimension is not precomputed, set the dropdown to the
-              // desired value
-              setValue?.(v);
+              // desired value and reset other selectors
+              setValue?.(v, true);
               // and set the snapshot for the snapshot provider and get the
               // default analysis from that snapshot
               setSnapshotDimension?.(v);
