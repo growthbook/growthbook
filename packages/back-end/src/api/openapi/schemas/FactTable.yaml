@@ -37,6 +37,8 @@ properties:
       type: string
   sql:
     type: string
+  archived:
+    type: boolean
   managedBy:
     type: string
     description: Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.
