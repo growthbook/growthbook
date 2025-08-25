@@ -3372,6 +3372,7 @@ export interface components {
       datasource: string;
       userIdTypes: (string)[];
       sql: string;
+      archived?: boolean;
       /**
        * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
@@ -3486,6 +3487,7 @@ export interface components {
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+      archived?: boolean;
     };
     Member: {
       id: string;
@@ -11705,6 +11707,7 @@ export interface operations {
                 datasource: string;
                 userIdTypes: (string)[];
                 sql: string;
+                archived?: boolean;
                 /**
                  * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
@@ -11769,6 +11772,7 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -11806,6 +11810,7 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -11850,6 +11855,7 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api";
+          archived?: boolean;
         };
       };
     };
@@ -11867,6 +11873,7 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
@@ -12220,6 +12227,7 @@ export interface operations {
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
+                archived?: boolean;
               })[];
           }) & {
             limit: number;
@@ -12454,6 +12462,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              archived?: boolean;
             };
           };
         };
@@ -12561,6 +12570,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              archived?: boolean;
             };
           };
         };
@@ -12686,6 +12696,7 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api";
+          archived?: boolean;
         };
       };
     };
@@ -12782,6 +12793,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              archived?: boolean;
             };
           };
         };
