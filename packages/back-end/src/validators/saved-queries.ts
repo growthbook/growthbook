@@ -50,6 +50,78 @@ export type dimensionAxisConfiguration = z.infer<
   typeof dimensionAxisConfigurationValidator
 >;
 
+const filterConfigurationValidator = z.union([
+  // Date filters
+  z.object({
+    column: z.string(),
+    type: z.literal("date"),
+    filterType: z.literal("dateRange"),
+    config: z
+      .object({
+        startDate: z.string().optional(),
+        endDate: z.string().optional(),
+      })
+      .refine((data) => data.startDate || data.endDate, {
+        message: "At least one of startDate or endDate is required",
+      }),
+  }),
+  z.object({
+    column: z.string(),
+    type: z.literal("date"),
+    filterType: z.enum(["today", "last7Days", "last30Days"]),
+    config: z.object({}).optional(), // No config needed
+  }),
+
+  // Number filters
+  z.object({
+    column: z.string(),
+    type: z.literal("number"),
+    filterType: z.literal("numberRange"),
+    config: z
+      .object({
+        min: z.union([z.string(), z.number()]).optional(),
+        max: z.union([z.string(), z.number()]).optional(),
+      })
+      .refine((data) => data.min !== undefined || data.max !== undefined, {
+        message: "At least one of min or max is required",
+      }),
+  }),
+  z.object({
+    column: z.string(),
+    type: z.literal("number"),
+    filterType: z.enum([
+      "greaterThan",
+      "lessThan",
+      "equalTo",
+      "greaterThanOrEqualTo",
+      "lessThanOrEqualTo",
+    ]),
+    config: z.object({
+      value: z.union([z.string(), z.number()]),
+    }),
+  }),
+
+  // String filters
+  z.object({
+    column: z.string(),
+    type: z.literal("string"),
+    filterType: z.literal("contains"),
+    config: z.object({
+      value: z.string(),
+    }),
+  }),
+  z.object({
+    column: z.string(),
+    type: z.literal("string"),
+    filterType: z.literal("includes"),
+    config: z.object({
+      values: z.array(z.string()),
+    }),
+  }),
+]);
+
+export type FilterConfiguration = z.infer<typeof filterConfigurationValidator>;
+
 const formatEnum = z.enum([
   "shortNumber",
   "longNumber",
@@ -62,6 +134,7 @@ const formatEnum = z.enum([
 const baseChartConfig = z.object({
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
+  filter: z.array(filterConfigurationValidator).optional(),
 });
 
 const withXAxis = z.object({
