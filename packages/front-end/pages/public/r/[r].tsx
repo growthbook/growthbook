@@ -11,7 +11,7 @@ import PageHead from "@/components/Layout/PageHead";
 import ReportResults from "@/components/Report/ReportResults";
 import ReportMetaInfo from "@/components/Report/ReportMetaInfo";
 import { useUser } from "@/services/UserContext";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 
 export async function getServerSideProps(context) {

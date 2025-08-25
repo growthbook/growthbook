@@ -26,15 +26,12 @@ import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
 import OverviewCard from "@/components/GetStarted/OverviewCard";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
-import Callout from "@/components/Radix/Callout";
-import Link from "@/components/Radix/Link";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import NeedingAttention from "@/components/GetStarted/NeedingAttention";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
-import Button from "@/components/Radix/Button";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Button from "@/ui/Button";
 import { useFeaturesList } from "@/services/features";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";

@@ -4,7 +4,7 @@ import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
 import Modal from "../Modal";
-import Callout from "../Radix/Callout";
+import Callout from "../../ui/Callout";
 import { HoldoutSelect } from "../Holdout/HoldoutSelect";
 
 const AddToHoldoutModal = ({

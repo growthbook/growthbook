@@ -7,7 +7,7 @@ import {
   yAxisAggregationType,
   BigValueFormat,
 } from "back-end/src/validators/saved-queries";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { Select, SelectItem } from "@/ui/Select";
 import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
 
 export default function DataVizConfigPanel({

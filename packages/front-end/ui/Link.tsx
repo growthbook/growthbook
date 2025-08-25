@@ -5,7 +5,7 @@ import {
   Link as RadixLink,
   LinkProps as RadixLinkProps,
 } from "@radix-ui/themes";
-import styles from "./RadixOverrides.module.scss";
+import styles from "./Link.module.scss";
 
 type RadixProps = Omit<RadixLinkProps, "color" | "href"> & {
   type?: "submit" | "reset" | "button";

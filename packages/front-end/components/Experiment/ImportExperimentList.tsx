@@ -24,7 +24,7 @@ import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 
 const numberFormatter = new Intl.NumberFormat();
 

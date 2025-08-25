@@ -3,7 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { BsStars } from "react-icons/bs";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";

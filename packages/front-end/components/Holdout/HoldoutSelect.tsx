@@ -6,9 +6,9 @@ import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
-import PremiumCallout from "../Radix/PremiumCallout";
-import Callout from "../Radix/Callout";
-import Link from "../Radix/Link";
+import PremiumCallout from "../../ui/PremiumCallout";
+import Callout from "../../ui/Callout";
+import Link from "../../ui/Link";
 
 export const HoldoutSelect = ({
   selectedProject,

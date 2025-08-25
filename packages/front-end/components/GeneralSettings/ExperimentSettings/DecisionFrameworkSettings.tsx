@@ -7,8 +7,8 @@ import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
-import Checkbox from "@/components/Radix/Checkbox";
-import Button from "@/components/Radix/Button";
+import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";

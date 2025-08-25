@@ -3,7 +3,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { StatsEngineSettings } from "shared/power";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioGroup from "@/ui/RadioGroup";
 
 type StatsEngineWithSequential = "bayesian" | "frequentist" | "sequential";
 

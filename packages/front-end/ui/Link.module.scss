@@ -1,15 +1,3 @@
-.callout > p:last-of-type {
-  margin-bottom: 0;
-}
-
-.avatar {
-  overflow: hidden;
-  img {
-    max-width: 100%;
-    max-height: 100%;
-  }
-}
-
 .link {
   // Ensures consistent underline color between button and link
   // Can be removed when bootstrap is removed.

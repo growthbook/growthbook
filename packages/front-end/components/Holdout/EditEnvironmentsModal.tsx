@@ -7,7 +7,7 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import EnvironmentSelect from "../Features/FeatureModal/EnvironmentSelect";
 import Modal from "../Modal";
-import Callout from "../Radix/Callout";
+import Callout from "../../ui/Callout";
 import { genEnvironmentSettings } from "./NewHoldoutForm";
 
 const EditEnvironmentsModal = ({

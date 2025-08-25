@@ -4,7 +4,7 @@ import {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
 } from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.validators";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 interface Props {
   status: DecisionFrameworkExperimentRecommendationStatus;

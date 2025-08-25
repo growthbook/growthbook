@@ -2,11 +2,11 @@ import { PiLink, PiCheck } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import track from "@/services/track";
-import Metadata from "@/components/Radix/Metadata";
+import Metadata from "@/ui/Metadata";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 
 export default function PublicExperimentMetaInfo({

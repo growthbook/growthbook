@@ -18,9 +18,9 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useArchetype } from "@/hooks/useArchetype";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import DatePicker from "@/components/DatePicker";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {

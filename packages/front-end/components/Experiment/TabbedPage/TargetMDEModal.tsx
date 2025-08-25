@@ -8,7 +8,7 @@ import Modal from "@/components/Modal";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 interface TargetMDEModalProps {
   goalsWithTargetMDE: ExperimentMetricInterfaceWithComputedTargetMDE[];

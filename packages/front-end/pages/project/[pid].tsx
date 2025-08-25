@@ -16,8 +16,8 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Frame from "@/components/Radix/Frame";
-import Badge from "@/components/Radix/Badge";
+import Frame from "@/ui/Frame";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {

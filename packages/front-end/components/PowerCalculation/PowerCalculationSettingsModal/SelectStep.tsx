@@ -17,8 +17,8 @@ import {
   defaultValue,
   PowerCalculationForm,
 } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
-import HelperText from "@/components/Radix/HelperText";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import HelperText from "@/ui/HelperText";
+import RadioGroup from "@/ui/RadioGroup";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";

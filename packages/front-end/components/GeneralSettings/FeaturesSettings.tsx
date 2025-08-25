@@ -10,10 +10,10 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Checkbox from "@/components/Radix/Checkbox";
-import Button from "@/components/Radix/Button";
+import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 
 export default function FeaturesSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =

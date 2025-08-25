@@ -30,13 +30,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
-import Avatar from "@/components/Radix/Avatar";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Avatar from "@/ui/Avatar";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Preview from "./Preview";
 

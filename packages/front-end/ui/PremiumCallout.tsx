@@ -8,8 +8,8 @@ import { DocLink, DocSection } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import Link from "@/components/Radix/Link";
-import styles from "./RadixOverrides.module.scss";
+import Link from "@/ui/Link";
+import styles from "./Callout.module.scss";
 
 export type Props = {
   commercialFeature: CommercialFeature;

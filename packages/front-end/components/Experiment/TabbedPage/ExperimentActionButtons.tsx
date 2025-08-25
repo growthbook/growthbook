@@ -1,6 +1,6 @@
 import { ExperimentResultStatusData } from "back-end/types/experiment";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 export interface Props {
   editResult?: () => void;
