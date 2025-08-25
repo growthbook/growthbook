@@ -8,7 +8,7 @@ export interface Props {
 export default function StartAnalysisModal({ close, startAnalysis }: Props) {
   return (
     <Modal
-      trackingEventModalType="start-experiment"
+      trackingEventModalType="start-holdout"
       trackingEventModalSource={"start-holdout-analysis"}
       open={true}
       size="md"
@@ -17,7 +17,7 @@ export default function StartAnalysisModal({ close, startAnalysis }: Props) {
       ctaEnabled={true}
       close={close}
       useRadixButton={true}
-      header="Start Holdout Analysis"
+      header="Start Holdout Analysis Period"
     >
       <div className="p-2">
         <div>

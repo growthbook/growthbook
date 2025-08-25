@@ -228,6 +228,12 @@ export default function FeatureFromExperimentModal({
           : {
               ...feature,
               defaultValue: variations[0].value,
+              holdout: experiment.holdoutId
+                ? {
+                    id: experiment.holdoutId,
+                    value: variations[0].value,
+                  }
+                : undefined,
             };
 
         if (!featureToCreate) {

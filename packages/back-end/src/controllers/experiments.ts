@@ -2640,16 +2640,22 @@ export async function deleteExperiment(
     removeExperimentFromPresentations(experiment.id),
   ];
 
+  await Promise.all(promises);
+
   if (experiment.holdoutId) {
-    promises.push(
-      context.models.holdout.removeExperimentFromHoldout(
+    try {
+      await context.models.holdout.removeExperimentFromHoldout(
         experiment.holdoutId,
         experiment.id,
-      ),
-    );
+      );
+    } catch (e) {
+      // This is not a fatal error, so don't block the request from happening
+      req.log.warn("Error removing experiment from holdout", {
+        experiment: experiment.id,
+        holdout: experiment.holdoutId,
+      });
+    }
   }
-
-  await Promise.all(promises);
 
   await req.audit({
     event: "experiment.delete",

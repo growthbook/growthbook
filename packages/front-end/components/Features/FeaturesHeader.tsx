@@ -193,7 +193,8 @@ export default function FeaturesHeader({
                 {canEdit &&
                   canPublish &&
                   holdoutsEnabled &&
-                  holdouts.length > 0 && (
+                  holdouts.length > 0 &&
+                  !holdout && (
                     <a
                       className="dropdown-item"
                       href="#"
