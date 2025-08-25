@@ -218,8 +218,6 @@ export default function DimensionChooser({
           initialOption="None"
           value={value}
           onChange={(v) => {
-            console.log(v);
-            console.log(value);
             if (v === value) return;
             setPostLoading(true);
             setValue?.(v);
