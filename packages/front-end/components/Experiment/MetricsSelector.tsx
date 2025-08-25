@@ -34,13 +34,13 @@ type MetricOption = {
 
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
-  noPercentileGoalMetrics?: boolean;
+  noQuantileGoalMetrics?: boolean;
   isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
-  noPercentileGoalMetrics = false,
+  noQuantileGoalMetrics = false,
   isSingular = false,
 }: MetricsSelectorTooltipProps) => {
   return (
@@ -61,8 +61,12 @@ export const MetricsSelectorTooltip = ({
             {onlyBinomial ? (
               <li>{isSingular ? "is" : "are"} a binomial metric</li>
             ) : null}
-            {noPercentileGoalMetrics ? (
-              <li>{isSingular ? "does" : "do"} not use percentile capping</li>
+            {noQuantileGoalMetrics ? (
+              <li>
+                {isSingular
+                  ? "is not a quantile metric"
+                  : "are not quantile metrics"}
+              </li>
             ) : null}
           </ul>
         </>
@@ -82,7 +86,6 @@ const MetricsSelector: FC<{
   includeGroups?: boolean;
   excludeQuantiles?: boolean;
   forceSingleMetric?: boolean;
-  noPercentile?: boolean;
   noManual?: boolean;
   filterConversionWindowMetrics?: boolean;
   disabled?: boolean;
@@ -98,7 +101,6 @@ const MetricsSelector: FC<{
   includeGroups = true,
   excludeQuantiles,
   forceSingleMetric = false,
-  noPercentile = false,
   noManual = false,
   filterConversionWindowMetrics,
   disabled,
@@ -123,9 +125,6 @@ const MetricsSelector: FC<{
   const options: MetricOption[] = [
     ...metrics
       .filter((m) => {
-        if (noPercentile) {
-          return m.cappingSettings.type !== "percentile";
-        }
         if (filterConversionWindowMetrics) {
           return m?.windowSettings?.type !== "conversion";
         }
@@ -148,9 +147,6 @@ const MetricsSelector: FC<{
           .filter((m) => {
             if (quantileMetricType(m) && excludeQuantiles) {
               return false;
-            }
-            if (noPercentile) {
-              return m.cappingSettings.type !== "percentile";
             }
             if (filterConversionWindowMetrics) {
               return m?.windowSettings?.type !== "conversion";

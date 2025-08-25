@@ -230,8 +230,6 @@ export default function ExperimentHeader({
   const holdoutsEnabled =
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
-  console.log("holdoutsEnabled", holdoutsEnabled);
-
   const hasUpdatePermissions = !holdout
     ? permissionsUtil.canViewExperimentModal(experiment.project)
     : permissionsUtil.canViewHoldoutModal(holdout.projects);

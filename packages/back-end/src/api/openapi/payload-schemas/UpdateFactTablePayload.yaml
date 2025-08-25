@@ -32,3 +32,5 @@ properties:
     enum:
       - ""
       - api
+  archived:
+    type: boolean
