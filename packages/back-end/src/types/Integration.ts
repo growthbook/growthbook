@@ -425,6 +425,7 @@ export type DimensionSlicesQueryResponseRows = {
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
+  columns?: string[];
   statistics?: QueryStatistics;
 };
 

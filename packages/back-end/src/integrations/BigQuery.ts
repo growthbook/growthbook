@@ -92,6 +92,15 @@ export default class BigQuery extends SqlIntegration {
           : undefined,
     };
 
+    // Typing from https://github.com/googleapis/nodejs-bigquery/blob/531d6635575ff24cf1608f292d1772be4b5f1327/src/types.d.ts#L5420
+    // Can be removed once we upgrade to the latest version of the library
+    const querySchema = metadata?.statistics?.query?.schema?.fields as
+      | undefined
+      | Array<{
+          name: string;
+        }>;
+    const columns = querySchema?.map((field) => field.name.toLowerCase());
+
     // BigQuery dates are stored nested in an object, so need to extract the value
     for (const row of rows) {
       for (const key in row) {
@@ -107,7 +116,7 @@ export default class BigQuery extends SqlIntegration {
       }
     }
 
-    return { rows, statistics };
+    return { rows, columns, statistics };
   }
 
   createUnitsTableOptions() {
