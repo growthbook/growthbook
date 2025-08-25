@@ -321,10 +321,15 @@ export const getHoldouts = async (
 
   const holdouts = await context.models.holdout.getAll();
   const experiments = await getAllExperiments(context, {
-    project,
     includeArchived,
     type: "holdout",
   });
+
+  const filteredHoldouts = project
+    ? holdouts.filter((h) => {
+        return h.projects.includes(project);
+      })
+    : holdouts;
 
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
@@ -334,7 +339,7 @@ export const getHoldouts = async (
     status: 200,
     experiments,
     hasArchived,
-    holdouts,
+    holdouts: filteredHoldouts,
   });
 };
 
