@@ -519,7 +519,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   style={{ width: 105 }}
                   value={
                     isNaN(form.watch("phases.0.coverage") ?? 0)
-                      ? "5"
+                      ? ""
                       : decimalToPercent(
                           (form.watch("phases.0.coverage") ?? 0) / 2,
                         )
