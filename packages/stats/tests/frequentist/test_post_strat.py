@@ -6,7 +6,7 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 import copy
 
-from gbstats.frequentist.post_strat import PostStratification
+from gbstats.models.tests import PostStratification
 
 from gbstats.messages import (
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
@@ -665,6 +665,7 @@ class TestPostStratification(TestCase):
             EffectMomentsResult(
                 point_estimate=3.548094377986586,
                 standard_error=0.3769153078989125,
+                pairwise_sample_size=1000,
                 error_message=None,
             )
         )
@@ -682,6 +683,7 @@ class TestPostStratification(TestCase):
             EffectMomentsResult(
                 point_estimate=0.10008903417216042,
                 standard_error=0.0050779658636993154,
+                pairwise_sample_size=1000,
                 error_message=None,
             )
         )
@@ -699,6 +701,7 @@ class TestPostStratification(TestCase):
             EffectMomentsResult(
                 point_estimate=3.7116918650826403,
                 standard_error=0.07401168371016856,
+                pairwise_sample_size=1000, 
                 error_message=None,
             )
         )
@@ -716,6 +719,7 @@ class TestPostStratification(TestCase):
             EffectMomentsResult(
                 point_estimate=0.10399412678969455,
                 standard_error=0.0012278145208316127,
+                pairwise_sample_size=1000,
                 error_message=None,
             )
         )
@@ -733,6 +737,7 @@ class TestPostStratification(TestCase):
             EffectMomentsResult(
                 point_estimate=0.10994584851937338,
                 standard_error=0.01224418556792039,
+                pairwise_sample_size=1000,
                 error_message=None,
             )
         )
@@ -750,6 +755,7 @@ class TestPostStratification(TestCase):
             EffectMomentsResult(
                 point_estimate=0.13371299783026025,
                 standard_error=0.007141416587299529,
+                pairwise_sample_size=1000,
                 error_message=None,
             )
         )
@@ -767,6 +773,7 @@ class TestPostStratification(TestCase):
             EffectMomentsResult(
                 point_estimate=0.11529547657147853,
                 standard_error=0.0022103200530259534,
+                pairwise_sample_size=1000,
                 error_message=None,
             )
         )
@@ -784,6 +791,7 @@ class TestPostStratification(TestCase):
             EffectMomentsResult(
                 point_estimate=0.13929489348145818,
                 standard_error=0.0012337665987066867,
+                pairwise_sample_size=1000,
                 error_message=None,
             )
         )

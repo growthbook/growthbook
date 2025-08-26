@@ -25,6 +25,7 @@ from gbstats.bayesian.bandits import (
 from gbstats.power.midexperimentpower import (
     MidExperimentPower,
     MidExperimentPowerConfig,
+    AdditionalSampleSizeNeededResult,
 )
 
 from gbstats.models.tests import BaseConfig
@@ -79,6 +80,8 @@ from gbstats.models.statistics import (
 )
 from gbstats.utils import check_srm
 
+from gbstats.models.tests import EffectMomentsResult
+
 
 SUM_COLS = [
     "users",
@@ -115,6 +118,15 @@ BANDIT_DIMENSION = {
     "value": "All",
 }
 
+StatisticalTests = Union[
+    EffectBayesianABTest,
+    SequentialTwoSidedTTest,
+    TwoSidedTTest,
+    OneSidedTreatmentGreaterTTest,
+    OneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentLesserTTest,
+    SequentialOneSidedTreatmentGreaterTTest,
+]
 
 # Looks for any variation ids that are not in the provided map
 def detect_unknown_variations(
@@ -142,7 +154,7 @@ def get_dimension_column_name(dimension: str) -> str:
         dimension_column_name = "dim_unit_" + dimension
 
     return dimension_column_name
-
+    #Overall columns
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
 def get_metric_df(
@@ -150,9 +162,20 @@ def get_metric_df(
     var_id_map: VarIdMap,
     var_names: List[str],
     dimension: Optional[str] = None,
+    post_stratify: bool = False,
 ) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
+
+    if post_stratify:
+        dimension_cols = dfc.filter(like='dim_exp_')
+        num_dimensions = len(dimension_cols.columns)
+        if num_dimensions == 1:
+            dfc = dfc.rename(columns={dimension_cols.columns[0]: 'dimension'})
+        else:
+            dfc['dimension'] = dfc[dimension_cols].agg(lambda x: '_'.join(x), axis=1)
+    
+
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
@@ -163,6 +186,7 @@ def get_metric_df(
         # if not found, try to find a column with "dimension" for backwards compatibility
         # fall back to one unnamed dimension if even that column is not found
         dim = getattr(row, dimension_column_name, getattr(row, "dimension", ""))
+        
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
@@ -200,7 +224,6 @@ def get_metric_df(
                         f"ImplementationError: Non-summable column {col} already has a value for dimension {dim}"
                     )
                 dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
-
     return pd.DataFrame(dimensions.values())
 
 
@@ -234,25 +257,14 @@ def reduce_dimensionality(
 
 
 def get_configured_test(
-    row: pd.Series,
-    test_index: int,
+    stats: List[Tuple[TestStatistic, TestStatistic]],
+    total_users: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
-) -> Union[
-    EffectBayesianABTest,
-    SequentialTwoSidedTTest,
-    TwoSidedTTest,
-    OneSidedTreatmentGreaterTTest,
-    OneSidedTreatmentLesserTTest,
-    SequentialOneSidedTreatmentLesserTTest,
-    SequentialOneSidedTreatmentGreaterTTest,
-]:
-
-    stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
-    stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
+) -> StatisticalTests:
 
     base_config = {
-        "total_users": row["total_users"],
+        "total_users": total_users,
         "traffic_percentage": analysis.traffic_percentage,
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
@@ -267,14 +279,14 @@ def get_configured_test(
             if analysis.one_sided_intervals:
                 if metric.inverse:
                     return SequentialOneSidedTreatmentGreaterTTest(
-                        [(stat_a, stat_b)], sequential_config
+                        stats, sequential_config
                     )
                 else:
                     return SequentialOneSidedTreatmentLesserTTest(
-                        [(stat_a, stat_b)], sequential_config
+                        stats, sequential_config
                     )
             else:
-                return SequentialTwoSidedTTest([(stat_a, stat_b)], sequential_config)
+                return SequentialTwoSidedTTest(stats, sequential_config)
         else:
             config = FrequentistConfig(
                 **base_config,
@@ -282,20 +294,20 @@ def get_configured_test(
             )
             if analysis.one_sided_intervals:
                 if metric.inverse:
-                    return OneSidedTreatmentGreaterTTest([(stat_a, stat_b)], config)
+                    return OneSidedTreatmentGreaterTTest(stats, config)
                 else:
-                    return OneSidedTreatmentLesserTTest([(stat_a, stat_b)], config)
+                    return OneSidedTreatmentLesserTTest(stats, config)
             else:
-                return TwoSidedTTest([(stat_a, stat_b)], config)
+                return TwoSidedTTest(stats, config)
     else:
-        assert type(stat_a) is type(stat_b), "stat_a and stat_b must be of same type."
+        assert type(stats[0][0]) is type(stats[0][1]), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
             mean=metric.prior_mean,
             variance=pow(metric.prior_stddev, 2),
             proper=metric.prior_proper,
         )
         return EffectBayesianABTest(
-            [(stat_a, stat_b)],
+            stats,
             EffectBayesianConfig(
                 **base_config,
                 inverse=metric.inverse,
@@ -314,14 +326,8 @@ def decision_making_conditions(metric, analysis):
     )
 
 
-# Run A/B test analysis for each variation and dimension
-def analyze_metric_df(
-    df: pd.DataFrame,
-    metric: MetricSettingsForStatsEngine,
-    analysis: AnalysisSettingsForStatsEngine,
-) -> pd.DataFrame:
+def initialize_df(df: pd.DataFrame, analysis: AnalysisSettingsForStatsEngine) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
-    # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
     for i in range(num_variations):
@@ -351,70 +357,122 @@ def analyze_metric_df(
             df[f"v{i}_power_error_message"] = None
             df[f"v{i}_power_upper_bound_acheieved"] = None
             df[f"v{i}_scaling_factor"] = None
+    return df
+
+
+def run_mid_experiment_power(variation_index: int, total_users: int, num_variations: int, effect_moments: EffectMomentsResult, res: Union[BayesianTestResult, FrequentistTestResult], metric: MetricSettingsForStatsEngine, analysis: AnalysisSettingsForStatsEngine, s: pd.Series) -> pd.Series:
+    config = BaseConfig(
+        difference_type=analysis.difference_type,
+        traffic_percentage=analysis.traffic_percentage,
+        phase_length_days=analysis.phase_length_days,
+        total_users=total_users,
+        alpha=analysis.alpha,
+    )
+
+    if isinstance(res, BayesianTestResult):
+        prior = GaussianPrior(
+            mean=metric.prior_mean,
+            variance=pow(metric.prior_stddev, 2),
+            proper=metric.prior_proper,
+        )
+        p_value_corrected = False
+    else:
+        prior = None
+        p_value_corrected = analysis.p_value_corrected
+
+    power_config = MidExperimentPowerConfig(
+        target_mde=metric.target_mde,
+        num_goal_metrics=analysis.num_goal_metrics,
+        num_variations=num_variations,
+        prior_effect=prior,
+        p_value_corrected=p_value_corrected,
+        sequential=analysis.sequential_testing_enabled,
+        sequential_tuning_parameter=analysis.sequential_tuning_parameter,
+    )
+    mid_experiment_power = MidExperimentPower(
+        effect_moments=effect_moments, test_result=res, config=config, power_config=power_config
+    )
+    mid_experiment_power_result = (
+        mid_experiment_power.calculate_sample_size()
+    )
+    s[f"v{variation_index}_decision_making_conditions"] = True
+    s[f"v{variation_index}_first_period_pairwise_users"] = (
+        mid_experiment_power.pairwise_sample_size
+    )
+    s[f"v{variation_index}_target_mde"] = metric.target_mde
+    s[f"v{variation_index}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
+    if mid_experiment_power.prior_effect:
+        s[f"v{variation_index}_prior_proper"] = mid_experiment_power.prior_effect.proper
+        s[f"v{variation_index}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
+        s[f"v{variation_index}_prior_lift_variance"] = (
+            mid_experiment_power.prior_effect.variance
+        )
+    mid_experiment_power_result = (
+        mid_experiment_power.calculate_sample_size()
+    )
+    s[f"v{variation_index}_power_status"] = mid_experiment_power_result.update_message
+    s[f"v{variation_index}_power_error_message"] = mid_experiment_power_result.error
+    s[f"v{variation_index}_power_upper_bound_achieved"] = (
+        mid_experiment_power_result.upper_bound_achieved
+    )
+    s[f"v{variation_index}_scaling_factor"] = mid_experiment_power_result.scaling_factor
+    return s
+
+
+def post_stratify(df: pd.DataFrame, metric: MetricSettingsForStatsEngine, analysis: AnalysisSettingsForStatsEngine) -> pd.DataFrame: 
+    num_variations = df.at[0, "variations"]
+    num_dimensions = df.shape[0]
+    df = initialize_df(df, analysis)
+    stats_control = []
+    total_users_control = 0
+    for dimension in range(num_dimensions):
+        s = df.iloc[dimension]
+        stat = variation_statistic_from_metric_row(row=s, prefix="baseline", metric=metric)
+        stats_control.append(stat)
+        total_users_control += s["total_users"]
+    for variation in range(1, num_variations):
+        stats_variation = []
+        total_users_variation = 0
+        for dimension in range(num_dimensions):
+            s = df.iloc[dimension]
+            stat = variation_statistic_from_metric_row(row=s, prefix=f"v{variation}", metric=metric)
+            stats_variation.append(stat)
+            total_users_variation += s["total_users"]
+        stats = list(zip(stats_control, stats_variation))
+        test = get_configured_test(
+            stats, total_users_control + total_users_variation, analysis=analysis, metric=metric
+        )
+        res = test.compute_result()
+        mid_experiment_power, mid_experiment_power_result = run_mid_experiment_power(total_users_control + total_users_variation, num_variations, test.moments_result, res, metric, analysis)
+    
+
+# Run A/B test analysis for each variation and dimension
+def analyze_metric_df(
+    df: pd.DataFrame,
+    metric: MetricSettingsForStatsEngine,
+    analysis: AnalysisSettingsForStatsEngine,
+) -> pd.DataFrame:
+    num_variations = df.at[0, "variations"]
+    df = initialize_df(df, analysis)
+    dir_desktop = "/Users/lukesmith/Desktop/"
+    df.to_csv(dir_desktop + "initial_df.csv")
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
         # Loop through each non-baseline variation and run an analysis
         for i in range(1, num_variations):
             # Run analysis of baseline vs variation
+            stat_a = variation_statistic_from_metric_row(s, "baseline", metric)
+            stat_b = variation_statistic_from_metric_row(s, f"v{i}", metric)
+            stats = [(stat_a, stat_b)]
+            total_users = s["total_users"]
+
             test = get_configured_test(
-                row=s, test_index=i, analysis=analysis, metric=metric
+                stats, total_users, analysis=analysis, metric=metric
             )
             res = test.compute_result()
             if decision_making_conditions(metric, analysis):
-                s[f"v{i}_decision_making_conditions"] = True
-                config = BaseConfig(
-                    difference_type=analysis.difference_type,
-                    traffic_percentage=analysis.traffic_percentage,
-                    phase_length_days=analysis.phase_length_days,
-                    total_users=s["total_users"],
-                    alpha=analysis.alpha,
-                )
-
-                if isinstance(res, BayesianTestResult):
-                    prior = GaussianPrior(
-                        mean=metric.prior_mean,
-                        variance=pow(metric.prior_stddev, 2),
-                        proper=metric.prior_proper,
-                    )
-                    p_value_corrected = False
-                else:
-                    prior = None
-                    p_value_corrected = analysis.p_value_corrected
-
-                power_config = MidExperimentPowerConfig(
-                    target_mde=metric.target_mde,
-                    num_goal_metrics=analysis.num_goal_metrics,
-                    num_variations=num_variations,
-                    prior_effect=prior,
-                    p_value_corrected=p_value_corrected,
-                    sequential=analysis.sequential_testing_enabled,
-                    sequential_tuning_parameter=analysis.sequential_tuning_parameter,
-                )
-                mid_experiment_power = MidExperimentPower(
-                    test.stat_a, test.stat_b, res, config, power_config
-                )
-
-                s[f"v{i}_first_period_pairwise_users"] = (
-                    mid_experiment_power.pairwise_sample_size
-                )
-                s[f"v{i}_target_mde"] = metric.target_mde
-                s[f"v{i}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
-                if mid_experiment_power.prior_effect:
-                    s[f"v{i}_prior_proper"] = mid_experiment_power.prior_effect.proper
-                    s[f"v{i}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
-                    s[f"v{i}_prior_lift_variance"] = (
-                        mid_experiment_power.prior_effect.variance
-                    )
-                mid_experiment_power_result = (
-                    mid_experiment_power.calculate_sample_size()
-                )
-                s[f"v{i}_power_status"] = mid_experiment_power_result.update_message
-                s[f"v{i}_power_error_message"] = mid_experiment_power_result.error
-                s[f"v{i}_power_upper_bound_achieved"] = (
-                    mid_experiment_power_result.upper_bound_achieved
-                )
-                s[f"v{i}_scaling_factor"] = mid_experiment_power_result.scaling_factor
+                s = run_mid_experiment_power(i, total_users, num_variations, test.moments_result, res, metric, analysis, s)
 
             s["baseline_cr"] = test.stat_a.unadjusted_mean
             s["baseline_mean"] = test.stat_a.unadjusted_mean
@@ -461,7 +519,8 @@ def analyze_metric_df(
             analysis.weights,
         )
         return s
-
+    df_2 = df.apply(analyze_row, axis=1)
+    df_2.to_csv(dir_desktop + "updated_df.csv")
     return df.apply(analyze_row, axis=1)
 
 
@@ -707,7 +766,9 @@ def process_analysis(
         var_id_map=var_id_map,
         var_names=var_names,
         dimension=analysis.dimension,
+        post_stratify=analysis.post_stratify,
     )
+
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
@@ -755,6 +816,7 @@ def process_single_metric(
             ],
         )
     pdrows = pd.DataFrame(rows)
+
     # TODO validate data in rows matches metric settings
 
     # Detect any variations that are not in the returned metric rows
