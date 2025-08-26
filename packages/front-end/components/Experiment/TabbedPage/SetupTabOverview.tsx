@@ -79,6 +79,15 @@ export default function SetupTabOverview({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+  const showHoldoutTimeline =
+    isHoldout &&
+    holdout &&
+    experiment.status !== "draft" &&
+    holdoutExperiments &&
+    experiment.phases[0]?.dateStarted &&
+    new Date(experiment.phases[0].dateStarted) &&
+    holdoutExperiments.length > 0 &&
+    holdoutExperiments.some((e) => e.status !== "draft");
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
 
@@ -199,24 +208,23 @@ export default function SetupTabOverview({
           </Collapsible>
         </Frame>
 
-        {isHoldout &&
-          holdout &&
-          experiment.status !== "draft" &&
-          holdoutExperiments &&
-          holdoutExperiments.length > 0 && (
-            <div className="box p-4 my-4">
-              <HoldoutTimeline
-                experiments={holdoutExperiments}
-                startDate={
-                  new Date(
-                    experiment.phases[0].dateStarted ||
-                      Date.now() - 100 * 24 * 60 * 60 * 7,
-                  ) // 7 days ago
-                }
-                endDate={new Date(experiment.phases[0].dateEnded || Date.now())}
-              />
-            </div>
-          )}
+        {showHoldoutTimeline && (
+          <div className="box p-4 my-4">
+            <HoldoutTimeline
+              experiments={holdoutExperiments}
+              startDate={
+                experiment.phases[0]?.dateStarted
+                  ? new Date(experiment.phases[0].dateStarted)
+                  : new Date()
+              }
+              holdoutEndDate={
+                experiment.phases[0]?.dateEnded
+                  ? new Date(experiment.phases[0].dateEnded)
+                  : undefined
+              }
+            />
+          </div>
+        )}
 
         {!isBandit && !isHoldout && (
           <Frame>
