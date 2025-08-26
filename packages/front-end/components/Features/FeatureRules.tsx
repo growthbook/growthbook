@@ -144,7 +144,13 @@ export default function FeatureRules({
                     </Flex>
                     <Badge
                       ml="2"
-                      label={rulesByEnv[dropdownEnvs[0].id].length.toString()}
+                      label={
+                        holdout?.environmentSettings[dropdownEnvs[0].id].enabled
+                          ? (
+                              rulesByEnv[dropdownEnvs[0].id].length + 1
+                            ).toString()
+                          : rulesByEnv[dropdownEnvs[0].id].length.toString()
+                      }
                       radius="full"
                       variant="solid"
                       color="violet"
@@ -181,7 +187,11 @@ export default function FeatureRules({
                             <Badge
                               ml="2"
                               mr="3"
-                              label={rulesByEnv[value].length.toString()}
+                              label={
+                                holdout?.environmentSettings[value].enabled
+                                  ? (rulesByEnv[value].length + 1).toString()
+                                  : rulesByEnv[value].length.toString()
+                              }
                               radius="full"
                               variant="solid"
                               color="violet"

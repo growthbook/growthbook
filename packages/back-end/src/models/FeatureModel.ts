@@ -906,6 +906,17 @@ export async function removeTagInFeature(
   });
 }
 
+export async function removeHoldoutFromFeature(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+) {
+  if (!feature.holdout) return;
+  await FeatureModel.updateOne(
+    { organization: context.org.id, id: feature.id },
+    { $unset: { holdout: "" } },
+  );
+}
+
 export async function removeProjectFromFeatures(
   context: ReqContext | ApiReqContext,
   project: string,
