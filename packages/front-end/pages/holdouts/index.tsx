@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { startCase } from "lodash";
@@ -20,7 +19,6 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useHoldouts } from "@/hooks/useHoldouts";
 
 const NUM_PER_PAGE = 20;
@@ -116,7 +114,7 @@ const HoldoutsPage = (): React.ReactElement => {
     };
   });
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const { items, searchInputProps, SortableTH } = useSearch({
     items: holdoutItems,
     searchFields: [
       "name",
@@ -337,14 +335,6 @@ const HoldoutsPage = (): React.ReactElement => {
                               <div className="d-flex">
                                 <span className="testname">{holdout.name}</span>
                               </div>
-                              {isFiltered && holdout.experiment.trackingKey && (
-                                <span
-                                  className="testid text-muted small"
-                                  title="Experiment Id"
-                                >
-                                  {holdout.experiment.trackingKey}
-                                </span>
-                              )}
                             </div>
                           </Link>
                         </td>
@@ -360,16 +350,9 @@ const HoldoutsPage = (): React.ReactElement => {
                           />
                         </td>
                         <td className="nowrap" data-title="Owner:">
-                          <Flex align="center" gap="2">
-                            <UserAvatar
-                              name={holdout.ownerName}
-                              size="sm"
-                              variant="soft"
-                            />
-                            <span className="text-truncate">
-                              {holdout.ownerName}
-                            </span>
-                          </Flex>
+                          <span className="text-truncate">
+                            {holdout.ownerName}
+                          </span>
                         </td>
                         <td className="nowrap" data-title="ID Type:">
                           {holdout.hashAttribute}

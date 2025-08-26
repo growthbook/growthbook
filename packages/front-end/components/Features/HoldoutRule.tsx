@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -78,6 +79,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                         <div>Holdout: </div>
                         <Link href={`/holdout/${feature.holdout?.id}`}>
                           {holdout.name}
+                          <PiArrowSquareOut className="ml-1" />
                         </Link>
                         <ExperimentStatusIndicator
                           experimentData={holdoutExperiment}
