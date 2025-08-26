@@ -1,37 +1,39 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
-import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumCallout from "../Radix/PremiumCallout";
 import Callout from "../Radix/Callout";
 import Link from "../Radix/Link";
+import HelperText from "../Radix/HelperText";
 
 export const HoldoutSelect = ({
   selectedProject,
   setHoldout,
   selectedHoldoutId,
+  formType,
 }: {
   selectedProject?: string;
   setHoldout: (holdoutId: string) => void;
   selectedHoldoutId: string | undefined;
+  formType: "experiment" | "feature";
 }) => {
-  const { project, getDatasourceById } = useDefinitions();
+  const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const { holdouts, experimentsMap, loading } = useExperiments(
-    project,
-    false,
-    "holdout",
-  );
+  const { holdouts, experimentsMap, loading } = useHoldouts(selectedProject);
 
   const hasHoldouts = hasCommercialFeature("holdouts");
-  const hasSetInitialValue = useRef(false);
 
   const holdoutsWithExperiment = useMemo(() => {
     const filteredHoldouts = holdouts.filter((h) => {
+      if (!selectedProject && h.projects.length > 0) {
+        return false;
+      }
+
       const experiment = experimentsMap.get(h.experimentId);
 
       // If the holdout is in draft or is in the analysis period, don't show it
@@ -66,23 +68,21 @@ export const HoldoutSelect = ({
 
   useEffect(() => {
     // If still loading, don't set anything
-    if (holdoutsWithExperiment === undefined || loading) return;
+    if (loading) return;
 
-    // Only set initial value once or when project changes
-    if (!hasSetInitialValue.current) {
+    // Only set initial value once or when selectedHoldoutId is not valid
+    if (
+      !selectedHoldoutId ||
+      (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId) &&
+        selectedHoldoutId !== "none")
+    ) {
       if (holdoutsWithExperiment.length === 0) {
         setHoldout("none");
       } else {
         setHoldout(holdoutsWithExperiment[0].id);
       }
-      hasSetInitialValue.current = true;
     }
-  }, [holdoutsWithExperiment, setHoldout, loading]);
-
-  // Reset the flag when project changes
-  useEffect(() => {
-    hasSetInitialValue.current = false;
-  }, [selectedProject]);
+  }, [holdoutsWithExperiment, setHoldout, loading, selectedHoldoutId]);
 
   if (holdoutsWithExperiment.length === 0) {
     if (!hasHoldouts) {
@@ -115,49 +115,62 @@ export const HoldoutSelect = ({
   }
 
   return (
-    <SelectField
-      label="Holdout"
-      labelClassName="font-weight-bold"
-      value={selectedHoldoutId || "none"}
-      onChange={(v) => {
-        setHoldout(v);
-      }}
-      helpText={holdoutsWithExperiment.length === 0 ? "No holdouts" : undefined}
-      options={[
-        ...(holdoutsWithExperiment?.map((h) => {
-          return {
-            label: h.name,
-            value: h.id,
-          };
-        }) || []),
-        { label: "None", value: "none" },
-      ]}
-      required={holdoutsWithExperiment.length > 0}
-      disabled={holdoutsWithExperiment.length === 0}
-      sort={false}
-      formatOptionLabel={({ label, value }) => {
-        const userIdType = holdoutsWithExperiment?.find(
-          (h) => h.id === value,
-        )?.userIdType;
-        return (
-          <div className="cursor-pointer">
-            {label}
-            {userIdType ? (
-              <span
-                className="text-muted small float-right position-relative"
-                style={{ top: 3, cursor: "pointer" }}
-              >
-                Identifier Type: <code>{userIdType}</code>
-              </span>
-            ) : value === "none" ? (
-              <span className="text-muted small float-right position-relative">
-                Override Holdout requirement{" "}
-                <PiWarningFill style={{ color: "var(--amber-11)" }} size={15} />
-              </span>
-            ) : null}
-          </div>
-        );
-      }}
-    />
+    <>
+      <SelectField
+        label="Holdout"
+        labelClassName="font-weight-bold"
+        value={selectedHoldoutId || "none"}
+        onChange={(v) => {
+          setHoldout(v);
+        }}
+        helpText={
+          holdoutsWithExperiment.length === 0 ? "No holdouts" : undefined
+        }
+        options={[
+          ...(holdoutsWithExperiment?.map((h) => {
+            return {
+              label: h.name,
+              value: h.id,
+            };
+          }) || []),
+          { label: "None", value: "none" },
+        ]}
+        required={holdoutsWithExperiment.length > 0}
+        disabled={holdoutsWithExperiment.length === 0}
+        sort={false}
+        formatOptionLabel={({ label, value }) => {
+          const userIdType = holdoutsWithExperiment?.find(
+            (h) => h.id === value,
+          )?.userIdType;
+          return (
+            <div className="cursor-pointer">
+              {label}
+              {userIdType ? (
+                <span
+                  className="text-muted small float-right position-relative"
+                  style={{ top: 3, cursor: "pointer" }}
+                >
+                  Identifier Type: <code>{userIdType}</code>
+                </span>
+              ) : value === "none" ? (
+                <span className="text-muted small float-right position-relative">
+                  Override Holdout requirement{" "}
+                  <PiWarningFill
+                    style={{ color: "var(--amber-11)" }}
+                    size={12}
+                  />
+                </span>
+              ) : null}
+            </div>
+          );
+        }}
+      />
+      {holdoutsWithExperiment.length > 0 && selectedHoldoutId === "none" && (
+        <HelperText status="warning" size="sm" mb="3">
+          Exempting this {formType} from a holdout may impact your
+          organization&apos;s analysis. Proceed with caution.
+        </HelperText>
+      )}
+    </>
   );
 };

@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
+import { startCase } from "lodash";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
@@ -20,7 +21,6 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
 
 const NUM_PER_PAGE = 20;
@@ -94,6 +94,13 @@ const HoldoutsPage = (): React.ReactElement => {
       }
       return [...acc, project.name];
     }, []);
+    const statusString =
+      startCase(item.experiment.status) +
+      (item.experiment.status === "running" &&
+      item.experiment.phases.length === 2
+        ? ": Analysis Period"
+        : "");
+
     const ownerName = getUserDisplay(item.experiment.owner, false) || "";
     return {
       name: item.name,
@@ -105,12 +112,19 @@ const HoldoutsPage = (): React.ReactElement => {
       ownerName,
       hashAttribute: item.experiment.hashAttribute,
       status: item.experiment.status,
+      holdoutStatus: statusString,
     };
   });
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: holdoutItems,
-    searchFields: ["name", "projects", "ownerName", "hashAttribute", "status"],
+    searchFields: [
+      "name",
+      "projects",
+      "ownerName",
+      "hashAttribute",
+      "holdoutStatus",
+    ],
     localStorageKey: "holdout-search",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
@@ -306,7 +320,7 @@ const HoldoutsPage = (): React.ReactElement => {
                     <SortableTH field="hashAttribute">ID Type</SortableTH>
                     <th>Experiments</th>
                     <th>Features</th>
-                    <SortableTH field="status">Status</SortableTH>
+                    <SortableTH field="holdoutStatus">Status</SortableTH>
                     <SortableTH field="duration">Duration</SortableTH>
                   </tr>
                 </thead>
@@ -334,12 +348,12 @@ const HoldoutsPage = (): React.ReactElement => {
                             </div>
                           </Link>
                         </td>
-                        <td className="nowrap" data-title="Project:">
+                        <td data-title="Projects:">
                           {holdout.projects.length === 0
                             ? null
                             : holdout.projects.join(", ")}
                         </td>
-                        <td data-title="Tags:" className="table-tags">
+                        <td data-title="Tags:">
                           <SortedTags
                             tags={Object.values(holdout?.tags || [])}
                             useFlex={true}
@@ -363,9 +377,7 @@ const HoldoutsPage = (): React.ReactElement => {
                         <td className="nowrap">{holdout.numExperiments}</td>
                         <td className="nowrap">{holdout.numFeatures}</td>
                         <td className="nowrap" data-title="Status:">
-                          <ExperimentStatusIndicator
-                            experimentData={holdout.experiment}
-                          />
+                          {holdout.holdoutStatus}
                         </td>
                         <td
                           className="nowrap"
