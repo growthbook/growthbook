@@ -323,10 +323,14 @@ function DashboardEditor({
       </Flex>
       <div
         ref={scrollAreaRef}
-        style={{
-          maxHeight: `calc(100vh - ${DASHBOARD_WORKSPACE_NAV_HEIGHT} - ${DASHBOARD_TOPBAR_HEIGHT}`,
-          overflowY: "auto",
-        }}
+        style={
+          isEditing
+            ? {
+                maxHeight: `calc(100vh - ${DASHBOARD_WORKSPACE_NAV_HEIGHT} - ${DASHBOARD_TOPBAR_HEIGHT}`,
+                overflowY: "auto",
+              }
+            : undefined
+        }
       >
         <div className="mt-3">
           {blocks.length === 0 ? (

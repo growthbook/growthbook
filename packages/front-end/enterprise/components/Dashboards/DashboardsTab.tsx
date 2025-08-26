@@ -323,7 +323,7 @@ export default function DashboardsTab({
                       <></>
                     )}
                   </Flex>
-                  {dashboard && (
+                  {dashboard ? (
                     <Flex gap="4" align="center">
                       <Tooltip
                         state={copySuccess}
@@ -434,9 +434,9 @@ export default function DashboardsTab({
                         </MoreMenu>
                       </Tooltip>
                     </Flex>
-                  )}
+                  ) : null}
                 </Flex>
-                {dashboard && (
+                {dashboard ? (
                   <>
                     {dashboard.blocks.length === 0 ? (
                       <Flex
@@ -511,7 +511,7 @@ export default function DashboardsTab({
                       />
                     )}
                   </>
-                )}
+                ) : null}
               </>
             )}
           </div>
