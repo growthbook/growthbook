@@ -42,14 +42,6 @@ const HoldoutTimeline: React.FC<{
   startDate: Date;
   holdoutEndDate?: Date;
 }> = ({ experiments, startDate, holdoutEndDate }) => {
-  console.log(
-    holdoutEndDate,
-    "holdoutEndDate",
-    startDate,
-    "startDate",
-    experiments,
-    "experiments",
-  );
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipTimeout = useRef<NodeJS.Timeout | null>(null);
   // Find the earliest start date from all experiment phases
@@ -198,22 +190,12 @@ const HoldoutTimeline: React.FC<{
       previousMonday.setDate(
         previousMonday.getDate() - (previousMonday.getDay() - 1),
       );
-      const nextMonday = new Date(adjustedStartDate);
-      const daysUntilMonday = (8 - nextMonday.getDay()) % 7;
-      if (daysUntilMonday > 0) {
-        nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
-      }
       return [previousMonday, endDate];
     } else {
       // More than a month - align with month boundaries
       const scaleStart = new Date(adjustedStartDate);
       scaleStart.setDate(1); // Start at first day of the month
-
-      const scaleEnd = new Date(endDate);
-      scaleEnd.setDate(1);
-      scaleEnd.setMonth(scaleEnd.getMonth() + 1); // End at first day of next month
-
-      return [scaleStart, scaleEnd];
+      return [scaleStart, endDate];
     }
   }, [startDate, endDate]);
 
@@ -238,10 +220,10 @@ const HoldoutTimeline: React.FC<{
     if (rangeInDays < 7) {
       // Less than a week - show days
       ticks.push(new Date(scaleStart));
-      while (current <= end) {
+      while (current.getTime() <= endDate.getTime()) {
         if (
           current.getTime() !== scaleStart.getTime() &&
-          current.getTime() !== scaleEnd.getTime()
+          current.getTime() < scaleEnd.getTime()
         ) {
           ticks.push(new Date(current));
         }
@@ -263,10 +245,10 @@ const HoldoutTimeline: React.FC<{
       }
 
       current.setTime(nextMonday.getTime());
-      while (current <= end) {
+      while (current.getTime() <= endDate.getTime()) {
         if (
           current.getTime() !== scaleStart.getTime() &&
-          current.getTime() !== scaleEnd.getTime()
+          current.getTime() < scaleEnd.getTime()
         ) {
           ticks.push(new Date(current));
         }
@@ -280,10 +262,10 @@ const HoldoutTimeline: React.FC<{
       nextMonth.setMonth(nextMonth.getMonth() + 1);
 
       current.setTime(nextMonth.getTime());
-      while (current <= end) {
+      while (current.getTime() <= endDate.getTime()) {
         if (
           current.getTime() !== scaleStart.getTime() &&
-          current.getTime() !== scaleEnd.getTime()
+          current.getTime() < scaleEnd.getTime()
         ) {
           ticks.push(new Date(current));
         }
