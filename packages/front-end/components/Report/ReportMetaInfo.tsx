@@ -256,6 +256,9 @@ export default function ReportMetaInfo({
       </Button>
     );
 
+  const isBandit = experiment?.type === "multi-armed-bandit";
+  const isHoldout = experiment?.type === "holdout";
+
   return (
     <>
       <div className="mb-3">
@@ -305,23 +308,28 @@ export default function ReportMetaInfo({
               />
               <Metadata
                 label={
-                  experiment?.type === "multi-armed-bandit"
-                    ? "Bandit"
-                    : "Experiment"
+                  isBandit ? `Bandit` : isHoldout ? `Holdout` : `Experiment`
                 }
                 value={
                   <ConditionalWrapper
                     condition={
                       !!experiment?.id &&
+                      (!isHoldout ? true : !!experiment?.holdoutId) &&
                       (!!showPrivateLink || !!showEditControls)
                     }
                     wrapper={
                       <Link
-                        href={`/${
-                          experiment?.type === "multi-armed-bandit"
-                            ? "bandit"
-                            : "experiment"
-                        }/${experiment?.id}`}
+                        href={
+                          !isHoldout
+                            ? experiment?.id
+                              ? `/${isBandit ? `bandit` : `experiment`}/${
+                                  experiment.id
+                                }`
+                              : undefined
+                            : experiment.holdoutId
+                              ? `/holdout/${experiment.holdoutId}`
+                              : undefined
+                        }
                       />
                     }
                   >

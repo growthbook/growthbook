@@ -7,6 +7,7 @@ import {
 import { includeExperimentInPayload, isDefined } from "shared/util";
 import { GroupMap } from "shared/src/types";
 import { cloneDeep, isNil } from "lodash";
+import md5 from "md5";
 import {
   FeatureInterface,
   FeatureRule,
@@ -19,6 +20,7 @@ import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { Environment } from "back-end/types/organization";
 import { SafeRolloutInterface } from "back-end/types/safe-rollout";
+import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 function getSavedGroupCondition(
@@ -227,6 +229,7 @@ export function getSDKPayloadKeysByDiff(
     "project",
     "valueType",
     "nextScheduledUpdate",
+    "holdout",
   ];
 
   if (
@@ -314,6 +317,10 @@ export function roundVariationWeight(num: number): number {
   return Math.round(num * 10000) / 10000;
 }
 
+export function getHoldoutFeatureDefId(holdoutId: string) {
+  return `$holdout:${holdoutId}`;
+}
+
 export function getFeatureDefinition({
   feature,
   environment,
@@ -322,6 +329,7 @@ export function getFeatureDefinition({
   revision,
   date,
   safeRolloutMap,
+  holdoutsMap,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -330,6 +338,10 @@ export function getFeatureDefinition({
   revision?: FeatureRevisionInterface;
   date?: Date;
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  holdoutsMap?: Map<
+    string,
+    { holdout: HoldoutInterface; experiment: ExperimentInterface }
+  >;
 }): FeatureDefinitionWithProject | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -345,6 +357,29 @@ export function getFeatureDefinition({
   const rules = revision
     ? (revision.rules?.[environment] ?? settings.rules)
     : settings.rules;
+
+  // If the feature has a holdout and it's enabled for the environment, add holdout as a
+  // pseudo force rule with a prerequisite condition. The environment being enabled is
+  // already checked in the getAllPayloadHoldouts function.
+  const holdoutRule: FeatureDefinitionRule[] =
+    feature.holdout &&
+    holdoutsMap &&
+    holdoutsMap.get(feature.holdout.id)?.holdout.environmentSettings?.[
+      environment
+    ]?.enabled
+      ? [
+          {
+            id: `holdout_${md5(feature.id + feature.holdout.id)}`,
+            parentConditions: [
+              {
+                id: getHoldoutFeatureDefId(feature.holdout.id),
+                condition: { value: "holdoutcontrol" },
+              },
+            ],
+            force: getJSONValue(feature.valueType, feature.holdout.value),
+          },
+        ]
+      : [];
 
   // convert prerequisites to force rules:
   const prerequisiteRules = (feature.prerequisites ?? [])
@@ -368,6 +403,7 @@ export function getFeatureDefinition({
   ): rule is FeatureDefinitionRule => !!rule;
 
   const defRules = [
+    ...holdoutRule,
     ...prerequisiteRules,
     ...(rules
       ?.filter((r) => {

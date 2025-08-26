@@ -1295,10 +1295,88 @@ paths:
                         items:
                           $ref: '#/components/schemas/Segment'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - segments
+      summary: Create a single segment
+      operationId: postSegment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/segments \
+              -d '{"name":"Annual Subscribers", "datasource":"ds_123abc", "identifierType":"user_id", "type":"SQL", "query":"SELECT plan FROM subscribers WHERE plan = 'annual'"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - datasourceId
+                - identifierType
+                - type
+              properties:
+                name:
+                  type: string
+                  description: Name of the segment
+                owner:
+                  type: string
+                  description: Owner of the segment
+                description:
+                  type: string
+                  description: Description of the segment
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this segment belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                projects:
+                  type: array
+                  description: List of project IDs for projects that can access this segment
+                  items:
+                    type: string
+                managedBy:
+                  type: string
+                  description: 'Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+                type:
+                  type: string
+                  description: 'GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters.'
+                  enum:
+                    - SQL
+                    - FACT
+                query:
+                  type: string
+                  description: SQL query that defines the Segment. This is required for SQL segments.
+                factTableId:
+                  type: string
+                  description: ID of the fact table this segment belongs to. This is required for FACT segments.
+                filters:
+                  type: array
+                  description: Optional array of fact table filter ids that can further define the Fact Table based Segment.
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - segment
+                properties:
+                  segment:
+                    $ref: '#/components/schemas/Segment'
   '/segments/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single segment
       tags:
         - segments
@@ -1319,6 +1397,105 @@ paths:
                 properties:
                   segment:
                     $ref: '#/components/schemas/Segment'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - dimensions
+      summary: Update a single segment
+      operationId: updateSegment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/segment/seg_123abc \
+              -d '{"name":"User Region"}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Name of the segment
+                description:
+                  type: string
+                  description: Description of the segment
+                owner:
+                  type: string
+                  description: Owner of the segment
+                datasourceId:
+                  type: string
+                  description: ID of the datasource this segment belongs to
+                identifierType:
+                  type: string
+                  description: 'Type of identifier (user, anonymous, etc.)'
+                projects:
+                  type: array
+                  description: List of project IDs for projects that can access this segment
+                  items:
+                    type: string
+                managedBy:
+                  type: string
+                  description: 'Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  enum:
+                    - ''
+                    - api
+                type:
+                  type: string
+                  description: 'GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters.'
+                  enum:
+                    - SQL
+                    - FACT
+                query:
+                  type: string
+                  description: SQL query that defines the Segment. This is required for SQL segments.
+                factTableId:
+                  type: string
+                  description: ID of the fact table this segment belongs to. This is required for FACT segments.
+                filters:
+                  type: array
+                  description: Optional array of fact table filter ids that can further define the Fact Table based Segment.
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - segment
+                properties:
+                  segment:
+                    $ref: '#/components/schemas/Segment'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - segments
+      summary: Deletes a single segment
+      operationId: deleteSegment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/segment/seg_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted segment
+                    example: seg_123abc
   /sdk-connections:
     get:
       summary: Get all sdk connections
@@ -4302,6 +4479,8 @@ paths:
                   enum:
                     - ''
                     - api
+                archived:
+                  type: boolean
       responses:
         '200':
           content:
@@ -5078,6 +5257,8 @@ paths:
                   enum:
                     - ''
                     - api
+                archived:
+                  type: boolean
       responses:
         '200':
           content:
@@ -5881,12 +6062,21 @@ components:
           type: string
         name:
           type: string
+        description:
+          type: string
         query:
           type: string
         dateCreated:
           type: string
         dateUpdated:
           type: string
+        managedBy:
+          type: string
+          description: 'Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.'
+          enum:
+            - ''
+            - api
+            - config
         type:
           enum:
             - SQL
@@ -5894,6 +6084,10 @@ components:
         factTableId:
           type: string
         filters:
+          type: array
+          items:
+            type: string
+        projects:
           type: array
           items:
             type: string
@@ -7324,6 +7518,8 @@ components:
             type: string
         sql:
           type: string
+        archived:
+          type: boolean
         managedBy:
           type: string
           description: 'Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.'
@@ -7602,6 +7798,8 @@ components:
         dateUpdated:
           type: string
           format: date-time
+        archived:
+          type: boolean
     Member:
       type: object
       required:

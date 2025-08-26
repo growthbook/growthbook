@@ -4,7 +4,11 @@ import {
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "back-end/types/report";
-import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
+import {
+  ExperimentStatus,
+  ExperimentType,
+  MetricOverride,
+} from "back-end/types/experiment";
 import {
   DifferenceType,
   PValueCorrection,
@@ -101,7 +105,7 @@ const BreakDownResults: FC<{
   differenceType: DifferenceType;
   metricFilter?: ResultsMetricFilters;
   setMetricFilter?: (filter: ResultsMetricFilters) => void;
-  isBandit?: boolean;
+  experimentType?: ExperimentType;
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
   renderMetricName?: (
@@ -138,7 +142,7 @@ const BreakDownResults: FC<{
   differenceType,
   metricFilter,
   setMetricFilter,
-  isBandit,
+  experimentType,
   ssrPolyfills,
   hideDetails,
   renderMetricName,
@@ -326,6 +330,9 @@ const BreakDownResults: FC<{
       getExperimentMetricById(activationMetric)
     : undefined;
 
+  const isBandit = experimentType === "multi-armed-bandit";
+  const isHoldout = experimentType === "holdout";
+
   return (
     <div className="mb-3">
       <div className="mb-4">
@@ -411,6 +418,7 @@ const BreakDownResults: FC<{
                       !!regressionAdjustmentEnabled,
                       statsEngine,
                       hideDetails,
+                      experimentType,
                     )(table.metric.name, table.metric, table.rows[0])}
                   </div>
                 )
@@ -446,6 +454,7 @@ const BreakDownResults: FC<{
               isBandit={isBandit}
               ssrPolyfills={ssrPolyfills}
               noStickyHeader={noStickyHeader}
+              isHoldout={isHoldout}
             />
             <div className="mb-5" />
           </>

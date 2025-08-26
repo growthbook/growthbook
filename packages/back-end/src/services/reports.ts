@@ -58,7 +58,11 @@ import {
   isJoinableMetric,
 } from "back-end/src/services/experiments";
 import { MetricInterface } from "back-end/types/metric";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -216,22 +220,108 @@ export function getSnapshotSettingsFromReportArgs(
   return { snapshotSettings, analysisSettings };
 }
 
+function convertWindowValueToHours(
+  windowValue: number,
+  windowUnit: ConversionWindowUnit,
+) {
+  switch (windowUnit) {
+    case "hours":
+      return windowValue;
+    case "days":
+      return windowValue * 24;
+    case "weeks":
+      return windowValue * 24 * 7;
+    case "minutes":
+      return windowValue / 60;
+  }
+}
+
+function generateWindowSettings(
+  metric: ExperimentMetricInterface,
+  overrides?: MetricOverride,
+  phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit },
+): MetricWindowSettings {
+  if (phaseLookbackWindow) {
+    // Convert metric window value to hours if it's a lookback window. Ignore if it's a conversion window.
+    const metricWindowValueInHours =
+      metric.windowSettings.type === "lookback"
+        ? convertWindowValueToHours(
+            metric.windowSettings.windowValue,
+            metric.windowSettings.windowUnit,
+          )
+        : 0;
+
+    // Find the minimum window value from the metric settings and the phase lookback window
+    const minWindowValueInHours =
+      metricWindowValueInHours > 0
+        ? Math.min(
+            metricWindowValueInHours,
+            convertWindowValueToHours(
+              phaseLookbackWindow.value,
+              phaseLookbackWindow.unit,
+            ),
+          )
+        : convertWindowValueToHours(
+            phaseLookbackWindow.value,
+            phaseLookbackWindow.unit,
+          );
+
+    return {
+      delayValue:
+        metric.windowSettings.delayValue ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: metric.windowSettings.delayUnit ?? "hours",
+      type: "lookback",
+      windowUnit: "hours",
+      windowValue: minWindowValueInHours,
+    };
+  }
+
+  return {
+    delayValue:
+      overrides?.delayHours ??
+      metric.windowSettings.delayValue ??
+      DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    delayUnit: overrides?.delayHours
+      ? "hours"
+      : (metric.windowSettings.delayUnit ?? "hours"),
+    type:
+      overrides?.windowType ??
+      metric.windowSettings.type ??
+      DEFAULT_METRIC_WINDOW,
+    windowUnit:
+      overrides?.windowHours || overrides?.windowType
+        ? "hours"
+        : metric.windowSettings.windowUnit,
+    windowValue:
+      overrides?.windowHours ??
+      metric.windowSettings.windowValue ??
+      DEFAULT_METRIC_WINDOW_HOURS,
+  };
+}
+
 export function getMetricForSnapshot({
   id,
   metricMap,
   settingsForSnapshotMetrics,
   metricOverrides,
   decisionFrameworkSettings,
+  phaseLookbackWindow,
 }: {
   id: string | null | undefined;
   metricMap: Map<string, ExperimentMetricInterface>;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   metricOverrides?: MetricOverride[];
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+  phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit };
 }): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
+
+  // TODO: Is this the right place to ignore conversion window metrics for holdouts?
+  if (metric.windowSettings.type === "conversion" && phaseLookbackWindow) {
+    return null;
+  }
   const overrides = metricOverrides?.find((o) => o.id === id);
   const decisionFrameworkMetricOverride =
     decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
@@ -240,6 +330,7 @@ export function getMetricForSnapshot({
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
     (s) => s.metric === id,
   );
+
   return {
     id,
     settings: {
@@ -252,27 +343,11 @@ export function getMetricForSnapshot({
       userIdTypes: (!isFactMetric(metric) && metric.userIdTypes) || undefined,
     },
     computedSettings: {
-      windowSettings: {
-        delayValue:
-          overrides?.delayHours ??
-          metric.windowSettings.delayValue ??
-          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-        delayUnit: overrides?.delayHours
-          ? "hours"
-          : (metric.windowSettings.delayUnit ?? "hours"),
-        type:
-          overrides?.windowType ??
-          metric.windowSettings.type ??
-          DEFAULT_METRIC_WINDOW,
-        windowUnit:
-          overrides?.windowHours || overrides?.windowType
-            ? "hours"
-            : (metric.windowSettings.windowUnit ?? "hours"),
-        windowValue:
-          overrides?.windowHours ??
-          metric.windowSettings.windowValue ??
-          DEFAULT_METRIC_WINDOW_HOURS,
-      },
+      windowSettings: generateWindowSettings(
+        metric,
+        overrides,
+        phaseLookbackWindow,
+      ),
       properPrior: metricSnapshotSettings?.properPrior ?? false,
       properPriorMean: metricSnapshotSettings?.properPriorMean ?? 0,
       properPriorStdDev:

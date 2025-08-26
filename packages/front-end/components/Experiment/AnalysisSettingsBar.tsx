@@ -22,6 +22,7 @@ import {
 import { FaMagnifyingGlassChart } from "react-icons/fa6";
 import { RiBarChartFill } from "react-icons/ri";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -77,6 +78,7 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentHasValidMetrics?: boolean;
   onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   showMoreMenu?: boolean;
+  holdout?: HoldoutInterface;
 }) {
   const {
     experiment,
@@ -112,6 +114,7 @@ export default function AnalysisSettingsBar({
   const manualSnapshot = !datasource;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
+  const isHoldout = experiment?.type === "holdout";
 
   return (
     <div>
@@ -128,7 +131,7 @@ export default function AnalysisSettingsBar({
 
       {experiment && (
         <div className="row align-items-center p-3 analysis-settings-bar">
-          {setAnalysisBarSettings ? (
+          {!isHoldout && setAnalysisBarSettings ? (
             <>
               <div className="col-auto form-inline pr-5">
                 <BaselineChooser
@@ -147,7 +150,9 @@ export default function AnalysisSettingsBar({
                   setAnalysisSettings={setAnalysisSettings}
                   mutate={mutate}
                   dropdownEnabled={
-                    !manualSnapshot && snapshot?.dimension !== "pre:date"
+                    !isHoldout &&
+                    !manualSnapshot &&
+                    snapshot?.dimension !== "pre:date"
                   }
                 />
                 <em className="text-muted mx-3" style={{ marginTop: 15 }}>
@@ -171,22 +176,24 @@ export default function AnalysisSettingsBar({
           <div className="col-auto form-inline pr-5">
             <DimensionChooser
               value={analysisBarSettings.dimension}
-              setValue={(d: string) =>
-                setAnalysisBarSettings({ ...analysisBarSettings, dimension: d })
+              setValue={(d: string, resetOtherSettings?: boolean) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  dimension: d,
+                  ...(resetOtherSettings
+                    ? {
+                        baselineRow: 0,
+                        differenceType: "relative",
+                        variationFilter: [],
+                      }
+                    : {}),
+                })
               }
               precomputedDimensions={precomputedDimensions}
               activationMetric={!!experiment.activationMetric}
               datasourceId={experiment.datasource}
               exposureQueryId={experiment.exposureQueryId}
               userIdType={experiment.userIdType}
-              resetAnalysisBarSettings={() =>
-                setAnalysisBarSettings({
-                  ...analysisBarSettings,
-                  baselineRow: 0,
-                  differenceType: "relative",
-                  variationFilter: [],
-                })
-              }
               labelClassName="mr-2"
               analysis={analysis}
               snapshot={snapshot}
@@ -217,6 +224,7 @@ export default function AnalysisSettingsBar({
             (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
               <div className="col-auto form-inline">
                 <PhaseSelector
+                  isHoldout={isHoldout}
                   mutateExperiment={mutateExperiment}
                   editPhases={!isBandit ? editPhases : undefined}
                   isBandit={isBandit}
@@ -224,7 +232,7 @@ export default function AnalysisSettingsBar({
               </div>
             )}
           <div style={{ flex: 1 }} />
-          {!isBandit && (
+          {!isBandit && !isHoldout ? (
             <div className="col-auto">
               {regressionAdjustmentAvailable && (
                 <PremiumTooltip
@@ -291,7 +299,7 @@ export default function AnalysisSettingsBar({
                 </PremiumTooltip>
               )}
             </div>
-          )}
+          ) : null}
           {isBandit && snapshot ? (
             <div className="col-auto text-right mb-0">
               <div className="uppercase-title text-muted">Analysis type</div>
@@ -435,6 +443,7 @@ export function isOutdated({
   hasSequentialFeature,
   phase,
   unjoinableMetrics,
+  conversionWindowMetrics,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
@@ -445,6 +454,7 @@ export function isOutdated({
   hasSequentialFeature: boolean;
   phase?: number;
   unjoinableMetrics?: Set<string>;
+  conversionWindowMetrics?: Set<string>;
 }): { outdated: boolean; reasons: string[] } {
   const snapshotSettings = snapshot?.settings;
   const analysisSettings = snapshot
@@ -493,28 +503,32 @@ export function isOutdated({
   ) {
     reasons.push("Attribution model changed");
   }
-  if (
-    isStringArrayMissingElements(
-      Array.from(
-        new Set(
-          expandMetricGroups(
-            getAllMetricIdsFromExperiment(snapshotSettings, false),
-            metricGroups,
-          ),
-        ),
-      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true)),
-      Array.from(
-        new Set(
-          expandMetricGroups(
-            getAllMetricIdsFromExperiment(experiment, false),
-            metricGroups,
-          ),
-        ),
-      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true)),
-    )
-  ) {
+
+  const snapshotMetrics = Array.from(
+    new Set(
+      expandMetricGroups(
+        getAllMetricIdsFromExperiment(snapshotSettings, false),
+        metricGroups,
+      ),
+    ),
+  ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true));
+  let experimentMetrics = Array.from(
+    new Set(
+      expandMetricGroups(
+        getAllMetricIdsFromExperiment(experiment, false),
+        metricGroups,
+      ),
+    ),
+  ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true));
+  if (experiment.type === "holdout" && conversionWindowMetrics?.size) {
+    experimentMetrics = experimentMetrics.filter(
+      (m) => !conversionWindowMetrics.has(m),
+    );
+  }
+  if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
     reasons.push("Metrics changed");
   }
+
   if (
     isDifferentStringArray(
       experiment.variations.map((v) => v.key),

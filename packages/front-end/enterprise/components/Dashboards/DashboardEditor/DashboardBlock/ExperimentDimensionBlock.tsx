@@ -97,7 +97,6 @@ export default function ExperimentDimensionBlock({
       regressionAdjustmentAvailable:
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
-  const isBandit = experiment.type === "multi-armed-bandit";
 
   const goalMetrics = expGoalMetrics.filter((mId) =>
     expandedMetricIds.includes(mId),
@@ -139,7 +138,6 @@ export default function ExperimentDimensionBlock({
       settingsForSnapshotMetrics={settingsForSnapshotMetrics}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
-      isBandit={isBandit}
       renderMetricName={(metric) => metric.name}
     />
   );

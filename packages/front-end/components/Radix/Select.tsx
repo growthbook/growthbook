@@ -82,7 +82,13 @@ export const SelectItem = forwardRef<
   }
 >(function SelectItem({ value, children, disabled = false, ...props }, ref) {
   return (
-    <RadixSelect.Item value={value} disabled={disabled} {...props} ref={ref}>
+    <RadixSelect.Item
+      value={value}
+      disabled={disabled}
+      {...props}
+      ref={ref}
+      className="w-full"
+    >
       {children}
     </RadixSelect.Item>
   );

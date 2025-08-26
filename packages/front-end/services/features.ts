@@ -1471,3 +1471,23 @@ export function useFeatureExperimentChecklists({
     experimentData,
   };
 }
+
+export function parseDefaultValue(
+  defaultValue: string,
+  valueType: FeatureValueType,
+): string {
+  if (valueType === "boolean") {
+    return defaultValue === "true" ? "true" : "false";
+  }
+  if (valueType === "number") {
+    return parseFloat(defaultValue) + "";
+  }
+  if (valueType === "string") {
+    return defaultValue;
+  }
+  try {
+    return JSON.stringify(JSON.parse(defaultValue), null, 2);
+  } catch (e) {
+    throw new Error(`JSON parse error for default value`);
+  }
+}
