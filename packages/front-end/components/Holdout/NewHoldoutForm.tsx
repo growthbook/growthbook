@@ -346,7 +346,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const prerequisiteAlert = hasSDKWithNoPrerequisites ? (
     <Callout status={hasSDKWithPrerequisites ? "warning" : "error"} mb="4">
       <Box as="span" pr="1">
-        {hasSDKWithNoPrerequisites
+        {hasSDKWithPrerequisites
           ? "Some of your SDK Connections in this Project may not support Prerequisite evaluation, which is mandatory for Holdouts."
           : "None of your SDK Connections in this Project support Prerequisite evaluation, which is mandatory for Holdouts. Either upgrade your SDKs or add a supported SDK."}
         <Link
@@ -512,14 +512,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 </Text>
               </Text>
               <div
-                className={`position-relative ${variationInputStyles.percentInputWrap}`}
+                className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
                 style={{ width: 110 }}
               >
                 <Field
-                  style={{ width: 105 }}
+                  style={{ width: 95 }}
                   value={
                     isNaN(form.watch("phases.0.coverage") ?? 0)
-                      ? "5"
+                      ? ""
                       : decimalToPercent(
                           (form.watch("phases.0.coverage") ?? 0) / 2,
                         )
@@ -533,7 +533,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   type="number"
                   min={0}
                   max={100}
-                  step="1"
+                  step="0.01"
                 />
                 <span>%</span>
               </div>

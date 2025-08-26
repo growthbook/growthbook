@@ -192,7 +192,7 @@ export default function SetupTabOverview({
                 {upperFirst(experiment.type || "experiment")}.
               </Box>
             )}
-            {!customFields.length && experiment.description ? (
+            {!customFields.length && experiment.description && !isHoldout ? (
               <PremiumCallout
                 mt="3"
                 commercialFeature="custom-metadata"

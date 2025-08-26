@@ -82,6 +82,7 @@ const AddToHoldoutModal = ({
             form.setValue("holdoutId", holdoutId);
           }}
           selectedHoldoutId={form.watch("holdoutId")}
+          formType="experiment"
         />
       )}
     </Modal>
