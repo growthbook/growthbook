@@ -1,4 +1,4 @@
-import { Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -99,6 +99,77 @@ export default function DashboardEditorSidebar({
     return moveBlocks(blocks, draggingBlockIndex, previewBlockPlacement);
   }, [blocks, draggingBlockIndex, previewBlockPlacement]);
 
+  const blockNavigatorEnabled = false;
+
+  const addBlocksContent = (
+    <Flex direction="column" align="start" px="4" pb="4" pt="2" gap="5">
+      <Text style={{ color: "var(--color-text-mid)" }}>
+        Click to add blocks.
+      </Text>
+      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
+        <Flex
+          direction="column"
+          gap="2"
+          align="start"
+          key={`${subgroup}-${i}`}
+          width="100%"
+        >
+          <Text
+            weight="medium"
+            size="1"
+            style={{
+              color: "var(--color-text-high)",
+              textTransform: "uppercase",
+            }}
+          >
+            {subgroup}
+          </Text>
+          {blockTypes.map((bType) => (
+            <a
+              href="#"
+              key={bType}
+              onClick={(e) => {
+                e.preventDefault();
+                addBlockType(bType);
+              }}
+              style={{
+                display: "block",
+                padding: "5px",
+                margin: "0 -5px",
+                width: "100%",
+                borderRadius: "6px",
+              }}
+              className="hover-show no-underline hover-border-violet"
+            >
+              <Flex>
+                <Avatar
+                  radius="small"
+                  color="indigo"
+                  variant="soft"
+                  mr="2"
+                  size="sm"
+                >
+                  {BLOCK_TYPE_INFO[bType].icon}
+                </Avatar>
+                <Text
+                  size="2"
+                  weight="regular"
+                  style={{ color: "var(--color-text-high" }}
+                >
+                  {BLOCK_TYPE_INFO[bType].name}
+                </Text>
+                <div style={{ flex: 1 }} />
+                <Text color="violet" className="ml-auto show-target instant">
+                  <PiPlusCircle /> Add
+                </Text>
+              </Flex>
+            </a>
+          ))}
+        </Flex>
+      ))}
+    </Flex>
+  );
+
   return (
     <div
       id="edit-drawer"
@@ -120,83 +191,22 @@ export default function DashboardEditorSidebar({
           block={stagedBlock}
           setBlock={setStagedBlock}
         />
+      ) : !blockNavigatorEnabled ? (
+        <div style={{ width: "440px" }}>
+          <Box px="4" pt="4">
+            <Text size="3" weight="bold">
+              Add a Block
+            </Text>
+          </Box>
+          {addBlocksContent}
+        </div>
       ) : (
         <Tabs defaultValue="add-block" style={{ width: "440px" }}>
           <TabsList>
             <TabsTrigger value="add-block">Add Block</TabsTrigger>
             <TabsTrigger value="block-navigator">Block Navigator</TabsTrigger>
           </TabsList>
-          <TabsContent value="add-block">
-            <Flex direction="column" align="start" p="4" gap="5">
-              <Text style={{ color: "var(--color-text-mid)" }}>
-                Click to add blocks.
-              </Text>
-              {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
-                <Flex
-                  direction="column"
-                  gap="2"
-                  align="start"
-                  key={`${subgroup}-${i}`}
-                  width="100%"
-                >
-                  <Text
-                    weight="medium"
-                    size="1"
-                    style={{
-                      color: "var(--color-text-high)",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {subgroup}
-                  </Text>
-                  {blockTypes.map((bType) => (
-                    <a
-                      href="#"
-                      key={bType}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        addBlockType(bType);
-                      }}
-                      style={{
-                        display: "block",
-                        padding: "5px",
-                        margin: "0 -5px",
-                        width: "100%",
-                        borderRadius: "6px",
-                      }}
-                      className="hover-show no-underline hover-border-violet"
-                    >
-                      <Flex>
-                        <Avatar
-                          radius="small"
-                          color="indigo"
-                          variant="soft"
-                          mr="2"
-                          size="sm"
-                        >
-                          {BLOCK_TYPE_INFO[bType].icon}
-                        </Avatar>
-                        <Text
-                          size="2"
-                          weight="regular"
-                          style={{ color: "var(--color-text-high" }}
-                        >
-                          {BLOCK_TYPE_INFO[bType].name}
-                        </Text>
-                        <div style={{ flex: 1 }} />
-                        <Text
-                          color="violet"
-                          className="ml-auto show-target instant"
-                        >
-                          <PiPlusCircle /> Add
-                        </Text>
-                      </Flex>
-                    </a>
-                  ))}
-                </Flex>
-              ))}
-            </Flex>
-          </TabsContent>
+          <TabsContent value="add-block">{addBlocksContent}</TabsContent>
           <TabsContent value="block-navigator">
             <Flex direction="column" align="start" p="2">
               <Text style={{ color: "var(--color-text-mid)" }} my="3">
