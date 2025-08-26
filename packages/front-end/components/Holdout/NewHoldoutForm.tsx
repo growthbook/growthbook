@@ -512,11 +512,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 </Text>
               </Text>
               <div
-                className={`position-relative ${variationInputStyles.percentInputWrap}`}
+                className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
                 style={{ width: 110 }}
               >
                 <Field
-                  style={{ width: 105 }}
+                  style={{ width: 95 }}
                   value={
                     isNaN(form.watch("phases.0.coverage") ?? 0)
                       ? ""
@@ -533,7 +533,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   type="number"
                   min={0}
                   max={100}
-                  step="1"
+                  step="0.01"
                 />
                 <span>%</span>
               </div>
