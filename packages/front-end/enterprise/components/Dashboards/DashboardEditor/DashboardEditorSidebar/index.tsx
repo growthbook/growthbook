@@ -4,7 +4,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { Fragment, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical } from "react-icons/pi";
@@ -21,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenu,
 } from "@/components/Radix/DropdownMenu";
+import Avatar from "@/components/Radix/Avatar";
 import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO } from "..";
 import EditSingleBlock from "./EditSingleBlock";
 
@@ -102,13 +103,14 @@ export default function DashboardEditorSidebar({
   return (
     <div
       id="edit-drawer"
+      className="appbox mt-3"
       style={{
         display: "flex",
         transition: "all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1)",
         width: open ? "440px" : "0px",
+        opacity: open ? 1 : 0,
         overflow: "clip",
         zIndex: 9001,
-        backgroundColor: "var(--surface-background-color)",
       }}
     >
       {isDefined(stagedBlock) ? (
@@ -120,18 +122,23 @@ export default function DashboardEditorSidebar({
           setBlock={setStagedBlock}
         />
       ) : (
-        <Tabs defaultValue="add-block" style={{ width: "100%" }}>
+        <Tabs defaultValue="add-block" style={{ width: "440px" }}>
           <TabsList>
             <TabsTrigger value="add-block">Add Block</TabsTrigger>
             <TabsTrigger value="block-navigator">Block Navigator</TabsTrigger>
           </TabsList>
           <TabsContent value="add-block">
-            <Flex direction="column" align="start" p="2">
-              <Text style={{ color: "var(--color-text-mid)" }} my="3">
+            <Flex direction="column" align="start" p="4" gap="5">
+              <Text style={{ color: "var(--color-text-mid)" }}>
                 Click to add blocks.
               </Text>
               {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
-                <Fragment key={`${subgroup}-${i}`}>
+                <Flex
+                  direction="column"
+                  gap="2"
+                  align="start"
+                  key={`${subgroup}-${i}`}
+                >
                   <Text
                     weight="medium"
                     size="1"
@@ -150,7 +157,15 @@ export default function DashboardEditorSidebar({
                         addBlockType(bType);
                       }}
                     >
-                      {/* TODO: icon */}
+                      <Avatar
+                        radius="small"
+                        color="indigo"
+                        variant="soft"
+                        mr="2"
+                        size="sm"
+                      >
+                        {BLOCK_TYPE_INFO[bType].icon}
+                      </Avatar>
                       <Text
                         size="2"
                         weight="regular"
@@ -160,8 +175,7 @@ export default function DashboardEditorSidebar({
                       </Text>
                     </Button>
                   ))}
-                  {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
-                </Fragment>
+                </Flex>
               ))}
             </Flex>
           </TabsContent>

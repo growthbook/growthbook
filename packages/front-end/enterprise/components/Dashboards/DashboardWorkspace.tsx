@@ -317,6 +317,7 @@ export default function DashboardWorkspace({
               minHeight: DASHBOARD_TOPBAR_HEIGHT,
               maxHeight: DASHBOARD_TOPBAR_HEIGHT,
             }}
+            mt="3"
           >
             {isDefined(addBlockIndex) || isDefined(editingBlockIndex) ? (
               <IconButton mb="1" onClick={clearEditingState} variant="outline">
@@ -340,7 +341,7 @@ export default function DashboardWorkspace({
           <div
             style={{
               maxHeight: `calc(100vh - ${DASHBOARD_WORKSPACE_NAV_HEIGHT} - ${DASHBOARD_TOPBAR_HEIGHT}`,
-              overflowY: "scroll",
+              overflowY: "auto",
             }}
           >
             <DashboardEditorSidebar

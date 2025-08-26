@@ -1,6 +1,20 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { Fragment, useEffect, useRef, useState } from "react";
-import { PiCaretDownFill, PiPlus } from "react-icons/pi";
+import React, {
+  Fragment,
+  ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  PiChartBar,
+  PiCaretDownFill,
+  PiChartLine,
+  PiPlus,
+  PiTableDuotone,
+  PiMarkdownLogoBold,
+  PiTextAaBold,
+} from "react-icons/pi";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -25,27 +39,37 @@ import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
-export const BLOCK_TYPE_INFO: Record<DashboardBlockType, { name: string }> = {
+export const BLOCK_TYPE_INFO: Record<
+  DashboardBlockType,
+  { name: string; icon: ReactElement }
+> = {
   markdown: {
     name: "Markdown",
+    icon: <PiMarkdownLogoBold />,
   },
   "experiment-metadata": {
     name: "Experiment Metadata",
+    icon: <PiTextAaBold />,
   },
   "experiment-metric": {
     name: "Metric Results",
+    icon: <PiTableDuotone />,
   },
   "experiment-dimension": {
     name: "Dimension Results",
+    icon: <PiTableDuotone />,
   },
   "experiment-time-series": {
     name: "Time Series",
+    icon: <PiChartLine />,
   },
   "experiment-traffic": {
     name: "Experiment Traffic",
+    icon: <PiChartLine />,
   },
   "sql-explorer": {
     name: "SQL Explorer",
+    icon: <PiChartBar />,
   },
 };
 
@@ -282,7 +306,12 @@ function DashboardEditor({
 
   return (
     <div>
-      <Flex align="end" justify="between" height={DASHBOARD_TOPBAR_HEIGHT}>
+      <Flex
+        align="end"
+        justify="between"
+        height={DASHBOARD_TOPBAR_HEIGHT}
+        mt="3"
+      >
         <Flex align="center" gap="1">
           {isEditing && (
             <Text weight="medium" size="5">
@@ -301,11 +330,11 @@ function DashboardEditor({
         ref={scrollAreaRef}
         style={{
           maxHeight: `calc(100vh - ${DASHBOARD_WORKSPACE_NAV_HEIGHT} - ${DASHBOARD_TOPBAR_HEIGHT}`,
-          overflowY: "scroll",
+          overflowY: "auto",
         }}
       >
-        {blocks.length === 0 ? (
-          <div className="mt-3">
+        <div className="mt-3">
+          {blocks.length === 0 ? (
             <Flex
               direction="column"
               align="center"
@@ -335,22 +364,22 @@ function DashboardEditor({
                 }
               />
             </Flex>
-          </div>
-        ) : (
-          blocks.map((block, i) =>
-            renderSingleBlock({
-              i,
-              key: isPersistedDashboardBlock(block)
-                ? block.id
-                : `${block.type}-${i}`,
-              block: block,
-              isFocused: focusedBlockIndex === i,
-              setBlock: (block) => setBlock(i, block),
-              isEditingBlock: stagedBlockIndex === i,
-              isLastBlock: i === blocks.length - 1,
-            }),
-          )
-        )}
+          ) : (
+            blocks.map((block, i) =>
+              renderSingleBlock({
+                i,
+                key: isPersistedDashboardBlock(block)
+                  ? block.id
+                  : `${block.type}-${i}`,
+                block: block,
+                isFocused: focusedBlockIndex === i,
+                setBlock: (block) => setBlock(i, block),
+                isEditingBlock: stagedBlockIndex === i,
+                isLastBlock: i === blocks.length - 1,
+              }),
+            )
+          )}
+        </div>
       </div>
     </div>
   );
