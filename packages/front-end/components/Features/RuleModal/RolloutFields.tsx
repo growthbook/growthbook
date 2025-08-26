@@ -85,7 +85,7 @@ export default function RolloutFields({
             className="mb-3"
           />
           <SelectField
-            label="Enroll based on attribute"
+            label="Sample based on attribute"
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => ({ label: s.property, value: s.property }))}
