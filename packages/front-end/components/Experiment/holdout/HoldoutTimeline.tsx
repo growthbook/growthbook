@@ -79,6 +79,10 @@ const HoldoutTimeline: React.FC<{
     result: string;
     phase: ExperimentPhaseStringDates;
     experiment: ExperimentInterfaceStringDates;
+    shippedVariation?: {
+      name: string;
+      index: number;
+    };
   }>();
 
   const handleBarMouseMove = (
@@ -88,6 +92,10 @@ const HoldoutTimeline: React.FC<{
     result: string,
     phase: ExperimentPhaseStringDates,
     experiment: ExperimentInterfaceStringDates,
+    shippedVariation?: {
+      name: string;
+      index: number;
+    },
   ) => {
     if (!containerRef.current) return;
 
@@ -119,7 +127,14 @@ const HoldoutTimeline: React.FC<{
       showTooltip({
         tooltipLeft,
         tooltipTop,
-        tooltipData: { experimentName, status, result, phase, experiment },
+        tooltipData: {
+          experimentName,
+          status,
+          result,
+          phase,
+          experiment,
+          shippedVariation,
+        },
       });
     }, 150); // 150ms delay
   };
@@ -407,7 +422,7 @@ const HoldoutTimeline: React.FC<{
                 borderRadius: "6px",
                 padding: "12px",
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                maxWidth: "280px",
+                maxWidth: "350px",
               }}
             >
               <Flex direction="column" gap="2">
@@ -420,12 +435,34 @@ const HoldoutTimeline: React.FC<{
                       experimentData={tooltipData.experiment}
                     />
                   </Flex>
-                  {tooltipData.result && (
-                    <Flex justify="between">
-                      <Text size="2" color="gray">
-                        Result:
+                  {tooltipData.experiment.releasedVariationId && (
+                    <Flex>
+                      <Text size="2" weight="bold" mr="2">
+                        Shipped:
                       </Text>
-                      <Text size="2">{tooltipData.result}</Text>
+                      {tooltipData.shippedVariation ? (
+                        <div
+                          className={`variation variation${tooltipData.shippedVariation.index} with-variation-label d-flex align-items-center`}
+                        >
+                          <span
+                            className="label"
+                            style={{ width: 20, height: 20, flex: "none" }}
+                          >
+                            {tooltipData.shippedVariation.index}
+                          </span>
+                          <span
+                            className="d-inline-block"
+                            style={{
+                              width: 150,
+                              lineHeight: "14px",
+                            }}
+                          >
+                            {tooltipData.shippedVariation.name}
+                          </span>
+                        </div>
+                      ) : (
+                        <span>--</span>
+                      )}
                     </Flex>
                   )}
                   <Flex justify="between">
@@ -545,6 +582,13 @@ const HoldoutTimeline: React.FC<{
               {/* Experiment Timelines - simplified bars */}
               {experiments.map((experiment) => {
                 if (experiment.phases) {
+                  // Find shipped variation index and name if it exists
+                  const variationIndex = experiment.variations.findIndex(
+                    (v) => v.id === experiment.releasedVariationId,
+                  );
+                  const shippedVariation = experiment.variations[variationIndex]
+                    ? experiment.variations[variationIndex].name
+                    : null;
                   return experiment.phases.map((phase, i) => {
                     const start = getValidDate(phase.dateStarted) ?? "";
                     const end =
@@ -583,6 +627,12 @@ const HoldoutTimeline: React.FC<{
                                 experiment.results || "",
                                 phase,
                                 experiment,
+                                shippedVariation
+                                  ? {
+                                      name: shippedVariation,
+                                      index: variationIndex,
+                                    }
+                                  : undefined,
                               )
                             }
                             onMouseLeave={handleBarMouseLeave}
@@ -611,6 +661,12 @@ const HoldoutTimeline: React.FC<{
                                   experiment.results || "",
                                   phase,
                                   experiment,
+                                  shippedVariation
+                                    ? {
+                                        name: shippedVariation,
+                                        index: variationIndex,
+                                      }
+                                    : undefined,
                                 )
                               }
                               onMouseLeave={handleBarMouseLeave}
