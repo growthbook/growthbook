@@ -25,7 +25,9 @@ import DashboardEditor, { DASHBOARD_TOPBAR_HEIGHT } from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 
-export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "60px";
+export const DASHBOARD_WORKSPACE_NAV_HEIGHT = "72px";
+export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
+
 interface Props {
   isTabActive: boolean;
   experiment: ExperimentInterfaceStringDates;
@@ -196,6 +198,7 @@ export default function DashboardWorkspace({
         px="7"
         style={{
           height: DASHBOARD_WORKSPACE_NAV_HEIGHT,
+          borderBottom: `${DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING} solid var(--violet-2)`,
         }}
       >
         <Flex align="center" gap="1">
@@ -317,7 +320,6 @@ export default function DashboardWorkspace({
               minHeight: DASHBOARD_TOPBAR_HEIGHT,
               maxHeight: DASHBOARD_TOPBAR_HEIGHT,
             }}
-            mt="3"
           >
             {isDefined(addBlockIndex) || isDefined(editingBlockIndex) ? (
               <IconButton mb="1" onClick={clearEditingState} variant="outline">

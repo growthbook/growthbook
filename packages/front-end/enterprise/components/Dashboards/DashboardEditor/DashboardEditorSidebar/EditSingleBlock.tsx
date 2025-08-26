@@ -305,7 +305,7 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showDescription: value });
                     }}
-                    label={<Text weight="regular">Show Description</Text>}
+                    label={<Text weight="regular">Description</Text>}
                   />
                   <Checkbox
                     size="sm"
@@ -313,7 +313,7 @@ export default function EditSingleBlock({
                     setValue={(value) => {
                       setBlock({ ...block, showHypothesis: value });
                     }}
-                    label={<Text weight="regular">Show Hypothesis</Text>}
+                    label={<Text weight="regular">Hypothesis</Text>}
                   />
                   <Checkbox
                     size="sm"
@@ -325,7 +325,7 @@ export default function EditSingleBlock({
                         variationIds: value ? [] : undefined,
                       });
                     }}
-                    label={<Text weight="regular">Show Variations</Text>}
+                    label={<Text weight="regular">Variation Info</Text>}
                   />
                 </Grid>
               </>

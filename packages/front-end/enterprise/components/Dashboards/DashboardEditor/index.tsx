@@ -306,12 +306,7 @@ function DashboardEditor({
 
   return (
     <div>
-      <Flex
-        align="end"
-        justify="between"
-        height={DASHBOARD_TOPBAR_HEIGHT}
-        mt="3"
-      >
+      <Flex align="end" justify="between" height={DASHBOARD_TOPBAR_HEIGHT}>
         <Flex align="center" gap="1">
           {isEditing && (
             <Text weight="medium" size="5">
