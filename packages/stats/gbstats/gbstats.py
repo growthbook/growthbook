@@ -420,9 +420,17 @@ def run_mid_experiment_power(variation_index: int, total_users: int, num_variati
 
 
 def post_stratify(df: pd.DataFrame, metric: MetricSettingsForStatsEngine, analysis: AnalysisSettingsForStatsEngine) -> pd.DataFrame: 
+    
+    #need to add a check for quantile metrics
     num_variations = df.at[0, "variations"]
     num_dimensions = df.shape[0]
-    df = initialize_df(df, analysis)
+
+    #dataframe that is returned
+    df_output = copy.deepcopy(df)
+    df_output = reduce_dimensionality(df_output, max=1, keep_other=True)
+    df_output['dimension'] = 'NA'
+    df_output = initialize_df(df_output, analysis)
+    
     stats_control = []
     total_users_control = 0
     for dimension in range(num_dimensions):
@@ -438,13 +446,57 @@ def post_stratify(df: pd.DataFrame, metric: MetricSettingsForStatsEngine, analys
             stat = variation_statistic_from_metric_row(row=s, prefix=f"v{variation}", metric=metric)
             stats_variation.append(stat)
             total_users_variation += s["total_users"]
+        total_users = total_users_control + total_users_variation
         stats = list(zip(stats_control, stats_variation))
         test = get_configured_test(
-            stats, total_users_control + total_users_variation, analysis=analysis, metric=metric
+            stats, total_users, analysis=analysis, metric=metric
         )
         res = test.compute_result()
-        mid_experiment_power, mid_experiment_power_result = run_mid_experiment_power(total_users_control + total_users_variation, num_variations, test.moments_result, res, metric, analysis)
-    
+        if decision_making_conditions(metric, analysis):
+            s = run_mid_experiment_power(variation, total_users, num_variations, test.moments_result, res, metric, analysis, s)
+    s["srm_p"] = check_srm(
+        [s["baseline_users"]]
+        + [s[f"v{i}_users"] for i in range(1, num_variations)],
+        analysis.weights,
+    )
+    return s.to_frame().T
+
+
+def store_test_results(test: StatisticalTests, res: Union[BayesianTestResult, FrequentistTestResult], s: pd.Series, variation: int) -> pd.Series:
+    s["baseline_cr"] = test.stat_a.unadjusted_mean
+    s["baseline_mean"] = test.stat_a.unadjusted_mean
+    s["baseline_stddev"] = test.stat_a.stddev
+
+    s[f"v{variation}_cr"] = test.stat_b.unadjusted_mean
+    s[f"v{variation}_mean"] = test.stat_b.unadjusted_mean
+    s[f"v{variation}_stddev"] = test.stat_b.stddev
+
+    # Unpack result in Pandas row
+    if isinstance(res, BayesianTestResult):
+        s.at[f"v{variation}_risk"] = res.risk
+        s[f"v{variation}_risk_type"] = res.risk_type
+        s[f"v{variation}_prob_beat_baseline"] = res.chance_to_win
+    elif isinstance(res, FrequentistTestResult):
+        if res.p_value is not None:
+            s[f"v{variation}_p_value"] = res.p_value
+        else:
+            s[f"v{variation}_p_value_error_message"] = res.p_value_error_message
+    if test.stat_a.unadjusted_mean <= 0:
+        # negative or missing control mean
+        s[f"v{variation}_expected"] = 0
+    elif res.expected == 0:
+        # if result is not valid, try to return at least the diff
+        s[f"v{variation}_expected"] = (
+            test.stat_b.mean - test.stat_a.mean
+        ) / test.stat_a.unadjusted_mean
+    else:
+        # return adjusted/prior-affected guess of expectation
+        s[f"v{variation}_expected"] = res.expected
+    s.at[f"v{variation}_ci"] = res.ci
+    s.at[f"v{variation}_uplift"] = asdict(res.uplift)
+    s[f"v{variation}_error_message"] = res.error_message
+    return s
+
 
 # Run A/B test analysis for each variation and dimension
 def analyze_metric_df(
@@ -473,39 +525,7 @@ def analyze_metric_df(
             res = test.compute_result()
             if decision_making_conditions(metric, analysis):
                 s = run_mid_experiment_power(i, total_users, num_variations, test.moments_result, res, metric, analysis, s)
-
-            s["baseline_cr"] = test.stat_a.unadjusted_mean
-            s["baseline_mean"] = test.stat_a.unadjusted_mean
-            s["baseline_stddev"] = test.stat_a.stddev
-
-            s[f"v{i}_cr"] = test.stat_b.unadjusted_mean
-            s[f"v{i}_mean"] = test.stat_b.unadjusted_mean
-            s[f"v{i}_stddev"] = test.stat_b.stddev
-
-            # Unpack result in Pandas row
-            if isinstance(res, BayesianTestResult):
-                s.at[f"v{i}_risk"] = res.risk
-                s[f"v{i}_risk_type"] = res.risk_type
-                s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
-            elif isinstance(res, FrequentistTestResult):
-                if res.p_value is not None:
-                    s[f"v{i}_p_value"] = res.p_value
-                else:
-                    s[f"v{i}_p_value_error_message"] = res.p_value_error_message
-            if test.stat_a.unadjusted_mean <= 0:
-                # negative or missing control mean
-                s[f"v{i}_expected"] = 0
-            elif res.expected == 0:
-                # if result is not valid, try to return at least the diff
-                s[f"v{i}_expected"] = (
-                    test.stat_b.mean - test.stat_a.mean
-                ) / test.stat_a.unadjusted_mean
-            else:
-                # return adjusted/prior-affected guess of expectation
-                s[f"v{i}_expected"] = res.expected
-            s.at[f"v{i}_ci"] = res.ci
-            s.at[f"v{i}_uplift"] = asdict(res.uplift)
-            s[f"v{i}_error_message"] = res.error_message
+            s = store_test_results(test, res, s, i)
 
         # replace count with quantile_n for quantile metrics
         if metric.statistic_type in ["quantile_event", "quantile_unit"]:
