@@ -40,7 +40,6 @@ const AddToHoldoutModal = ({
       submit={
         showHoldoutSelect
           ? form.handleSubmit(async (value) => {
-              console.log(value);
               if (value.holdoutId === "none") {
                 value.holdoutId = "";
               }
