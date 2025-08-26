@@ -86,14 +86,22 @@ export default function SchemaBrowser({
     );
   }
 
-  const handleTableClick = async (e, path: string, tableId: string) => {
+  const handleTableClick = async (
+    e,
+    params: {
+      catalog: string;
+      schema: string;
+      tableName: string;
+    },
+    tableId: string,
+  ) => {
     setError(null);
     if (e.detail === 2) {
       if (!inputArray || !updateSqlInput) return;
       const updatedStr = pastePathIntoExistingQuery(
         inputArray[row] || "",
         column,
-        path,
+        getTablePath(datasource.type, params),
       );
 
       const updatedInputArray = cloneDeep(inputArray);
@@ -269,15 +277,6 @@ export default function SchemaBrowser({
                               transitionTime={100}
                             >
                               {schema.tables.map((table, k) => {
-                                // Generate the appropriate path for this datasource type using context
-                                const tablePath = getTablePath(
-                                  datasource.type,
-                                  {
-                                    catalog: database.databaseName,
-                                    schema: schema.schemaName,
-                                    tableName: table.tableName,
-                                  },
-                                );
                                 return (
                                   <div
                                     className={clsx(
@@ -289,7 +288,15 @@ export default function SchemaBrowser({
                                     role="button"
                                     key={k}
                                     onClick={async (e) =>
-                                      handleTableClick(e, tablePath, table.id)
+                                      handleTableClick(
+                                        e,
+                                        {
+                                          catalog: database.databaseName,
+                                          schema: schema.schemaName,
+                                          tableName: table.tableName,
+                                        },
+                                        table.id,
+                                      )
                                     }
                                   >
                                     <FaTable /> {table.tableName}
