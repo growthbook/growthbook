@@ -2443,11 +2443,7 @@ export async function deleteFeatureById(
         );
       } catch (e) {
         // This is not a fatal error, so don't block the request from happening
-        req.log.warn("Error removing feature from holdout", {
-          feature: id,
-          holdout: feature.holdout.id,
-          error: e,
-        });
+        logger.warn(e, "Error removing feature from holdout");
       }
     }
     await deleteFeature(context, feature);

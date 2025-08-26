@@ -2650,10 +2650,7 @@ export async function deleteExperiment(
       );
     } catch (e) {
       // This is not a fatal error, so don't block the request from happening
-      req.log.warn("Error removing experiment from holdout", {
-        experiment: experiment.id,
-        holdout: experiment.holdoutId,
-      });
+      logger.warn(e, "Error removing experiment from holdout");
     }
   }
 
