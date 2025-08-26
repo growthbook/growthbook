@@ -341,7 +341,7 @@ const HoldoutTimeline: React.FC<{
                 padding: "0 12px",
               }}
             >
-              <Heading as="h2" size="2">
+              <Heading as="h2" size="3">
                 Experiments
               </Heading>
             </Box>
