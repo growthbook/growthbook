@@ -32,7 +32,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/components/Radix/Callout";
 import { DASHBOARD_WORKSPACE_NAV_HEIGHT } from "../DashboardWorkspace";
 import DashboardBlock from "./DashboardBlock";
@@ -176,16 +175,6 @@ function DashboardEditor({
   mutate,
 }: Props) {
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
-  const [hoverAddBlock, setHoverAddBlock] = useState<number | undefined>(
-    undefined,
-  );
-  const [showAddBlock, setShowAddBlock] = useState<number | undefined>(
-    undefined,
-  );
-  const [addBlockDropdown, setAddBlockDropdown] = useState<number | undefined>(
-    undefined,
-  );
-
   const renderSingleBlock = ({
     i,
     key,
@@ -232,63 +221,41 @@ function DashboardEditor({
           mutate={mutate}
         />
         <Container
-          py="1em"
-          onMouseEnter={() => {
-            if (!isDefined(addBlockDropdown)) setShowAddBlock(i);
-          }}
-          onMouseLeave={() => {
-            if (!isDefined(addBlockDropdown)) setShowAddBlock(undefined);
-          }}
+          py="2px"
           className={clsx({
             "dashboard-disabled": editSidebarDirty,
           })}
         >
-          {isEditing && (
-            <Flex justify="center" position="relative">
-              {isDefined(i) &&
-                (hoverAddBlock === i || addBlockDropdown === i) && (
-                  <div
-                    style={{
-                      pointerEvents: "none",
-                      position: "absolute",
-                      top: "0",
-                      width: "100%",
-                      height: "50%",
-                      borderBottom: "1px solid var(--violet-a9)",
-                    }}
-                  />
-                )}
+          {isEditing && !editSidebarDirty && (
+            <Flex
+              justify="center"
+              position="relative"
+              mt={isLastBlock ? "2" : "0"}
+              className="hover-show"
+            >
+              {isDefined(i) && (
+                <div
+                  style={{
+                    pointerEvents: "none",
+                    position: "absolute",
+                    top: "0",
+                    width: "100%",
+                    height: "50%",
+                    borderBottom: "1px solid var(--violet-a9)",
+                  }}
+                  className={"show-target"}
+                />
+              )}
               <AddBlockDropdown
-                onDropdownOpen={() => setAddBlockDropdown(i)}
-                onDropdownClose={() => {
-                  setAddBlockDropdown(undefined);
-                  setShowAddBlock(undefined);
-                }}
                 trigger={
                   <IconButton
-                    onMouseEnter={() => {
-                      setHoverAddBlock(i);
-                    }}
-                    onMouseLeave={() => {
-                      setHoverAddBlock(undefined);
-                    }}
-                    className={clsx({
-                      "opacity-0": showAddBlock !== i && !isLastBlock,
-                    })}
+                    className={isLastBlock ? "" : "show-target"}
                     size="1"
+                    style={{ zIndex: 10 }}
                   >
-                    <Tooltip
-                      body="Add block"
-                      tipPosition="top"
-                      delay={0}
-                      state={hoverAddBlock === i && addBlockDropdown !== i}
-                      ignoreMouseEvents
-                      innerClassName="px-0 py-1"
-                    >
-                      <Flex height="16px" align="center">
-                        <PiPlus size="10" />
-                      </Flex>
-                    </Tooltip>
+                    <Flex height="16px" align="center">
+                      <PiPlus size="10" />
+                    </Flex>
                   </IconButton>
                 }
                 addBlockType={(bType: DashboardBlockType) => {
@@ -306,7 +273,12 @@ function DashboardEditor({
 
   return (
     <div>
-      <Flex align="end" justify="between" height={DASHBOARD_TOPBAR_HEIGHT}>
+      <Flex
+        align="end"
+        justify="between"
+        height={DASHBOARD_TOPBAR_HEIGHT}
+        className="mb-3"
+      >
         <Flex align="center" gap="1">
           {isEditing && (
             <Text weight="medium" size="5">
@@ -328,11 +300,12 @@ function DashboardEditor({
             ? {
                 maxHeight: `calc(100vh - ${DASHBOARD_WORKSPACE_NAV_HEIGHT} - ${DASHBOARD_TOPBAR_HEIGHT}`,
                 overflowY: "auto",
+                paddingBottom: 300,
               }
             : undefined
         }
       >
-        <div className="mt-3">
+        <div>
           {blocks.length === 0 ? (
             <Flex
               direction="column"
@@ -354,7 +327,7 @@ function DashboardEditor({
                 addBlockType={addBlockType}
                 trigger={
                   <Button
-                    size="xs"
+                    size="sm"
                     icon={<PiCaretDownFill />}
                     iconPosition="right"
                   >

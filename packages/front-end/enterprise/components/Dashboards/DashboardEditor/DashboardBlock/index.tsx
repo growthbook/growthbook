@@ -5,12 +5,7 @@ import {
   DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import {
-  PiCaretDown,
-  PiCaretUp,
-  PiCaretUpDown,
-  PiDotsThreeVertical,
-} from "react-icons/pi";
+import { PiCaretDown, PiCaretUp, PiCaretUpDown } from "react-icons/pi";
 import clsx from "clsx";
 import { blockHasFieldOfType, isMetricSelector } from "shared/enterprise";
 import { isNumber, isString, isDefined } from "shared/util";
@@ -24,6 +19,7 @@ import {
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/react";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,
@@ -303,7 +299,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </DropdownMenuItem>
         </DropdownMenu>
       )}
-      <Flex align="center" justify="between">
+      <Flex align="center" justify="between" mb="2">
         <h4 style={{ margin: 0 }}>
           {block.title
             ? block.title
@@ -324,7 +320,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                     size="1"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <PiDotsThreeVertical />
+                    <span style={{ fontSize: "15px", lineHeight: "15px" }}>
+                      <BsThreeDotsVertical />
+                    </span>
                   </IconButton>
                 }
               >

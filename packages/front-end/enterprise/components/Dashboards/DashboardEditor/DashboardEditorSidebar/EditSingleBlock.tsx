@@ -29,6 +29,7 @@ import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
 import Checkbox from "@/components/Radix/Checkbox";
+import Avatar from "@/components/Radix/Avatar";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "..";
 
@@ -261,8 +262,16 @@ export default function EditSingleBlock({
       {block && (
         <Flex direction="column" py="5" px="4" gap="2" width="100%">
           <span>
-            {/* TODO: add icon */}
             <Text weight="medium" size="4">
+              <Avatar
+                radius="small"
+                color="indigo"
+                variant="soft"
+                mr="2"
+                size="sm"
+              >
+                {BLOCK_TYPE_INFO[block.type].icon}
+              </Avatar>
               {BLOCK_TYPE_INFO[block.type].name}
             </Text>
           </span>
@@ -396,6 +405,7 @@ export default function EditSingleBlock({
                     label: metricSelectorLabels[selector],
                   }))}
                   sort={false}
+                  autoFocus
                 />
                 {block.metricSelector.includes("custom") && (
                   <MultiSelectField
@@ -618,6 +628,7 @@ export default function EditSingleBlock({
                   hidePreview
                   value={block.content}
                   setValue={(value) => setBlock({ ...block, content: value })}
+                  autofocus
                 />
               </div>
             )}
@@ -658,6 +669,7 @@ export default function EditSingleBlock({
                       })
                     }
                     isClearable
+                    autoFocus
                   />
 
                   <SelectField

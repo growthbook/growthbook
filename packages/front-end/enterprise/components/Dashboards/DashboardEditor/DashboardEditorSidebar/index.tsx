@@ -7,9 +7,8 @@ import {
 import React, { useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
-import { PiDotsThreeVertical } from "react-icons/pi";
+import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
 import { isPersistedDashboardBlock } from "shared/enterprise";
-import Button from "@/components/Radix/Button";
 import {
   Tabs,
   TabsContent,
@@ -138,6 +137,7 @@ export default function DashboardEditorSidebar({
                   gap="2"
                   align="start"
                   key={`${subgroup}-${i}`}
+                  width="100%"
                 >
                   <Text
                     weight="medium"
@@ -150,30 +150,48 @@ export default function DashboardEditorSidebar({
                     {subgroup}
                   </Text>
                   {blockTypes.map((bType) => (
-                    <Button
-                      variant="ghost"
+                    <a
+                      href="#"
                       key={bType}
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
                         addBlockType(bType);
                       }}
+                      style={{
+                        display: "block",
+                        padding: "5px",
+                        margin: "0 -5px",
+                        width: "100%",
+                        borderRadius: "6px",
+                      }}
+                      className="hover-show no-underline hover-border-violet"
                     >
-                      <Avatar
-                        radius="small"
-                        color="indigo"
-                        variant="soft"
-                        mr="2"
-                        size="sm"
-                      >
-                        {BLOCK_TYPE_INFO[bType].icon}
-                      </Avatar>
-                      <Text
-                        size="2"
-                        weight="regular"
-                        style={{ color: "var(--color-text-high" }}
-                      >
-                        {BLOCK_TYPE_INFO[bType].name}
-                      </Text>
-                    </Button>
+                      <Flex>
+                        <Avatar
+                          radius="small"
+                          color="indigo"
+                          variant="soft"
+                          mr="2"
+                          size="sm"
+                        >
+                          {BLOCK_TYPE_INFO[bType].icon}
+                        </Avatar>
+                        <Text
+                          size="2"
+                          weight="regular"
+                          style={{ color: "var(--color-text-high" }}
+                        >
+                          {BLOCK_TYPE_INFO[bType].name}
+                        </Text>
+                        <div style={{ flex: 1 }} />
+                        <Text
+                          color="violet"
+                          className="ml-auto show-target instant"
+                        >
+                          <PiPlusCircle /> Add
+                        </Text>
+                      </Flex>
+                    </a>
                   ))}
                 </Flex>
               ))}

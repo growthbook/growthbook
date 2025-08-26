@@ -171,6 +171,7 @@ export default function DashboardWorkspace({
   const editBlock = (i: number) => {
     setFocusedBlockIndex(undefined);
     setEditingBlockIndex(i);
+    setEditSidebarDirty(true);
     setStagedEditBlock(effectiveBlocks[i]);
   };
 
