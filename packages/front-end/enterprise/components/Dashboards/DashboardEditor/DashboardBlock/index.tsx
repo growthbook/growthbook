@@ -5,7 +5,12 @@ import {
   DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
-import { PiCaretDown, PiCaretUp, PiCaretUpDown } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretUp,
+  PiCaretUpDown,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import clsx from "clsx";
 import { blockHasFieldOfType, isMetricSelector } from "shared/enterprise";
 import { isNumber, isString, isDefined } from "shared/util";
@@ -33,6 +38,7 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import Field from "@/components/Forms/Field";
 import { BLOCK_TYPE_INFO } from "..";
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
@@ -147,6 +153,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     "savedQueryId",
     isString,
   );
+
+  const [editTitle, setEditTitle] = useState(false);
+
   // Use the API directly when the saved query hasn't been attached to the dashboard yet (when editing)
   const shouldRun = () =>
     blockHasSavedQuery && !savedQueriesMap.has(block.savedQueryId);
@@ -245,6 +254,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     block.showTimeseries &&
     !snapshot?.health?.traffic;
 
+  const showTitleArea = isEditing || !!block.title;
+  const canEditTitle = isEditing && disableBlock === "none" && !isFocused;
+
   return (
     <Flex
       ref={scrollRef}
@@ -254,6 +266,30 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       })}
       direction="column"
     >
+      {isEditing && !editingBlock && disableBlock === "none" && (
+        <div
+          style={{
+            position: "absolute",
+            top: 40,
+            left: 12,
+            right: 12,
+            bottom: 12,
+            backgroundColor: "var(--violet-a3)",
+            cursor: "pointer",
+            // This will make the underlying block non-interactive
+            // The user must click this overlay to enter editing mode and then they can interact
+            opacity: 0.01,
+            zIndex: 999,
+            borderRadius: 6,
+          }}
+          className="fade-hover"
+          onClick={(e) => {
+            e.stopPropagation();
+            editBlock();
+          }}
+        ></div>
+      )}
+
       {isEditing && (
         <DropdownMenu
           open={moveBlockOpen}
@@ -300,13 +336,57 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         </DropdownMenu>
       )}
       <Flex align="center" justify="between" mb="2">
-        <h4 style={{ margin: 0 }}>
-          {block.title
-            ? block.title
-            : isEditing
-              ? BLOCK_TYPE_INFO[block.type].name
-              : ""}
-        </h4>
+        {showTitleArea && (
+          <>
+            {canEditTitle && editTitle ? (
+              <Field
+                autoFocus
+                defaultValue={block.title || BLOCK_TYPE_INFO[block.type].name}
+                placeholder="Title"
+                onFocus={(e) => {
+                  e.target.select();
+                }}
+                onBlur={(e) => {
+                  setEditTitle(false);
+                  const title = e.target.value;
+                  if (title !== block.title) {
+                    setBlock({ ...block, title });
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    (e.target as HTMLInputElement).blur();
+                  } else if (e.key === "Escape") {
+                    setEditTitle(false);
+                  }
+                }}
+              />
+            ) : (
+              <h4 style={{ margin: 0 }}>
+                {block.title || (
+                  <span className="text-muted">
+                    {BLOCK_TYPE_INFO[block.type].name}
+                  </span>
+                )}
+
+                {canEditTitle && (
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setEditTitle(true);
+                    }}
+                    className="ml-2"
+                    style={{ color: "var(--violet-9)" }}
+                    title="Edit Title"
+                  >
+                    <PiPencilSimpleFill />
+                  </a>
+                )}
+              </h4>
+            )}
+          </>
+        )}
 
         {isEditing && (
           <div>

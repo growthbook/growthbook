@@ -280,11 +280,9 @@ function DashboardEditor({
         className="mb-3"
       >
         <Flex align="center" gap="1">
-          {isEditing && (
-            <Text weight="medium" size="5">
-              {title}
-            </Text>
-          )}
+          <Text weight="medium" size="5">
+            {title}
+          </Text>
         </Flex>
         <DashboardUpdateDisplay
           blocks={blocks}

@@ -279,11 +279,20 @@ export default function DashboardsTab({
                       <Flex gap="4" align="center">
                         <Select
                           style={{
-                            marginLeft: "var(--space-3)",
                             minWidth: "200px",
                           }}
                           value={dashboardId}
-                          setValue={setDashboardId}
+                          setValue={(value) => {
+                            if (value === "__create__") {
+                              if (hasDashboardFeature) {
+                                setShowCreateModal(true);
+                              } else {
+                                setShowUpgradeModal(true);
+                              }
+                              return;
+                            }
+                            setDashboardId(value);
+                          }}
                         >
                           {defaultDashboard && (
                             <>
@@ -303,19 +312,12 @@ export default function DashboardsTab({
                             </Fragment>
                           ))}
                           {dashboards.length > 0 && <SelectSeparator />}
-                          <Button
-                            onClick={() => {
-                              hasDashboardFeature
-                                ? setShowCreateModal(true)
-                                : setShowUpgradeModal(true);
-                            }}
-                            variant="ghost"
-                            className="rt-SelectItem"
-                            icon={<PiPlus className="rt-SelectItemIndicator" />}
-                            iconPosition="left"
-                          >
-                            <Text weight="regular">Create new dashboard</Text>
-                          </Button>
+                          <SelectItem value="__create__">
+                            <Flex align="center">
+                              <PiPlus className="rt-SelectItemIndicator" />
+                              <Text weight="regular">Create new dashboard</Text>
+                            </Flex>
+                          </SelectItem>
                         </Select>
                         <PaidFeatureBadge commercialFeature="dashboards" />
                       </Flex>
