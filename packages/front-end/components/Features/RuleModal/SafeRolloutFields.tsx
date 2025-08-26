@@ -4,8 +4,8 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
-  PiCaretUp,
-  PiCaretDown,
+  PiCaretUpFill,
+  PiCaretDownFill,
   PiLockBold,
   PiLockOpenBold,
 } from "react-icons/pi";
@@ -139,8 +139,12 @@ export default function SafeRolloutFields({
               setAdvancedOptionsOpen(!advancedOptionsOpen);
             }}
           >
-            Advanced Options{" "}
-            {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+            {!advancedOptionsOpen ? (
+              <PiCaretDownFill className="mr-1" />
+            ) : (
+              <PiCaretUpFill className="mr-1" />
+            )}
+            Advanced Options
           </div>
         )}
         {duplicate && !!form.watch("seed") && advancedOptionsOpen && (
@@ -180,11 +184,15 @@ export default function SafeRolloutFields({
               setAdvancedOptionsSeedOpen(!advancedOptionsSeedOpen);
             }}
           >
-            Advanced Options{" "}
-            {!advancedOptionsSeedOpen ? <PiCaretDown /> : <PiCaretUp />}
+            {!advancedOptionsSeedOpen ? (
+              <PiCaretDownFill className="mr-1" />
+            ) : (
+              <PiCaretUpFill className="mr-1" />
+            )}
+            Advanced Options
           </span>
           {advancedOptionsSeedOpen && (
-            <div className="mt-3 mb-4">
+            <div className="mt-3 mb-5">
               <Text as="label" weight="medium" size="2" mb="2">
                 Seed
               </Text>

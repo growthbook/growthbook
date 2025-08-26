@@ -3,7 +3,7 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { useState } from "react";
-import { PiCaretDown, PiCaretUp } from "react-icons/pi";
+import { PiCaretDownFill, PiCaretUpFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
@@ -102,8 +102,12 @@ export default function RolloutFields({
                 setadvancedOptionsOpen(!advancedOptionsOpen);
               }}
             >
-              Advanced Options{" "}
-              {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+              {!advancedOptionsOpen ? (
+                <PiCaretDownFill className="mr-1" />
+              ) : (
+                <PiCaretUpFill className="mr-1" />
+              )}
+              Advanced Options
             </span>
             {advancedOptionsOpen && (
               <div className="mt-3">
