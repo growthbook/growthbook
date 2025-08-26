@@ -300,7 +300,7 @@ const HoldoutTimeline: React.FC<{
           x1={x}
           y1={y}
           x2={x}
-          y2={margin.top + experiments.length * rowHeight}
+          y2={experiments.length * rowHeight}
           stroke={"var(--gray-6)"}
           strokeWidth={isLastTick ? 2 : 1}
         />
