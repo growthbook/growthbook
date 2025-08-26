@@ -9,7 +9,7 @@ import {
 import { getValidDate, date } from "shared/dates";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import {
   TooltipWithBounds,
   useTooltip,
@@ -18,8 +18,8 @@ import {
 import { format } from "date-fns";
 import { GridColumns } from "@visx/grid";
 import styles from "@/components/Metrics/DateGraph.module.scss";
-import { formatPercent } from "@/services/metrics";
 import EmptyState from "@/components/EmptyState";
+import ExperimentStatusIndicator from "../TabbedPage/ExperimentStatusIndicator";
 
 const margin = { top: 30, right: 60, bottom: 30, left: 200 }; // Increased right margin to prevent end tick cutoff
 
@@ -78,6 +78,7 @@ const HoldoutTimeline: React.FC<{
     status: ExperimentStatus;
     result: string;
     phase: ExperimentPhaseStringDates;
+    experiment: ExperimentInterfaceStringDates;
   }>();
 
   const handleBarMouseMove = (
@@ -86,6 +87,7 @@ const HoldoutTimeline: React.FC<{
     status: ExperimentStatus,
     result: string,
     phase: ExperimentPhaseStringDates,
+    experiment: ExperimentInterfaceStringDates,
   ) => {
     if (!containerRef.current) return;
 
@@ -117,7 +119,7 @@ const HoldoutTimeline: React.FC<{
       showTooltip({
         tooltipLeft,
         tooltipTop,
-        tooltipData: { experimentName, status, result, phase },
+        tooltipData: { experimentName, status, result, phase, experiment },
       });
     }, 150); // 150ms delay
   };
@@ -293,6 +295,7 @@ const HoldoutTimeline: React.FC<{
           textAnchor={textAnchor}
           fontSize={14}
           fontWeight="medium"
+          fill="var(--slate-11)"
         >
           {formattedValue}
         </text>
@@ -339,10 +342,11 @@ const HoldoutTimeline: React.FC<{
                 display: "flex",
                 alignItems: "center",
                 padding: "0 12px",
-                borderBottom: "1px solid",
               }}
             >
-              <Text size="2">Experiment</Text>
+              <Heading as="h2" size="2">
+                Experiments
+              </Heading>
             </Box>
             {experiments.map((experiment, i) => (
               <Box
@@ -362,7 +366,7 @@ const HoldoutTimeline: React.FC<{
                   alignItems: "center",
                   padding: "0 12px",
                   backgroundColor:
-                    i % 2 === 0 ? "var(--gray-2)" : "transparent",
+                    i % 2 === 0 ? "var(--slate-3)" : "transparent",
                 }}
               >
                 <Text
@@ -411,11 +415,10 @@ const HoldoutTimeline: React.FC<{
                   {tooltipData.experimentName}
                 </Text>
                 <Flex direction="column" gap="1">
-                  <Flex justify="between">
-                    <Text size="2" color="gray">
-                      Status:
-                    </Text>
-                    <Text size="2">{tooltipData.status}</Text>
+                  <Flex mb="3">
+                    <ExperimentStatusIndicator
+                      experimentData={tooltipData.experiment}
+                    />
                   </Flex>
                   {tooltipData.result && (
                     <Flex justify="between">
@@ -426,48 +429,53 @@ const HoldoutTimeline: React.FC<{
                     </Flex>
                   )}
                   <Flex justify="between">
-                    <Text size="2" color="gray">
-                      Phase:
-                    </Text>
-                    <Text size="2">{tooltipData.phase.name}</Text>
-                  </Flex>
-                  <Flex justify="between">
-                    <Text size="2" color="gray">
-                      Coverage:
-                    </Text>
-                    <Text size="2">
-                      {formatPercent(tooltipData.phase.coverage)}
-                    </Text>
-                  </Flex>
-                  <Flex justify="between">
-                    <Text size="2" color="gray">
-                      Started:
-                    </Text>
-                    <Text size="2">
-                      {tooltipData.phase.dateStarted
-                        ? date(tooltipData.phase.dateStarted)
-                        : "-"}
-                    </Text>
-                  </Flex>
-                  {tooltipData.status === "stopped" && (
-                    <Flex justify="between">
-                      <Text size="2" color="gray">
-                        Ended:
+                    <span>
+                      <Text size="2" weight="bold">
+                        Started:
                       </Text>
-                      <Text size="2">
-                        {tooltipData.phase.dateEnded
-                          ? date(tooltipData.phase.dateEnded)
+                      <Text size="2" ml="2">
+                        {tooltipData.phase.dateStarted
+                          ? date(tooltipData.phase.dateStarted)
                           : "-"}
                       </Text>
-                    </Flex>
-                  )}
+                    </span>
+                    {tooltipData.status === "stopped" && (
+                      <span>
+                        <Text size="2" weight="bold" ml="4">
+                          Ended:
+                        </Text>
+                        <Text size="2" ml="2">
+                          {tooltipData.phase.dateEnded
+                            ? date(tooltipData.phase.dateEnded)
+                            : "-"}
+                        </Text>
+                      </span>
+                    )}
+                  </Flex>
                 </Flex>
               </Flex>
             </TooltipWithBounds>
           )}
           <svg key={width} width={width} height={height}>
-            <rect width={width} height={height} fill="none" />
             <Group>
+              {/* Experiment Row Backgrounds */}
+              {experiments.map((experiment, i) => (
+                <rect
+                  key={`bg-${experiment.id}`}
+                  x={margin.left}
+                  y={
+                    (yScale(experiment.name || "") ?? 0) -
+                    (yScale.paddingOuter() * yScale.bandwidth()) / 2
+                  }
+                  width={width - margin.left - margin.right}
+                  height={
+                    yScale.bandwidth() +
+                    yScale.paddingOuter() * yScale.bandwidth()
+                  }
+                  fill={i % 2 === 0 ? "var(--slate-3)" : "transparent"}
+                />
+              ))}
+
               <GridColumns
                 top={margin.top}
                 left={margin.left}
@@ -508,25 +516,8 @@ const HoldoutTimeline: React.FC<{
                 })}
                 tickComponent={tickComponent}
                 hideTicks={true}
+                hideAxisLine={true}
               />
-
-              {/* Experiment Row Backgrounds */}
-              {experiments.map((experiment, i) => (
-                <rect
-                  key={`bg-${experiment.id}`}
-                  x={margin.left}
-                  y={
-                    (yScale(experiment.name || "") ?? 0) -
-                    (yScale.paddingOuter() * yScale.bandwidth()) / 2
-                  }
-                  width={width - margin.left - margin.right}
-                  height={
-                    yScale.bandwidth() +
-                    yScale.paddingOuter() * yScale.bandwidth()
-                  }
-                  fill={i % 2 === 0 ? "var(--gray-2)" : "transparent"}
-                />
-              ))}
 
               {endDateIsNow && (
                 <g>
@@ -591,6 +582,7 @@ const HoldoutTimeline: React.FC<{
                                 experiment.status,
                                 experiment.results || "",
                                 phase,
+                                experiment,
                               )
                             }
                             onMouseLeave={handleBarMouseLeave}
@@ -618,6 +610,7 @@ const HoldoutTimeline: React.FC<{
                                   experiment.status,
                                   experiment.results || "",
                                   phase,
+                                  experiment,
                                 )
                               }
                               onMouseLeave={handleBarMouseLeave}
