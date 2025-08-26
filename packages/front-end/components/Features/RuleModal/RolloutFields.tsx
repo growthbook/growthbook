@@ -2,6 +2,8 @@ import { useFormContext } from "react-hook-form";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { useState } from "react";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RolloutPercentInput from "@/components/Features/RolloutPercentInput";
@@ -38,6 +40,9 @@ export default function RolloutFields({
   setScheduleToggleEnabled: (b: boolean) => void;
 }) {
   const form = useFormContext();
+  const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
+    !!form.watch("seed"),
+  );
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -77,7 +82,7 @@ export default function RolloutFields({
             setValue={(coverage) => {
               form.setValue("coverage", coverage);
             }}
-            className="mb-1"
+            className="mb-3"
           />
           <SelectField
             label="Enroll based on attribute"
@@ -89,6 +94,34 @@ export default function RolloutFields({
               form.setValue("hashAttribute", v);
             }}
           />
+          <div className="mb-2">
+            <span
+              className="ml-auto link-purple cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                setadvancedOptionsOpen(!advancedOptionsOpen);
+              }}
+            >
+              Advanced Options{" "}
+              {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+            </span>
+            {advancedOptionsOpen && (
+              <div className="mt-3">
+                <Field
+                  label="Seed"
+                  type="input"
+                  {...form.register("seed")}
+                  placeholder={feature.id}
+                  helpText={
+                    <>
+                      <strong className="text-danger">Warning:</strong> Changing
+                      this will re-randomize rollout traffic.
+                    </>
+                  }
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <SavedGroupTargetingField

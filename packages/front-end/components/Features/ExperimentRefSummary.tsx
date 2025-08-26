@@ -145,7 +145,7 @@ export default function ExperimentRefSummary({
         </Box>
         <Box>
           {" "}
-          users by{" "}
+          by{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {experiment.hashAttribute || "id"}
           </span>

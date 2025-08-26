@@ -59,6 +59,7 @@ export default function SafeRolloutFields({
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+  const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -160,7 +161,7 @@ export default function SafeRolloutFields({
       <>
         <SelectField
           disabled={disableFields}
-          label="Split based on attribute"
+          label="Sample based on attribute"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
             .map((s) => ({ label: s.property, value: s.property }))}
@@ -168,9 +169,33 @@ export default function SafeRolloutFields({
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          className="mb-4"
+          className="mb-2"
           required
         />
+        <div className="mb-4">
+          <span
+            className="ml-auto link-purple cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvancedOptionsSeedOpen(!advancedOptionsSeedOpen);
+            }}
+          >
+            Advanced Options{" "}
+            {!advancedOptionsSeedOpen ? <PiCaretDown /> : <PiCaretUp />}
+          </span>
+          {advancedOptionsSeedOpen && (
+            <div className="mt-3 mb-4">
+              <Text as="label" weight="medium" size="2" mb="2">
+                Seed
+              </Text>
+              <TextField.Root
+                {...form.register("seed")}
+                disabled={disableFields}
+              />
+            </div>
+          )}
+        </div>
+
         <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
@@ -265,7 +290,7 @@ export default function SafeRolloutFields({
               }
             />
           </div>
-          <div className="mb-3 pb-1">
+          <div className="pb-1">
             <Text as="label" size="2" weight="medium">
               Duration to monitor guardrail results
               <Text size="1" as="div" weight="regular" color="gray">
@@ -292,7 +317,7 @@ export default function SafeRolloutFields({
               </TextField.Root>
             </Box>
             {dateMonitoredUntil && !isNaN(dateMonitoredUntil.getTime()) && (
-              <HelperText status="info" size="sm" mt="2">
+              <HelperText status="info" size="sm" mt="3">
                 Feature will be monitored until{" "}
                 {dateMonitoredUntil.toLocaleDateString()} if started today
               </HelperText>
@@ -427,7 +452,7 @@ export default function SafeRolloutFields({
         />
       )}
 
-      {renderTargeting()}
+      <div className="mt-3">{renderTargeting()}</div>
     </>
   );
 }
