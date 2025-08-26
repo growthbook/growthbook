@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
+import Badge from "@/components/Radix/Badge";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -22,17 +23,18 @@ export default function RolloutSummary({
   const type = feature.valueType;
   return (
     <Box>
-      <div className="mb-3">
-        <strong className="mr-2 font-weight-semibold">SAMPLE</strong> users by{" "}
-        <span className="mr-1 border px-2 py-1 bg-light rounded">
-          {hashAttribute}
-        </span>
-      </div>
+      <Flex direction="row" gap="2" mb="3">
+        <Text weight="medium">SAMPLE</Text> by{" "}
+        <Badge
+          color="gray"
+          label={
+            <Text style={{ color: "var(--slate-12)" }}>{hashAttribute}</Text>
+          }
+        />
+      </Flex>
       <Box className="mb-3">
         <Flex gap="3" align="center">
-          <Box>
-            <strong className="font-weight-semibold">ROLLOUT</strong>
-          </Box>
+          <Text weight="medium">ROLLOUT</Text>
           <Box flexGrow="1" style={{ maxWidth: 250 }}>
             <Box
               className="progress d-none d-md-flex"
@@ -67,16 +69,22 @@ export default function RolloutSummary({
             </Box>
           </Box>
           <Box>
-            <span className="mr-1 border px-2 py-1 bg-light rounded">
-              {percentFormatter.format(coverage)}
-            </span>{" "}
-            of users
+            <Badge
+              color="gray"
+              mr="2"
+              label={
+                <Text style={{ color: "var(--slate-12)" }}>
+                  {percentFormatter.format(coverage)}
+                </Text>
+              }
+            />
+            of units
           </Box>
         </Flex>
       </Box>
       <Flex gap="3">
         <Box>
-          <strong className="font-weight-semibold">SERVE</strong>
+          <Text weight="medium">SERVE</Text>
         </Box>
         <Box>
           <ValueDisplay value={value} type={type} />

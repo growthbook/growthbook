@@ -83,7 +83,7 @@ const getTooltipContents = (
         <thead>
           <tr>
             <td></td>
-            <td>Users</td>
+            <td>Units</td>
 
             {yaxis === "effect" && (
               <>
