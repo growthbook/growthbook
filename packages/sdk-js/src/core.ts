@@ -352,6 +352,7 @@ export function evalFeature<V = unknown>(
 
       // Only return a value if the user is part of the experiment
       const { result } = runExperiment(exp, id, ctx);
+      ctx.user.onExperimentEval && ctx.user.onExperimentEval(exp, result);
       ctx.global.onExperimentEval && ctx.global.onExperimentEval(exp, result);
       if (result.inExperiment && !result.passthrough) {
         return getFeatureResult(

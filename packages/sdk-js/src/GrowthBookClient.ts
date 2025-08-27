@@ -369,6 +369,15 @@ export class UserScopedGrowthBook<
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
   public logs: Array<LogUnion>;
+  private _assigned: Map<
+    string,
+    {
+      // eslint-disable-next-line
+      experiment: Experiment<any>;
+      // eslint-disable-next-line
+      result: Result<any>;
+    }
+  >;
 
   constructor(
     gb: GrowthBookClient<AppFeatures>,
@@ -384,6 +393,9 @@ export class UserScopedGrowthBook<
     this._userContext.trackedFeatureUsage =
       this._userContext.trackedFeatureUsage || {};
     this._userContext.devLogs = this.logs;
+
+    this._userContext.onExperimentEval = this._onExperimentEval.bind(this);
+    this._assigned = new Map();
 
     if (plugins) {
       for (const plugin of plugins) {
@@ -469,5 +481,12 @@ export class UserScopedGrowthBook<
   }
   public inDevMode(): boolean {
     return !!this._userContext.enableDevMode;
+  }
+  public getAllResults() {
+    return new Map(this._assigned);
+  }
+
+  private _onExperimentEval<T>(experiment: Experiment<T>, result: Result<T>) {
+    this._assigned.set(experiment.key, { experiment, result });
   }
 }
