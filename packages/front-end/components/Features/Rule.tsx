@@ -137,8 +137,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
     let title: string | ReactElement =
-      rule.description ||
-      rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+      rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
+    if (rule.type !== "rollout") {
+      title += " Rule";
+    }
     if (rule.type === "experiment") {
       title = (
         <div className="d-flex align-items-center">
@@ -254,11 +256,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           />
                         </Flex>
                       ) : rule.type === "safe-rollout" ? (
-                        <Flex gap="3" align="center">
+                        <Flex gap="3">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
                           {!locked && rule.enabled !== false && (
-                            <div className="ml-auto">
+                            <div
+                              className="ml-auto"
+                              style={{ marginBottom: -10 }}
+                            >
                               <DecisionCTA
                                 rule={rule}
                                 openStatusModal={() => {

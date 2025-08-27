@@ -608,8 +608,16 @@ export async function onFeatureUpdate(
     skipRefreshForProject,
   );
 
-  // New event-based webhooks
-  await logFeatureUpdatedEvent(context, feature, updatedFeature);
+  // Don't fire webhooks if only `dateUpdated` changes (ex: creating/modifying a unpublished draft)
+  if (
+    !isEqual(
+      omit(feature, ["dateUpdated", "hasDrafts"]),
+      omit(updatedFeature, ["dateUpdated", "hasDrafts"]),
+    )
+  ) {
+    // Event-based webhooks
+    await logFeatureUpdatedEvent(context, feature, updatedFeature);
+  }
 
   if (context.org.isVercelIntegration)
     await updateVercelExperimentationItemFromFeature({
@@ -896,6 +904,17 @@ export async function removeTagInFeature(
       logger.error(e, "Error refreshing SDK Payload on feature update");
     });
   });
+}
+
+export async function removeHoldoutFromFeature(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+) {
+  if (!feature.holdout) return;
+  await FeatureModel.updateOne(
+    { organization: context.org.id, id: feature.id },
+    { $unset: { holdout: "" } },
+  );
 }
 
 export async function removeProjectFromFeatures(

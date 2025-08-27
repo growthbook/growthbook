@@ -2436,10 +2436,15 @@ export async function deleteFeatureById(
       context.permissions.throwPermissionError();
     }
     if (feature.holdout?.id) {
-      await context.models.holdout.removeFeatureFromHoldout(
-        feature.holdout.id,
-        feature.id,
-      );
+      try {
+        await context.models.holdout.removeFeatureFromHoldout(
+          feature.holdout.id,
+          feature.id,
+        );
+      } catch (e) {
+        // This is not a fatal error, so don't block the request from happening
+        logger.warn(e, "Error removing feature from holdout");
+      }
     }
     await deleteFeature(context, feature);
     await req.audit({

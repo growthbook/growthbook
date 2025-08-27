@@ -251,7 +251,7 @@ export default function TrafficCard({
           <ExperimentDateGraph
             yaxis="users"
             variationNames={variations.map((v) => v.name)}
-            label="Users"
+            label="Units"
             datapoints={usersPerDate}
             formatter={formatNumber}
             cumulative={cumulative}
