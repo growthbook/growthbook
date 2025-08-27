@@ -65,11 +65,9 @@ export default function OrganizationAndLicenseSettings({
                     </a>
                   )}
                 </Box>
-                {!isCloud() && !isMultiOrg() && (
-                  <Box>
-                    <Text weight="medium">Organization Id: </Text> {org.id}
-                  </Box>
-                )}
+                <Box>
+                  <Text weight="medium">Organization Id: </Text> {org.id}
+                </Box>
               </Flex>
               {canEdit && (
                 <Button
