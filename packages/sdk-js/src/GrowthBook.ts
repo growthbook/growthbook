@@ -831,10 +831,10 @@ export class GrowthBook<
   }
 
   private _onExperimentEval<T>(experiment: Experiment<T>, result: Result<T>) {
-    this._assigned.set(experiment.key, { experiment, result });
     if (this._subscriptions.size > 0) {
       this._fireSubscriptions(experiment, result);
     }
+    this._assigned.set(experiment.key, { experiment, result });
   }
 
   private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
