@@ -169,6 +169,7 @@ export default function DashboardWorkspace({
   };
 
   const editBlock = (i: number) => {
+    setEditSidebarExpanded(true);
     setFocusedBlockIndex(undefined);
     setEditingBlockIndex(i);
     setEditSidebarDirty(true);
@@ -314,7 +315,14 @@ export default function DashboardWorkspace({
             mutate={mutate}
           />
         </div>
-        <Flex direction="column" align="end">
+        <Flex
+          direction="column"
+          align="end"
+          style={{
+            position: "sticky",
+            top: 0,
+          }}
+        >
           <Flex
             align="end"
             style={{
@@ -341,56 +349,49 @@ export default function DashboardWorkspace({
             )}
           </Flex>
 
-          <div
-            style={{
-              maxHeight: `calc(100vh - ${DASHBOARD_WORKSPACE_NAV_HEIGHT} - ${DASHBOARD_TOPBAR_HEIGHT}`,
-              overflowY: "auto",
-            }}
-          >
-            <DashboardEditorSidebar
-              experiment={experiment}
-              open={editSidebarExpanded}
-              cancel={clearEditingState}
-              submit={() => {
-                if (isDefined(addBlockIndex) && isDefined(stagedAddBlock)) {
-                  setBlocksAndSubmit([
-                    ...blocks.slice(0, addBlockIndex),
-                    stagedAddBlock,
-                    ...blocks.slice(addBlockIndex),
-                  ]);
-                } else if (
-                  isDefined(editingBlockIndex) &&
-                  isDefined(stagedEditBlock)
-                ) {
-                  setBlocksAndSubmit([
-                    ...blocks.slice(0, editingBlockIndex),
-                    stagedEditBlock,
-                    ...blocks.slice(editingBlockIndex + 1),
-                  ]);
-                }
-                clearEditingState();
-              }}
-              blocks={blocks}
-              stagedBlock={
-                isDefined(stagedAddBlock) ? stagedAddBlock : stagedEditBlock
+          <DashboardEditorSidebar
+            experiment={experiment}
+            open={editSidebarExpanded}
+            cancel={clearEditingState}
+            submit={() => {
+              if (isDefined(addBlockIndex) && isDefined(stagedAddBlock)) {
+                setBlocksAndSubmit([
+                  ...blocks.slice(0, addBlockIndex),
+                  stagedAddBlock,
+                  ...blocks.slice(addBlockIndex),
+                ]);
+              } else if (
+                isDefined(editingBlockIndex) &&
+                isDefined(stagedEditBlock)
+              ) {
+                setBlocksAndSubmit([
+                  ...blocks.slice(0, editingBlockIndex),
+                  stagedEditBlock,
+                  ...blocks.slice(editingBlockIndex + 1),
+                ]);
               }
-              setBlocks={setBlocksAndSubmit}
-              setStagedBlock={(block) => {
-                isDefined(stagedAddBlock)
-                  ? setStagedAddBlock(block)
-                  : setStagedEditBlock(block);
-                setEditSidebarDirty(true);
-              }}
-              addBlockType={addBlockType}
-              focusBlock={focusBlock}
-              editBlock={editBlock}
-              duplicateBlock={(i) => {
-                setAddBlockIndex(i + 1);
-                setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-              }}
-              deleteBlock={deleteBlock}
-            />
-          </div>
+              clearEditingState();
+            }}
+            blocks={blocks}
+            stagedBlock={
+              isDefined(stagedAddBlock) ? stagedAddBlock : stagedEditBlock
+            }
+            setBlocks={setBlocksAndSubmit}
+            setStagedBlock={(block) => {
+              isDefined(stagedAddBlock)
+                ? setStagedAddBlock(block)
+                : setStagedEditBlock(block);
+              setEditSidebarDirty(true);
+            }}
+            addBlockType={addBlockType}
+            focusBlock={focusBlock}
+            editBlock={editBlock}
+            duplicateBlock={(i) => {
+              setAddBlockIndex(i + 1);
+              setStagedAddBlock(getBlockData(effectiveBlocks[i]));
+            }}
+            deleteBlock={deleteBlock}
+          />
         </Flex>
       </Flex>
     </Container>

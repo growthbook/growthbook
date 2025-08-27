@@ -21,6 +21,10 @@ import {
   DropdownMenu,
 } from "@/components/Radix/DropdownMenu";
 import Avatar from "@/components/Radix/Avatar";
+import {
+  DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING,
+  DASHBOARD_WORKSPACE_NAV_HEIGHT,
+} from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO } from "..";
 import EditSingleBlock from "./EditSingleBlock";
 
@@ -173,110 +177,126 @@ export default function DashboardEditorSidebar({
   return (
     <div
       id="edit-drawer"
-      className="appbox mt-3"
+      className="mt-3"
       style={{
-        display: "flex",
-        transition: "all 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1)",
-        width: open ? "440px" : "0px",
-        opacity: open ? 1 : 0,
-        overflow: "clip",
+        width: open ? 480 : 40, // 440 + 40 gutter
+        height: `calc(100vh - (${DASHBOARD_WORKSPACE_NAV_HEIGHT} + ${DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING}))`,
+        marginRight: -40,
+        transition: "width 0.5s cubic-bezier(0.685, 0.0473, 0.346, 1)",
+        position: "relative",
         zIndex: 9001,
+        overflow: "hidden",
       }}
     >
-      {isDefined(stagedBlock) ? (
-        <EditSingleBlock
-          experiment={experiment}
-          cancel={cancel}
-          submit={submit}
-          block={stagedBlock}
-          setBlock={setStagedBlock}
-        />
-      ) : !blockNavigatorEnabled ? (
-        <div style={{ width: "440px" }}>
-          <Box px="4" pt="4">
-            <Text size="3" weight="bold">
-              Add a Block
-            </Text>
-          </Box>
-          {addBlocksContent}
-        </div>
-      ) : (
-        <Tabs defaultValue="add-block" style={{ width: "440px" }}>
-          <TabsList>
-            <TabsTrigger value="add-block">Add Block</TabsTrigger>
-            <TabsTrigger value="block-navigator">Block Navigator</TabsTrigger>
-          </TabsList>
-          <TabsContent value="add-block">{addBlocksContent}</TabsContent>
-          <TabsContent value="block-navigator">
-            <Flex direction="column" align="start" p="2">
-              <Text style={{ color: "var(--color-text-mid)" }} my="3">
-                Drag to reorder blocks. Click to bring block into focus.
+      <div
+        className="appbox"
+        style={{
+          width: "440px",
+          maxHeight: `calc(100% - ${DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING})`,
+          position: "absolute",
+          left: 0,
+          top: 0,
+          opacity: open ? 1 : 0,
+          transition: "opacity 0.4s",
+          overflowX: "hidden",
+          overflowY: "auto",
+        }}
+      >
+        {isDefined(stagedBlock) ? (
+          <EditSingleBlock
+            experiment={experiment}
+            cancel={cancel}
+            submit={submit}
+            block={stagedBlock}
+            setBlock={setStagedBlock}
+          />
+        ) : !blockNavigatorEnabled ? (
+          <div style={{ width: "440px" }}>
+            <Box px="4" pt="4">
+              <Text size="3" weight="bold">
+                Add a Block
               </Text>
-              {displayBlocks.map((block, i) => (
-                <Flex
-                  width="100%"
-                  justify="between"
-                  key={isPersistedDashboardBlock(block) ? block.id : i}
-                  my="2"
-                  onClick={() => focusBlock(i)}
-                  className="hover-border-violet"
-                  align="center"
-                  p="1"
-                  style={{ cursor: "pointer" }}
-                  draggable={true}
-                  onDragStart={() => setDraggingBlockIndex(i)}
-                  onDragEnd={() => resetDragState()}
-                  onDrop={() => onDrop(i)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDragEnter={(e) => {
-                    if (!isDefined(draggingBlockIndex)) return;
-                    if (draggingBlockIndex === i) {
-                      setPreviewBlockPlacement(undefined);
-                      return;
-                    }
-                    setPreviewBlockPlacement(i);
-                    e.preventDefault();
-                  }}
-                >
-                  {/* TODO: icon */}
-                  <Text>{BLOCK_TYPE_INFO[block.type].name}</Text>
-
-                  <DropdownMenu
-                    trigger={
-                      <IconButton variant="ghost" size="1">
-                        <PiDotsThreeVertical />
-                      </IconButton>
-                    }
+            </Box>
+            {addBlocksContent}
+          </div>
+        ) : (
+          <Tabs defaultValue="add-block" style={{ width: "440px" }}>
+            <TabsList>
+              <TabsTrigger value="add-block">Add Block</TabsTrigger>
+              <TabsTrigger value="block-navigator">Block Navigator</TabsTrigger>
+            </TabsList>
+            <TabsContent value="add-block">{addBlocksContent}</TabsContent>
+            <TabsContent value="block-navigator">
+              <Flex direction="column" align="start" p="2">
+                <Text style={{ color: "var(--color-text-mid)" }} my="3">
+                  Drag to reorder blocks. Click to bring block into focus.
+                </Text>
+                {displayBlocks.map((block, i) => (
+                  <Flex
+                    width="100%"
+                    justify="between"
+                    key={isPersistedDashboardBlock(block) ? block.id : i}
+                    my="2"
+                    onClick={() => focusBlock(i)}
+                    className="hover-border-violet"
+                    align="center"
+                    p="1"
+                    style={{ cursor: "pointer" }}
+                    draggable={true}
+                    onDragStart={() => setDraggingBlockIndex(i)}
+                    onDragEnd={() => resetDragState()}
+                    onDrop={() => onDrop(i)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDragEnter={(e) => {
+                      if (!isDefined(draggingBlockIndex)) return;
+                      if (draggingBlockIndex === i) {
+                        setPreviewBlockPlacement(undefined);
+                        return;
+                      }
+                      setPreviewBlockPlacement(i);
+                      e.preventDefault();
+                    }}
                   >
-                    <DropdownMenuItem
-                      onClick={() => {
-                        editBlock(i);
-                      }}
+                    {/* TODO: icon */}
+                    <Text>{BLOCK_TYPE_INFO[block.type].name}</Text>
+
+                    <DropdownMenu
+                      trigger={
+                        <IconButton variant="ghost" size="1">
+                          <PiDotsThreeVertical />
+                        </IconButton>
+                      }
                     >
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        duplicateBlock(i);
-                      }}
-                    >
-                      Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => {
-                        deleteBlock(i);
-                      }}
-                    >
-                      <Text color="red">Delete</Text>
-                    </DropdownMenuItem>
-                  </DropdownMenu>
-                </Flex>
-              ))}
-            </Flex>
-          </TabsContent>
-        </Tabs>
-      )}
+                      <DropdownMenuItem
+                        onClick={() => {
+                          editBlock(i);
+                        }}
+                      >
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          duplicateBlock(i);
+                        }}
+                      >
+                        Duplicate
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => {
+                          deleteBlock(i);
+                        }}
+                      >
+                        <Text color="red">Delete</Text>
+                      </DropdownMenuItem>
+                    </DropdownMenu>
+                  </Flex>
+                ))}
+              </Flex>
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
     </div>
   );
 }

@@ -33,7 +33,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
 import Callout from "@/components/Radix/Callout";
-import { DASHBOARD_WORKSPACE_NAV_HEIGHT } from "../DashboardWorkspace";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
@@ -291,18 +290,7 @@ function DashboardEditor({
           isEditing={isEditing}
         />
       </Flex>
-      <div
-        ref={scrollAreaRef}
-        style={
-          isEditing
-            ? {
-                maxHeight: `calc(100vh - ${DASHBOARD_WORKSPACE_NAV_HEIGHT} - ${DASHBOARD_TOPBAR_HEIGHT}`,
-                overflowY: "auto",
-                paddingBottom: 300,
-              }
-            : undefined
-        }
-      >
+      <div ref={scrollAreaRef}>
         <div>
           {blocks.length === 0 ? (
             <Flex
