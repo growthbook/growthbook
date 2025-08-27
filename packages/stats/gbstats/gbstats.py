@@ -418,8 +418,8 @@ def run_mid_experiment_power(variation_index: int, total_users: int, num_variati
     s[f"v{variation_index}_scaling_factor"] = mid_experiment_power_result.scaling_factor
     return s
 
-
-def post_stratify(df: pd.DataFrame, metric: MetricSettingsForStatsEngine, analysis: AnalysisSettingsForStatsEngine) -> pd.DataFrame: 
+ 
+def run_post_stratification(df: pd.DataFrame, metric: MetricSettingsForStatsEngine, analysis: AnalysisSettingsForStatsEngine) -> pd.DataFrame: 
     
     #need to add a check for quantile metrics
     num_variations = df.at[0, "variations"]
@@ -427,9 +427,10 @@ def post_stratify(df: pd.DataFrame, metric: MetricSettingsForStatsEngine, analys
 
     #dataframe that is returned
     df_output = copy.deepcopy(df)
-    df_output = reduce_dimensionality(df_output, max=1, keep_other=True)
+    df_output = reduce_dimensionality(df_output, max=1, keep_other=True)    
     df_output['dimension'] = 'NA'
     df_output = initialize_df(df_output, analysis)
+    s_output = df_output.iloc[0].copy()
     
     stats_control = []
     total_users_control = 0
@@ -452,14 +453,18 @@ def post_stratify(df: pd.DataFrame, metric: MetricSettingsForStatsEngine, analys
             stats, total_users, analysis=analysis, metric=metric
         )
         res = test.compute_result()
+        s_output = store_test_results(test, res, s_output, variation)
         if decision_making_conditions(metric, analysis):
-            s = run_mid_experiment_power(variation, total_users, num_variations, test.moments_result, res, metric, analysis, s)
-    s["srm_p"] = check_srm(
-        [s["baseline_users"]]
-        + [s[f"v{i}_users"] for i in range(1, num_variations)],
+            s_output = run_mid_experiment_power(variation, total_users, num_variations, test.moments_result, res, metric, analysis, s_output)
+    
+    
+    
+    variation_counts = [df_output.at[0, "baseline_users"]] + [df_output.at[0, f"v{i}_users"] for i in range(1, num_variations)]
+    s_output["srm_p"] = check_srm(
+        variation_counts,
         analysis.weights,
     )
-    return s.to_frame().T
+    return s_output.to_frame().T
 
 
 def store_test_results(test: StatisticalTests, res: Union[BayesianTestResult, FrequentistTestResult], s: pd.Series, variation: int) -> pd.Series:
@@ -779,6 +784,8 @@ def process_analysis(
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
+    precomputed_dimension = any([col.startswith('dim_exp') for col in rows.columns])
+    post_stratify = precomputed_dimension and analysis.dimension == "" and metric.statistic_type not in ["quantile_event", "quantile_unit"]
 
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
@@ -786,30 +793,32 @@ def process_analysis(
         var_id_map=var_id_map,
         var_names=var_names,
         dimension=analysis.dimension,
-        post_stratify=analysis.post_stratify,
+        post_stratify=post_stratify,
     )
 
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
-    keep_other = True
-    if metric.statistic_type in ["quantile_event", "quantile_unit"]:
-        keep_other = False
-    if metric.keep_theta and metric.statistic_type == "mean_ra":
-        keep_other = False
-    reduced = reduce_dimensionality(
-        df=df,
-        max=max_dimensions,
-        keep_other=keep_other,
-    )
+    if post_stratify:
+        result = run_post_stratification(df, metric, analysis)
+    else:
+        keep_other = True
+        if metric.statistic_type in ["quantile_event", "quantile_unit"]:
+            keep_other = False
+        if metric.keep_theta and metric.statistic_type == "mean_ra":
+            keep_other = False
+        reduced = reduce_dimensionality(
+            df=df,
+            max=max_dimensions,
+            keep_other=keep_other,
+        )
 
-    # Run the analysis for each variation and dimension
-    result = analyze_metric_df(
-        df=reduced,
-        metric=metric,
-        analysis=analysis,
-    )
-
+        # Run the analysis for each variation and dimension
+        result = analyze_metric_df(
+            df=reduced,
+            metric=metric,
+            analysis=analysis,
+        )
     return result
 
 

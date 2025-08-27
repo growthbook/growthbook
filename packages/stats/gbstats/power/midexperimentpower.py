@@ -10,10 +10,6 @@ from gbstats.frequentist.tests import (
 )
 from gbstats.bayesian.tests import GaussianPrior
 from gbstats.models.tests import BaseConfig, TestStatistic
-from gbstats.messages import (
-    ZERO_NEGATIVE_VARIANCE_MESSAGE,
-    BASELINE_VARIATION_ZERO_MESSAGE,
-)
 
 
 @dataclass
