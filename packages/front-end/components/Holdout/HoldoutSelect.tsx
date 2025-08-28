@@ -134,7 +134,6 @@ export const HoldoutSelect = ({
           }) || []),
           { label: "None", value: "" },
         ]}
-        required={holdoutsWithExperiment.length > 0}
         disabled={holdoutsWithExperiment.length === 0}
         sort={false}
         formatOptionLabel={({ label, value }) => {
