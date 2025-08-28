@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
@@ -63,6 +63,8 @@ export default function DashboardWorkspace({
     }
   }, [dashboard]);
   const { metricGroups } = useDefinitions();
+
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | undefined>(undefined);
@@ -270,6 +272,7 @@ export default function DashboardWorkspace({
         px="7"
         gap="4"
         style={{ backgroundColor: "var(--violet-2)" }}
+        ref={scrollAreaRef}
       >
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <DashboardEditor
@@ -282,6 +285,7 @@ export default function DashboardWorkspace({
             editSidebarDirty={editSidebarDirty}
             focusedBlockIndex={focusedBlockIndex}
             stagedBlockIndex={addBlockIndex ?? editingBlockIndex}
+            scrollAreaRef={scrollAreaRef}
             setBlock={(i, block) => {
               if (i === editingBlockIndex) {
                 setStagedEditBlock(block);

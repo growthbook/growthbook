@@ -484,6 +484,7 @@ export default function DashboardsTab({
                         title={dashboard.title}
                         blocks={blocks}
                         isEditing={false}
+                        scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         setBlock={(i, block) => {
                           const newBlocks = [

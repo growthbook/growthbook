@@ -94,7 +94,7 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   disableBlock: "full" | "partial" | "none";
   isFirstBlock: boolean;
   isLastBlock: boolean;
-  scrollAreaRef: React.MutableRefObject<HTMLDivElement | null>;
+  scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
   setBlock: React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlock>>;
   editBlock: () => void;
   duplicateBlock: () => void;
@@ -223,7 +223,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollToBlock = () => {
-    if (scrollRef.current && scrollAreaRef.current) {
+    if (scrollRef.current && scrollAreaRef && scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({
         left: 0,
         top: scrollRef.current.offsetTop - scrollAreaRef.current.offsetTop,
@@ -254,7 +254,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     block.showTimeseries &&
     !snapshot?.health?.traffic;
 
-  const showTitleArea = isEditing || !!block.title;
   const canEditTitle = isEditing && disableBlock === "none" && !isFocused;
 
   return (
@@ -270,11 +269,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         <div
           style={{
             position: "absolute",
-            top: 40,
-            left: 12,
-            right: 12,
+            top: 45,
+            left: 24,
+            right: 24,
             bottom: 12,
-            backgroundColor: "var(--violet-a3)",
+            backgroundColor:
+              "color-mix(in srgb, var(--violet-a3) 30%, transparent)",
             cursor: "pointer",
             // This will make the underlying block non-interactive
             // The user must click this overlay to enter editing mode and then they can interact
@@ -336,56 +336,47 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         </DropdownMenu>
       )}
       <Flex align="center" justify="between" mb="2">
-        {showTitleArea && (
-          <>
-            {canEditTitle && editTitle ? (
-              <Field
-                autoFocus
-                defaultValue={block.title || BLOCK_TYPE_INFO[block.type].name}
-                placeholder="Title"
-                onFocus={(e) => {
-                  e.target.select();
+        {canEditTitle && editTitle ? (
+          <Field
+            autoFocus
+            defaultValue={block.title || BLOCK_TYPE_INFO[block.type].name}
+            placeholder="Title"
+            onFocus={(e) => {
+              e.target.select();
+            }}
+            onBlur={(e) => {
+              setEditTitle(false);
+              const title = e.target.value;
+              if (title !== block.title) {
+                setBlock({ ...block, title });
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              } else if (e.key === "Escape") {
+                setEditTitle(false);
+              }
+            }}
+          />
+        ) : (
+          <h4 style={{ margin: 0 }}>
+            {block.title || BLOCK_TYPE_INFO[block.type].name}
+            {canEditTitle && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditTitle(true);
                 }}
-                onBlur={(e) => {
-                  setEditTitle(false);
-                  const title = e.target.value;
-                  if (title !== block.title) {
-                    setBlock({ ...block, title });
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    (e.target as HTMLInputElement).blur();
-                  } else if (e.key === "Escape") {
-                    setEditTitle(false);
-                  }
-                }}
-              />
-            ) : (
-              <h4 style={{ margin: 0 }}>
-                {block.title || (
-                  <span className="text-muted">
-                    {BLOCK_TYPE_INFO[block.type].name}
-                  </span>
-                )}
-
-                {canEditTitle && (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setEditTitle(true);
-                    }}
-                    className="ml-2"
-                    style={{ color: "var(--violet-9)" }}
-                    title="Edit Title"
-                  >
-                    <PiPencilSimpleFill />
-                  </a>
-                )}
-              </h4>
+                className="ml-2"
+                style={{ color: "var(--violet-9)" }}
+                title="Edit Title"
+              >
+                <PiPencilSimpleFill />
+              </a>
             )}
-          </>
+          </h4>
         )}
 
         {isEditing && (

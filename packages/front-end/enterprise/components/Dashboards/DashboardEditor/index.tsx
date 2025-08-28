@@ -1,11 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, {
-  Fragment,
-  ReactElement,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { Fragment, ReactElement, useEffect, useState } from "react";
 import {
   PiChartBar,
   PiCaretDownFill,
@@ -143,6 +137,7 @@ interface Props {
   editSidebarDirty: boolean;
   focusedBlockIndex: number | undefined;
   stagedBlockIndex: number | undefined;
+  scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
   setBlock: (
     index: number,
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
@@ -165,6 +160,7 @@ function DashboardEditor({
   editSidebarDirty,
   focusedBlockIndex,
   stagedBlockIndex,
+  scrollAreaRef,
   setBlock,
   moveBlock,
   addBlockType,
@@ -173,7 +169,6 @@ function DashboardEditor({
   deleteBlock,
   mutate,
 }: Props) {
-  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const renderSingleBlock = ({
     i,
     key,
@@ -224,13 +219,15 @@ function DashboardEditor({
           className={clsx({
             "dashboard-disabled": editSidebarDirty,
           })}
+          mb={!isEditing ? "4" : "0"}
         >
-          {isEditing && !editSidebarDirty && (
+          {isEditing && (
             <Flex
               justify="center"
               position="relative"
               mt={isLastBlock ? "2" : "0"}
               className="hover-show"
+              style={!editSidebarDirty ? {} : { visibility: "hidden" }}
             >
               {isDefined(i) && (
                 <div
@@ -290,7 +287,7 @@ function DashboardEditor({
           isEditing={isEditing}
         />
       </Flex>
-      <div ref={scrollAreaRef}>
+      <div>
         <div>
           {blocks.length === 0 ? (
             <Flex
@@ -337,6 +334,8 @@ function DashboardEditor({
               }),
             )
           )}
+          {/* Add padding at the bottom so there's room to scroll the selected block to the middle/top of the page */}
+          {isEditing && <div style={{ height: 350 }} />}
         </div>
       </div>
     </div>
