@@ -464,12 +464,6 @@ export function DataVisualizationDisplay({
                 color: textColor,
               },
               top: "bottom",
-              formatter: (name: string) => {
-                return name.length > 20 ? name.substring(0, 18) + "..." : name;
-              },
-              tooltip: {
-                show: true,
-              },
             },
           }
         : null),
