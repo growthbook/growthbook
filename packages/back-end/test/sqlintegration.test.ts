@@ -1078,7 +1078,8 @@ describe("full fact metric experiment query - bigquery", () => {
   it("should generate fact metric SQL snapshots", () => {
     // Mock the getExposureQuery method to return our test exposureQuery
     const getExposureQuerySpy = jest
-      .spyOn(bqIntegration, "getExposureQuery")
+      // eslint-disable-next-line
+      .spyOn(bqIntegration as any, "getExposureQuery")
       .mockReturnValue(exposureQuery);
 
     const generatedMetrics = generateFactMetrics();
