@@ -145,7 +145,7 @@ export default function DashboardEditorSidebar({
               }}
               className="hover-show no-underline hover-border-violet"
             >
-              <Flex>
+              <Flex align="center">
                 <Avatar
                   radius="small"
                   color="indigo"
