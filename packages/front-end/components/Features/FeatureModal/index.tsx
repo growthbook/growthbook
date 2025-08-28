@@ -232,14 +232,14 @@ export default function FeatureModal({
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
         const valueType = feature.valueType;
-        const { holdout, ...featureWithoutHoldout } = feature;
+        const { holdout } = feature;
 
         if (!valueType) {
           throw new Error("Please select a value type");
         }
 
         const newDefaultValue = validateFeatureValue(
-          featureWithoutHoldout,
+          feature,
           defaultValue,
           "Value",
         );
@@ -256,14 +256,12 @@ export default function FeatureModal({
         }
 
         const body = {
-          ...featureWithoutHoldout,
+          ...feature,
           defaultValue: parseDefaultValue(defaultValue, valueType),
-          ...(holdout?.id && {
-            holdout: {
-              id: holdout.id,
-              value: parseDefaultValue(defaultValue, valueType),
-            },
-          }),
+          holdout: {
+            id: holdout?.id ?? "",
+            value: parseDefaultValue(defaultValue, valueType),
+          },
         };
 
         const res = await apiCall<{ feature: FeatureInterface }>(`/feature`, {
