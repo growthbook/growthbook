@@ -4,8 +4,8 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
-  PiCaretUp,
-  PiCaretDown,
+  PiCaretUpFill,
+  PiCaretDownFill,
   PiLockBold,
   PiLockOpenBold,
 } from "react-icons/pi";
@@ -59,6 +59,7 @@ export default function SafeRolloutFields({
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+  const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
@@ -72,7 +73,7 @@ export default function SafeRolloutFields({
       value: ds.id,
     })) || [];
   const dataSource = datasources?.find(
-    (ds) => ds.id === form.watch("safeRolloutFields.datasourceId")
+    (ds) => ds.id === form.watch("safeRolloutFields.datasourceId"),
   );
   const settings = useOrgSettings();
   const exposureQueries = dataSource?.settings?.queries?.exposure || [];
@@ -81,7 +82,7 @@ export default function SafeRolloutFields({
   const unit = form.watch("safeRolloutFields.maxDuration.unit") || "days";
   const growthbook = useGrowthBook<AppFeatures>();
   const isSafeRolloutAutoRollbackEnabled = growthbook.isOn(
-    "safe-rollout-auto-rollback"
+    "safe-rollout-auto-rollback",
   );
   const unitMultipliers = {
     days: 24 * 60 * 60 * 1000,
@@ -91,7 +92,7 @@ export default function SafeRolloutFields({
 
   const dateMonitoredUntil = durationValue
     ? new Date(
-        new Date().getTime() + durationValue * (unitMultipliers[unit] || 0)
+        new Date().getTime() + durationValue * (unitMultipliers[unit] || 0),
       )
     : null;
 
@@ -138,8 +139,12 @@ export default function SafeRolloutFields({
               setAdvancedOptionsOpen(!advancedOptionsOpen);
             }}
           >
-            Advanced Options{" "}
-            {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+            {!advancedOptionsOpen ? (
+              <PiCaretDownFill className="mr-1" />
+            ) : (
+              <PiCaretUpFill className="mr-1" />
+            )}
+            Advanced Options
           </div>
         )}
         {duplicate && !!form.watch("seed") && advancedOptionsOpen && (
@@ -160,7 +165,7 @@ export default function SafeRolloutFields({
       <>
         <SelectField
           disabled={disableFields}
-          label="Split based on attribute"
+          label="Sample based on attribute"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
             .map((s) => ({ label: s.property, value: s.property }))}
@@ -168,9 +173,37 @@ export default function SafeRolloutFields({
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          className="mb-4"
+          className="mb-2"
           required
         />
+        <div className="mb-4">
+          <span
+            className="ml-auto link-purple cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvancedOptionsSeedOpen(!advancedOptionsSeedOpen);
+            }}
+          >
+            {!advancedOptionsSeedOpen ? (
+              <PiCaretDownFill className="mr-1" />
+            ) : (
+              <PiCaretUpFill className="mr-1" />
+            )}
+            Advanced Options
+          </span>
+          {advancedOptionsSeedOpen && (
+            <div className="mt-3 mb-5">
+              <Text as="label" weight="medium" size="2" mb="2">
+                Seed
+              </Text>
+              <TextField.Root
+                {...form.register("seed")}
+                disabled={disableFields}
+              />
+            </div>
+          )}
+        </div>
+
         <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
@@ -220,8 +253,9 @@ export default function SafeRolloutFields({
                 form.setValue("safeRolloutFields.exposureQueryId", v)
               }
               formatOptionLabel={({ label, value }) => {
-                const userIdType = exposureQueries?.find((e) => e.id === value)
-                  ?.userIdType;
+                const userIdType = exposureQueries?.find(
+                  (e) => e.id === value,
+                )?.userIdType;
                 return (
                   <>
                     {label}
@@ -254,7 +288,7 @@ export default function SafeRolloutFields({
               includeFacts={true}
               forceSingleMetric={false}
               includeGroups={true}
-              noPercentile={false}
+              excludeQuantiles={true}
               selected={
                 form.watch("safeRolloutFields.guardrailMetricIds") || []
               }
@@ -264,7 +298,7 @@ export default function SafeRolloutFields({
               }
             />
           </div>
-          <div className="mb-3 pb-1">
+          <div className="pb-1">
             <Text as="label" size="2" weight="medium">
               Duration to monitor guardrail results
               <Text size="1" as="div" weight="regular" color="gray">
@@ -291,7 +325,7 @@ export default function SafeRolloutFields({
               </TextField.Root>
             </Box>
             {dateMonitoredUntil && !isNaN(dateMonitoredUntil.getTime()) && (
-              <HelperText status="info" size="sm" mt="2">
+              <HelperText status="info" size="sm" mt="3">
                 Feature will be monitored until{" "}
                 {dateMonitoredUntil.toLocaleDateString()} if started today
               </HelperText>
@@ -426,7 +460,7 @@ export default function SafeRolloutFields({
         />
       )}
 
-      {renderTargeting()}
+      <div className="mt-3">{renderTargeting()}</div>
     </>
   );
 }

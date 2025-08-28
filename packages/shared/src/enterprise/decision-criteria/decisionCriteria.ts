@@ -56,8 +56,8 @@ export function evaluateDecisionRuleOnVariation({
       condition.direction === "statsigWinner"
         ? "won"
         : condition.direction === "statsigLoser"
-        ? "lost"
-        : "neutral";
+          ? "lost"
+          : "neutral";
     if (condition.metrics === "goals") {
       const metrics = goalMetrics;
       const metricResults = variationStatus.goalMetrics;
@@ -68,15 +68,15 @@ export function evaluateDecisionRuleOnVariation({
 
       if (condition.match === "all") {
         return metrics.every(
-          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus
+          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
         );
       } else if (condition.match === "any") {
         return metrics.some(
-          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus
+          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
         );
       } else if (condition.match === "none") {
         return metrics.every(
-          (m) => metricResults?.[m]?.[fieldToCheck] !== desiredStatus
+          (m) => metricResults?.[m]?.[fieldToCheck] !== desiredStatus,
         );
       }
     } else if (condition.metrics === "guardrails") {
@@ -85,15 +85,15 @@ export function evaluateDecisionRuleOnVariation({
 
       if (condition.match === "all") {
         return metrics.every(
-          (m) => metricResults?.[m]?.status === desiredStatus
+          (m) => metricResults?.[m]?.status === desiredStatus,
         );
       } else if (condition.match === "any") {
         return metrics.some(
-          (m) => metricResults?.[m]?.status === desiredStatus
+          (m) => metricResults?.[m]?.status === desiredStatus,
         );
       } else if (condition.match === "none") {
         return metrics.every(
-          (m) => metricResults?.[m]?.status !== desiredStatus
+          (m) => metricResults?.[m]?.status !== desiredStatus,
         );
       }
     }
@@ -170,7 +170,7 @@ export function getVariationDecisions({
 
 export function getHealthSettings(
   settings?: OrganizationSettings,
-  hasDecisionFramework?: boolean
+  hasDecisionFramework?: boolean,
 ): ExperimentHealthSettings {
   return {
     decisionFrameworkEnabled:
@@ -233,7 +233,7 @@ export function getDecisionFrameworkStatus({
     }
 
     const shipVariations = variationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "ship"
+      (d) => d.decisionCriteriaAction === "ship",
     );
     if (shipVariations.length > 0) {
       return {
@@ -249,7 +249,7 @@ export function getDecisionFrameworkStatus({
     // sequential results
     if (powerReached) {
       const reviewVariations = variationDecisions.filter(
-        (d) => d.decisionCriteriaAction === "review"
+        (d) => d.decisionCriteriaAction === "review",
       );
       if (reviewVariations.length > 0) {
         return {
@@ -274,13 +274,13 @@ export function getDecisionFrameworkStatus({
     const allRollbackNow =
       superStatSigVariationDecisions.length > 0 &&
       superStatSigVariationDecisions.every(
-        (d) => d.decisionCriteriaAction === "rollback"
+        (d) => d.decisionCriteriaAction === "rollback",
       );
     if (allRollbackNow) {
       return {
         status: "rollback-now",
         variations: superStatSigVariationDecisions.map(
-          ({ variation }) => variation
+          ({ variation }) => variation,
         ),
         sequentialUsed: sequentialTesting,
         powerReached: powerReached,
@@ -289,7 +289,7 @@ export function getDecisionFrameworkStatus({
     }
 
     const shipVariations = superStatSigVariationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "ship"
+      (d) => d.decisionCriteriaAction === "ship",
     );
     if (shipVariations.length > 0) {
       return {
@@ -330,9 +330,8 @@ export function getExperimentResultStatus({
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
   const resultsStatus = experimentData.analysisSummary?.resultsStatus;
-
+  const type = experimentData.type === "holdout" ? "holdout" : "experiment";
   const lastPhase = experimentData.phases[experimentData.phases.length - 1];
-
   const beforeMinDuration =
     lastPhase?.dateStarted &&
     daysBetween(lastPhase.dateStarted, new Date()) <
@@ -437,7 +436,7 @@ export function getExperimentResultStatus({
   if (!experimentData.datasource) {
     return {
       status: "no-data",
-      tooltip: "No data source configured for experiment",
+      tooltip: `No data source configured for ${type}`,
     };
   }
 
@@ -449,7 +448,7 @@ export function getExperimentResultStatus({
   ) {
     return {
       status: "no-data",
-      tooltip: "No metrics configured for experiment yet",
+      tooltip: `No metrics configured for ${type} yet`,
     };
   }
 
@@ -511,7 +510,7 @@ export function getSafeRolloutResultStatus({
   const resultsStatus = safeRollout.analysisSummary?.resultsStatus;
   const hoursRunning = differenceInHours(
     Date.now(),
-    safeRollout.startedAt ? new Date(safeRollout.startedAt) : Date.now()
+    safeRollout.startedAt ? new Date(safeRollout.startedAt) : Date.now(),
   );
 
   // If the safe rollout has been running for over 24 hours and no data has come in
@@ -620,11 +619,11 @@ export function getSafeRolloutResultStatus({
 }
 
 export function getPresetDecisionCriteriaForOrg(
-  settings?: OrganizationSettings
+  settings?: OrganizationSettings,
 ) {
   return !settings?.defaultDecisionCriteriaId
     ? PRESET_DECISION_CRITERIA
     : PRESET_DECISION_CRITERIAS.find(
-        (dc) => dc.id === settings.defaultDecisionCriteriaId
+        (dc) => dc.id === settings.defaultDecisionCriteriaId,
       );
 }

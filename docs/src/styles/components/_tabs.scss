@@ -29,7 +29,9 @@ html[data-theme="dark"] {
 
     padding-block-start: calc(var(--ifm-tabs-padding-vertical) - 1px);
 
-    transition: border-color 0.2s ease-out, opacity 0.2s ease-out;
+    transition:
+      border-color 0.2s ease-out,
+      opacity 0.2s ease-out;
 
     &--active {
       font-weight: 500;

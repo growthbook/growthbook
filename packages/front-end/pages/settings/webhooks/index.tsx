@@ -23,7 +23,11 @@ const WebhooksPage: FC = () => {
   const { webhookSecrets, mutateDefinitions } = useDefinitions();
 
   const [editSecretId, setEditSecretId] = useState<string | null>(null);
-  const [newSecretOpen, setNewSecretOpen] = useState(false);
+
+  const queryParams = new URLSearchParams(window.location.search);
+  const [newSecretOpen, setNewSecretOpen] = useState<boolean>(
+    queryParams.has("newSecret") || false,
+  );
 
   if (!canManageWebhooks) {
     return (

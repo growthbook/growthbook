@@ -37,7 +37,7 @@ const CustomFieldDisplay: FC<{
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     section,
-    target.project
+    target.project,
   );
   const customFieldsMap = new Map();
   const defaultFields: Record<string, string> = {};
@@ -47,8 +47,8 @@ const CustomFieldDisplay: FC<{
         v.type === "boolean"
           ? JSON.stringify(!!v.defaultValue)
           : v.type === "multiselect"
-          ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
-          : "" + (v?.defaultValue ? v.defaultValue : "");
+            ? JSON.stringify([v?.defaultValue ? v.defaultValue : ""])
+            : "" + (v?.defaultValue ? v.defaultValue : "");
       customFieldsMap.set(v.id, v);
     });
   }
@@ -87,7 +87,7 @@ const CustomFieldDisplay: FC<{
     Object.entries(currentCustomFields ?? {}).map(([fid, cValue]) => [
       fid,
       cValue ?? "",
-    ])
+    ]),
   );
   const getMultiSelectValue = (value: string) => {
     try {

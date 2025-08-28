@@ -30,10 +30,10 @@ export default function InstallationCodeSnippet({
   s=document.createElement('script'); s.async=true;
   s.dataset.apiHost=${JSON.stringify(apiHost)};
   s.dataset.clientKey=${JSON.stringify(apiKey)};${
-          encryptionKey
-            ? `\n  s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
-            : ""
-        }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true";` : ""}
+    encryptionKey
+      ? `\n  s.dataset.decryptionKey=${JSON.stringify(encryptionKey)};`
+      : ""
+  }${remoteEvalEnabled ? `\n  s.dataset.remoteEval="true";` : ""}
   s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
   document.head.appendChild(s);
 })();
@@ -43,10 +43,10 @@ export default function InstallationCodeSnippet({
 <script async
   data-api-host=${JSON.stringify(apiHost)}
   data-client-key=${JSON.stringify(apiKey)}${
-          encryptionKey
-            ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
-            : ""
-        }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}
+    encryptionKey
+      ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`
+      : ""
+  }${remoteEvalEnabled ? `\n  data-remote-eval="true"` : ""}
   src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
 ></script>
             `.trim();
@@ -58,7 +58,7 @@ export default function InstallationCodeSnippet({
       "nocode-shopify",
       "nocode-other",
     ],
-    []
+    [],
   );
 
   const getInstallationCodeSnippet = useCallback(
@@ -340,7 +340,7 @@ yarn add @growthbook/edge-utils`.trim()}
 
       return <em>Depends on your platform</em>;
     },
-    [clientSideLanguages, eventTracker, nocodeSnippet]
+    [clientSideLanguages, eventTracker, nocodeSnippet],
   );
 
   return (

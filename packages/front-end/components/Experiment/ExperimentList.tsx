@@ -36,7 +36,7 @@ export default function ExperimentList({
       items = items.filter((e) => !e.archived);
       return items;
     },
-    [status]
+    [status],
   );
   const { items, SortableTH } = useExperimentSearch({
     allExperiments: experiments,
@@ -103,7 +103,7 @@ export default function ExperimentList({
                 <td className="text-nowrap">
                   {phaseSummary(
                     currentPhase,
-                    test.type === "multi-armed-bandit"
+                    test.type === "multi-armed-bandit",
                   )}
                   <ExperimentStatusDetailsWithDot
                     statusIndicatorData={test.statusIndicator}
@@ -160,7 +160,7 @@ export default function ExperimentList({
                       <span className="purple-phase">
                         {phaseSummary(
                           currentPhase,
-                          test.type === "multi-armed-bandit"
+                          test.type === "multi-armed-bandit",
                         )}
                       </span>
                     </div>

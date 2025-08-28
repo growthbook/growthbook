@@ -62,8 +62,8 @@ export default function AnalysisSettingsSummary({
   mutate,
   statsEngine,
   editMetrics,
-  setVariationFilter,
   baselineRow,
+  setVariationFilter,
   setBaselineRow,
   differenceType,
   setDifferenceType,
@@ -81,7 +81,7 @@ export default function AnalysisSettingsSummary({
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   )?.userIdType;
 
   const orgSettings = useOrgSettings();
@@ -89,7 +89,7 @@ export default function AnalysisSettingsSummary({
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
@@ -106,7 +106,7 @@ export default function AnalysisSettingsSummary({
 
   const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
     experiment,
-    {}
+    {},
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -135,9 +135,9 @@ export default function AnalysisSettingsSummary({
     new Set(
       expandMetricGroups(
         getAllMetricIdsFromExperiment(experiment, false),
-        metricGroups
-      )
-    )
+        metricGroups,
+      ),
+    ),
   );
 
   const unjoinableMetrics = useMemo(() => {
@@ -166,6 +166,18 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
   ]);
 
+  const conversionWindowMetrics = useMemo(() => {
+    const conversionWindowMetrics = new Set<string>();
+    allExpandedMetrics.forEach((m) => {
+      const metric = getExperimentMetricById(m);
+      if (!metric) return;
+      if (metric?.windowSettings?.type === "conversion") {
+        conversionWindowMetrics.add(m);
+      }
+    });
+    return conversionWindowMetrics;
+  }, [allExpandedMetrics, getExperimentMetricById]);
+
   const { outdated, reasons } = isOutdated({
     experiment,
     snapshot,
@@ -176,16 +188,17 @@ export default function AnalysisSettingsSummary({
     hasSequentialFeature,
     phase,
     unjoinableMetrics,
+    conversionWindowMetrics,
   });
 
   const ds = getDatasourceById(experiment.datasource);
   const assignmentQuery = ds?.settings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
   const segment = getSegmentById(experiment.segment || "");
 
   const activationMetric = getExperimentMetricById(
-    experiment.activationMetric || ""
+    experiment.activationMetric || "",
   );
 
   const goals: string[] = [];
@@ -193,21 +206,21 @@ export default function AnalysisSettingsSummary({
     (m) => {
       const name = getExperimentMetricById(m)?.name;
       if (name) goals.push(name);
-    }
+    },
   );
   const secondary: string[] = [];
   expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
     (m) => {
       const name = getExperimentMetricById(m)?.name;
       if (name) secondary.push(name);
-    }
+    },
   );
   const guardrails: string[] = [];
   expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
     (m) => {
       const name = getExperimentMetricById(m)?.name;
       if (name) guardrails.push(name);
-    }
+    },
   );
 
   const numMetrics = goals.length + secondary.length + guardrails.length;
@@ -291,21 +304,23 @@ export default function AnalysisSettingsSummary({
               </>
             )}
           </div>
-          <div className="text-left">
-            <strong>Guardrails:</strong>
-            {guardrails.length > 0 ? (
-              <ul className="ml-0 pl-3 mb-0">
-                {guardrails.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
+          {experiment.type !== "holdout" ? (
+            <div className="text-left">
+              <strong>Guardrails:</strong>
+              {guardrails.length > 0 ? (
+                <ul className="ml-0 pl-3 mb-0">
+                  {guardrails.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              ) : (
+                <>
+                  {" "}
+                  <em>none</em>
+                </>
+              )}
+            </div>
+          ) : null}
         </>
       ) : undefined,
   });
@@ -436,7 +451,7 @@ export default function AnalysisSettingsSummary({
                               "create",
                               "RunQueriesButton",
                               datasource?.type || null,
-                              res.snapshot
+                              res.snapshot,
                             );
 
                             setAnalysisSettings(null);
@@ -489,7 +504,7 @@ export default function AnalysisSettingsSummary({
                           status === "failed" ||
                           status === "partially-succeeded",
                       },
-                      " "
+                      " ",
                     )}
                     display={null}
                     status={status}
@@ -544,7 +559,7 @@ export default function AnalysisSettingsSummary({
                               "create",
                               "ForceRerunQueriesButton",
                               datasource?.type || null,
-                              res.snapshot
+                              res.snapshot,
                             );
                             mutateSnapshot();
                             mutate();

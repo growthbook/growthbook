@@ -12,6 +12,8 @@ Attribute:
   $ref: "./Attribute.yaml"
 Segment:
   $ref: "./Segment.yaml"
+ScheduleRule:
+  $ref: "./ScheduleRule.yaml"
 Feature:
   $ref: "./Feature.yaml"
 FeatureWithRevisions:
@@ -32,6 +34,8 @@ FeatureExperimentRule:
   $ref: "./FeatureExperimentRule.yaml"
 FeatureExperimentRefRule:
   $ref: "./FeatureExperimentRefRule.yaml"
+FeatureRevision:
+  $ref: "./FeatureRevision.yaml"
 SdkConnection:
   $ref: "./SdkConnection.yaml"
 Experiment:
@@ -72,3 +76,5 @@ Settings:
   $ref: "./Settings.yaml"
 OrganizationDefaults:
   $ref: "./OrganizationDefaults.yaml"
+CodeRef:
+  $ref: "./CodeRef.yaml"

@@ -2,19 +2,13 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import {
-  BsFlag,
-  BsClipboardCheck,
-  BsLightbulb,
-  BsCodeSlash,
-} from "react-icons/bs";
+import { BsFlag, BsClipboardCheck, BsCodeSlash, BsHouse } from "react-icons/bs";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Flex } from "@radix-ui/themes";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
-  GBBandit,
   GBDatabase,
   GBExperiment,
   GBLibrary,
@@ -24,18 +18,20 @@ import { inferDocUrl } from "@/components/DocLink";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { AppFeatures } from "@/types/app-features";
 import { WhiteButton } from "@/components/Radix/Button";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
 import styles from "./Layout.module.scss";
 import { usePageHead } from "./PageHead";
+import { useSidebarOpen } from "./SidebarOpenProvider";
 
 const navlinks: SidebarLinkProps[] = [
   {
-    name: "Get Started",
-    href: "/getstarted",
-    Icon: BsLightbulb,
-    path: /^getstarted/,
+    name: "Home",
+    href: "/",
+    Icon: BsHouse,
+    path: /^$/,
     className: styles.first,
   },
   {
@@ -45,22 +41,56 @@ const navlinks: SidebarLinkProps[] = [
     path: /^(features)/,
   },
   {
-    name: "Experiments",
+    name: "Experimentation",
     href: "/experiments",
-    path: /^experiment/,
+    path: /^(experiments|experiment\/|bandit|namespaces|power-calculator)/,
     Icon: GBExperiment,
-  },
-  {
-    name: "Bandits",
-    href: "/bandits",
-    Icon: GBBandit,
-    path: /^bandit/,
-    filter: ({ gb }) => !!gb?.isOn("bandits"),
+    navigateOnExpand: true,
+    subLinks: [
+      {
+        name: "Experiments",
+        href: "/experiments",
+        path: /^(experiments(\/(?!templates|explore)|$)|experiment\/)/,
+      },
+      {
+        name: "Bandits",
+        href: "/bandits",
+        //Icon: GBBandit,
+        path: /^bandit/,
+        filter: ({ gb }) => !!gb?.isOn("bandits"),
+      },
+      {
+        name: "Holdouts",
+        href: "/holdouts",
+        path: /^holdouts/,
+        filter: ({ gb }) => !!gb?.isOn("holdouts_feature"),
+      },
+      {
+        name: "Templates",
+        href: "/experiments/templates",
+        path: /^experiments\/templates/,
+      },
+      {
+        name: "Power Calculator",
+        href: "/power-calculator",
+        path: /^power-calculator/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      // {
+      //   name: "Search",
+      //   href: "/experiments/explore",
+      //   path: /^experiments\/explore/,
+      // },
+    ],
   },
   {
     name: "Metrics and Data",
     href: "/metrics",
-    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group)/,
+    path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|sql-explorer)/,
     autoClose: true,
     Icon: GBDatabase,
     subLinks: [
@@ -88,6 +118,12 @@ const navlinks: SidebarLinkProps[] = [
         name: "Data Sources",
         href: "/datasources",
         path: /^datasources/,
+      },
+      {
+        name: "SQL Explorer",
+        href: "/sql-explorer",
+        path: /^sql-explorer/,
+        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
       },
     ],
   },
@@ -163,7 +199,7 @@ const navlinks: SidebarLinkProps[] = [
   {
     name: "SDK Configuration",
     href: "/sdks",
-    path: /^(attributes|namespaces|environments|saved-groups|sdks|archetypes)/,
+    path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
     autoClose: true,
     Icon: BsCodeSlash,
     subLinks: [
@@ -176,11 +212,6 @@ const navlinks: SidebarLinkProps[] = [
         name: "Attributes",
         href: "/attributes",
         path: /^attributes/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
       },
       {
         name: "Environments",
@@ -368,9 +399,10 @@ const backgroundShade = (color: string) => {
 };
 
 const Layout = (): React.ReactElement => {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useSidebarOpen();
   const settings = useOrgSettings();
-  const { accountPlan, license, subscription } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  const { organization, canSubscribe } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
   // holdout aa-test, dogfooding
@@ -380,10 +412,9 @@ const Layout = (): React.ReactElement => {
 
   const [upgradeModal, setUpgradeModal] = useState(false);
   const showUpgradeButton =
-    ["oss", "starter"].includes(accountPlan || "") ||
-    (license?.isTrial && !subscription?.hasPaymentMethod) ||
-    (["pro", "pro_sso"].includes(accountPlan || "") &&
-      subscription?.status === "canceled");
+    canSubscribe &&
+    permissionsUtil.canManageBilling() &&
+    !organization.isVercelIntegration;
 
   // hacky:
   const router = useRouter();

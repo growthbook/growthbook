@@ -54,7 +54,7 @@ export default function ExperimentRefFields({
         (e.id === experimentId ||
           (!e.archived &&
             e.status !== "stopped" &&
-            (e.project || "") === (feature.project || "")))
+            (e.project || "") === (feature.project || ""))),
     )
     .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
     .map((e) => ({
@@ -86,7 +86,7 @@ export default function ExperimentRefFields({
                   exp.variations.map((v, i) => ({
                     variationId: v.id,
                     value: i ? variationValue : controlValue,
-                  }))
+                  })),
                 );
               }
             }}

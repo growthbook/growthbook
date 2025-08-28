@@ -38,6 +38,7 @@ const config = {
     {
       src: "https://widget.kapa.ai/kapa-widget.bundle.js",
       "data-website-id": "c4406b9f-35c5-43ca-b0c1-e7c0e261831f", // Safe to expose publicly
+      "data-user-analytics-cookie-enabled": "false",
       "data-project-name": "GrowthBook",
       "data-project-color": "#7817d3",
       "data-modal-example-questions":
@@ -78,9 +79,12 @@ const config = {
             require.resolve("modern-normalize/modern-normalize.css"),
           ],
         },
-        gtag: {
-          trackingID: "G-3W683MDLMQ",
-        },
+        gtag:
+          process.env.NODE_ENV === "production"
+            ? {
+                trackingID: "G-3W683MDLMQ",
+              }
+            : undefined,
       }),
     ],
     [
@@ -146,8 +150,7 @@ const config = {
                 rel: null,
               },
               {
-                href:
-                  "https://github.com/growthbook/growthbook/issues/new/choose",
+                href: "https://github.com/growthbook/growthbook/issues/new/choose",
                 label: "Open an issue",
                 target: "_blank",
                 rel: null,
@@ -237,7 +240,18 @@ const config = {
         //... other Algolia params
       },
     },
-  plugins: ["docusaurus-plugin-sass"],
+  plugins: [
+    "docusaurus-plugin-sass",
+    [
+      "docusaurus-plugin-llms",
+      {
+        excludeImports: true,
+        pathTransformation: {
+          ignorePaths: ["docs"],
+        },
+      },
+    ],
+  ],
 
   stylesheets: [
     {

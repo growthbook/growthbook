@@ -167,7 +167,7 @@ export default function FactMetricPage() {
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
-    "analysis"
+    "analysis",
   );
   const { apiCall } = useAuth();
 
@@ -217,7 +217,7 @@ export default function FactMetricPage() {
 
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   const denominatorFactTable = getFactTableById(
-    factMetric.denominator?.factTableId || ""
+    factMetric.denominator?.factTableId || "",
   );
 
   const datasource = factMetric.datasource
@@ -268,8 +268,8 @@ export default function FactMetricPage() {
               factMetric.numerator.column === "$$count"
                 ? "Count of Rows"
                 : factMetric.numerator.column === "$$distinctUsers"
-                ? "Unique Users"
-                : factMetric.numerator.column,
+                  ? "Unique Users"
+                  : factMetric.numerator.column,
           },
         ]
       : []),
@@ -283,13 +283,13 @@ export default function FactMetricPage() {
           },
         ]
       : userFilters.length > 0
-      ? [
-          {
-            label: "User Filter",
-            value: userFilters.join(" AND "),
-          },
-        ]
-      : []),
+        ? [
+            {
+              label: "User Filter",
+              value: userFilters.join(" AND "),
+            },
+          ]
+        : []),
     ...(factMetric.metricType === "quantile"
       ? [
           {
@@ -303,7 +303,7 @@ export default function FactMetricPage() {
           {
             label: "Quantile",
             value: getPercentileLabel(
-              factMetric.quantileSettings?.quantile ?? 0.5
+              factMetric.quantileSettings?.quantile ?? 0.5,
             ),
           },
         ]
@@ -348,8 +348,8 @@ export default function FactMetricPage() {
               factMetric.denominator.column === "$$count"
                 ? "Count of Rows"
                 : factMetric.denominator.column === "$$distinctUsers"
-                ? "Unique Users"
-                : factMetric.denominator.column,
+                  ? "Unique Users"
+                  : factMetric.denominator.column,
           },
           ...(!factMetric.denominator.column.startsWith("$$")
             ? [
@@ -616,9 +616,42 @@ export default function FactMetricPage() {
         <div className="col-12 col-md-8">
           <div className="appbox p-3 mb-5">
             <MarkdownInlineEdit
+              header={"Description"}
               canCreate={canEdit}
               canEdit={canEdit}
               value={factMetric.description}
+              aiSuggestFunction={async () => {
+                const res = await apiCall<{
+                  status: number;
+                  data: {
+                    description: string;
+                  };
+                }>(
+                  `/metrics/${factMetric.id}/gen-description`,
+                  {
+                    method: "GET",
+                  },
+                  (responseData) => {
+                    if (responseData.status === 429) {
+                      const retryAfter = parseInt(responseData.retryAfter);
+                      const hours = Math.floor(retryAfter / 3600);
+                      const minutes = Math.floor((retryAfter % 3600) / 60);
+                      throw new Error(
+                        `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+                      );
+                    } else {
+                      throw new Error("Error getting AI suggestion");
+                    }
+                  },
+                );
+                if (res?.status !== 200) {
+                  throw new Error("Could not load AI suggestions");
+                }
+                return res.data.description;
+              }}
+              aiButtonText="Suggest Description"
+              aiSuggestionHeader="Suggested Description"
+              emptyHelperText="Add a description to keep your team informed about how to apply this metric."
               save={async (description) => {
                 await apiCall(`/fact-metrics/${factMetric.id}`, {
                   method: "PUT",
@@ -671,8 +704,8 @@ export default function FactMetricPage() {
                   {factMetric.metricType === "retention"
                     ? " plus the retention window"
                     : factMetric.windowSettings.delayValue
-                    ? " plus the metric delay"
-                    : ""}
+                      ? " plus the metric delay"
+                      : ""}
                   .
                 </>
               ) : factMetric.windowSettings.type === "lookback" ? (
@@ -692,8 +725,8 @@ export default function FactMetricPage() {
                   {factMetric.metricType === "retention"
                     ? " plus the retention window"
                     : factMetric.windowSettings.delayValue
-                    ? " plus the metric delay"
-                    : ""}
+                      ? " plus the metric delay"
+                      : ""}
                   .
                 </>
               )}
@@ -740,7 +773,7 @@ export default function FactMetricPage() {
                         <li className="mb-2">
                           <span className="uppercase-title lg">
                             {capitalizeFirstLetter(
-                              factMetric.cappingSettings.type
+                              factMetric.cappingSettings.type,
                             )}
                             {" capping"}
                           </span>
@@ -801,7 +834,7 @@ export default function FactMetricPage() {
                         : getExperimentMetricFormatter(
                             factMetric,
                             getFactTableById,
-                            "number"
+                            "number",
                           )(getMinSampleSizeForMetric(factMetric), {
                             currency: displayCurrency,
                           })}

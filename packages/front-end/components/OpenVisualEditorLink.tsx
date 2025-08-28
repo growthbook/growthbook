@@ -50,7 +50,7 @@ export async function openVisualEditor({
 
   const apiHost = getApiHost();
   const { enabled: aiFeatureMeta } = await apiCall<{ enabled: boolean }>(
-    `/meta/ai`
+    `/meta/ai`,
   );
   const isAiFeatureEnabled = growthbook.isOn("visual-editor-ai-enabled");
 
@@ -77,13 +77,13 @@ export async function openVisualEditor({
         case "chrome":
           res = await fetch(
             "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo128.png",
-            { method: "HEAD" }
+            { method: "HEAD" },
           );
           break;
         case "firefox":
           res = await fetch(
             "moz-extension://a69dc869-b91d-4fd3-adb2-71dc23cdc01c/js/logo128.png",
-            { method: "HEAD" }
+            { method: "HEAD" },
           );
           break;
       }
@@ -113,7 +113,7 @@ export async function openVisualEditor({
           apiKey,
         },
       },
-      window.location.origin
+      window.location.origin,
     );
 
     // Give time for the extension to receive the API host/key
@@ -278,18 +278,19 @@ const OpenVisualEditorLink: FC<{
 
 export default OpenVisualEditorLink;
 
-export function getBrowserDevice(
-  ua: string
-): { browser: string; deviceType: string } {
+export function getBrowserDevice(ua: string): {
+  browser: string;
+  deviceType: string;
+} {
   const browser = ua.match(/Edg/)
     ? "edge"
     : ua.match(/Chrome/)
-    ? "chrome"
-    : ua.match(/Firefox/)
-    ? "firefox"
-    : ua.match(/Safari/)
-    ? "safari"
-    : "unknown";
+      ? "chrome"
+      : ua.match(/Firefox/)
+        ? "firefox"
+        : ua.match(/Safari/)
+          ? "safari"
+          : "unknown";
 
   const deviceType = ua.match(/Mobi/) ? "mobile" : "desktop";
 

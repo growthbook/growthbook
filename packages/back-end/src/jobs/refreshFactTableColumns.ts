@@ -16,7 +16,6 @@ import { determineColumnTypes } from "back-end/src/util/sql";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
-import { trackJob } from "back-end/src/services/tracing";
 import { logger } from "back-end/src/util/logger";
 
 const JOB_NAME = "refreshFactTableColumns";
@@ -25,46 +24,42 @@ type RefreshFactTableColumnsJob = Job<{
   factTableId: string;
 }>;
 
-const refreshFactTableColumns = trackJob(
-  JOB_NAME,
-  async (job: RefreshFactTableColumnsJob) => {
-    const { organization, factTableId } = job.attrs.data;
+const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
+  const { organization, factTableId } = job.attrs.data;
 
-    if (!factTableId || !organization) return;
+  if (!factTableId || !organization) return;
 
-    const context = await getContextForAgendaJobByOrgId(organization);
+  const context = await getContextForAgendaJobByOrgId(organization);
 
-    const factTable = await getFactTable(context, factTableId);
-    if (!factTable) return;
+  const factTable = await getFactTable(context, factTableId);
+  if (!factTable) return;
 
-    const datasource = await getDataSourceById(context, factTable.datasource);
-    if (!datasource) return;
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) return;
 
-    const updates: Partial<
-      Pick<FactTableInterface, "columns" | "columnsError">
-    > = {};
+  const updates: Partial<Pick<FactTableInterface, "columns" | "columnsError">> =
+    {};
 
-    try {
-      const columns = await runRefreshColumnsQuery(
-        context,
-        datasource,
-        factTable
-      );
-      updates.columns = columns;
-      updates.columnsError = null;
-    } catch (e) {
-      updates.columnsError = e.message;
-    }
-
-    await updateFactTableColumns(factTable, updates);
+  try {
+    const columns = await runRefreshColumnsQuery(
+      context,
+      datasource,
+      factTable,
+    );
+    updates.columns = columns;
+    updates.columnsError = null;
+  } catch (e) {
+    updates.columnsError = e.message;
   }
-);
+
+  await updateFactTableColumns(factTable, updates);
+};
 
 export async function runColumnTopValuesQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: Pick<FactTableInterface, "sql" | "eventName">,
-  column: ColumnInterface
+  column: ColumnInterface,
 ): Promise<string[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -96,7 +91,7 @@ export async function runRefreshColumnsQuery(
   factTable: Pick<
     FactTableInterface,
     "sql" | "eventName" | "columns" | "userIdTypes"
-  >
+  >,
 ): Promise<ColumnInterface[]> {
   if (!context.permissions.canRunFactQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -199,11 +194,11 @@ export async function runRefreshColumnsQuery(
           context,
           datasource,
           factTable,
-          col
+          col,
         );
         col.topValuesDate = new Date();
       } catch (e) {
-        logger.error("Error running top values query", e);
+        logger.error(e, "Error running top values query");
       }
     }
   }
@@ -219,7 +214,7 @@ export default function (ag: Agenda) {
 }
 
 export async function queueFactTableColumnsRefresh(
-  factTable: FactTableInterface
+  factTable: FactTableInterface,
 ) {
   const job = agenda.create(JOB_NAME, {
     organization: factTable.organization,

@@ -34,7 +34,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     if (type === "condition") {
       if (attributeKey || values) {
         throw new Error(
-          "Cannot specify attributeKey or values for condition groups"
+          "Cannot specify attributeKey or values for condition groups",
         );
       }
 
@@ -50,19 +50,19 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     else if (type === "list") {
       if (!attributeKey || !values) {
         throw new Error(
-          "Must specify an attributeKey and values for list groups"
+          "Must specify an attributeKey and values for list groups",
         );
       }
       const attributeSchema = req.organization.settings?.attributeSchema || [];
       const datatype = attributeSchema.find(
-        (sdkAttr) => sdkAttr.property === attributeKey
+        (sdkAttr) => sdkAttr.property === attributeKey,
       )?.datatype;
       if (!datatype) {
         throw new Error("Unknown attributeKey");
       }
       if (!ID_LIST_DATATYPES.includes(datatype)) {
         throw new Error(
-          "Cannot create an ID List for the given attribute key. Try using a Condition Group instead."
+          "Cannot create an ID List for the given attribute key. Try using a Condition Group instead.",
         );
       }
       if (condition) {
@@ -85,5 +85,5 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
     return {
       savedGroup: toSavedGroupApiInterface(savedGroup),
     };
-  }
+  },
 );

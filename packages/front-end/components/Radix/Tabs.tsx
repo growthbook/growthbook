@@ -1,5 +1,13 @@
 import clsx from "clsx";
-import { forwardRef, useEffect, useRef, useState } from "react";
+import {
+  Children,
+  forwardRef,
+  isValidElement,
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
 
@@ -43,15 +51,43 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
     persistInURL = false,
     ...props
   }: TabsProps,
-  ref
+  ref,
 ) {
   let rootProps: React.ComponentProps<typeof RadixTabs.Root> = {};
 
   const [urlHash, setUrlHash] = useURLHash();
 
   if (defaultValue && persistInURL) {
+    const possibleValues = new Set<string>();
+    Children.forEach(children, (child) => {
+      if (isValidElement(child) && child.props.value) {
+        possibleValues.add(child.props.value);
+      } else if (
+        isValidElement(child) &&
+        child.props &&
+        typeof child.props === "object" &&
+        "children" in child.props &&
+        Array.isArray(child.props.children)
+      ) {
+        // If the child is a TabsTrigger, check its children for a value
+        child.props.children.forEach((c: ReactNode) => {
+          if (
+            isValidElement(c) &&
+            c.props.value &&
+            typeof c.props.value === "string"
+          ) {
+            possibleValues.add(c.props.value);
+          }
+        });
+      }
+      return null;
+    });
+
     rootProps = {
-      value: urlHash ?? defaultValue,
+      value:
+        urlHash && (possibleValues.has(urlHash) || !possibleValues.size)
+          ? urlHash
+          : defaultValue,
       onValueChange: (value) => {
         setUrlHash(value as string);
         onValueChange?.(value);
@@ -97,7 +133,7 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
         {children}
       </RadixTabs.List>
     );
-  }
+  },
 );
 
 type StickyTabsListProps = { pinnedClass?: string } & TabsListProps;
@@ -118,7 +154,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
           root: null, // Use the viewport as the root
           rootMargin: `-${TABS_HEADER_HEIGHT_PX}px`,
           threshold: 0.01, // Trigger when first pixel leaves
-        }
+        },
       );
       if (tabsRef.current) {
         observer.observe(tabsRef.current);
@@ -142,7 +178,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
         <TabsList {...props} ref={ref} />
       </Box>
     );
-  }
+  },
 );
 
 export const TabsTrigger = forwardRef<

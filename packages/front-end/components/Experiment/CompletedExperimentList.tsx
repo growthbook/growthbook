@@ -16,7 +16,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Markdown from "@/components/Markdown/Markdown";
 import Link from "@/components/Radix/Link";
-import { experimentDate } from "@/pages/experiments";
+import { experimentDate } from "@/services/experiments";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 
@@ -73,7 +73,7 @@ const CompletedExperimentList = ({
             const result = e.results;
 
             const winningVariationIndex =
-              result === "lost" ? 0 : result === "won" ? e.winner ?? 1 : null;
+              result === "lost" ? 0 : result === "won" ? (e.winner ?? 1) : null;
 
             const winningVariation =
               winningVariationIndex !== null
@@ -82,7 +82,7 @@ const CompletedExperimentList = ({
 
             const releasedVariationId = e.releasedVariationId || "";
             const releasedVariationIndex = e.variations.findIndex(
-              (v) => v.id === releasedVariationId
+              (v) => v.id === releasedVariationId,
             );
             const releasedVariation =
               releasedVariationIndex >= 0
@@ -92,8 +92,8 @@ const CompletedExperimentList = ({
             const variantImageToShow = winningVariation
               ? winningVariationIndex
               : releasedVariation
-              ? releasedVariationIndex
-              : 0;
+                ? releasedVariationIndex
+                : 0;
 
             const expResult = (
               <>
@@ -127,7 +127,7 @@ const CompletedExperimentList = ({
                   body="Visual experiment"
                 >
                   <RxDesktop className="text-blue" />
-                </Tooltip>
+                </Tooltip>,
               );
             }
             if ((e.linkedFeatures || []).length > 0) {
@@ -138,7 +138,7 @@ const CompletedExperimentList = ({
                   body="Linked Feature Flag"
                 >
                   <BsFlag className="text-blue" />
-                </Tooltip>
+                </Tooltip>,
               );
             }
             if (e.hasURLRedirects) {
@@ -149,7 +149,7 @@ const CompletedExperimentList = ({
                   body="URL Redirect experiment"
                 >
                   <PiShuffle className="text-blue" />
-                </Tooltip>
+                </Tooltip>,
               );
             }
 
@@ -161,7 +161,7 @@ const CompletedExperimentList = ({
                   body="Implemented outside of GrowthBook"
                 >
                   <TbCloudOff className="text-blue" />
-                </Tooltip>
+                </Tooltip>,
               );
             }
 

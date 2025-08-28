@@ -9,6 +9,7 @@ import {
   MetricSnapshotSettings,
   ExperimentReportVariationWithIndex,
 } from "back-end/types/report";
+import React from "react";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import styles from "./FlagCard.module.scss";
 
@@ -84,12 +85,12 @@ export default function FlagCard({
           unadj.:&nbsp; [
           {deltaFormatter(
             data.stats.ci?.[0] ?? -Infinity,
-            deltaFormatterOptions
+            deltaFormatterOptions,
           )}
           ,{" "}
           {deltaFormatter(
             data.stats.ci?.[1] ?? Infinity,
-            deltaFormatterOptions
+            deltaFormatterOptions,
           )}
           ]
         </Text>
@@ -136,13 +137,11 @@ export default function FlagCard({
               align="center"
               gap="1"
               style={{
-                color:
-                  (data.rowResults.directionalStatus === "winning" &&
-                    !data.metric.inverse) ||
-                  (data.rowResults.directionalStatus === "losing" &&
-                    data.metric.inverse)
+                color: !data.rowResults.significant
+                  ? undefined
+                  : data.rowResults.directionalStatus === "winning"
                     ? "var(--green-11)"
-                    : "var(--red-a11)",
+                    : "var(--red-a12)",
               }}
             >
               {deltaFormatter(data.stats.expected ?? 0, deltaFormatterOptions)}
@@ -206,14 +205,39 @@ export default function FlagCard({
                     data.rowResults.riskMeta.riskStatus === "danger"
                       ? "var(--red-a11)"
                       : data.rowResults.riskMeta.riskStatus === "warning"
-                      ? "var(--amber-a11)"
-                      : undefined,
+                        ? "var(--amber-a11)"
+                        : undefined,
                 }}
               >
                 {data.rowResults.riskMeta.relativeRiskFormatted}
                 {data.rowResults.riskMeta.riskFormatted ? (
                   <>, {data.rowResults.riskMeta.riskFormatted}</>
                 ) : null}
+              </span>
+            }
+          />
+        ) : null}
+
+        {!data.isGuardrail && data.rowResults.suspiciousChange ? (
+          <CardItem
+            label="Suspicious"
+            tooltip={data.rowResults.suspiciousChangeReason}
+            value={
+              <span style={{ color: "var(--pink-a11)" }}>
+                % change &gt;{" "}
+                {percentFormatter.format(data.rowResults.suspiciousThreshold)}
+              </span>
+            }
+          />
+        ) : null}
+
+        {data.rowResults.guardrailWarning ? (
+          <CardItem
+            label="Guardrail trend"
+            tooltip={data.rowResults.guardrailWarning}
+            value={
+              <span style={{ color: "var(--red-a12)" }}>
+                Bad guardrail trend
               </span>
             }
           />
@@ -244,7 +268,7 @@ export default function FlagCard({
               {numberFormatter.format(enoughDataMeta.percentCompleteNumerator)}{" "}
               /{" "}
               {numberFormatter.format(
-                enoughDataMeta.percentCompleteDenominator
+                enoughDataMeta.percentCompleteDenominator,
               )}{" "}
               ({percentFormatter.format(enoughDataMeta.percentComplete)})
             </Text>

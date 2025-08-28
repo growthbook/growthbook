@@ -16,9 +16,8 @@ export default class Vertica extends SqlIntegration {
   requiresDatabase = true;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PostgresConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PostgresConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "postgresql";
@@ -76,10 +75,7 @@ export default class Vertica extends SqlIntegration {
       throw new Error(`No tables found.`);
     }
 
-    return formatInformationSchema(
-      results.rows as RawInformationSchema[],
-      this.datasource.type
-    );
+    return formatInformationSchema(results.rows as RawInformationSchema[]);
   }
   // may be able to optimize with using a string of multiple quantiles
   approxQuantile(value: string, quantile: string | number): string {

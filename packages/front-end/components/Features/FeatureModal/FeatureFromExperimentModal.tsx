@@ -55,7 +55,7 @@ const genEnvironmentSettings = ({
 
   environments.forEach((e) => {
     const canPublish = permissions.canPublishFeature({ project }, [e.id]);
-    const defaultEnabled = canPublish ? e.defaultState ?? true : false;
+    const defaultEnabled = canPublish ? (e.defaultState ?? true) : false;
     const enabled = canPublish ? defaultEnabled : false;
     const rules = [];
     envSettings[e.id] = { enabled, rules };
@@ -120,7 +120,7 @@ export default function FeatureFromExperimentModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
     allEnvironments,
-    experiment
+    experiment,
   );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
@@ -146,10 +146,10 @@ export default function FeatureFromExperimentModal({
   const form = useForm({ defaultValues });
 
   const [showTags, setShowTags] = useState(
-    experiment.tags && experiment.tags.length > 0
+    experiment.tags && experiment.tags.length > 0,
   );
   const [showDescription, setShowDescription] = useState(
-    experiment.description && experiment.description.length > 0
+    experiment.description && experiment.description.length > 0,
   );
 
   const { apiCall } = useAuth();
@@ -198,7 +198,7 @@ export default function FeatureFromExperimentModal({
       form.watch("variations").map((v) => ({
         ...v,
         value: transformValue(v.value),
-      }))
+      })),
     );
   }
 
@@ -228,6 +228,12 @@ export default function FeatureFromExperimentModal({
           : {
               ...feature,
               defaultValue: variations[0].value,
+              holdout: experiment.holdoutId
+                ? {
+                    id: experiment.holdoutId,
+                    value: variations[0].value,
+                  }
+                : undefined,
             };
 
         if (!featureToCreate) {
@@ -250,18 +256,37 @@ export default function FeatureFromExperimentModal({
         if (newRule) {
           form.setValue(
             "variations",
-            (newRule as ExperimentRefRule).variations
+            (newRule as ExperimentRefRule).variations,
           );
           hasChanges = true;
         }
 
         if (hasChanges) {
           throw new Error(
-            "We fixed some errors in the feature. If it looks correct, submit again."
+            "We fixed some errors in the feature. If it looks correct, submit again.",
           );
         }
 
         if (existing) {
+          const featureHoldoutId = validFeatures.find(
+            (f) => f.id === featureToCreate.id,
+          )?.holdout?.id;
+          // Require users to add the holdout to the feature if the experiment has a holdout and the feature does not
+          if (experiment.holdoutId && !featureHoldoutId) {
+            throw new Error(
+              "You cannot add a feature flag with no holdout to an experiment with a holdout. Add the holdout to the feature on the feature page itself.",
+            );
+          }
+          // Only allow adding a FF with the same holdout to an experiment that already is in a holdout
+          if (
+            experiment.holdoutId &&
+            featureHoldoutId !== experiment.holdoutId
+          ) {
+            throw new Error(
+              "You cannot add a feature flag with a holdout to an experiment that has a different holdout.",
+            );
+          }
+
           await apiCall(
             `/feature/${featureToCreate.id}/${featureToCreate.version}/experiment`,
             {
@@ -269,14 +294,14 @@ export default function FeatureFromExperimentModal({
               body: JSON.stringify({
                 rule: rule,
               }),
-            }
+            },
           );
         } else {
           // Add experiment rule to all environments
           Object.values(featureToCreate.environmentSettings).forEach(
             (settings) => {
               settings.rules.push(rule);
-            }
+            },
           );
 
           await apiCall<{ feature: FeatureInterface }>(`/feature`, {

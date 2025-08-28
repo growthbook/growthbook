@@ -10,6 +10,7 @@ import { Box, Container, Flex, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { AppFeatures } from "@/types/app-features";
 import RuleModal from "@/components/Features/RuleModal/index";
 import RuleList from "@/components/Features/RuleList";
@@ -30,6 +31,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/components/Radix/PremiumCallout";
 import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
+import HoldoutValueModal from "./HoldoutValueModal";
 
 export default function FeatureRules({
   environments,
@@ -44,6 +46,7 @@ export default function FeatureRules({
   hideInactive,
   isDraft,
   safeRolloutsMap,
+  holdout,
 }: {
   environments: Environment[];
   feature: FeatureInterface;
@@ -57,6 +60,7 @@ export default function FeatureRules({
   hideInactive: boolean;
   isDraft: boolean;
   safeRolloutsMap: Map<string, SafeRolloutInterface>;
+  holdout: HoldoutInterface | undefined;
 }) {
   const { hasCommercialFeature } = useUser();
   const envs = environments.map((e) => e.id);
@@ -75,6 +79,7 @@ export default function FeatureRules({
     sourceEnv?: string;
     targetEnv?: string;
   } | null>(null);
+  const [holdoutModal, setHoldoutModal] = useState<boolean>(false);
 
   // Make sure you can't access an invalid env tab, since active env tab is persisted via localStorage
   useEffect(() => {
@@ -88,7 +93,7 @@ export default function FeatureRules({
     environments.map((e) => {
       const rules = getRules(feature, e.id);
       return [e.id, rules];
-    })
+    }),
   );
 
   const tabEnvs = environments.slice(0, 4);
@@ -113,29 +118,43 @@ export default function FeatureRules({
                 {tabEnvs.map((e) => (
                   <TabsTrigger value={e.id} key={e.id}>
                     <Flex maxWidth="220px">
-                      <Text truncate>{e.id}</Text>
+                      <Text truncate title={e.id}>
+                        {e.id}
+                      </Text>
                     </Flex>
                     <Badge
                       ml="2"
-                      label={rulesByEnv[e.id].length.toString()}
+                      label={
+                        holdout?.environmentSettings[e.id].enabled
+                          ? (rulesByEnv[e.id].length + 1).toString()
+                          : rulesByEnv[e.id].length.toString()
+                      }
                       radius="full"
                       variant="solid"
                       color="violet"
-                    ></Badge>
+                    />
                   </TabsTrigger>
                 ))}
                 {dropdownEnvs.length === 1 && (
                   <TabsTrigger value={dropdownEnvs[0].id}>
                     <Flex maxWidth="220px">
-                      <Text truncate>{dropdownEnvs[0].id}</Text>
+                      <Text truncate title={dropdownEnvs[0].id}>
+                        {dropdownEnvs[0].id}
+                      </Text>
                     </Flex>
                     <Badge
                       ml="2"
-                      label={rulesByEnv[dropdownEnvs[0].id].length.toString()}
+                      label={
+                        holdout?.environmentSettings[dropdownEnvs[0].id].enabled
+                          ? (
+                              rulesByEnv[dropdownEnvs[0].id].length + 1
+                            ).toString()
+                          : rulesByEnv[dropdownEnvs[0].id].length.toString()
+                      }
                       radius="full"
                       variant="solid"
                       color="violet"
-                    ></Badge>
+                    />
                   </TabsTrigger>
                 )}
                 {dropdownEnvs.length > 1 && (
@@ -161,18 +180,22 @@ export default function FeatureRules({
                         formatOptionLabel={({ value }) => (
                           <Flex align="center">
                             <Flex maxWidth="150px">
-                              <Text weight="medium" truncate>
+                              <Text weight="medium" truncate title={value}>
                                 {value}
                               </Text>
                             </Flex>
                             <Badge
                               ml="2"
                               mr="3"
-                              label={rulesByEnv[value].length.toString()}
+                              label={
+                                holdout?.environmentSettings[value].enabled
+                                  ? (rulesByEnv[value].length + 1).toString()
+                                  : rulesByEnv[value].length.toString()
+                              }
                               radius="full"
                               variant="solid"
                               color="violet"
-                            ></Badge>
+                            />
                           </Flex>
                         )}
                       />
@@ -193,10 +216,12 @@ export default function FeatureRules({
           </Flex>
         </Container>
         {environments.map((e) => {
+          const includeHoldoutRule =
+            holdout && holdout.environmentSettings[e.id].enabled;
           return (
             <TabsContent key={e.id} value={e.id}>
               <div className="mt-2">
-                {rulesByEnv[e.id].length > 0 ? (
+                {rulesByEnv[e.id].length > 0 || includeHoldoutRule ? (
                   <RuleList
                     environment={e.id}
                     feature={feature}
@@ -210,6 +235,8 @@ export default function FeatureRules({
                     hideInactive={hideInactive}
                     isDraft={isDraft}
                     safeRolloutsMap={safeRolloutsMap}
+                    holdout={includeHoldoutRule ? holdout : undefined}
+                    openHoldoutModal={() => setHoldoutModal(true)}
                   />
                 ) : (
                   <Box py="4" className="text-muted">
@@ -312,6 +339,13 @@ export default function FeatureRules({
           setVersion={setVersion}
           setEnvironment={setEnv}
           cancel={() => setCompareEnvModal(null)}
+          mutate={mutate}
+        />
+      )}
+      {holdoutModal && (
+        <HoldoutValueModal
+          feature={feature}
+          close={() => setHoldoutModal(false)}
           mutate={mutate}
         />
       )}

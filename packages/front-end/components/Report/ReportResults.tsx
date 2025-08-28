@@ -55,22 +55,22 @@ export default function ReportResults({
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
           ?.variationWeights?.[i] ||
         1 / (report.experimentMetadata?.variations?.length || 2),
-    })
+    }),
   );
   // find analysis matching the difference type
   const analysis = snapshot
-    ? getSnapshotAnalysis(
+    ? (getSnapshotAnalysis(
         snapshot,
         snapshot.analyses.find(
           (a) =>
             a.settings.differenceType ===
-            report.experimentAnalysisSettings.differenceType
-        )?.settings
-      ) ?? undefined
+            report.experimentAnalysisSettings.differenceType,
+        )?.settings,
+      ) ?? undefined)
     : undefined;
   const queryStatusData = getQueryStatus(
     snapshot?.queries || [],
-    snapshot?.error
+    snapshot?.error,
   );
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
@@ -84,10 +84,10 @@ export default function ReportResults({
         m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled: !!m.computedSettings
-        ?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable: !!m.computedSettings
-        ?.regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
   const _orgSettings = useOrgSettings();
@@ -205,6 +205,7 @@ export default function ReportResults({
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
                 endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
+                phase={phase}
                 reportDate={snapshot.dateCreated}
                 status={"stopped"}
                 statsEngine={analysis.settings.statsEngine}
@@ -233,6 +234,7 @@ export default function ReportResults({
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
                 endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
+                phase={phase}
                 status={"stopped"}
                 goalMetrics={report.experimentAnalysisSettings.goalMetrics}
                 secondaryMetrics={

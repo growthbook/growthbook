@@ -50,7 +50,7 @@ export default function SafeRolloutSummary({
   const metricNames = guardrailMetricIds.flatMap((id) => {
     if (isMetricGroupId(id)) {
       return expandMetricGroups([id], metricGroups).map((metricId) =>
-        getMetricNameAndKey(metricId, id)
+        getMetricNameAndKey(metricId, id),
       );
     }
 
@@ -85,7 +85,7 @@ export default function SafeRolloutSummary({
   return (
     <Flex direction="column" gap="3">
       <Flex direction="row" gap="2">
-        <Text weight="medium">SPLIT</Text>by
+        <Text weight="medium">SAMPLE</Text> by{" "}
         <Badge
           color="gray"
           label={
@@ -120,7 +120,6 @@ export default function SafeRolloutSummary({
       <Text weight="medium">SERVE</Text>
       <Box
         px="3"
-        py="1"
         style={{
           border: "1px solid var(--gray-a5)",
           borderRadius: "var(--radius-2)",

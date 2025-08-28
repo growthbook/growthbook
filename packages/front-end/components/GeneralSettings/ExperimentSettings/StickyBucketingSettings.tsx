@@ -40,7 +40,7 @@ export default function StickyBucketingSettings() {
               setValue={(v) =>
                 setValue(
                   "useStickyBucketing",
-                  hasCommercialFeature("sticky-bucketing") ? v : false
+                  hasCommercialFeature("sticky-bucketing") ? v : false,
                 )
               }
               id="toggle-useStickyBucketing"
@@ -100,7 +100,7 @@ export default function StickyBucketingSettings() {
               </Box>
             </Flex>
           )}
-          <Callout status="info" mt="3">
+          <Callout status="info" mt="3" contentsAs="div">
             <Text size="2">
               <StickyBucketingToggleWarning
                 showIcon={false}

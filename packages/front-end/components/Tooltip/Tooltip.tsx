@@ -6,6 +6,7 @@ import {
   useEffect,
   CSSProperties,
   useRef,
+  useCallback,
 } from "react";
 import { usePopper } from "react-popper";
 import clsx from "clsx";
@@ -26,10 +27,12 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
   shouldDisplay?: boolean;
   usePortal?: boolean;
   state?: boolean;
+  ignoreMouseEvents?: boolean; // Prevent the tooltip from reacting to mouseEnter and mouseExit events
   // must be set for tracking event to fire on hover
   trackingEventTooltipType?: string;
   trackingEventTooltipSource?: string;
   delay?: number; // Delay in milliseconds before showing the tooltip
+  flipTheme?: boolean;
 }
 const Tooltip: FC<Props> = ({
   body,
@@ -43,9 +46,11 @@ const Tooltip: FC<Props> = ({
   shouldDisplay = true,
   usePortal = false,
   state,
+  ignoreMouseEvents = false,
   trackingEventTooltipType,
   trackingEventTooltipSource,
   delay = 300,
+  flipTheme = true,
   ...otherProps
 }) => {
   const [open, setOpen] = useState(state ?? false);
@@ -54,11 +59,37 @@ const Tooltip: FC<Props> = ({
 
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (state !== undefined) {
-      setOpen(state);
+  const clearTimeouts = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
-  }, [state]);
+  }, [timeoutRef]);
+
+  const handleMouseEnter = useCallback(() => {
+    clearTimeouts();
+    timeoutRef.current = setTimeout(() => {
+      setOpen(true);
+      setTimeout(() => setFadeIn(true), 50);
+    }, delay);
+  }, [clearTimeouts, timeoutRef, setOpen, setFadeIn, delay]);
+
+  const handleMouseLeave = useCallback(() => {
+    clearTimeouts();
+    timeoutRef.current = setTimeout(() => {
+      setFadeIn(false);
+      setTimeout(() => setOpen(false), 300);
+    }, 200);
+  }, [clearTimeouts]);
+
+  useEffect(() => {
+    // Bypasses the normal mouse event triggers for direct state control
+    if (state === true) {
+      handleMouseEnter();
+    } else if (state === false) {
+      handleMouseLeave();
+    }
+  }, [state, handleMouseEnter, handleMouseLeave]);
 
   useEffect(() => {
     if (open && !alreadyHovered && trackingEventTooltipType) {
@@ -89,38 +120,15 @@ const Tooltip: FC<Props> = ({
       ],
       placement: tipPosition,
       strategy: "fixed",
-    }
+    },
   );
-
-  const clearTimeouts = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  };
-
-  const handleMouseEnter = () => {
-    clearTimeouts();
-    timeoutRef.current = setTimeout(() => {
-      setOpen(true);
-      setTimeout(() => setFadeIn(true), 50);
-    }, delay);
-  };
-
-  const handleMouseLeave = () => {
-    clearTimeouts();
-    timeoutRef.current = setTimeout(() => {
-      setFadeIn(false);
-      setTimeout(() => setOpen(false), 300);
-    }, 200);
-  };
 
   if (!children && children !== 0) children = <GBInfo />;
   const el = (
     <span
       ref={triggerRef}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={ignoreMouseEvents ? undefined : handleMouseEnter}
+      onMouseLeave={ignoreMouseEvents ? undefined : handleMouseLeave}
       className={`${className}`}
       {...otherProps}
     >
@@ -132,11 +140,11 @@ const Tooltip: FC<Props> = ({
     <>
       {open && body && shouldDisplay && (
         <Box style={{ position: "absolute" }}>
-          <RadixTheme flip={true}>
+          <RadixTheme flip={flipTheme}>
             <Box
               ref={tooltipRef}
-              onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
+              onMouseEnter={ignoreMouseEvents ? undefined : handleMouseEnter}
+              onMouseLeave={ignoreMouseEvents ? undefined : handleMouseLeave}
               style={{
                 ...styles.popper,
                 minWidth: tipMinWidth,
@@ -148,7 +156,7 @@ const Tooltip: FC<Props> = ({
               className={clsx(
                 "shadow-lg gb-tooltip",
                 fadeIn ? "tooltip-visible" : "tooltip-hidden",
-                popperClassName
+                popperClassName,
               )}
               role="tooltip"
             >

@@ -34,7 +34,20 @@ class Histogram {
   }
 }
 
+class Gauge {
+  name: string;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  record(v: number, attributes?: Attributes) {
+    tracer.dogstatsd.gauge(this.name, v, attributes);
+  }
+}
+
 setMetrics({
   getCounter: (name: string) => new Counter(name),
   getHistogram: (name: string) => new Histogram(name),
+  getGauge: (name: string) => new Gauge(name),
 });

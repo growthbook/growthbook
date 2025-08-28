@@ -10,6 +10,12 @@ import useApi from "@/hooks/useApi";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+} from "@/components/ResizablePanels";
+import { getTablePath } from "@/services/datasources";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -64,13 +70,13 @@ export default function SchemaBrowser({
         setError(e.message);
       }
     },
-    [apiCall, datasource.id, informationSchema?.id]
+    [apiCall, datasource.id, informationSchema?.id],
   );
 
   function pastePathIntoExistingQuery(
     existingQuery: string,
     index: number,
-    pathToPaste: string
+    pathToPaste: string,
   ) {
     if (index === existingQuery.length - 1) return existingQuery + pathToPaste;
     return (
@@ -87,7 +93,7 @@ export default function SchemaBrowser({
       const updatedStr = pastePathIntoExistingQuery(
         inputArray[row] || "",
         column,
-        path
+        path,
       );
 
       const updatedInputArray = cloneDeep(inputArray);
@@ -111,7 +117,7 @@ export default function SchemaBrowser({
       } else if (retryCount > 8) {
         setFetching(false);
         setError(
-          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
+          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes.",
         );
         setRetryCount(1);
       } else {
@@ -153,172 +159,197 @@ export default function SchemaBrowser({
 
   return (
     <div className="d-flex flex-column h-100">
-      <SchemaBrowserWrapper
-        datasourceName={datasource.name}
-        datasourceId={datasource.id}
-        canRunQueries={canRunQueries}
-        informationSchema={informationSchema}
-        setFetching={setFetching}
-        fetching={fetching}
-        setError={setError}
-      >
-        <>
-          {informationSchema?.databases.length &&
-          !informationSchema?.error &&
-          informationSchema?.status === "COMPLETE" ? (
-            <div
-              className="p-1"
-              style={{
-                overflowY: "auto",
-              }}
-            >
-              {informationSchema.databases.map((database, i) => {
-                return (
-                  <Fragment key={i}>
-                    {database.schemas.map((schema, j) => {
-                      return (
-                        <div key={j}>
-                          <Collapsible
-                            className="pb-1"
-                            onTriggerOpening={async () => {
-                              const currentDate = new Date();
-                              const dateLastUpdated = new Date(
-                                informationSchema.dateUpdated
-                              );
-                              // To calculate the time difference of two dates
-                              const diffInMilliseconds =
-                                currentDate.getTime() -
-                                dateLastUpdated.getTime();
+      <PanelGroup direction="vertical">
+        <Panel
+          id="schema-browser"
+          order={1}
+          defaultSize={currentTable ? 50 : 100}
+          minSize={11}
+        >
+          <SchemaBrowserWrapper
+            datasourceName={datasource.name}
+            datasourceId={datasource.id}
+            canRunQueries={canRunQueries}
+            informationSchema={informationSchema}
+            setFetching={setFetching}
+            fetching={fetching}
+            setError={setError}
+          >
+            {informationSchema?.databases.length &&
+            !informationSchema?.error &&
+            informationSchema?.status === "COMPLETE" ? (
+              <div
+                className="p-1"
+                style={{
+                  overflowY: "auto",
+                  height: "100%",
+                  minHeight: 0,
+                }}
+              >
+                {informationSchema.databases.map((database, i) => {
+                  return (
+                    <Fragment key={i}>
+                      {database.schemas.map((schema, j) => {
+                        return (
+                          <div key={j}>
+                            <Collapsible
+                              className="pb-1"
+                              onTriggerOpening={async () => {
+                                const currentDate = new Date();
+                                const dateLastUpdated = new Date(
+                                  informationSchema.dateUpdated,
+                                );
+                                // To calculate the time difference of two dates
+                                const diffInMilliseconds =
+                                  currentDate.getTime() -
+                                  dateLastUpdated.getTime();
 
-                              // To calculate the no. of days between two dates
-                              const diffInDays = Math.floor(
-                                diffInMilliseconds / (1000 * 3600 * 24)
-                              );
+                                // To calculate the no. of days between two dates
+                                const diffInDays = Math.floor(
+                                  diffInMilliseconds / (1000 * 3600 * 24),
+                                );
 
-                              if (diffInDays > 30) {
-                                await apiCall<{
-                                  status: number;
-                                  message?: string;
-                                }>(`/datasource/${datasource.id}/schema`, {
-                                  method: "PUT",
-                                  body: JSON.stringify({
-                                    informationSchemaId: informationSchema.id,
-                                  }),
-                                });
+                                if (diffInDays > 30) {
+                                  await apiCall<{
+                                    status: number;
+                                    message?: string;
+                                  }>(`/datasource/${datasource.id}/schema`, {
+                                    method: "PUT",
+                                    body: JSON.stringify({
+                                      informationSchemaId: informationSchema.id,
+                                    }),
+                                  });
+                                }
+                              }}
+                              trigger={
+                                ["bigquery", "postgres"].includes(
+                                  datasource.type,
+                                ) ? (
+                                  <>
+                                    <FaAngleRight />
+                                    {`${database.databaseName}.${schema.schemaName}`}
+                                  </>
+                                ) : datasource.type ===
+                                  "growthbook_clickhouse" ? (
+                                  <>
+                                    <FaAngleRight />
+                                    Tables
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaAngleRight />
+                                    {`${schema.schemaName}`}
+                                  </>
+                                )
                               }
-                            }}
-                            trigger={
-                              ["bigquery", "postgres"].includes(
-                                datasource.type
-                              ) ? (
-                                <>
-                                  <FaAngleRight />
-                                  {`${database.databaseName}.${schema.schemaName}`}
-                                </>
-                              ) : datasource.type ===
-                                "growthbook_clickhouse" ? (
-                                <>
-                                  <FaAngleRight />
-                                  Tables
-                                </>
-                              ) : (
-                                <>
-                                  <FaAngleRight />
-                                  {`${schema.schemaName}`}
-                                </>
-                              )
-                            }
-                            triggerWhenOpen={
-                              ["bigquery", "postgres"].includes(
-                                datasource.type
-                              ) ? (
-                                <>
-                                  <FaAngleDown />
-                                  {`${database.databaseName}.${schema.schemaName}`}
-                                </>
-                              ) : datasource.type ===
-                                "growthbook_clickhouse" ? (
-                                <>
-                                  <FaAngleRight />
-                                  Tables
-                                </>
-                              ) : (
-                                <>
-                                  <FaAngleDown />
-                                  {`${schema.schemaName}`}
-                                </>
-                              )
-                            }
-                            triggerStyle={{
-                              fontWeight: "bold",
-                            }}
-                            transitionTime={100}
-                          >
-                            {schema.tables.map((table, k) => {
-                              return (
-                                <div
-                                  className={clsx(
-                                    table.id === currentTable &&
-                                      "bg-secondary rounded text-white",
-                                    "pl-3 py-1"
-                                  )}
-                                  style={{ userSelect: "none" }}
-                                  role="button"
-                                  key={k}
-                                  onClick={async (e) =>
-                                    handleTableClick(e, table.path, table.id)
-                                  }
-                                >
-                                  <FaTable /> {table.tableName}
-                                </div>
-                              );
-                            })}
-                          </Collapsible>
-                        </div>
-                      );
-                    })}
-                  </Fragment>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="p-2">
-              {!informationSchema && !fetching && (
-                <BuildInformationSchemaCard
-                  error={error}
-                  canRunQueries={canRunQueries}
-                  refreshOrCreateInfoSchema={(type) =>
-                    refreshOrCreateInfoSchema(type)
-                  }
-                />
-              )}
-              {(informationSchema?.status === "PENDING" || fetching) && (
-                <PendingInformationSchemaCard mutate={mutate} />
-              )}
-              {!fetching && informationSchema?.error && (
-                <RetryInformationSchemaCard
-                  error={error}
-                  canRunQueries={canRunQueries}
-                  informationSchema={informationSchema}
-                  refreshOrCreateInfoSchema={(type) =>
-                    refreshOrCreateInfoSchema(type)
-                  }
-                />
-              )}
-            </div>
-          )}
-        </>
-      </SchemaBrowserWrapper>
+                              triggerWhenOpen={
+                                ["bigquery", "postgres"].includes(
+                                  datasource.type,
+                                ) ? (
+                                  <>
+                                    <FaAngleDown />
+                                    {`${database.databaseName}.${schema.schemaName}`}
+                                  </>
+                                ) : datasource.type ===
+                                  "growthbook_clickhouse" ? (
+                                  <>
+                                    <FaAngleRight />
+                                    Tables
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaAngleDown />
+                                    {`${schema.schemaName}`}
+                                  </>
+                                )
+                              }
+                              triggerStyle={{
+                                fontWeight: "bold",
+                              }}
+                              transitionTime={100}
+                            >
+                              {schema.tables.map((table, k) => {
+                                // Generate the appropriate path for this datasource type using context
+                                const tablePath = getTablePath(
+                                  datasource.type,
+                                  {
+                                    catalog: database.databaseName,
+                                    schema: schema.schemaName,
+                                    tableName: table.tableName,
+                                  },
+                                );
+                                return (
+                                  <div
+                                    className={clsx(
+                                      table.id === currentTable &&
+                                        "bg-secondary rounded text-white",
+                                      "pl-3 py-1",
+                                    )}
+                                    style={{ userSelect: "none" }}
+                                    role="button"
+                                    key={k}
+                                    onClick={async (e) =>
+                                      handleTableClick(e, tablePath, table.id)
+                                    }
+                                  >
+                                    <FaTable /> {table.tableName}
+                                  </div>
+                                );
+                              })}
+                            </Collapsible>
+                          </div>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-2">
+                {!informationSchema && !fetching && (
+                  <BuildInformationSchemaCard
+                    error={error}
+                    canRunQueries={canRunQueries}
+                    refreshOrCreateInfoSchema={(type) =>
+                      refreshOrCreateInfoSchema(type)
+                    }
+                  />
+                )}
+                {(informationSchema?.status === "PENDING" || fetching) && (
+                  <PendingInformationSchemaCard mutate={mutate} />
+                )}
+                {!fetching && informationSchema?.error && (
+                  <RetryInformationSchemaCard
+                    error={error}
+                    canRunQueries={canRunQueries}
+                    informationSchema={informationSchema}
+                    refreshOrCreateInfoSchema={(type) =>
+                      refreshOrCreateInfoSchema(type)
+                    }
+                  />
+                )}
+              </div>
+            )}
+          </SchemaBrowserWrapper>
+        </Panel>
+
+        {currentTable && (
+          <>
+            <PanelResizeHandle />
+            <Panel id="table-data" order={2} defaultSize={50} minSize={5}>
+              <DatasourceTableData
+                datasource={datasource}
+                canRunQueries={canRunQueries}
+                tableId={currentTable}
+                datasourceId={datasource.id}
+                setError={setError}
+              />
+            </Panel>
+          </>
+        )}
+      </PanelGroup>
+
       {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
-      {currentTable ? (
-        <DatasourceTableData
-          datasource={datasource}
-          canRunQueries={canRunQueries}
-          tableId={currentTable}
-          datasourceId={datasource.id}
-          setError={setError}
-        />
-      ) : null}
     </div>
   );
 }

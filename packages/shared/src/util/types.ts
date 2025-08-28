@@ -19,16 +19,16 @@ export type IsTuple<Tuple extends any[]> = {
 }[Tuple extends []
   ? "empty"
   : Tuple extends (infer Element)[]
-  ? Element[] extends Tuple
-    ? "infinite"
-    : "nonEmpty"
-  : never];
+    ? Element[] extends Tuple
+      ? "infinite"
+      : "nonEmpty"
+    : never];
 
 export type TupleToUnion<T> = T extends (infer E)[] ? E : never;
 
 export type UnionPop<U> = (
   (U extends any ? (k: (x: U) => void) => void : never) extends (
-    k: infer I
+    k: infer I,
   ) => void
     ? I
     : never
@@ -62,4 +62,21 @@ export function ensure<T>(x: T): asserts x is NonNullable<T> {
 export function ensureAndReturn<T>(x: T): NonNullable<T> {
   ensure(x);
   return x;
+}
+
+// The built-in Omit<> doesn't work for certain composites like discriminated unions
+export type DistributiveOmit<T, K extends PropertyKey> = T extends any
+  ? Omit<T, K>
+  : never;
+
+export function isStringArray(data: unknown): data is Array<string> {
+  return Array.isArray(data) && !data.find((el) => typeof el !== "string");
+}
+
+export function isString(data: unknown): data is string {
+  return typeof data === "string";
+}
+
+export function isNumber(data: unknown): data is number {
+  return typeof data === "number";
 }

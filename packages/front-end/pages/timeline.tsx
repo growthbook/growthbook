@@ -6,12 +6,11 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useExperiments } from "@/hooks/useExperiments";
-import { experimentDate } from "@/pages/experiments";
 import ExperimentTimeline from "@/enterprise/components/Insights/ExperimentTimeline";
 import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
-import { useExperimentSearch } from "@/services/experiments";
+import { useExperimentSearch, experimentDate } from "@/services/experiments";
 import LinkButton from "@/components/Radix/LinkButton";
 
 const ExperimentTimelinePage = (): React.ReactElement => {
@@ -21,12 +20,12 @@ const ExperimentTimelinePage = (): React.ReactElement => {
   const [startDate, setStartDate] = useState<Date>(
     searchParams.get("startDate")
       ? new Date(searchParams.get("startDate")!)
-      : new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000) // 180 days ago
+      : new Date(today.getTime() - 180 * 24 * 60 * 60 * 1000), // 180 days ago
   );
   const [endDate, setEndDate] = useState<Date>(
     searchParams.get("endDate")
       ? new Date(searchParams.get("endDate")!)
-      : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days in the future
+      : new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days in the future
   );
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -36,11 +35,11 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     window.history.pushState({}, "", newUrl);
   }, [startDate, endDate]);
 
-  const { experiments: allExperiments, error, loading } = useExperiments(
-    project,
-    false,
-    "standard"
-  );
+  const {
+    experiments: allExperiments,
+    error,
+    loading,
+  } = useExperiments(project, false, "standard");
 
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
@@ -55,18 +54,14 @@ const ExperimentTimelinePage = (): React.ReactElement => {
       });
       return items;
     },
-    [endDate, startDate]
+    [endDate, startDate],
   );
 
-  const {
-    items,
-    searchInputProps,
-    syntaxFilters,
-    setSearchValue,
-  } = useExperimentSearch({
-    allExperiments,
-    filterResults,
-  });
+  const { items, searchInputProps, syntaxFilters, setSearchValue } =
+    useExperimentSearch({
+      allExperiments,
+      filterResults,
+    });
 
   if (error) {
     return (

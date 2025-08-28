@@ -3,6 +3,7 @@ import { Queries } from "./query";
 export interface DimensionInterface {
   id: string;
   organization: string;
+  managedBy?: "" | "api" | "config";
   owner: string;
   datasource: string;
   description?: string;

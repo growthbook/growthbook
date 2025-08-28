@@ -25,7 +25,7 @@ const margin = { top: 20, right: 20, bottom: 50, left: 250 }; // Increased left 
 
 const getPhaseColor = (
   experiment: ExperimentInterfaceStringDates,
-  phase: ExperimentPhaseStringDates
+  phase: ExperimentPhaseStringDates,
 ) => {
   const densityNumber = 7; //Math.round(bgMinColor + phase.coverage * (bgMaxColor - bgMinColor));
   const borderDensityNumber = 11; //Math.round(minBorderColor + phase.coverage * (maxBorderColor - minBorderColor));
@@ -33,16 +33,16 @@ const getPhaseColor = (
     experiment.status === "running"
       ? "cyan"
       : experiment.results === "dnf"
-      ? "bronze"
-      : experiment.results === "inconclusive"
-      ? "gold"
-      : experiment.results === "lost"
-      ? "red"
-      : experiment.results === "won"
-      ? "jade"
-      : phase.name === "Main"
-      ? "cyan"
-      : "plum";
+        ? "bronze"
+        : experiment.results === "inconclusive"
+          ? "gold"
+          : experiment.results === "lost"
+            ? "red"
+            : experiment.results === "won"
+              ? "jade"
+              : phase.name === "Main"
+                ? "cyan"
+                : "plum";
 
   return {
     background: `var(--${mainColor}-${densityNumber})`,
@@ -105,7 +105,7 @@ const ExperimentTimeline: React.FC<{
     status: ExperimentStatus,
     result: string,
     phase: ExperimentPhaseStringDates,
-    estimate: boolean = false
+    estimate: boolean = false,
   ) => {
     if (!containerRef.current) return;
 
@@ -249,14 +249,14 @@ const ExperimentTimeline: React.FC<{
                 <Box>
                   <strong>Started:</strong>{" "}
                   {tooltipData.phase.dateStarted
-                    ? date(tooltipData.phase.dateStarted)
+                    ? date(tooltipData.phase.dateStarted, "UTC")
                     : "-"}
                 </Box>
                 {tooltipData.status === "stopped" && (
                   <Box>
                     <strong>Ended:</strong>{" "}
                     {tooltipData.phase.dateEnded
-                      ? date(tooltipData.phase.dateEnded)
+                      ? date(tooltipData.phase.dateEnded, "UTC")
                       : "-"}
                   </Box>
                 )}
@@ -331,7 +331,7 @@ const ExperimentTimeline: React.FC<{
                     const start = getValidDate(phase.dateStarted) ?? "";
                     const end =
                       experiment.status === "stopped"
-                        ? getValidDate(phase.dateEnded) ?? ""
+                        ? (getValidDate(phase.dateEnded) ?? "")
                         : new Date();
                     const colors = getPhaseColor(experiment, phase);
                     const xStart = xScale(start);
@@ -364,7 +364,7 @@ const ExperimentTimeline: React.FC<{
                               experiment.name,
                               experiment.status,
                               experiment.results || "",
-                              phase
+                              phase,
                             )
                           }
                           onMouseLeave={handleBarMouseLeave}
@@ -429,7 +429,7 @@ const ExperimentTimeline: React.FC<{
                                   experiment.status,
                                   experiment.results || "",
                                   phase,
-                                  true
+                                  true,
                                 )
                               }
                               onMouseLeave={handleBarMouseLeave}

@@ -2,11 +2,39 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceParams,
   DataSourceSettings,
+  DataSourceType,
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
 } from "back-end/types/datasource";
 import { MetricType } from "back-end/types/metric";
+import {
+  Table,
+  Schema,
+  InformationSchema,
+  InformationSchemaInterface,
+} from "back-end/src/types/Integration";
+
+// Extended types that include path properties
+export interface TableWithPath extends Table {
+  path: string;
+}
+
+export interface SchemaWithPath extends Omit<Schema, "tables"> {
+  path: string;
+  tables: TableWithPath[];
+}
+
+export interface InformationSchemaWithPath
+  extends Omit<InformationSchema, "schemas"> {
+  path: string;
+  schemas: SchemaWithPath[];
+}
+
+export interface InformationSchemaInterfaceWithPaths
+  extends Omit<InformationSchemaInterface, "databases"> {
+  databases: InformationSchemaWithPath[];
+}
 
 function camelToUnderscore(orig: string) {
   return orig
@@ -67,15 +95,15 @@ WHERE
     type === "revenue"
       ? ",\n  event_value_in_usd as value"
       : type === "binomial"
-      ? ""
-      : `,\n  value_param.value.${
-          type === "count" ? "int" : "float"
-        }_value as value`
+        ? ""
+        : `,\n  value_param.value.${
+            type === "count" ? "int" : "float"
+          }_value as value`
   }
 FROM
   ${tablePrefix}\`events_*\`${
-      joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
-    }
+    joinValueParams ? `,\n  UNNEST(event_params) AS value_param` : ""
+  }
 WHERE
   event_name = '{{eventName}}'${
     joinValueParams ? `\n  AND value_param.key = 'value'` : ""
@@ -129,10 +157,10 @@ WHERE
     type === "revenue"
       ? ",\n  tr_total as value"
       : type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : `,\n  se_value as value`
+        ? ""
+        : type === "count"
+          ? ",\n  1 as value"
+          : `,\n  se_value as value`
   }
 FROM
   ${tablePrefix}events
@@ -168,8 +196,8 @@ FROM
     type === "revenue"
       ? ",\n  revenue as value"
       : type === "binomial"
-      ? ""
-      : `,\n  {{valueColumn}} as value`
+        ? ""
+        : `,\n  {{valueColumn}} as value`
   }
 FROM
   ${tablePrefix}{{snakecase eventName}}`;
@@ -211,10 +239,10 @@ WHERE
     type === "revenue"
       ? ",\n  event_properties:revenue as value"
       : type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : `,\n  event_properties:value as value`
+        ? ""
+        : type === "count"
+          ? ",\n  1 as value"
+          : `,\n  event_properties:value as value`
   }
 FROM
   ${tablePrefix}EVENTS_AMPLITUDE_PROJECT_ID
@@ -583,7 +611,7 @@ export function getTablePrefix(params: DataSourceParams) {
 export function getInitialSettings(
   type: SchemaFormat,
   params: DataSourceParams,
-  options?: Record<string, string | number>
+  options?: Record<string, string | number>,
 ) {
   const schema = getSchemaObject(type);
   const userIdTypes = schema.userIdTypes;
@@ -596,8 +624,8 @@ export function getInitialSettings(
           type === "user_id"
             ? "Logged-in user id"
             : type === "anonymous_id"
-            ? "Anonymous visitor id"
-            : "",
+              ? "Anonymous visitor id"
+              : "",
       };
     }),
     queries: {
@@ -609,8 +637,8 @@ export function getInitialSettings(
           id === "user_id"
             ? "Logged-in Users"
             : id === "anonymous_id"
-            ? "Anonymous Visitors"
-            : id,
+              ? "Anonymous Visitors"
+              : id,
         description: "",
         query: schema.getExperimentSQL(getTablePrefix(params), id, options),
       })),
@@ -622,7 +650,7 @@ export function getInitialSettings(
 export function getExposureQuery(
   settings?: DataSourceSettings,
   exposureQueryId?: string,
-  userIdType?: string
+  userIdType?: string,
 ): ExposureQuery | null {
   const queries = settings?.queries?.exposure || [];
 
@@ -634,7 +662,7 @@ export function getExposureQuery(
 
 export function getInitialMetricQuery(
   datasource: DataSourceInterfaceWithParams,
-  type: MetricType
+  type: MetricType,
 ): [string[], string] {
   const schema = getSchemaObject(datasource.settings?.schemaFormat);
 
@@ -653,19 +681,157 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
 
   if (sql.match(/;(\s|\n)*$/)) {
     throw new Error(
-      "Don't end your SQL statements with semicolons since it will break our generated queries"
+      "Don't end your SQL statements with semicolons since it will break our generated queries",
     );
   }
 
   const missingCols = requiredColumns.filter(
-    (col) => !sql.toLowerCase().includes(col.toLowerCase())
+    (col) => !sql.toLowerCase().includes(col.toLowerCase()),
   );
 
   if (missingCols.length > 0) {
     throw new Error(
       `Missing the following required columns: ${missingCols
         .map((col) => '"' + col + '"')
-        .join(", ")}`
+        .join(", ")}`,
     );
   }
+}
+
+/**
+ * Generates a table path for use in SQL queries based on the data source type.
+ * This logic was moved from the backend to frontend to avoid storing computed data.
+ */
+export function getTablePath(
+  dataSourceType: DataSourceType,
+  params: {
+    catalog: string;
+    schema: string;
+    tableName: string;
+  },
+): string {
+  const { catalog, schema, tableName } = params;
+  const pathArray = [catalog, schema, tableName];
+  const returnValue = pathArray.join(".");
+
+  switch (dataSourceType) {
+    // MySQL and ClickHouse both support paths that go two levels deep
+    // Backticks help avoid issues with reserved words or special characters
+    case "mysql":
+    case "clickhouse":
+      return [schema, tableName]
+        .map((part) => "`" + part + "`") // Wrap each path part in backticks for safety
+        .join(".");
+
+    case "bigquery":
+      return "`" + returnValue + "`"; // BigQuery requires backticks around the full path
+    case "growthbook_clickhouse":
+      return tableName; // Only return the table name
+
+    default:
+      return returnValue;
+  }
+}
+
+export function getSchemaPath(
+  dataSourceType: DataSourceType,
+  params: {
+    catalog: string;
+    schema: string;
+  },
+): string {
+  const { catalog, schema } = params;
+  const pathArray = [catalog, schema];
+  const returnValue = pathArray.join(".");
+
+  switch (dataSourceType) {
+    // MySQL and ClickHouse both support paths that go two levels deep
+    // Backticks help avoid issues with reserved words or special characters
+    case "mysql":
+    case "clickhouse":
+      return "`" + schema + "`";
+
+    case "bigquery":
+      return "`" + returnValue; // BigQuery requires backticks around the full path, but since this is a partial path, only add backticks at the beginning
+    case "growthbook_clickhouse":
+      return ""; // Only return the table name
+
+    default:
+      return returnValue;
+  }
+}
+
+export function getDatabasePath(
+  dataSourceType: DataSourceType,
+  params: {
+    catalog: string;
+  },
+): string {
+  const { catalog } = params;
+
+  switch (dataSourceType) {
+    // MySQL and ClickHouse both support paths that go two levels deep
+    // Backticks help avoid issues with reserved words or special characters
+    case "mysql":
+    case "clickhouse":
+      return "";
+
+    case "bigquery":
+      return "`" + catalog; // BigQuery requires backticks around the full path, but since this is a partial path, only add backticks at the beginning
+    case "growthbook_clickhouse":
+      return ""; // Only return the table name
+
+    default:
+      return catalog;
+  }
+}
+
+export function getInformationSchemaWithPaths(
+  informationSchema: InformationSchemaInterface,
+  datasourceType: DataSourceType,
+): InformationSchemaInterfaceWithPaths {
+  // Create the enriched databases array with path properties
+  const enrichedDatabases = informationSchema.databases.map((db) => {
+    const path = getDatabasePath(datasourceType, {
+      catalog: db.databaseName,
+    });
+
+    const enrichedSchemas = db.schemas.map((schema) => {
+      const path = getSchemaPath(datasourceType, {
+        catalog: db.databaseName,
+        schema: schema.schemaName,
+      });
+
+      const enrichedTables = schema.tables.map((table) => {
+        const path = getTablePath(datasourceType, {
+          catalog: db.databaseName,
+          schema: schema.schemaName,
+          tableName: table.tableName,
+        });
+
+        return {
+          ...table,
+          path,
+        };
+      });
+
+      return {
+        ...schema,
+        path,
+        tables: enrichedTables,
+      };
+    });
+
+    return {
+      ...db,
+      path,
+      schemas: enrichedSchemas,
+    };
+  });
+
+  // Return the complete enriched information schema
+  return {
+    ...informationSchema,
+    databases: enrichedDatabases,
+  };
 }

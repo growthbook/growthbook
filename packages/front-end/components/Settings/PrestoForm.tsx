@@ -86,7 +86,7 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      {params.authType === "basicAuth" && (
+      {(params.authType ?? "basicAuth") === "basicAuth" && (
         <>
           <div className="form-group col-md-12">
             <label>Username</label>

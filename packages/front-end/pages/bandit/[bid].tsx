@@ -65,6 +65,11 @@ const BanditExperimentPage = (): ReactElement => {
     if (!data.experiment?.type || data.experiment.type === "standard") {
       router.replace(window.location.href.replace("bandit/", "experiment/"));
     }
+    if (data?.experiment?.type === "holdout") {
+      let url = window.location.href.replace(/(.*)\/bandit\/.*/, "$1/holdout/");
+      url += data?.experiment?.holdoutId;
+      router.replace(url);
+    }
   }, [data, router]);
 
   if (error) {
@@ -116,7 +121,7 @@ const BanditExperimentPage = (): ReactElement => {
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (
@@ -163,7 +168,7 @@ const BanditExperimentPage = (): ReactElement => {
                 dateStarted: new Date().toISOString(),
                 dateEnded: undefined,
                 variationWeights: p.variationWeights.map(
-                  () => 1 / (p.variationWeights.length || 2)
+                  () => 1 / (p.variationWeights.length || 2),
                 ),
                 banditEvents: undefined,
               };

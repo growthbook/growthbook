@@ -62,12 +62,8 @@ const DateResults: FC<{
   differenceType,
   ssrPolyfills,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactTableById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
+    useDefinitions();
 
   const _confidenceLevels = useConfidenceLevels();
   const _pValueThreshold = usePValueThreshold();
@@ -116,32 +112,29 @@ const DateResults: FC<{
     });
   }, [results, cumulative, variations]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(
-      goalMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      ssrPolyfills?.metricGroups || metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [
-    goalMetrics,
-    metricGroups,
-    ssrPolyfills?.metricGroups,
-    secondaryMetrics,
-    guardrailMetrics,
-  ]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
+      goalMetrics,
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+      secondaryMetrics,
+      guardrailMetrics,
+    ]);
 
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
@@ -156,8 +149,8 @@ const DateResults: FC<{
     return (
       Array.from(
         new Set(
-          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails)
-        )
+          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails),
+        ),
       )
         .map((metricId) => {
           const metric =
@@ -222,14 +215,14 @@ const DateResults: FC<{
 
                   const v_formatted = getExperimentMetricFormatter(
                     metric,
-                    ssrPolyfills?.getFactTableById || getFactTableById
+                    ssrPolyfills?.getFactTableById || getFactTableById,
                   )(
                     cumulative
                       ? totalDenominator[i]
                         ? totalValue[i] / totalDenominator[i]
                         : 0
                       : stats?.cr || 0,
-                    { currency: displayCurrency }
+                    { currency: displayCurrency },
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
@@ -252,7 +245,7 @@ const DateResults: FC<{
                     if (statsEngine === "frequentist" && statSig) {
                       const expectedDirection = isExpectedDirection(
                         stats,
-                        metric
+                        metric,
                       );
                       if (expectedDirection) {
                         className = "won";
@@ -282,7 +275,7 @@ const DateResults: FC<{
                   };
                 }),
               };
-            }
+            },
           );
 
           return {
@@ -290,7 +283,7 @@ const DateResults: FC<{
             resultGroup: getMetricResultGroup(
               metric.id,
               expandedGoals,
-              expandedSecondaries
+              expandedSecondaries,
             ),
             datapoints,
           };
@@ -348,11 +341,11 @@ const DateResults: FC<{
         </div>
       )}
       <div className="mb-5">
-        <h2>Users</h2>
+        <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
           variationNames={variations.map((v) => v.name)}
-          label="Users"
+          label="Units"
           datapoints={users}
           formatter={formatNumber}
           cumulative={cumulative}
@@ -395,7 +388,7 @@ const DateResults: FC<{
                       getFactTableById,
                       differenceType === "absolute"
                         ? "percentagePoints"
-                        : "number"
+                        : "number",
                     )
               }
               formatterOptions={metricFormatterOptions}

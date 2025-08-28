@@ -22,6 +22,7 @@ import {
 import { FaMagnifyingGlassChart } from "react-icons/fa6";
 import { RiBarChartFill } from "react-icons/ri";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -40,33 +41,36 @@ import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
 import DifferenceTypeChooser from "./DifferenceTypeChooser";
 
+export type AnalysisBarSettings = {
+  dimension: string;
+  baselineRow: number;
+  differenceType: DifferenceType;
+  variationFilter: number[];
+};
+
 export default function AnalysisSettingsBar({
   mutateExperiment,
-  setAnalysisSettings,
   editMetrics,
   editPhases,
   variations,
+  analysisBarSettings,
+  setAnalysisBarSettings,
+  setAnalysisSettings,
   alwaysShowPhaseSelector = false,
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
   regressionAdjustmentHasValidMetrics,
   onRegressionAdjustmentChange,
   showMoreMenu = true,
-  variationFilter,
-  setVariationFilter,
-  baselineRow,
-  setBaselineRow,
-  differenceType,
-  setDifferenceType,
   envs,
 }: {
   mutateExperiment: () => void;
-  setAnalysisSettings: (
-    settings: ExperimentSnapshotAnalysisSettings | null
-  ) => void;
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
+  analysisBarSettings: AnalysisBarSettings;
+  setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  setAnalysisSettings: (s: ExperimentSnapshotAnalysisSettings | null) => void;
   envs: string[];
   alwaysShowPhaseSelector?: boolean;
   regressionAdjustmentAvailable?: boolean;
@@ -74,21 +78,17 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentHasValidMetrics?: boolean;
   onRegressionAdjustmentChange?: (enabled: boolean) => Promise<void>;
   showMoreMenu?: boolean;
-  variationFilter?: number[];
-  setVariationFilter?: (variationFilter: number[]) => void;
-  baselineRow?: number;
-  setBaselineRow?: (baselineRow: number) => void;
-  differenceType?: DifferenceType;
-  setDifferenceType?: (differenceType: DifferenceType) => void;
+  holdout?: HoldoutInterface;
 }) {
   const {
     experiment,
     snapshot,
     analysis,
     dimension,
+    precomputedDimensions,
     mutateSnapshot: mutate,
     phase,
-    setDimension,
+    setDimension: setSnapshotDimension,
     setSnapshotType,
   } = useSnapshot();
   const { getDatasourceById } = useDefinitions();
@@ -98,7 +98,7 @@ export default function AnalysisSettingsBar({
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -114,6 +114,7 @@ export default function AnalysisSettingsBar({
   const manualSnapshot = !datasource;
 
   const isBandit = experiment?.type === "multi-armed-bandit";
+  const isHoldout = experiment?.type === "holdout";
 
   return (
     <div>
@@ -130,20 +131,28 @@ export default function AnalysisSettingsBar({
 
       {experiment && (
         <div className="row align-items-center p-3 analysis-settings-bar">
-          {setVariationFilter && setBaselineRow ? (
+          {!isHoldout && setAnalysisBarSettings ? (
             <>
               <div className="col-auto form-inline pr-5">
                 <BaselineChooser
                   variations={experiment.variations}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
-                  setBaselineRow={setBaselineRow}
+                  baselineRow={analysisBarSettings.baselineRow ?? 0}
+                  setBaselineRow={(r: number) =>
+                    setAnalysisBarSettings({
+                      ...analysisBarSettings,
+                      baselineRow: r,
+                      // always reset variation filter when changing baseline
+                      variationFilter: [],
+                    })
+                  }
                   snapshot={snapshot}
                   analysis={analysis}
                   setAnalysisSettings={setAnalysisSettings}
                   mutate={mutate}
                   dropdownEnabled={
-                    !manualSnapshot && snapshot?.dimension !== "pre:date"
+                    !isHoldout &&
+                    !manualSnapshot &&
+                    snapshot?.dimension !== "pre:date"
                   }
                 />
                 <em className="text-muted mx-3" style={{ marginTop: 15 }}>
@@ -151,9 +160,14 @@ export default function AnalysisSettingsBar({
                 </em>
                 <VariationChooser
                   variations={experiment.variations}
-                  variationFilter={variationFilter ?? []}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow ?? 0}
+                  variationFilter={analysisBarSettings.variationFilter ?? []}
+                  setVariationFilter={(v: number[]) =>
+                    setAnalysisBarSettings({
+                      ...analysisBarSettings,
+                      variationFilter: v,
+                    })
+                  }
+                  baselineRow={analysisBarSettings.baselineRow ?? 0}
                   dropdownEnabled={snapshot?.dimension !== "pre:date"}
                 />
               </div>
@@ -161,24 +175,43 @@ export default function AnalysisSettingsBar({
           ) : null}
           <div className="col-auto form-inline pr-5">
             <DimensionChooser
-              value={dimension}
-              setValue={setDimension}
+              value={analysisBarSettings.dimension}
+              setValue={(d: string, resetOtherSettings?: boolean) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  dimension: d,
+                  ...(resetOtherSettings
+                    ? {
+                        baselineRow: 0,
+                        differenceType: "relative",
+                        variationFilter: [],
+                      }
+                    : {}),
+                })
+              }
+              precomputedDimensions={precomputedDimensions}
               activationMetric={!!experiment.activationMetric}
               datasourceId={experiment.datasource}
               exposureQueryId={experiment.exposureQueryId}
               userIdType={experiment.userIdType}
               labelClassName="mr-2"
-              setVariationFilter={setVariationFilter}
-              setBaselineRow={setBaselineRow}
-              setDifferenceType={setDifferenceType}
+              analysis={analysis}
+              snapshot={snapshot}
+              mutate={mutate}
               setAnalysisSettings={setAnalysisSettings}
+              setSnapshotDimension={setSnapshotDimension}
             />
           </div>
-          {!manualSnapshot && setDifferenceType ? (
+          {!manualSnapshot && setAnalysisBarSettings ? (
             <div className="col-auto form-inline pr-5">
               <DifferenceTypeChooser
-                differenceType={differenceType ?? "relative"}
-                setDifferenceType={setDifferenceType}
+                differenceType={analysisBarSettings.differenceType}
+                setDifferenceType={(d: DifferenceType) =>
+                  setAnalysisBarSettings({
+                    ...analysisBarSettings,
+                    differenceType: d,
+                  })
+                }
                 snapshot={snapshot}
                 analysis={analysis}
                 setAnalysisSettings={setAnalysisSettings}
@@ -191,6 +224,7 @@ export default function AnalysisSettingsBar({
             (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
               <div className="col-auto form-inline">
                 <PhaseSelector
+                  isHoldout={isHoldout}
                   mutateExperiment={mutateExperiment}
                   editPhases={!isBandit ? editPhases : undefined}
                   isBandit={isBandit}
@@ -198,7 +232,7 @@ export default function AnalysisSettingsBar({
               </div>
             )}
           <div style={{ flex: 1 }} />
-          {!isBandit && (
+          {!isBandit && !isHoldout ? (
             <div className="col-auto">
               {regressionAdjustmentAvailable && (
                 <PremiumTooltip
@@ -211,8 +245,8 @@ export default function AnalysisSettingsBar({
                       !hasRegressionAdjustmentFeature
                         ? "teal-disabled"
                         : regressionAdjustmentEnabled
-                        ? "teal"
-                        : "teal-off"
+                          ? "teal"
+                          : "teal-off"
                     } my-0 pl-2 pr-1 py-1 form-inline`}
                   >
                     <GBCuped />
@@ -265,7 +299,7 @@ export default function AnalysisSettingsBar({
                 </PremiumTooltip>
               )}
             </div>
-          )}
+          ) : null}
           {isBandit && snapshot ? (
             <div className="col-auto text-right mb-0">
               <div className="uppercase-title text-muted">Analysis type</div>
@@ -319,7 +353,9 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={differenceType ?? "relative"}
+                differenceType={
+                  analysis?.settings?.differenceType ?? "relative"
+                }
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {
@@ -331,14 +367,14 @@ export default function AnalysisSettingsBar({
                         phase,
                         dimension,
                       }),
-                    }
+                    },
                   )
                     .then((res) => {
                       trackSnapshot(
                         "create",
                         "ForceRerunQueriesButton",
                         datasource?.type || null,
-                        res.snapshot
+                        res.snapshot,
                       );
                       mutate();
                     })
@@ -370,14 +406,14 @@ export default function AnalysisSettingsBar({
 
 function isDifferent(
   val1?: string | boolean | number | null,
-  val2?: string | boolean | number | null
+  val2?: string | boolean | number | null,
 ) {
   if (!val1 && !val2) return false;
   return val1 !== val2;
 }
 function isDifferentStringArray(
   val1?: string[] | null,
-  val2?: string[] | null
+  val2?: string[] | null,
 ) {
   if (!val1 && !val2) return false;
   if (!val1 || !val2) return true;
@@ -386,7 +422,7 @@ function isDifferentStringArray(
 }
 function isStringArrayMissingElements(
   strings: string[] = [],
-  elements: string[] = []
+  elements: string[] = [],
 ) {
   if (!elements.length) return false;
   if (elements.length > strings.length) return true;
@@ -407,6 +443,7 @@ export function isOutdated({
   hasSequentialFeature,
   phase,
   unjoinableMetrics,
+  conversionWindowMetrics,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   snapshot?: ExperimentSnapshotInterface;
@@ -417,6 +454,7 @@ export function isOutdated({
   hasSequentialFeature: boolean;
   phase?: number;
   unjoinableMetrics?: Set<string>;
+  conversionWindowMetrics?: Set<string>;
 }): { outdated: boolean; reasons: string[] } {
   const snapshotSettings = snapshot?.settings;
   const analysisSettings = snapshot
@@ -431,7 +469,7 @@ export function isOutdated({
   if (
     isDifferent(
       analysisSettings.statsEngine || DEFAULT_STATS_ENGINE,
-      statsEngine || DEFAULT_STATS_ENGINE
+      statsEngine || DEFAULT_STATS_ENGINE,
     )
   ) {
     reasons.push("Stats engine changed");
@@ -460,37 +498,41 @@ export function isOutdated({
   if (
     isDifferent(
       experiment.attributionModel || "firstExposure",
-      snapshotSettings.attributionModel || "firstExposure"
+      snapshotSettings.attributionModel || "firstExposure",
     )
   ) {
     reasons.push("Attribution model changed");
   }
-  if (
-    isStringArrayMissingElements(
-      Array.from(
-        new Set(
-          expandMetricGroups(
-            getAllMetricIdsFromExperiment(snapshotSettings, false),
-            metricGroups
-          )
-        )
-      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true)),
-      Array.from(
-        new Set(
-          expandMetricGroups(
-            getAllMetricIdsFromExperiment(experiment, false),
-            metricGroups
-          )
-        )
-      ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true))
-    )
-  ) {
+
+  const snapshotMetrics = Array.from(
+    new Set(
+      expandMetricGroups(
+        getAllMetricIdsFromExperiment(snapshotSettings, false),
+        metricGroups,
+      ),
+    ),
+  ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true));
+  let experimentMetrics = Array.from(
+    new Set(
+      expandMetricGroups(
+        getAllMetricIdsFromExperiment(experiment, false),
+        metricGroups,
+      ),
+    ),
+  ).filter((m) => (unjoinableMetrics ? !unjoinableMetrics.has(m) : true));
+  if (experiment.type === "holdout" && conversionWindowMetrics?.size) {
+    experimentMetrics = experimentMetrics.filter(
+      (m) => !conversionWindowMetrics.has(m),
+    );
+  }
+  if (isStringArrayMissingElements(snapshotMetrics, experimentMetrics)) {
     reasons.push("Metrics changed");
   }
+
   if (
     isDifferentStringArray(
       experiment.variations.map((v) => v.key),
-      snapshotSettings.variations.map((v) => v.id)
+      snapshotSettings.variations.map((v) => v.id),
     )
   ) {
     reasons.push("Variations changed");
@@ -498,11 +540,11 @@ export function isOutdated({
   if (
     isDifferentDate(
       getValidDate(experiment.phases?.[phase ?? 0]?.dateStarted ?? ""),
-      getValidDate(snapshotSettings.startDate)
+      getValidDate(snapshotSettings.startDate),
     ) ||
     isDifferentDate(
       getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
-      getValidDate(snapshotSettings.endDate)
+      getValidDate(snapshotSettings.endDate),
     )
   ) {
     reasons.push("Analysis dates changed");
@@ -510,7 +552,7 @@ export function isOutdated({
   if (
     isDifferent(
       analysisSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
-      orgSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD
+      orgSettings.pValueThreshold || DEFAULT_P_VALUE_THRESHOLD,
     )
   ) {
     reasons.push("P-value threshold changed");
@@ -522,7 +564,7 @@ export function isOutdated({
   if (
     isDifferent(
       experimentRegressionAdjustmentEnabled,
-      !!analysisSettings?.regressionAdjusted
+      !!analysisSettings?.regressionAdjusted,
     )
   ) {
     reasons.push("CUPED settings changed");
@@ -531,8 +573,8 @@ export function isOutdated({
   const experimentSequentialEnabled =
     statsEngine !== "frequentist" || !hasSequentialFeature
       ? false
-      : experiment.sequentialTestingEnabled ??
-        !!orgSettings.sequentialTestingEnabled;
+      : (experiment.sequentialTestingEnabled ??
+        !!orgSettings.sequentialTestingEnabled);
   const experimentSequentialTuningParameter: number =
     experiment.sequentialTestingTuningParameter ??
     orgSettings.sequentialTestingTuningParameter ??
@@ -540,7 +582,7 @@ export function isOutdated({
   if (
     (isDifferent(
       experimentSequentialEnabled,
-      !!analysisSettings?.sequentialTesting
+      !!analysisSettings?.sequentialTesting,
     ) ||
       (experimentSequentialEnabled &&
         experimentSequentialTuningParameter !==

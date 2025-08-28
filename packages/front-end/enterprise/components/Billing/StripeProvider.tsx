@@ -20,7 +20,7 @@ interface StripeContextProps {
 }
 
 export const StripeContext = createContext<StripeContextProps | undefined>(
-  undefined
+  undefined,
 );
 
 export function StripeProvider({
@@ -34,7 +34,7 @@ export function StripeProvider({
   const { theme } = useAppearanceUITheme();
 
   const [clientSecret, setClientSecret] = useState<string | null>(
-    initialClientSecret || null
+    initialClientSecret || null,
   );
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -42,7 +42,7 @@ export function StripeProvider({
 
   const stripePromise = useMemo(
     () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
-    [stripePublishableKey]
+    [stripePublishableKey],
   );
 
   const setupStripe = useCallback(async () => {
@@ -89,6 +89,8 @@ export function StripeProvider({
             theme: theme === "light" ? "stripe" : "night",
             variables: {
               colorPrimary: "#aa99ec",
+              colorBackground: theme === "dark" ? "#141929" : "#ffffff",
+              focusBoxShadow: "none",
             },
           },
         }}

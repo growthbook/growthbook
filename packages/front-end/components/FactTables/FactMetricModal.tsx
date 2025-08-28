@@ -157,7 +157,7 @@ function QuantileSelector({
 }
 
 function getNumericColumns(
-  factTable: FactTableInterface | null
+  factTable: FactTableInterface | null,
 ): ColumnInterface[] {
   if (!factTable) return [];
   return factTable.columns.filter(
@@ -165,12 +165,13 @@ function getNumericColumns(
       col.datatype === "number" &&
       !col.deleted &&
       col.column !== "timestamp" &&
-      !factTable.userIdTypes.includes(col.column)
+      !factTable.userIdTypes.includes(col.column),
   );
 }
 
 function getColumnOptions({
   factTable,
+  datasource,
   includeCount = true,
   includeCountDistinct = false,
   includeNumericColumns = true,
@@ -181,6 +182,7 @@ function getColumnOptions({
   groupPrefix = "",
 }: {
   factTable: FactTableInterface | null;
+  datasource: DataSourceInterfaceWithParams | null;
   includeCount?: boolean;
   includeCountDistinct?: boolean;
   includeNumericColumns?: boolean;
@@ -194,7 +196,7 @@ function getColumnOptions({
     (col) => ({
       label: showColumnsAsSums ? `SUM(${col.name})` : col.name,
       value: col.column,
-    })
+    }),
   );
 
   const specialColumnOptions: SingleValue[] = [];
@@ -213,25 +215,38 @@ function getColumnOptions({
 
   const stringColumnOptions: SingleValue[] = [];
   const stringColumns = factTable?.columns.filter(
-    (col) => col.datatype === "string" && !col.deleted
+    (col) => col.datatype === "string" && !col.deleted,
   );
   if (stringColumns) {
     stringColumnOptions.push(
       ...stringColumns.map((col) => ({
         label: col.name,
         value: col.column,
-      }))
+      })),
     );
   }
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
+    const excludedAttributeFields = new Set<string>();
+    if (datasource && datasource.type === "growthbook_clickhouse") {
+      // When an attribute has been materialized to the top-level,
+      // we want people to use the top-level column and not a JSON field
+      datasource.settings.materializedColumns?.forEach((col) => {
+        excludedAttributeFields.add(col.sourceField);
+      });
+    }
+
     const jsonColumns = factTable.columns.filter(
-      (col) => col.datatype === "json" && !col.deleted
+      (col) => col.datatype === "json" && !col.deleted,
     );
     for (const col of jsonColumns) {
       if (col.jsonFields) {
         for (const [field, data] of Object.entries(col.jsonFields)) {
+          if (col.name === "attributes" && excludedAttributeFields.has(field)) {
+            continue;
+          }
+
           const option: SingleValue = {
             label: `${col.name}.${field}`,
             value: `${col.column}.${field}`,
@@ -258,7 +273,7 @@ function getColumnOptions({
     ret.push({
       label: `${groupPrefix}Numeric Columns`,
       options: numericColumnOptions.filter(
-        (v) => !excludeColumns?.has(v.value)
+        (v) => !excludeColumns?.has(v.value),
       ),
     });
   }
@@ -272,7 +287,7 @@ function getColumnOptions({
 }
 
 function getAggregationOptions(
-  selectedColumnDatatype: FactTableColumnType | undefined
+  selectedColumnDatatype: FactTableColumnType | undefined,
 ): {
   label: string;
   value: ColumnAggregation;
@@ -322,7 +337,7 @@ function RetentionWindowSelector({
               onChange={(value) => {
                 form.setValue(
                   "windowSettings.delayUnit",
-                  value as "days" | "hours" | "weeks"
+                  value as "days" | "hours" | "weeks",
                 );
               }}
               sort={false}
@@ -385,6 +400,7 @@ function ColumnRefSelector({
 
   const columnOptions = getColumnOptions({
     factTable,
+    datasource,
     includeCountDistinct: includeCountDistinct && aggregationType === "unit",
     includeCount: aggregationType === "unit",
     includeNumericColumns: true,
@@ -407,7 +423,7 @@ function ColumnRefSelector({
 
   const eligibleFilters = factTable?.filters || [];
   const unusedFilters = eligibleFilters.filter(
-    (f) => !value.filters.includes(f.id)
+    (f) => !value.filters.includes(f.id),
   );
   if (unusedFilters.length > 0) {
     addFilterOptions.push({
@@ -421,6 +437,7 @@ function ColumnRefSelector({
 
   const eligibleColumns = getColumnOptions({
     factTable,
+    datasource,
     includeCount: false,
     includeCountDistinct: false,
     includeNumericColumns: false,
@@ -431,11 +448,11 @@ function ColumnRefSelector({
   })
     .flatMap((group) => group.options)
     .filter((option) =>
-      factTable ? canInlineFilterColumn(factTable, option.value) : false
+      factTable ? canInlineFilterColumn(factTable, option.value) : false,
     );
 
   const unfilteredStringColumns = eligibleColumns.filter(
-    (c) => !value.inlineFilters?.[c.value]?.length
+    (c) => !value.inlineFilters?.[c.value]?.length,
   );
 
   if (unfilteredStringColumns.length > 0) {
@@ -465,7 +482,7 @@ function ColumnRefSelector({
 
               const inlineFilters = getInitialInlineFilters(
                 newFactTable,
-                value.inlineFilters
+                value.inlineFilters,
               );
 
               // If switching between fact tables, wipe out inline and aggregate filters
@@ -500,7 +517,8 @@ function ColumnRefSelector({
             }}
             options={factTables
               .filter(
-                (t) => allowChangingDatasource || t.datasource === datasource.id
+                (t) =>
+                  allowChangingDatasource || t.datasource === datasource.id,
               )
               .map((t) => ({
                 label: t.name,
@@ -542,7 +560,13 @@ function ColumnRefSelector({
                       key={f}
                     >
                       <Tooltip
-                        body={<InlineCode language="sql" code={filter.value} />}
+                        body={
+                          <InlineCode
+                            language="sql"
+                            code={filter.value}
+                            inTooltip
+                          />
+                        }
                       >
                         <span className="cursor-default">{filter.name}</span>
                       </Tooltip>
@@ -702,7 +726,7 @@ function ColumnRefSelector({
                     >
                       <PiPlus />{" "}
                       {Object.values(value.inlineFilters || {}).some(
-                        (v) => v.length > 0
+                        (v) => v.length > 0,
                       ) || value.filters.length > 0
                         ? "Row Filter"
                         : "Add"}
@@ -789,6 +813,7 @@ function ColumnRefSelector({
                     }
                     options={getColumnOptions({
                       factTable: factTable,
+                      datasource,
                       includeCount: true,
                       includeCountDistinct: false,
                       includeStringColumns: false,
@@ -866,7 +891,7 @@ function getWHERE({
           (s) => s.replace(/'/g, "''"),
           // This isn't real SQL syntax, but it should get the point across
           (jsonCol, path) => `${jsonCol}.${path}`,
-          true
+          true,
         )
       : [];
 
@@ -874,21 +899,21 @@ function getWHERE({
     whereParts.push(
       `-- Only after seeing the experiment + retention delay\ntimestamp >= (exposure_timestamp + '${
         windowSettings.delayValue
-      } ${windowSettings.delayUnit ?? "days"}')`
+      } ${windowSettings.delayUnit ?? "days"}')`,
     );
   } else if (windowSettings.delayValue) {
     whereParts.push(
-      `-- Only after seeing the experiment + delay\ntimestamp >= (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`
+      `-- Only after seeing the experiment + delay\ntimestamp >= (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}')`,
     );
   } else {
     whereParts.push(
-      `-- Only after seeing the experiment\ntimestamp >= exposure_timestamp`
+      `-- Only after seeing the experiment\ntimestamp >= exposure_timestamp`,
     );
   }
 
   if (windowSettings.type === "lookback") {
     whereParts.push(
-      `-- Lookback Metric Window\ntimestamp >= (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+      `-- Lookback Metric Window\ntimestamp >= (NOW() - '${windowSettings.windowValue} ${windowSettings.windowUnit}')`,
     );
   } else if (windowSettings.type === "conversion") {
     if (type === "retention") {
@@ -897,15 +922,15 @@ function getWHERE({
           windowSettings.delayValue
         } ${windowSettings.delayUnit ?? "days"}' + '${
           windowSettings.windowValue
-        } ${windowSettings.windowUnit}')`
+        } ${windowSettings.windowUnit}')`,
       );
     } else if (windowSettings.delayValue) {
       whereParts.push(
-        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.delayValue} ${windowSettings.delayUnit}' + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`,
       );
     } else {
       whereParts.push(
-        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`
+        `-- Conversion Metric Window\ntimestamp < (exposure_timestamp + '${windowSettings.windowValue} ${windowSettings.windowUnit}')`,
       );
     }
   }
@@ -955,23 +980,23 @@ function getPreviewSQL({
     numerator.column === "$$count"
       ? "COUNT(*)"
       : numerator.column === "$$distinctUsers"
-      ? "1"
-      : numerator.aggregation === "count distinct"
-      ? `COUNT(DISTINCT ${numerator.column})`
-      : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
-          numerator.column
-        })`;
+        ? "1"
+        : numerator.aggregation === "count distinct"
+          ? `COUNT(DISTINCT ${numerator.column})`
+          : `${(numerator.aggregation ?? "sum").toUpperCase()}(${
+              numerator.column
+            })`;
 
   const denominatorCol =
     denominator?.column === "$$count"
       ? "COUNT(*)"
       : denominator?.column === "$$distinctUsers"
-      ? "1"
-      : numerator.aggregation === "count distinct"
-      ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
-      : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
-          denominator?.column
-        })`;
+        ? "1"
+        : numerator.aggregation === "count distinct"
+          ? `-- HyperLogLog estimation used instead of COUNT DISTINCT\n  COUNT(DISTINCT ${denominator?.column})`
+          : `${(denominator?.aggregation ?? "sum").toUpperCase()}(${
+              denominator?.column
+            })`;
 
   const WHERE = getWHERE({
     factTable: numeratorFactTable,
@@ -1090,10 +1115,10 @@ GROUP BY user
         sql: `
 SELECT${identifierComment}
   ${identifier} AS user,${
-          numerator.column === "$$distinctUsers"
-            ? `\n  -- Each matching user counts as 1 conversion`
-            : ""
-        }
+    numerator.column === "$$distinctUsers"
+      ? `\n  -- Each matching user counts as 1 conversion`
+      : ""
+  }
   ${numeratorCol} AS value
 FROM
   ${numeratorName}${WHERE}
@@ -1102,10 +1127,10 @@ GROUP BY user${HAVING}
         denominatorSQL: `
 SELECT${identifierComment}
   ${identifier} AS user,${
-          denominator?.column === "$$distinctUsers"
-            ? `\n  -- Each matching user counts as 1 conversion`
-            : ""
-        }
+    denominator?.column === "$$distinctUsers"
+      ? `\n  -- Each matching user counts as 1 conversion`
+      : ""
+  }
   ${denominatorCol} AS value
 FROM
   ${denominatorName}${DENOMINATOR_WHERE}
@@ -1140,10 +1165,12 @@ FROM
 
 function FieldMappingModal({
   factMetric,
+  datasource,
   onSave,
   close,
 }: {
   factMetric: Partial<FactMetricInterface>;
+  datasource: DataSourceInterfaceWithParams | null;
   onSave: (metric: Partial<FactMetricInterface>) => void;
   close?: () => void;
 }) {
@@ -1199,6 +1226,7 @@ function FieldMappingModal({
 
   const numericColumnOptions = getColumnOptions({
     factTable,
+    datasource,
     includeCount: false,
     includeCountDistinct: false,
     includeStringColumns: false,
@@ -1306,7 +1334,8 @@ function FieldMappingModal({
             Object.keys(numericColumnMap).forEach((k) => {
               if (
                 factTable.columns.find(
-                  (c) => c.column === k && !c.deleted && c.datatype === "number"
+                  (c) =>
+                    c.column === k && !c.deleted && c.datatype === "number",
                 )
               ) {
                 newNumericColumnMap[k] = k;
@@ -1480,7 +1509,7 @@ export default function FactMetricModal({
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
   const [advancedOpen, setAdvancedOpen] = useState(
-    showAdvancedSettings || false
+    showAdvancedSettings || false,
   );
 
   const type = form.watch("metricType");
@@ -1491,7 +1520,7 @@ export default function FactMetricModal({
       : "";
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
@@ -1515,8 +1544,8 @@ export default function FactMetricModal({
     regressionAdjustmentDays > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
       : regressionAdjustmentDays < 7
-      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-      : "";
+        ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+        : "";
 
   const isNew = !existing || duplicate || fromTemplate;
   const initialType = existing?.metricType;
@@ -1539,12 +1568,10 @@ export default function FactMetricModal({
 
   const quantileMetricsAvailableForDatasource =
     selectedDataSource?.properties?.hasQuantileTesting;
-  const hasQuantileMetricCommercialFeature = hasCommercialFeature(
-    "quantile-metrics"
-  );
-  const hasRetentionMetricCommercialFeature = hasCommercialFeature(
-    "retention-metrics"
-  );
+  const hasQuantileMetricCommercialFeature =
+    hasCommercialFeature("quantile-metrics");
+  const hasRetentionMetricCommercialFeature =
+    hasCommercialFeature("retention-metrics");
 
   const numerator = form.watch("numerator");
   const numeratorFactTable = getFactTableById(numerator?.factTableId || "");
@@ -1575,6 +1602,7 @@ export default function FactMetricModal({
     return (
       <FieldMappingModal
         factMetric={defaultValues}
+        datasource={selectedDataSource}
         onSave={(metric) => {
           form.reset(metric);
         }}
@@ -1635,7 +1663,8 @@ export default function FactMetricModal({
         // reset aggregate filter for certain metrics
         if (
           values.metricType !== "proportion" &&
-          values.metricType !== "retention"
+          values.metricType !== "retention" &&
+          values.metricType !== "ratio"
         ) {
           values.numerator.aggregateFilterColumn = undefined;
           values.numerator.aggregateFilter = undefined;
@@ -1651,6 +1680,18 @@ export default function FactMetricModal({
           }
         }
 
+        // reset capping that may be carried over to uncappable metrics
+        if (
+          values.metricType === "quantile" ||
+          values.metricType === "proportion" ||
+          values.metricType === "retention"
+        ) {
+          values.cappingSettings = {
+            type: "",
+            value: 0,
+          };
+        }
+
         if (
           values.numerator.aggregateFilterColumn &&
           values.metricType === "ratio"
@@ -1660,7 +1701,7 @@ export default function FactMetricModal({
           } else {
             if (values.cappingSettings?.type) {
               throw new Error(
-                "Cannot specify both Percentile Capping and a User Filter. Please remove one of them."
+                "Cannot specify both Percentile Capping and a User Filter. Please remove one of them.",
               );
             }
           }
@@ -1688,17 +1729,17 @@ export default function FactMetricModal({
             values.numerator.column === "$$count"
               ? "count"
               : values.numerator.column === "$$distinctUsers"
-              ? "distinct_users"
-              : values.numerator.aggregation || "sum",
+                ? "distinct_users"
+                : values.numerator.aggregation || "sum",
           numerator_filters: values.numerator.filters.length,
           denominator_agg:
             values.denominator?.column === "$$count"
               ? "count"
               : values.denominator?.column === "$$distinctUsers"
-              ? "distinct_users"
-              : values.denominator?.column
-              ? values.denominator?.aggregation || "sum"
-              : "none",
+                ? "distinct_users"
+                : values.denominator?.column
+                  ? values.denominator?.aggregation || "sum"
+                  : "none",
           denominator_filters: values.denominator?.filters?.length || 0,
           ratio_same_fact_table:
             values.metricType === "ratio" &&
@@ -2031,9 +2072,8 @@ export default function FactMetricModal({
                       setValue={(unit) => {
                         // Event-level quantiles must select a numeric column
                         if (!unit && numerator?.column?.startsWith("$$")) {
-                          const column = getNumericColumns(
-                            numeratorFactTable
-                          )[0];
+                          const column =
+                            getNumericColumns(numeratorFactTable)[0];
                           form.setValue("numerator", {
                             ...numerator,
                             column: column?.column || "",
@@ -2074,7 +2114,9 @@ export default function FactMetricModal({
                       <>
                         {form
                           .watch("numerator")
-                          ?.column?.startsWith("$$") ? undefined : (
+                          ?.column?.startsWith(
+                            "$$distinctUsers",
+                          ) ? undefined : (
                           <div className="col-auto">
                             <div className="form-group">
                               <label htmlFor="quantileIgnoreZeros">
@@ -2108,7 +2150,7 @@ export default function FactMetricModal({
                             setValue={(quantileSettings) =>
                               form.setValue(
                                 "quantileSettings",
-                                quantileSettings
+                                quantileSettings,
                               )
                             }
                           />
@@ -2279,12 +2321,12 @@ export default function FactMetricModal({
                               <Checkbox
                                 label="Override organization-level settings"
                                 value={form.watch(
-                                  "regressionAdjustmentOverride"
+                                  "regressionAdjustmentOverride",
                                 )}
                                 setValue={(v) =>
                                   form.setValue(
                                     "regressionAdjustmentOverride",
-                                    v === true
+                                    v === true,
                                   )
                                 }
                                 disabled={!hasRegressionAdjustmentFeature}
@@ -2293,7 +2335,7 @@ export default function FactMetricModal({
                             <div
                               style={{
                                 display: form.watch(
-                                  "regressionAdjustmentOverride"
+                                  "regressionAdjustmentOverride",
                                 )
                                   ? "block"
                                   : "none",
@@ -2315,7 +2357,7 @@ export default function FactMetricModal({
                                   setValue={(value) => {
                                     form.setValue(
                                       "regressionAdjustmentEnabled",
-                                      value
+                                      value,
                                     );
                                   }}
                                   disabled={!hasRegressionAdjustmentFeature}
@@ -2332,7 +2374,7 @@ export default function FactMetricModal({
                                 className="form-group mt-3 mb-1 mr-2"
                                 style={{
                                   opacity: form.watch(
-                                    "regressionAdjustmentEnabled"
+                                    "regressionAdjustmentEnabled",
                                   )
                                     ? "1"
                                     : "0.5",
@@ -2342,11 +2384,13 @@ export default function FactMetricModal({
                                   label="Pre-exposure lookback period (days)"
                                   type="number"
                                   style={{
-                                    borderColor: regressionAdjustmentDaysHighlightColor,
-                                    backgroundColor: regressionAdjustmentDaysHighlightColor
-                                      ? regressionAdjustmentDaysHighlightColor +
-                                        "15"
-                                      : "",
+                                    borderColor:
+                                      regressionAdjustmentDaysHighlightColor,
+                                    backgroundColor:
+                                      regressionAdjustmentDaysHighlightColor
+                                        ? regressionAdjustmentDaysHighlightColor +
+                                          "15"
+                                        : "",
                                   }}
                                   className="ml-2"
                                   containerClassName="mb-0 form-inline"
@@ -2373,13 +2417,14 @@ export default function FactMetricModal({
                                         v = v || 0;
                                         return !(v <= 0 || v > 100);
                                       },
-                                    }
+                                    },
                                   )}
                                 />
                                 {regressionAdjustmentDaysWarningMsg && (
                                   <small
                                     style={{
-                                      color: regressionAdjustmentDaysHighlightColor,
+                                      color:
+                                        regressionAdjustmentDaysHighlightColor,
                                     }}
                                   >
                                     {regressionAdjustmentDaysWarningMsg}
@@ -2402,7 +2447,7 @@ export default function FactMetricModal({
                         <label>{`Minimum ${
                           quantileMetricType
                             ? `${capitalizeFirstLetter(
-                                quantileMetricType
+                                quantileMetricType,
                               )} Count`
                             : `${
                                 type === "ratio" ? "Numerator" : "Metric"
@@ -2420,10 +2465,10 @@ export default function FactMetricModal({
                           {type === "proportion"
                             ? "number of conversions"
                             : type === "ratio"
-                            ? "total numerator sum"
-                            : quantileMetricType
-                            ? `number of ${quantileMetricType}s`
-                            : "total metric sum"}{" "}
+                              ? "total numerator sum"
+                              : quantileMetricType
+                                ? `number of ${quantileMetricType}s`
+                                : "total metric sum"}{" "}
                           required in an experiment variation before showing
                           results (default{" "}
                           {type === "proportion"

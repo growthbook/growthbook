@@ -5,7 +5,7 @@ import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import { filterProjectsByEnvironmentWithNull } from "shared/util";
 import { Promise as BluebirdPromise } from "bluebird";
 import { getFeatureDefinitions } from "back-end/src/services/features";
-import { CRON_ENABLED, WEBHOOKS } from "back-end/src/util/secrets";
+import { WEBHOOKS } from "back-end/src/util/secrets";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 import {
   findSDKConnectionsByIds,
@@ -31,7 +31,6 @@ import {
 } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
-import { trackJob } from "back-end/src/services/tracing";
 
 const SDK_WEBHOOKS_JOB_NAME = "fireWebhooks";
 type SDKWebhookJob = Job<{
@@ -45,30 +44,33 @@ const sendPayloadFormats: WebhookPayloadFormat[] = [
   "vercelNativeIntegration",
 ];
 
-const fireWebhooks = trackJob(
-  SDK_WEBHOOKS_JOB_NAME,
-  async (job: SDKWebhookJob) => {
-    const webhookId = job.attrs.data?.webhookId;
+const fireWebhooks = async (job: SDKWebhookJob) => {
+  const webhookId = job.attrs.data?.webhookId;
 
-    if (!webhookId) {
-      logger.error("SDK webhook: No webhook provided for webhook job", {
+  if (!webhookId) {
+    logger.error(
+      {
         webhookId,
-      });
-      return;
-    }
-
-    const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
-    if (!webhook || !webhook.sdks) {
-      logger.error("SDK webhook: No webhook found for id", {
-        webhookId,
-      });
-      return;
-    }
-
-    const context = await getContextForAgendaJobByOrgId(webhook.organization);
-    await fireSdkWebhook(context, webhook);
+      },
+      "SDK webhook: No webhook provided for webhook job",
+    );
+    return;
   }
-);
+
+  const webhook = await findSdkWebhookByIdAcrossOrgs(webhookId);
+  if (!webhook || !webhook.sdks) {
+    logger.error(
+      {
+        webhookId,
+      },
+      "SDK webhook: No webhook found for id",
+    );
+    return;
+  }
+
+  const context = await getContextForAgendaJobByOrgId(webhook.organization);
+  await fireSdkWebhook(context, webhook);
+};
 
 let agenda: Agenda;
 export default function addSdkWebhooksJob(ag: Agenda) {
@@ -100,7 +102,7 @@ export default function addSdkWebhooksJob(ag: Agenda) {
       job.attrs.data.retryCount++;
       job.attrs.nextRunAt = new Date(nextRunAt);
       await job.save();
-    }
+    },
   );
 }
 async function queueSingleSdkWebhookJob(webhook: WebhookInterface) {
@@ -116,7 +118,7 @@ async function queueSingleSdkWebhookJob(webhook: WebhookInterface) {
 }
 export async function queueWebhooksForSdkConnection(
   context: ReqContext,
-  connection: SDKConnectionInterface
+  connection: SDKConnectionInterface,
 ) {
   const webhooks = await findAllSdkWebhooksByConnection(context, connection.id);
   for (const webhook of webhooks) {
@@ -125,9 +127,8 @@ export async function queueWebhooksForSdkConnection(
 }
 export async function queueWebhooksBySdkPayloadKeys(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
-  if (!CRON_ENABLED) return;
   if (!payloadKeys.length) return;
   const connections = await findSDKConnectionsByOrganization(context);
 
@@ -253,9 +254,8 @@ async function runWebhookFetch({
 
   try {
     const origin = new URL(url).origin;
-    const applySecrets = await context.models.webhookSecrets.getBackEndSecretsReplacer(
-      origin
-    );
+    const applySecrets =
+      await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
 
     let customHeaders: Record<string, string> | undefined;
     if (headers) {
@@ -285,12 +285,12 @@ async function runWebhookFetch({
       {
         maxTimeMs: requestTimeout,
         maxContentSize: maxContentSize,
-      }
+      },
     );
 
     if (!res.responseWithoutBody.ok) {
       throw new Error(
-        "Returned an invalid status code: " + res.responseWithoutBody.status
+        "Returned an invalid status code: " + res.responseWithoutBody.status,
       );
     }
 
@@ -326,7 +326,7 @@ async function runWebhookFetch({
 }
 export async function fireSdkWebhook(
   context: ReqContext,
-  webhook: WebhookInterface
+  webhook: WebhookInterface,
 ) {
   const webhookContext = getContextForAgendaJobByOrgObject(context.org);
 
@@ -337,49 +337,50 @@ export async function fireSdkWebhook(
   const connections = await findSDKConnectionsByIds(context, webhook?.sdks);
 
   if (!connections.length) {
-    logger.error("SDK webhook: Could not find sdk connections", {
-      webhookId: webhook.id,
-    });
+    logger.error(
+      {
+        webhookId: webhook.id,
+      },
+      "SDK webhook: Could not find sdk connections",
+    );
     return;
   }
 
-  const payloads: [
-    string,
-    Record<string, unknown>
-  ][] = await BluebirdPromise.reduce(
-    connections,
-    async (payloads: [string, Record<string, unknown>][], connection) => {
-      if (!sendPayload) return [[connection.key, {}], ...payloads];
+  const payloads: [string, Record<string, unknown>][] =
+    await BluebirdPromise.reduce(
+      connections,
+      async (payloads: [string, Record<string, unknown>][], connection) => {
+        if (!sendPayload) return [[connection.key, {}], ...payloads];
 
-      const environmentDoc = webhookContext.org?.settings?.environments?.find(
-        (e) => e.id === connection.environment
-      );
-      const filteredProjects = filterProjectsByEnvironmentWithNull(
-        connection.projects,
-        environmentDoc,
-        true
-      );
+        const environmentDoc = webhookContext.org?.settings?.environments?.find(
+          (e) => e.id === connection.environment,
+        );
+        const filteredProjects = filterProjectsByEnvironmentWithNull(
+          connection.projects,
+          environmentDoc,
+          true,
+        );
 
-      const defs = await getFeatureDefinitions({
-        context: webhookContext,
-        capabilities: getConnectionSDKCapabilities(connection),
-        environment: connection.environment,
-        projects: filteredProjects,
-        encryptionKey: connection.encryptPayload
-          ? connection.encryptionKey
-          : undefined,
-        includeVisualExperiments: connection.includeVisualExperiments,
-        includeDraftExperiments: connection.includeDraftExperiments,
-        includeExperimentNames: connection.includeExperimentNames,
-        includeRedirectExperiments: connection.includeRedirectExperiments,
-        includeRuleIds: connection.includeRuleIds,
-        hashSecureAttributes: connection.hashSecureAttributes,
-      });
+        const defs = await getFeatureDefinitions({
+          context: webhookContext,
+          capabilities: getConnectionSDKCapabilities(connection),
+          environment: connection.environment,
+          projects: filteredProjects,
+          encryptionKey: connection.encryptPayload
+            ? connection.encryptionKey
+            : undefined,
+          includeVisualExperiments: connection.includeVisualExperiments,
+          includeDraftExperiments: connection.includeDraftExperiments,
+          includeExperimentNames: connection.includeExperimentNames,
+          includeRedirectExperiments: connection.includeRedirectExperiments,
+          includeRuleIds: connection.includeRuleIds,
+          hashSecureAttributes: connection.hashSecureAttributes,
+        });
 
-      return [[connection.key, defs], ...payloads];
-    },
-    []
-  );
+        return [[connection.key, defs], ...payloads];
+      },
+      [],
+    );
 
   await BluebirdPromise.each(payloads, ([key, payload]) =>
     runWebhookFetch({
@@ -387,13 +388,13 @@ export async function fireSdkWebhook(
       key,
       payload,
       context: webhookContext,
-    })
+    }),
   );
 }
 
 export async function getSDKConnectionsByPayloadKeys(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
   if (!payloadKeys.length) return [];
 
@@ -402,12 +403,12 @@ export async function getSDKConnectionsByPayloadKeys(
 
   return connections.filter((c) => {
     const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === c.environment
+      (e) => e.id === c.environment,
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       c.projects,
       environmentDoc,
-      true
+      true,
     );
     if (!filteredProjects) {
       return false;
@@ -418,7 +419,7 @@ export async function getSDKConnectionsByPayloadKeys(
       !payloadKeys.some(
         (key) =>
           key.environment === c.environment &&
-          (!filteredProjects.length || filteredProjects.includes(key.project))
+          (!filteredProjects.length || filteredProjects.includes(key.project)),
       )
     ) {
       return false;
@@ -429,29 +430,29 @@ export async function getSDKConnectionsByPayloadKeys(
 
 export async function fireGlobalSdkWebhooksByPayloadKeys(
   context: ReqContext | ApiReqContext,
-  payloadKeys: SDKPayloadKey[]
+  payloadKeys: SDKPayloadKey[],
 ) {
   const connections = await getSDKConnectionsByPayloadKeys(
     context,
-    payloadKeys
+    payloadKeys,
   );
   await fireGlobalSdkWebhooks(context, connections);
 }
 
 export async function fireGlobalSdkWebhooks(
   context: ReqContext | ApiReqContext,
-  connections: SDKConnectionInterface[]
+  connections: SDKConnectionInterface[],
 ) {
   if (!connections.length) return;
 
   for (const connection of connections) {
     const environmentDoc = context.org?.settings?.environments?.find(
-      (e) => e.id === connection.environment
+      (e) => e.id === connection.environment,
     );
     const filteredProjects = filterProjectsByEnvironmentWithNull(
       connection.projects,
       environmentDoc,
-      true
+      true,
     );
 
     const payload = await getFeatureDefinitions({

@@ -24,5 +24,5 @@ export const postArchetype = createApiRequestHandler(postArchetypeValidator)(
     return {
       archetype: toArchetypeApiInterface(archetype),
     };
-  }
+  },
 );

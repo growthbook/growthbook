@@ -67,7 +67,7 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
 
 export async function getQueryById(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   const doc = await QueryModel.findOne({
     organization: context.org.id,
@@ -79,7 +79,7 @@ export async function getQueryById(
 export async function getQueriesByDatasource(
   organization: string,
   datasource: string,
-  limit: number = 50
+  limit: number = 50,
 ) {
   const docs = await QueryModel.find({ organization, datasource })
     .limit(limit)
@@ -91,7 +91,7 @@ export async function getQueriesByDatasource(
 
 export async function countRunningQueries(
   organization: string,
-  datasource: string
+  datasource: string,
 ) {
   return await QueryModel.find({
     organization,
@@ -102,11 +102,11 @@ export async function countRunningQueries(
 
 export async function updateQuery(
   query: QueryInterface,
-  changes: Partial<QueryInterface>
+  changes: Partial<QueryInterface>,
 ): Promise<QueryInterface> {
   await QueryModel.updateOne(
     { organization: query.organization, id: query.id },
-    { $set: changes }
+    { $set: changes },
   );
   return {
     ...query,
@@ -117,7 +117,7 @@ export async function updateQuery(
 export async function getRecentQuery(
   organization: string,
   datasource: string,
-  query: string
+  query: string,
 ) {
   // Only re-use queries that were run recently
   const earliestDate = new Date();
@@ -171,7 +171,7 @@ export async function getStaleQueries(): Promise<
         status: "failed",
         error: "Query execution was interupted. Please try again.",
       },
-    }
+    },
   );
 
   return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));

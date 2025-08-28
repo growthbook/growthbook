@@ -16,16 +16,12 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/components/Radix/Button";
 
 const PresentationPage = (): React.ReactElement => {
-  const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
-    false
-  );
-  const [
-    specificPresentation,
-    setSpecificPresentation,
-  ] = useState<PresentationInterface | null>(null);
-  const [openEditPresentationModal, setOpenEditPresentationModal] = useState(
-    false
-  );
+  const [openNewPresentationModal, setOpenNewPresentationModal] =
+    useState(false);
+  const [specificPresentation, setSpecificPresentation] =
+    useState<PresentationInterface | null>(null);
+  const [openEditPresentationModal, setOpenEditPresentationModal] =
+    useState(false);
   const [sharableLinkModal, setSharableLinkModal] = useState(false);
   const [sharableLink, setSharableLink] = useState("");
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<boolean>(false);
@@ -40,7 +36,11 @@ const PresentationPage = (): React.ReactElement => {
   const canDeletePresentation = permissionsUtil.canDeletePresentation();
   const canEditPresentation = permissionsUtil.canUpdatePresentation();
 
-  const { data: p, error: error, mutate } = useApi<{
+  const {
+    data: p,
+    error: error,
+    mutate,
+  } = useApi<{
     presentations: PresentationInterface[];
     numExperiments: number;
   }>("/presentations");
@@ -108,7 +108,7 @@ const PresentationPage = (): React.ReactElement => {
         {
           method: "DELETE",
           body: JSON.stringify({ id: deleteId }),
-        }
+        },
       );
       if (res.status === 200) {
         setDeleteLoading(false);
@@ -118,7 +118,7 @@ const PresentationPage = (): React.ReactElement => {
         console.error(res);
         setDeleteError(
           res.message ||
-            "There was an error submitting the form. Please try again."
+            "There was an error submitting the form. Please try again.",
         );
         setDeleteLoading(false);
         setDeleteConfirmModal(false);
@@ -234,7 +234,7 @@ const PresentationPage = (): React.ReactElement => {
               </a>
             </div>
           </Flex>
-        </Card>
+        </Card>,
       );
     });
   }

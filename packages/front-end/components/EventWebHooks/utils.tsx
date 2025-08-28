@@ -138,7 +138,7 @@ export type EventWebHookModalMode =
  */
 export const useIconForState = (
   state: "none" | "success" | "error",
-  { text }: { text: boolean } = { text: false }
+  { text }: { text: boolean } = { text: false },
 ): ReactNode =>
   useMemo(() => {
     let invalidState: never;
@@ -206,7 +206,7 @@ export const WebhookIcon = ({
 }: {
   style: React.CSSProperties;
   className?: string;
-  type: typeof legacyEventWebHookPayloadTypes[number];
+  type: (typeof legacyEventWebHookPayloadTypes)[number];
 }) => {
   let invalidType: never;
 
@@ -231,7 +231,7 @@ export const WebhookIcon = ({
 
 export const displayedEvents = (
   events: string[],
-  { maxEventsDisplay }: { maxEventsDisplay?: number } = {}
+  { maxEventsDisplay }: { maxEventsDisplay?: number } = {},
 ) =>
   [
     ...events
@@ -245,5 +245,5 @@ export const displayedEvents = (
         {text}
       </>
     ),
-    null
+    null,
   );

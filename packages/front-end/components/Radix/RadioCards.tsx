@@ -1,4 +1,9 @@
-import { Flex, Text, RadioCards as RadixRadioCards } from "@radix-ui/themes";
+import {
+  Flex,
+  Text,
+  RadioCards as RadixRadioCards,
+  TextProps,
+} from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
 import Badge from "@/components/Radix/Badge";
@@ -18,8 +23,14 @@ export type Props = {
   width?: string;
   options: RadioOptions;
   align?: "start" | "center" | "end";
+  icon?: ReactElement;
   value: string;
   setValue: (value: string) => void;
+  onClick?: () => void;
+  labelSize?: TextProps["size"];
+  labelWeight?: TextProps["weight"];
+  descriptionSize?: TextProps["size"];
+  descriptionWeight?: TextProps["weight"];
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function RadioCards(
@@ -31,9 +42,14 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
     value,
     setValue,
     align,
+    onClick,
+    labelSize = "3",
+    labelWeight = "bold",
+    descriptionSize = "2",
+    descriptionWeight = "regular",
     ...containerProps
   }: Props,
-  ref
+  ref,
 ) {
   return (
     <Flex {...containerProps} ref={ref}>
@@ -43,6 +59,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
           onValueChange={(val) => setValue(val)}
           disabled={disabled}
           columns={columns}
+          onClick={onClick}
         >
           {options.map(
             ({ value, label, avatar, description, disabled, badge }) => {
@@ -55,15 +72,29 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                 >
                   <Flex direction="row" width="100%" gap="3" align={align}>
                     {avatar}
-                    <Flex direction="column" gap="1">
+                    <Flex
+                      direction="column"
+                      gap="1"
+                      style={{ minWidth: 0, flex: 1 }}
+                    >
                       <Flex direction="row" gap="3">
-                        <Text weight="bold" size="3" className="main-text">
+                        <Text
+                          weight={labelWeight}
+                          size={labelSize}
+                          className="main-text truncate"
+                          style={{ minWidth: 0 }}
+                        >
                           {label || value}
                         </Text>
                         {badge ? <Badge label={badge} /> : null}
                       </Flex>
                       {description ? (
-                        <Text weight="regular" size="2">
+                        <Text
+                          weight={descriptionWeight}
+                          size={descriptionSize}
+                          className="truncate"
+                          style={{ minWidth: 0 }}
+                        >
                           {description}
                         </Text>
                       ) : null}
@@ -71,7 +102,7 @@ export default forwardRef<HTMLDivElement, Props>(function RadioCards(
                   </Flex>
                 </RadixRadioCards.Item>
               );
-            }
+            },
           )}
         </RadixRadioCards.Root>
       </Text>

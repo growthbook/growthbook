@@ -63,7 +63,7 @@ export class OpenIdAuthConnection implements AuthConnection {
   async refresh(
     req: Request,
     res: Response,
-    refreshToken: string
+    refreshToken: string,
   ): Promise<TokensResponse> {
     const { client, connection } = await getConnectionFromRequest(req, res);
 
@@ -85,7 +85,7 @@ export class OpenIdAuthConnection implements AuthConnection {
   }
   async getUnauthenticatedResponse(
     req: Request,
-    res: Response
+    res: Response,
   ): Promise<UnauthenticatedResponse> {
     const { connection, client } = await getConnectionFromRequest(req, res);
     const redirectURI = this.getRedirectURI(connection, client, req, res);
@@ -121,7 +121,7 @@ export class OpenIdAuthConnection implements AuthConnection {
       {
         code_verifier: checks.code_verifier,
         state: checks.state,
-      }
+      },
     );
 
     const email = tokenSet.claims().email;
@@ -149,12 +149,12 @@ export class OpenIdAuthConnection implements AuthConnection {
   async middleware(
     req: AuthRequest,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ): Promise<void> {
     try {
       const { connection } = await getConnectionFromRequest(
         req as Request,
-        res
+        res,
       );
 
       // Store the ssoConnectionId in the request
@@ -168,7 +168,7 @@ export class OpenIdAuthConnection implements AuthConnection {
 
       if (!jwksUri || !algorithms || !issuer) {
         throw new Error(
-          "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'"
+          "Missing SSO metadata: 'issuer', 'jwks_uri', and/or 'id_token_signing_alg_values_supported'",
         );
       }
 
@@ -184,9 +184,10 @@ export class OpenIdAuthConnection implements AuthConnection {
         middleware = jwtExpress({
           secret: jwks.expressJwtSecret({
             cache: true,
-            cacheMaxEntries: 50,
-            rateLimit: true,
-            jwksRequestsPerMinute: 5,
+            cacheMaxEntries: 200,
+            cacheMaxAge: 10 * 60 * 60 * 1000,
+            rateLimit: false,
+            jwksRequestsPerMinute: 10,
             jwksUri,
           }),
           audience: connection.clientId,
@@ -220,7 +221,7 @@ export class OpenIdAuthConnection implements AuthConnection {
     ssoConnection: SSOConnectionInterface,
     client: Client,
     req: Request,
-    res: Response
+    res: Response,
   ) {
     // Vercel has a provider-initiated SSO flow that differs from the normal OAuth flow
     if (ssoConnection.id?.startsWith("vercel:")) {

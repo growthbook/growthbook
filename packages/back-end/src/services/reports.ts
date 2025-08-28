@@ -58,7 +58,11 @@ import {
   isJoinableMetric,
 } from "back-end/src/services/experiments";
 import { MetricInterface } from "back-end/types/metric";
-import { MetricPriorSettings } from "back-end/types/fact-table";
+import {
+  ConversionWindowUnit,
+  MetricPriorSettings,
+  MetricWindowSettings,
+} from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
@@ -68,7 +72,7 @@ import { ProjectInterface } from "back-end/types/project";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
-  phase: ExperimentPhase
+  phase: ExperimentPhase,
 ): ExperimentReportVariation[] {
   return experiment.variations.map((v, i) => {
     return {
@@ -81,7 +85,7 @@ export function getReportVariations(
 
 export function getMetricSnapshotSettingsFromSnapshot(
   snapshotSettings: ExperimentSnapshotSettings,
-  analysisSettings: ExperimentSnapshotAnalysisSettings
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): MetricSnapshotSettings[] {
   return snapshotSettings.metricSettings.map((m) => {
     return {
@@ -108,7 +112,7 @@ export function getMetricSnapshotSettingsFromSnapshot(
 export function reportArgsFromSnapshot(
   experiment: ExperimentInterface,
   snapshot: ExperimentSnapshotInterface,
-  analysisSettings: ExperimentSnapshotAnalysisSettings
+  analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): ExperimentReportArgs {
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
@@ -136,7 +140,7 @@ export function reportArgsFromSnapshot(
     regressionAdjustmentEnabled: analysisSettings.regressionAdjusted,
     settingsForSnapshotMetrics: getMetricSnapshotSettingsFromSnapshot(
       snapshot.settings,
-      analysisSettings
+      analysisSettings,
     ),
     defaultMetricPriorSettings: snapshot.settings.defaultMetricPriorSettings,
     sequentialTestingEnabled: analysisSettings.sequentialTesting,
@@ -148,7 +152,7 @@ export function reportArgsFromSnapshot(
 }
 
 export function getAnalysisSettingsFromReportArgs(
-  args: ExperimentReportArgs
+  args: ExperimentReportArgs,
 ): ExperimentSnapshotAnalysisSettings {
   return {
     dimensions: args.dimension ? [args.dimension] : [],
@@ -165,7 +169,7 @@ export function getAnalysisSettingsFromReportArgs(
 }
 export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
-  metricMap: Map<string, ExperimentMetricInterface>
+  metricMap: Map<string, ExperimentMetricInterface>,
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -185,7 +189,7 @@ export function getSnapshotSettingsFromReportArgs(
           settingsForSnapshotMetrics: args.settingsForSnapshotMetrics,
           metricOverrides: args.metricOverrides,
           decisionFrameworkSettings: args.decisionFrameworkSettings,
-        })
+        }),
       )
       .filter(isDefined),
     activationMetric: args.activationMetric || null,
@@ -216,29 +220,117 @@ export function getSnapshotSettingsFromReportArgs(
   return { snapshotSettings, analysisSettings };
 }
 
+function convertWindowValueToHours(
+  windowValue: number,
+  windowUnit: ConversionWindowUnit,
+) {
+  switch (windowUnit) {
+    case "hours":
+      return windowValue;
+    case "days":
+      return windowValue * 24;
+    case "weeks":
+      return windowValue * 24 * 7;
+    case "minutes":
+      return windowValue / 60;
+  }
+}
+
+function generateWindowSettings(
+  metric: ExperimentMetricInterface,
+  overrides?: MetricOverride,
+  phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit },
+): MetricWindowSettings {
+  if (phaseLookbackWindow) {
+    // Convert metric window value to hours if it's a lookback window. Ignore if it's a conversion window.
+    const metricWindowValueInHours =
+      metric.windowSettings.type === "lookback"
+        ? convertWindowValueToHours(
+            metric.windowSettings.windowValue,
+            metric.windowSettings.windowUnit,
+          )
+        : 0;
+
+    // Find the minimum window value from the metric settings and the phase lookback window
+    const minWindowValueInHours =
+      metricWindowValueInHours > 0
+        ? Math.min(
+            metricWindowValueInHours,
+            convertWindowValueToHours(
+              phaseLookbackWindow.value,
+              phaseLookbackWindow.unit,
+            ),
+          )
+        : convertWindowValueToHours(
+            phaseLookbackWindow.value,
+            phaseLookbackWindow.unit,
+          );
+
+    return {
+      delayValue:
+        metric.windowSettings.delayValue ?? DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+      delayUnit: metric.windowSettings.delayUnit ?? "hours",
+      type: "lookback",
+      windowUnit: "hours",
+      windowValue: minWindowValueInHours,
+    };
+  }
+
+  return {
+    delayValue:
+      overrides?.delayHours ??
+      metric.windowSettings.delayValue ??
+      DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+    delayUnit: overrides?.delayHours
+      ? "hours"
+      : (metric.windowSettings.delayUnit ?? "hours"),
+    type:
+      overrides?.windowType ??
+      metric.windowSettings.type ??
+      DEFAULT_METRIC_WINDOW,
+    windowUnit:
+      overrides?.windowHours || overrides?.windowType
+        ? "hours"
+        : metric.windowSettings.windowUnit,
+    windowValue:
+      overrides?.windowHours ??
+      metric.windowSettings.windowValue ??
+      DEFAULT_METRIC_WINDOW_HOURS,
+  };
+}
+
 export function getMetricForSnapshot({
   id,
   metricMap,
   settingsForSnapshotMetrics,
   metricOverrides,
   decisionFrameworkSettings,
+  phaseLookbackWindow,
 }: {
   id: string | null | undefined;
   metricMap: Map<string, ExperimentMetricInterface>;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   metricOverrides?: MetricOverride[];
   decisionFrameworkSettings: ExperimentDecisionFrameworkSettings;
+  phaseLookbackWindow?: { value: number; unit: ConversionWindowUnit };
 }): MetricForSnapshot | null {
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
+
+  // TODO: Is this the right place to ignore conversion window metrics for holdouts?
+  if (metric.windowSettings.type === "conversion" && phaseLookbackWindow) {
+    return null;
+  }
   const overrides = metricOverrides?.find((o) => o.id === id);
-  const decisionFrameworkMetricOverride = decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
-    (o) => o.id === id
-  );
+  const decisionFrameworkMetricOverride =
+    decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.find(
+      (o) => o.id === id,
+    );
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
-    (s) => s.metric === id
+    (s) => s.metric === id,
   );
+
   return {
     id,
     settings: {
@@ -251,27 +343,11 @@ export function getMetricForSnapshot({
       userIdTypes: (!isFactMetric(metric) && metric.userIdTypes) || undefined,
     },
     computedSettings: {
-      windowSettings: {
-        delayValue:
-          overrides?.delayHours ??
-          metric.windowSettings.delayValue ??
-          DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-        delayUnit: overrides?.delayHours
-          ? "hours"
-          : metric.windowSettings.delayUnit ?? "hours",
-        type:
-          overrides?.windowType ??
-          metric.windowSettings.type ??
-          DEFAULT_METRIC_WINDOW,
-        windowUnit:
-          overrides?.windowHours || overrides?.windowType
-            ? "hours"
-            : metric.windowSettings.windowUnit ?? "hours",
-        windowValue:
-          overrides?.windowHours ??
-          metric.windowSettings.windowValue ??
-          DEFAULT_METRIC_WINDOW_HOURS,
-      },
+      windowSettings: generateWindowSettings(
+        metric,
+        overrides,
+        phaseLookbackWindow,
+      ),
       properPrior: metricSnapshotSettings?.properPrior ?? false,
       properPriorMean: metricSnapshotSettings?.properPriorMean ?? 0,
       properPriorStdDev:
@@ -320,7 +396,7 @@ export async function createReportSnapshot({
     // This should "never" happen, but just in case the report's initial snapshot is missing...
     if (!experiment)
       throw new Error(
-        "Unable to create snapshot for report: invalid experiment"
+        "Unable to create snapshot for report: invalid experiment",
       );
     snapshotData =
       (await getLatestSnapshot({
@@ -339,7 +415,7 @@ export async function createReportSnapshot({
     : null;
   const datasource = await getDataSourceById(
     context,
-    experiment?.datasource || snapshotData?.settings?.datasourceId || ""
+    experiment?.datasource || snapshotData?.settings?.datasourceId || "",
   );
   if (!datasource) throw new Error("Could not load data source");
 
@@ -356,38 +432,36 @@ export async function createReportSnapshot({
   const metricIds = getAllMetricIdsFromExperiment(
     report.experimentAnalysisSettings,
     false,
-    metricGroups
+    metricGroups,
   );
   const allReportMetrics = metricIds.map((m) => metricMap.get(m) || null);
   const denominatorMetricIds = uniq<string>(
     allReportMetrics
       .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[]
+      .filter((d) => d && typeof d === "string") as string[],
   );
   const denominatorMetrics = denominatorMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined) as MetricInterface[];
-  const {
-    settingsForSnapshotMetrics,
-    regressionAdjustmentEnabled,
-  } = getAllMetricSettingsForSnapshot({
-    allExperimentMetrics: allReportMetrics,
-    denominatorMetrics,
-    orgSettings,
-    experimentRegressionAdjustmentEnabled:
-      report.experimentAnalysisSettings.regressionAdjustmentEnabled,
-    experimentMetricOverrides:
-      report.experimentAnalysisSettings.metricOverrides,
-    datasourceType: datasource?.type,
-    hasRegressionAdjustmentFeature: true,
-  });
+  const { settingsForSnapshotMetrics, regressionAdjustmentEnabled } =
+    getAllMetricSettingsForSnapshot({
+      allExperimentMetrics: allReportMetrics,
+      denominatorMetrics,
+      orgSettings,
+      experimentRegressionAdjustmentEnabled:
+        report.experimentAnalysisSettings.regressionAdjustmentEnabled,
+      experimentMetricOverrides:
+        report.experimentAnalysisSettings.metricOverrides,
+      datasourceType: datasource?.type,
+      hasRegressionAdjustmentFeature: true,
+    });
 
   const defaultAnalysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
     report.experimentAnalysisSettings,
     organization,
     regressionAdjustmentEnabled,
-    report.experimentAnalysisSettings.dimension
+    report.experimentAnalysisSettings.dimension,
   );
 
   const analysisSettings: ExperimentSnapshotAnalysisSettings = {
@@ -408,11 +482,12 @@ export async function createReportSnapshot({
     datasource,
   });
 
+  const snapshotType = "report";
   // Fill in and sanitize the model
   snapshotData = {
     ...snapshotData,
     id: uniqid("snp_"),
-    type: "report",
+    type: snapshotType,
     report: report.id,
     triggeredBy: "manual",
     error: "",
@@ -453,9 +528,10 @@ export async function createReportSnapshot({
     context,
     snapshot,
     integration,
-    useCache
+    useCache,
   );
   await queryRunner.startAnalysis({
+    snapshotType,
     snapshotSettings: snapshot.settings,
     variationNames: report.experimentMetadata.variations.map((v) => v.name),
     metricMap,
@@ -496,13 +572,13 @@ export function getReportSnapshotSettings({
 
   const queries = datasource?.settings?.queries?.exposure || [];
   const exposureQuery = queries.find(
-    (q) => q.id === report.experimentAnalysisSettings.exposureQueryId
+    (q) => q.id === report.experimentAnalysisSettings.exposureQueryId,
   );
 
   // expand metric groups and scrub unjoinable metrics
   const goalMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.goalMetrics,
-    metricGroups
+    metricGroups,
   ).filter((m) =>
     isJoinableMetric({
       metricId: m,
@@ -510,11 +586,11 @@ export function getReportSnapshotSettings({
       factTableMap,
       exposureQuery,
       datasource,
-    })
+    }),
   );
   const secondaryMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.secondaryMetrics,
-    metricGroups
+    metricGroups,
   ).filter((m) =>
     isJoinableMetric({
       metricId: m,
@@ -522,11 +598,11 @@ export function getReportSnapshotSettings({
       factTableMap,
       exposureQuery,
       datasource,
-    })
+    }),
   );
   const guardrailMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.guardrailMetrics,
-    metricGroups
+    metricGroups,
   ).filter((m) =>
     isJoinableMetric({
       metricId: m,
@@ -534,16 +610,16 @@ export function getReportSnapshotSettings({
       factTableMap,
       exposureQuery,
       datasource,
-    })
+    }),
   );
 
   const metricSettings = expandMetricGroups(
     getAllMetricIdsFromExperiment(
       report.experimentAnalysisSettings,
       true,
-      metricGroups
+      metricGroups,
     ),
-    metricGroups
+    metricGroups,
   )
     .map((m) =>
       getMetricForSnapshot({
@@ -553,7 +629,7 @@ export function getReportSnapshotSettings({
         metricOverrides: report.experimentAnalysisSettings.metricOverrides,
         decisionFrameworkSettings:
           report.experimentAnalysisSettings.decisionFrameworkSettings,
-      })
+      }),
     )
     .filter(isDefined);
 
@@ -609,7 +685,7 @@ export async function generateExperimentReportSSRData({
       ...(snapshot?.settings?.secondaryMetrics ?? []),
       ...(snapshot?.settings?.guardrailMetrics ?? []),
     ]),
-    metricGroups
+    metricGroups,
   );
 
   const metricIds = uniq([
@@ -621,23 +697,23 @@ export async function generateExperimentReportSSRData({
 
   const metrics = await getMetricsByIds(
     context,
-    metricIds.filter((m) => m.startsWith("met_"))
+    metricIds.filter((m) => m.startsWith("met_")),
   );
 
   const factMetrics = await context.models.factMetrics.getByIds(
-    metricIds.filter((m) => m.startsWith("fact__"))
+    metricIds.filter((m) => m.startsWith("fact__")),
   );
 
   const denominatorMetricIds = uniq(
     metrics
       .filter((m) => !!m.denominator)
       .map((m) => m.denominator)
-      .filter((id) => id && !metricIds.includes(id)) as string[]
+      .filter((id) => id && !metricIds.includes(id)) as string[],
   );
 
   const denominatorMetrics = await getMetricsByIds(
     context,
-    denominatorMetricIds
+    denominatorMetricIds,
   );
 
   const metricMap = [...metrics, ...factMetrics, ...denominatorMetrics].reduce(
@@ -655,7 +731,7 @@ export async function generateExperimentReportSSRData({
           "queryFormat",
         ]),
       }),
-    {}
+    {},
   );
 
   let factTableIds: string[] = [];
@@ -670,7 +746,7 @@ export async function generateExperimentReportSSRData({
   const factTables = await getFactTablesByIds(context, factTableIds);
   const factTableMap = factTables.reduce(
     (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
-    {}
+    {},
   );
 
   const allDimensions = await findDimensionsByOrganization(organization);
@@ -695,7 +771,7 @@ export async function generateExperimentReportSSRData({
 
   const orgSettings: OrganizationSettings = pick(
     context.org.settings,
-    settingsKeys
+    settingsKeys,
   );
 
   const projectObj = project

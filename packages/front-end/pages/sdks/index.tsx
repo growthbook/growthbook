@@ -20,7 +20,7 @@ export default function SDKsPage() {
     getPublishableKeys(data?.keys || [], project).length > 0;
 
   const { data: legacyWebhookData } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/legacy-sdk-webhooks"
+    "/legacy-sdk-webhooks",
   );
   const hasLegacyWebhooks = !!legacyWebhookData?.webhooks?.length;
   const legacyEnabled = hasLegacyEndpoints || hasLegacyWebhooks;

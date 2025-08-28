@@ -9,9 +9,8 @@ export default class Mssql extends SqlIntegration {
   params!: MssqlConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<MssqlConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<MssqlConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "tsql";
@@ -40,11 +39,15 @@ export default class Mssql extends SqlIntegration {
     return `SELECT TOP ${limit} * FROM ${table}`;
   }
 
+  ensureMaxLimit(sql: string, limit: number): string {
+    return `WITH __table AS (\n${sql}\n) SELECT TOP ${limit} * FROM __table`;
+  }
+
   addTime(
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `DATEADD(${unit}, ${sign === "-" ? "-" : ""}${amount}, ${col})`;
   }

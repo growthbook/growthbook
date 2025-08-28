@@ -12,14 +12,14 @@ interface LargeSavedGroupSupport {
 }
 
 export function useLargeSavedGroupSupport(
-  project?: string
+  project?: string,
 ): LargeSavedGroupSupport {
   const { hasCommercialFeature } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   let connections = sdkConnectionData?.connections || [];
   connections = connections.filter(
     (conn) =>
-      conn.projects.length === 0 || conn.projects.includes(project || "")
+      conn.projects.length === 0 || conn.projects.includes(project || ""),
   );
   const unsupportedConnections: SDKConnectionInterface[] = [];
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");

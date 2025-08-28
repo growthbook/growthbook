@@ -1,5 +1,13 @@
 # Changelog
 
+## **1.6.1** - Aug 6, 2025
+
+- Fix incorrect `version` property on GrowthBook instances (was still set to 1.5.1)
+
+## **1.6.0** - Jun 16, 2025
+
+- Fix plugin importing when using Typescript moduleResolution `node`
+
 ## **1.5.1** - May 1, 2025
 
 - Fix broken minification in the bundled file `auto.min.js` caused by a Babel update

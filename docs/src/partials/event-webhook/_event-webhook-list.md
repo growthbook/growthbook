@@ -60,7 +60,9 @@ Triggered when a feature is created
                             condition: string;
                         }[] | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         id: string;
@@ -75,7 +77,9 @@ Triggered when a feature is created
                             savedGroups: string[];
                         }[] | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         id: string;
@@ -103,7 +107,9 @@ Triggered when a feature is created
                         } | undefined;
                         coverage?: number | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         value?: {
@@ -118,7 +124,9 @@ Triggered when a feature is created
                         type: "experiment-ref";
                         condition?: string | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         variations: {
@@ -147,6 +155,12 @@ Triggered when a feature is created
                         hashAttribute?: string | undefined;
                         safeRolloutId?: string | undefined;
                         status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
+                            timestamp: string | null;
+                        }[] | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -166,7 +180,9 @@ Triggered when a feature is created
                                 condition: string;
                             }[] | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             id: string;
@@ -181,7 +197,9 @@ Triggered when a feature is created
                                 savedGroups: string[];
                             }[] | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             id: string;
@@ -209,7 +227,9 @@ Triggered when a feature is created
                             } | undefined;
                             coverage?: number | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             value?: {
@@ -224,7 +244,9 @@ Triggered when a feature is created
                             type: "experiment-ref";
                             condition?: string | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             variations: {
@@ -253,6 +275,12 @@ Triggered when a feature is created
                             hashAttribute?: string | undefined;
                             safeRolloutId?: string | undefined;
                             status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                            scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                                enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
+                                timestamp: string | null;
+                            }[] | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -267,6 +295,9 @@ Triggered when a feature is created
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
@@ -328,7 +359,9 @@ Triggered when a feature is updated
                             condition: string;
                         }[] | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         id: string;
@@ -343,7 +376,9 @@ Triggered when a feature is updated
                             savedGroups: string[];
                         }[] | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         id: string;
@@ -371,7 +406,9 @@ Triggered when a feature is updated
                         } | undefined;
                         coverage?: number | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         value?: {
@@ -386,7 +423,9 @@ Triggered when a feature is updated
                         type: "experiment-ref";
                         condition?: string | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         variations: {
@@ -415,6 +454,12 @@ Triggered when a feature is updated
                         hashAttribute?: string | undefined;
                         safeRolloutId?: string | undefined;
                         status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
+                            timestamp: string | null;
+                        }[] | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -434,7 +479,9 @@ Triggered when a feature is updated
                                 condition: string;
                             }[] | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             id: string;
@@ -449,7 +496,9 @@ Triggered when a feature is updated
                                 savedGroups: string[];
                             }[] | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             id: string;
@@ -477,7 +526,9 @@ Triggered when a feature is updated
                             } | undefined;
                             coverage?: number | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             value?: {
@@ -492,7 +543,9 @@ Triggered when a feature is updated
                             type: "experiment-ref";
                             condition?: string | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             variations: {
@@ -521,6 +574,12 @@ Triggered when a feature is updated
                             hashAttribute?: string | undefined;
                             safeRolloutId?: string | undefined;
                             status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                            scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                                enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
+                                timestamp: string | null;
+                            }[] | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -535,6 +594,9 @@ Triggered when a feature is updated
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -564,7 +626,9 @@ Triggered when a feature is updated
                             condition: string;
                         }[] | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         id: string;
@@ -579,7 +643,9 @@ Triggered when a feature is updated
                             savedGroups: string[];
                         }[] | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         id: string;
@@ -607,7 +673,9 @@ Triggered when a feature is updated
                         } | undefined;
                         coverage?: number | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         value?: {
@@ -622,7 +690,9 @@ Triggered when a feature is updated
                         type: "experiment-ref";
                         condition?: string | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         variations: {
@@ -651,6 +721,12 @@ Triggered when a feature is updated
                         hashAttribute?: string | undefined;
                         safeRolloutId?: string | undefined;
                         status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
+                            timestamp: string | null;
+                        }[] | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -670,7 +746,9 @@ Triggered when a feature is updated
                                 condition: string;
                             }[] | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             id: string;
@@ -685,7 +763,9 @@ Triggered when a feature is updated
                                 savedGroups: string[];
                             }[] | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             id: string;
@@ -713,7 +793,9 @@ Triggered when a feature is updated
                             } | undefined;
                             coverage?: number | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             value?: {
@@ -728,7 +810,9 @@ Triggered when a feature is updated
                             type: "experiment-ref";
                             condition?: string | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             variations: {
@@ -757,6 +841,12 @@ Triggered when a feature is updated
                             hashAttribute?: string | undefined;
                             safeRolloutId?: string | undefined;
                             status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                            scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                                enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
+                                timestamp: string | null;
+                            }[] | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -771,6 +861,9 @@ Triggered when a feature is updated
                 date: string;
                 publishedBy: string;
             } | undefined;
+            customFields?: ({
+                [x: string]: any;
+            } | undefined) | undefined;
         };
     };
     user: {
@@ -832,7 +925,9 @@ Triggered when a feature is deleted
                             condition: string;
                         }[] | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         id: string;
@@ -847,7 +942,9 @@ Triggered when a feature is deleted
                             savedGroups: string[];
                         }[] | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         id: string;
@@ -875,7 +972,9 @@ Triggered when a feature is deleted
                         } | undefined;
                         coverage?: number | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         value?: {
@@ -890,7 +989,9 @@ Triggered when a feature is deleted
                         type: "experiment-ref";
                         condition?: string | undefined;
                         scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
                             enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
                             timestamp: string | null;
                         }[] | undefined;
                         variations: {
@@ -919,6 +1020,12 @@ Triggered when a feature is deleted
                         hashAttribute?: string | undefined;
                         safeRolloutId?: string | undefined;
                         status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                        scheduleRules?: {
+                            /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /** ISO timestamp when the rule should activate. */
+                            timestamp: string | null;
+                        }[] | undefined;
                     })[];
                     /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string | undefined;
@@ -938,7 +1045,9 @@ Triggered when a feature is deleted
                                 condition: string;
                             }[] | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             id: string;
@@ -953,7 +1062,9 @@ Triggered when a feature is deleted
                                 savedGroups: string[];
                             }[] | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             id: string;
@@ -981,7 +1092,9 @@ Triggered when a feature is deleted
                             } | undefined;
                             coverage?: number | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             value?: {
@@ -996,7 +1109,9 @@ Triggered when a feature is deleted
                             type: "experiment-ref";
                             condition?: string | undefined;
                             scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
                                 enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
                                 timestamp: string | null;
                             }[] | undefined;
                             variations: {
@@ -1025,6 +1140,12 @@ Triggered when a feature is deleted
                             hashAttribute?: string | undefined;
                             safeRolloutId?: string | undefined;
                             status?: ("running" | "released" | "rolled-back" | "stopped") | undefined;
+                            scheduleRules?: {
+                                /** Whether the rule should be enabled or disabled at the specified timestamp. */
+                                enabled: boolean;
+                                /** ISO timestamp when the rule should activate. */
+                                timestamp: string | null;
+                            }[] | undefined;
                         })[];
                         /** A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                         definition?: string | undefined;
@@ -1039,6 +1160,9 @@ Triggered when a feature is deleted
                 date: string;
                 publishedBy: string;
             };
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
@@ -1307,6 +1431,9 @@ Triggered when an experiment is created
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {
@@ -1463,6 +1590,9 @@ Triggered when an experiment is updated
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1587,6 +1717,9 @@ Triggered when an experiment is updated
             linkedFeatures?: (string[] | undefined) | undefined;
             hasVisualChangesets?: (boolean | undefined) | undefined;
             hasURLRedirects?: (boolean | undefined) | undefined;
+            customFields?: ({
+                [x: string]: any;
+            } | undefined) | undefined;
         };
     };
     user: {
@@ -1743,6 +1876,9 @@ Triggered when an experiment is deleted
             linkedFeatures?: string[] | undefined;
             hasVisualChangesets?: boolean | undefined;
             hasURLRedirects?: boolean | undefined;
+            customFields?: {
+                [x: string]: any;
+            } | undefined;
         };
     };
     user: {

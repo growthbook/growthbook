@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
+import { upperFirst } from "lodash";
 import {
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
@@ -34,15 +35,16 @@ import {
   formatPercent,
   getColumnRefFormatter,
   getExperimentMetricFormatter,
+  getMetricFormatter,
   getPercentileLabel,
 } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import FlagCard from "../FlagCard/FlagCard";
-import { PercentileLabel } from "../Metrics/MetricName";
-import MetricValueColumn from "../SafeRollout/Results/MetricValueColumn";
-import Callout from "../Radix/Callout";
+import FlagCard from "@/components/FlagCard/FlagCard";
+import { PercentileLabel } from "@/components/Metrics/MetricName";
+import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
+import Callout from "@/components/Radix/Callout";
 
 interface AnalysisResultPopoverProps {
   data?: {
@@ -90,7 +92,7 @@ export default function AnalysisResultPopover({
       : getExperimentMetricFormatter(
           data.metric,
           ssrPolyfills?.getFactTableById || getFactTableById,
-          differenceType === "absolute" ? "percentagePoints" : "number"
+          differenceType === "absolute" ? "percentagePoints" : "number",
         );
   const deltaFormatterOptions = {
     currency: displayCurrency,
@@ -120,7 +122,7 @@ export default function AnalysisResultPopover({
   ) {
     denomFormatter = getColumnRefFormatter(
       data.metric.denominator,
-      getFactTableById
+      getFactTableById,
     );
   }
   const quantileMetric = quantileMetricType(data.metric);
@@ -132,7 +134,7 @@ export default function AnalysisResultPopover({
 
   const variationColor = getVariationColor(data.variation.index, true);
 
-  const maybeRenderLiftWarning = () => {
+  const maybeRenderRegressionAdjustmentInfo = () => {
     const cupedUsed = data.metricSnapshotSettings?.regressionAdjustmentEnabled;
     const priorUsed =
       data.statsEngine === "bayesian" &&
@@ -143,13 +145,13 @@ export default function AnalysisResultPopover({
     }
 
     return (
-      <Callout size="sm" status="warning">
+      <Callout size="sm" status="info" icon={null}>
         {priorUsed && cupedUsed ? (
           <>CUPED and Bayesian Priors affect results</>
         ) : priorUsed ? (
           <>Bayesian Priors affect results</>
         ) : (
-          <>CUPED affect results</>
+          <>CUPED affects results</>
         )}{" "}
         <Tooltip
           content={
@@ -187,36 +189,35 @@ export default function AnalysisResultPopover({
     );
   };
 
-  const maybeRenderSuspiciousChange = () => {
-    if (data.isGuardrail || !data.rowResults.suspiciousChange) {
-      return null;
-    }
-
-    return (
-      <Callout size="sm" status="info">
-        A suspicious change was detected in this metric.{" "}
-        <Tooltip content={data.rowResults.suspiciousChangeReason}>
-          <span>
-            <PiInfo size={16} />
-          </span>
-        </Tooltip>
-      </Callout>
-    );
-  };
-
   return (
-    <Box p="1">
+    <Box p="2">
+      {data.isGuardrail ? (
+        <div
+          className="text-muted"
+          style={{ marginBottom: -2, fontSize: "10px" }}
+        >
+          GUARDRAIL
+        </div>
+      ) : null}
+
       <Flex direction="column" gap="2" mb="3">
         <Flex gap="1" align="center">
-          <Text weight="medium" size="2">
+          <Text
+            weight="medium"
+            size="2"
+            className="text-ellipsis"
+            style={{ maxWidth: 350 }}
+          >
             {data.metric.name}
           </Text>
           <PercentileLabel metric={data.metric} />
-          <Text weight="regular">
+          <Text weight="regular" size="2" color="gray">
             (
-            {isFactMetric(data.metric)
-              ? data.metric.metricType
-              : data.metric.type}
+            {upperFirst(
+              isFactMetric(data.metric)
+                ? data.metric.metricType
+                : data.metric.type,
+            )}
             )
           </Text>
           {metricInverseIconDisplay}
@@ -257,7 +258,9 @@ export default function AnalysisResultPopover({
           >
             {data.variation.index}
           </span>
-          <Text weight="bold">{data.variation.name}</Text>
+          <Text weight="bold" className="text-ellipsis">
+            {data.variation.name}
+          </Text>
         </Flex>
       </Flex>
 
@@ -318,6 +321,7 @@ export default function AnalysisResultPopover({
                 style={{
                   color: "var(--color-text-high)",
                   fontWeight: 500,
+                  fontSize: "12px",
                 }}
               >
                 <TableCell pl="0">
@@ -336,13 +340,19 @@ export default function AnalysisResultPopover({
                         alignItems: "center",
                         justifyContent: "center",
                         flexShrink: 0,
-                        marginTop: 2,
+                        marginTop: 1,
                       }}
                     >
                       {rowNumber}
                     </span>
                     <Flex direction="column">
-                      <Text weight="bold">{rowName}</Text>
+                      <Text
+                        weight="bold"
+                        className="text-ellipsis"
+                        style={{ maxWidth: 90 }}
+                      >
+                        {rowName}
+                      </Text>
                       {i === 0 ? (
                         <Text
                           size="1"
@@ -364,11 +374,16 @@ export default function AnalysisResultPopover({
 
                 {!quantileMetric ? (
                   <TableCell justify="end">
-                    {getExperimentMetricFormatter(
-                      data.metric,
-                      ssrPolyfills?.getFactTableById || getFactTableById,
-                      "number"
-                    )(row.value, { currency: displayCurrency })}
+                    {isFactMetric(data.metric)
+                      ? getColumnRefFormatter(
+                          data.metric.numerator,
+                          ssrPolyfills?.getFactTableById || getFactTableById,
+                        )(row.value, { currency: displayCurrency })
+                      : getMetricFormatter(
+                          data.metric.type === "binomial"
+                            ? "count"
+                            : data.metric.type,
+                        )(row.value, { currency: displayCurrency })}
                   </TableCell>
                 ) : null}
 
@@ -394,6 +409,7 @@ export default function AnalysisResultPopover({
                     getFactTableById={
                       ssrPolyfills?.getFactTableById || getFactTableById
                     }
+                    asTd={false}
                   />
                 </TableCell>
               </TableRow>
@@ -403,8 +419,7 @@ export default function AnalysisResultPopover({
       </Table>
 
       <Flex direction="column" gap="2">
-        {maybeRenderLiftWarning()}
-        {maybeRenderSuspiciousChange()}
+        {maybeRenderRegressionAdjustmentInfo()}
       </Flex>
     </Box>
   );

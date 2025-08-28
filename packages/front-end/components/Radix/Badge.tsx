@@ -10,11 +10,12 @@ type Props = {
   variant?: "solid" | "soft" | "outline";
   radius?: "none" | "small" | "medium" | "large" | "full";
   style?: CSSProperties;
+  className?: string;
 } & MarginProps;
 
 export default forwardRef<HTMLDivElement, Props>(function Badge(
   { label, title, ...props }: Props,
-  ref
+  ref,
 ) {
   return (
     <RadixBadge ref={ref} title={title} {...props}>

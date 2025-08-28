@@ -1,4 +1,5 @@
 import { ExperimentResultStatusData } from "back-end/types/experiment";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import Button from "@/components/Radix/Button";
 
 export interface Props {
@@ -6,6 +7,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   isBandit?: boolean;
   runningExperimentStatus?: ExperimentResultStatusData;
+  holdout?: HoldoutInterface;
 }
 
 export default function ExperimentActionButtons({
@@ -13,6 +15,7 @@ export default function ExperimentActionButtons({
   editTargeting,
   isBandit,
   runningExperimentStatus,
+  holdout,
 }: Props) {
   const runningStatus = runningExperimentStatus?.status;
 
@@ -20,27 +23,38 @@ export default function ExperimentActionButtons({
     runningStatus === "ship-now" ||
     runningStatus === "ready-for-review" ||
     runningStatus === "rollback-now";
-
+  const displayCTAText = () => {
+    if (holdout) {
+      return !holdout?.analysisStartDate
+        ? "Start Analysis Period"
+        : "Stop Holdout";
+    }
+    if (readyForDecision) {
+      return "Make Decision";
+    } else if (isBandit) {
+      return "Stop Bandit";
+    } else {
+      return "Stop Experiment";
+    }
+  };
   return (
     <div className="d-flex ml-2">
-      <Button
-        variant={readyForDecision ? "outline" : "solid"}
-        mr="3"
-        disabled={!editTargeting}
-        onClick={() => editTargeting?.()}
-      >
-        Make Changes
-      </Button>
+      {!holdout && (
+        <Button
+          variant={readyForDecision ? "outline" : "solid"}
+          mr="3"
+          disabled={!editTargeting}
+          onClick={() => editTargeting?.()}
+        >
+          Make Changes
+        </Button>
+      )}
       <Button
         variant={readyForDecision ? "solid" : "outline"}
         onClick={() => editResult?.()}
         disabled={!editResult}
       >
-        {readyForDecision ? (
-          "Make Decision"
-        ) : (
-          <>Stop {isBandit ? "Bandit" : "Experiment"}</>
-        )}
+        {displayCTAText()}
       </Button>
     </div>
   );

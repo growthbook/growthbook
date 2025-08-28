@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
-import { OrganizationInterface } from "back-end/types/organization";
+import { ApiCodeRef } from "back-end/types/openapi";
+import { OrganizationInterface, ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 
 const featureCodeRefsSchema = new mongoose.Schema({
   organization: String,
@@ -25,19 +27,40 @@ const featureCodeRefsSchema = new mongoose.Schema({
 
 featureCodeRefsSchema.index(
   { organization: 1, repo: 1, branch: 1, feature: 1 },
-  { unique: true }
+  { unique: true },
 );
+// Helper for getting a unique string for sorting since the model has no id field
+export function uniqueId(codeRef: FeatureCodeRefsInterface) {
+  return `${codeRef.organization}/${codeRef.repo}/${codeRef.branch}/${codeRef.feature}`;
+}
 
 type FeatureCodeRefsDocument = mongoose.Document & FeatureCodeRefsInterface;
 
 const FeatureCodeRefsModel = mongoose.model<FeatureCodeRefsInterface>(
   "FeatureCodeRefs",
-  featureCodeRefsSchema
+  featureCodeRefsSchema,
 );
 
 function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
   const ret = doc.toJSON<FeatureCodeRefsDocument>();
   return omit(ret, ["__v", "_id"]);
+}
+
+export function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
+  return {
+    branch: doc.branch,
+    dateUpdated: doc.dateUpdated?.toISOString(),
+    feature: doc.feature,
+    organization: doc.organization,
+    platform: doc.platform,
+    refs: doc.refs.map((ref) => ({
+      filePath: ref.filePath,
+      startingLineNumber: ref.startingLineNumber,
+      lines: ref.lines,
+      flagKey: ref.flagKey,
+    })),
+    repo: doc.repo,
+  };
 }
 
 export const upsertFeatureCodeRefs = async ({
@@ -67,7 +90,7 @@ export const upsertFeatureCodeRefs = async ({
       platform,
       dateUpdated: new Date(),
     },
-    { upsert: true }
+    { upsert: true },
   );
 
   return await FeatureCodeRefsModel.find({
@@ -107,5 +130,15 @@ export const getAllCodeRefsForFeature = async ({
   return await FeatureCodeRefsModel.find({
     feature,
     organization: organization.id,
+  }).then((docs) => docs.map(toInterface));
+};
+
+export const getAllCodeRefsForOrg = async ({
+  context,
+}: {
+  context: ReqContext | ApiReqContext;
+}): Promise<FeatureCodeRefsInterface[]> => {
+  return await FeatureCodeRefsModel.find({
+    organization: context.org.id,
   }).then((docs) => docs.map(toInterface));
 };

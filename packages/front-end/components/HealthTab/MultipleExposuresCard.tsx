@@ -41,7 +41,7 @@ export default function MultipleExposuresCard({
         minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
         minPercentThreshold,
       }),
-    [snapshot?.multipleExposures, totalUsers, minPercentThreshold]
+    [snapshot?.multipleExposures, totalUsers, minPercentThreshold],
   );
 
   useEffect(() => {
@@ -72,9 +72,9 @@ export default function MultipleExposuresCard({
                 <b>Multiple exposures were not detected.</b>
               ) : (
                 `${numberFormatter.format(
-                  multipleExposures
+                  multipleExposures,
                 )} multiple exposures detected, but that is below your threshold of ${percentFormatter.format(
-                  minPercentThreshold
+                  minPercentThreshold,
                 )}`
               )}
             </div>
