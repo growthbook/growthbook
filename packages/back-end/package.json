@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
