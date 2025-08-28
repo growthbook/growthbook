@@ -622,31 +622,22 @@ export const lookupHoldoutByTrackingKey = async (
   req: AuthRequest<null, unknown, { trackingKey: string }>,
   res: Response<{ holdoutId: string }>,
 ) => {
-  try {
-    const context = getContextFromReq(req);
-    const { trackingKey } = req.query;
+  const context = getContextFromReq(req);
+  const { trackingKey } = req.query;
 
-    if (!trackingKey) {
-      throw new Error("No tracking key provided");
-    }
-    const experiment = await getExperimentByTrackingKey(
-      context,
-      trackingKey + "",
-    );
-    if (!experiment) {
-      throw new Error("No Holdout found");
-    }
-    const holdout = await context.models.holdout.getByExperimentId(
-      experiment.id,
-    );
-
-    if (!holdout) {
-      throw new Error("No Holdout found");
-    }
-
-    return res.status(200).json({ holdoutId: holdout.id });
-  } catch (error) {
-    throw new Error("Error looking up holdout by tracking key");
+  if (!trackingKey) {
+    throw new Error("No tracking key provided");
   }
+  const experiment = await getExperimentByTrackingKey(context, trackingKey);
+  if (!experiment) {
+    throw new Error("No Holdout found");
+  }
+  const holdout = await context.models.holdout.getByExperimentId(experiment.id);
+
+  if (!holdout) {
+    throw new Error("No Holdout found");
+  }
+
+  return res.status(200).json({ holdoutId: holdout.id });
 };
 // endregion GET /holdout/tracking-key
