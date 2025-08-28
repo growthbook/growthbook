@@ -212,12 +212,12 @@ export default function ExperimentHeader({
     | undefined
     | ExperimentPhaseStringDates;
   const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted)
+    ? date(phases[0].dateStarted, "UTC")
     : null;
   const endDate =
     phases.length > 0
       ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded ?? "")
+        ? date(lastPhase.dateEnded, "UTC")
         : "now"
       : date(new Date());
   const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
@@ -817,7 +817,7 @@ export default function ExperimentHeader({
                   !isHoldout &&
                   holdoutsEnabled &&
                   holdouts.length > 0 &&
-                  !holdout &&
+                  !experiment.holdoutId &&
                   experiment.status === "draft" && (
                     <DropdownMenuItem
                       onClick={() => {
