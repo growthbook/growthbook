@@ -335,7 +335,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </DropdownMenuItem>
         </DropdownMenu>
       )}
-      <Flex align="center" justify="between" mb="2">
+      <Flex align="center" mb="2" mr="3">
         {canEditTitle && editTitle ? (
           <Field
             autoFocus
@@ -358,10 +358,30 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 setEditTitle(false);
               }
             }}
+            containerClassName="flex-1"
           />
         ) : (
-          <h4 style={{ margin: 0 }}>
-            {block.title || BLOCK_TYPE_INFO[block.type].name}
+          <>
+            <h4
+              onDoubleClick={
+                canEditTitle
+                  ? (e) => {
+                      e.preventDefault();
+                      setEditTitle(true);
+                    }
+                  : undefined
+              }
+              style={{
+                margin: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                flexShrink: 1,
+              }}
+            >
+              {block.title || BLOCK_TYPE_INFO[block.type].name}
+            </h4>
+
             {canEditTitle && (
               <a
                 href="#"
@@ -376,7 +396,9 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
                 <PiPencilSimpleFill />
               </a>
             )}
-          </h4>
+
+            <div style={{ flexGrow: 1, marginRight: 30 }} />
+          </>
         )}
 
         {isEditing && (

@@ -30,6 +30,7 @@ import { useDashboards } from "@/hooks/useDashboards";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
@@ -297,7 +298,9 @@ export default function DashboardsTab({
                           {defaultDashboard && (
                             <>
                               <SelectItem value={defaultDashboard.id}>
-                                {defaultDashboard.title}
+                                <OverflowText maxWidth={400}>
+                                  {defaultDashboard.title}
+                                </OverflowText>
                               </SelectItem>
                               <SelectSeparator />
                             </>
@@ -306,7 +309,9 @@ export default function DashboardsTab({
                             <Fragment key={`dash-${i}`}>
                               {dash.id === defaultDashboard?.id ? null : (
                                 <SelectItem key={dash.id} value={dash.id}>
-                                  {dash.title}
+                                  <OverflowText maxWidth={400}>
+                                    {dash.title}
+                                  </OverflowText>
                                 </SelectItem>
                               )}
                             </Fragment>

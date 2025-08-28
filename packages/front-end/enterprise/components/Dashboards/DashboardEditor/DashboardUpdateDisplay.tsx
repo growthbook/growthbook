@@ -132,6 +132,8 @@ export default function DashboardUpdateDisplay({
       gap="1"
       align="center"
       className={clsx({ "dashboard-disabled": disabled })}
+      style={{ minWidth: 250 }}
+      justify={"end"}
     >
       <SnapshotStatusSummary
         blocks={blocks}

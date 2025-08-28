@@ -8,6 +8,7 @@ import {
   PiTableDuotone,
   PiMarkdownLogoBold,
   PiTextAaBold,
+  PiPencilSimpleFill,
 } from "react-icons/pi";
 import {
   DashboardBlockInterfaceOrData,
@@ -27,6 +28,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
 import Callout from "@/components/Radix/Callout";
+import Field from "@/components/Forms/Field";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
@@ -142,6 +144,7 @@ interface Props {
     index: number,
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   ) => void;
+  setTitle?: (title: string) => Promise<void>;
   moveBlock: (index: number, direction: -1 | 1) => void;
   addBlockType: (bType: DashboardBlockType, i?: number) => void;
   editBlock: (index: number) => void;
@@ -162,6 +165,7 @@ function DashboardEditor({
   stagedBlockIndex,
   scrollAreaRef,
   setBlock,
+  setTitle,
   moveBlock,
   addBlockType,
   editBlock,
@@ -169,6 +173,8 @@ function DashboardEditor({
   deleteBlock,
   mutate,
 }: Props) {
+  const [editingTitle, setEditingTitle] = useState(false);
+
   const renderSingleBlock = ({
     i,
     key,
@@ -267,19 +273,79 @@ function DashboardEditor({
     );
   };
 
+  const canEditTitle = isEditing && !!setTitle;
+
   return (
     <div>
       <Flex
         align="end"
-        justify="between"
         height={DASHBOARD_TOPBAR_HEIGHT}
         className="mb-3"
+        gap="1"
       >
-        <Flex align="center" gap="1">
-          <Text weight="medium" size="5">
-            {title}
-          </Text>
-        </Flex>
+        {canEditTitle && editingTitle ? (
+          <Field
+            autoFocus
+            defaultValue={title}
+            placeholder="Title"
+            onFocus={(e) => {
+              e.target.select();
+            }}
+            onBlur={(e) => {
+              setEditingTitle(false);
+              const newTitle = e.target.value;
+              if (newTitle !== title) {
+                setTitle(newTitle);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              } else if (e.key === "Escape") {
+                setEditingTitle(false);
+              }
+            }}
+            containerClassName="flex-1"
+          />
+        ) : (
+          <>
+            <Text
+              weight="medium"
+              size="5"
+              onDoubleClick={
+                canEditTitle
+                  ? (e) => {
+                      e.preventDefault();
+                      setEditingTitle(true);
+                    }
+                  : undefined
+              }
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                flexShrink: 1,
+              }}
+            >
+              {title}
+            </Text>
+            {canEditTitle && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setEditingTitle(true);
+                }}
+                className="ml-2"
+                style={{ color: "var(--violet-9)", paddingBottom: 5 }}
+                title="Edit Title"
+              >
+                <PiPencilSimpleFill />
+              </a>
+            )}
+            <div style={{ flexGrow: 1 }} />
+          </>
+        )}
         <DashboardUpdateDisplay
           blocks={blocks}
           enableAutoUpdates={enableAutoUpdates}
