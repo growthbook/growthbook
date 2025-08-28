@@ -18,7 +18,6 @@ class AnalysisSettingsForStatsEngine:
     weights: List[float]
     baseline_index: int = 0
     dimension: str = ""
-    auto_dimension: bool = False
     stats_engine: StatsEngine = "bayesian"
     p_value_corrected: bool = False
     sequential_testing_enabled: bool = False

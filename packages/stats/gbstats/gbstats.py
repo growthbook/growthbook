@@ -165,15 +165,14 @@ def get_metric_df(
 ) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
-
     if post_stratify:
         dimension_cols = dfc.filter(like='dim_exp_')
         num_dimensions = len(dimension_cols.columns)
         if num_dimensions == 1:
             dfc = dfc.rename(columns={dimension_cols.columns[0]: 'dimension'})
         else:
-            dfc['dimension'] = dfc[dimension_cols].agg(lambda x: '_'.join(x), axis=1)
-    
+            dfc['dimension'] = dimension_cols.astype(str).agg('_'.join, axis=1)
+ 
 
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
@@ -786,7 +785,6 @@ def process_analysis(
     max_dimensions = analysis.max_dimensions
     precomputed_dimension = any([col.startswith('dim_exp') for col in rows.columns])
     post_stratify = precomputed_dimension and analysis.dimension == "" and metric.statistic_type not in ["quantile_event", "quantile_unit"]
-    post_stratify = False
 
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
