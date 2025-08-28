@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
@@ -66,22 +66,27 @@ export const HoldoutSelect = ({
     });
   }, [holdouts, experimentsMap, selectedProject, getDatasourceById]);
 
+  const [userSelectedNone, setUserSelectedNone] = useState(false);
+
   useEffect(() => {
     // If still loading, don't set anything
     if (loading) return;
-
+    if (userSelectedNone) return;
     // Only set initial value once or when selectedHoldoutId is not valid
-    if (
-      !holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId) &&
-      selectedHoldoutId !== ""
+    if (selectedHoldoutId !== "" && holdoutsWithExperiment.length === 0) {
+      setHoldout("");
+    } else if (
+      !holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)
     ) {
-      if (holdoutsWithExperiment.length === 0) {
-        setHoldout("");
-      } else {
-        setHoldout(holdoutsWithExperiment[0].id);
-      }
+      setHoldout(holdoutsWithExperiment[0].id);
     }
-  }, [holdoutsWithExperiment, setHoldout, loading, selectedHoldoutId]);
+  }, [
+    holdoutsWithExperiment,
+    setHoldout,
+    loading,
+    selectedHoldoutId,
+    userSelectedNone,
+  ]);
 
   if (!hasHoldouts) {
     return (
@@ -120,6 +125,11 @@ export const HoldoutSelect = ({
         labelClassName="font-weight-bold"
         value={selectedHoldoutId || ""}
         onChange={(v) => {
+          if (v === "") {
+            setUserSelectedNone(true);
+          } else {
+            setUserSelectedNone(false);
+          }
           setHoldout(v);
         }}
         helpText={
