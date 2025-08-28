@@ -25,7 +25,6 @@ from gbstats.bayesian.bandits import (
 from gbstats.power.midexperimentpower import (
     MidExperimentPower,
     MidExperimentPowerConfig,
-    AdditionalSampleSizeNeededResult,
 )
 
 from gbstats.models.tests import BaseConfig
@@ -261,6 +260,7 @@ def get_configured_test(
     total_users: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
+    post_stratify: bool = False,
 ) -> StatisticalTests:
 
     base_config = {
@@ -268,6 +268,7 @@ def get_configured_test(
         "traffic_percentage": analysis.traffic_percentage,
         "phase_length_days": analysis.phase_length_days,
         "difference_type": analysis.difference_type,
+        "post_stratify": post_stratify,
     }
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
@@ -300,7 +301,6 @@ def get_configured_test(
             else:
                 return TwoSidedTTest(stats, config)
     else:
-        assert type(stats[0][0]) is type(stats[0][1]), "stat_a and stat_b must be of same type."
         prior = GaussianPrior(
             mean=metric.prior_mean,
             variance=pow(metric.prior_stddev, 2),
@@ -450,7 +450,7 @@ def run_post_stratification(df: pd.DataFrame, metric: MetricSettingsForStatsEngi
         total_users = total_users_control + total_users_variation
         stats = list(zip(stats_control, stats_variation))
         test = get_configured_test(
-            stats, total_users, analysis=analysis, metric=metric
+            stats, total_users, analysis=analysis, metric=metric, post_stratify=True
         )
         res = test.compute_result()
         s_output = store_test_results(test, res, s_output, variation)
@@ -786,6 +786,7 @@ def process_analysis(
     max_dimensions = analysis.max_dimensions
     precomputed_dimension = any([col.startswith('dim_exp') for col in rows.columns])
     post_stratify = precomputed_dimension and analysis.dimension == "" and metric.statistic_type not in ["quantile_event", "quantile_unit"]
+    post_stratify = False
 
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(

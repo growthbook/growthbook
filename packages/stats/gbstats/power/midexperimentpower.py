@@ -4,7 +4,7 @@ import numpy as np
 from pydantic.dataclasses import dataclass
 from scipy.stats import norm
 
-from gbstats.models.tests import TestResult, frequentist_variance_all_cases, EffectMomentsResult
+from gbstats.models.tests import TestResult, EffectMomentsResult
 from gbstats.frequentist.tests import (
     sequential_interval_halfwidth,
 )
