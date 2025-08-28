@@ -784,7 +784,7 @@ def process_analysis(
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
     precomputed_dimension = any([col.startswith('dim_exp') for col in rows.columns])
-    post_stratify = precomputed_dimension and analysis.dimension == "" and metric.statistic_type not in ["quantile_event", "quantile_unit"]
+    post_stratify = precomputed_dimension and analysis.dimension == "" and metric.statistic_type not in ["quantile_event", "quantile_unit"] and analysis.post_stratification_eligible
 
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(
