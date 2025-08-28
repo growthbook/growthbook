@@ -670,28 +670,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
               transitionTime={100}
             >
               <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                {/* {!!datasource && (
-                <MetricSelector
-                  datasource={form.watch("datasource")}
-                  exposureQueryId={exposureQueryId}
-                  project={project}
-                  includeFacts={true}
-                  labelClassName="font-weight-bold"
-                  label={
-                    <>
-                      Activation Metric{" "}
-                      <MetricsSelectorTooltip onlyBinomial={true} />
-                    </>
-                  }
-                  initialOption="None"
-                  onlyBinomial
-                  value={form.watch("activationMetric") || ""}
-                  onChange={(value) =>
-                    form.setValue("activationMetric", value || "")
-                  }
-                  helpText="Users must convert on this metric before being included"
-                />
-              )} */}
                 <StatsEngineSelect
                   className="mb-4"
                   label={<div>Statistics Engine</div>}

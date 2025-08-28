@@ -72,46 +72,45 @@ export const HoldoutSelect = ({
 
     // Only set initial value once or when selectedHoldoutId is not valid
     if (
-      !selectedHoldoutId ||
-      (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId) &&
-        selectedHoldoutId !== "none")
+      !holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId) &&
+      selectedHoldoutId !== ""
     ) {
       if (holdoutsWithExperiment.length === 0) {
-        setHoldout("none");
+        setHoldout("");
       } else {
         setHoldout(holdoutsWithExperiment[0].id);
       }
     }
   }, [holdoutsWithExperiment, setHoldout, loading, selectedHoldoutId]);
 
+  if (!hasHoldouts) {
+    return (
+      <PremiumCallout
+        id="holdout-select-promo"
+        commercialFeature="holdouts"
+        mt="3"
+        mb="3"
+      >
+        <Flex direction="row" gap="3">
+          <Text>
+            Use Holdouts to isolate units and measure the true impact of
+            changes.
+          </Text>
+        </Flex>
+      </PremiumCallout>
+    );
+  }
+
   if (holdoutsWithExperiment.length === 0) {
-    if (!hasHoldouts) {
-      return (
-        <PremiumCallout
-          id="holdout-select-promo"
-          commercialFeature="holdouts"
-          mt="3"
-          mb="3"
-        >
-          <Flex direction="row" gap="3">
-            <Text>
-              Use Holdouts to isolate units and measure the true impact of
-              changes.
-            </Text>
-          </Flex>
-        </PremiumCallout>
-      );
-    } else {
-      return (
-        <Callout mt="3" mb="3" status="info" icon={<PiLightbulb size={15} />}>
-          Use <strong>Holdouts</strong> to isolate units and measure the true
-          impact of changes. {/* TODO: Replace with link to holdout docs */}
-          <Link target="_blank" href="https://docs.growthbook.io/">
-            Show me how <PiArrowSquareOut size={15} />
-          </Link>
-        </Callout>
-      );
-    }
+    return (
+      <Callout mt="3" mb="3" status="info" icon={<PiLightbulb size={15} />}>
+        Use <strong>Holdouts</strong> to isolate units and measure the true
+        impact of changes. {/* TODO: Replace with link to holdout docs */}
+        <Link target="_blank" href="https://docs.growthbook.io/">
+          Show me how <PiArrowSquareOut size={15} />
+        </Link>
+      </Callout>
+    );
   }
 
   return (
@@ -119,7 +118,7 @@ export const HoldoutSelect = ({
       <SelectField
         label="Holdout"
         labelClassName="font-weight-bold"
-        value={selectedHoldoutId || "none"}
+        value={selectedHoldoutId || ""}
         onChange={(v) => {
           setHoldout(v);
         }}
@@ -133,9 +132,8 @@ export const HoldoutSelect = ({
               value: h.id,
             };
           }) || []),
-          { label: "None", value: "none" },
+          { label: "None", value: "" },
         ]}
-        required={holdoutsWithExperiment.length > 0}
         disabled={holdoutsWithExperiment.length === 0}
         sort={false}
         formatOptionLabel={({ label, value }) => {
@@ -152,7 +150,7 @@ export const HoldoutSelect = ({
                 >
                   Identifier Type: <code>{userIdType}</code>
                 </span>
-              ) : value === "none" ? (
+              ) : value === "" ? (
                 <span className="text-muted small float-right position-relative">
                   Override Holdout requirement{" "}
                   <PiWarningFill
@@ -165,7 +163,7 @@ export const HoldoutSelect = ({
           );
         }}
       />
-      {holdoutsWithExperiment.length > 0 && selectedHoldoutId === "none" && (
+      {holdoutsWithExperiment.length > 0 && selectedHoldoutId === "" && (
         <HelperText status="warning" size="sm" mb="3">
           Exempting this {formType} from a holdout may impact your
           organization&apos;s analysis. Proceed with caution.

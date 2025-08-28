@@ -321,7 +321,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
-      holdoutId: initialValue?.holdoutId || "",
+      holdoutId: initialValue?.holdoutId || undefined,
     },
   });
 
@@ -340,8 +340,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
-    if (value.holdoutId === "none") {
-      delete value.holdoutId;
+    if (value.holdoutId === "") {
+      value.holdoutId = undefined;
     }
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
