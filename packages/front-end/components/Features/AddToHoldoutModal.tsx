@@ -85,6 +85,7 @@ const AddToHoldoutModal = ({
             });
           }}
           selectedHoldoutId={form.watch("holdout")?.id}
+          formType="feature"
         />
       )}
     </Modal>

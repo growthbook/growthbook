@@ -350,7 +350,7 @@ const BreakDownResults: FC<{
               trigger={
                 <div className="d-inline-flex mx-3 align-items-center">
                   <FaUsers size={16} className="mr-1" />
-                  {numberFormatter.format(totalUsers)} total users
+                  {numberFormatter.format(totalUsers)} total units
                   <FaAngleRight className="chevron ml-1" />
                 </div>
               }

@@ -597,6 +597,9 @@ export function getFeatureDefinition({
           if (r.hashAttribute) {
             rule.hashAttribute = r.hashAttribute;
           }
+          if (r.seed) {
+            rule.seed = r.seed;
+          }
         } else if (r.type === "safe-rollout") {
           const safeRollout = safeRolloutMap.get(r.safeRolloutId);
 
