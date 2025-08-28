@@ -249,14 +249,14 @@ const ExperimentTimeline: React.FC<{
                 <Box>
                   <strong>Started:</strong>{" "}
                   {tooltipData.phase.dateStarted
-                    ? date(tooltipData.phase.dateStarted)
+                    ? date(tooltipData.phase.dateStarted, "UTC")
                     : "-"}
                 </Box>
                 {tooltipData.status === "stopped" && (
                   <Box>
                     <strong>Ended:</strong>{" "}
                     {tooltipData.phase.dateEnded
-                      ? date(tooltipData.phase.dateEnded)
+                      ? date(tooltipData.phase.dateEnded, "UTC")
                       : "-"}
                   </Box>
                 )}
