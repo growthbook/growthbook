@@ -454,7 +454,7 @@ const HoldoutTimeline: React.FC<{
                       </Text>
                       <Text size="2" ml="2">
                         {tooltipData.phase.dateStarted
-                          ? date(tooltipData.phase.dateStarted)
+                          ? date(tooltipData.phase.dateStarted, "UTC")
                           : "-"}
                       </Text>
                     </span>
@@ -465,7 +465,7 @@ const HoldoutTimeline: React.FC<{
                         </Text>
                         <Text size="2" ml="2">
                           {tooltipData.phase.dateEnded
-                            ? date(tooltipData.phase.dateEnded)
+                            ? date(tooltipData.phase.dateEnded, "UTC")
                             : "-"}
                         </Text>
                       </span>

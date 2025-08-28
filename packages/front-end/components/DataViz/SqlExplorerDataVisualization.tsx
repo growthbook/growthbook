@@ -464,6 +464,7 @@ export function DataVisualizationDisplay({
                 color: textColor,
               },
               top: "bottom",
+              type: "scroll",
             },
           }
         : null),
@@ -488,7 +489,6 @@ export function DataVisualizationDisplay({
             : xConfig?.type === "number"
               ? "value"
               : "category",
-        // axisLabel: { interval: 0, rotate: 30 },
       },
       yAxis: {
         name:
