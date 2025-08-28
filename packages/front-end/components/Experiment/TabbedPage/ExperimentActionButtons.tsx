@@ -25,7 +25,9 @@ export default function ExperimentActionButtons({
     runningStatus === "rollback-now";
   const displayCTAText = () => {
     if (holdout) {
-      return !holdout?.analysisStartDate ? "Start Analysis" : "Stop Holdout";
+      return !holdout?.analysisStartDate
+        ? "Start Analysis Period"
+        : "Stop Holdout";
     }
     if (readyForDecision) {
       return "Make Decision";

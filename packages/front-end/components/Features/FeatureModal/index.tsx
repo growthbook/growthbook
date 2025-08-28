@@ -366,6 +366,7 @@ export default function FeatureModal({
             setHoldout={(holdoutId) => {
               form.setValue("holdout", { id: holdoutId, value: "" });
             }}
+            formType="feature"
           />
         )}
 

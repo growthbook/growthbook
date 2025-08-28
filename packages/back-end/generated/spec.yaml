@@ -4479,6 +4479,8 @@ paths:
                   enum:
                     - ''
                     - api
+                archived:
+                  type: boolean
       responses:
         '200':
           content:
@@ -5255,6 +5257,8 @@ paths:
                   enum:
                     - ''
                     - api
+                archived:
+                  type: boolean
       responses:
         '200':
           content:
@@ -7514,6 +7518,8 @@ components:
             type: string
         sql:
           type: string
+        archived:
+          type: boolean
         managedBy:
           type: string
           description: 'Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.'
@@ -7792,6 +7798,8 @@ components:
         dateUpdated:
           type: string
           format: date-time
+        archived:
+          type: boolean
     Member:
       type: object
       required:

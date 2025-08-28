@@ -76,7 +76,7 @@ export default function StartExperimentModal({
           </Button>
         ) : null
       }
-      header="Start Experiment"
+      header={isHoldout ? "Start Holdout" : "Start Experiment"}
     >
       <div className="p-2">
         {checklistIncomplete ? (
@@ -108,11 +108,14 @@ export default function StartExperimentModal({
           >
             This experiment contains URL redirects, which require a paid plan.
           </PremiumCallout>
+        ) : isHoldout ? (
+          <div>
+            Once started, experiments and features can be added to the holdout.
+          </div>
         ) : (
           <div>
             Once started, linked changes will be activated and users will begin
-            to see your {isHoldout ? "holdout" : "experiment variations"}{" "}
-            <strong>immediately</strong>.
+            to see your experiment variations <strong>immediately</strong>.
           </div>
         )}
 

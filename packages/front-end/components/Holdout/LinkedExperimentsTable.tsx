@@ -89,7 +89,6 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                   <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
                 </td>
                 <td data-title="Status">
-                  {" "}
                   {exp.statusIndicator.tooltip &&
                   !exp.statusIndicator.detailedStatus ? (
                     <Tooltip body={exp.statusIndicator.tooltip}>
