@@ -7,12 +7,12 @@ import {
   BigValueFormat,
   xAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
-import { PiNetwork, PiWrench } from "react-icons/pi";
-import { FaPlusCircle } from "react-icons/fa";
+import { PiWrench } from "react-icons/pi";
 import { Select, SelectItem } from "@/components/Radix/Select";
-import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
+import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import DataVizFilterPanel from "./DataVizFilterPanel";
+import DataVizDimensionPanel from "./DataVizDimensionPanel";
 
 export function inferFieldType(
   sampleRow: Record<string, unknown>,
@@ -508,191 +508,11 @@ export default function DataVizConfigPanel({
           </Flex>
         </Box>
       </AreaWithHeader>
-      {supportsDimension(dataVizConfig) ? (
-        <AreaWithHeader
-          header={
-            <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-              <Flex align="center" gap="1">
-                <PiNetwork
-                  style={{
-                    color: "var(--violet-11)",
-                    transform: "rotate(-90deg)",
-                  }}
-                  size={20}
-                />
-                Dimensions
-              </Flex>
-            </Text>
-          }
-        >
-          <Box p="4" height="fit-content">
-            <Flex direction="column" gap="4">
-              {!dataVizConfig.dimension ? (
-                <a
-                  role="button"
-                  className="d-inline-block link-purple font-weight-bold"
-                  onClick={() => {
-                    onDataVizConfigChange({
-                      ...dataVizConfig,
-                      dimension: [
-                        { fieldName: "", display: "grouped", maxValues: 5 },
-                      ],
-                    });
-                  }}
-                >
-                  <FaPlusCircle className="mr-1" />
-                  Add Dimension
-                </a>
-              ) : (
-                <Select
-                  value={
-                    supportsDimension(dataVizConfig)
-                      ? (dataVizConfig.dimension?.[0]?.fieldName ?? "")
-                      : ""
-                  }
-                  setValue={(v) => {
-                    const shouldRemove = !v || v === "remove-dimension";
-                    const display =
-                      dataVizConfig.chartType !== "bar"
-                        ? "grouped"
-                        : supportsDimension(dataVizConfig) &&
-                            dataVizConfig.dimension?.[0]?.display
-                          ? dataVizConfig.dimension[0].display
-                          : "grouped";
-                    onDataVizConfigChange({
-                      ...dataVizConfig,
-                      dimension: shouldRemove
-                        ? undefined
-                        : [
-                            {
-                              fieldName: v,
-                              display,
-                              maxValues:
-                                supportsDimension(dataVizConfig) &&
-                                dataVizConfig.dimension?.[0]?.maxValues
-                                  ? dataVizConfig.dimension[0].maxValues
-                                  : 5,
-                            },
-                          ],
-                    });
-                  }}
-                  size="2"
-                  placeholder="Select a dimension"
-                >
-                  {supportsDimension(dataVizConfig) &&
-                    dataVizConfig.dimension?.[0]?.fieldName && (
-                      <SelectItem value="remove-dimension">
-                        - Remove dimension -
-                      </SelectItem>
-                    )}
-                  {axisKeys.map((key) => (
-                    <SelectItem key={key} value={key}>
-                      {key}
-                    </SelectItem>
-                  ))}
-                </Select>
-              )}
-              {dataVizConfig.dimension?.[0]?.fieldName && (
-                <>
-                  <Flex direction="column" gap="2">
-                    {(dataVizConfig.chartType === "bar" ||
-                      dataVizConfig.chartType === "area") && (
-                      <Flex direction="row" justify="between" align="center">
-                        <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                          Display
-                        </Text>
-                        <Select
-                          style={{ flex: 1 }}
-                          value={dataVizConfig.dimension?.[0]?.display}
-                          setValue={(v) => {
-                            if (
-                              !supportsDimension(dataVizConfig) ||
-                              !dataVizConfig.dimension
-                            )
-                              return;
-                            onDataVizConfigChange({
-                              ...dataVizConfig,
-                              dimension: [
-                                {
-                                  ...dataVizConfig.dimension?.[0],
-                                  display: v as "grouped" | "stacked",
-                                },
-                              ],
-                            });
-                          }}
-                          size="2"
-                        >
-                          <SelectItem value="grouped">Grouped</SelectItem>
-                          <SelectItem value="stacked">Stacked</SelectItem>
-                        </Select>
-                      </Flex>
-                    )}
-                    <Flex direction="row" justify="between" align="center">
-                      <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                        Max Values
-                      </Text>
-                      <TextField.Root
-                        style={{ flex: 1 }}
-                        size="2"
-                        min="1"
-                        max="10"
-                        step="1"
-                        type="number"
-                        value={
-                          dataVizConfig.dimension?.[0]?.maxValues?.toString() ||
-                          "5"
-                        }
-                        onBlur={(e) => {
-                          const maxValues = parseInt(e.target.value, 10);
-                          if (isNaN(maxValues)) return;
-                          if (
-                            !supportsDimension(dataVizConfig) ||
-                            !dataVizConfig.dimension
-                          )
-                            return;
-                          onDataVizConfigChange({
-                            ...dataVizConfig,
-                            dimension: [
-                              {
-                                ...dataVizConfig.dimension?.[0],
-                                maxValues,
-                              },
-                            ],
-                          });
-                        }}
-                        onKeyDown={(e) => {
-                          // Ignore enter
-                          if (e.key === "Enter") {
-                            e.stopPropagation();
-                            e.preventDefault();
-
-                            const maxValues = parseInt(e.target.value, 10);
-                            if (isNaN(maxValues)) return;
-                            if (
-                              !supportsDimension(dataVizConfig) ||
-                              !dataVizConfig.dimension
-                            )
-                              return;
-                            onDataVizConfigChange({
-                              ...dataVizConfig,
-                              dimension: [
-                                {
-                                  ...dataVizConfig.dimension?.[0],
-                                  maxValues,
-                                },
-                              ],
-                            });
-                          }
-                        }}
-                      />
-                    </Flex>
-                  </Flex>
-                </>
-              )}
-            </Flex>
-          </Box>
-        </AreaWithHeader>
-      ) : null}
+      <DataVizDimensionPanel
+        dataVizConfig={dataVizConfig}
+        onDataVizConfigChange={onDataVizConfigChange}
+        axisKeys={axisKeys}
+      />
       <DataVizFilterPanel
         dataVizConfig={dataVizConfig}
         onDataVizConfigChange={onDataVizConfigChange}
