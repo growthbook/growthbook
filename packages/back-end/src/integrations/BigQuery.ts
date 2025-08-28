@@ -76,8 +76,9 @@ export default class BigQuery extends SqlIntegration {
       await setExternalId(job.id);
     }
 
-    const [rows] = await job.getQueryResults();
+    const [rows, _, queryResultsResponse] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
+
     const statistics = {
       executionDurationMs: Number(
         metadata?.statistics?.finalExecutionDurationMs,
@@ -91,6 +92,10 @@ export default class BigQuery extends SqlIntegration {
           ? metadata.statistics.query.totalPartitionsProcessed > 0
           : undefined,
     };
+
+    const columns = queryResultsResponse?.schema?.fields
+      ?.map((field) => field.name?.toLowerCase())
+      .filter((field) => field !== undefined);
 
     // BigQuery dates are stored nested in an object, so need to extract the value
     for (const row of rows) {
@@ -107,46 +112,11 @@ export default class BigQuery extends SqlIntegration {
       }
     }
 
-    return { rows, statistics };
-  }
-
-  async runDryQuery(sql: string) {
-    const client = this.getClient();
-
-    const [job] = await client.createQueryJob({
-      dryRun: true,
-      labels: { integration: "growthbook" },
-      query: sql,
-      useLegacySql: false,
-    });
-
-    const { metadata } = job;
-
-    const statistics = {
-      executionDurationMs: Number(
-        metadata?.statistics?.finalExecutionDurationMs,
-      ),
-      totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
-      bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
-      bytesBilled: Number(metadata?.statistics?.query?.totalBytesBilled),
-      warehouseCachedResult: metadata?.statistics?.query?.cacheHit,
-      partitionsUsed:
-        metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
-          ? metadata.statistics.query.totalPartitionsProcessed > 0
-          : undefined,
+    return {
+      rows,
+      columns,
+      statistics,
     };
-
-    // NB: Unfortunately BigQuery only returns this for dryRuns, otherwise we could merge with runQuery method
-    // Typing from https://github.com/googleapis/nodejs-bigquery/blob/531d6635575ff24cf1608f292d1772be4b5f1327/src/types.d.ts#L5420
-    // Can be removed once we upgrade to the latest version of the library
-    const querySchema = metadata?.statistics?.query?.schema?.fields as
-      | undefined
-      | Array<{
-          name: string;
-        }>;
-    const columns = querySchema?.map((field) => field.name.toLowerCase());
-
-    return { rows: [], columns, statistics };
   }
 
   createUnitsTableOptions() {

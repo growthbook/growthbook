@@ -33,7 +33,7 @@
     "@clickhouse/client": "^1.0.1",
     "@databricks/sql": "^1.8.1",
     "@dqbd/tiktoken": "^1.0.21",
-    "@google-cloud/bigquery": "5",
+    "@google-cloud/bigquery": "8",
     "@google-cloud/storage": "^5.20.5",
     "@growthbook/growthbook": "^1.6.1",
     "@growthbook/proxy-eval": "^1.0.3",
