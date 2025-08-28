@@ -1663,7 +1663,8 @@ export default function FactMetricModal({
         // reset aggregate filter for certain metrics
         if (
           values.metricType !== "proportion" &&
-          values.metricType !== "retention"
+          values.metricType !== "retention" &&
+          values.metricType !== "ratio"
         ) {
           values.numerator.aggregateFilterColumn = undefined;
           values.numerator.aggregateFilter = undefined;
@@ -1677,6 +1678,18 @@ export default function FactMetricModal({
           if (!values.cappingSettings.value) {
             throw new Error("Capped Value cannot be 0");
           }
+        }
+
+        // reset capping that may be carried over to uncappable metrics
+        if (
+          values.metricType === "quantile" ||
+          values.metricType === "proportion" ||
+          values.metricType === "retention"
+        ) {
+          values.cappingSettings = {
+            type: "",
+            value: 0,
+          };
         }
 
         if (
