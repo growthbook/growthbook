@@ -255,13 +255,12 @@ export default function FeatureModal({
         const body = {
           ...featureWithoutHoldout,
           defaultValue: parseDefaultValue(defaultValue, valueType),
-          ...(holdout?.id &&
-            holdout.id !== "none" && {
-              holdout: {
-                id: holdout.id,
-                value: parseDefaultValue(defaultValue, valueType),
-              },
-            }),
+          ...(holdout?.id && {
+            holdout: {
+              id: holdout.id,
+              value: parseDefaultValue(defaultValue, valueType),
+            },
+          }),
         };
 
         const res = await apiCall<{ feature: FeatureInterface }>(`/feature`, {

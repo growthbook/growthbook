@@ -69,27 +69,19 @@ export const HoldoutSelect = ({
   useEffect(() => {
     // If still loading, don't set anything
     if (loading) return;
-    if (!hasHoldouts || holdoutsWithExperiment.length === 0) return;
 
     // Only set initial value once or when selectedHoldoutId is not valid
     if (
-      !selectedHoldoutId ||
-      (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId) &&
-        selectedHoldoutId !== "none")
+      !holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId) &&
+      selectedHoldoutId !== ""
     ) {
       if (holdoutsWithExperiment.length === 0) {
-        setHoldout("none");
+        setHoldout("");
       } else {
         setHoldout(holdoutsWithExperiment[0].id);
       }
     }
-  }, [
-    holdoutsWithExperiment,
-    setHoldout,
-    loading,
-    selectedHoldoutId,
-    hasHoldouts,
-  ]);
+  }, [holdoutsWithExperiment, setHoldout, loading, selectedHoldoutId]);
 
   if (!hasHoldouts) {
     return (
@@ -126,7 +118,7 @@ export const HoldoutSelect = ({
       <SelectField
         label="Holdout"
         labelClassName="font-weight-bold"
-        value={selectedHoldoutId || "none"}
+        value={selectedHoldoutId || ""}
         onChange={(v) => {
           setHoldout(v);
         }}
@@ -140,7 +132,7 @@ export const HoldoutSelect = ({
               value: h.id,
             };
           }) || []),
-          { label: "None", value: "none" },
+          { label: "None", value: "" },
         ]}
         required={holdoutsWithExperiment.length > 0}
         disabled={holdoutsWithExperiment.length === 0}
@@ -159,7 +151,7 @@ export const HoldoutSelect = ({
                 >
                   Identifier Type: <code>{userIdType}</code>
                 </span>
-              ) : value === "none" ? (
+              ) : value === "" ? (
                 <span className="text-muted small float-right position-relative">
                   Override Holdout requirement{" "}
                   <PiWarningFill
@@ -172,7 +164,7 @@ export const HoldoutSelect = ({
           );
         }}
       />
-      {holdoutsWithExperiment.length > 0 && selectedHoldoutId === "none" && (
+      {holdoutsWithExperiment.length > 0 && selectedHoldoutId === "" && (
         <HelperText status="warning" size="sm" mb="3">
           Exempting this {formType} from a holdout may impact your
           organization&apos;s analysis. Proceed with caution.
