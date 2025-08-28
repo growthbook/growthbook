@@ -17,6 +17,7 @@ import {
   isBinomialMetric,
   getDelayWindowHours,
   getColumnExpression,
+  isCappableMetricType,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -2426,7 +2427,8 @@ export default abstract class SqlIntegration
       metric.cappingSettings.type === "percentile" &&
       !!metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !quantileMetric;
+      !isCappableMetricType(metric);
+
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: `m.${alias}_value`,
       metric,
@@ -3190,14 +3192,14 @@ export default abstract class SqlIntegration
       metric.cappingSettings.type === "percentile" &&
       !!metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !quantileMetric;
+      !isCappableMetricType(metric);
 
     const denominatorIsPercentileCapped =
       denominator &&
       denominator.cappingSettings.type === "percentile" &&
       !!denominator.cappingSettings.value &&
       denominator.cappingSettings.value < 1 &&
-      !quantileMetric;
+      !isCappableMetricType(denominator);
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: "m.value",
       metric,
@@ -4048,10 +4050,12 @@ export default abstract class SqlIntegration
     capValueCol?: string;
     columnRef?: ColumnRef | null;
   }): string {
+    // Assumes cappable metrics do not have aggregate filters
+    // which is true for now
     if (
       metric?.cappingSettings.type === "absolute" &&
       metric.cappingSettings.value &&
-      !quantileMetricType(metric)
+      !isCappableMetricType(metric)
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
@@ -4062,7 +4066,7 @@ export default abstract class SqlIntegration
       metric?.cappingSettings.type === "percentile" &&
       metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !quantileMetricType(metric)
+      !isCappableMetricType(metric)
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},

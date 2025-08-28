@@ -208,6 +208,10 @@ export function getMetricTemplateVariables(
   return m.templateVariables || {};
 }
 
+export function isCappableMetricType(m: ExperimentMetricInterface) {
+  return !quantileMetricType(m) && !isBinomialMetric(m);
+}
+
 export function isBinomialMetric(m: ExperimentMetricInterface) {
   if (isFactMetric(m))
     return ["proportion", "retention"].includes(m.metricType);
