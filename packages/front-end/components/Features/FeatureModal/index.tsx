@@ -253,7 +253,7 @@ export default function FeatureModal({
         }
 
         const body = {
-          ...feature,
+          ...featureWithoutHoldout,
           defaultValue: parseDefaultValue(defaultValue, valueType),
           ...(holdout?.id &&
             holdout.id !== "none" && {

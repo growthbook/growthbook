@@ -69,6 +69,7 @@ export const HoldoutSelect = ({
   useEffect(() => {
     // If still loading, don't set anything
     if (loading) return;
+    if (!hasHoldouts || holdoutsWithExperiment.length === 0) return;
 
     // Only set initial value once or when selectedHoldoutId is not valid
     if (
@@ -82,36 +83,42 @@ export const HoldoutSelect = ({
         setHoldout(holdoutsWithExperiment[0].id);
       }
     }
-  }, [holdoutsWithExperiment, setHoldout, loading, selectedHoldoutId]);
+  }, [
+    holdoutsWithExperiment,
+    setHoldout,
+    loading,
+    selectedHoldoutId,
+    hasHoldouts,
+  ]);
+
+  if (!hasHoldouts) {
+    return (
+      <PremiumCallout
+        id="holdout-select-promo"
+        commercialFeature="holdouts"
+        mt="3"
+        mb="3"
+      >
+        <Flex direction="row" gap="3">
+          <Text>
+            Use Holdouts to isolate units and measure the true impact of
+            changes.
+          </Text>
+        </Flex>
+      </PremiumCallout>
+    );
+  }
 
   if (holdoutsWithExperiment.length === 0) {
-    if (!hasHoldouts) {
-      return (
-        <PremiumCallout
-          id="holdout-select-promo"
-          commercialFeature="holdouts"
-          mt="3"
-          mb="3"
-        >
-          <Flex direction="row" gap="3">
-            <Text>
-              Use Holdouts to isolate units and measure the true impact of
-              changes.
-            </Text>
-          </Flex>
-        </PremiumCallout>
-      );
-    } else {
-      return (
-        <Callout mt="3" mb="3" status="info" icon={<PiLightbulb size={15} />}>
-          Use <strong>Holdouts</strong> to isolate units and measure the true
-          impact of changes. {/* TODO: Replace with link to holdout docs */}
-          <Link target="_blank" href="https://docs.growthbook.io/">
-            Show me how <PiArrowSquareOut size={15} />
-          </Link>
-        </Callout>
-      );
-    }
+    return (
+      <Callout mt="3" mb="3" status="info" icon={<PiLightbulb size={15} />}>
+        Use <strong>Holdouts</strong> to isolate units and measure the true
+        impact of changes. {/* TODO: Replace with link to holdout docs */}
+        <Link target="_blank" href="https://docs.growthbook.io/">
+          Show me how <PiArrowSquareOut size={15} />
+        </Link>
+      </Callout>
+    );
   }
 
   return (
