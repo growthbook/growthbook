@@ -194,7 +194,7 @@ export default function FeaturesHeader({
                   canPublish &&
                   holdoutsEnabled &&
                   holdouts.length > 0 &&
-                  !holdout && (
+                  !holdout?.id && (
                     <a
                       className="dropdown-item"
                       href="#"
@@ -304,7 +304,7 @@ export default function FeaturesHeader({
             </Box>
           </Flex>
           <Flex gap="4">
-            {holdout && (
+            {holdout?.id && (
               <Box>
                 <Text weight="medium">Holdout: </Text>
                 <Link href={`/holdout/${holdout.id}`}>{holdout.name}</Link>

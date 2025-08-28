@@ -126,7 +126,9 @@ const genFormDefaultValues = ({
         tags: featureToDuplicate.tags,
         environmentSettings,
         customFields: customFieldValues,
-        holdout: featureToDuplicate.holdout,
+        holdout: featureToDuplicate.holdout?.id
+          ? featureToDuplicate.holdout
+          : undefined,
       }
     : {
         valueType: "" as FeatureValueType,
@@ -137,6 +139,7 @@ const genFormDefaultValues = ({
         tags: [],
         environmentSettings,
         customFields: customFieldValues,
+        holdout: undefined,
       };
 };
 
@@ -361,7 +364,7 @@ export default function FeatureModal({
         {holdoutsEnabled && (
           <HoldoutSelect
             selectedProject={selectedProject}
-            selectedHoldoutId={form.watch("holdout")?.id ?? ""}
+            selectedHoldoutId={form.watch("holdout")?.id}
             setHoldout={(holdoutId) => {
               form.setValue("holdout", { id: holdoutId, value: "" });
             }}

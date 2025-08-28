@@ -17,7 +17,9 @@ const AddToHoldoutModal = ({
   mutate: () => void;
 }) => {
   const form = useForm({
-    defaultValues: { holdout: feature.holdout || undefined },
+    defaultValues: {
+      holdout: feature.holdout?.id ? feature.holdout : undefined,
+    },
   });
 
   const { apiCall } = useAuth();
