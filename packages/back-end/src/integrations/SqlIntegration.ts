@@ -2427,7 +2427,7 @@ export default abstract class SqlIntegration
       metric.cappingSettings.type === "percentile" &&
       !!metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !isCappableMetricType(metric);
+      isCappableMetricType(metric);
 
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: `m.${alias}_value`,
@@ -3192,14 +3192,14 @@ export default abstract class SqlIntegration
       metric.cappingSettings.type === "percentile" &&
       !!metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !isCappableMetricType(metric);
+      isCappableMetricType(metric);
 
     const denominatorIsPercentileCapped =
       denominator &&
       denominator.cappingSettings.type === "percentile" &&
       !!denominator.cappingSettings.value &&
       denominator.cappingSettings.value < 1 &&
-      !isCappableMetricType(denominator);
+      isCappableMetricType(denominator);
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: "m.value",
       metric,
@@ -4055,7 +4055,7 @@ export default abstract class SqlIntegration
     if (
       metric?.cappingSettings.type === "absolute" &&
       metric.cappingSettings.value &&
-      !isCappableMetricType(metric)
+      isCappableMetricType(metric)
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
@@ -4066,7 +4066,7 @@ export default abstract class SqlIntegration
       metric?.cappingSettings.type === "percentile" &&
       metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !isCappableMetricType(metric)
+      isCappableMetricType(metric)
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
