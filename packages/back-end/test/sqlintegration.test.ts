@@ -10,7 +10,6 @@ import {
 import { ExposureQuery } from "back-end/types/datasource";
 import { factTableFactory } from "./factories/FactTable.factory";
 import { factMetricFactory } from "./factories/FactMetric.factory";
-import factMetricSql from "./json/fact-metric-sql-snapshots.json";
 
 describe("bigquery integration", () => {
   let bqIntegration: BigQuery;
@@ -1073,24 +1072,20 @@ describe("full fact metric experiment query - bigquery", () => {
     dimensions: [],
   };
 
-  const existingSql = factMetricSql as Record<string, string>;
+  const metricsToTest = generateFactMetrics();
 
-  it("should generate fact metric SQL snapshots", () => {
-    // Mock the getExposureQuery method to return our test exposureQuery
-    const getExposureQuerySpy = jest
-      // eslint-disable-next-line
-      .spyOn(bqIntegration as any, "getExposureQuery")
-      .mockReturnValue(exposureQuery);
+  it.each(metricsToTest)(
+    "generated fact metric SQL is correct for $id",
+    (metric) => {
+      // Mock the getExposureQuery method to return our test exposureQuery
+      const getExposureQuerySpy = jest
+        // eslint-disable-next-line
+        .spyOn(bqIntegration as any, "getExposureQuery")
+        .mockReturnValue(exposureQuery);
 
-    const generatedMetrics = generateFactMetrics();
-    const startDate = new Date("2023-01-01");
-    const endDate = new Date("2023-01-31");
+      const startDate = new Date("2023-01-01");
+      const endDate = new Date("2023-01-31");
 
-    const sampleMetrics = generatedMetrics;
-
-    const generatedSnapshots: Record<string, string> = {};
-
-    sampleMetrics.forEach((metric) => {
       const sql = bqIntegration["getExperimentFactMetricsQuery"]({
         settings: {
           manual: false,
@@ -1129,30 +1124,11 @@ describe("full fact metric experiment query - bigquery", () => {
 
       // Normalize SQL for consistency
       const normalizedSql = sql.replace(/\s+/g, " ").trim();
-      generatedSnapshots[metric.id] = normalizedSql;
-    });
 
-    // Output the complete JSON for all metrics
-    // if (process.env.GENERATE_ALL_SNAPSHOTS === "true") {
-    //   const fs = require('fs');
-    //   const path = require('path');
-    //   const outputPath = path.join(__dirname, 'json', 'fact-metric-sql-snapshots.json');
-    //   fs.writeFileSync(outputPath, JSON.stringify(generatedSnapshots, null, 2));
-    //   console.log(`Generated complete snapshots with ${Object.keys(generatedSnapshots).length} metrics to ${outputPath}`);
-    // }
+      expect(format(normalizedSql, "bigquery")).toMatchSnapshot();
 
-    // Validate against existing snapshots
-    Object.keys(generatedSnapshots).forEach((metricId) => {
-      if (existingSql[metricId]) {
-        expect(format(generatedSnapshots[metricId], "bigquery")).toEqual(
-          format(existingSql[metricId], "bigquery"),
-        );
-      } else {
-        throw new Error(`Missing snapshot for metric: ${metricId}`);
-      }
-    });
-
-    // Restore the original method
-    getExposureQuerySpy.mockRestore();
-  });
+      // Restore the original method
+      getExposureQuerySpy.mockRestore();
+    },
+  );
 });
