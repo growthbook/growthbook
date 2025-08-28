@@ -106,17 +106,17 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     | undefined
     | ExperimentPhaseStringDates;
   const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted)
+    ? date(phases[0].dateStarted, "UTC")
     : null;
   const endDate =
     phases.length > 0
       ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded ?? "")
+        ? date(lastPhase.dateEnded, "UTC")
         : "now"
       : date(new Date());
   const dateRangeLabel = startDate
-    ? `${date(startDate)} — ${
-      endDate ? date(endDate) : "now"
+    ? `${startDate} — ${
+      endDate ? endDate : "now"
     }`
     : "";
 

@@ -2114,7 +2114,9 @@ export default function FactMetricModal({
                       <>
                         {form
                           .watch("numerator")
-                          ?.column?.startsWith("$$") ? undefined : (
+                          ?.column?.startsWith(
+                            "$$distinctUsers",
+                          ) ? undefined : (
                           <div className="col-auto">
                             <div className="form-group">
                               <label htmlFor="quantileIgnoreZeros">
