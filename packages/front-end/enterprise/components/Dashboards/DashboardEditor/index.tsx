@@ -1,14 +1,14 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { Fragment, ReactElement, useEffect, useState } from "react";
 import {
-  PiChartBar,
   PiCaretDownFill,
-  PiChartLine,
   PiPlus,
   PiTableDuotone,
-  PiMarkdownLogoBold,
-  PiTextAaBold,
   PiPencilSimpleFill,
+  PiChartLineDuotone,
+  PiFileSqlDuotone,
+  PiListDashesDuotone,
+  PiArticleMediumDuotone,
 } from "react-icons/pi";
 import {
   DashboardBlockInterfaceOrData,
@@ -39,11 +39,11 @@ export const BLOCK_TYPE_INFO: Record<
 > = {
   markdown: {
     name: "Markdown",
-    icon: <PiMarkdownLogoBold />,
+    icon: <PiArticleMediumDuotone />,
   },
   "experiment-metadata": {
     name: "Experiment Metadata",
-    icon: <PiTextAaBold />,
+    icon: <PiListDashesDuotone />,
   },
   "experiment-metric": {
     name: "Metric Results",
@@ -55,15 +55,15 @@ export const BLOCK_TYPE_INFO: Record<
   },
   "experiment-time-series": {
     name: "Time Series",
-    icon: <PiChartLine />,
+    icon: <PiChartLineDuotone />,
   },
   "experiment-traffic": {
     name: "Experiment Traffic",
-    icon: <PiChartLine />,
+    icon: <PiChartLineDuotone />,
   },
   "sql-explorer": {
     name: "SQL Explorer",
-    icon: <PiChartBar />,
+    icon: <PiFileSqlDuotone />,
   },
 };
 
