@@ -66,7 +66,7 @@ export default function DashboardModal({
   return (
     <Modal
       open={true}
-      size="lg"
+      size="md"
       trackingEventModalType={`${mode}-dashboard`}
       header={
         mode === "edit"
