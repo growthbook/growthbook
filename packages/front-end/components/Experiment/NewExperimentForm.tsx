@@ -325,7 +325,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     },
   });
 
-  const [selectedProject, setSelectedProject] = useState(form.watch("project"));
+  const selectedProject = form.watch("project");
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
@@ -700,7 +700,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
-                    setSelectedProject(p);
                   }}
                   name="project"
                   initialOption={allowAllProjects ? "All Projects" : undefined}
