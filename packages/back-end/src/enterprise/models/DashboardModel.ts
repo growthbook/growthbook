@@ -1,6 +1,4 @@
 import mongoose from "mongoose";
-import { v4 as uuidv4 } from "uuid";
-import { createDashboardBlocksFromTemplate } from "shared/enterprise";
 import {
   dashboardInterface,
   DashboardInterface,
@@ -10,30 +8,16 @@ import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { DashboardTemplateInterface } from "back-end/src/enterprise/validators/dashboard-template";
+import { LegacyDashboardBlockInterface } from "../validators/dashboard-block";
 import {
   toInterface as blockToInterface,
-  createDashboardBlock,
+  migrate as migrateBlock,
 } from "./DashboardBlockModel";
 
-const DEFAULT_DASHBOARD_BLOCKS: DashboardTemplateInterface["blockInitialValues"] =
-  [
-    { type: "experiment-description" },
-    { type: "experiment-traffic-graph" },
-    {
-      type: "experiment-metric",
-      columnsFilter: [
-        "Metric & Variation Names",
-        "Chance to Win",
-        "CI Graph",
-        "Lift",
-      ],
-    },
-    { type: "experiment-time-series" },
-  ];
-
 export type DashboardDocument = mongoose.Document & DashboardInterface;
+type LegacyDashboardDocument = Omit<DashboardDocument, "blocks"> & {
+  blocks: LegacyDashboardBlockInterface[];
+};
 
 const BaseClass = MakeModelClass({
   schema: dashboardInterface,
@@ -61,11 +45,7 @@ export class DashboardModel extends BaseClass {
   public async findByExperiment(
     experimentId: string,
   ): Promise<DashboardInterface[]> {
-    const dashboards = await this._find({ experimentId });
-    if (!dashboards.find((dash) => dash.isDefault)) {
-      dashboards.push(await this.createDefaultDashboard(experimentId));
-    }
-    return dashboards.filter((dash) => !dash.isDeleted);
+    return this._find({ experimentId, isDeleted: false, isDefault: false });
   }
 
   protected canCreate(doc: DashboardInterface): boolean {
@@ -119,8 +99,11 @@ export class DashboardModel extends BaseClass {
     return this.context.permissions.canDeleteReport(experiment);
   }
 
-  protected migrate(doc: unknown) {
-    return toInterface(doc as DashboardDocument);
+  protected migrate(orig: LegacyDashboardDocument): DashboardInterface {
+    return toInterface({
+      ...orig,
+      blocks: orig.blocks.map(migrateBlock),
+    });
   }
 
   protected async afterCreate(doc: DashboardDocument) {
@@ -185,40 +168,8 @@ export class DashboardModel extends BaseClass {
   public async deleteById(id: string) {
     const existing = await this.getById(id);
     if (!existing) return;
-    // Soft-delete the default dashboard to prevent it from being re-created
-    if (existing.isDefault) {
-      await this.updateById(id, { isDeleted: true });
-    } else {
-      await this._deleteOne(existing);
-    }
+    await this._deleteOne(existing);
     return existing;
-  }
-
-  protected async createDefaultDashboard(experimentId: string) {
-    const experiment = await getExperimentById(this.context, experimentId);
-    if (!experiment) throw new Error("Cannot find specified experiment");
-    const metricGroups = await this.context.models.metricGroups.getAll();
-    const blocksToCreate = createDashboardBlocksFromTemplate(
-      { blockInitialValues: DEFAULT_DASHBOARD_BLOCKS },
-      experiment,
-      metricGroups,
-    );
-    const blocks = await Promise.all(
-      blocksToCreate.map((blockData) =>
-        createDashboardBlock(this.context.org.id, blockData),
-      ),
-    );
-    return this.dangerousCreateBypassPermission({
-      uid: uuidv4().replace(/-/g, ""),
-      experimentId,
-      isDefault: true,
-      isDeleted: false,
-      userId: "",
-      editLevel: "organization",
-      enableAutoUpdates: true,
-      title: "Default Dashboard",
-      blocks,
-    });
   }
 }
 

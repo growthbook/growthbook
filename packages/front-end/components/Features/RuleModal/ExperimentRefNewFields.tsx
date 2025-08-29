@@ -48,6 +48,7 @@ import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
 } from "@/hooks/useCustomFields";
+import HelperText from "@/components/Radix/HelperText";
 
 export default function ExperimentRefNewFields({
   step,
@@ -84,6 +85,7 @@ export default function ExperimentRefNewFields({
   orgStickyBucketing,
   setCustomFields,
   isTemplate = false,
+  holdoutHashAttribute,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -119,6 +121,7 @@ export default function ExperimentRefNewFields({
   orgStickyBucketing?: boolean;
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
+  holdoutHashAttribute?: string;
 }) {
   const form = useFormContext();
 
@@ -301,6 +304,13 @@ export default function ExperimentRefNewFields({
                 "Will be hashed together with the Tracking Key to determine which variation to assign"
               }
             />
+            {!!holdoutHashAttribute &&
+              form.watch("hashAttribute") !== holdoutHashAttribute && (
+                <HelperText status="warning" size="sm" mb="4">
+                  The hash attribute of this experiment does not match the hash
+                  attribute of the holdout this experiment will belong to.
+                </HelperText>
+              )}
             <FallbackAttributeSelector
               form={form}
               attributeSchema={attributeSchema}

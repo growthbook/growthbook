@@ -419,9 +419,7 @@ export default function ConfigureReport({
               )}
               project={experiment?.project}
               forceSingleGoalMetric={experiment?.type === "multi-armed-bandit"}
-              noPercentileGoalMetrics={
-                experiment?.type === "multi-armed-bandit"
-              }
+              noQuantileGoalMetrics={experiment?.type === "multi-armed-bandit"}
               goalMetrics={
                 form.watch("experimentAnalysisSettings.goalMetrics") ?? []
               }

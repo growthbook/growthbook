@@ -209,12 +209,11 @@ const SafeRolloutResults: FC<{
             <>
               <Link
                 weight="medium"
-                mt="4"
-                mb="3"
+                mt="5"
                 onClick={() => setIsHealthExpanded(!isHealthExpanded)}
               >
-                {isHealthExpanded ? <FaCaretDown /> : <FaCaretRight />} View
-                Traffic {showHealthWarning && <WarningIcon />}
+                {isHealthExpanded ? <FaCaretDown /> : <FaCaretRight />}
+                View Traffic {showHealthWarning && <WarningIcon />}
               </Link>
 
               {isHealthExpanded ? (
