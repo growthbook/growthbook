@@ -491,6 +491,11 @@ const sidebars = {
             },
             {
               type: "doc",
+              id: "lib/kotlin-jvm",
+              label: "Kotlin (JVM)",
+            },
+            {
+              type: "doc",
               id: "lib/csharp",
               label: "C#",
             },

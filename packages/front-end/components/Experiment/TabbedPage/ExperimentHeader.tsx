@@ -817,7 +817,7 @@ export default function ExperimentHeader({
                   !isHoldout &&
                   holdoutsEnabled &&
                   holdouts.length > 0 &&
-                  !holdout &&
+                  !experiment.holdoutId &&
                   experiment.status === "draft" && (
                     <DropdownMenuItem
                       onClick={() => {

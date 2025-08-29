@@ -76,6 +76,7 @@ interface Props {
   // for some experiments, screenshots don't make sense - this is for a future state where you can mark exp as such.
   allowImages?: boolean;
   mutate?: () => void;
+  noMargin?: boolean;
 }
 
 function NoImageBox({
@@ -240,6 +241,7 @@ const VariationsTable: FC<Props> = ({
   variationsList,
   canEditExperiment,
   allowImages = true,
+  noMargin = false,
   mutate,
 }) => {
   const { apiCall } = useAuth();
@@ -265,7 +267,7 @@ const VariationsTable: FC<Props> = ({
   const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
 
   return (
-    <Box mx="4">
+    <Box mx={noMargin ? "0" : "4"}>
       <Grid
         gap={gap}
         columns={{
