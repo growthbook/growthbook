@@ -93,37 +93,41 @@ export default function DataVizFilter({
 
   const createDefaultFilterForType = (
     column: string,
-    type: "string" | "number" | "date",
+    type: FilterConfiguration["type"],
   ): FilterConfiguration => {
-    if (type === "date") {
-      // Default to last 30 days for date filters
-      const today = new Date();
-      const thirtyDaysAgo = new Date(today);
-      thirtyDaysAgo.setDate(today.getDate() - 30);
+    switch (type) {
+      case "date": {
+        // Default to last 30 days for date filters
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
 
-      return {
-        column,
-        type: "date",
-        filterType: "dateRange",
-        config: {
-          startDate: thirtyDaysAgo.toISOString().split("T")[0], // YYYY-MM-DD format
-          endDate: today.toISOString().split("T")[0],
-        },
-      };
-    } else if (type === "number") {
-      return {
-        column,
-        type: "number",
-        filterType: "greaterThan",
-        config: { value: "0" }, // Store as string initially to match schema
-      };
-    } else {
-      return {
-        column,
-        type: "string",
-        filterType: "contains",
-        config: { value: "" },
-      };
+        return {
+          column,
+          type: "date",
+          filterType: "dateRange",
+          config: {
+            startDate: thirtyDaysAgo.toISOString().split("T")[0], // YYYY-MM-DD format
+            endDate: today.toISOString().split("T")[0],
+          },
+        };
+      }
+      case "number": {
+        return {
+          column,
+          type: "number",
+          filterType: "greaterThan",
+          config: { value: "0" }, // Store as string initially to match schema
+        };
+      }
+      default: {
+        return {
+          column,
+          type: "string",
+          filterType: "contains",
+          config: { value: "" },
+        };
+      }
     }
   };
 
