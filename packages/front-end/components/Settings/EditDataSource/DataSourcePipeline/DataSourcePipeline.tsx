@@ -50,7 +50,8 @@ export default function DataSourcePipeline({
       </Flex>
       <p>
         Configure how GrowthBook can use write permissions to your Data Source
-        to improve the performance of experiment queries.
+        to improve the performance of experiment queries, including enabling
+        incremental refresh.
       </p>
       <Card>
         <Box px="3" py="2">
@@ -60,11 +61,42 @@ export default function DataSourcePipeline({
           >
             <Box>
               <Text weight="medium" mb="0" as="p">
-                {"Pipeline Mode: "}
+                {"Data Pipeline: "}
                 {pipelineSettings?.allowWriting ? "Enabled" : "Disabled"}
               </Text>
               {pipelineSettings?.allowWriting && (
                 <>
+                  <Box mt="2">
+                    {"Mode: "}
+                    <code>{pipelineSettings?.mode ?? "temporary"}</code>
+                  </Box>
+                  {pipelineSettings?.partitionSettings ? (
+                    <Box mt="2">
+                      {"Partition: "}
+                      {pipelineSettings.partitionSettings.type ===
+                      "timestamp" ? (
+                        <code>timestamp</code>
+                      ) : (
+                        <>
+                          <code>yearMonthDate</code>
+                          {" ["}
+                          <code>
+                            year={pipelineSettings.partitionSettings.yearColumn}
+                          </code>
+                          {", "}
+                          <code>
+                            month=
+                            {pipelineSettings.partitionSettings.monthColumn}
+                          </code>
+                          {", "}
+                          <code>
+                            date={pipelineSettings.partitionSettings.dateColumn}
+                          </code>
+                          {"]"}
+                        </>
+                      )}
+                    </Box>
+                  ) : null}
                   <Box mt="2">
                     {`Destination ${
                       dataSourcePathNames(dataSource.type).schemaName
@@ -88,12 +120,13 @@ export default function DataSourcePipeline({
                         ? "Enabled"
                         : "Disabled"}
                     </Box>
-                  ) : (
+                  ) : (pipelineSettings?.mode ?? "temporary") ===
+                    "temporary" ? (
                     <Box mt="2">
                       {"Retention of temporary units table (hours): "}
                       {pipelineSettings?.unitsTableRetentionHours ?? 24}
                     </Box>
-                  )}
+                  ) : null}
                 </>
               )}
             </Box>

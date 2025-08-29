@@ -2,7 +2,6 @@ import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import Link from "next/link";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiLinkBold } from "react-icons/pi";
@@ -73,9 +72,7 @@ const DataSourcePage: FC = () => {
     (d && permissionsUtil.canUpdateDataSourceSettings(d) && !hasFileConfig()) ||
     false;
 
-  const pipelineEnabled =
-    useFeatureIsOn("datasource-pipeline-mode") &&
-    hasCommercialFeature("pipeline-mode");
+  const pipelineEnabled = true && hasCommercialFeature("pipeline-mode");
 
   /**
    * Update the data source provided.
@@ -414,6 +411,8 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </Frame>
             ) : null}
+
+            {/* Incremental Refresh UI merged into Data Pipeline settings */}
           </>
         )}
       </Box>

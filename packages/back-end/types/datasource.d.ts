@@ -1,3 +1,4 @@
+import { PartitionSettings } from "../src/types/Integration";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
@@ -138,6 +139,7 @@ export interface DataSourceProperties {
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
   hasCountDistinctHLL?: boolean;
+  hasIncrementalRefresh?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {
@@ -183,11 +185,13 @@ export type DataSourceEvents = {
 };
 
 export type DataSourcePipelineSettings = {
+  mode: "temporary" | "incremental";
   allowWriting?: boolean;
   writeDatabase?: string; // the top level directory
   writeDataset?: string; // the mid level name (aka schema)
   unitsTableRetentionHours?: number;
   unitsTableDeletion?: boolean;
+  partitionSettings?: PartitionSettings;
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";
@@ -240,6 +244,9 @@ export type DataSourceSettings = {
   };
   pipelineSettings?: DataSourcePipelineSettings;
   maxConcurrentQueries?: string;
+  incrementalRefresh?: {
+    enabled?: boolean;
+  };
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
