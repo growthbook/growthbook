@@ -146,7 +146,24 @@ export function DataVisualizationDisplay({
         // Handle null/undefined values
         if (rowValue == null) return false;
 
-        //MKTODO: Filter on type first?
+        // Validate that filter type is compatible with data type
+        const validFilterTypes = {
+          date: ["dateRange", "today", "last7Days", "last30Days"],
+          number: [
+            "numberRange",
+            "greaterThan",
+            "lessThan",
+            "equalTo",
+            "greaterThanOrEqualTo",
+            "lessThanOrEqualTo",
+          ],
+          string: ["includes", "contains"],
+        };
+
+        if (!validFilterTypes[filter.type]?.includes(filter.filterType)) {
+          // Exclude rows with incompatible filter types
+          return false;
+        }
 
         switch (filter.filterType) {
           // Date filters
