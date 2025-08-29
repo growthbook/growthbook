@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
@@ -46,7 +46,7 @@ export const HoldoutSelect = ({
         : true;
     });
 
-    const holdoutsWithExperiment = filteredHoldouts.map((holdout) => {
+    return filteredHoldouts.map((holdout) => {
       const experiment = experimentsMap.get(holdout.experimentId);
       const datasource = experiment?.datasource
         ? getDatasourceById(experiment?.datasource ?? "")
@@ -64,13 +64,15 @@ export const HoldoutSelect = ({
         userIdType,
       };
     });
+  }, [holdouts, experimentsMap, selectedProject, getDatasourceById]);
+
+  useEffect(() => {
+    // check to see if the holdout still exists and if not, set the holdout to the first valid holdout
     if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
       setHoldout(holdoutsWithExperiment[0]?.id ?? "");
     }
-    return holdoutsWithExperiment;
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holdouts, experimentsMap, selectedProject, getDatasourceById]);
+  }, [holdoutsWithExperiment]);
 
   if (!hasHoldouts) {
     return (
