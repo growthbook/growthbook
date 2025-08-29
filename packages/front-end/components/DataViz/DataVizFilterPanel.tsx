@@ -1,4 +1,4 @@
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, Separator, Text } from "@radix-ui/themes";
 import {
   DataVizConfig,
   FilterConfiguration,
@@ -155,21 +155,43 @@ export default function DataVizFilterPanel({
         >
           <Box p="4" height="fit-content">
             <Flex direction="column" gap="4">
-              {filters.length > 0 &&
-                filters.map((filter, index) => {
-                  return (
-                    <DataVizFilter
-                      key={index}
-                      filterIndex={index}
-                      columnFilterOptions={columnFilterOptions}
-                      dataVizConfig={dataVizConfig}
-                      onDataVizConfigChange={onDataVizConfigChange}
-                      rows={rows}
-                    />
-                  );
-                })}
+              {filters.length ? (
+                <>
+                  {filters.map((filter, index) => {
+                    return (
+                      <span key={index}>
+                        {index > 0 && <Separator size="4" m="2" />}
+                        <DataVizFilter
+                          filter={filter}
+                          filterName={`Filter ${index + 1}`}
+                          onFilterChange={(updatedFilter) => {
+                            const newFilters = [...filters];
+                            newFilters[index] = updatedFilter;
+                            onDataVizConfigChange({
+                              ...dataVizConfig,
+                              filters: newFilters,
+                            });
+                          }}
+                          onFilterRemove={() => {
+                            const newFilters = [...filters];
+                            newFilters.splice(index, 1);
+                            onDataVizConfigChange({
+                              ...dataVizConfig,
+                              filters: newFilters,
+                            });
+                          }}
+                          columnFilterOptions={columnFilterOptions}
+                          rows={rows}
+                        />
+                      </span>
+                    );
+                  })}
+                </>
+              ) : null}
               <Link
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
+
                   // Get the first column filter option
                   const firstColumnFilterOption = columnFilterOptions[0];
                   const type = firstColumnFilterOption.knownType;
