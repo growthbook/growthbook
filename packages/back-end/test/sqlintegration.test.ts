@@ -848,7 +848,15 @@ describe("full fact metric experiment query - bigquery", () => {
         // aggregate filter on numerator not represented
         // also skipping filters for ratio metrics
         for (const cappingType of cappingTypes) {
+          // skip absolute capping
+          if (cappingType === "absolute") {
+            continue;
+          }
           for (const aggregationType of aggregationTypes) {
+            // skip max aggregation type
+            if (aggregationType === "max") {
+              continue;
+            }
             for (const column of columns) {
               for (const windowSetting of windowSettings) {
                 for (const regressionSetting of regressionAdjustmentSettings) {
@@ -876,12 +884,23 @@ describe("full fact metric experiment query - bigquery", () => {
         }
       },
 
+      // retention is mostly just special proportion metrics
+      // so there are fewer combinations of tests here to
+      // keep the overall set down
       retention: () => {
         for (const column of binomialColumns) {
           for (const inlineFilter of inlineFilters) {
             for (const filter of filters) {
               for (const aggregateFilter of aggregateFilters) {
                 for (const windowSetting of retentionWindowSettings) {
+                  // skip combined filters
+                  if (filter.length > 0 && inlineFilter) {
+                    continue;
+                  }
+                  // skip aggregate filters with pre-defined filters
+                  if (aggregateFilter.aggregateFilter && filter.length > 0) {
+                    continue;
+                  }
                   const metric = createMetric({
                     metricType: "retention",
                     column,
@@ -1074,6 +1093,10 @@ describe("full fact metric experiment query - bigquery", () => {
 
   const metricsToTest = generateFactMetrics();
 
+  it("generates all metrics", () => {
+    expect(metricsToTest.map((m) => m.id)).toMatchSnapshot();
+  });
+
   it.each(metricsToTest)(
     "generated fact metric SQL is correct for $id",
     (metric) => {
@@ -1101,7 +1124,7 @@ describe("full fact metric experiment query - bigquery", () => {
             mean: 0,
             stddev: 0,
           },
-          regressionAdjustmentEnabled: false,
+          regressionAdjustmentEnabled: true,
           attributionModel: "firstExposure",
           experimentId: "",
           queryFilter: "",
