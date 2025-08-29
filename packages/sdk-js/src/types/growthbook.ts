@@ -541,6 +541,10 @@ export type RefreshFeaturesOptions = {
   skipCache?: boolean;
 };
 
+export type DestroyOptions = {
+  destroyAllStreams?: boolean;
+};
+
 export interface Filter {
   // Override the hashAttribute used for this filter
   attribute?: string;
