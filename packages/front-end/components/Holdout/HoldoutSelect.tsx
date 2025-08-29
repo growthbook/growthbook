@@ -70,7 +70,7 @@ export const HoldoutSelect = ({
   const shouldReCheckHoldout = useRef(true);
   // we want to check to see if we need to recheck the Holdouts are still valid
   useEffect(() => {
-    if (selectedProject && !loading && !userSelectedNone) {
+    if (!loading && !userSelectedNone) {
       shouldReCheckHoldout.current = true;
     } else {
       shouldReCheckHoldout.current = false;
