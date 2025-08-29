@@ -68,27 +68,35 @@ export const HoldoutSelect = ({
 
   const [userSelectedNone, setUserSelectedNone] = useState(false);
   const shouldReCheckHoldout = useRef(true);
-  // we want to check to see if we need to recheck the Holdouts are still valid
+
+  // When the selected project changes, we need to reset the selected holdout
+  // to the first valid holdout or none if there are no valid holdouts
   useEffect(() => {
     if (!loading && !userSelectedNone) {
+      // Set ref to true so we check that the holdout is still valid
+      // unless the user has selected none
       shouldReCheckHoldout.current = true;
     } else {
       shouldReCheckHoldout.current = false;
     }
   }, [selectedProject, loading, userSelectedNone]);
 
-  // check the holdouts are still valid
+  // Check that the selected holdout is still valid
   useEffect(() => {
     if (!shouldReCheckHoldout.current && selectedHoldoutId !== undefined)
       return;
 
+    // If there are no holdouts for the selected project, set the holdout to none
+    // if it's not set to none
     if (selectedHoldoutId !== "" && holdoutsWithExperiment.length === 0) {
       setHoldout("");
-    } else if (
-      !holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)
-    ) {
+    }
+    // If the selected holdout is not valid, set it to the first valid holdout
+    // or none if there are no valid holdouts
+    else if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
       setHoldout(holdoutsWithExperiment[0]?.id ?? "");
     }
+    // Set ref to false so we don't check again
     shouldReCheckHoldout.current = false;
   }, [holdoutsWithExperiment, setHoldout, selectedHoldoutId]);
 
