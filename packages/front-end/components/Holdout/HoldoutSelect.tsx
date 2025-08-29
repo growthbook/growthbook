@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
@@ -46,7 +46,7 @@ export const HoldoutSelect = ({
         : true;
     });
 
-    return filteredHoldouts.map((holdout) => {
+    const holdoutsWithExperiment = filteredHoldouts.map((holdout) => {
       const experiment = experimentsMap.get(holdout.experimentId);
       const datasource = experiment?.datasource
         ? getDatasourceById(experiment?.datasource ?? "")
@@ -64,41 +64,13 @@ export const HoldoutSelect = ({
         userIdType,
       };
     });
+    // check to see if the holdout still exists and if not, set the holdout to the first valid holdout
+    if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
+      setHoldout(holdoutsWithExperiment[0]?.id);
+    }
+    return holdoutsWithExperiment;
   }, [holdouts, experimentsMap, selectedProject, getDatasourceById]);
 
-  const [userSelectedNone, setUserSelectedNone] = useState(false);
-  const shouldReCheckHoldout = useRef(true);
-
-  // When the selected project changes, we need to reset the selected holdout
-  // to the first valid holdout or none if there are no valid holdouts
-  useEffect(() => {
-    if (!loading && !userSelectedNone) {
-      // Set ref to true so we check that the holdout is still valid
-      // unless the user has selected none
-      shouldReCheckHoldout.current = true;
-    } else {
-      shouldReCheckHoldout.current = false;
-    }
-  }, [selectedProject, loading, userSelectedNone]);
-
-  // Check that the selected holdout is still valid
-  useEffect(() => {
-    if (!shouldReCheckHoldout.current && selectedHoldoutId !== undefined)
-      return;
-
-    // If there are no holdouts for the selected project, set the holdout to none
-    // if it's not set to none
-    if (selectedHoldoutId !== "" && holdoutsWithExperiment.length === 0) {
-      setHoldout("");
-    }
-    // If the selected holdout is not valid, set it to the first valid holdout
-    // or none if there are no valid holdouts
-    else if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
-      setHoldout(holdoutsWithExperiment[0]?.id ?? "");
-    }
-    // Set ref to false so we don't check again
-    shouldReCheckHoldout.current = false;
-  }, [holdoutsWithExperiment, setHoldout, selectedHoldoutId]);
 
   if (!hasHoldouts) {
     return (
@@ -137,11 +109,6 @@ export const HoldoutSelect = ({
         labelClassName="font-weight-bold"
         value={selectedHoldoutId || ""}
         onChange={(v) => {
-          if (v === "") {
-            setUserSelectedNone(true);
-          } else {
-            setUserSelectedNone(false);
-          }
           setHoldout(v);
         }}
         helpText={
