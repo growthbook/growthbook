@@ -383,6 +383,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "running-experiments/running-holdouts",
+          label: "Holdouts",
+        },
+        {
+          type: "doc",
           id: "sticky-bucketing",
           label: "Sticky Bucketing",
         },
