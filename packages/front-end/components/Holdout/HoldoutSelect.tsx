@@ -79,7 +79,8 @@ export const HoldoutSelect = ({
 
   // check the holdouts are still valid
   useEffect(() => {
-    if (!shouldReCheckHoldout.current) return;
+    if (!shouldReCheckHoldout.current && selectedHoldoutId !== undefined)
+      return;
 
     if (selectedHoldoutId !== "" && holdoutsWithExperiment.length === 0) {
       setHoldout("");
