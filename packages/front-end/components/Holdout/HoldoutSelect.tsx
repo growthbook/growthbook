@@ -70,12 +70,12 @@ export const HoldoutSelect = ({
   const shouldReCheckHoldout = useRef(true);
 
   useEffect(() => {
-    if (selectedProject && !loading && userSelectedNone) {
+    if (selectedProject && !loading && !userSelectedNone) {
       shouldReCheckHoldout.current = true;
     } else {
       shouldReCheckHoldout.current = false;
     }
-  }, [selectedProject, loading]);
+  }, [selectedProject, loading, userSelectedNone]);
 
   useEffect(() => {
     if (!shouldReCheckHoldout.current) return;
@@ -87,11 +87,7 @@ export const HoldoutSelect = ({
     ) {
       setHoldout(holdoutsWithExperiment[0]?.id ?? "");
     }
-  }, [
-    holdoutsWithExperiment,
-    setHoldout,
-    selectedHoldoutId,
-  ]);
+  }, [holdoutsWithExperiment, setHoldout, selectedHoldoutId]);
 
   if (!hasHoldouts) {
     return (
