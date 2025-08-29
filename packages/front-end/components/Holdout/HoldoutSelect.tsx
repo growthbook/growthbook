@@ -67,32 +67,30 @@ export const HoldoutSelect = ({
   }, [holdouts, experimentsMap, selectedProject, getDatasourceById]);
 
   const [userSelectedNone, setUserSelectedNone] = useState(false);
-
-  const projectRef = useRef<string | null | undefined>(null);
+  const shouldReCheckHoldout = useRef(true);
 
   useEffect(() => {
-    // If still loading, don't set anything
-    if (loading) return;
-    if (projectRef.current === selectedProject) return;
-    if (userSelectedNone) return;
-    // Only run logic on first run or when holdoutsWithExperiment changes
-    // Only set initial value once or when selectedHoldoutId is not valid
+    if (selectedProject && !loading && userSelectedNone) {
+      shouldReCheckHoldout.current = true;
+    } else {
+      shouldReCheckHoldout.current = false;
+    }
+  }, [selectedProject, loading]);
+
+  useEffect(() => {
+    if (!shouldReCheckHoldout.current) return;
+
     if (selectedHoldoutId !== "" && holdoutsWithExperiment.length === 0) {
       setHoldout("");
     } else if (
       !holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)
     ) {
-      setHoldout(holdoutsWithExperiment[0].id);
+      setHoldout(holdoutsWithExperiment[0]?.id ?? "");
     }
-    projectRef.current = selectedProject;
   }, [
     holdoutsWithExperiment,
     setHoldout,
-    loading,
     selectedHoldoutId,
-    userSelectedNone,
-    selectedProject,
-    projectRef,
   ]);
 
   if (!hasHoldouts) {
