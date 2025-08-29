@@ -150,7 +150,7 @@ export default function DataVizFilter({
           };
         }
       }
-      default: {
+      case "string": {
         if (effectiveFilterType === "includes") {
           return {
             column,
@@ -167,6 +167,8 @@ export default function DataVizFilter({
           };
         }
       }
+      default:
+        return type satisfies never;
     }
   };
 
