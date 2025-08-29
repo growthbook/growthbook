@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { PiArrowSquareOut, PiLightbulb, PiWarningFill } from "react-icons/pi";
 import { Flex, Text } from "@radix-ui/themes";
@@ -68,10 +68,14 @@ export const HoldoutSelect = ({
 
   const [userSelectedNone, setUserSelectedNone] = useState(false);
 
+  const projectRef = useRef(selectedProject);
+
   useEffect(() => {
     // If still loading, don't set anything
     if (loading) return;
+    if (projectRef.current !== selectedProject) return;
     if (userSelectedNone) return;
+    // Only run logic on first run or when holdoutsWithExperiment changes
     // Only set initial value once or when selectedHoldoutId is not valid
     if (selectedHoldoutId !== "" && holdoutsWithExperiment.length === 0) {
       setHoldout("");
@@ -80,12 +84,15 @@ export const HoldoutSelect = ({
     ) {
       setHoldout(holdoutsWithExperiment[0].id);
     }
+    projectRef.current = selectedProject;
   }, [
     holdoutsWithExperiment,
     setHoldout,
     loading,
     selectedHoldoutId,
     userSelectedNone,
+    selectedProject,
+    projectRef,
   ]);
 
   if (!hasHoldouts) {
