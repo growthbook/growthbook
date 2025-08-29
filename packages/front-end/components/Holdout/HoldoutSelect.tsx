@@ -68,7 +68,7 @@ export const HoldoutSelect = ({
 
   const [userSelectedNone, setUserSelectedNone] = useState(false);
   const shouldReCheckHoldout = useRef(true);
-
+  // we want to check to see if we need to recheck the Holdouts are still valid
   useEffect(() => {
     if (selectedProject && !loading && !userSelectedNone) {
       shouldReCheckHoldout.current = true;
@@ -77,6 +77,7 @@ export const HoldoutSelect = ({
     }
   }, [selectedProject, loading, userSelectedNone]);
 
+  // check the holdouts are still valid
   useEffect(() => {
     if (!shouldReCheckHoldout.current) return;
 
@@ -87,6 +88,7 @@ export const HoldoutSelect = ({
     ) {
       setHoldout(holdoutsWithExperiment[0]?.id ?? "");
     }
+    shouldReCheckHoldout.current = false;
   }, [holdoutsWithExperiment, setHoldout, selectedHoldoutId]);
 
   if (!hasHoldouts) {
