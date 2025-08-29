@@ -101,12 +101,12 @@ export default function EditPhasesModal({
               <td>{i + 1}</td>
               <td>{phase.name}</td>
               <td>
-                <strong title={datetime(phase.dateStarted ?? "")}>
-                  {date(phase.dateStarted ?? "")}
+                <strong title={datetime(phase.dateStarted ?? "", "UTC")}>
+                  {date(phase.dateStarted ?? "", "UTC")}
                 </strong>{" "}
                 to{" "}
-                <strong title={datetime(phase.dateEnded ?? "")}>
-                  {phase.dateEnded ? date(phase.dateEnded) : "now"}
+                <strong title={datetime(phase.dateEnded ?? "", "UTC")}>
+                  {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
                 </strong>
               </td>
               {!isHoldout ? (

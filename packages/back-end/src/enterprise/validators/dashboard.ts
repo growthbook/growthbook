@@ -9,8 +9,8 @@ export const dashboardInterface = z
     uid: z.string(), // Enables sharing/linking to dashboards in future
     organization: z.string(),
     experimentId: z.string(),
-    isDefault: z.boolean(),
-    isDeleted: z.boolean(), // For soft-deleting the default dashboard so it doesn't re-create itself
+    isDefault: z.boolean(), // Deprecated
+    isDeleted: z.boolean(), // For soft-deletes (currently unused)
     userId: z.string(),
     editLevel: dashboardEditLevel,
     enableAutoUpdates: z.boolean(),

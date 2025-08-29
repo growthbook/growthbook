@@ -90,15 +90,12 @@ const PresentationPage = (): React.ReactElement => {
   }
 
   const deleteConfirm = (id: string) => {
-    //console.log(id);
     setDeleteId(id);
     setDeleteConfirmModal(true);
   };
 
   const confirmDelete = async () => {
     if (deleteLoading) return;
-    //console.log("lets delete ", deleteId);
-
     setDeleteLoading(true);
     setDeleteError(null);
 
