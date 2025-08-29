@@ -68,12 +68,12 @@ export const HoldoutSelect = ({
 
   const [userSelectedNone, setUserSelectedNone] = useState(false);
 
-  const projectRef = useRef(selectedProject);
+  const projectRef = useRef<string | null>(null);
 
   useEffect(() => {
     // If still loading, don't set anything
     if (loading) return;
-    if (projectRef.current !== selectedProject) return;
+    if (projectRef.current === selectedProject) return;
     if (userSelectedNone) return;
     // Only run logic on first run or when holdoutsWithExperiment changes
     // Only set initial value once or when selectedHoldoutId is not valid
