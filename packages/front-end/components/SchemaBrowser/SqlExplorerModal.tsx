@@ -53,6 +53,7 @@ import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "../Radix/DropdownMenu";
+import { filterOptions } from "../DataViz/DataVizFilter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -266,21 +267,22 @@ export default function SqlExplorerModal({
             );
           }
 
-          // Validate filter type matches the data type
-          const validFilterTypes = {
-            date: ["dateRange", "today", "last7Days", "last30Days"],
-            number: [
-              "numberRange",
-              "greaterThan",
-              "lessThan",
-              "equalTo",
-              "greaterThanOrEqualTo",
-              "lessThanOrEqualTo",
-            ],
-            string: ["includes", "contains"],
-          };
+          // // Validate filter type matches the data type
+          const filterOptionIndex = filterOptions.findIndex(
+            (option) => option.value === filter.filterType,
+          );
 
-          if (!validFilterTypes[filter.type]?.includes(filter.filterType)) {
+          if (filterOptionIndex === -1) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterType}" for data type "${filter.type}".`,
+            );
+          }
+
+          const validFilterTypes =
+            filterOptions[filterOptionIndex].supportedTypes;
+
+          if (!validFilterTypes.includes(filter.type)) {
             setTab(`visualization-${index}`);
             throw new Error(
               `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterType}" for data type "${filter.type}".`,

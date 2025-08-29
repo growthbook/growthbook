@@ -31,7 +31,7 @@ function getUniqueValuesFromColumn(
   return Array.from(uniqueValues);
 }
 
-const filterOptions = [
+export const filterOptions = [
   // Date filters
   { value: "today", label: "Today", supportedTypes: ["date"] },
   { value: "last7Days", label: "Last 7 Days", supportedTypes: ["date"] },
