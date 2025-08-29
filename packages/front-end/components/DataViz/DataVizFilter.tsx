@@ -91,109 +91,105 @@ export default function DataVizFilter({
     onFilterChange(updatedFilter);
   };
 
-  const createDefaultFilterForType = (
+  const createFilterConfig = (
     column: string,
     type: FilterConfiguration["type"],
+    filterType?: string,
   ): FilterConfiguration => {
+    // If no filterType is provided, use defaults based on type
+    const effectiveFilterType = filterType || getDefaultFilterTypeForType(type);
+
     switch (type) {
       case "date": {
-        // Default to last 30 days for date filters
-        const today = new Date();
-        const thirtyDaysAgo = new Date(today);
-        thirtyDaysAgo.setDate(today.getDate() - 30);
+        if (effectiveFilterType === "dateRange") {
+          // Calculate last 30 days as default
+          const today = new Date();
+          const thirtyDaysAgo = new Date(today);
+          thirtyDaysAgo.setDate(today.getDate() - 30);
 
-        return {
-          column,
-          type: "date",
-          filterType: "dateRange",
-          config: {
-            startDate: thirtyDaysAgo.toISOString().split("T")[0], // YYYY-MM-DD format
-            endDate: today.toISOString().split("T")[0],
-          },
-        };
+          return {
+            column,
+            type: "date",
+            filterType: "dateRange",
+            config: {
+              startDate: thirtyDaysAgo.toISOString().split("T")[0], // YYYY-MM-DD format
+              endDate: today.toISOString().split("T")[0],
+            },
+          };
+        } else {
+          return {
+            column,
+            type: "date",
+            filterType: effectiveFilterType as
+              | "today"
+              | "last7Days"
+              | "last30Days",
+            config: {},
+          };
+        }
       }
       case "number": {
-        return {
-          column,
-          type: "number",
-          filterType: "greaterThan",
-          config: { value: "0" }, // Store as string initially to match schema
-        };
+        if (effectiveFilterType === "numberRange") {
+          return {
+            column,
+            type: "number",
+            filterType: "numberRange",
+            config: { min: "0", max: "100" },
+          };
+        } else {
+          return {
+            column,
+            type: "number",
+            filterType: effectiveFilterType as
+              | "greaterThan"
+              | "lessThan"
+              | "equalTo"
+              | "greaterThanOrEqualTo"
+              | "lessThanOrEqualTo",
+            config: { value: "0" }, // Store as string initially to match schema
+          };
+        }
       }
       default: {
-        return {
-          column,
-          type: "string",
-          filterType: "contains",
-          config: { value: "" },
-        };
+        if (effectiveFilterType === "includes") {
+          return {
+            column,
+            type: "string",
+            filterType: "includes",
+            config: { values: [] },
+          };
+        } else {
+          return {
+            column,
+            type: "string",
+            filterType: "contains",
+            config: { value: "" },
+          };
+        }
       }
     }
   };
 
-  const changeFilterType = (newFilterType: string) => {
-    if (filter.type === "date") {
-      if (newFilterType === "dateRange") {
-        // Calculate last 30 days as default
-        const today = new Date();
-        const thirtyDaysAgo = new Date(today);
-        thirtyDaysAgo.setDate(today.getDate() - 30);
-
-        onFilterChange({
-          column: filter.column,
-          type: "date",
-          filterType: "dateRange",
-          config: {
-            startDate: thirtyDaysAgo.toISOString().split("T")[0], // YYYY-MM-DD format
-            endDate: today.toISOString().split("T")[0],
-          },
-        });
-      } else {
-        onFilterChange({
-          column: filter.column,
-          type: "date",
-          filterType: newFilterType as "today" | "last7Days" | "last30Days",
-          config: {},
-        });
-      }
-    } else if (filter.type === "number") {
-      if (newFilterType === "numberRange") {
-        onFilterChange({
-          column: filter.column,
-          type: "number",
-          filterType: "numberRange",
-          config: { min: "0", max: "100" },
-        });
-      } else {
-        onFilterChange({
-          column: filter.column,
-          type: "number",
-          filterType: newFilterType as
-            | "greaterThan"
-            | "lessThan"
-            | "equalTo"
-            | "greaterThanOrEqualTo"
-            | "lessThanOrEqualTo",
-          config: { value: "0" },
-        });
-      }
-    } else if (filter.type === "string") {
-      if (newFilterType === "includes") {
-        onFilterChange({
-          column: filter.column,
-          type: "string",
-          filterType: "includes",
-          config: { values: [] },
-        });
-      } else {
-        onFilterChange({
-          column: filter.column,
-          type: "string",
-          filterType: "contains",
-          config: { value: "" },
-        });
-      }
+  const getDefaultFilterTypeForType = (
+    type: FilterConfiguration["type"],
+  ): string => {
+    switch (type) {
+      case "date":
+        return "dateRange";
+      case "number":
+        return "greaterThan";
+      default:
+        return "includes";
     }
+  };
+
+  const changeFilterType = (newFilterType: string) => {
+    const newFilter = createFilterConfig(
+      filter.column,
+      filter.type,
+      newFilterType,
+    );
+    onFilterChange(newFilter);
   };
 
   const changeColumn = (newColumn: string) => {
@@ -202,10 +198,7 @@ export default function DataVizFilter({
     );
     if (!columnOption) return;
 
-    const newFilter = createDefaultFilterForType(
-      newColumn,
-      columnOption.knownType,
-    );
+    const newFilter = createFilterConfig(newColumn, columnOption.knownType);
     onFilterChange(newFilter);
   };
 
@@ -251,13 +244,9 @@ export default function DataVizFilter({
               value={filter.type}
               setValue={(v) => {
                 if (!v) return;
-                if (!["string", "number", "date"].includes(v)) {
-                  throw new Error(`Invalid filter type: ${v}`);
-                }
-
-                const newFilter = createDefaultFilterForType(
+                const newFilter = createFilterConfig(
                   filter.column || "",
-                  v as "string" | "number" | "date",
+                  v as FilterConfiguration["type"],
                 );
                 onFilterChange(newFilter);
               }}
