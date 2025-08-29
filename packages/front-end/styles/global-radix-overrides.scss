@@ -1,7 +1,7 @@
 // Button
 .rt-Button.rt-variant-ghost {
   margin: 0 !important;
-  &:not(.rt-IconButton) &:not(.rt-SelectItem) {
+  &:not(.rt-IconButton) {
     min-height: var(--base-button-height) !important;
     padding-top: 0 !important;
     padding-bottom: 0 !important;
