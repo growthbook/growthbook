@@ -43,7 +43,7 @@ import {
 import {
   generateEmbeddings,
   simpleCompletion,
-} from "back-end/src/enterprise/services/openai";
+} from "back-end/src/enterprise/services/providerAI";
 import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -1468,7 +1468,7 @@ export async function generateExperimentEmbeddings(
       // save the embeddings back to the experiment:
       try {
         await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
-          embeddings: embeddings.data[j].embedding,
+          embeddings: embeddings[j].embedding,
         });
       } catch (error) {
         throw new Error("Error updating embeddings");

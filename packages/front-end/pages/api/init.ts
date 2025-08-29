@@ -33,6 +33,7 @@ export interface EnvironmentInitValue {
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
   hasOpenAIKey?: boolean;
+  hasOllamaServer?: boolean;
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -63,6 +64,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
     OPENAI_API_KEY,
+    OLLAMA_BASE_URL,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -144,6 +146,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
       : 6,
     hasOpenAIKey: !!OPENAI_API_KEY || false,
+    hasOllamaServer: !!OLLAMA_BASE_URL || false,
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);
