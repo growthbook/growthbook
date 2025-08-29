@@ -71,7 +71,7 @@ export const trackJob =
     // run job
     let res;
     try {
-      logger.info({ job: job.attrs }, `Starting job ${jobName}`);
+      logger.debug({ job: job.attrs }, `Starting job ${jobName}`);
       res = await fn(job);
     } catch (e) {
       logger.error({ err: e, job: job.attrs }, `Error running job: ${jobName}`);
@@ -88,7 +88,7 @@ export const trackJob =
     }
 
     // on successful job
-    logger.info({ job: job.attrs }, `Successfully finished job ${jobName}`);
+    logger.debug({ job: job.attrs }, `Successfully finished job ${jobName}`);
     try {
       wrapUpMetrics();
       metrics.getCounter(`jobs.successes`).increment(attributes);
