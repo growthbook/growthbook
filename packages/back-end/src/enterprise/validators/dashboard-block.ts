@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DistributiveOmit } from "shared/util";
-import { differenceTypes } from "shared/enterprise";
+import { differenceTypes, metricSelectors } from "shared/enterprise";
 
 const baseBlockInterface = z
   .object({
@@ -23,45 +23,89 @@ const markdownBlockInterface = baseBlockInterface
 
 export type MarkdownBlockInterface = z.infer<typeof markdownBlockInterface>;
 
-const experimentDescriptionBlockInterface = baseBlockInterface
+// Begin deprecated block types
+const legacyExperimentDescriptionBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-description"),
     experimentId: z.string(),
   })
   .strict();
-
-export type ExperimentDescriptionBlockInterface = z.infer<
-  typeof experimentDescriptionBlockInterface
+export type LegacyExperimentDescriptionBlockInterface = z.infer<
+  typeof legacyExperimentDescriptionBlockInterface
 >;
-
-const experimentHypothesisBlockInterface = baseBlockInterface
+const legacyExperimentHypothesisBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-hypothesis"),
     experimentId: z.string(),
   })
   .strict();
-
-export type ExperimentHypothesisBlockInterface = z.infer<
-  typeof experimentHypothesisBlockInterface
+export type LegacyExperimentHypothesisBlockInterface = z.infer<
+  typeof legacyExperimentHypothesisBlockInterface
 >;
-
-const experimentVariationImageBlockInterface = baseBlockInterface
+const legacyExperimentVariationImageBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-variation-image"),
     experimentId: z.string(),
     variationIds: z.array(z.string()),
   })
   .strict();
+export type LegacyExperimentVariationImageBlockInterface = z.infer<
+  typeof legacyExperimentVariationImageBlockInterface
+>;
+const legacyExperimentTrafficTableBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiment-traffic-table"),
+    experimentId: z.string(),
+  })
+  .strict();
 
-export type ExperimentVariationImageBlockInterface = z.infer<
-  typeof experimentVariationImageBlockInterface
+export type LegacyExperimentTrafficTableBlockInterface = z.infer<
+  typeof legacyExperimentTrafficTableBlockInterface
+>;
+const legacyExperimentTrafficGraphBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiment-traffic-graph"),
+    experimentId: z.string(),
+  })
+  .strict();
+
+export type LegacyExperimentTrafficGraphBlockInterface = z.infer<
+  typeof legacyExperimentTrafficGraphBlockInterface
+>;
+// End deprecated block types
+
+const experimentMetadataBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiment-metadata"),
+    experimentId: z.string(),
+    showDescription: z.boolean(),
+    showHypothesis: z.boolean(),
+    showVariationImages: z.boolean(),
+    variationIds: z.array(z.string()).optional(),
+  })
+  .strict();
+export type ExperimentMetadataBlockInterface = z.infer<
+  typeof experimentMetadataBlockInterface
+>;
+
+const experimentTrafficBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("experiment-traffic"),
+    experimentId: z.string(),
+    showTable: z.boolean(),
+    showTimeseries: z.boolean(),
+  })
+  .strict();
+export type ExperimentTrafficBlockInterface = z.infer<
+  typeof experimentTrafficBlockInterface
 >;
 
 const experimentMetricBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-metric"),
     experimentId: z.string(),
-    metricIds: z.array(z.string()),
+    metricSelector: z.enum(metricSelectors),
+    metricIds: z.array(z.string()).optional(),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
     differenceType: z.enum(differenceTypes),
@@ -82,6 +126,12 @@ const experimentMetricBlockInterface = baseBlockInterface
 export type ExperimentMetricBlockInterface = z.infer<
   typeof experimentMetricBlockInterface
 >;
+type LegacyExperimentMetricBlockInterface = Omit<
+  ExperimentMetricBlockInterface,
+  "metricSelector"
+> & {
+  metricSelector?: (typeof metricSelectors)[number];
+};
 
 const experimentDimensionBlockInterface = baseBlockInterface
   .extend({
@@ -89,7 +139,8 @@ const experimentDimensionBlockInterface = baseBlockInterface
     experimentId: z.string(),
     dimensionId: z.string(),
     dimensionValues: z.array(z.string()),
-    metricIds: z.array(z.string()),
+    metricSelector: z.enum(metricSelectors),
+    metricIds: z.array(z.string()).optional(),
     variationIds: z.array(z.string()),
     baselineRow: z.number(),
     differenceType: z.enum(differenceTypes),
@@ -110,12 +161,20 @@ const experimentDimensionBlockInterface = baseBlockInterface
 export type ExperimentDimensionBlockInterface = z.infer<
   typeof experimentDimensionBlockInterface
 >;
+type LegacyExperimentDimensionBlockInterface = Omit<
+  ExperimentDimensionBlockInterface,
+  "metricSelector"
+> & {
+  metricSelector?: (typeof metricSelectors)[number];
+};
 
 const experimentTimeSeriesBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("experiment-time-series"),
     experimentId: z.string(),
-    metricId: z.string(),
+    metricId: z.string().optional(), // Deprecated
+    metricSelector: z.enum(metricSelectors),
+    metricIds: z.array(z.string()).optional(),
     variationIds: z.array(z.string()),
     snapshotId: z.string(),
   })
@@ -124,28 +183,14 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
 export type ExperimentTimeSeriesBlockInterface = z.infer<
   typeof experimentTimeSeriesBlockInterface
 >;
-
-const experimentTrafficTableBlockInterface = baseBlockInterface
-  .extend({
-    type: z.literal("experiment-traffic-table"),
-    experimentId: z.string(),
-  })
-  .strict();
-
-export type ExperimentTrafficTableBlockInterface = z.infer<
-  typeof experimentTrafficTableBlockInterface
->;
-
-const experimentTrafficGraphBlockInterface = baseBlockInterface
-  .extend({
-    type: z.literal("experiment-traffic-graph"),
-    experimentId: z.string(),
-  })
-  .strict();
-
-export type ExperimentTrafficGraphBlockInterface = z.infer<
-  typeof experimentTrafficGraphBlockInterface
->;
+type LegacyExperimentTimeSeriesBlockInterface = Omit<
+  ExperimentTimeSeriesBlockInterface,
+  "metricIds" | "metricSelector"
+> & {
+  metricIds?: string[];
+  metricId: string;
+  metricSelector?: (typeof metricSelectors)[number];
+};
 
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({
@@ -161,19 +206,34 @@ export type SqlExplorerBlockInterface = z.infer<
 
 export const dashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface,
-  experimentDescriptionBlockInterface,
-  experimentHypothesisBlockInterface,
-  experimentVariationImageBlockInterface,
+  experimentMetadataBlockInterface,
   experimentMetricBlockInterface,
   experimentDimensionBlockInterface,
   experimentTimeSeriesBlockInterface,
-  experimentTrafficTableBlockInterface,
-  experimentTrafficGraphBlockInterface,
+  experimentTrafficBlockInterface,
   sqlExplorerBlockInterface,
 ]);
 
 export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;
 export type DashboardBlockType = DashboardBlockInterface["type"];
+
+export type LegacyDashboardBlockInterface =
+  | Exclude<
+      DashboardBlockInterface,
+      | ExperimentMetricBlockInterface
+      | ExperimentDimensionBlockInterface
+      | ExperimentTimeSeriesBlockInterface
+      | ExperimentMetadataBlockInterface
+      | ExperimentTrafficBlockInterface
+    >
+  | LegacyExperimentMetricBlockInterface
+  | LegacyExperimentDimensionBlockInterface
+  | LegacyExperimentTimeSeriesBlockInterface
+  | LegacyExperimentDescriptionBlockInterface
+  | LegacyExperimentHypothesisBlockInterface
+  | LegacyExperimentVariationImageBlockInterface
+  | LegacyExperimentTrafficGraphBlockInterface
+  | LegacyExperimentTrafficTableBlockInterface;
 
 // Utility type for the discriminated union without the backend-generated fields
 const createOmits = {
@@ -183,14 +243,11 @@ const createOmits = {
 } as const;
 export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
-  experimentDescriptionBlockInterface.omit(createOmits),
-  experimentHypothesisBlockInterface.omit(createOmits),
-  experimentVariationImageBlockInterface.omit(createOmits),
+  experimentMetadataBlockInterface.omit(createOmits),
   experimentMetricBlockInterface.omit(createOmits),
   experimentDimensionBlockInterface.omit(createOmits),
   experimentTimeSeriesBlockInterface.omit(createOmits),
-  experimentTrafficTableBlockInterface.omit(createOmits),
-  experimentTrafficGraphBlockInterface.omit(createOmits),
+  experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
@@ -200,15 +257,7 @@ export type CreateDashboardBlockInterface = z.infer<
 // Allow templates to specify a partial of the individual block fields
 export const dashboardBlockPartial = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits).partial().required({ type: true }),
-  experimentDescriptionBlockInterface
-    .omit(createOmits)
-    .partial()
-    .required({ type: true }),
-  experimentHypothesisBlockInterface
-    .omit(createOmits)
-    .partial()
-    .required({ type: true }),
-  experimentVariationImageBlockInterface
+  experimentMetadataBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),
@@ -224,11 +273,7 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .omit(createOmits)
     .partial()
     .required({ type: true }),
-  experimentTrafficTableBlockInterface
-    .omit(createOmits)
-    .partial()
-    .required({ type: true }),
-  experimentTrafficGraphBlockInterface
+  experimentTrafficBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),

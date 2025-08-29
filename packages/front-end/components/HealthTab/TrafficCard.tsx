@@ -120,25 +120,27 @@ export default function TrafficCard({
   return (
     <div className={containerClassName}>
       <div className="mx-2">
-        <div className="d-flex flex-row mt-1">
-          <h2 className="d-inline">{cardTitle}</h2>
-          <div className="flex-1" />
-          <div className="col-auto">
-            <div className="uppercase-title text-muted">Dimension</div>
-            <SelectField
-              containerClassName={"select-dropdown-underline"}
-              initialOption="Over Time"
-              options={availableDimensions}
-              value={selectedDimension}
-              onChange={(v) => {
-                if (v === selectedDimension) return;
-                track("Select health tab traffic card dimension");
-                setSelectedDimension(v);
-              }}
-              disabled={!availableDimensions.length}
-            />
+        {!disableDimensions && (
+          <div className="d-flex flex-row mt-1">
+            <h2 className="d-inline">{cardTitle}</h2>
+            <div className="flex-1" />
+            <div className="col-auto">
+              <div className="uppercase-title text-muted">Dimension</div>
+              <SelectField
+                containerClassName={"select-dropdown-underline"}
+                initialOption="Over Time"
+                options={availableDimensions}
+                value={selectedDimension}
+                onChange={(v) => {
+                  if (v === selectedDimension) return;
+                  track("Select health tab traffic card dimension");
+                  setSelectedDimension(v);
+                }}
+                disabled={!availableDimensions.length}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-3 mb-3 d-flex align-items-center">
           <h3>
