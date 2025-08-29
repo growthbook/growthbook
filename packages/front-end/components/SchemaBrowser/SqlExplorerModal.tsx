@@ -240,8 +240,8 @@ export default function SqlExplorerModal({
       }
 
       // Validate filters
-      if (config.filter && config.filter.length > 0) {
-        config.filter.forEach((filter, filterIndex) => {
+      if (config.filters && config.filters.length > 0) {
+        config.filters.forEach((filter, filterIndex) => {
           const vizTitle = config.title || `${index + 1}`;
 
           // Validate required filter fields

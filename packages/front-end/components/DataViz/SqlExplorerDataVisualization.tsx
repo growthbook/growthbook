@@ -135,7 +135,7 @@ export function DataVisualizationDisplay({
   }, [dataVizConfig]);
 
   const filteredRows = useMemo(() => {
-    const filters = dataVizConfig.filter;
+    const filters = dataVizConfig.filters;
     if (!filters || filters.length === 0) return rows;
 
     return rows.filter((row) => {
@@ -145,6 +145,8 @@ export function DataVisualizationDisplay({
 
         // Handle null/undefined values
         if (rowValue == null) return false;
+
+        //MKTODO: Filter on type first?
 
         switch (filter.filterType) {
           // Date filters
@@ -280,7 +282,7 @@ export function DataVisualizationDisplay({
         }
       });
     });
-  }, [dataVizConfig.filter, rows]);
+  }, [dataVizConfig.filters, rows]);
 
   // TODO: Support multiple y-axis and dimension fields
   const xConfig = requiresXAxis(dataVizConfig)
@@ -743,7 +745,6 @@ export function SqlExplorerDataVisualization({
           <Panel id="graph-config" order={2} defaultSize={25} minSize={20}>
             <Box style={{ overflow: "auto", height: "100%" }}>
               <DataVizConfigPanel
-                sampleRow={rows[0]}
                 rows={rows}
                 dataVizConfig={dataVizConfig}
                 onDataVizConfigChange={onDataVizConfigChange}

@@ -68,14 +68,14 @@ export default function DataVizFilter({
   rows,
   columnFilterOptions,
 }: Props) {
-  const filters = dataVizConfig.filter || [];
+  const filters = dataVizConfig.filters || [];
 
   const updateFilter = (newFilter: FilterConfiguration) => {
     const newFilters = [...filters];
     newFilters[filterIndex] = newFilter;
     onDataVizConfigChange({
       ...dataVizConfig,
-      filter: newFilters,
+      filters: newFilters,
     });
   };
 
@@ -109,7 +109,7 @@ export default function DataVizFilter({
     newFilters.splice(filterIndex, 1);
     onDataVizConfigChange({
       ...dataVizConfig,
-      filter: newFilters,
+      filters: newFilters,
     });
   };
 

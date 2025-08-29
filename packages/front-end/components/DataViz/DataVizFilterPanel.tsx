@@ -10,6 +10,7 @@ import Collapsible from "react-collapsible";
 import Badge from "@/components/Radix/Badge";
 import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import Button from "../Radix/Button";
+import Link from "../Radix/Link";
 import { inferFieldType } from "./DataVizConfigPanel";
 import DataVizFilter from "./DataVizFilter";
 
@@ -21,8 +22,7 @@ export type ColumnFilterOption = {
 type Props = {
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
-  sampleRow: Record<string, unknown>;
-  rows?: Record<string, unknown>[];
+  rows: Record<string, unknown>[];
 };
 
 function getColumnFilterOptions(
@@ -71,22 +71,19 @@ function getColumnFilterOptions(
 export default function DataVizFilterPanel({
   dataVizConfig,
   onDataVizConfigChange,
-  sampleRow,
+  // sampleRow,
   rows,
 }: Props) {
   const [columnFilterOptions, setColumnFilterOptions] = useState<
     ColumnFilterOption[]
-  >(() => getColumnFilterOptions(dataVizConfig, sampleRow));
+  >(() => getColumnFilterOptions(dataVizConfig, rows[0]));
 
   useEffect(() => {
-    const columnFilterOptions = getColumnFilterOptions(
-      dataVizConfig,
-      sampleRow,
-    );
+    const columnFilterOptions = getColumnFilterOptions(dataVizConfig, rows[0]);
     setColumnFilterOptions(columnFilterOptions);
-  }, [dataVizConfig, sampleRow]);
+  }, [dataVizConfig, rows]);
 
-  const filters = dataVizConfig.filter || [];
+  const filters = dataVizConfig.filters || [];
 
   // Early return if no column filter options are available
   if (!columnFilterOptions.length) return null;
@@ -142,7 +139,7 @@ export default function DataVizFilterPanel({
                       onClick={() => {
                         onDataVizConfigChange({
                           ...dataVizConfig,
-                          filter: [],
+                          filters: [],
                         });
                       }}
                     >
@@ -171,9 +168,7 @@ export default function DataVizFilterPanel({
                     />
                   );
                 })}
-              <a
-                role="button"
-                className="d-inline-block link-purple font-weight-bold"
+              <Link
                 onClick={() => {
                   // Get the first column filter option
                   const firstColumnFilterOption = columnFilterOptions[0];
@@ -201,27 +196,29 @@ export default function DataVizFilterPanel({
                     newFilter = {
                       column: firstColumnFilterOption.column,
                       type: "number",
-                      filterType: "equalTo",
+                      filterType: "greaterThan",
                       config: { value: "0" },
                     };
                   } else {
                     newFilter = {
                       column: firstColumnFilterOption.column,
                       type: "string",
-                      filterType: "contains",
-                      config: { value: "" },
+                      filterType: "includes",
+                      config: { values: [] },
                     };
                   }
 
                   onDataVizConfigChange({
                     ...dataVizConfig,
-                    filter: [...filters, newFilter],
+                    filters: [...filters, newFilter],
                   });
                 }}
               >
                 <FaPlusCircle className="mr-1" />
-                Add Filter
-              </a>
+                <Text as="span" className="font-weight-bold">
+                  Add Filter
+                </Text>
+              </Link>
             </Flex>
           </Box>
         </Collapsible>

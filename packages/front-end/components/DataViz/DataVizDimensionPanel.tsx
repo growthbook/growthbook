@@ -2,7 +2,10 @@ import Collapsible from "react-collapsible";
 import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import { PiNetwork, PiTrash } from "react-icons/pi";
 import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
-import { DataVizConfig } from "back-end/src/validators/saved-queries";
+import {
+  DataVizConfig,
+  dimensionAxisConfiguration,
+} from "back-end/src/validators/saved-queries";
 import { Select, SelectItem } from "@/components/Radix/Select";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
 import Badge from "@/components/Radix/Badge";
@@ -21,7 +24,8 @@ export default function DataVizDimensionPanel({
     return null;
   }
 
-  const dimensions = dataVizConfig.dimension || [];
+  const dimensions =
+    dataVizConfig.dimension || ([] as dimensionAxisConfiguration[]);
 
   return (
     <>
@@ -283,8 +287,11 @@ export default function DataVizDimensionPanel({
                     onDataVizConfigChange({
                       ...dataVizConfig,
                       dimension: [
-                        ...dimensions,
-                        { fieldName: "", display: "grouped", maxValues: 5 },
+                        {
+                          fieldName: axisKeys[0],
+                          display: "grouped",
+                          maxValues: 5,
+                        },
                       ],
                     });
                   }}

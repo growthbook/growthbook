@@ -56,26 +56,26 @@ export function inferFieldType(
 }
 
 export default function DataVizConfigPanel({
-  sampleRow,
+  // sampleRow,
   rows,
   dataVizConfig,
   onDataVizConfigChange,
 }: {
-  sampleRow: Record<string, unknown>;
-  rows?: Record<string, unknown>[];
+  // sampleRow: Record<string, unknown>;
+  rows: Record<string, unknown>[];
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
 }) {
   const getInferredFieldType = useCallback(
     (fieldName: string): xAxisConfiguration["type"] => {
-      return inferFieldType(sampleRow, fieldName);
+      return inferFieldType(rows[0], fieldName);
     },
-    [sampleRow],
+    [rows],
   );
 
   const axisKeys = useMemo(() => {
-    return Object.keys(sampleRow);
-  }, [sampleRow]);
+    return Object.keys(rows[0]);
+  }, [rows]);
 
   useEffect(() => {
     if (requiresXAxis(dataVizConfig) && dataVizConfig.xAxis) {
@@ -516,7 +516,6 @@ export default function DataVizConfigPanel({
       <DataVizFilterPanel
         dataVizConfig={dataVizConfig}
         onDataVizConfigChange={onDataVizConfigChange}
-        sampleRow={sampleRow}
         rows={rows}
       />
     </Flex>

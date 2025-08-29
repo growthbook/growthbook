@@ -134,7 +134,7 @@ const formatEnum = z.enum([
 const baseChartConfig = z.object({
   title: z.string().optional(),
   yAxis: z.array(yAxisConfigurationValidator).nonempty(),
-  filter: z.array(filterConfigurationValidator).optional(),
+  filters: z.array(filterConfigurationValidator).optional(),
 });
 
 const withXAxis = z.object({
