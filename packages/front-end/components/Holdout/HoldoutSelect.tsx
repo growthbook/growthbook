@@ -68,7 +68,7 @@ export const HoldoutSelect = ({
 
   const [userSelectedNone, setUserSelectedNone] = useState(false);
 
-  const projectRef = useRef<string | null>(null);
+  const projectRef = useRef<string | null | undefined>(null);
 
   useEffect(() => {
     // If still loading, don't set anything
