@@ -9,7 +9,7 @@ from gbstats.frequentist.tests import (
     sequential_interval_halfwidth,
 )
 from gbstats.bayesian.tests import GaussianPrior
-from gbstats.models.tests import BaseConfig, TestStatistic
+from gbstats.models.tests import BaseConfig
 
 
 @dataclass
