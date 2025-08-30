@@ -64,7 +64,8 @@ class TestMidExperimentPower(TestCase):
             n=500, sum=525.0000000000008, sum_squares=1551.2499999999998
         )
         self.effect_moments = EffectMoments(
-            [(self.stat_a, self.stat_b)], EffectMomentsConfig(difference_type="relative")
+            [(self.stat_a, self.stat_b)],
+            EffectMomentsConfig(difference_type="relative"),
         )
         self.test_freq = TwoSidedTTest(
             [(self.stat_a, self.stat_b)], FrequentistConfig(alpha=self.alpha)
@@ -80,10 +81,16 @@ class TestMidExperimentPower(TestCase):
         self.res_seq = self.test_seq.compute_result()
         self.res_bayes = self.test_bayes.compute_result()
         self.m_freq = MidExperimentPower(
-            self.test_freq.moments_result, self.res_freq, self.config, self.power_config_freq
+            self.test_freq.moments_result,
+            self.res_freq,
+            self.config,
+            self.power_config_freq,
         )
         self.m_seq = MidExperimentPower(
-            self.test_seq.moments_result, self.res_seq, self.config, self.power_config_seq
+            self.test_seq.moments_result,
+            self.res_seq,
+            self.config,
+            self.power_config_seq,
         )
         self.m_bayes = MidExperimentPower(
             self.test_bayes.moments_result,

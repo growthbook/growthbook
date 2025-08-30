@@ -57,7 +57,9 @@ class SampleMeanStatistic(Statistic):
         return self.sum / self.n
 
     def __add__(self, other):
-        assert isinstance(other, Union[ProportionStatistic, SampleMeanStatistic]), "Can add only another ProportionStatistic or SampleMeanStatistic instance"
+        assert isinstance(
+            other, Union[ProportionStatistic, SampleMeanStatistic]
+        ), "Can add only another ProportionStatistic or SampleMeanStatistic instance"
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
@@ -84,7 +86,9 @@ class ProportionStatistic(Statistic):
         return self.sum / self.n
 
     def __add__(self, other):
-        assert isinstance(other, Union[ProportionStatistic, SampleMeanStatistic]), "Can add only another ProportionStatistic or SampleMeanStatistic instance"
+        assert isinstance(
+            other, Union[ProportionStatistic, SampleMeanStatistic]
+        ), "Can add only another ProportionStatistic or SampleMeanStatistic instance"
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
@@ -595,9 +599,7 @@ class QuantileClusteredStatistic(QuantileStatistic):
             * self.n_clusters
             / (self.n_clusters - 1)
         )
-        num = (
-            sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
-        )
+        num = sigma_2_s - 2 * mu_s * sigma_s_n / mu_n + mu_s**2 * sigma_2_n / mu_n**2
         den = self.n_clusters * mu_n**2
         return num / den
 

@@ -127,6 +127,7 @@ StatisticalTests = Union[
     SequentialOneSidedTreatmentGreaterTTest,
 ]
 
+
 # Looks for any variation ids that are not in the provided map
 def detect_unknown_variations(
     rows, var_ids: Set[str], ignore_ids: Set[str] = {"__multiple__"}
@@ -153,7 +154,8 @@ def get_dimension_column_name(dimension: str) -> str:
         dimension_column_name = "dim_unit_" + dimension
 
     return dimension_column_name
-    #Overall columns
+    # Overall columns
+
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
 def get_metric_df(
@@ -166,13 +168,12 @@ def get_metric_df(
     dfc = rows.copy()
     dimensions = {}
     if post_stratify:
-        dimension_cols = dfc.filter(like='dim_exp_')
+        dimension_cols = dfc.filter(like="dim_exp_")
         num_dimensions = len(dimension_cols.columns)
         if num_dimensions == 1:
-            dfc = dfc.rename(columns={dimension_cols.columns[0]: 'dimension'})
+            dfc = dfc.rename(columns={dimension_cols.columns[0]: "dimension"})
         else:
-            dfc['dimension'] = dimension_cols.astype(str).agg('_'.join, axis=1)
- 
+            dfc["dimension"] = dimension_cols.astype(str).agg("_".join, axis=1)
 
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
@@ -184,7 +185,7 @@ def get_metric_df(
         # if not found, try to find a column with "dimension" for backwards compatibility
         # fall back to one unnamed dimension if even that column is not found
         dim = getattr(row, dimension_column_name, getattr(row, "dimension", ""))
-        
+
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
@@ -325,7 +326,9 @@ def decision_making_conditions(metric, analysis):
     )
 
 
-def initialize_df(df: pd.DataFrame, analysis: AnalysisSettingsForStatsEngine) -> pd.DataFrame:
+def initialize_df(
+    df: pd.DataFrame, analysis: AnalysisSettingsForStatsEngine
+) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
@@ -359,7 +362,16 @@ def initialize_df(df: pd.DataFrame, analysis: AnalysisSettingsForStatsEngine) ->
     return df
 
 
-def run_mid_experiment_power(variation_index: int, total_users: int, num_variations: int, effect_moments: EffectMomentsResult, res: Union[BayesianTestResult, FrequentistTestResult], metric: MetricSettingsForStatsEngine, analysis: AnalysisSettingsForStatsEngine, s: pd.Series) -> pd.Series:
+def run_mid_experiment_power(
+    variation_index: int,
+    total_users: int,
+    num_variations: int,
+    effect_moments: EffectMomentsResult,
+    res: Union[BayesianTestResult, FrequentistTestResult],
+    metric: MetricSettingsForStatsEngine,
+    analysis: AnalysisSettingsForStatsEngine,
+    s: pd.Series,
+) -> pd.Series:
     config = BaseConfig(
         difference_type=analysis.difference_type,
         traffic_percentage=analysis.traffic_percentage,
@@ -389,11 +401,12 @@ def run_mid_experiment_power(variation_index: int, total_users: int, num_variati
         sequential_tuning_parameter=analysis.sequential_tuning_parameter,
     )
     mid_experiment_power = MidExperimentPower(
-        effect_moments=effect_moments, test_result=res, config=config, power_config=power_config
+        effect_moments=effect_moments,
+        test_result=res,
+        config=config,
+        power_config=power_config,
     )
-    mid_experiment_power_result = (
-        mid_experiment_power.calculate_sample_size()
-    )
+    mid_experiment_power_result = mid_experiment_power.calculate_sample_size()
     s[f"v{variation_index}_decision_making_conditions"] = True
     s[f"v{variation_index}_first_period_pairwise_users"] = (
         mid_experiment_power.pairwise_sample_size
@@ -402,13 +415,13 @@ def run_mid_experiment_power(variation_index: int, total_users: int, num_variati
     s[f"v{variation_index}_sigmahat_2_delta"] = mid_experiment_power.sigmahat_2_delta
     if mid_experiment_power.prior_effect:
         s[f"v{variation_index}_prior_proper"] = mid_experiment_power.prior_effect.proper
-        s[f"v{variation_index}_prior_lift_mean"] = mid_experiment_power.prior_effect.mean
+        s[f"v{variation_index}_prior_lift_mean"] = (
+            mid_experiment_power.prior_effect.mean
+        )
         s[f"v{variation_index}_prior_lift_variance"] = (
             mid_experiment_power.prior_effect.variance
         )
-    mid_experiment_power_result = (
-        mid_experiment_power.calculate_sample_size()
-    )
+    mid_experiment_power_result = mid_experiment_power.calculate_sample_size()
     s[f"v{variation_index}_power_status"] = mid_experiment_power_result.update_message
     s[f"v{variation_index}_power_error_message"] = mid_experiment_power_result.error
     s[f"v{variation_index}_power_upper_bound_achieved"] = (
@@ -417,25 +430,31 @@ def run_mid_experiment_power(variation_index: int, total_users: int, num_variati
     s[f"v{variation_index}_scaling_factor"] = mid_experiment_power_result.scaling_factor
     return s
 
- 
-def run_post_stratification(df: pd.DataFrame, metric: MetricSettingsForStatsEngine, analysis: AnalysisSettingsForStatsEngine) -> pd.DataFrame: 
-    
-    #need to add a check for quantile metrics
+
+def run_post_stratification(
+    df: pd.DataFrame,
+    metric: MetricSettingsForStatsEngine,
+    analysis: AnalysisSettingsForStatsEngine,
+) -> pd.DataFrame:
+
+    # need to add a check for quantile metrics
     num_variations = df.at[0, "variations"]
     num_dimensions = df.shape[0]
 
-    #dataframe that is returned
+    # dataframe that is returned
     df_output = copy.deepcopy(df)
-    df_output = reduce_dimensionality(df_output, max=1, keep_other=True)    
-    df_output['dimension'] = 'NA'
+    df_output = reduce_dimensionality(df_output, max=1, keep_other=True)
+    df_output["dimension"] = "NA"
     df_output = initialize_df(df_output, analysis)
     s_output = df_output.iloc[0].copy()
-    
+
     stats_control = []
     total_users_control = 0
     for dimension in range(num_dimensions):
         s = df.iloc[dimension]
-        stat = variation_statistic_from_metric_row(row=s, prefix="baseline", metric=metric)
+        stat = variation_statistic_from_metric_row(
+            row=s, prefix="baseline", metric=metric
+        )
         stats_control.append(stat)
         total_users_control += s["total_users"]
     for variation in range(1, num_variations):
@@ -443,7 +462,9 @@ def run_post_stratification(df: pd.DataFrame, metric: MetricSettingsForStatsEngi
         total_users_variation = 0
         for dimension in range(num_dimensions):
             s = df.iloc[dimension]
-            stat = variation_statistic_from_metric_row(row=s, prefix=f"v{variation}", metric=metric)
+            stat = variation_statistic_from_metric_row(
+                row=s, prefix=f"v{variation}", metric=metric
+            )
             stats_variation.append(stat)
             total_users_variation += s["total_users"]
         total_users = total_users_control + total_users_variation
@@ -454,11 +475,20 @@ def run_post_stratification(df: pd.DataFrame, metric: MetricSettingsForStatsEngi
         res = test.compute_result()
         s_output = store_test_results(test, res, s_output, variation)
         if decision_making_conditions(metric, analysis):
-            s_output = run_mid_experiment_power(variation, total_users, num_variations, test.moments_result, res, metric, analysis, s_output)
-    
-    
-    
-    variation_counts = [df_output.at[0, "baseline_users"]] + [df_output.at[0, f"v{i}_users"] for i in range(1, num_variations)]
+            s_output = run_mid_experiment_power(
+                variation,
+                total_users,
+                num_variations,
+                test.moments_result,
+                res,
+                metric,
+                analysis,
+                s_output,
+            )
+
+    variation_counts = [df_output.at[0, "baseline_users"]] + [
+        df_output.at[0, f"v{i}_users"] for i in range(1, num_variations)
+    ]
     s_output["srm_p"] = check_srm(
         variation_counts,
         analysis.weights,
@@ -466,7 +496,12 @@ def run_post_stratification(df: pd.DataFrame, metric: MetricSettingsForStatsEngi
     return s_output.to_frame().T
 
 
-def store_test_results(test: StatisticalTests, res: Union[BayesianTestResult, FrequentistTestResult], s: pd.Series, variation: int) -> pd.Series:
+def store_test_results(
+    test: StatisticalTests,
+    res: Union[BayesianTestResult, FrequentistTestResult],
+    s: pd.Series,
+    variation: int,
+) -> pd.Series:
     s["baseline_cr"] = test.stat_a.unadjusted_mean
     s["baseline_mean"] = test.stat_a.unadjusted_mean
     s["baseline_stddev"] = test.stat_a.stddev
@@ -528,7 +563,16 @@ def analyze_metric_df(
             )
             res = test.compute_result()
             if decision_making_conditions(metric, analysis):
-                s = run_mid_experiment_power(i, total_users, num_variations, test.moments_result, res, metric, analysis, s)
+                s = run_mid_experiment_power(
+                    i,
+                    total_users,
+                    num_variations,
+                    test.moments_result,
+                    res,
+                    metric,
+                    analysis,
+                    s,
+                )
             s = store_test_results(test, res, s, i)
 
         # replace count with quantile_n for quantile metrics
@@ -543,6 +587,7 @@ def analyze_metric_df(
             analysis.weights,
         )
         return s
+
     df_2 = df.apply(analyze_row, axis=1)
     df_2.to_csv(dir_desktop + "updated_df.csv")
     return df.apply(analyze_row, axis=1)
@@ -783,8 +828,13 @@ def process_analysis(
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
-    precomputed_dimension = any([col.startswith('dim_exp') for col in rows.columns])
-    post_stratify = precomputed_dimension and analysis.dimension == "" and metric.statistic_type not in ["quantile_event", "quantile_unit"] and analysis.post_stratification_eligible
+    precomputed_dimension = any([col.startswith("dim_exp") for col in rows.columns])
+    post_stratify = (
+        precomputed_dimension
+        and analysis.dimension == ""
+        and metric.statistic_type not in ["quantile_event", "quantile_unit"]
+        and analysis.post_stratification_eligible
+    )
 
     # Convert raw SQL result into a dataframe of dimensions
     df = get_metric_df(

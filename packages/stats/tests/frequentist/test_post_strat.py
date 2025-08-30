@@ -1,12 +1,11 @@
 from dataclasses import asdict
 from functools import partial
-from typing import Optional
+from typing import Optional, List
 from unittest import TestCase, main as unittest_main
 
+import pandas as pd
 import numpy as np
 import copy
-
-from gbstats.models.tests import PostStratification
 
 from gbstats.messages import (
     ZERO_NEGATIVE_VARIANCE_MESSAGE,
@@ -19,9 +18,54 @@ from gbstats.models.statistics import (
     RatioStatistic,
     RegressionAdjustedRatioStatistic,
 )
-from gbstats.models.tests import EffectMomentsConfig, EffectMomentsResult
+from gbstats.models.tests import (
+    EffectMomentsResult,
+    TestStatistic,
+    TestResult,
+    ProportionStatistic,
+    EffectMomentsConfig,
+    PostStratification,
+)
+from gbstats.frequentist.tests import FrequentistConfig, TwoSidedTTest
+from gbstats.models.settings import (
+    MetricSettingsForStatsEngine,
+    AnalysisSettingsForStatsEngine,
+)
+from gbstats.devtools.simulation import CreateRow
+from gbstats.gbstats import (
+    get_metric_df,
+    variation_statistic_from_metric_row,
+    get_configured_test,
+)
 
 DECIMALS = 5
+
+COUNT_METRIC = MetricSettingsForStatsEngine(
+    id="count_metric",
+    name="count_metric",
+    inverse=False,
+    statistic_type="mean",
+    main_metric_type="count",
+)
+RATIO_METRIC = MetricSettingsForStatsEngine(
+    id="",
+    name="",
+    inverse=False,
+    statistic_type="ratio",
+    main_metric_type="count",
+    denominator_metric_type="count",
+)
+RA_METRIC = MetricSettingsForStatsEngine(
+    id="",
+    name="",
+    inverse=False,
+    statistic_type="mean_ra",
+    main_metric_type="count",
+    covariate_metric_type="count",
+)
+
+RATIO_RA_METRIC = copy.deepcopy(RATIO_METRIC)
+RATIO_RA_METRIC.statistic_type = "ratio_ra"
 
 
 def round_if_not_none(x: Optional[float], decimals: int):
@@ -46,6 +90,85 @@ def _round_result_dict(result_dict):
 
 
 class TestPostStratification(TestCase):
+    @staticmethod
+    def run_post_strat_gbstats(
+        stat_a: List[TestStatistic],
+        stat_b: List[TestStatistic],
+        config: FrequentistConfig,
+    ) -> TestResult:
+        var_names = ["Control", "Treatment1"]
+        var_id_map = {"0": 0, "1": 1}
+        if isinstance(stat_a[0], SampleMeanStatistic) or isinstance(
+            stat_a[0], ProportionStatistic
+        ):
+            metric = COUNT_METRIC
+        elif isinstance(stat_a[0], RegressionAdjustedStatistic):
+            metric = RA_METRIC
+        elif isinstance(stat_a[0], RatioStatistic):
+            metric = RATIO_METRIC
+        elif isinstance(stat_a[0], RegressionAdjustedRatioStatistic):
+            metric = RATIO_RA_METRIC
+        else:
+            raise ValueError(f"Unsupported statistic type: {type(stat_a)}")
+
+        analysis = AnalysisSettingsForStatsEngine(
+            var_names=["Current", "Dev-Compact"],
+            var_ids=["0", "1"],
+            weights=[0.5, 0.5],
+            baseline_index=0,
+            dimension="",
+            stats_engine="frequentist",
+            p_value_corrected=False,
+            sequential_testing_enabled=False,
+            sequential_tuning_parameter=5000.0,
+            difference_type=config.difference_type,
+            phase_length_days=191.625,
+            alpha=config.alpha,
+            max_dimensions=20,
+            traffic_percentage=1.0,
+            num_goal_metrics=6,
+            one_sided_intervals=False,
+        )
+
+        num_cells = len(stat_a)
+        browsers = [f"browser_{i}" for i in range(num_cells)]
+        rows_a = [
+            CreateRow(s, dimension=b, variation="0").create_row()
+            for s, b in zip(stat_a, browsers)
+        ]
+        rows_b = [
+            CreateRow(s, dimension=b, variation="1").create_row()
+            for s, b in zip(stat_b, browsers)
+        ]
+        rows = pd.DataFrame(rows_a + rows_b)
+        rows = rows.rename(columns={"dimension": "dim_exp_browser"})
+
+        df = get_metric_df(
+            rows=rows,
+            var_id_map=var_id_map,
+            var_names=var_names,
+            dimension="",
+            post_stratify=True,
+        )
+        reduced = copy.deepcopy(df)
+        stats_control = []
+        for dimension in range(0, reduced.shape[0]):
+            s = reduced.iloc[dimension]
+            stat = variation_statistic_from_metric_row(
+                row=s, prefix="baseline", metric=metric
+            )
+            stats_control.append(stat)
+        stats_variation = []
+        for dimension in range(0, reduced.shape[0]):
+            s = reduced.iloc[dimension]
+            stat = variation_statistic_from_metric_row(
+                row=s, prefix="v1", metric=metric
+            )
+            stats_variation.append(stat)
+
+        stats = list(zip(stats_control, stats_variation))
+        return TwoSidedTTest(stats, config=config).compute_result()
+
     def setUp(self):
         self.stats_count_strata = [
             (
@@ -569,11 +692,10 @@ class TestPostStratification(TestCase):
                 SampleMeanStatistic(n=75, sum=0, sum_squares=0),
             ),
         ]
-        result_output = PostStratification(
-            stats_count_strata, self.moments_config_abs
-        ).compute_result()
+
+        result_output = PostStratification(stats_count_strata, self.moments_config_abs).compute_result()  # type: ignore
         default_output = PostStratification(
-            self.stats_count_strata, self.moments_config_abs
+            stats_count_strata, self.moments_config_abs  # type: ignore
         )._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
         self.assertEqual(default_output, result_output)
 
@@ -589,10 +711,10 @@ class TestPostStratification(TestCase):
             ),
         ]
         result_output = PostStratification(
-            stats_count_strata, self.moments_config_abs
+            stats_count_strata, self.moments_config_abs  # type: ignore
         ).compute_result()
         default_output = PostStratification(
-            self.stats_count_strata, self.moments_config_abs
+            self.stats_count_strata, self.moments_config_abs  # type: ignore
         )._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         self.assertEqual(default_output, result_output)
 
@@ -648,17 +770,17 @@ class TestPostStratification(TestCase):
             ),
         ]
         result_output = PostStratification(
-            stats_count_reg_strata, self.moments_config_abs
+            stats_count_reg_strata, self.moments_config_abs  # type: ignore
         ).compute_result()
         default_output = PostStratification(
-            self.stats_count_strata, self.moments_config_abs
+            self.stats_count_strata, self.moments_config_abs  # type: ignore
         )._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         self.assertEqual(default_output, result_output)
 
     def test_post_strat_count_abs(self):
         result_dict = asdict(
             PostStratification(
-                self.stats_count_strata, self.moments_config_abs
+                self.stats_count_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -676,7 +798,7 @@ class TestPostStratification(TestCase):
     def test_post_strat_ratio_abs(self):
         result_dict = asdict(
             PostStratification(
-                self.stats_ratio_strata, self.moments_config_abs
+                self.stats_ratio_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -694,14 +816,14 @@ class TestPostStratification(TestCase):
     def test_post_strat_count_reg_abs(self):
         result_dict = asdict(
             PostStratification(
-                self.stats_count_reg_strata, self.moments_config_abs
+                self.stats_count_reg_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict = asdict(
             EffectMomentsResult(
                 point_estimate=3.7116918650826403,
                 standard_error=0.07401168371016856,
-                pairwise_sample_size=1000, 
+                pairwise_sample_size=1000,
                 error_message=None,
             )
         )
@@ -712,7 +834,7 @@ class TestPostStratification(TestCase):
     def test_post_strat_ratio_reg_abs(self):
         result_dict = asdict(
             PostStratification(
-                self.stats_ratio_reg_strata, self.moments_config_abs
+                self.stats_ratio_reg_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -730,7 +852,7 @@ class TestPostStratification(TestCase):
     def test_post_strat_count_rel(self):
         result_dict = asdict(
             PostStratification(
-                self.stats_count_strata, self.moments_config_rel
+                self.stats_count_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -748,7 +870,7 @@ class TestPostStratification(TestCase):
     def test_post_strat_ratio_rel(self):
         result_dict = asdict(
             PostStratification(
-                self.stats_ratio_strata, self.moments_config_rel
+                self.stats_ratio_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -766,7 +888,7 @@ class TestPostStratification(TestCase):
     def test_post_strat_count_reg_rel(self):
         result_dict = asdict(
             PostStratification(
-                self.stats_count_reg_strata, self.moments_config_rel
+                self.stats_count_reg_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict = asdict(
@@ -784,7 +906,7 @@ class TestPostStratification(TestCase):
     def test_post_strat_ratio_reg_rel(self):
         result_dict = asdict(
             PostStratification(
-                self.stats_ratio_reg_strata, self.moments_config_rel
+                self.stats_ratio_reg_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict = asdict(

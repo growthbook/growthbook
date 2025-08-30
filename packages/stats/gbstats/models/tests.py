@@ -236,6 +236,8 @@ def sum_stats(
     summable_check_b = all(isinstance(stat_b, SummableStatistic) for stat_b in stats_b)
     if len(stats_a) > 1 and (not summable_check_a or not summable_check_b):
         raise ValueError("Non-summable statistics must be of length one.")
+    if len(stats_a) == 1:
+        return stats_a[0], stats_b[0]
     stat_a = reduce(operator.add, stats_a)
     stat_b = reduce(operator.add, stats_b)
     return stat_a, stat_b
@@ -250,8 +252,6 @@ class BaseABTest(ABC):
     ):
         self.stats = stats
         self.stat_a, self.stat_b = sum_stats(self.stats)
-        # Set theta on init so all stats methods expect it to have
-        # the right value
         self.initialize_theta()
         self.config = config
         self.alpha = config.alpha
@@ -261,7 +261,7 @@ class BaseABTest(ABC):
         self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
         self.moments_result = self.compute_moments_result()
-    
+
     def initialize_theta(self) -> None:
         if (
             isinstance(self.stat_b, RegressionAdjustedStatistic)
