@@ -26,6 +26,7 @@ import {
   CreateWebhookSecretProps,
   UpdateWebhookSecretProps,
 } from "back-end/src/validators/webhook-secrets";
+import { logger } from "back-end/src/util/logger";
 
 // region GET /event-webhooks
 
@@ -321,11 +322,34 @@ const testParamsPayload = (name: string) => ({
   ],
 });
 
+const testParamsPayloadDiscord = (name: string) => ({
+  content: `Hi there! This is a test event from GrowthBook to see if the params for webhook ${name} are correct.`,
+  embeds: [
+    {
+      title: "Test Event",
+      description: `*Hi there! 👋*\nThis is a *test event* from GrowthBook to see if the params for webhook ${name} are correct.`,
+      color: 39423,
+    },
+  ],
+});
+
+const getPayloadForWebhookType = (
+  type: EventWebHookPayloadType,
+  name: string,
+) => {
+  if (type === "discord") {
+    return testParamsPayloadDiscord(name);
+  } else {
+    return testParamsPayload(name);
+  }
+};
+
 type PostTestWebHooksParamsRequest = AuthRequest & {
   body: {
     name: string;
     method: EventWebHookMethod;
     url: string;
+    type: EventWebHookPayloadType;
   };
 };
 
@@ -333,10 +357,14 @@ export const testWebHookParams = async (
   req: PostTestWebHooksParamsRequest,
   res: Response<{ success: boolean } | PrivateApiErrorResponse>,
 ) => {
+  const payload = getPayloadForWebhookType(req.body.type, req.body.name);
+  logger.info(
+    `Testing webhook params for ${req.body.name} url: ${req.body.url} method: ${req.body.method} type: ${req.body.type} data: ${JSON.stringify(payload)}`,
+  );
   try {
     const response = await fetch(req.body.url, {
       method: req.body.method,
-      body: JSON.stringify(testParamsPayload(req.body.name)),
+      body: JSON.stringify(payload),
       headers: { "Content-Type": "application/json" },
     });
 
@@ -373,7 +401,7 @@ export const createTestEventWebHook = async (
 
   await sendEventWebhookTestEvent(context, webhookId);
 
-  return res.status(200);
+  return res.status(201).end();
 };
 
 // endregion POST /event-webhooks/test
