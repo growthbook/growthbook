@@ -3568,8 +3568,6 @@ export interface components {
         cron?: string | null;
         hours?: number | null;
       }) | null;
-      sdkInstructionsViewed: boolean;
-      videoInstructionsViewed: boolean;
       multipleExposureMinPercent: number;
       defaultRole: {
         role?: string;
@@ -13289,8 +13287,6 @@ export interface operations {
                 cron?: string | null;
                 hours?: number | null;
               }) | null;
-              sdkInstructionsViewed: boolean;
-              videoInstructionsViewed: boolean;
               multipleExposureMinPercent: number;
               defaultRole: {
                 role?: string;

@@ -6,8 +6,6 @@ required:
   - pastExperimentsMinLength
   - metricAnalysisDays
   - updateSchedule
-  - sdkInstructionsViewed
-  - videoInstructionsViewed
   - multipleExposureMinPercent
   - defaultRole
   - statsEngine
@@ -96,10 +94,6 @@ properties:
       hours:
         type: number
         nullable: true
-  sdkInstructionsViewed:
-    type: boolean
-  videoInstructionsViewed:
-    type: boolean
   multipleExposureMinPercent:
     type: number
   defaultRole:

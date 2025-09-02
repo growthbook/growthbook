@@ -12,12 +12,19 @@ export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
 
   const settingsValues = extractSettingValues(scopedSettings);
 
+  // Remove deprecated settings
+  const {
+    sdkInstructionsViewed: _sdk,
+    videoInstructionsViewed: _video,
+    ...filteredSettings
+  } = settingsValues;
+
   const settings = {
-    ...settingsValues,
-    requireReviews: Array.isArray(settingsValues.requireReviews)
-      ? settingsValues.requireReviews
+    ...filteredSettings,
+    requireReviews: Array.isArray(filteredSettings.requireReviews)
+      ? filteredSettings.requireReviews
       : [],
-    experimentMaxLengthDays: settingsValues.experimentMaxLengthDays ?? null,
+    experimentMaxLengthDays: filteredSettings.experimentMaxLengthDays ?? null,
   };
 
   return {
