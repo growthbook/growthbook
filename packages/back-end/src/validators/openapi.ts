@@ -82,8 +82,6 @@ export const apiQueryValidator = z.object({ "id": z.string(), "organization": z.
 
 export const apiSettingsValidator = z.object({ "confidenceLevel": z.coerce.number().nullable(), "northStar": z.record(z.any()).nullable(), "metricDefaults": z.record(z.any()).nullable(), "pastExperimentsMinLength": z.coerce.number().nullable(), "metricAnalysisDays": z.coerce.number(), "updateSchedule": z.object({ "type": z.enum(["cron","never","stale"]).optional(), "cron": z.string().nullable().optional(), "hours": z.coerce.number().nullable().optional() }).nullable(), "sdkInstructionsViewed": z.boolean(), "videoInstructionsViewed": z.boolean(), "multipleExposureMinPercent": z.coerce.number(), "defaultRole": z.record(z.any()), "statsEngine": z.string().nullable(), "pValueThreshold": z.coerce.number(), "regressionAdjustmentEnabled": z.boolean(), "regressionAdjustmentDays": z.coerce.number(), "sequentialTestingEnabled": z.boolean(), "sequentialTestingTuningParameter": z.coerce.number(), "attributionModel": z.enum(["firstExposure","experimentDuration"]), "secureAttributeSalt": z.string(), "killswitchConfirmation": z.boolean(), "requireReviews": z.boolean(), "featureKeyExample": z.string(), "featureRegexValidator": z.string(), "banditScheduleValue": z.coerce.number(), "banditScheduleUnit": z.enum(["hours","days"]), "banditBurnInValue": z.coerce.number(), "banditBurnInUnit": z.enum(["hours","days"]).optional(), "experimentMinLengthDays": z.coerce.number(), "experimentMaxLengthDays": z.coerce.number().nullable() }).strict()
 
-export const apiOrganizationDefaultsValidator = z.object({ "id": z.string(), "statsEngine": z.string().nullable(), "metricAnalysisDays": z.coerce.number().int().nullable(), "northStar": z.object({ "name": z.string().optional(), "metricIds": z.array(z.string()).optional() }).nullable(), "srmThreshold": z.coerce.number().nullable(), "multipleExposureMinPercent": z.coerce.number().nullable(), "confidenceLevel": z.coerce.number().nullable(), "metricDefaults": z.object({ "priorSettings": z.object({ "override": z.boolean(), "proper": z.boolean(), "mean": z.coerce.number(), "stddev": z.coerce.number() }).optional(), "minimumSampleSize": z.coerce.number().int().nullable().optional(), "maxPercentageChange": z.coerce.number().nullable().optional(), "minPercentageChange": z.coerce.number().nullable().optional(), "targetMDE": z.coerce.number().nullable().optional() }).nullable(), "pValueThreshold": z.coerce.number().nullable(), "pValueCorrection": z.string().nullable(), "regressionAdjustmentEnabled": z.boolean().nullable().optional(), "regressionAdjustmentDays": z.coerce.number().int().nullable(), "sequentialTestingEnabled": z.boolean().nullable(), "sequentialTestingTuningParameter": z.coerce.number().nullable() }).strict()
-
 export const apiCodeRefValidator = z.object({ "organization": z.string().describe("The organization name"), "dateUpdated": z.string().describe("When the code references were last updated"), "feature": z.string().describe("Feature identifier"), "repo": z.string().describe("Repository name"), "branch": z.string().describe("Branch name"), "platform": z.enum(["github","gitlab","bitbucket"]).describe("Source control platform").optional(), "refs": z.array(z.object({ "filePath": z.string().describe("Path to the file containing the reference"), "startingLineNumber": z.coerce.number().int().describe("Line number where the reference starts"), "lines": z.string().describe("The code lines containing the reference"), "flagKey": z.string().describe("The feature flag key referenced") })) }).strict()
 
 export const listFeaturesValidator = {
@@ -651,12 +649,6 @@ export const getQueryValidator = {
 };
 
 export const getSettingsValidator = {
-  bodySchema: z.never(),
-  querySchema: z.never(),
-  paramsSchema: z.never(),
-};
-
-export const getOrganizationDefaultsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.never(),

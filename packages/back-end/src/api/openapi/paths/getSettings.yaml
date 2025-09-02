@@ -16,5 +16,5 @@ responses:
           required:
             - settings
           properties:
-            organizationDefaults:
+            settings:
               $ref: "../schemas/Settings.yaml"

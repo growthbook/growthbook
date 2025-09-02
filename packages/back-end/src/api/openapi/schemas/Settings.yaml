@@ -1,3 +1,4 @@
+# TODO: Check this schema
 type: object
 required:
   - confidenceLevel
@@ -28,20 +29,20 @@ required:
   - experimentMinLengthDays
   - experimentMaxLengthDays
 properties:
-  confidenceLevel: 
+  confidenceLevel:
     type: number
     nullable: true
-  northStar: 
+  northStar:
     type: object
     nullable: true
     properties:
-    name: 
+    name:
       type: string
     metricIds:
       type: array
       items:
         type: string
-  metricDefaults: 
+  metricDefaults:
     type: object
     nullable: true
     properties:
@@ -61,32 +62,32 @@ properties:
           type: number
         stddev:
           type: number
-  pastExperimentsMinLength: 
+  pastExperimentsMinLength:
     type: number
     nullable: true
-  metricAnalysisDays: 
+  metricAnalysisDays:
     type: number
-  updateSchedule: 
+  updateSchedule:
     type: object
     nullable: true
     properties:
       type:
         type: string
         enum:
-        - "cron"
-        - "never"
-        - "stale"
+          - "cron"
+          - "never"
+          - "stale"
       cron:
         type: string
         nullable: true
       hours:
         type: number
         nullable: true
-  sdkInstructionsViewed: 
+  sdkInstructionsViewed:
     type: boolean
-  videoInstructionsViewed: 
+  videoInstructionsViewed:
     type: boolean
-  multipleExposureMinPercent: 
+  multipleExposureMinPercent:
     type: number
   defaultRole:
     type: object
@@ -102,47 +103,47 @@ properties:
   statsEngine:
     type: string
     nullable: true
-  pValueThreshold: 
+  pValueThreshold:
     type: number
-  regressionAdjustmentEnabled: 
+  regressionAdjustmentEnabled:
     type: boolean
-  regressionAdjustmentDays: 
+  regressionAdjustmentDays:
     type: number
-  sequentialTestingEnabled: 
+  sequentialTestingEnabled:
     type: boolean
-  sequentialTestingTuningParameter: 
+  sequentialTestingTuningParameter:
     type: number
-  attributionModel: 
+  attributionModel:
     type: string
     enum:
-    - "firstExposure"
-    - "experimentDuration"
-  secureAttributeSalt: 
+      - "firstExposure"
+      - "experimentDuration"
+  secureAttributeSalt:
     type: string
-  killswitchConfirmation: 
+  killswitchConfirmation:
     type: boolean
-  requireReviews: 
+  requireReviews:
     type: boolean
-  featureKeyExample: 
+  featureKeyExample:
     type: string
-  featureRegexValidator: 
+  featureRegexValidator:
     type: string
-  banditScheduleValue: 
+  banditScheduleValue:
     type: number
-  banditScheduleUnit: 
+  banditScheduleUnit:
     type: string
     enum:
-    - "hours"
-    - "days"
-  banditBurnInValue: 
+      - "hours"
+      - "days"
+  banditBurnInValue:
     type: number
-  banditBurnInUnit: 
+  banditBurnInUnit:
     type: string
-    enum: 
-    - "hours"
-    - "days"
-  experimentMinLengthDays: 
+    enum:
+      - "hours"
+      - "days"
+  experimentMinLengthDays:
     type: number
-  experimentMaxLengthDays: 
-    type: number 
+  experimentMaxLengthDays:
+    type: number
     nullable: true

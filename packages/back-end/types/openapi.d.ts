@@ -357,10 +357,6 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
-  "/organization-defaults": {
-    /** Get organization defaults */
-    get: operations["getOrganizationDefaults"];
-  };
 }
 
 export type webhooks = Record<string, never>;
@@ -3583,36 +3579,6 @@ export interface components {
       banditBurnInUnit?: "hours" | "days";
       experimentMinLengthDays: number;
       experimentMaxLengthDays: number | null;
-    };
-    OrganizationDefaults: {
-      id: string;
-      statsEngine: string | null;
-      metricAnalysisDays: number | null;
-      northStar: {
-        name?: string;
-        metricIds?: (string)[];
-      } | null;
-      srmThreshold: number | null;
-      multipleExposureMinPercent: number | null;
-      confidenceLevel: number | null;
-      metricDefaults: ({
-        priorSettings?: {
-          override: boolean;
-          proper: boolean;
-          mean: number;
-          stddev: number;
-        };
-        minimumSampleSize?: number | null;
-        maxPercentageChange?: number | null;
-        minPercentageChange?: number | null;
-        targetMDE?: number | null;
-      }) | null;
-      pValueThreshold: number | null;
-      pValueCorrection: string | null;
-      regressionAdjustmentEnabled?: boolean | null;
-      regressionAdjustmentDays: number | null;
-      sequentialTestingEnabled: boolean | null;
-      sequentialTestingTuningParameter: number | null;
     };
     CodeRef: {
       /** @description The organization name */
@@ -13268,7 +13234,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            organizationDefaults?: {
+            settings: {
               confidenceLevel: number | null;
               northStar: Record<string, unknown> | null;
               metricDefaults: Record<string, unknown> | null;
@@ -13305,47 +13271,6 @@ export interface operations {
               banditBurnInUnit?: "hours" | "days";
               experimentMinLengthDays: number;
               experimentMaxLengthDays: number | null;
-            };
-          };
-        };
-      };
-    };
-  };
-  getOrganizationDefaults: {
-    /** Get organization defaults */
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            organizationDefaults: {
-              id: string;
-              statsEngine: string | null;
-              metricAnalysisDays: number | null;
-              northStar: {
-                name?: string;
-                metricIds?: (string)[];
-              } | null;
-              srmThreshold: number | null;
-              multipleExposureMinPercent: number | null;
-              confidenceLevel: number | null;
-              metricDefaults: ({
-                priorSettings?: {
-                  override: boolean;
-                  proper: boolean;
-                  mean: number;
-                  stddev: number;
-                };
-                minimumSampleSize?: number | null;
-                maxPercentageChange?: number | null;
-                minPercentageChange?: number | null;
-                targetMDE?: number | null;
-              }) | null;
-              pValueThreshold: number | null;
-              pValueCorrection: string | null;
-              regressionAdjustmentEnabled?: boolean | null;
-              regressionAdjustmentDays: number | null;
-              sequentialTestingEnabled: boolean | null;
-              sequentialTestingTuningParameter: number | null;
             };
           };
         };
@@ -13395,7 +13320,6 @@ export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
 export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
-export type ApiOrganizationDefaults = z.infer<typeof openApiValidators.apiOrganizationDefaultsValidator>;
 export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
 
 // Operations
@@ -13494,4 +13418,3 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
-export type GetOrganizationDefaultsResponse = operations["getOrganizationDefaults"]["responses"]["200"]["content"]["application/json"];

@@ -74,7 +74,5 @@ Query:
   $ref: "./Query.yaml"
 Settings:
   $ref: "./Settings.yaml"
-OrganizationDefaults:
-  $ref: "./OrganizationDefaults.yaml"
 CodeRef:
   $ref: "./CodeRef.yaml"
