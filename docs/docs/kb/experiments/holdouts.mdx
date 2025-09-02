@@ -17,6 +17,12 @@ Major tech companies often use holdouts to measure both individual feature impac
 - **Measure long-term impact**: The impact of features changes over time, as does user behavior, and running a holdout experiment for an extended period will help you understand these effects.
 - **Understand cumulative effects**: Features interact in unexpected ways, and these interactions shift over time. Holdouts capture the combined impact of multiple changes, revealing synergies and conflicts that individual experiments miss.
 
+Some approaches to measuring cumulative effects involve summing up the effect of individual experiments. Often, analysts then shrink this total by some amount to account for statistical bias (like we do on our (impact dashboard)[/insights#scaled-impact]) and to account for the general understanding that long term impacts often shrink or cannibalize one another. But even then, often these adjusted totals still overstate or mis-state the total impact (for example, see [this analysis by AirBnB](https://medium.com/airbnb-engineering/selection-bias-in-online-experimentation-c3d67795cceb)).
+
+We could then add, if we wanted, or we could cut this altogether and save this for somewhere else:
+
+Holdouts expose users to a combined set of features over a long period of time, naturally measuring their interactions (positive and negative) and serving as a back-test that deals with the selection bias issue in summing up shipped experiments. For this reason, they are the gold standard for measuring cumulative, long-run impact.
+
 ## Why wouldn't I want to run a holdout?
 
 - **User experience trade-offs**: Holdouts require some users to miss out on improvements and new features while serving as the control group.
