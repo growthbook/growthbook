@@ -3,6 +3,7 @@ import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { ReactSelectProps } from "@/components/Forms/SelectField";
+import MultiSelectField from "../Forms/MultiSelectField";
 
 type AutoChecklistOption = {
   value: string;
@@ -30,7 +31,7 @@ export default function NewExperimentChecklistItem({
   newTaskInput: ChecklistTask;
   setNewTaskInput: (task: ChecklistTask | undefined) => void;
 }) {
-  const { customFields } = useDefinitions();
+  const { customFields, projects } = useDefinitions();
   const autoChecklistOptions: AutoChecklistOption[] = [
     {
       value: "Add a descriptive hypothesis for this experiment",
@@ -135,6 +136,19 @@ export default function NewExperimentChecklistItem({
           }
           value={newTaskValues}
           {...ReactSelectProps}
+        />
+        <MultiSelectField
+          label="Projects"
+          placeholder="All Projects"
+          value={newTaskInput.projects}
+          onChange={(projects) =>
+            setNewTaskInput({ ...newTaskInput, projects })
+          }
+          helpText="Limit this task to specific projects. If left blank, the task will be available to all projects."
+          options={projects.map((project) => ({
+            label: project.name,
+            value: project.id,
+          }))}
         />
         {newTaskInput.task && newTaskInput.completionType === "manual" ? (
           <Field

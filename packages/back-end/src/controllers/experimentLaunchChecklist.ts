@@ -63,7 +63,7 @@ export async function postExperimentLaunchChecklist(
 }
 
 export async function getExperimentCheckListByOrg(
-  req: AuthRequest<null, { num: string }, { projectId?: string }>,
+  req: AuthRequest<null, null, { projectId?: string }>,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
