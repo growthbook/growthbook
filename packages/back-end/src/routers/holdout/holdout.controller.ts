@@ -415,8 +415,12 @@ export const editStatus = async (
 
   if (req.body.status === "stopped" && experiment.status !== "stopped") {
     // put end date on both phases
-    phases[0].dateEnded = new Date();
-    phases[1].dateEnded = new Date();
+    if (phases[0]) {
+      phases[0].dateEnded = new Date();
+    }
+    if (phases[1]) {
+      phases[1].dateEnded = new Date();
+    }
     // set the status to stopped for the experiment
     await updateExperiment({
       context,

@@ -330,6 +330,7 @@ export default function UpgradeModal({
       "Fully managed data warehouse and event tracking pipeline in GrowthBook Cloud",
     saveSqlExplorerQueries:
       "Save query results and visualizations from the SQL Explorer.",
+    holdouts: "Measure aggregate impact with Holdouts",
   };
 
   const upgradeHeader = (
