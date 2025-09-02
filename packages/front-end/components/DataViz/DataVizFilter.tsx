@@ -180,8 +180,10 @@ export default function DataVizFilter({
         return "dateRange";
       case "number":
         return "greaterThan";
-      default:
+      case "string":
         return "includes";
+      default:
+        return type satisfies never;
     }
   };
 
