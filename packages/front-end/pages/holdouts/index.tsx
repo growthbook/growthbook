@@ -20,6 +20,8 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import EmptyState from "@/components/EmptyState";
+import LinkButton from "@/components/Radix/LinkButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -161,7 +163,7 @@ const HoldoutsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasHoldouts = holdouts.length > 0 && allExperiments.length > 0;
+  const hasHoldoutsCreated = holdouts.length > 0 && allExperiments.length > 0;
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
 
@@ -185,7 +187,7 @@ const HoldoutsPage = (): React.ReactElement => {
           title="Measure aggregate impact with Holdouts"
           description="Holdouts allow you to measure the aggregate impact of features and experiments."
           commercialFeature="holdouts"
-          // learnMoreLink="https://docs.growthbook.io/bandits/overview"
+          learnMoreLink="https://docs.growthbook.io/app/holdouts"
         />
       </div>
     );
@@ -215,17 +217,22 @@ const HoldoutsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          {!hasHoldouts ? (
-            <div className="box py-5 text-center">
-              <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Measure aggregate impact with Holdouts</h1>
-                <p className="">
-                  Measure the aggregate impact of features and experiments with
-                  Holdouts.
-                </p>
-              </div>
-              <div className="d-flex justify-content-center pt-2">
-                {canAdd && (
+          {!hasHoldoutsCreated ? (
+            <EmptyState
+              title="Measure aggregate impact with Holdouts"
+              description="Measure the aggregate impact of features and experiments with
+              Holdouts."
+              leftButton={
+                <LinkButton
+                  href="https://docs.growthbook.io/app/holdouts"
+                  variant="outline"
+                  external={true}
+                >
+                  View docs
+                </LinkButton>
+              }
+              rightButton={
+                canAdd ? (
                   <PremiumTooltip
                     tipPosition="left"
                     popperStyle={{ top: 15 }}
@@ -240,9 +247,9 @@ const HoldoutsPage = (): React.ReactElement => {
                       Add Holdout
                     </Button>
                   </PremiumTooltip>
-                )}
-              </div>
-            </div>
+                ) : null
+              }
+            />
           ) : (
             <>
               <div className="row align-items-center mb-3">
