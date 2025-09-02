@@ -39,13 +39,12 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     experiments: allExperiments,
     error,
     loading,
-  } = useExperiments(project, false, "standard");
+  } = useExperiments(project, true, "standard");
 
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
       // only show experiments that are not archived and within the date range
       items = items.filter((item) => {
-        if (item.archived) return false;
         const expDate = experimentDate(item);
         if (!expDate) return false;
         return (
