@@ -257,6 +257,9 @@ export default function TabbedPage({
 
   const isHoldout = experiment.type === "holdout";
 
+  const showStoppedBanner =
+    experiment.status === "stopped" && tab !== "dashboards";
+
   return (
     <>
       {auditModal && (
@@ -374,10 +377,10 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        {experiment.type !== "holdout" && (
+        {experiment.type !== "holdout" && tab !== "dashboards" && (
           <CustomMarkdown page={"experiment"} variables={variables} />
         )}
-        {experiment.status === "stopped" && (
+        {showStoppedBanner && (
           <div className="pt-3">
             <StoppedExperimentBanner
               experiment={experiment}
