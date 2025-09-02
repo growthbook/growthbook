@@ -3544,8 +3544,22 @@ export interface components {
     };
     Settings: {
       confidenceLevel: number | null;
-      northStar: Record<string, unknown> | null;
-      metricDefaults: Record<string, unknown> | null;
+      northStar: {
+        title?: string;
+        metricIds?: (string)[];
+      } | null;
+      metricDefaults: {
+        priorSettings?: {
+          override: boolean;
+          proper: boolean;
+          mean: number;
+          stddev: number;
+        };
+        minimumSampleSize?: number;
+        maxPercentageChange?: number;
+        minPercentageChange?: number;
+        targetMDE?: number;
+      } | null;
       pastExperimentsMinLength: number | null;
       metricAnalysisDays: number;
       updateSchedule: ({
@@ -3557,7 +3571,11 @@ export interface components {
       sdkInstructionsViewed: boolean;
       videoInstructionsViewed: boolean;
       multipleExposureMinPercent: number;
-      defaultRole: any;
+      defaultRole: {
+        role?: string;
+        limitAccessByEnvironment?: boolean;
+        environments?: (string)[];
+      };
       statsEngine: string | null;
       pValueThreshold: number;
       regressionAdjustmentEnabled: boolean;
@@ -3566,9 +3584,20 @@ export interface components {
       sequentialTestingTuningParameter: number;
       /** @enum {string} */
       attributionModel: "firstExposure" | "experimentDuration";
+      targetMDE: number | null;
+      delayHours: number | null;
+      windowType: string | null;
+      windowHours: number | null;
+      winRisk: number | null;
+      loseRisk: number | null;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
-      requireReviews: boolean;
+      requireReviews: ({
+          requireReviewOn?: boolean;
+          resetReviewOnChange?: boolean;
+          environments?: (string)[];
+          projects?: (string)[];
+        })[];
       featureKeyExample: string;
       featureRegexValidator: string;
       banditScheduleValue: number;
@@ -3576,9 +3605,9 @@ export interface components {
       banditScheduleUnit: "hours" | "days";
       banditBurnInValue: number;
       /** @enum {string} */
-      banditBurnInUnit?: "hours" | "days";
+      banditBurnInUnit: "hours" | "days";
       experimentMinLengthDays: number;
-      experimentMaxLengthDays: number | null;
+      experimentMaxLengthDays?: number | null;
     };
     CodeRef: {
       /** @description The organization name */
@@ -13236,8 +13265,22 @@ export interface operations {
           "application/json": {
             settings: {
               confidenceLevel: number | null;
-              northStar: Record<string, unknown> | null;
-              metricDefaults: Record<string, unknown> | null;
+              northStar: {
+                title?: string;
+                metricIds?: (string)[];
+              } | null;
+              metricDefaults: {
+                priorSettings?: {
+                  override: boolean;
+                  proper: boolean;
+                  mean: number;
+                  stddev: number;
+                };
+                minimumSampleSize?: number;
+                maxPercentageChange?: number;
+                minPercentageChange?: number;
+                targetMDE?: number;
+              } | null;
               pastExperimentsMinLength: number | null;
               metricAnalysisDays: number;
               updateSchedule: ({
@@ -13249,7 +13292,11 @@ export interface operations {
               sdkInstructionsViewed: boolean;
               videoInstructionsViewed: boolean;
               multipleExposureMinPercent: number;
-              defaultRole: any;
+              defaultRole: {
+                role?: string;
+                limitAccessByEnvironment?: boolean;
+                environments?: (string)[];
+              };
               statsEngine: string | null;
               pValueThreshold: number;
               regressionAdjustmentEnabled: boolean;
@@ -13258,9 +13305,20 @@ export interface operations {
               sequentialTestingTuningParameter: number;
               /** @enum {string} */
               attributionModel: "firstExposure" | "experimentDuration";
+              targetMDE: number | null;
+              delayHours: number | null;
+              windowType: string | null;
+              windowHours: number | null;
+              winRisk: number | null;
+              loseRisk: number | null;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
-              requireReviews: boolean;
+              requireReviews: ({
+                  requireReviewOn?: boolean;
+                  resetReviewOnChange?: boolean;
+                  environments?: (string)[];
+                  projects?: (string)[];
+                })[];
               featureKeyExample: string;
               featureRegexValidator: string;
               banditScheduleValue: number;
@@ -13268,9 +13326,9 @@ export interface operations {
               banditScheduleUnit: "hours" | "days";
               banditBurnInValue: number;
               /** @enum {string} */
-              banditBurnInUnit?: "hours" | "days";
+              banditBurnInUnit: "hours" | "days";
               experimentMinLengthDays: number;
-              experimentMaxLengthDays: number | null;
+              experimentMaxLengthDays?: number | null;
             };
           };
         };

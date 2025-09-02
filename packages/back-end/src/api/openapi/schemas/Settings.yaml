@@ -1,4 +1,3 @@
-# TODO: Check this schema
 type: object
 required:
   - confidenceLevel
@@ -18,6 +17,12 @@ required:
   - sequentialTestingEnabled
   - sequentialTestingTuningParameter
   - attributionModel
+  - targetMDE
+  - delayHours
+  - windowType
+  - windowHours
+  - winRisk
+  - loseRisk
   - secureAttributeSalt
   - killswitchConfirmation
   - requireReviews
@@ -26,8 +31,8 @@ required:
   - banditScheduleValue
   - banditScheduleUnit
   - banditBurnInValue
+  - banditBurnInUnit
   - experimentMinLengthDays
-  - experimentMaxLengthDays
 properties:
   confidenceLevel:
     type: number
@@ -36,32 +41,40 @@ properties:
     type: object
     nullable: true
     properties:
-    name:
-      type: string
-    metricIds:
-      type: array
-      items:
+      title:
         type: string
+      metricIds:
+        type: array
+        items:
+          type: string
   metricDefaults:
     type: object
     nullable: true
     properties:
-    priorSettings:
-      type: object
-      required:
-        - override
-        - proper
-        - mean
-        - stddev
-      properties:
-        override:
-          type: boolean
-        proper:
-          type: boolean
-        mean:
-          type: number
-        stddev:
-          type: number
+      priorSettings:
+        type: object
+        required:
+          - override
+          - proper
+          - mean
+          - stddev
+        properties:
+          override:
+            type: boolean
+          proper:
+            type: boolean
+          mean:
+            type: number
+          stddev:
+            type: number
+      minimumSampleSize:
+        type: number
+      maxPercentageChange:
+        type: number
+      minPercentageChange:
+        type: number
+      targetMDE:
+        type: number
   pastExperimentsMinLength:
     type: number
     nullable: true
@@ -92,14 +105,14 @@ properties:
   defaultRole:
     type: object
     properties:
-    role:
-      type: string
-    limitedAccessByEnvironment:
-      type: boolean
-    environments:
-      type: array
-      items:
+      role:
         type: string
+      limitAccessByEnvironment:
+        type: boolean
+      environments:
+        type: array
+        items:
+          type: string
   statsEngine:
     type: string
     nullable: true
@@ -118,12 +131,45 @@ properties:
     enum:
       - "firstExposure"
       - "experimentDuration"
+  targetMDE:
+    type: number
+    nullable: true
+  delayHours:
+    type: number
+    nullable: true
+  windowType:
+    type: string
+    nullable: true
+  windowHours:
+    type: number
+    nullable: true
+  winRisk:
+    type: number
+    nullable: true
+  loseRisk:
+    type: number
+    nullable: true
   secureAttributeSalt:
     type: string
   killswitchConfirmation:
     type: boolean
   requireReviews:
-    type: boolean
+    type: array
+    items:
+      type: object
+      properties:
+        requireReviewOn:
+          type: boolean
+        resetReviewOnChange:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
   featureKeyExample:
     type: string
   featureRegexValidator:

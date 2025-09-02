@@ -1,4 +1,4 @@
-import { getScopedSettings, Settings, Setting } from "shared/settings";
+import { getScopedSettings } from "shared/settings";
 import { GetSettingsResponse } from "back-end/types/openapi";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getSettingsValidator } from "back-end/src/validators/openapi";
@@ -6,19 +6,36 @@ import { getSettingsValidator } from "back-end/src/validators/openapi";
 export const getSettings = createApiRequestHandler(getSettingsValidator)(async (
   req,
 ): Promise<GetSettingsResponse> => {
-  const { settings } = getScopedSettings({
+  const { settings: scopedSettings } = getScopedSettings({
     organization: req.context.org,
   });
 
-  const settingsValues = Object.entries(settings).reduce(
-    (acc, [settingName, setting]) => {
-      acc[settingName] = setting.value;
-      return acc;
-    },
-    {} as Record<string, Setting<keyof Settings> | undefined | null>,
-  );
+  const settingsValues = extractSettingValues(scopedSettings);
+
+  const settings = {
+    ...settingsValues,
+    requireReviews: Array.isArray(settingsValues.requireReviews)
+      ? settingsValues.requireReviews
+      : [],
+    experimentMaxLengthDays: settingsValues.experimentMaxLengthDays ?? null,
+  };
 
   return {
-    settings: settingsValues,
+    settings,
   };
 });
+
+/**
+ * Extracts the 'value' property from each Setting<T> in the provided object
+ *
+ */
+function extractSettingValues<T extends Record<string, { value: unknown }>>(
+  scopedSettings: T,
+): { [K in keyof T]: T[K]["value"] } {
+  return Object.fromEntries(
+    Object.entries(scopedSettings).map(([key, setting]) => [
+      key,
+      setting.value,
+    ]),
+  ) as { [K in keyof T]: T[K]["value"] };
+}
