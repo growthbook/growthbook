@@ -24,7 +24,7 @@ export const HoldoutSelect = ({
 }) => {
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const { holdouts, experimentsMap, loading } = useHoldouts(selectedProject);
+  const { holdouts, experimentsMap } = useHoldouts(selectedProject);
 
   const hasHoldouts = hasCommercialFeature("holdouts");
 
@@ -67,21 +67,12 @@ export const HoldoutSelect = ({
   }, [holdouts, experimentsMap, selectedProject, getDatasourceById]);
 
   useEffect(() => {
-    // If still loading, don't set anything
-    if (loading) return;
-
-    // Only set initial value once or when selectedHoldoutId is not valid
-    if (
-      !holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId) &&
-      selectedHoldoutId !== ""
-    ) {
-      if (holdoutsWithExperiment.length === 0) {
-        setHoldout("");
-      } else {
-        setHoldout(holdoutsWithExperiment[0].id);
-      }
+    // check to see if the holdout still exists and if not, set the holdout to the first valid holdout
+    if (!holdoutsWithExperiment.some((h) => h.id === selectedHoldoutId)) {
+      setHoldout(holdoutsWithExperiment[0]?.id ?? "");
     }
-  }, [holdoutsWithExperiment, setHoldout, loading, selectedHoldoutId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdoutsWithExperiment]);
 
   if (!hasHoldouts) {
     return (
