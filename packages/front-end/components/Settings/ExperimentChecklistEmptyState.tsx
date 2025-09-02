@@ -18,7 +18,11 @@ export default function ExperimentChecklistEmptyState({
           className="btn btn-outline-primary"
           onClick={(e) => {
             e.preventDefault();
-            setNewTaskInput({ task: "", completionType: "manual" });
+            setNewTaskInput({
+              task: "",
+              completionType: "manual",
+              projects: [],
+            });
           }}
         >
           Add Your First Task

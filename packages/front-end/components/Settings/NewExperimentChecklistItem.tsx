@@ -16,6 +16,7 @@ type AutoChecklistOption = {
     | "tag"
     | "customField"
     | "prerequisiteTargeting";
+  projects: string[];
 };
 
 export default function NewExperimentChecklistItem({
@@ -35,31 +36,37 @@ export default function NewExperimentChecklistItem({
       value: "Add a descriptive hypothesis for this experiment",
       label: "Add a descriptive hypothesis for this experiment",
       propertyKey: "hypothesis",
+      projects: [],
     },
     {
       value: "Upload a screenshot for each variation of the experiment",
       label: "Upload a screenshot for each variation of the experiment",
       propertyKey: "screenshots",
+      projects: [],
     },
     {
       value: "Add a description for this experiment",
       label: "Add a description for this experiment",
       propertyKey: "description",
+      projects: [],
     },
     {
       value: "Add this experiment to a project",
       label: "Add this experiment to a project",
       propertyKey: "project",
+      projects: [],
     },
     {
       value: "Add at least 1 tag to this experiment",
       label: "Add at least 1 tag to this experiment",
       propertyKey: "tag",
+      projects: [],
     },
     {
       value: "Ensure prerequisite targeting is set for this experiment",
       label: "Ensure prerequisite targeting is set for this experiment",
       propertyKey: "prerequisiteTargeting",
+      projects: [],
     },
   ];
 
@@ -74,6 +81,7 @@ export default function NewExperimentChecklistItem({
       label: `Add a value for "${field.name}"`,
       customFieldId: field.id,
       propertyKey: "customField",
+      projects: [],
     }),
   );
 
@@ -88,6 +96,7 @@ export default function NewExperimentChecklistItem({
         value: newTaskInput.task,
         customFieldId: newTaskInput?.customFieldId ?? "",
         propertyKey: newTaskInput.propertyKey ?? undefined,
+        projects: newTaskInput.projects ?? [],
       }
     : undefined;
 
@@ -111,12 +120,14 @@ export default function NewExperimentChecklistItem({
               completionType: "auto",
               customFieldId: option?.customFieldId ?? "",
               propertyKey: option.propertyKey,
+              projects: option.projects,
             });
           }}
           onCreateOption={(inputValue) => {
             setNewTaskInput({
               task: inputValue,
               completionType: "manual",
+              projects: [],
             });
           }}
           noOptionsMessage={() =>

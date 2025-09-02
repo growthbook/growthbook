@@ -92,7 +92,11 @@ export default function ExperimentCheckListModal({
                 className="btn btn-primary"
                 onClick={(e) => {
                   e.preventDefault();
-                  setNewTaskInput({ task: "", completionType: "manual" });
+                  setNewTaskInput({
+                    task: "",
+                    completionType: "manual",
+                    projects: [],
+                  });
                 }}
               >
                 <FaPlus className="mr-2" />

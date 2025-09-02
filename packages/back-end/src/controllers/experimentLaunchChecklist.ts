@@ -63,10 +63,15 @@ export async function postExperimentLaunchChecklist(
 }
 
 export async function getExperimentCheckListByOrg(
-  req: AuthRequest,
+  req: AuthRequest<null, { num: string }, { projectId?: string }>,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
+
+  let projectId = "";
+  if (typeof req.query?.projectId === "string") {
+    projectId = req.query.projectId;
+  }
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     return res.status(200).json({
@@ -77,13 +82,24 @@ export async function getExperimentCheckListByOrg(
 
   const checklist = await getExperimentLaunchChecklist(org.id, "");
 
+  const filteredTasks: ChecklistTask[] = [];
+
+  checklist?.tasks.forEach((task) => {
+    if (!task.projects?.length) {
+      filteredTasks.push(task);
+      return;
+    }
+    if (task.projects?.includes(projectId)) {
+      filteredTasks.push(task);
+      return;
+    }
+  });
+
   return res.status(200).json({
     status: 200,
-    checklist,
+    checklist: { ...checklist, tasks: filteredTasks },
   });
 }
-
-//TODO: Add getExperimentCheckListByProject method
 
 export async function putExperimentLaunchChecklist(
   req: AuthRequest<{ tasks: ChecklistTask[] }, { id: string }>,

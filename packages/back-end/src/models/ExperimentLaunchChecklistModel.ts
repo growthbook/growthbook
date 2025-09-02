@@ -12,11 +12,13 @@ const experimentLaunchChecklistSchema = new mongoose.Schema({
   dateCreated: Date,
   dateUpdated: Date,
   updatedByUserId: String,
+  // Need to deprecate projectId at this level if we add support for project-level checklist items
   projectId: String, //TODO: This won't be used until we add support for project-level checklists
   tasks: [
     {
       task: String,
       completionType: { type: String, enum: ["manual", "auto"] },
+      projects: [String],
       customFieldId: String,
       propertyKey: {
         type: String,
