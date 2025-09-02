@@ -15,6 +15,8 @@ import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalcu
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
 import track from "@/services/track";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 
 const WEEKS = 9;
 const INITIAL_FORM_PARAMS = { metrics: {} } as const;
@@ -34,6 +36,9 @@ const INITIAL_PAGE_SETTINGS: PageSettings = {
 
 const PowerCalculationPage = (): React.ReactElement => {
   const orgSettings = useOrgSettings();
+
+  const pValueThreshold = usePValueThreshold();
+  const { ciLower } = useConfidenceLevels();
 
   const initialJSONParams = localStorage.getItem(LOCAL_STORAGE_KEY);
 
@@ -93,9 +98,16 @@ const PowerCalculationPage = (): React.ReactElement => {
       nVariations: variations,
       nWeeks: WEEKS,
       targetPower: 0.8,
-      alpha: 0.05,
+      alpha:
+        statsEngineSettings.type === "frequentist" ? pValueThreshold : ciLower,
     };
-  }, [powerCalculationParams, variations, statsEngineSettings]);
+  }, [
+    powerCalculationParams,
+    variations,
+    statsEngineSettings,
+    pValueThreshold,
+    ciLower,
+  ]);
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;

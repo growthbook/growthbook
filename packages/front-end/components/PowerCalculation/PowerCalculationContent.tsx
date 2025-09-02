@@ -106,9 +106,10 @@ const AnalysisSettings = ({
                 params.statsEngineSettings.sequentialTesting
                   ? "enabled"
                   : "disabled"
-              })
+              }; ${params.alpha} p-value threshold)
               `
-                : ""}{" "}
+                : ` (${100 * (1 - params.alpha)}% chance to win threshold)
+              `}{" "}
               ·{" "}
               <Link
                 href="#"
