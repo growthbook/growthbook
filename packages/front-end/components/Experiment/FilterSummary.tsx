@@ -81,10 +81,10 @@ const FilterSummary: FC<{
                 <strong className="text-gray">Date range:</strong>
               </div>
               <div className="col">
-                <strong>{datetime(phase.dateStarted ?? "")}</strong> to
+                <strong>{datetime(phase.dateStarted ?? "", "UTC")}</strong> to
                 <br />
                 <strong>
-                  {datetime(phase.dateEnded || snapshot.dateCreated)}
+                  {datetime(phase.dateEnded || snapshot.dateCreated, "UTC")}
                 </strong>
                 {!phase.dateEnded && " (last update)"}
               </div>
