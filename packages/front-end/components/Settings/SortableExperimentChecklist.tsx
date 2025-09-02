@@ -17,6 +17,7 @@ import { ChecklistTask } from "back-end/types/experimentLaunchChecklist";
 import { FaGripHorizontal, FaTimes } from "react-icons/fa";
 import { CSS } from "@dnd-kit/utilities";
 import { forwardRef, useState } from "react";
+import ProjectBadges from "../ProjectBadges";
 
 type SortableProps = {
   experimentLaunchChecklist: ChecklistTask[];
@@ -66,6 +67,18 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
             </a>
           ) : (
             item.task
+          )}
+          {item.projects.length > 0 ? (
+            <span className="ml-2">
+              <ProjectBadges
+                resourceType="experiment launch checklist"
+                projectIds={item.projects}
+              />
+            </span>
+          ) : (
+            <span className="ml-2">
+              <ProjectBadges resourceType="experiment launch checklist" />
+            </span>
           )}
         </div>
         <button
@@ -159,12 +172,14 @@ export default function SortableExperimentChecklist({
           <ol>
             {experimentLaunchChecklist.map((item: ChecklistTask, i: number) => (
               <li key={`${item}-${i}`}>
-                <SortableChecklistItem
-                  item={item}
-                  index={i}
-                  experimentLaunchChecklist={experimentLaunchChecklist}
-                  setExperimentLaunchChecklist={setExperimentLaunchChecklist}
-                />
+                <>
+                  <SortableChecklistItem
+                    item={item}
+                    index={i}
+                    experimentLaunchChecklist={experimentLaunchChecklist}
+                    setExperimentLaunchChecklist={setExperimentLaunchChecklist}
+                  />
+                </>
               </li>
             ))}
           </ol>
