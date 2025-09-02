@@ -68,7 +68,7 @@ export async function getExperimentCheckListByOrg(
 ) {
   const { org } = getContextFromReq(req);
 
-  let projectId = "";
+  let projectId: string | undefined;
   if (typeof req.query?.projectId === "string") {
     projectId = req.query.projectId;
   }
@@ -81,6 +81,15 @@ export async function getExperimentCheckListByOrg(
   }
 
   const checklist = await getExperimentLaunchChecklist(org.id, "");
+
+  // If projectId is undefined, return the entire checklist
+  // This will be the case when fetching the list to allow an org to add/remove checklist items
+  if (projectId === undefined) {
+    return res.status(200).json({
+      status: 200,
+      checklist,
+    });
+  }
 
   const filteredTasks: ChecklistTask[] = [];
 
