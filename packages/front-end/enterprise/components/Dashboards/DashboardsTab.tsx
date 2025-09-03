@@ -262,13 +262,25 @@ export default function DashboardsTab({
                     Build a Custom Dashboard
                   </Heading>
                   <Text align="center">
-                    Build a shareable story block-by-block using experiment
-                    data.
+                    Create a tailored view of your experiment. Highlight key
+                    insights, add context, and share a clear story with your
+                    team.
                   </Text>
                 </Flex>
                 <Flex align="center" justify="center">
-                  <Button size="sm" onClick={() => setShowCreateModal(true)}>
-                    Create Dashboard
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (hasDashboardFeature) {
+                        setShowCreateModal(true);
+                      } else {
+                        setShowUpgradeModal(true);
+                      }
+                    }}
+                    disabled={!canCreate}
+                  >
+                    Create Dashboard{" "}
+                    <PaidFeatureBadge commercialFeature="dashboards" />
                   </Button>
                 </Flex>
               </Flex>
@@ -305,24 +317,28 @@ export default function DashboardsTab({
                               <SelectSeparator />
                             </>
                           )}
-                          {dashboards.map((dash, i) => (
-                            <Fragment key={`dash-${i}`}>
-                              {dash.id === defaultDashboard?.id ? null : (
-                                <SelectItem key={dash.id} value={dash.id}>
-                                  <OverflowText maxWidth={400}>
-                                    {dash.title}
-                                  </OverflowText>
-                                </SelectItem>
-                              )}
-                            </Fragment>
-                          ))}
-                          {dashboards.length > 0 && <SelectSeparator />}
-                          <SelectItem value="__create__">
-                            <Flex align="center">
-                              <PiPlus className="rt-SelectItemIndicator" />
-                              <Text weight="regular">Create new dashboard</Text>
-                            </Flex>
-                          </SelectItem>
+                          {dashboards.map((dash) =>
+                            dash.id === defaultDashboard?.id ? null : (
+                              <SelectItem key={dash.id} value={dash.id}>
+                                <OverflowText maxWidth={400}>
+                                  {dash.title}
+                                </OverflowText>
+                              </SelectItem>
+                            ),
+                          )}
+                          {canCreate && (
+                            <>
+                              {dashboards.length > 0 && <SelectSeparator />}
+                              <SelectItem value="__create__">
+                                <Flex align="center">
+                                  <PiPlus className="rt-SelectItemIndicator" />
+                                  <Text weight="regular">
+                                    Create new dashboard
+                                  </Text>
+                                </Flex>
+                              </SelectItem>
+                            </>
+                          )}
                         </Select>
                         <PaidFeatureBadge commercialFeature="dashboards" />
                       </Flex>

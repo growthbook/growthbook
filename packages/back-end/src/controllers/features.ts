@@ -2315,7 +2315,7 @@ export async function putFeature(
 
   const updatedFeature = await updateFeature(context, feature, updates);
 
-  if (updates.holdout?.id !== feature.holdout?.id) {
+  if (updates.holdout && updates.holdout?.id !== feature.holdout?.id) {
     const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
       async (experimentId) => {
         const experiment = await getExperimentById(context, experimentId);
@@ -2337,7 +2337,11 @@ export async function putFeature(
     }
   }
 
-  if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
+  if (
+    updates.holdout &&
+    updates.holdout.id !== feature.holdout?.id &&
+    feature.holdout?.id
+  ) {
     await context.models.holdout.removeFeatureFromHoldout(
       feature.holdout.id,
       feature.id,
