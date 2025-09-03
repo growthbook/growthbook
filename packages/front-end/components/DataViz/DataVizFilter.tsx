@@ -210,35 +210,28 @@ export default function DataVizFilter({
     <>
       {filter.column !== undefined && filter.type !== undefined && (
         <Flex direction="column" gap="2">
-          {filter.column !== undefined && (
-            <Select
-              label={
-                <Flex justify="between" align="center">
-                  <Text as="label">{filterName}</Text>
-                  <Box mb="2">
-                    <Button
-                      variant="ghost"
-                      color="red"
-                      onClick={onFilterRemove}
-                    >
-                      <PiTrash />
-                    </Button>
-                  </Box>
-                </Flex>
-              }
-              value={filter.column}
-              setValue={changeColumn}
-              size="2"
-              placeholder="Select a column to filter by"
-            >
-              {columnFilterOptions.map((option, i) => (
-                <SelectItem key={`${option.column}-${i}`} value={option.column}>
-                  {option.column}
-                </SelectItem>
-              ))}
-            </Select>
-          )}
-
+          <Select
+            label={
+              <Flex justify="between" align="center">
+                <Text as="label">{filterName}</Text>
+                <Box mb="2">
+                  <Button variant="ghost" color="red" onClick={onFilterRemove}>
+                    <PiTrash />
+                  </Button>
+                </Box>
+              </Flex>
+            }
+            value={filter.column}
+            setValue={changeColumn}
+            size="2"
+            placeholder="Select a column to filter by"
+          >
+            {columnFilterOptions.map((option, i) => (
+              <SelectItem key={`${option.column}-${i}`} value={option.column}>
+                {option.column}
+              </SelectItem>
+            ))}
+          </Select>
           <Flex direction="row" justify="between" align="center">
             <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
               Type

@@ -56,12 +56,10 @@ export function inferFieldType(
 }
 
 export default function DataVizConfigPanel({
-  // sampleRow,
   rows,
   dataVizConfig,
   onDataVizConfigChange,
 }: {
-  // sampleRow: Record<string, unknown>;
   rows: Record<string, unknown>[];
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;

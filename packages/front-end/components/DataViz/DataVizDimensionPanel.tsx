@@ -24,8 +24,8 @@ export default function DataVizDimensionPanel({
     return null;
   }
 
-  const dimensions =
-    dataVizConfig.dimension || ([] as dimensionAxisConfiguration[]);
+  const dimensions: dimensionAxisConfiguration[] =
+    dataVizConfig.dimension || [];
 
   return (
     <>

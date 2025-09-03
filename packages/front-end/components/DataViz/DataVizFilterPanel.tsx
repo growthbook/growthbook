@@ -71,7 +71,6 @@ function getColumnFilterOptions(
 export default function DataVizFilterPanel({
   dataVizConfig,
   onDataVizConfigChange,
-  // sampleRow,
   rows,
 }: Props) {
   const [columnFilterOptions, setColumnFilterOptions] = useState<
