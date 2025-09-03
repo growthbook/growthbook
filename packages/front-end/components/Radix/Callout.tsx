@@ -45,7 +45,7 @@ export default forwardRef<
     size = "md",
     icon,
     contentsAs = "text",
-    dismissible,
+    dismissible = false,
     id,
     renderWhenDismissed,
     ...containerProps
