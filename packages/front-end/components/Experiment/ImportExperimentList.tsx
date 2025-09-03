@@ -16,7 +16,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -460,7 +460,7 @@ const ImportExperimentList: FC<{
               />
             </div>
             <div className="col-auto align-self-center">
-              <Toggle
+              <Switch
                 id="hide-imported"
                 value={alreadyImportedFilter}
                 setValue={setAlreadyImportedFilter}
@@ -468,7 +468,7 @@ const ImportExperimentList: FC<{
               Hide Imported
             </div>
             <div className="col-auto align-self-center">
-              <Toggle
+              <Switch
                 id="dedupe-experiments"
                 value={dedupeFilter}
                 setValue={setDedupeFilter}

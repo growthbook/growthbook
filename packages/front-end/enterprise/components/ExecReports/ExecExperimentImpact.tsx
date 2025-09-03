@@ -16,7 +16,7 @@ import {
 } from "@/components/HomePage/ExperimentImpact";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/components/Radix/Callout";
 import SelectField from "@/components/Forms/SelectField";
@@ -564,7 +564,7 @@ export default function ExecExperimentImpact({
                           />
                         </label>
                         <Box>
-                          <Toggle
+                          <Switch
                             id="adjust-scaled-impact"
                             className="form-check-input"
                             disabled={nExpsUsedForAdjustment < 5}

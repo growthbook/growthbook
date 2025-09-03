@@ -35,7 +35,7 @@ import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
@@ -1383,7 +1383,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         >
                           Apply regression adjustment for this metric
                         </label>
-                        <Toggle
+                        <Switch
                           id={"toggle-regressionAdjustmentEnabled"}
                           value={!!form.watch("regressionAdjustmentEnabled")}
                           setValue={(value) => {

@@ -21,7 +21,7 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import DateGraph from "@/components/Metrics/DateGraph";
 import HistogramGraph from "@/components/MetricAnalysis/HistogramGraph";
 import IdentifierChooser from "@/components/MetricAnalysis/IdentifierChooser";
@@ -650,7 +650,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                       <br />
                                       (7 day trailing)
                                     </label>
-                                    <Toggle
+                                    <Switch
                                       value={smoothByAvg === "week"}
                                       setValue={() =>
                                         setSmoothByAvg(
@@ -739,7 +739,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                       <br />
                                       (7 day trailing)
                                     </label>
-                                    <Toggle
+                                    <Switch
                                       value={smoothBySum === "week"}
                                       setValue={() =>
                                         setSmoothBySum(

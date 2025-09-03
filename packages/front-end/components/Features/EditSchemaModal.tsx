@@ -16,7 +16,7 @@ import {
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -98,7 +98,7 @@ function EditSchemaField({
       />
       {inObject && (
         <div className="form-group">
-          <Toggle
+          <Switch
             id={`schema_required_${i}`}
             value={value.required}
             setValue={(v) => onChange({ ...value, required: v })}
@@ -512,7 +512,7 @@ export default function EditSchemaModal({
       open={true}
     >
       <div className="form-group d-flex align-items-top mb-4">
-        <Toggle
+        <Switch
           id={"schemaEnabled"}
           value={form.watch("enabled")}
           setValue={(v) => form.setValue("enabled", v)}

@@ -1,6 +1,6 @@
 import { FaQuestionCircle } from "react-icons/fa";
 import { useEffect, useState } from "react";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
@@ -32,7 +32,7 @@ export default function AutoApproveMembersToggle({
 
   return (
     <div className="mt-3">
-      <Toggle
+      <Switch
         id="autoApproveMembers"
         // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'verified' does not exist on type 'never'... Remove this comment to see the full error message
         value={!owner?.verified ? false : !!organization?.autoApproveMembers}

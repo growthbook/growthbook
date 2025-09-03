@@ -31,7 +31,7 @@ import {
 } from "@/components/Icons";
 import ConfigureLegacyReport from "@/components/Report/ConfigureLegacyReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
@@ -209,7 +209,7 @@ export default function LegacyReportPage({
               />
             </div>
             Publish:{" "}
-            <Toggle
+            <Switch
               id="toggle-status"
               value={form.watch("status") === "published"}
               label="published"

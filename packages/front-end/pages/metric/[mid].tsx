@@ -56,7 +56,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBCuped, GBEdit } from "@/components/Icons";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useCurrency } from "@/hooks/useCurrency";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -780,7 +780,7 @@ const MetricPage: FC = () => {
                                     <br />
                                     (7 day trailing)
                                   </label>
-                                  <Toggle
+                                  <Switch
                                     value={smoothByAvg === "week"}
                                     setValue={() =>
                                       setSmoothByAvg(
@@ -855,7 +855,7 @@ const MetricPage: FC = () => {
                                 <br />
                                 (7 day trailing)
                               </label>
-                              <Toggle
+                              <Switch
                                 value={smoothBySum === "week"}
                                 setValue={() =>
                                   setSmoothBySum(

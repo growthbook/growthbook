@@ -16,7 +16,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
@@ -145,7 +145,7 @@ export default function FactMetricList({ factTable }: Props) {
         )}
         {hasArchivedMetrics && (
           <div className="col-auto text-muted">
-            <Toggle
+            <Switch
               value={showArchived}
               setValue={setShowArchived}
               id="show-archived"

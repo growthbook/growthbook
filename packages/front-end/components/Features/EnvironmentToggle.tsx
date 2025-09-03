@@ -4,7 +4,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
@@ -84,7 +84,7 @@ export default function EnvironmentToggle({
       ) : (
         ""
       )}
-      <Toggle
+      <Switch
         value={env?.enabled ?? false}
         id={id}
         disabledMessage="You don't have permission to change features in this environment"

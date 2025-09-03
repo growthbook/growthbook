@@ -13,7 +13,7 @@ import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
 import SortedTags from "@/components/Tags/SortedTags";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
@@ -305,7 +305,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   <TagsFilter filter={tagsFilter} items={items} />
                 </div>
                 <div className="col-auto ml-auto">
-                  <Toggle
+                  <Switch
                     id="my-experiments-toggle"
                     type="toggle"
                     value={showMineOnly}

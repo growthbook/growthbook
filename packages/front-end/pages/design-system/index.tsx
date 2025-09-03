@@ -1,4 +1,4 @@
-import { Box, Flex, Grid, Slider } from "@radix-ui/themes";
+import { Box, Flex, Grid, Slider, Text } from "@radix-ui/themes";
 import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -53,7 +53,7 @@ import Frame from "@/components/Radix/Frame";
 import Switch from "@/components/Radix/Switch";
 
 export default function DesignSystemPage() {
-  const [switchStatus, setSwitchStatus] = useState<
+  const [switchState, setSwitchState] = useState<
     "default" | "warning" | "error"
   >("default");
   const [switchDisabled, setSwitchDisabled] = useState<boolean>(false);
@@ -1445,60 +1445,100 @@ export default function DesignSystemPage() {
 
       <div className="appbox p-3">
         <h3>Switch</h3>
-        <SelectField
-          label="Status"
-          value={switchStatus}
-          options={[
-            { label: "Default", value: "default" },
-            { label: "Warning", value: "warning" },
-            { label: "Error", value: "error" },
-          ]}
-          onChange={(v) =>
-            setSwitchStatus(v as "default" | "warning" | "error")
-          }
-        />
-        <SelectField
-          label="Disabled"
-          value={switchDisabled ? "true" : "false"}
-          options={[
-            { label: "False", value: "false" },
-            { label: "True", value: "true" },
-          ]}
-          onChange={(v) => setSwitchDisabled(v === "true")}
-        />
-        <Flex direction="column" gap="3">
-          <Flex direction="column" gap="1">
-            No label
-            <Switch status={switchStatus} disabled={switchDisabled} />
-            <Switch
-              status={switchStatus}
-              defaultChecked={true}
-              disabled={switchDisabled}
+        <Flex direction="row" gap="3">
+          <Grid flexGrow="1" columns="1fr 1fr" gap="4">
+            <Flex direction="column" gap="2">
+              &rarr; No label
+              <Flex direction="column" gap="4">
+                <Switch state={switchState} disabled={switchDisabled} />
+                <Switch
+                  defaultChecked={true}
+                  state={switchState}
+                  disabled={switchDisabled}
+                />
+              </Flex>
+            </Flex>
+            <Flex direction="column" gap="2">
+              &rarr; Label
+              <Flex direction="column" gap="4">
+                <Switch
+                  state={switchState}
+                  disabled={switchDisabled}
+                  label="Label"
+                />
+                <Switch
+                  defaultChecked={true}
+                  state={switchState}
+                  disabled={switchDisabled}
+                  label="Label"
+                />
+              </Flex>
+            </Flex>
+            <Flex direction="column" gap="2">
+              &rarr; Label and description
+              <Flex direction="column" gap="4">
+                <Switch
+                  state={switchState}
+                  disabled={switchDisabled}
+                  label="Label"
+                  description="Description"
+                />
+                <Switch
+                  defaultChecked={true}
+                  state={switchState}
+                  disabled={switchDisabled}
+                  label="Label"
+                  description="Description"
+                />
+              </Flex>
+            </Flex>
+            <Flex direction="column" gap="2">
+              &rarr; Label, description and statusLabel
+              <Flex direction="column" gap="4">
+                <Switch
+                  state={switchState}
+                  disabled={switchDisabled}
+                  label="Label"
+                  description="Description"
+                  stateLabel="The status label goes here"
+                />
+                <Switch
+                  defaultChecked={true}
+                  state={switchState}
+                  disabled={switchDisabled}
+                  label="Label"
+                  description="Description"
+                  stateLabel="The status label goes here"
+                />
+              </Flex>
+            </Flex>
+          </Grid>
+
+          <Flex flexGrow="1" direction="column" gap="0">
+            <Text weight="bold" mb="2">
+              Configuration
+            </Text>
+            <SelectField
+              label="Status"
+              value={switchState}
+              options={[
+                { label: "Default", value: "default" },
+                { label: "Warning", value: "warning" },
+                { label: "Error", value: "error" },
+              ]}
+              onChange={(v) =>
+                setSwitchState(v as "default" | "warning" | "error")
+              }
             />
-          </Flex>
-          <Flex direction="column" gap="1">
-            Label
-            <Switch
-              status={switchStatus}
-              disabled={switchDisabled}
-              label="Label"
+            <SelectField
+              label="Disabled"
+              value={switchDisabled ? "true" : "false"}
+              options={[
+                { label: "False", value: "false" },
+                { label: "True", value: "true" },
+              ]}
+              onChange={(v) => setSwitchDisabled(v === "true")}
             />
-            <Switch
-              status={switchStatus}
-              disabled={switchDisabled}
-              label="Label"
-              defaultChecked={true}
-            />
-          </Flex>
-          <Flex direction="column" gap="1">
-            Label and description
-            <Switch />
-            <Switch defaultChecked={true} />
-          </Flex>
-          <Flex direction="column" gap="1">
-            Default with no label
-            <Switch />
-            <Switch defaultChecked={true} />
           </Flex>
         </Flex>
       </div>

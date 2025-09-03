@@ -16,7 +16,7 @@ import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 
@@ -157,7 +157,7 @@ export default function FallbackAttributeSelector({
                             Enable Sticky Bucketing for org <FaQuestionCircle />
                           </div>
                         </PremiumTooltip>
-                        <Toggle
+                        <Switch
                           id="orgStickyBucketingToggle"
                           value={!!orgStickyBucketing}
                           setValue={setOrgStickyBucketingToggle}

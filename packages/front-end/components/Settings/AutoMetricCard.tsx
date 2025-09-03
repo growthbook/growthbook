@@ -3,7 +3,7 @@ import { cloneDeep } from "lodash";
 import { useState } from "react";
 import { AutoMetricTrackedEvent } from "back-end/src/types/Integration";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Button from "@/components/Button";
 import SQLInputField from "@/components/SQLInputField";
 
@@ -61,7 +61,7 @@ export default function AutoMetricCard({
         {event.metricsToCreate[binomialIndex]?.sql ? (
           <td className={selected === binomialIndex ? "bg-light" : ""}>
             <div className="d-flex flex-column justify-content-center align-items-center">
-              <Toggle
+              <Switch
                 value={
                   event.metricsToCreate[binomialIndex].shouldCreate || false
                 }
@@ -100,7 +100,7 @@ export default function AutoMetricCard({
         {event.metricsToCreate[countIndex]?.sql ? (
           <td className={selected === countIndex ? "bg-light" : ""}>
             <div className="d-flex flex-column justify-content-center align-items-center">
-              <Toggle
+              <Switch
                 value={event.metricsToCreate[countIndex].shouldCreate || false}
                 id={`${event}-${event.metricsToCreate[countIndex].name}`}
                 disabled={

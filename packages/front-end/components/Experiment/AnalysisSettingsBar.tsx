@@ -25,7 +25,7 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import { GBCuped } from "@/components/Icons";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -251,7 +251,7 @@ export default function AnalysisSettingsBar({
                   >
                     <GBCuped />
                     <span className="mx-1 font-weight-bold">CUPED</span>
-                    <Toggle
+                    <Switch
                       id="toggle-experiment-regression-adjustment"
                       value={!!regressionAdjustmentEnabled}
                       setValue={(value) => {

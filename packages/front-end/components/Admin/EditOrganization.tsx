@@ -3,7 +3,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -174,7 +174,7 @@ const EditOrganization: FC<{
         </div>
         <div className="mt-3">
           Auto approve members with email domain
-          <Toggle
+          <Switch
             className="ml-2"
             id="autoApproveMembers"
             value={autoApproveMembers}
@@ -211,7 +211,7 @@ const EditOrganization: FC<{
               </div>
               <div className="mt-3">
                 Enable Enterprise
-                <Toggle
+                <Switch
                   className="ml-2"
                   id="legacyEnterpriseToggle"
                   value={legacyEnterprise}

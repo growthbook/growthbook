@@ -1,7 +1,7 @@
 import { CappingType } from "back-end/types/fact-table";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 
 export function MetricCappingSettingsForm({
   form,
@@ -74,7 +74,7 @@ export function MetricCappingSettingsForm({
                 <label className="mr-1" htmlFor="toggle-ignoreZeros">
                   Ignore zero values in percentile calculation?
                 </label>
-                <Toggle
+                <Switch
                   value={form.watch("cappingSettings.ignoreZeros")}
                   setValue={(ignoreZeros) => {
                     form.setValue("cappingSettings.ignoreZeros", ignoreZeros);

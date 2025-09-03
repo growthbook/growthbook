@@ -3,7 +3,7 @@ import { MetricDefaults } from "back-end/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/components/Radix/Checkbox";
 
@@ -53,7 +53,7 @@ export function MetricPriorSettingsForm({
             >
               Use proper prior for this metric
             </label>
-            <Toggle
+            <Switch
               id={"toggle-properPrior"}
               value={!!priorSettings.proper}
               setValue={(value) => {

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -128,7 +128,7 @@ const ArchetypeAttributesModal: FC<{
                 }
               />
             </label>
-            <Toggle
+            <Switch
               id="public"
               value={form.watch("isPublic")}
               setValue={(v) => form.setValue("isPublic", v)}

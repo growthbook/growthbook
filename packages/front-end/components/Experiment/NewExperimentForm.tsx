@@ -65,7 +65,7 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
@@ -1369,7 +1369,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
             {isImport && (
               <div className="form-group ml-2">
-                <Toggle
+                <Switch
                   id="auto_refresh_results"
                   label="Auto Refresh Results"
                   value={autoRefreshResults}

@@ -10,7 +10,7 @@ import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -301,7 +301,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   <div>
                     <div>
                       <div className="mt-3 mb-3">
-                        <Toggle
+                        <Switch
                           id="userEnteredNameCol"
                           value={form.watch("hasNameCol") || false}
                           setValue={(value) => {

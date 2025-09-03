@@ -2,7 +2,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { PValueCorrection } from "back-end/types/stats";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import { GBSequential } from "@/components/Icons";
 import { hasFileConfig } from "@/services/env";
@@ -98,7 +98,7 @@ export default function FrequentistTab({
             <label className="mr-1" htmlFor="toggle-sequentialTestingEnabled">
               Apply sequential testing by default
             </label>
-            <Toggle
+            <Switch
               id={"toggle-sequentialTestingEnabled"}
               value={form.watch("sequentialTestingEnabled")}
               setValue={(value) => {

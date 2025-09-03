@@ -20,7 +20,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Button from "@/components/Radix/Button";
 import Callout from "@/components/Radix/Callout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -328,7 +328,7 @@ export default function FactTablesPage() {
                 </div>
                 {hasArchivedFactTables && (
                   <div className="col-auto text-muted">
-                    <Toggle
+                    <Switch
                       value={showArchived}
                       setValue={setShowArchived}
                       id="show-archived"
