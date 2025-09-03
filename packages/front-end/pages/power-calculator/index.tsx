@@ -99,7 +99,10 @@ const PowerCalculationPage = (): React.ReactElement => {
       nWeeks: WEEKS,
       targetPower: 0.8,
       alpha:
-        statsEngineSettings.type === "frequentist" ? pValueThreshold : ciLower,
+        statsEngineSettings.customAlpha ??
+        (statsEngineSettings.type === "frequentist"
+          ? pValueThreshold
+          : ciLower),
     };
   }, [
     powerCalculationParams,
@@ -108,11 +111,13 @@ const PowerCalculationPage = (): React.ReactElement => {
     pValueThreshold,
     ciLower,
   ]);
+  console.log(finalParams);
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
     return powerMetricWeeks(finalParams);
   }, [finalParams]);
+  console.log(results);
   return (
     <div className="contents power-calculator container-fluid pagecontents">
       {showModal && (

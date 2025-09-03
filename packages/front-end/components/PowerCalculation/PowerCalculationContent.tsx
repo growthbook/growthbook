@@ -27,7 +27,9 @@ import Callout from "@/components/Radix/Callout";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
 import Frame from "@/components/Radix/Frame";
-import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
+import PowerCalculationStatsEngineSettingsModal, {
+  alphaToChanceToWin,
+} from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {
   frequentist: "Frequentist",
@@ -108,7 +110,7 @@ const AnalysisSettings = ({
                   : "disabled"
               }; ${params.alpha} p-value threshold)
               `
-                : ` (${100 * (1 - params.alpha)}% chance to win threshold)
+                : ` (${alphaToChanceToWin(params.alpha)}% chance to win threshold)
               `}{" "}
               ·{" "}
               <Link
