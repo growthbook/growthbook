@@ -140,7 +140,7 @@ export default function NewExperimentChecklistItem({
         <MultiSelectField
           label="Projects"
           placeholder="All Projects"
-          value={newTaskInput.projects}
+          value={newTaskInput.projects || []}
           onChange={(projects) =>
             setNewTaskInput({ ...newTaskInput, projects })
           }

@@ -3,7 +3,7 @@ export interface ChecklistTask {
   completionType: "manual" | "auto";
   url?: string;
   customFieldId?: string;
-  projects: string[];
+  projects?: string[];
   propertyKey?:
     | "description"
     | "hypothesis"

@@ -68,7 +68,7 @@ export const ChecklistItem = forwardRef<HTMLDivElement, ChecklistItemProps>(
           ) : (
             item.task
           )}
-          {item.projects.length > 0 ? (
+          {item.projects && item.projects?.length > 0 ? (
             <span className="ml-2">
               <ProjectBadges
                 resourceType="experiment launch checklist"
