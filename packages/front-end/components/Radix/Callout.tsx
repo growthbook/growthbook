@@ -26,6 +26,7 @@ export default forwardRef<
     contentsAs?: "text" | "div";
     dismissible?: boolean;
     id?: string;
+    renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
   } & MarginProps
 >(function Callout(
   {
@@ -36,6 +37,7 @@ export default forwardRef<
     contentsAs = "text",
     dismissible = false,
     id,
+    renderWhenDismissed,
     ...containerProps
   },
   ref,
@@ -43,7 +45,9 @@ export default forwardRef<
   const [dismissed, setDismissed] = useLocalStorage(`callout:${id}`, false);
 
   if (dismissible && dismissed && id) {
-    return null;
+    return renderWhenDismissed
+      ? renderWhenDismissed(() => setDismissed(false))
+      : null;
   }
 
   const renderedIcon = (() => {
