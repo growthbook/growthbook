@@ -111,13 +111,11 @@ const PowerCalculationPage = (): React.ReactElement => {
     pValueThreshold,
     ciLower,
   ]);
-  console.log(finalParams);
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
     return powerMetricWeeks(finalParams);
   }, [finalParams]);
-  console.log(results);
   return (
     <div className="contents power-calculator container-fluid pagecontents">
       {showModal && (
