@@ -1,0 +1,98 @@
+---
+title: Post-stratification Technical Details
+description: Technical details of post-stratification
+sidebar_label: Post-stratification Technical
+slug: post-stratification
+unlisted: true
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+# Technical post-stratification details
+
+Here we document the technical details behind GrowthBook regression adjustment and post-stratification.
+This approach permits estimation of absolute and relative effects, and unadjusted and CUPED inference, for binomial, count, and ratio metrics.  
+Throughout the document we describe CUPED estimation for ratio metrics, and then discuss simpler cases (e.g., non-adjusted estimates, count metrics). 
+We assume data are available in each cell, i.e., either the number of cells is not too big, or we have already aggregated some cells together.
+For each case there are 3 steps. 
+In [Section 1](#first-stage) we describe how to construct cell-specific estimates of absolute treatment effects and control means using cell-specific summary statistics.  
+
+# First stage
+
+
+ {/*
+In [Section 2](#second-stage) we describe how to combine estimates across cells to estimate population effects and population control means. 
+Finally, in [Section 3](#third-stage) we transform the combined estimates into estimates of lift, ratio parameters, etc.  
+
+
+The first step is constructing the treatment effect estimate(s) and control mean(s) from summary statistics by dimension, and deriving their covariance. 
+
+This algorithm is useful for constructing the joint sampling distribution of control means and effect estimates across dimensions. 
+Suppose we have $K$ dimensions.  
+Define $\hat{\boldsymbol{\beta}}_{1k}$ as the vector of length $P = 4$ with the treatment numerator post-exposure sample mean, treatment denominator post-exposure sample mean, 
+treatment numerator pre-exposure sample mean, and treatment denominator pre-exposure sample mean for the $k^{\text{th}}$ dimension, $k=1,2,\hdots, K$. 
+Simpler cases include:
+\begin{itemize}
+\item If the metric is a count/binomial metric then only the numerator elements are used, and $P = 2$. 
+\item If the metric is an unadjusted (i.e., no CUPED) ratio metric, then only the post-exposure elements are used, and $P = 2$. 
+\item If the metric is an unadjusted (i.e., no CUPED) standalone metric, then only the post-exposure numerator elements are used, and $P = 1$. 
+\end{itemize}
+
+Define its covariance as $\tilde{\boldsymbol{\Lambda}}_{1k}$. 
+Define the scaled covariance as $\boldsymbol{\Lambda}_{1k} = \frac{n_{k}}{n_{k1}} = \boldsymbol{\tilde{\Lambda}}_{1k}$.
+Analogously define treatment counterparts as $\hat{\boldsymbol{\beta}}_{0k}$, $\boldsymbol{\tilde{\Lambda}}_{0k}$ and $\boldsymbol{\tilde{\Lambda}}_{0k}$.
+By the central limit theorem 
+
+
+$$
+\hat{\boldsymbol{\beta}}_{k} = 
+\begin{pmatrix}
+\hat{\boldsymbol{\beta}}_{1k}\\
+\hat{\boldsymbol{\beta}}_{0k}
+\end{pmatrix}
+\stackrel{}{\sim}\mathcal{N}\left(
+\boldsymbol{\beta} = 
+\begin{pmatrix}
+\boldsymbol{\beta}_{1k}\\
+\boldsymbol{\beta}_{0k}  
+\end{pmatrix},
+\boldsymbol{\Lambda}_{k} = 
+n_{k}^{-1}\begin{pmatrix}
+\boldsymbol{\Lambda}_{1k} & \textbf{0}\\
+\textbf{0} & \boldsymbol{\Lambda}_{0k}  
+\end{pmatrix}
+\right).
+$$
+If CUPED is being used, define $\theta_{k,N}$  ($\theta_{k,D}$) as the CUPED numerator (denominator) coefficient. 
+In practice the slope $\theta_{k,N}$ may be fixed across cells. 
+
+We now linearly transform $\hat{\boldsymbol{\beta}}_{k}$ into $\hat{\boldsymbol{\alpha}}_{k}$, which contains:
+\begin{itemize}
+\item numerator control mean for the $k^{\text{th}}$ dimension
+\item numerator absolute effect estimate for the $k^{\text{th}}$ dimension
+\item denominator control mean for the $k^{\text{th}}$ dimension
+\item denominator absolute effect estimate for the $k^{\text{th}}$ dimension.
+\end{itemize}
+
+
+Define the contrast matrix with $M = 4$ rows and $2P$ columns $\textbf{A}_{k, CUPED}$ where
+$$
+\textbf{A}_{k, CUPED} = 
+\begin{pmatrix}
+0 & 0 & 0 & 0 & 1 & 0 & 0 & 0\\
+1 & 0 & -\theta_{k,N} & 0 & -1 & 0 & \theta_{k,N} & 0\\
+0 & 0 & 0 & 0 & 0 & 1 & 0 & 0\\
+0 & 1 & 0 & -\theta_{k,D} & 0 & -1 & 0 & \theta_{k,D}\\
+\end{pmatrix}
+$$
+
+Simpler cases include:
+- If the metric is a count/binomial metric then only the numerator elements are used, and only the first, third, fifth, and seventh columns of $\textbf{A}_{k, CUPED}$ are used. 
+- If the metric is a count/binomial metric then only the numerator elements are used, and only the first, third, fifth, and seventh columns of $\textbf{A}_{k, CUPED}$ are used. 
+- If the metric is an unadjusted (i.e., no CUPED) ratio metric, then only the first, second, fifth, and sixth columns of $\textbf{A}_{k, CUPED}$ are used. 
+- If the metric is an unadjusted (i.e., no CUPED) standalone metric, then only the top two rows and first, second, fifth, and sixth columns of $\textbf{A}_{k, CUPED}$ are used. 
+\end{itemize}
+
+Return $\hat{\boldsymbol{\alpha}}_{k} = \textbf{A}_{k, CUPED}\hat{\boldsymbol{\beta}}_{k}$, as well as its covariance $n_{k}^{-1}\hat{\boldsymbol{\Sigma}}_{k} = n_{k}^{-1}\textbf{A}_{k, CUPED}\hat{\boldsymbol{\Lambda}}_{k}\textbf{A}_{k, CUPED}^{\top}$. 
+*/}
+
