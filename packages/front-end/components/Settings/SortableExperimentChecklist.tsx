@@ -172,14 +172,12 @@ export default function SortableExperimentChecklist({
           <ol>
             {experimentLaunchChecklist.map((item: ChecklistTask, i: number) => (
               <li key={`${item}-${i}`}>
-                <>
-                  <SortableChecklistItem
-                    item={item}
-                    index={i}
-                    experimentLaunchChecklist={experimentLaunchChecklist}
-                    setExperimentLaunchChecklist={setExperimentLaunchChecklist}
-                  />
-                </>
+                <SortableChecklistItem
+                  item={item}
+                  index={i}
+                  experimentLaunchChecklist={experimentLaunchChecklist}
+                  setExperimentLaunchChecklist={setExperimentLaunchChecklist}
+                />
               </li>
             ))}
           </ol>
