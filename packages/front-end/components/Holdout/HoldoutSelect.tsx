@@ -100,7 +100,7 @@ export const HoldoutSelect = ({
         mb="3"
         status="info"
         icon={<PiLightbulb size={15} />}
-        dismissable={true}
+        dismissible
         id="holdout-select-promo"
       >
         Use <strong>Holdouts</strong> to isolate units and measure the

@@ -24,7 +24,7 @@ export default forwardRef<
     size?: "sm" | "md";
     icon?: ReactNode | null;
     contentsAs?: "text" | "div";
-    dismissable?: boolean;
+    dismissible?: boolean;
     id?: string;
   } & MarginProps
 >(function Callout(
@@ -34,7 +34,7 @@ export default forwardRef<
     size = "md",
     icon,
     contentsAs = "text",
-    dismissable = false,
+    dismissible = false,
     id,
     ...containerProps
   },
@@ -42,7 +42,7 @@ export default forwardRef<
 ) {
   const [dismissed, setDismissed] = useLocalStorage(`callout:${id}`, false);
 
-  if (dismissable && dismissed && id) {
+  if (dismissible && dismissed && id) {
     return null;
   }
 
@@ -81,7 +81,7 @@ export default forwardRef<
           <RadixCallout.Text size={getRadixSize(size)}>
             {children}
           </RadixCallout.Text>
-          {dismissable && id ? (
+          {dismissible && id ? (
             <IconButton
               variant="ghost"
               color="gray"
