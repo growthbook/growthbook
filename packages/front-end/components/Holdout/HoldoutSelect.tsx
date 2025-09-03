@@ -79,12 +79,13 @@ export const HoldoutSelect = ({
       <PremiumCallout
         id="holdout-select-promo"
         commercialFeature="holdouts"
+        dismissable={true}
         mt="3"
         mb="3"
       >
         <Flex direction="row" gap="3">
           <Text>
-            Use Holdouts to isolate units and measure the true impact of
+            Use Holdouts to isolate units and measure the cumulative impact of
             changes.
           </Text>
         </Flex>
@@ -95,9 +96,9 @@ export const HoldoutSelect = ({
   if (holdoutsWithExperiment.length === 0) {
     return (
       <Callout mt="3" mb="3" status="info" icon={<PiLightbulb size={15} />}>
-        Use <strong>Holdouts</strong> to isolate units and measure the true
-        impact of changes. {/* TODO: Replace with link to holdout docs */}
-        <Link target="_blank" href="https://docs.growthbook.io/">
+        Use <strong>Holdouts</strong> to isolate units and measure the
+        cumulative impact of changes.
+        <Link target="_blank" href="https://docs.growthbook.io/app/holdouts">
           Show me how <PiArrowSquareOut size={15} />
         </Link>
       </Callout>
