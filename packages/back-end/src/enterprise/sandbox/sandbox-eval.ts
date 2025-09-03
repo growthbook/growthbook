@@ -86,9 +86,9 @@ export async function runCustomValidation(
     const shimCode = `
       (function() {
         globalThis.console = {
-          log: (...args) => hostLog.applyIgnored(undefined, args),
-          error: (...args) => hostLog.applyIgnored(undefined, args),
-          debug: (...args) => hostLog.applyIgnored(undefined, args)
+          log: (...args) => hostLog.applyIgnored(undefined, ["[log]", ...args]),
+          error: (...args) => hostLog.applyIgnored(undefined, ["[error]", ...args]),
+          debug: (...args) => hostLog.applyIgnored(undefined, ["[debug]", ...args])
         };
         globalThis.fetch = async (...args) => {
           const {_body, ...rest} = await hostFetch.applyPromise(undefined, args);
@@ -111,11 +111,11 @@ export async function runCustomValidation(
     `;
     await isolate.compileScript(wrapped).then((s) => s.run(context));
 
-    const validateRef = (await jail.get("__user_validate")) as Reference<
-      (data: unknown) => Promise<unknown>
-    >;
+    const validateRef = (await jail.get("__user_validate", {
+      reference: true,
+    })) as Reference;
 
-    if (!(validateRef instanceof Reference)) {
+    if (!validateRef) {
       throw new Error("Unable to get reference to validate function");
     }
 
@@ -124,7 +124,7 @@ export async function runCustomValidation(
     // Race between CPU-limited call and wall-clock timeout
     const resultPromise = validateRef.apply(undefined, [dataCopy], {
       arguments: { copy: true },
-      result: { copy: true },
+      result: { copy: true, promise: true },
       timeout: CPU_TIMEOUT_MS, // CPU time budget
     });
 
