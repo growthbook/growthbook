@@ -37,17 +37,25 @@ export default function PowerCalculationStatsEngineSettingsModal({
 }: Props) {
   const orgSettings = useOrgSettings();
   const pValueThresholdOrgDefault = usePValueThreshold();
-  const { ciLower: ciLowerOrgDefault, ciUpper: ciUpperOrgDefault } = useConfidenceLevels();
+  const { ciLower: ciLowerOrgDefault, ciUpper: ciUpperOrgDefault } =
+    useConfidenceLevels();
 
   const sequentialTestingTuningParameter =
     orgSettings.sequentialTestingTuningParameter ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const [currentParams, setCurrentParams] = useState(params);
   // separate state to handle undefined value better and for formatting
-  const [pValueThreshold, setPValueThreshold] = useState<number | undefined>(params.alpha);
-  const [ciUpperPercent, setCiUpperPercent] = useState<number | undefined>(alphaToChanceToWin(params.alpha));
+  const [pValueThreshold, setPValueThreshold] = useState<number | undefined>(
+    params.alpha,
+  );
+  const [ciUpperPercent, setCiUpperPercent] = useState<number | undefined>(
+    alphaToChanceToWin(params.alpha),
+  );
 
-  const defaultAlpha = params.type === "frequentist" ? pValueThresholdOrgDefault : ciLowerOrgDefault;
+  const defaultAlpha =
+    params.type === "frequentist"
+      ? pValueThresholdOrgDefault
+      : ciLowerOrgDefault;
   const currentEngine =
     currentParams.type === "bayesian"
       ? "bayesian"
