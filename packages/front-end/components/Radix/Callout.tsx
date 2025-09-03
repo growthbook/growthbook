@@ -1,11 +1,23 @@
 import { Callout as RadixCallout, Box, IconButton } from "@radix-ui/themes";
-import { forwardRef, ReactNode } from "react";
+import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { PiX } from "react-icons/pi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
 import styles from "./RadixOverrides.module.scss";
+
+type DismissibleProps = {
+  dismissible: true;
+  id: string;
+  renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
+};
+
+type UndismissibleProps = {
+  dismissible?: false;
+  id?: string;
+  renderWhenDismissed?: never;
+};
 
 export function getRadixSize(size: Size): Responsive<"1" | "2"> {
   switch (size) {
@@ -24,10 +36,8 @@ export default forwardRef<
     size?: "sm" | "md";
     icon?: ReactNode | null;
     contentsAs?: "text" | "div";
-    dismissible?: boolean;
-    id?: string;
-    renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
-  } & MarginProps
+  } & (DismissibleProps | UndismissibleProps) &
+    MarginProps
 >(function Callout(
   {
     children,
@@ -35,7 +45,7 @@ export default forwardRef<
     size = "md",
     icon,
     contentsAs = "text",
-    dismissible = false,
+    dismissible,
     id,
     renderWhenDismissed,
     ...containerProps
