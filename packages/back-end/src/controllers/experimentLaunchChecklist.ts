@@ -62,16 +62,12 @@ export async function postExperimentLaunchChecklist(
   });
 }
 
-export async function getExperimentCheckListByOrg(
-  req: AuthRequest<null, null, { projectId?: string }>,
+// This fetches the org's entire checklist - only to be used when fetching the checklist from the org's settings page
+export async function getExperimentCheckListForOrg(
+  req: AuthRequest,
   res: Response,
 ) {
   const { org } = getContextFromReq(req);
-
-  let projectId: string | undefined;
-  if (typeof req.query?.projectId === "string") {
-    projectId = req.query.projectId;
-  }
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     return res.status(200).json({
@@ -82,14 +78,39 @@ export async function getExperimentCheckListByOrg(
 
   const checklist = await getExperimentLaunchChecklist(org.id, "");
 
-  // If projectId is undefined, return the entire checklist
-  // This will be the case when fetching the list to allow an org to add/remove checklist items
-  if (projectId === undefined) {
-    return res.status(200).json({
-      status: 200,
-      checklist,
+  return res.status(200).json({
+    status: 200,
+    checklist,
+  });
+}
+
+// This fetches a checklist for a specific experiment, taking into account the experiment's project
+export async function getExperimentCheckListForExperiment(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const experiment = await getExperimentById(context, req.params.id);
+
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
     });
   }
+
+  const projectId = experiment.project || "";
+
+  if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
+    return res.status(200).json({
+      status: 200,
+      checklist: [],
+    });
+  }
+
+  const checklist = await getExperimentLaunchChecklist(org.id, "");
 
   const filteredTasks: ChecklistTask[] = [];
 
@@ -98,7 +119,7 @@ export async function getExperimentCheckListByOrg(
       filteredTasks.push(task);
       return;
     }
-    if (task.projects?.includes(projectId)) {
+    if (task.projects.includes(projectId)) {
       filteredTasks.push(task);
       return;
     }
