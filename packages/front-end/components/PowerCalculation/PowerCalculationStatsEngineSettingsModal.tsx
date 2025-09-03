@@ -12,6 +12,10 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 
 type StatsEngineWithSequential = "bayesian" | "frequentist" | "sequential";
 
+export type StatsEngineSettingsWithAlpha = StatsEngineSettings & {
+  alpha: number;
+};
+
 export function alphaToChanceToWin(alpha: number): number {
   return parseFloat((100 * (1 - alpha)).toFixed(6));
 }
@@ -22,8 +26,8 @@ export function chanceToWinToAlpha(chanceToWin: number): number {
 
 export type Props = {
   close: () => void;
-  params: StatsEngineSettings;
-  onSubmit: (_: StatsEngineSettings) => void;
+  params: StatsEngineSettingsWithAlpha;
+  onSubmit: (_: StatsEngineSettingsWithAlpha) => void;
 };
 
 export default function PowerCalculationStatsEngineSettingsModal({
@@ -33,19 +37,17 @@ export default function PowerCalculationStatsEngineSettingsModal({
 }: Props) {
   const orgSettings = useOrgSettings();
   const pValueThresholdOrgDefault = usePValueThreshold();
-  const { ciUpper: ciUpperOrgDefault } = useConfidenceLevels();
+  const { ciLower: ciLowerOrgDefault, ciUpper: ciUpperOrgDefault } = useConfidenceLevels();
 
   const sequentialTestingTuningParameter =
     orgSettings.sequentialTestingTuningParameter ||
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   const [currentParams, setCurrentParams] = useState(params);
-  // separate state to deal with 100% formatting, only show if
-  // different from default
-  const [ciUpperPercent, setCiUpperPercent] = useState<number | undefined>(
-    params.customAlpha && params.customAlpha !== 1 - ciUpperOrgDefault
-      ? alphaToChanceToWin(params.customAlpha)
-      : undefined,
-  );
+  // separate state to handle undefined value better and for formatting
+  const [pValueThreshold, setPValueThreshold] = useState<number | undefined>(params.alpha);
+  const [ciUpperPercent, setCiUpperPercent] = useState<number | undefined>(alphaToChanceToWin(params.alpha));
+
+  const defaultAlpha = params.type === "frequentist" ? pValueThresholdOrgDefault : ciLowerOrgDefault;
   const currentEngine =
     currentParams.type === "bayesian"
       ? "bayesian"
@@ -113,6 +115,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
             // reset threshold if changing engine
             if (unsetThreshold) {
               setCiUpperPercent(undefined);
+              setPValueThreshold(undefined);
             }
             setCurrentParams({
               type: type === "sequential" ? "frequentist" : type,
@@ -120,9 +123,7 @@ export default function PowerCalculationStatsEngineSettingsModal({
                 type === "sequential"
                   ? sequentialTestingTuningParameter
                   : false,
-              customAlpha: unsetThreshold
-                ? undefined
-                : currentParams.customAlpha,
+              alpha: unsetThreshold ? defaultAlpha : params.alpha,
             });
           }}
           mt="3"
@@ -147,16 +148,17 @@ export default function PowerCalculationStatsEngineSettingsModal({
               min="0.001"
               className="ml-2"
               containerClassName="mb-3"
-              value={currentParams.customAlpha?.toString() || ""}
+              value={pValueThreshold?.toString() || ""}
               placeholder={pValueThresholdOrgDefault.toString()}
               onChange={(e) => {
                 const value =
                   e.target.value === ""
                     ? undefined
                     : parseFloat(e.target.value);
+                setPValueThreshold(value);
                 setCurrentParams({
                   ...currentParams,
-                  customAlpha: value,
+                  alpha: value ?? defaultAlpha,
                 });
               }}
               helpText={
@@ -184,13 +186,9 @@ export default function PowerCalculationStatsEngineSettingsModal({
                     ? undefined
                     : parseFloat(e.target.value);
                 setCiUpperPercent(value);
-                // convert to alpha
-                const customAlpha = value
-                  ? chanceToWinToAlpha(value)
-                  : undefined;
                 setCurrentParams({
                   ...currentParams,
-                  customAlpha: customAlpha,
+                  alpha: value ? chanceToWinToAlpha(value) : defaultAlpha,
                 });
               }}
               helpText={

@@ -31,7 +31,6 @@ export type MetricParams = MetricParamsMean | MetricParamsBinomial;
 export interface StatsEngineSettings {
   type: "frequentist" | "bayesian";
   sequentialTesting: false | number;
-  customAlpha?: number;
 }
 
 export interface PowerCalculationParams {

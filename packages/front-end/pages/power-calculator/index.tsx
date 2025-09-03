@@ -98,8 +98,7 @@ const PowerCalculationPage = (): React.ReactElement => {
       nVariations: variations,
       nWeeks: WEEKS,
       targetPower: 0.8,
-      alpha:
-        statsEngineSettings.customAlpha ??
+      alpha: powerCalculationParams.alpha ||
         (statsEngineSettings.type === "frequentist"
           ? pValueThreshold
           : ciLower),
@@ -157,7 +156,15 @@ const PowerCalculationPage = (): React.ReactElement => {
             setShowModal("set-params");
           }}
           updateVariations={setVariations}
-          updateStatsEngineSettings={setStatsEngineSettings}
+          updateStatsEngineSettingsWithAlpha={(v) => {
+            setPowerCalculationParams(
+              {
+                ...powerCalculationParams,
+                alpha: v.alpha,
+              }
+            );
+            setStatsEngineSettings(v);
+          }}
           newCalculation={() => {
             setModalStatsEngineSettings(defaultStatsEngineSettings);
             setSettingsModalParams(INITIAL_FORM_PARAMS);
