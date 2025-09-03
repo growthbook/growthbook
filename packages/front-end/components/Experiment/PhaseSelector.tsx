@@ -69,8 +69,8 @@ export default function PhaseSelector({
               <span className="font-weight-bold">{phaseIndex + 1}: </span>
             )}
             <span className="date-label">
-              {date(phase.dateStarted ?? "")} —{" "}
-              {phase.dateEnded ? date(phase.dateEnded) : "now"}
+              {date(phase.dateStarted ?? "", "UTC")} —{" "}
+              {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
             </span>
           </>
         </Tooltip>
@@ -79,8 +79,8 @@ export default function PhaseSelector({
           <span className="phase-label font-weight-bold">{phase.name}</span>
           <div className="break mt-1" />
           <span className="date-label mt-1">
-            {date(phase.dateStarted ?? "")} —{" "}
-            {phase.dateEnded ? date(phase.dateEnded) : "now"}
+            {date(phase.dateStarted ?? "", "UTC")} —{" "}
+            {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
           </span>
           {!isHoldout && (
             <div className="phase-summary text-muted small">

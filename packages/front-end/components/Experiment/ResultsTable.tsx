@@ -440,7 +440,7 @@ export default function ResultsTable({
         <div className="w-100" style={{ minWidth: 700 }}>
           <table id="main-results" className="experiment-results table-sm">
             <thead>
-              <tr className="results-top-row">
+              <tr className="results-top-row" style={{ height: 45 }}>
                 {columnsToDisplay.includes("Metric & Variation Names") && (
                   <th
                     className={clsx("axis-col header-label", {
@@ -861,6 +861,9 @@ export default function ResultsTable({
                       <tr
                         className="results-variation-row align-items-center"
                         key={j}
+                        style={{
+                          height: compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT,
+                        }}
                       >
                         {columnsToDisplay.includes(
                           "Metric & Variation Names",
@@ -1079,6 +1082,20 @@ export default function ResultsTable({
                                 additionalButton={
                                   compactResults ? timeSeriesButton : undefined
                                 }
+                                onMouseMove={(e) =>
+                                  onPointerMove(e, {
+                                    x: "element-left",
+                                    targetClassName: "hover-target",
+                                    offsetY: -8,
+                                  })
+                                }
+                                onMouseLeave={onPointerLeave}
+                                onClick={(e) =>
+                                  onPointerMove(e, {
+                                    x: "element-left",
+                                    offsetY: -8,
+                                  })
+                                }
                               />
                             ) : (
                               <td></td>
@@ -1172,7 +1189,7 @@ function drawEmptyRow({
   renderLastColumn: boolean;
 }) {
   return (
-    <tr key={key} style={style} className={className}>
+    <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
       {renderLabel && (
         <td colSpan={labelColSpan}>
           <div style={{ marginTop: "var(--space-3)" }}>{label}</div>
