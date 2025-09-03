@@ -95,9 +95,16 @@ export const HoldoutSelect = ({
 
   if (holdoutsWithExperiment.length === 0) {
     return (
-      <Callout mt="3" mb="3" status="info" icon={<PiLightbulb size={15} />}>
+      <Callout
+        mt="3"
+        mb="3"
+        status="info"
+        icon={<PiLightbulb size={15} />}
+        dismissable={true}
+        id="holdout-select-promo"
+      >
         Use <strong>Holdouts</strong> to isolate units and measure the
-        cumulative impact of changes.
+        cumulative impact of changes.{" "}
         <Link target="_blank" href="https://docs.growthbook.io/app/holdouts">
           Show me how <PiArrowSquareOut size={15} />
         </Link>
