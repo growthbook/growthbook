@@ -93,13 +93,14 @@ export default function DataVizFilter({
 
   const createFilterConfig = (
     column: string,
-    type: FilterConfiguration["type"],
-    filterType?: string,
+    columnType: FilterConfiguration["columnType"],
+    filterMethod?: string,
   ): FilterConfiguration => {
     // If no filterType is provided, use defaults based on type
-    const effectiveFilterType = filterType || getDefaultFilterTypeForType(type);
+    const effectiveFilterType =
+      filterMethod || getDefaultFilterTypeForType(columnType);
 
-    switch (type) {
+    switch (columnType) {
       case "date": {
         if (effectiveFilterType === "dateRange") {
           // Calculate last 30 days as default
@@ -109,8 +110,8 @@ export default function DataVizFilter({
 
           return {
             column,
-            type: "date",
-            filterType: "dateRange",
+            columnType: "date",
+            filterMethod: "dateRange",
             config: {
               startDate: thirtyDaysAgo.toISOString().split("T")[0], // YYYY-MM-DD format
               endDate: today.toISOString().split("T")[0],
@@ -119,8 +120,8 @@ export default function DataVizFilter({
         } else {
           return {
             column,
-            type: "date",
-            filterType: effectiveFilterType as
+            columnType: "date",
+            filterMethod: effectiveFilterType as
               | "today"
               | "last7Days"
               | "last30Days",
@@ -132,15 +133,15 @@ export default function DataVizFilter({
         if (effectiveFilterType === "numberRange") {
           return {
             column,
-            type: "number",
-            filterType: "numberRange",
+            columnType: "number",
+            filterMethod: "numberRange",
             config: { min: "0", max: "100" },
           };
         } else {
           return {
             column,
-            type: "number",
-            filterType: effectiveFilterType as
+            columnType: "number",
+            filterMethod: effectiveFilterType as
               | "greaterThan"
               | "lessThan"
               | "equalTo"
@@ -154,28 +155,28 @@ export default function DataVizFilter({
         if (effectiveFilterType === "includes") {
           return {
             column,
-            type: "string",
-            filterType: "includes",
+            columnType: "string",
+            filterMethod: "includes",
             config: { values: [] },
           };
         } else {
           return {
             column,
-            type: "string",
-            filterType: "contains",
+            columnType: "string",
+            filterMethod: "contains",
             config: { value: "" },
           };
         }
       }
       default:
-        return type satisfies never;
+        return columnType satisfies never;
     }
   };
 
   const getDefaultFilterTypeForType = (
-    type: FilterConfiguration["type"],
+    columnType: FilterConfiguration["columnType"],
   ): string => {
-    switch (type) {
+    switch (columnType) {
       case "date":
         return "dateRange";
       case "number":
@@ -183,15 +184,15 @@ export default function DataVizFilter({
       case "string":
         return "includes";
       default:
-        return type satisfies never;
+        return columnType satisfies never;
     }
   };
 
-  const changeFilterType = (newFilterType: string) => {
+  const changeFilterMethod = (newFilterMethod: string) => {
     const newFilter = createFilterConfig(
       filter.column,
-      filter.type,
-      newFilterType,
+      filter.columnType,
+      newFilterMethod,
     );
     onFilterChange(newFilter);
   };
@@ -208,7 +209,7 @@ export default function DataVizFilter({
 
   return (
     <>
-      {filter.column !== undefined && filter.type !== undefined && (
+      {filter.column !== undefined && filter.columnType !== undefined && (
         <Flex direction="column" gap="2">
           <Select
             label={
@@ -238,12 +239,12 @@ export default function DataVizFilter({
             </Text>
             <Select
               style={{ flex: 1 }}
-              value={filter.type}
+              value={filter.columnType}
               setValue={(v) => {
                 if (!v) return;
                 const newFilter = createFilterConfig(
                   filter.column || "",
-                  v as FilterConfiguration["type"],
+                  v as FilterConfiguration["columnType"],
                 );
                 onFilterChange(newFilter);
               }}
@@ -264,17 +265,17 @@ export default function DataVizFilter({
               style={{ flex: 1 }}
               size="2"
               placeholder="Select Option"
-              value={filter.filterType || ""}
+              value={filter.filterMethod || ""}
               setValue={(v) => {
                 if (!v) return;
-                changeFilterType(v);
+                changeFilterMethod(v);
               }}
             >
               {filterOptions
                 .filter(
                   (filterOption) =>
-                    filter.type &&
-                    filterOption.supportedTypes.includes(filter.type),
+                    filter.columnType &&
+                    filterOption.supportedTypes.includes(filter.columnType),
                 )
                 .map((filterOption) => (
                   <SelectItem
@@ -288,52 +289,53 @@ export default function DataVizFilter({
           </Flex>
 
           {/* Number Range Inputs */}
-          {filter.type === "number" && filter.filterType === "numberRange" && (
-            <>
-              <Flex direction="row" justify="between" align="center">
-                <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                  Min Value
-                </Text>
-                <TextField.Root
-                  style={{ flex: 1 }}
-                  size="2"
-                  type="number"
-                  placeholder="Minimum"
-                  required
-                  value={filter.config?.min?.toString() || ""}
-                  onChange={(e) => {
-                    const value = e.target.value || "";
-                    updateFilterConfig({ min: value });
-                  }}
-                />
-              </Flex>
-              <Flex direction="row" justify="between" align="center">
-                <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                  Max Value
-                </Text>
-                <TextField.Root
-                  style={{ flex: 1 }}
-                  size="2"
-                  type="number"
-                  placeholder="Maximum"
-                  required
-                  value={filter.config?.max?.toString() || ""}
-                  onChange={(e) => {
-                    const value = e.target.value || "";
-                    updateFilterConfig({ max: value });
-                  }}
-                />
-              </Flex>
-            </>
-          )}
+          {filter.columnType === "number" &&
+            filter.filterMethod === "numberRange" && (
+              <>
+                <Flex direction="row" justify="between" align="center">
+                  <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                    Min Value
+                  </Text>
+                  <TextField.Root
+                    style={{ flex: 1 }}
+                    size="2"
+                    type="number"
+                    placeholder="Minimum"
+                    required
+                    value={filter.config?.min?.toString() || ""}
+                    onChange={(e) => {
+                      const value = e.target.value || "";
+                      updateFilterConfig({ min: value });
+                    }}
+                  />
+                </Flex>
+                <Flex direction="row" justify="between" align="center">
+                  <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                    Max Value
+                  </Text>
+                  <TextField.Root
+                    style={{ flex: 1 }}
+                    size="2"
+                    type="number"
+                    placeholder="Maximum"
+                    required
+                    value={filter.config?.max?.toString() || ""}
+                    onChange={(e) => {
+                      const value = e.target.value || "";
+                      updateFilterConfig({ max: value });
+                    }}
+                  />
+                </Flex>
+              </>
+            )}
 
           {/* Single Number Value Input */}
-          {filter.type === "number" &&
-            (filter.filterType === "greaterThan" ||
-              filter.filterType === "greaterThanOrEqualTo" ||
-              filter.filterType === "lessThan" ||
-              filter.filterType === "lessThanOrEqualTo" ||
-              filter.filterType === "equalTo") && (
+          {filter.columnType === "number" &&
+            (filter.filterMethod === "greaterThan" ||
+              filter.filterMethod === "greaterThanOrEqualTo" ||
+              filter.filterMethod === "lessThan" ||
+              filter.filterMethod === "lessThanOrEqualTo" ||
+              filter.filterMethod === "equalTo") && (
               <Flex direction="row" justify="between" align="center">
                 <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
                   Value
@@ -354,29 +356,30 @@ export default function DataVizFilter({
             )}
 
           {/* String Contains Input */}
-          {filter.type === "string" && filter.filterType === "contains" && (
-            <Flex direction="row" justify="between" align="center">
-              <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
-                Search Text
-              </Text>
-              <TextField.Root
-                style={{ flex: 1 }}
-                size="2"
-                type="text"
-                placeholder="Enter text to search for"
-                required
-                value={String(filter.config?.value || "")}
-                onChange={(e) => {
-                  const value = e.target.value || "";
-                  updateFilterConfig({ value });
-                }}
-              />
-            </Flex>
-          )}
+          {filter.columnType === "string" &&
+            filter.filterMethod === "contains" && (
+              <Flex direction="row" justify="between" align="center">
+                <Text as="label" size="2" mr="2" style={{ flex: 1 }}>
+                  Search Text
+                </Text>
+                <TextField.Root
+                  style={{ flex: 1 }}
+                  size="2"
+                  type="text"
+                  placeholder="Enter text to search for"
+                  required
+                  value={String(filter.config?.value || "")}
+                  onChange={(e) => {
+                    const value = e.target.value || "";
+                    updateFilterConfig({ value });
+                  }}
+                />
+              </Flex>
+            )}
 
           {/* String Multi-Select */}
-          {filter.type === "string" &&
-            filter.filterType === "includes" &&
+          {filter.columnType === "string" &&
+            filter.filterMethod === "includes" &&
             rows && (
               <MultiSelectField
                 label={
@@ -404,7 +407,7 @@ export default function DataVizFilter({
             )}
 
           {/* Date Range Inputs */}
-          {filter.filterType === "dateRange" && (
+          {filter.filterMethod === "dateRange" && (
             <>
               <Flex direction="row" justify="between" align="center">
                 <Text as="label" size="2" mr="2" style={{ flex: 1 }}>

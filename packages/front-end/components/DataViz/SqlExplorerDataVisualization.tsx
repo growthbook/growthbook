@@ -146,7 +146,7 @@ export function DataVisualizationDisplay({
         // Handle null/undefined values
         if (rowValue == null) return false;
 
-        switch (filter.filterType) {
+        switch (filter.filterMethod) {
           // Date filters
           case "today": {
             const filterDate = new Date(rowValue);

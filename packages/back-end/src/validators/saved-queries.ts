@@ -54,8 +54,8 @@ const filterConfigurationValidator = z.union([
   // Date filters
   z.object({
     column: z.string(),
-    type: z.literal("date"),
-    filterType: z.literal("dateRange"),
+    columnType: z.literal("date"),
+    filterMethod: z.literal("dateRange"),
     config: z
       .object({
         startDate: z.string().optional(),
@@ -67,16 +67,16 @@ const filterConfigurationValidator = z.union([
   }),
   z.object({
     column: z.string(),
-    type: z.literal("date"),
-    filterType: z.enum(["today", "last7Days", "last30Days"]),
+    columnType: z.literal("date"),
+    filterMethod: z.enum(["today", "last7Days", "last30Days"]),
     config: z.object({}).optional(), // No config needed
   }),
 
   // Number filters
   z.object({
     column: z.string(),
-    type: z.literal("number"),
-    filterType: z.literal("numberRange"),
+    columnType: z.literal("number"),
+    filterMethod: z.literal("numberRange"),
     config: z
       .object({
         min: z.union([z.string(), z.number()]).optional(),
@@ -88,8 +88,8 @@ const filterConfigurationValidator = z.union([
   }),
   z.object({
     column: z.string(),
-    type: z.literal("number"),
-    filterType: z.enum([
+    columnType: z.literal("number"),
+    filterMethod: z.enum([
       "greaterThan",
       "lessThan",
       "equalTo",
@@ -104,16 +104,16 @@ const filterConfigurationValidator = z.union([
   // String filters
   z.object({
     column: z.string(),
-    type: z.literal("string"),
-    filterType: z.literal("contains"),
+    columnType: z.literal("string"),
+    filterMethod: z.literal("contains"),
     config: z.object({
       value: z.string(),
     }),
   }),
   z.object({
     column: z.string(),
-    type: z.literal("string"),
-    filterType: z.literal("includes"),
+    columnType: z.literal("string"),
+    filterMethod: z.literal("includes"),
     config: z.object({
       values: z.array(z.string()),
     }),

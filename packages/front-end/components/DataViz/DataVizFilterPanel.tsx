@@ -206,8 +206,8 @@ export default function DataVizFilterPanel({
 
                     newFilter = {
                       column: firstColumnFilterOption.column,
-                      type: "date",
-                      filterType: "dateRange",
+                      columnType: "date",
+                      filterMethod: "dateRange",
                       config: {
                         startDate: thirtyDaysAgo.toISOString().split("T")[0],
                         endDate: today.toISOString().split("T")[0],
@@ -216,15 +216,15 @@ export default function DataVizFilterPanel({
                   } else if (type === "number") {
                     newFilter = {
                       column: firstColumnFilterOption.column,
-                      type: "number",
-                      filterType: "greaterThan",
+                      columnType: "number",
+                      filterMethod: "greaterThan",
                       config: { value: "0" },
                     };
                   } else {
                     newFilter = {
                       column: firstColumnFilterOption.column,
-                      type: "string",
-                      filterType: "includes",
+                      columnType: "string",
+                      filterMethod: "includes",
                       config: { values: [] },
                     };
                   }

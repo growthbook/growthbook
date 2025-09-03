@@ -253,14 +253,14 @@ export default function SqlExplorerModal({
             );
           }
 
-          if (!filter.type) {
+          if (!filter.columnType) {
             setTab(`visualization-${index}`);
             throw new Error(
               `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a type selection.`,
             );
           }
 
-          if (!filter.filterType) {
+          if (!filter.filterMethod) {
             setTab(`visualization-${index}`);
             throw new Error(
               `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a filter type selection.`,
@@ -269,28 +269,28 @@ export default function SqlExplorerModal({
 
           // // Validate filter type matches the data type
           const filterOptionIndex = filterOptions.findIndex(
-            (option) => option.value === filter.filterType,
+            (option) => option.value === filter.filterMethod,
           );
 
           if (filterOptionIndex === -1) {
             setTab(`visualization-${index}`);
             throw new Error(
-              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterType}" for data type "${filter.type}".`,
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterMethod}" for data type "${filter.columnType}".`,
             );
           }
 
           const validFilterTypes =
             filterOptions[filterOptionIndex].supportedTypes;
 
-          if (!validFilterTypes.includes(filter.type)) {
+          if (!validFilterTypes.includes(filter.columnType)) {
             setTab(`visualization-${index}`);
             throw new Error(
-              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterType}" for data type "${filter.type}".`,
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterMethod}" for data type "${filter.columnType}".`,
             );
           }
 
           // Validate required config values based on filter type using discriminated union
-          switch (filter.filterType) {
+          switch (filter.filterMethod) {
             case "dateRange":
               if (!filter.config.startDate && !filter.config.endDate) {
                 setTab(`visualization-${index}`);
