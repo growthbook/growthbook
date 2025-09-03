@@ -24,7 +24,7 @@ export const HoldoutSelect = ({
 }) => {
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
-  const { holdouts, experimentsMap } = useHoldouts(selectedProject);
+  const { holdouts, experimentsMap } = useHoldouts();
 
   const hasHoldouts = hasCommercialFeature("holdouts");
 
