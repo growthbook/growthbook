@@ -194,6 +194,7 @@ export default function SchemaBrowser({
                           <div key={j}>
                             <Collapsible
                               className="pb-1"
+                              lazyRender={true}
                               onTriggerOpening={async () => {
                                 const currentDate = new Date();
                                 const dateLastUpdated = new Date(
