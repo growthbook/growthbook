@@ -11,11 +11,10 @@ import React, {
   useRef,
 } from "react";
 import { cloneDeep } from "lodash";
-import { VariableSizeList as List } from "react-window";
+import { List, ListImperativeAPI } from "react-window";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import clsx from "clsx";
-import { ErrorHandler } from "next/dist/server/app-render/create-error-handler";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { CursorData } from "@/components/Segments/SegmentForm";
@@ -43,38 +42,38 @@ type Props = {
 interface SchemaItemProps {
   index: number;
   style: React.CSSProperties;
-  data: {
-    schemas: Array<{
-      databaseName: string;
-      schemaName: string;
-      tables: Table[];
-      displayName: string;
-      id: string;
-    }>;
-    currentTable: string;
-    datasource: DataSourceInterfaceWithParams;
-    informationSchema: InformationSchemaInterface;
-    apiCall: <T>(
-      url: string | null,
-      options?: RequestInit,
-      errorHandler?: ErrorHandler,
-    ) => Promise<T>;
-    onTableClick: (
-      e: React.MouseEvent,
-      params: {
-        catalog: string;
-        schema: string;
-        tableName: string;
-      },
-      tableId: string,
-    ) => void;
-    expandedSchemas: Set<string>;
-    onToggleExpansion: (schemaId: string) => void;
-  };
+  schemas: Array<{
+    databaseName: string;
+    schemaName: string;
+    tables: Table[];
+    displayName: string;
+    id: string;
+  }>;
+  currentTable: string;
+  datasource: DataSourceInterfaceWithParams;
+  informationSchema: InformationSchemaInterface;
+  apiCall: <T>(
+    url: string | null,
+    options?: RequestInit,
+    errorHandler?: (error: Error) => void,
+  ) => Promise<T>;
+  onTableClick: (
+    e: React.MouseEvent,
+    params: {
+      catalog: string;
+      schema: string;
+      tableName: string;
+    },
+    tableId: string,
+  ) => void;
+  expandedSchemas: Set<string>;
+  onToggleExpansion: (schemaId: string) => void;
 }
 
-const SchemaItem = React.memo(({ index, style, data }: SchemaItemProps) => {
-  const {
+const SchemaItem = React.memo(
+  ({
+    index,
+    style,
     schemas,
     currentTable,
     datasource,
@@ -83,96 +82,98 @@ const SchemaItem = React.memo(({ index, style, data }: SchemaItemProps) => {
     onTableClick,
     expandedSchemas,
     onToggleExpansion,
-  } = data;
-  const schemaItem = schemas[index];
-  const isExpanded = expandedSchemas.has(schemaItem.id);
+  }: SchemaItemProps) => {
+    const schemaItem = schemas[index];
+    const isExpanded = expandedSchemas.has(schemaItem.id);
 
-  return (
-    <div style={style}>
-      <Collapsible
-        className="pb-1"
-        open={isExpanded}
-        onTriggerOpening={async () => {
-          if (!isExpanded) {
-            onToggleExpansion(schemaItem.id);
+    return (
+      <div style={style}>
+        <Collapsible
+          className="pb-1"
+          open={isExpanded}
+          onTriggerOpening={async () => {
+            if (!isExpanded) {
+              onToggleExpansion(schemaItem.id);
+            }
+
+            const currentDate = new Date();
+            const dateLastUpdated = new Date(informationSchema.dateUpdated);
+            // To calculate the time difference of two dates
+            const diffInMilliseconds =
+              currentDate.getTime() - dateLastUpdated.getTime();
+
+            // To calculate the no. of days between two dates
+            const diffInDays = Math.floor(
+              diffInMilliseconds / (1000 * 3600 * 24),
+            );
+
+            if (diffInDays > 30) {
+              await apiCall<{
+                status: number;
+                message?: string;
+              }>(`/datasource/${datasource.id}/schema`, {
+                method: "PUT",
+                body: JSON.stringify({
+                  informationSchemaId: informationSchema.id,
+                }),
+              });
+            }
+          }}
+          onTriggerClosing={() => {
+            if (isExpanded) {
+              onToggleExpansion(schemaItem.id);
+            }
+          }}
+          trigger={
+            <>
+              <FaAngleRight />
+              {schemaItem.displayName}
+            </>
           }
-
-          const currentDate = new Date();
-          const dateLastUpdated = new Date(informationSchema.dateUpdated);
-          // To calculate the time difference of two dates
-          const diffInMilliseconds =
-            currentDate.getTime() - dateLastUpdated.getTime();
-
-          // To calculate the no. of days between two dates
-          const diffInDays = Math.floor(
-            diffInMilliseconds / (1000 * 3600 * 24),
-          );
-
-          if (diffInDays > 30) {
-            await apiCall<{
-              status: number;
-              message?: string;
-            }>(`/datasource/${datasource.id}/schema`, {
-              method: "PUT",
-              body: JSON.stringify({
-                informationSchemaId: informationSchema.id,
-              }),
-            });
+          triggerWhenOpen={
+            <>
+              <FaAngleDown />
+              {schemaItem.displayName}
+            </>
           }
-        }}
-        onTriggerClosing={() => {
-          if (isExpanded) {
-            onToggleExpansion(schemaItem.id);
-          }
-        }}
-        trigger={
-          <>
-            <FaAngleRight />
-            {schemaItem.displayName}
-          </>
-        }
-        triggerWhenOpen={
-          <>
-            <FaAngleDown />
-            {schemaItem.displayName}
-          </>
-        }
-        triggerStyle={{
-          fontWeight: "bold",
-          whiteSpace: "nowrap",
-        }}
-        transitionTime={1}
-      >
-        {schemaItem.tables.map((table, k) => {
-          return (
-            <div
-              className={clsx(
-                table.id === currentTable && "bg-secondary rounded text-white",
-                "pl-3 py-1",
-              )}
-              style={{ userSelect: "none" }}
-              role="button"
-              key={k}
-              onClick={async (e) =>
-                onTableClick(
-                  e,
-                  {
-                    catalog: schemaItem.databaseName,
-                    schema: schemaItem.schemaName,
-                    tableName: table.tableName,
-                  },
-                  table.id,
-                )
-              }
-            >
-              <FaTable /> {table.tableName}
-            </div>
-          );
-        })}
-      </Collapsible>
-    </div>
-  );
-});
+          triggerStyle={{
+            fontWeight: "bold",
+            whiteSpace: "nowrap",
+          }}
+          transitionTime={1}
+        >
+          {schemaItem.tables.map((table, k) => {
+            return (
+              <div
+                className={clsx(
+                  table.id === currentTable &&
+                    "bg-secondary rounded text-white",
+                  "pl-3 py-1",
+                )}
+                style={{ userSelect: "none" }}
+                role="button"
+                key={k}
+                onClick={async (e) =>
+                  onTableClick(
+                    e,
+                    {
+                      catalog: schemaItem.databaseName,
+                      schema: schemaItem.schemaName,
+                      tableName: table.tableName,
+                    },
+                    table.id,
+                  )
+                }
+              >
+                <FaTable /> {table.tableName}
+              </div>
+            );
+          })}
+        </Collapsible>
+      </div>
+    );
+  },
+);
 
 SchemaItem.displayName = "SchemaItem";
 
@@ -196,7 +197,7 @@ export default function SchemaBrowser({
   const [expandedSchemas, setExpandedSchemas] = useState<Set<string>>(
     new Set(),
   );
-  const listRef = useRef<List>(null);
+  const listRef = useRef<ListImperativeAPI | null>(null);
 
   const [retryCount, setRetryCount] = useState(1);
 
@@ -388,52 +389,20 @@ export default function SchemaBrowser({
   );
 
   // Toggle expansion state
-  const toggleSchemaExpansion = useCallback(
-    (schemaId: string) => {
-      setExpandedSchemas((prev) => {
-        const newSet = new Set(prev);
-        if (newSet.has(schemaId)) {
-          newSet.delete(schemaId);
-        } else {
-          newSet.add(schemaId);
-        }
-        return newSet;
-      });
-
-      // Reset the virtualized list to recalculate heights
-      const schemaIndex = uniqueDbSchemaCombos.findIndex(
-        (schema) => schema.id === schemaId,
-      );
-      if (schemaIndex >= 0 && listRef.current) {
-        listRef.current.resetAfterIndex(schemaIndex, true);
+  const toggleSchemaExpansion = useCallback((schemaId: string) => {
+    setExpandedSchemas((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(schemaId)) {
+        newSet.delete(schemaId);
+      } else {
+        newSet.add(schemaId);
       }
-    },
-    [uniqueDbSchemaCombos],
-  );
+      return newSet;
+    });
 
-  // Data for react-window virtualized list
-  const schemaListData = useMemo(
-    () => ({
-      schemas: uniqueDbSchemaCombos,
-      currentTable,
-      datasource,
-      informationSchema: informationSchema!,
-      apiCall,
-      onTableClick: handleTableClick,
-      expandedSchemas,
-      onToggleExpansion: toggleSchemaExpansion,
-    }),
-    [
-      uniqueDbSchemaCombos,
-      currentTable,
-      datasource,
-      informationSchema,
-      apiCall,
-      handleTableClick,
-      expandedSchemas,
-      toggleSchemaExpansion,
-    ],
-  );
+    // Note: react-window v2 doesn't have resetAfterIndex,
+    // the component will automatically re-render when data changes
+  }, []);
 
   if (!data) return <LoadingSpinner />;
 
@@ -467,15 +436,27 @@ export default function SchemaBrowser({
                 }}
               >
                 <List
-                  ref={listRef}
-                  height={maxSchemaListHeight}
-                  width="100%"
-                  itemCount={uniqueDbSchemaCombos.length}
-                  itemSize={getSchemaItemHeight}
-                  itemData={schemaListData}
-                >
-                  {SchemaItem}
-                </List>
+                  listRef={listRef}
+                  defaultHeight={maxSchemaListHeight}
+                  rowCount={uniqueDbSchemaCombos.length}
+                  rowHeight={getSchemaItemHeight}
+                  rowProps={{}}
+                  rowComponent={({ index, style }) => (
+                    <SchemaItem
+                      index={index}
+                      style={style}
+                      schemas={uniqueDbSchemaCombos}
+                      currentTable={currentTable}
+                      datasource={datasource}
+                      informationSchema={informationSchema!}
+                      apiCall={apiCall}
+                      onTableClick={handleTableClick}
+                      expandedSchemas={expandedSchemas}
+                      onToggleExpansion={toggleSchemaExpansion}
+                    />
+                  )}
+                  style={{ height: maxSchemaListHeight, width: "100%" }}
+                />
               </div>
             ) : (
               <div className="p-2">

@@ -9528,6 +9528,13 @@
   dependencies:
     "@types/react" "*"
 
+"@types/react-window@^1.8.8":
+  version "1.8.8"
+  resolved "https://registry.yarnpkg.com/@types/react-window/-/react-window-1.8.8.tgz#c20645414d142364fbe735818e1c1e0a145696e3"
+  integrity sha512-8Ls660bHR1AUA2kuRvVG9D/4XpRC6wjAaPT9dil7Ckc76eP9TKWZwwmgfq8Q1LANX3QNDnoU4Zp48A3w+zK69Q==
+  dependencies:
+    "@types/react" "*"
+
 "@types/react@*", "@types/react@^18.0.15":
   version "18.0.15"
   resolved "https://registry.npmjs.org/@types/react/-/react-18.0.15.tgz"
@@ -20271,6 +20278,11 @@ react-virtual@^2.8.2:
   integrity sha512-Ir6+oPQZTVHfa6+JL9M7cvMILstFZH/H3jqeYeKI4MSUX+rIruVwFC6nGVXw9wqAw8L0Kg2KvfXxI85OvYQdpQ==
   dependencies:
     "@reach/observe-rect" "^1.1.0"
+
+react-window@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/react-window/-/react-window-2.0.2.tgz#33db244d767a1eb44783918e72c1a7daf2f6890d"
+  integrity sha512-KCDGR+5qB6hG/eDWCNZku5ERMV21vjMEDJeobqPXI0/foVDaqjf+Fsum4iJu0ftLUTxh9yvZ9t7T+SJ7woOLFw==
 
 react@^18.2.0:
   version "18.2.0"
