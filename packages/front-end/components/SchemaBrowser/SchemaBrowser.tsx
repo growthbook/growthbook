@@ -1,4 +1,4 @@
-import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import React, {
   Fragment,
@@ -21,7 +21,6 @@ import {
   PanelGroup,
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
-import { getTablePath } from "@/services/datasources";
 import SchemaBrowserWrapper from "./SchemaBrowserWrapper";
 import RetryInformationSchemaCard from "./RetryInformationSchemaCard";
 import PendingInformationSchemaCard from "./PendingInformationSchemaCard";
@@ -40,7 +39,7 @@ export default function SchemaBrowser({
   cursorData,
 }: Props) {
   const { data, mutate } = useApi<{
-    informationSchema: InformationSchemaInterface;
+    informationSchema: InformationSchemaInterfaceWithPaths;
   }>(`/datasource/${datasource.id}/schema`);
 
   const informationSchema = data?.informationSchema;
@@ -96,22 +95,14 @@ export default function SchemaBrowser({
   }
 
   const handleTableClick = useCallback(
-    async (
-      e,
-      params: {
-        catalog: string;
-        schema: string;
-        tableName: string;
-      },
-      tableId: string,
-    ) => {
+    async (e, path: string, tableId: string) => {
       setError(null);
       if (e.detail === 2) {
         if (!inputArray || !updateSqlInput) return;
         const updatedStr = pastePathIntoExistingQuery(
           inputArray[row] || "",
           column,
-          getTablePath(datasource.type, params),
+          path,
         );
 
         const updatedInputArray = cloneDeep(inputArray);
@@ -122,7 +113,7 @@ export default function SchemaBrowser({
 
       setCurrentTable(tableId);
     },
-    [inputArray, updateSqlInput, row, column, datasource.type],
+    [inputArray, updateSqlInput, row, column],
   );
 
   useEffect(() => {
@@ -301,15 +292,7 @@ export default function SchemaBrowser({
                                     role="button"
                                     key={k}
                                     onClick={(e) =>
-                                      handleTableClick(
-                                        e,
-                                        {
-                                          catalog: database.databaseName,
-                                          schema: schema.schemaName,
-                                          tableName: table.tableName,
-                                        },
-                                        table.id,
-                                      )
+                                      handleTableClick(e, table.path, table.id)
                                     }
                                   >
                                     <FaTable /> {table.tableName}
