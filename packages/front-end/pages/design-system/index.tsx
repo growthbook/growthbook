@@ -567,6 +567,24 @@ export default function DesignSystemPage() {
           <Callout status="warning">This is a warning callout.</Callout>
           <Callout status="error">This is an error callout.</Callout>
           <Callout status="success">This is a success callout.</Callout>
+          <Callout
+            status="info"
+            dismissible
+            id="design-system-dismissable"
+            renderWhenDismissed={(undismiss) => (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  undismiss();
+                }}
+              >
+                Un-dismiss
+              </a>
+            )}
+          >
+            This is a dismissible callout.
+          </Callout>
         </Flex>
 
         <h3>PremiumCallout</h3>
