@@ -786,10 +786,33 @@ export function getDatabasePath(
   }
 }
 
+// Simple memoization cache for getInformationSchemaWithPaths
+const informationSchemaCache = new Map<
+  string,
+  InformationSchemaInterfaceWithPaths
+>();
+
 export function getInformationSchemaWithPaths(
   informationSchema: InformationSchemaInterface,
   datasourceType: DataSourceType,
 ): InformationSchemaInterfaceWithPaths {
+  // Create a cache key based on the datasource type and a hash of the schema structure
+  const cacheKey = `${datasourceType}-${JSON.stringify(
+    informationSchema.databases.map((db) => ({
+      name: db.databaseName,
+      schemas: db.schemas.map((s) => ({
+        name: s.schemaName,
+        tables: s.tables.map((t) => t.tableName),
+      })),
+    })),
+  )}`;
+
+  // Check if we have a cached result
+  if (informationSchemaCache.has(cacheKey)) {
+    console.log("using cached result", cacheKey);
+    return informationSchemaCache.get(cacheKey)!;
+  }
+
   // Create the enriched databases array with path properties
   const enrichedDatabases = informationSchema.databases.map((db) => {
     const path = getDatabasePath(datasourceType, {
@@ -830,8 +853,13 @@ export function getInformationSchemaWithPaths(
   });
 
   // Return the complete enriched information schema
-  return {
+  const result = {
     ...informationSchema,
     databases: enrichedDatabases,
   };
+
+  // Cache the result
+  informationSchemaCache.set(cacheKey, result);
+
+  return result;
 }
