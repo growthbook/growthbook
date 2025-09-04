@@ -40,11 +40,6 @@ const AddToHoldoutModal = ({
       submit={
         showHoldoutSelect
           ? form.handleSubmit(async (value) => {
-              console.log(value);
-              if (value.holdoutId === "none") {
-                value.holdoutId = "";
-              }
-
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
                 body: JSON.stringify(value),
@@ -82,6 +77,7 @@ const AddToHoldoutModal = ({
             form.setValue("holdoutId", holdoutId);
           }}
           selectedHoldoutId={form.watch("holdoutId")}
+          formType="experiment"
         />
       )}
     </Modal>

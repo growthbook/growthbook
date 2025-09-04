@@ -17,6 +17,7 @@ import {
   isBinomialMetric,
   getDelayWindowHours,
   getColumnExpression,
+  isCappableMetricType,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -2426,7 +2427,8 @@ export default abstract class SqlIntegration
       metric.cappingSettings.type === "percentile" &&
       !!metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !quantileMetric;
+      isCappableMetricType(metric);
+
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: `m.${alias}_value`,
       metric,
@@ -3190,14 +3192,14 @@ export default abstract class SqlIntegration
       metric.cappingSettings.type === "percentile" &&
       !!metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !quantileMetric;
+      isCappableMetricType(metric);
 
     const denominatorIsPercentileCapped =
       denominator &&
       denominator.cappingSettings.type === "percentile" &&
       !!denominator.cappingSettings.value &&
       denominator.cappingSettings.value < 1 &&
-      !quantileMetric;
+      isCappableMetricType(denominator);
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: "m.value",
       metric,
@@ -4048,10 +4050,12 @@ export default abstract class SqlIntegration
     capValueCol?: string;
     columnRef?: ColumnRef | null;
   }): string {
+    // Assumes cappable metrics do not have aggregate filters
+    // which is true for now
     if (
       metric?.cappingSettings.type === "absolute" &&
       metric.cappingSettings.value &&
-      !quantileMetricType(metric)
+      isCappableMetricType(metric)
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
@@ -4062,7 +4066,7 @@ export default abstract class SqlIntegration
       metric?.cappingSettings.type === "percentile" &&
       metric.cappingSettings.value &&
       metric.cappingSettings.value < 1 &&
-      !quantileMetricType(metric)
+      isCappableMetricType(metric)
     ) {
       return `LEAST(
         ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
@@ -5162,7 +5166,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         endDate,
         overrideConversionWindows,
       )}
-        ${metricQuantileSettings?.ignoreZeros ? `AND ${col} != 0` : ""}
+        ${metricQuantileSettings?.ignoreZeros && metricQuantileSettings?.type === "event" ? `AND ${col} != 0` : ""}
       `,
       `${col}`,
       `NULL`,
@@ -5197,13 +5201,18 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ? columnRef?.aggregateFilterColumn
         : columnRef?.column;
 
+      const nullIfZero =
+        metric.quantileSettings?.ignoreZeros &&
+        metric.quantileSettings?.type === "unit";
+
       if (
         !hasAggregateFilter &&
         (isBinomialMetric(metric) || column === "$$distinctUsers")
       ) {
         return `COALESCE(MAX(${valueColumn}), 0)`;
       } else if (column === "$$count") {
-        return `COUNT(${valueColumn})`;
+        const aggColumn = `COUNT(${valueColumn})`;
+        return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
       } else if (
         metric.metricType === "quantile" &&
         metric.quantileSettings?.type === "event"
@@ -5214,26 +5223,23 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           "0",
         )})`;
       } else if (
-        metric.metricType === "quantile" &&
-        metric.quantileSettings?.type === "unit" &&
-        metric.quantileSettings?.ignoreZeros
-      ) {
-        return `SUM(${valueColumn})`;
-      } else if (
         !columnRef?.column.startsWith("$$") &&
         columnRef?.aggregation === "count distinct"
       ) {
         if (willReaggregate) {
           return this.hllAggregate(valueColumn);
         }
-        return this.hllCardinality(this.hllAggregate(valueColumn));
+        const aggColumn = this.hllCardinality(this.hllAggregate(valueColumn));
+        return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
       } else if (
         !columnRef?.column.startsWith("$$") &&
         columnRef?.aggregation === "max"
       ) {
-        return `COALESCE(MAX(${valueColumn}), 0)`;
+        const aggColumn = `COALESCE(MAX(${valueColumn}), 0)`;
+        return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
       } else {
-        return `SUM(COALESCE(${valueColumn}, 0))`;
+        const aggColumn = `SUM(COALESCE(${valueColumn}, 0))`;
+        return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
       }
     }
 

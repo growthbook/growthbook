@@ -41,6 +41,7 @@ export const createSafeRolloutValidator = z.object({
   maxDuration: MaxDuration,
   autoRollback: z.boolean(),
   rampUpSchedule: rampUpSchedule.partial().optional(),
+  seed: z.string().optional(),
 });
 export type CreateSafeRolloutInterface = z.infer<
   typeof createSafeRolloutValidator

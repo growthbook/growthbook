@@ -5,7 +5,6 @@ import {
   PowerCalculationParams,
   PowerCalculationResults,
   PowerCalculationSuccessResults,
-  StatsEngineSettings,
 } from "shared/power";
 import { Box } from "@radix-ui/themes";
 import { LinePath } from "@visx/shape";
@@ -27,7 +26,10 @@ import Callout from "@/components/Radix/Callout";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
 import Frame from "@/components/Radix/Frame";
-import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
+import PowerCalculationStatsEngineSettingsModal, {
+  alphaToChanceToWin,
+  StatsEngineSettingsWithAlpha,
+} from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {
   frequentist: "Frequentist",
@@ -63,12 +65,12 @@ const AnalysisSettings = ({
   params,
   results,
   updateVariations,
-  updateStatsEngineSettings,
+  updateStatsEngineSettingsWithAlpha,
 }: {
   params: PowerCalculationParams;
   results: PowerCalculationResults;
   updateVariations: (_: number) => void;
-  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
+  updateStatsEngineSettingsWithAlpha: (_: StatsEngineSettingsWithAlpha) => void;
 }) => {
   const [currentVariations, setCurrentVariations] = useState<
     number | undefined
@@ -87,9 +89,12 @@ const AnalysisSettings = ({
       {showStatsEngineSettingsModal && (
         <PowerCalculationStatsEngineSettingsModal
           close={() => setShowStatsEngineSettingsModal(false)}
-          params={params.statsEngineSettings}
+          params={{
+            ...params.statsEngineSettings,
+            alpha: params.alpha,
+          }}
           onSubmit={(v) => {
-            updateStatsEngineSettings(v);
+            updateStatsEngineSettingsWithAlpha(v);
             setShowStatsEngineSettingsModal(false);
           }}
         />
@@ -106,9 +111,10 @@ const AnalysisSettings = ({
                 params.statsEngineSettings.sequentialTesting
                   ? "enabled"
                   : "disabled"
-              })
+              }; ${params.alpha} p-value threshold)
               `
-                : ""}{" "}
+                : ` (${alphaToChanceToWin(params.alpha)}% chance to win threshold)
+              `}{" "}
               ·{" "}
               <Link
                 href="#"
@@ -582,14 +588,14 @@ export default function PowerCalculationContent({
   results,
   params,
   updateVariations,
-  updateStatsEngineSettings,
+  updateStatsEngineSettingsWithAlpha,
   edit,
   newCalculation,
 }: {
   results: PowerCalculationResults;
   params: PowerCalculationParams;
   updateVariations: (_: number) => void;
-  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
+  updateStatsEngineSettingsWithAlpha: (_: StatsEngineSettingsWithAlpha) => void;
   edit: () => void;
   newCalculation: () => void;
 }) {
@@ -626,7 +632,7 @@ export default function PowerCalculationContent({
         params={params}
         results={results}
         updateVariations={updateVariations}
-        updateStatsEngineSettings={updateStatsEngineSettings}
+        updateStatsEngineSettingsWithAlpha={updateStatsEngineSettingsWithAlpha}
       />
       {results.type !== "error" ? (
         <>

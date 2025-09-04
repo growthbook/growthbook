@@ -383,6 +383,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "running-experiments/running-holdouts",
+          label: "Holdouts",
+        },
+        {
+          type: "doc",
           id: "sticky-bucketing",
           label: "Sticky Bucketing",
         },
@@ -483,6 +488,11 @@ const sidebars = {
               type: "doc",
               id: "lib/java",
               label: "Java",
+            },
+            {
+              type: "doc",
+              id: "lib/kotlin-jvm",
+              label: "Kotlin (JVM)",
             },
             {
               type: "doc",

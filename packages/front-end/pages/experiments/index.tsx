@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
@@ -31,11 +31,23 @@ import {
   TabsTrigger,
 } from "@/components/Radix/Tabs";
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useURLHash from "@/hooks/useURLHash";
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project } = useDefinitions();
 
-  const [tab, setTab] = useState<string>("all");
+  const [urlHash, setUrlHash] = useURLHash();
+  const [tab, setTab] = useLocalStorage<string>("experiments-list-tab", "all");
+  useEffect(() => {
+    if (urlHash) {
+      setTab(urlHash);
+    }
+  }, [urlHash, setTab]);
+  useEffect(() => {
+    setUrlHash(tab);
+  }, [tab, setUrlHash]);
+
   const analyzeExisting = useRouter().query?.analyzeExisting === "true";
 
   const {
@@ -191,11 +203,7 @@ const ExperimentsPage = (): React.ReactElement => {
           ) : (
             hasExperiments && (
               <>
-                <Tabs
-                  defaultValue="all"
-                  persistInURL={true}
-                  onValueChange={(v) => setTab(v)}
-                >
+                <Tabs value={tab} onValueChange={(v) => setTab(v)}>
                   <div className="row align-items-center mb-3">
                     <div className="col-auto d-flex">
                       <TabsList>

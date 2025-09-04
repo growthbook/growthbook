@@ -341,11 +341,11 @@ const DateResults: FC<{
         </div>
       )}
       <div className="mb-5">
-        <h2>Users</h2>
+        <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
           variationNames={variations.map((v) => v.name)}
-          label="Users"
+          label="Units"
           datapoints={users}
           formatter={formatNumber}
           cumulative={cumulative}
