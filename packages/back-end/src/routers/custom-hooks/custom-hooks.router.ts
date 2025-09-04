@@ -7,6 +7,7 @@ const customHooksController = wrapController(rawCustomHooksController);
 
 router.get("/", customHooksController.getCustomHooks);
 router.post("/", customHooksController.createCustomHook);
+router.post("/test", customHooksController.testCustomHook);
 router.put("/:id", customHooksController.updateCustomHook);
 router.delete("/:id", customHooksController.deleteCustomHook);
 

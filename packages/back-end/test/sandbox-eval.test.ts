@@ -3,7 +3,7 @@ import { sandboxEval } from "../src/enterprise/sandbox/sandbox-eval";
 describe("sandboxEval", () => {
   it("should evaluate a function in a sandboxed environment", async () => {
     const result = await sandboxEval("return num + 1", { num: 2 });
-    expect(result).toEqual({ ok: true, result: 3 });
+    expect(result).toEqual({ ok: true, returnVal: 3, log: "" });
   });
 
   it("should return an error for invalid code", async () => {
@@ -11,6 +11,7 @@ describe("sandboxEval", () => {
     expect(result).toEqual({
       ok: false,
       error: expect.stringContaining("Unexpected identifier 'code'"),
+      log: "",
     });
   });
 
@@ -19,6 +20,7 @@ describe("sandboxEval", () => {
     expect(result).toEqual({
       ok: false,
       error: expect.stringContaining("Test error"),
+      log: "",
     });
   });
 
@@ -27,6 +29,7 @@ describe("sandboxEval", () => {
     expect(result).toEqual({
       ok: false,
       error: expect.stringContaining("Script execution timed out"),
+      log: "",
     });
   });
 
@@ -48,6 +51,7 @@ describe("sandboxEval", () => {
     expect(result).toEqual({
       ok: false,
       error: expect.stringContaining("Array buffer allocation failed"),
+      log: "",
     });
   });
 });

@@ -29,10 +29,11 @@ export async function runValidateFeatureHooks(
   );
 }
 
-interface SandboxEvalResult {
+export interface SandboxEvalResult {
   ok: boolean;
   error?: string;
-  result?: unknown;
+  returnVal?: unknown;
+  log?: string;
 }
 
 // Private methods
@@ -63,7 +64,9 @@ async function _runCustomHooks(
   for (const hook of hooks) {
     const res = await _runCustomHook(adminContext, hook, functionArgs);
     if (!res.ok) {
-      throw new Error(res.error || "Custom hook error");
+      const message =
+        (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
+      throw new Error(message);
     }
   }
 }
@@ -161,10 +164,19 @@ export async function sandboxEval(
     // We just need something good enough so copy/pasted code works
     const shimCode = `
       (function() {
+        const stringifyLogArgs = (args) => args.map(arg => {
+          if (typeof arg === "string") return arg;
+          try {
+            return JSON.stringify(arg);
+          } catch {
+            return String(arg);
+          }
+        });
+
         globalThis.console = {
-          log: (...args) => hostLog.applyIgnored(undefined, ["[log]", ...args]),
-          error: (...args) => hostLog.applyIgnored(undefined, ["[error]", ...args]),
-          debug: (...args) => hostLog.applyIgnored(undefined, ["[debug]", ...args])
+          log: (...args) => hostLog.applyIgnored(undefined, ["[log]", ...stringifyLogArgs(args)]),
+          error: (...args) => hostLog.applyIgnored(undefined, ["[error]", ...stringifyLogArgs(args)]),
+          debug: (...args) => hostLog.applyIgnored(undefined, ["[debug]", ...stringifyLogArgs(args)])
         };
         globalThis.fetch = async (...args) => {
           const { _body, _error, ...rest } = await hostFetch.applyPromise(undefined, args);
@@ -214,11 +226,15 @@ export async function sandboxEval(
       ),
     );
 
-    const result = await Promise.race([resultPromise, wallTimeout]);
-    return { ok: true, result };
+    const returnVal = await Promise.race([resultPromise, wallTimeout]);
+    return { ok: true, returnVal, log: logs.join("\n") };
   } catch (err) {
     const message = err.message || err || "Custom hook error";
-    return { ok: false, error: message + logs.map((l) => `\n  ${l}`).join("") };
+    return {
+      ok: false,
+      error: message,
+      log: logs.join("\n"),
+    };
   } finally {
     try {
       isolate.dispose();

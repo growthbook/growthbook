@@ -560,8 +560,6 @@ export async function postFeatures(
     },
   };
 
-  await runValidateFeatureHooks(context, feature);
-
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
@@ -583,6 +581,8 @@ export async function postFeatures(
   }
 
   addIdsToRules(feature.environmentSettings, feature.id);
+
+  await runValidateFeatureHooks(context, feature);
 
   await createFeature(context, feature);
   await upsertWatch({

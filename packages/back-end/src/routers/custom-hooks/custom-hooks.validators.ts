@@ -13,8 +13,8 @@ export const customHookValidator = z
     name: z.string(),
     hook: z.enum(hooks),
     code: z.string(),
-    lastSuccess: z.date(),
-    lastFailure: z.date(),
+    lastSuccess: z.date().optional(),
+    lastFailure: z.date().optional(),
   })
   .strict();
 
