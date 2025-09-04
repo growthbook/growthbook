@@ -61,6 +61,7 @@ export const entityEvents = {
   dashboard: ["create", "update", "delete"],
   dashboardTemplate: ["create", "update", "delete"],
   vector: ["create", "update", "delete"],
+  customHook: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;

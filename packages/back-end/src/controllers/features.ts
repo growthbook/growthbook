@@ -103,7 +103,6 @@ import {
   CACHE_CONTROL_STALE_IF_ERROR,
   CACHE_CONTROL_STALE_WHILE_REVALIDATE,
   FASTLY_SERVICE_ID,
-  IS_CLOUD,
 } from "back-end/src/util/secrets";
 import { upsertWatch } from "back-end/src/models/WatchModel";
 import { getSurrogateKeysFromEnvironments } from "back-end/src/util/cdn.util";
@@ -136,7 +135,7 @@ import {
 } from "back-end/types/feature-rule";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutRule } from "back-end/src/validators/features";
-import { runCustomValidation } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 
 class UnrecoverableApiError extends Error {
@@ -561,23 +560,7 @@ export async function postFeatures(
     },
   };
 
-  // TODO: store custom validation logic in Mongo instead of hard-coding
-  if (!IS_CLOUD) {
-    const validationResult = await runCustomValidation(
-      `console.log("Feature id: ", feature.id);
-    if (feature.id === "test-validation") {
-      throw new Error("Feature name cannot be 'test-validation'");
-    }
-    `,
-      { feature },
-    );
-    if (!validationResult.ok) {
-      throw new Error(
-        (validationResult.error || "Custom validation error") +
-          validationResult.logs.map((l) => `\n  ${l}`).join(""),
-      );
-    }
-  }
+  await runValidateFeatureHooks(context, feature);
 
   const allEnvironments = getEnvironments(org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
