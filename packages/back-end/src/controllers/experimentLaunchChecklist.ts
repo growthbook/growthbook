@@ -80,7 +80,6 @@ export async function getExperimentCheckList(
 ) {
   const { org } = getContextFromReq(req);
   const { projectId } = req.query;
-  console.log("projectId", projectId);
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     return res.status(200).json({
