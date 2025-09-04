@@ -1,6 +1,12 @@
 import { InformationSchemaInterface } from "back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import React, { Fragment, useCallback, useEffect, useState } from "react";
+import React, {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
@@ -50,7 +56,10 @@ export default function SchemaBrowser({
 
   const row = cursorData?.row || 0;
   const column = cursorData?.column || 0;
-  const inputArray = cursorData?.input || [];
+  const inputArray = useMemo(
+    () => cursorData?.input || [],
+    [cursorData?.input],
+  );
 
   const refreshOrCreateInfoSchema = useCallback(
     async (type: "PUT" | "POST") => {
@@ -86,24 +95,35 @@ export default function SchemaBrowser({
     );
   }
 
-  const handleTableClick = async (e, path: string, tableId: string) => {
-    setError(null);
-    if (e.detail === 2) {
-      if (!inputArray || !updateSqlInput) return;
-      const updatedStr = pastePathIntoExistingQuery(
-        inputArray[row] || "",
-        column,
-        path,
-      );
+  const handleTableClick = useCallback(
+    async (
+      e,
+      params: {
+        catalog: string;
+        schema: string;
+        tableName: string;
+      },
+      tableId: string,
+    ) => {
+      setError(null);
+      if (e.detail === 2) {
+        if (!inputArray || !updateSqlInput) return;
+        const updatedStr = pastePathIntoExistingQuery(
+          inputArray[row] || "",
+          column,
+          getTablePath(datasource.type, params),
+        );
 
-      const updatedInputArray = cloneDeep(inputArray);
-      updatedInputArray[row] = updatedStr;
+        const updatedInputArray = cloneDeep(inputArray);
+        updatedInputArray[row] = updatedStr;
 
-      updateSqlInput(updatedInputArray.join("\n"));
-    }
+        updateSqlInput(updatedInputArray.join("\n"));
+      }
 
-    setCurrentTable(tableId);
-  };
+      setCurrentTable(tableId);
+    },
+    [inputArray, updateSqlInput, row, column, datasource.type],
+  );
 
   useEffect(() => {
     if (fetching) {
@@ -270,15 +290,6 @@ export default function SchemaBrowser({
                               transitionTime={100}
                             >
                               {schema.tables.map((table, k) => {
-                                // Generate the appropriate path for this datasource type using context
-                                const tablePath = getTablePath(
-                                  datasource.type,
-                                  {
-                                    catalog: database.databaseName,
-                                    schema: schema.schemaName,
-                                    tableName: table.tableName,
-                                  },
-                                );
                                 return (
                                   <div
                                     className={clsx(
@@ -289,8 +300,16 @@ export default function SchemaBrowser({
                                     style={{ userSelect: "none" }}
                                     role="button"
                                     key={k}
-                                    onClick={async (e) =>
-                                      handleTableClick(e, tablePath, table.id)
+                                    onClick={(e) =>
+                                      handleTableClick(
+                                        e,
+                                        {
+                                          catalog: database.databaseName,
+                                          schema: schema.schemaName,
+                                          tableName: table.tableName,
+                                        },
+                                        table.id,
+                                      )
                                     }
                                   >
                                     <FaTable /> {table.tableName}
