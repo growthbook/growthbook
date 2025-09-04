@@ -4,6 +4,12 @@ description: Run holdout experiments to measure the long-term impact of features
 slug: /app/holdouts
 ---
 
+:::note
+
+Holdouts are available only to Enterprise customers.
+
+:::
+
 Holdout experiments (or simply "holdouts") measure the long-term impact of features by maintaining a control group that doesn't receive new functionality. While most users experience your latest features and improvements, a small percentage remains on the original version, providing a baseline to measure cumulative effects over time.
 
 Learn more about holdouts in our [Knowledge Base](/kb/experiments/holdouts).
@@ -28,6 +34,7 @@ Under the hood, holdouts work by using prerequisites to divert a selected percen
 - **Description**: Document the purpose and scope of your holdout
 - **Projects**: Select the projects in which the holdout should be active. The holdout will be added by default to new features, experiments, and bandits in this project and will only be available to add to these projects.
 - **Enabled Environments**: Holdouts are automatically added to any linked features in the selected environments (typically, only production).
+- **Assign Variation by Attribute**: Select the attribute to split traffic into your holdout, typically a user identifier. Note: when you add the holdout to future features or experiments, the holdout will automatically apply to any evaluation of the feature flag and will use the selected attribute to divert traffic to the holdout.
 - **Goal Metrics**: Select the key metrics for measuring cumulative impact. Note: We prevent adding metrics with conversion windows to a holdout. This is because traffic is exposed to the holdout whenever they hit an included feature or experiment. This can often be days or weeks apart from their exposure to a later feature or experiment, so conversion windows based around their first exposure event no longer make sense. Furthermore, the goal of a holdout is to measure long-range effects; so we allow you to add metrics without conversion windows or with lookback windows.
 
 3. Click **Start Holdout** to begin
@@ -66,7 +73,7 @@ After your planned duration, transition to the analysis period:
 
 1. **Stop adding new experiments**: The holdout enters analysis mode where no new experiments or features can be added
 2. **Extended measurement**: Continue measuring for 2-4 weeks to capture delayed effects and reduce statistical noise
-3. **Dynamic lookback window**: GrowthBook automatically applies a lookback window based on when each experiment was added, ensuring clean measurement periods
+3. **Dynamic lookback window**: GrowthBook automatically applies a lookback window based on when the analysis window began, ensuring clean measurement
 
 During analysis, the system:
 
@@ -83,3 +90,27 @@ Holdout results show the cumulative impact of all features and experiments inclu
 - **Metric-specific impacts**: Different metrics may show varying long-term effects
 
 The analysis compares your general population (who received all features and were experimented on) against the holdout control group (who remained on the baseline), revealing the true long-term value of your product changes.
+
+## FAQ
+
+### I don't see the holdout when creating my feature or experiment, where is it?
+
+Holdouts must be started and must be in the same project as the feature or experiment to be selected in the dropdown.
+
+### Can I have more than one holdout on a feature or experiment?
+
+No, you can only have one holdout on a feature or experiment.
+
+### Can I have more than one holdout active at once?
+
+Yes, but it is not recommended to have multiple holdouts active at once within a project. If there are more than one available at a time, when creating a new feature or experiment, the user will have to select the correct holdout to use.
+
+### How can I add a Holdout to an existing experiment?
+
+Holdouts can only be added to existing experiments if they are (1) in a draft state, (2) no existing linked feature flags, and (3) no existing holdout on the experiment. You can use the three dot menu in the top right of the experiment to add a holdout to the experiment.
+
+If there is an existing linked feature flag but the experiment is still in a draft state, you can go to the feature and add the holdout directly to the feature first, and then you can add the holdout to the experiment.
+
+### How can I add a Holdout to an existing feature?
+
+Holdouts can only be added to existing features if they have no rules set up in the feature and never have had a linked experiment. You can use the three dot menu in the top right of the feature to add a holdout to the feature.

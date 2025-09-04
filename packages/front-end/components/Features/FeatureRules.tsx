@@ -284,6 +284,8 @@ export default function FeatureRules({
                         mt="5"
                         status="info"
                         icon={<Badge label="NEW!" />}
+                        dismissible
+                        id="safe-rollout-promo"
                       >
                         Use <strong>Safe Rollouts</strong> to test for guardrail
                         errors while releasing a new value. Click &lsquo;Add
