@@ -43,6 +43,10 @@ export default function genMetricOverrideResolver(
         : null;
     } else if (fieldName == "windowType") {
       metricValue = ctx.scopes?.metric?.windowSettings?.type;
+    } else if (fieldName == "winRisk") {
+      metricValue = ctx.scopes?.metric?.winRisk;
+    } else if (fieldName == "loseRisk") {
+      metricValue = ctx.scopes?.metric?.loseRisk;
     } else {
       metricValue = ctx.scopes?.metric?.[fieldName];
     }
