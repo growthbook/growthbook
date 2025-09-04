@@ -5,10 +5,12 @@ import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { getScopedSettings } from "shared/settings";
+import { Box, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import Button from "@/components/Button";
+import RadixButton from "@/components/Radix/Button";
 import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import MemberList from "@/components/Settings/Team/MemberList";
@@ -19,6 +21,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Frame from "@/components/Radix/Frame";
 import Badge from "@/components/Radix/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -27,6 +31,8 @@ function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
 }
 
 const ProjectPage: FC = () => {
+  const [editChecklistOpen, setEditChecklistOpen] = useState(false);
+  const { hasCommercialFeature } = useUser();
   const { organization, refreshOrganization } = useUser();
   const { getProjectById, mutateDefinitions, ready, error } = useDefinitions();
 
@@ -117,6 +123,12 @@ const ProjectPage: FC = () => {
           onSuccess={() => mutateDefinitions()}
         />
       )}
+      {editChecklistOpen && (
+        <ExperimentCheckListModal
+          close={() => setEditChecklistOpen(false)}
+          projectParams={{ projectId: pid, projectName: p.name }}
+        />
+      )}
 
       <div className="container pagecontents">
         <div className="mb-2">
@@ -184,7 +196,7 @@ const ProjectPage: FC = () => {
         <Frame>
           <div className="row">
             <div className="col-sm-3">
-              <h4>Experiment Settings</h4>
+              <h3>Experiment Settings</h3>
             </div>
             <div className="col-sm-9">
               <StatsEngineSelect
@@ -196,6 +208,29 @@ const ProjectPage: FC = () => {
                 parentSettings={parentSettings}
               />
             </div>
+            <Box mb="6">
+              <PremiumTooltip
+                commercialFeature="custom-launch-checklist"
+                premiumText="Custom pre-launch checklists are available to Enterprise customers"
+              >
+                <Text size="3" className="font-weight-semibold">
+                  Experiment Pre-Launch Checklist
+                </Text>
+              </PremiumTooltip>
+              <p className="pt-2">
+                Configure required steps that need to be completed before an
+                experiment can be launched.
+              </p>
+              <RadixButton
+                variant="soft"
+                disabled={!hasCommercialFeature("custom-launch-checklist")}
+                onClick={async () => {
+                  setEditChecklistOpen(true);
+                }}
+              >
+                Edit Checklist
+              </RadixButton>
+            </Box>
           </div>
         </Frame>
       </div>
