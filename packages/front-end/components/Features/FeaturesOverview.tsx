@@ -711,7 +711,6 @@ export default function FeaturesOverview({
                             mutate();
                           }}
                           id={`${env}_toggle`}
-                          className="mr-0"
                         />
                       </td>
                     ))}
