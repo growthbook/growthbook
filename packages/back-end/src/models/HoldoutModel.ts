@@ -111,7 +111,7 @@ export class HoldoutModel extends BaseClass {
    * @returns The holdout
    */
   public async getByExperimentId(experimentId: string) {
-    const holdouts = await this._find({ experimentId });
-    return holdouts[0];
+    const holdout = await this._findOne({ experimentId });
+    return holdout;
   }
 }

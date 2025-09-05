@@ -633,7 +633,6 @@ export const lookupHoldoutByTrackingKey = async (
     throw new Error("No Holdout found");
   }
   const holdout = await context.models.holdout.getByExperimentId(experiment.id);
-
   if (!holdout) {
     throw new Error("No Holdout found");
   }
