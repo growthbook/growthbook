@@ -13,6 +13,7 @@ export default function genMetricOverrideResolver(
   fieldName: keyof Omit<
     MetricOverride,
     | "id"
+    | "regressionAdjustmentOverride"
     | "regressionAdjustmentEnabled"
     | "regressionAdjustmentDays"
     | "properPriorOverride"
@@ -46,7 +47,7 @@ export default function genMetricOverrideResolver(
       metricValue = ctx.scopes?.metric?.[fieldName];
     }
 
-    const baseSetting = ctx.baseSettings[fieldName as keyof Settings]?.value;
+    const baseSetting = ctx.baseSettings[fieldName]?.value;
     const value =
       metricOverride?.[fieldName] ?? metricValue ?? baseSetting ?? null;
 
