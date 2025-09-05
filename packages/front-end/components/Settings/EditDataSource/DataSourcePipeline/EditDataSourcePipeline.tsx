@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Field from "@/components/Forms/Field";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -56,7 +56,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         <label className="mr-2">
           Allow GrowthBook to write tables during experiment analyses?
         </label>
-        <Toggle
+        <Switch
           id={"toggle-allowWriting"}
           value={!!form.watch("allowWriting")}
           setValue={(value) => {
@@ -90,7 +90,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             <>
               <div className="mt-4">
                 <label>Delete temporary units table (recommended)</label>
-                <Toggle
+                <Switch
                   id={"toggle-unitsTableDeletion"}
                   value={!!form.watch("unitsTableDeletion")}
                   setValue={(value) => {

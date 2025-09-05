@@ -23,7 +23,7 @@ import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -328,7 +328,7 @@ const DateResults: FC<{
               body="Cumulative charts disabled for Scaled Impact difference type"
               shouldDisplay={differenceType === "scaled"}
             >
-              <Toggle
+              <Switch
                 label="Cumulative"
                 id="cumulative"
                 value={cumulative}

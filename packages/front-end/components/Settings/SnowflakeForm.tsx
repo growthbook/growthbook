@@ -1,7 +1,7 @@
 import { FC, ChangeEventHandler, useState } from "react";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import { GBInfo } from "@/components/Icons";
 import FileInput from "@/components/FileInput";
 
@@ -176,7 +176,7 @@ const SnowflakeForm: FC<{
           <label htmlFor="access-url" className="mr-2">
             Use Access URL (Optional)
           </label>
-          <Toggle
+          <Switch
             id="access-url"
             label="Use Access URL (Optional)"
             value={useAccessUrl}

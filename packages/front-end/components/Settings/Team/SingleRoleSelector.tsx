@@ -5,7 +5,7 @@ import { RESERVED_ROLE_IDS, roleSupportsEnvLimit } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
@@ -119,7 +119,7 @@ export default function SingleRoleSelector({
                 </PremiumTooltip>
               </label>
               <div>
-                <Toggle
+                <Switch
                   disabled={!hasFeature}
                   id={`role-modal--${id}`}
                   value={value.limitAccessByEnvironment}

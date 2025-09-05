@@ -36,7 +36,7 @@ import {
   TabsTrigger,
 } from "@/components/Radix/Tabs";
 import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 
@@ -928,7 +928,7 @@ const EditMember: FC<{
         </div>
         <div className="mt-4">
           <label>Verified Email </label>
-          <Toggle
+          <Switch
             label="Verified"
             id="verified"
             className=" ml-2"

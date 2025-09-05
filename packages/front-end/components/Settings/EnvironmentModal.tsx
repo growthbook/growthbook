@@ -11,7 +11,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import { DocLink } from "../DocLink";
 
@@ -216,7 +216,7 @@ export default function EnvironmentModal({
         )}
       </div>
       <div className="mb-3">
-        <Toggle
+        <Switch
           id={"defaultToggle"}
           label="Identifier"
           value={!!form.watch("defaultState")}
@@ -226,7 +226,7 @@ export default function EnvironmentModal({
         />{" "}
         <label htmlFor="defaultToggle">Default state for new features</label>
       </div>
-      <Toggle
+      <Switch
         id={"toggle"}
         label="Identifier"
         value={!!form.watch("toggleOnList")}

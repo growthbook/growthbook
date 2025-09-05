@@ -1,6 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import HostWarning from "./HostWarning";
 
@@ -113,7 +113,7 @@ const MssqlForm: FC<{
               Trust server certificate{" "}
               <Tooltip body="Allows for self-signed certificates"></Tooltip>
             </label>
-            <Toggle
+            <Switch
               id="trust-server-cert"
               label="Trust server certificate"
               value={params.options?.trustServerCertificate === true}
@@ -132,7 +132,7 @@ const MssqlForm: FC<{
             <label htmlFor="encryption" className="mr-2">
               Enable encryption
             </label>
-            <Toggle
+            <Switch
               id="encryption"
               label="Enable encryption"
               value={params.options?.encrypt === true}

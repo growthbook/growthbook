@@ -41,7 +41,7 @@ import SelectField from "@/components/Forms/SelectField";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import MetricSelector from "@/components/Experiment/MetricSelector";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import DatePicker from "@/components/DatePicker";
@@ -567,7 +567,7 @@ export default function ConfigureLegacyReport({
               <FaQuestionCircle />
             </Tooltip>
           </label>
-          <Toggle
+          <Switch
             id="useLatestPriorSettings"
             value={form.watch("useLatestPriorSettings")}
             setValue={(v) => form.setValue("useLatestPriorSettings", v)}
