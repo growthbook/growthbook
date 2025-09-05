@@ -134,6 +134,154 @@ export function DataVisualizationDisplay({
     return parsed.success;
   }, [dataVizConfig]);
 
+  const filteredRows = useMemo(() => {
+    const filters = dataVizConfig.filters;
+    if (!filters || filters.length === 0) return rows;
+
+    return rows.filter((row) => {
+      return filters.every((filter) => {
+        const { column } = filter;
+        const rowValue = row[column];
+
+        // Handle null/undefined values
+        if (rowValue == null) return false;
+
+        switch (filter.filterMethod) {
+          // Date filters
+          case "today": {
+            const filterDate = new Date(rowValue);
+            if (isNaN(filterDate.getTime())) return false;
+
+            const now = new Date();
+            // Compare only the date parts (year/month/day) in UTC
+            return (
+              filterDate.getFullYear() === now.getUTCFullYear() &&
+              filterDate.getMonth() === now.getUTCMonth() &&
+              filterDate.getDate() === now.getUTCDate()
+            );
+          }
+
+          case "last7Days": {
+            const filterDate = new Date(rowValue);
+            if (isNaN(filterDate.getTime())) return false;
+
+            const now = new Date();
+            const sevenDaysAgo = new Date(now);
+            sevenDaysAgo.setUTCDate(sevenDaysAgo.getUTCDate() - 7);
+            return filterDate >= sevenDaysAgo;
+          }
+
+          case "last30Days": {
+            const filterDate = new Date(rowValue);
+            if (isNaN(filterDate.getTime())) return false;
+
+            const now = new Date();
+            const thirtyDaysAgo = new Date(now);
+            thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+            return filterDate >= thirtyDaysAgo;
+          }
+
+          case "dateRange": {
+            const filterDate = new Date(rowValue);
+            if (isNaN(filterDate.getTime())) return false;
+
+            const startDate = filter.config.startDate
+              ? new Date(filter.config.startDate + "T00:00:00.000Z")
+              : null;
+            const endDate = filter.config.endDate
+              ? new Date(filter.config.endDate + "T23:59:59.999Z")
+              : null;
+
+            if (startDate && filterDate < startDate) return false;
+            if (endDate && filterDate > endDate) return false;
+            return true;
+          }
+
+          case "numberRange": {
+            if (isNaN(rowValue)) return false;
+
+            const min =
+              filter.config.min !== undefined
+                ? Number(filter.config.min)
+                : null;
+            const max =
+              filter.config.max !== undefined
+                ? Number(filter.config.max)
+                : null;
+
+            if (min !== null && rowValue < min) return false;
+            if (max !== null && rowValue > max) return false;
+            return true;
+          }
+          // Number filters
+          case "greaterThan": {
+            if (!filter.config.value) return true;
+            if (isNaN(rowValue)) return false;
+
+            const threshold = Number(filter.config.value);
+            return rowValue > threshold;
+          }
+
+          case "greaterThanOrEqualTo": {
+            if (!filter.config.value) return true;
+            if (isNaN(rowValue)) return false;
+
+            const threshold = Number(filter.config.value);
+            return rowValue >= threshold;
+          }
+
+          case "lessThan": {
+            if (!filter.config.value) return true;
+            if (isNaN(rowValue)) return false;
+
+            const threshold = Number(filter.config.value);
+            return rowValue < threshold;
+          }
+
+          case "lessThanOrEqualTo": {
+            if (!filter.config.value) return true;
+            if (isNaN(rowValue)) return false;
+
+            const threshold = Number(filter.config.value);
+            return rowValue <= threshold;
+          }
+
+          case "equalTo": {
+            if (!filter.config.value) return true;
+            if (isNaN(rowValue)) return false;
+
+            const target = Number(filter.config.value);
+            return rowValue === target;
+          }
+
+          // String filters
+          case "contains": {
+            const searchText = filter.config.value;
+            if (!searchText) {
+              return true;
+            }
+            return String(rowValue)
+              .toLowerCase()
+              .includes(searchText.toLowerCase());
+          }
+
+          case "includes": {
+            const selectedValues = filter.config.values;
+            if (!selectedValues) {
+              return true;
+            }
+            return selectedValues.length === 0
+              ? true
+              : selectedValues.includes(String(rowValue));
+          }
+
+          default:
+            return true;
+        }
+      });
+    });
+  }, [dataVizConfig.filters, rows]);
+
   // TODO: Support multiple y-axis and dimension fields
   const xConfig = requiresXAxis(dataVizConfig)
     ? dataVizConfig.xAxis
@@ -158,7 +306,7 @@ export function DataVisualizationDisplay({
 
     // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
     const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
-    rows.forEach((row) => {
+    filteredRows.forEach((row) => {
       const dimensionValue = row[dimensionField] + "";
       const yValue = parseYValue(row, yField, yConfig?.type || "number");
       if (yValue !== undefined) {
@@ -193,7 +341,7 @@ export function DataVisualizationDisplay({
     };
   }, [
     dimensionField,
-    rows,
+    filteredRows,
     dimensionConfig?.maxValues,
     yConfig?.type,
     yField,
@@ -208,7 +356,7 @@ export function DataVisualizationDisplay({
 
     const yType = yConfig?.type || "number";
 
-    const parsedRows = rows.map((row) => {
+    const parsedRows = filteredRows.map((row) => {
       const newRow: {
         x?: number | Date | string;
         y?: string | number;
@@ -367,7 +515,7 @@ export function DataVisualizationDisplay({
     dimensionField,
     dimensionValues,
     hasOtherDimension,
-    rows,
+    filteredRows,
   ]);
 
   const dataset = useMemo(() => {
@@ -593,23 +741,13 @@ export function SqlExplorerDataVisualization({
         <>
           <PanelResizeHandle />
           <Panel id="graph-config" order={2} defaultSize={25} minSize={20}>
-            <AreaWithHeader
-              header={
-                <Text
-                  style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
-                >
-                  Configuration
-                </Text>
-              }
-            >
-              <Box p="4" style={{ overflow: "auto", height: "100%" }}>
-                <DataVizConfigPanel
-                  sampleRow={rows[0]}
-                  dataVizConfig={dataVizConfig}
-                  onDataVizConfigChange={onDataVizConfigChange}
-                />
-              </Box>
-            </AreaWithHeader>
+            <Box style={{ overflow: "auto", height: "100%" }}>
+              <DataVizConfigPanel
+                rows={rows}
+                dataVizConfig={dataVizConfig}
+                onDataVizConfigChange={onDataVizConfigChange}
+              />
+            </Box>
           </Panel>
         </>
       ) : null}
