@@ -13,6 +13,7 @@ export default function genMetricOverrideResolver(
   fieldName: keyof Omit<
     MetricOverride,
     | "id"
+    | "regressionAdjustmentOverride"
     | "regressionAdjustmentEnabled"
     | "regressionAdjustmentDays"
     | "properPriorOverride"
@@ -46,7 +47,9 @@ export default function genMetricOverrideResolver(
       metricValue = ctx.scopes?.metric?.[fieldName];
     }
 
-    const value = metricOverride?.[fieldName] ?? metricValue ?? null;
+    const baseSetting = ctx.baseSettings[fieldName]?.value;
+    const value =
+      metricOverride?.[fieldName] ?? metricValue ?? baseSetting ?? null;
 
     let scopeApplied: keyof ScopeDefinition | "organization" = "organization";
     let reason = "org-level setting applied";
