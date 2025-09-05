@@ -369,7 +369,7 @@ export function PreLaunchChecklistUI({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist",
+    `/experiments/launch-checklist?projectId=${experiment.project || ""}`,
   );
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
@@ -606,7 +606,7 @@ export function PreLaunchChecklist({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist",
+    `/experiments/launch-checklist?projectId=${experiment.project || ""}`,
   );
 
   const [showSdkForm, setShowSdkForm] = useState(false);

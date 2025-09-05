@@ -117,3 +117,13 @@ export async function updateExperimentLaunchChecklist(
 
   return doc ? toInterface(doc) : null;
 }
+
+export async function deleteExperimentLaunchChecklist(
+  organizationId: string,
+  checklistId: string,
+): Promise<void> {
+  await ExperimentLaunchChecklistModel.deleteOne({
+    organizationId,
+    id: checklistId,
+  });
+}
