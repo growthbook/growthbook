@@ -8,8 +8,6 @@ import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Button from "../Radix/Button";
-import Tooltip from "../Tooltip/Tooltip";
 import SortableExperimentChecklist from "./SortableExperimentChecklist";
 import ExperimentChecklistEmptyState from "./ExperimentChecklistEmptyState";
 import NewExperimentChecklistItem from "./NewExperimentChecklistItem";
@@ -42,14 +40,6 @@ export default function ExperimentCheckListModal({
   const [newTaskInput, setNewTaskInput] = useState<ChecklistTask | undefined>(
     undefined,
   );
-
-  async function handleDelete() {
-    await apiCall(`/experiments/launch-checklist/${checklist?.id}`, {
-      method: "DELETE",
-    });
-    mutate();
-    close();
-  }
 
   async function handleSubmit() {
     if (!experimentLaunchChecklist) return;
@@ -86,21 +76,6 @@ export default function ExperimentCheckListModal({
       open={true}
       close={close}
       size="max"
-      backCTA={
-        projectParams?.projectId && checklist?.id ? (
-          <>
-            <Tooltip body="If you delete this checklist, all experiments in this project will revert to using your organization's default Pre-Launch Checklist">
-              <Button
-                variant="ghost"
-                color="red"
-                onClick={() => handleDelete()}
-              >
-                Delete Checklist
-              </Button>
-            </Tooltip>
-          </>
-        ) : null
-      }
       header={`${
         checklist?.id ? "Edit" : "Add"
       } Experiment Pre-Launch Checklist ${projectParams?.projectName ? `for ${projectParams.projectName}` : ""}`}
