@@ -33,7 +33,13 @@ export type QueryType =
   | "experimentTraffic"
   | "experimentMultiMetric"
   | "populationMetric"
-  | "populationMultiMetric";
+  | "populationMultiMetric"
+  | "experimentIncrementalRefreshDropUnitsTable"
+  | "experimentIncrementalRefreshDropTempUnitsTable"
+  | "experimentIncrementalRefreshCreateUnitsTable"
+  | "experimentIncrementalRefreshUpdateUnitsTable"
+  | "experimentIncrementalRefreshAlterUnitsTable"
+  | "experimentIncrementalRefreshMaxTimestampUnitsTable";
 
 export interface QueryInterface {
   id: string;
