@@ -54,13 +54,13 @@ export type ScopeSettingsFn = (scopes: ScopeDefinition) => {
 };
 
 interface MetricSettings {
-  windowType: MetricWindowSettings["type"] | null;
-  windowHours: number | null;
-  delayHours: number | null;
+  windowType: MetricWindowSettings["type"];
+  windowHours: number;
+  delayHours: number;
 
   winRisk: number | null;
   loseRisk: number | null;
-  targetMDE: number | null;
+  targetMDE: number;
 }
 
 interface BaseSettings {

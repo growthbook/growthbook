@@ -3543,7 +3543,7 @@ export interface components {
       runAtEnd: boolean;
     };
     Settings: {
-      confidenceLevel: number | null;
+      confidenceLevel: number;
       northStar: {
         title?: string;
         metricIds?: (string)[];
@@ -3559,8 +3559,8 @@ export interface components {
         maxPercentageChange?: number;
         minPercentageChange?: number;
         targetMDE?: number;
-      } | null;
-      pastExperimentsMinLength: number | null;
+      };
+      pastExperimentsMinLength: number;
       metricAnalysisDays: number;
       updateSchedule: ({
         /** @enum {string} */
@@ -3574,7 +3574,7 @@ export interface components {
         limitAccessByEnvironment?: boolean;
         environments?: (string)[];
       };
-      statsEngine: string | null;
+      statsEngine: string;
       pValueThreshold: number;
       regressionAdjustmentEnabled: boolean;
       regressionAdjustmentDays: number;
@@ -3582,10 +3582,10 @@ export interface components {
       sequentialTestingTuningParameter: number;
       /** @enum {string} */
       attributionModel: "firstExposure" | "experimentDuration";
-      targetMDE: number | null;
-      delayHours: number | null;
-      windowType: string | null;
-      windowHours: number | null;
+      targetMDE: number;
+      delayHours: number;
+      windowType: string;
+      windowHours: number;
       winRisk: number | null;
       loseRisk: number | null;
       secureAttributeSalt: string;
@@ -13262,7 +13262,7 @@ export interface operations {
         content: {
           "application/json": {
             settings: {
-              confidenceLevel: number | null;
+              confidenceLevel: number;
               northStar: {
                 title?: string;
                 metricIds?: (string)[];
@@ -13278,8 +13278,8 @@ export interface operations {
                 maxPercentageChange?: number;
                 minPercentageChange?: number;
                 targetMDE?: number;
-              } | null;
-              pastExperimentsMinLength: number | null;
+              };
+              pastExperimentsMinLength: number;
               metricAnalysisDays: number;
               updateSchedule: ({
                 /** @enum {string} */
@@ -13293,7 +13293,7 @@ export interface operations {
                 limitAccessByEnvironment?: boolean;
                 environments?: (string)[];
               };
-              statsEngine: string | null;
+              statsEngine: string;
               pValueThreshold: number;
               regressionAdjustmentEnabled: boolean;
               regressionAdjustmentDays: number;
@@ -13301,10 +13301,10 @@ export interface operations {
               sequentialTestingTuningParameter: number;
               /** @enum {string} */
               attributionModel: "firstExposure" | "experimentDuration";
-              targetMDE: number | null;
-              delayHours: number | null;
-              windowType: string | null;
-              windowHours: number | null;
+              targetMDE: number;
+              delayHours: number;
+              windowType: string;
+              windowHours: number;
               winRisk: number | null;
               loseRisk: number | null;
               secureAttributeSalt: string;
