@@ -207,7 +207,7 @@ export async function sandboxEval(
     })) as Reference;
 
     if (!funcRef) {
-      throw new Error("Failed to compile custom hook");
+      throw new Error("Compilation error");
     }
 
     const dataCopy = new ExternalCopy(functionArgs).copyInto();
@@ -221,7 +221,7 @@ export async function sandboxEval(
 
     const wallTimeout = new Promise<never>((_, reject) =>
       setTimeout(
-        () => reject(new Error("Custom hook timed out")),
+        () => reject(new Error("Execution timed out")),
         wallTimeoutMS ?? WALL_TIMEOUT_MS,
       ),
     );
@@ -229,10 +229,10 @@ export async function sandboxEval(
     const returnVal = await Promise.race([resultPromise, wallTimeout]);
     return { ok: true, returnVal, log: logs.join("\n") };
   } catch (err) {
-    const message = err.message || err || "Custom hook error";
+    const message = err.message || err || "";
     return {
       ok: false,
-      error: message,
+      error: message ? `Custom hook: ${message}` : "Custom hook error",
       log: logs.join("\n"),
     };
   } finally {
