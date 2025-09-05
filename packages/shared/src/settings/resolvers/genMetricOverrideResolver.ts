@@ -33,18 +33,33 @@ export default function genMetricOverrideResolver(
       | MetricWindowSettings["type"]
       | null
       | undefined = null;
-    if (fieldName == "delayHours") {
-      metricValue = ctx.scopes?.metric?.windowSettings
-        ? getDelayWindowHours(ctx.scopes?.metric?.windowSettings)
-        : null;
-    } else if (fieldName == "windowHours") {
-      metricValue = ctx.scopes?.metric?.windowSettings
-        ? getConversionWindowHours(ctx.scopes?.metric?.windowSettings)
-        : null;
-    } else if (fieldName == "windowType") {
-      metricValue = ctx.scopes?.metric?.windowSettings?.type;
-    } else {
-      metricValue = ctx.scopes?.metric?.[fieldName];
+
+    switch (fieldName) {
+      case "delayHours":
+        metricValue = ctx.scopes?.metric?.windowSettings
+          ? getDelayWindowHours(ctx.scopes?.metric?.windowSettings)
+          : null;
+        break;
+      case "windowHours":
+        metricValue = ctx.scopes?.metric?.windowSettings
+          ? getConversionWindowHours(ctx.scopes?.metric?.windowSettings)
+          : null;
+        break;
+      case "windowType":
+        metricValue = ctx.scopes?.metric?.windowSettings?.type;
+        break;
+      case "winRisk":
+        metricValue = ctx.scopes?.metric?.winRisk;
+        break;
+      case "loseRisk":
+        metricValue = ctx.scopes?.metric?.loseRisk;
+        break;
+      default: {
+        // This should never happen according to our types, but keeping the default behavior in case
+        const _exhaustiveCheck: never = fieldName;
+        metricValue = ctx.scopes?.metric?.[fieldName];
+        break;
+      }
     }
 
     const baseSetting = ctx.baseSettings[fieldName]?.value;
