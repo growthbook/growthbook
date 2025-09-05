@@ -58,8 +58,8 @@ interface MetricSettings {
   windowHours: number;
   delayHours: number;
 
-  winRisk: number | null;
-  loseRisk: number | null;
+  winRisk: number;
+  loseRisk: number;
   targetMDE: number;
 }
 

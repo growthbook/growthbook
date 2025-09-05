@@ -3586,8 +3586,8 @@ export interface components {
       delayHours: number;
       windowType: string;
       windowHours: number;
-      winRisk: number | null;
-      loseRisk: number | null;
+      winRisk: number;
+      loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
       requireReviews: ({
@@ -13305,8 +13305,8 @@ export interface operations {
               delayHours: number;
               windowType: string;
               windowHours: number;
-              winRisk: number | null;
-              loseRisk: number | null;
+              winRisk: number;
+              loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
               requireReviews: ({

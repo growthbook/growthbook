@@ -131,10 +131,8 @@ properties:
     type: number
   winRisk:
     type: number
-    nullable: true
   loseRisk:
     type: number
-    nullable: true
   secureAttributeSalt:
     type: string
   killswitchConfirmation:
