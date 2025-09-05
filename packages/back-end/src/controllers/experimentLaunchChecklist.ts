@@ -22,7 +22,14 @@ export async function postExperimentLaunchChecklist(
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  const { org, userId } = context;
   const { tasks, projectId } = req.body;
+
+  if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
+    throw new Error(
+      "Must have a commercial License Key to customize the organization's pre-launch checklist.",
+    );
+  }
 
   if (!projectId) {
     // If no projectId is provided, the user is creating an organization-level checklist
@@ -30,20 +37,16 @@ export async function postExperimentLaunchChecklist(
       context.permissions.throwPermissionError();
     }
   } else {
+    // Ensure the projectId is a valid project
+    const project = await context.models.projects.getById(projectId);
+    if (!project) {
+      throw new Error("Could not find project");
+    }
+
     // If a projectId is provided, the user is creating a project-level checklist
     if (!context.permissions.canUpdateProject(projectId)) {
       context.permissions.throwPermissionError();
     }
-  }
-  if (!context.permissions.canManageOrgSettings()) {
-    context.permissions.throwPermissionError();
-  }
-  const { org, userId } = context;
-
-  if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
-    throw new Error(
-      "Must have a commercial License Key to customize the organization's pre-launch checklist.",
-    );
   }
 
   const existingChecklist = await getExperimentLaunchChecklist(
