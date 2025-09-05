@@ -33,8 +33,6 @@ export const DEFAULT_PAST_EXPERIMENT_MIN_LENGTH = 6;
 export const DEFAULT_SDK_INSTRUCTIONS_VIEWED = false;
 export const DEFAULT_UPDATE_SCHEDULE = null;
 export const DEFAULT_VIDEO_INSTRUCTIONS_VIEWED = false;
-export const DEFAULT_LOSE_RISK = DEFAULT_LOSE_RISK_THRESHOLD;
-export const DEFAULT_WIN_RISK = DEFAULT_WIN_RISK_THRESHOLD;
 export const DEFAULT_SECURE_ATTRIBUTE_SALT = "";
 export const DEFAULT_KILLSWITCH_CONFIRMATION = false;
 export const DEFAULT_REQUIRE_REVIEW = false;
@@ -85,8 +83,8 @@ export default function genDefaultSettings(): Settings {
     windowType: DEFAULT_METRIC_WINDOW,
     windowHours: DEFAULT_METRIC_WINDOW_HOURS,
     delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-    loseRisk: DEFAULT_LOSE_RISK,
-    winRisk: DEFAULT_WIN_RISK,
+    loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
+    winRisk: DEFAULT_WIN_RISK_THRESHOLD,
     secureAttributeSalt: DEFAULT_SECURE_ATTRIBUTE_SALT,
     killswitchConfirmation: DEFAULT_KILLSWITCH_CONFIRMATION,
     requireReviews: DEFAULT_REQUIRE_REVIEW,
