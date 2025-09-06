@@ -255,7 +255,7 @@ const Modal: FC<ModalProps> = ({
         ) : (
           <>
             {aboveBodyContent}
-            {error && <ErrorDisplay error={error} mb="3" expandable />}
+            {error && <ErrorDisplay error={error} mb="3" />}
             {children}
           </>
         )}
