@@ -75,6 +75,7 @@
     "generate-password": "^1.7.1",
     "googleapis": "^59.0.0",
     "handlebars": "^4.7.8",
+    "isolated-vm": "5.0.4",
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^8.5.1",
     "jwks-rsa": "^1.8.0",
