@@ -5,7 +5,7 @@ import {
   CustomHookType,
 } from "back-end/src/routers/custom-hooks/custom-hooks.validators";
 import { CreateProps } from "back-end/types/models";
-import { Flex, Separator } from "@radix-ui/themes";
+import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -111,6 +111,35 @@ function CustomHooksModal({
     log?: string;
   }>({ status: "" });
 
+  const runTest = async () => {
+    const res = await apiCall<{
+      success: boolean;
+      returnVal?: string;
+      error?: string;
+      log?: string;
+    }>("/custom-hooks/test", {
+      method: "POST",
+      body: JSON.stringify({
+        functionBody: form.getValues("code"),
+        functionArgs: Object.fromEntries(
+          Object.entries(testValues).map(([k, v]) => {
+            try {
+              return [k, JSON.parse(v)];
+            } catch (e) {
+              return [k, v];
+            }
+          }),
+        ),
+      }),
+    });
+    setTestResult({
+      status: res.success ? "success" : "error",
+      returnVal: res.returnVal,
+      error: res.error,
+      log: res.log,
+    });
+  };
+
   return (
     <Modal
       header={current?.id ? "Edit Custom Hook" : "Add Custom Hook"}
@@ -192,57 +221,37 @@ function CustomHooksModal({
             value={form.watch("code")}
             setValue={(value) => form.setValue("code", value)}
             placeholder={hookTypeData?.example || ""}
+            onCtrlEnter={runTest}
           />
         </div>
         <div style={{ width: "50%" }}>
           <h3>Test Your Hook</h3>
           {Object.keys(hookTypeData?.availableArguments).map((arg) => (
-            <Field
+            <CodeTextArea
+              language="json"
               key={arg}
               label={arg}
               required
-              textarea
               value={testValues[arg] || ""}
-              onChange={(e) =>
+              setValue={(value) =>
                 setTestValues((existing) => ({
                   ...existing,
-                  [arg]: e.target.value,
+                  [arg]: value,
                 }))
               }
+              onCtrlEnter={runTest}
+              maxLines={8}
             />
           ))}
           <Button
-            onClick={async () => {
-              const res = await apiCall<{
-                success: boolean;
-                returnVal?: string;
-                error?: string;
-                log?: string;
-              }>("/custom-hooks/test", {
-                method: "POST",
-                body: JSON.stringify({
-                  functionBody: form.getValues("code"),
-                  functionArgs: Object.fromEntries(
-                    Object.entries(testValues).map(([k, v]) => {
-                      try {
-                        return [k, JSON.parse(v)];
-                      } catch (e) {
-                        return [k, v];
-                      }
-                    }),
-                  ),
-                }),
-              });
-              setTestResult({
-                status: res.success ? "success" : "error",
-                returnVal: res.returnVal,
-                error: res.error,
-                log: res.log,
-              });
-            }}
+            onClick={runTest}
             disabled={!form.watch("code")}
+            variant="outline"
           >
-            Run Test
+            <Flex align="center" gap="3">
+              <Text>Run Test</Text>
+              <Kbd size="1">Ctrl + Enter</Kbd>
+            </Flex>
           </Button>
           {testResult.status === "success" && (
             <Callout mt="3" status="success">
