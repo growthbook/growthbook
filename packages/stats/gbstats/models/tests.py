@@ -1324,7 +1324,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
 class EffectMomentsPostStratification:
     def __init__(
         self,
-        stats: List[Tuple[TestStatistic, TestStatistic]],
+        stats: List[Tuple[SummableStatistic, SummableStatistic]],
         config: EffectMomentsConfig = EffectMomentsConfig(),
     ):
         self.stats = stats
@@ -1345,6 +1345,21 @@ class EffectMomentsPostStratification:
     def _has_zero_variance(self) -> bool:
         """Check if any variance is 0 or negative"""
         return self.stat_a._has_zero_variance or self.stat_b._has_zero_variance
+    
+    @staticmethod
+    def create_cells_for_analysis(stats: List[Tuple[SummableStatistic, SummableStatistic]]) -> List[Tuple[SummableStatistic, SummableStatistic]]:
+        sorted_cells = sorted(stats, key=lambda x: x[0].n + x[1].n, reverse=True)
+        min_n = [min(t[0].n, t[1].n) for t in sorted_cells]
+        num_strata = len(min_n)
+        cells_for_analysis = [sorted_cells[0]]
+        for i in range(1, num_strata):
+            if min_n[i] == 0:
+                cells_for_analysis[0] = (cells_for_analysis[0][0] + sorted_cells[i][0], cells_for_analysis[0][1] + sorted_cells[i][1])        
+            else:
+                cells_for_analysis.append(sorted_cells[i])
+        if cells_for_analysis[0][0].n == 0 or cells_for_analysis[0][1].n == 0:
+            return sum_stats(cells_for_analysis)
+        return cells_for_analysis
 
     def compute_result(self) -> EffectMomentsResult:
         if self._has_zero_variance():
@@ -1353,9 +1368,15 @@ class EffectMomentsPostStratification:
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         if self.stat_a.unadjusted_mean == 0:
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
+        
+        #if any cells have 0 users in a variation, add that cell to the cell with the largest number of users
+        cells_for_analysis = self.create_cells_for_analysis(self.stats)
+        #if there is only one strata cell, we can just run the regular effect moments test
+        if len(cells_for_analysis) == 1:
+            return EffectMoments(cells_for_analysis, EffectMomentsConfig(difference_type="relative" if self.relative else "absolute")).compute_result() #type: ignore                
         strata_results = []
-        for _, stat_pair in enumerate(self.stats):
-            strata_results.append(self.compute_strata_result(stat_pair))
+        for _, cell in enumerate(cells_for_analysis):
+            strata_results.append(self.compute_strata_result(cell))
         if isinstance(strata_results[0], StrataResultRatio):
             return PostStratificationSummaryRatio(
                 strata_results, nu_hat=None, relative=self.relative

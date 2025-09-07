@@ -24,7 +24,7 @@ from gbstats.models.tests import (
     TestResult,
     ProportionStatistic,
     EffectMomentsConfig,
-    PostStratification,
+    EffectMomentsPostStratification,
 )
 from gbstats.frequentist.tests import FrequentistConfig, TwoSidedTTest
 from gbstats.models.settings import (
@@ -693,11 +693,26 @@ class TestPostStratification(TestCase):
             ),
         ]
 
-        result_output = PostStratification(stats_count_strata, self.moments_config_abs).compute_result()  # type: ignore
-        default_output = PostStratification(
+        result_output = EffectMomentsPostStratification(stats_count_strata, self.moments_config_abs).compute_result()  # type: ignore
+        default_output = EffectMomentsPostStratification(
             stats_count_strata, self.moments_config_abs  # type: ignore
         )._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
         self.assertEqual(default_output, result_output)
+
+    def test_missing_variation_data(self):
+        #remove one control observation from the biggest cell, place the observation in a new cell, and test that the output doesn't change
+        num_strata = len(self.stats_count_strata)
+        last_cell_a = self.stats_count_strata[num_strata-1][0]
+        last_cell_a_minus_obs = SampleMeanStatistic(n=last_cell_a.n-1, sum=last_cell_a.sum-1, sum_squares=last_cell_a.sum_squares-1)
+        last_cell = (SampleMeanStatistic(n=1, sum=1, sum_squares=1), SampleMeanStatistic(n=0, sum=0, sum_squares=0))        
+        stats_count_strata = []
+        for cell in range(0, num_strata-1):
+            stats_count_strata.append(self.stats_count_strata[cell])
+        stats_count_strata.append((last_cell_a_minus_obs, self.stats_count_strata[num_strata-1][1]))
+        stats_count_strata.append(last_cell)
+        expected = EffectMomentsPostStratification(self.stats_count_strata, self.moments_config_abs).compute_result()  # type: ignore
+        output = EffectMomentsPostStratification(stats_count_strata, self.moments_config_abs).compute_result()  # type: ignore
+        self.assertEqual(expected, output)
 
     def test_baseline_variation_zero(self):
         stats_count_strata = [
@@ -710,10 +725,10 @@ class TestPostStratification(TestCase):
                 SampleMeanStatistic(n=75, sum=0, sum_squares=10),
             ),
         ]
-        result_output = PostStratification(
+        result_output = EffectMomentsPostStratification(
             stats_count_strata, self.moments_config_abs  # type: ignore
         ).compute_result()
-        default_output = PostStratification(
+        default_output = EffectMomentsPostStratification(
             self.stats_count_strata, self.moments_config_abs  # type: ignore
         )._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         self.assertEqual(default_output, result_output)
@@ -769,17 +784,17 @@ class TestPostStratification(TestCase):
                 ),
             ),
         ]
-        result_output = PostStratification(
+        result_output = EffectMomentsPostStratification(
             stats_count_reg_strata, self.moments_config_abs  # type: ignore
         ).compute_result()
-        default_output = PostStratification(
+        default_output = EffectMomentsPostStratification(
             self.stats_count_strata, self.moments_config_abs  # type: ignore
         )._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         self.assertEqual(default_output, result_output)
 
     def test_post_strat_count_abs(self):
         result_dict = asdict(
-            PostStratification(
+            EffectMomentsPostStratification(
                 self.stats_count_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
@@ -797,7 +812,7 @@ class TestPostStratification(TestCase):
 
     def test_post_strat_ratio_abs(self):
         result_dict = asdict(
-            PostStratification(
+            EffectMomentsPostStratification(
                 self.stats_ratio_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
@@ -815,7 +830,7 @@ class TestPostStratification(TestCase):
 
     def test_post_strat_count_reg_abs(self):
         result_dict = asdict(
-            PostStratification(
+            EffectMomentsPostStratification(
                 self.stats_count_reg_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
@@ -833,7 +848,7 @@ class TestPostStratification(TestCase):
 
     def test_post_strat_ratio_reg_abs(self):
         result_dict = asdict(
-            PostStratification(
+            EffectMomentsPostStratification(
                 self.stats_ratio_reg_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
@@ -851,7 +866,7 @@ class TestPostStratification(TestCase):
 
     def test_post_strat_count_rel(self):
         result_dict = asdict(
-            PostStratification(
+            EffectMomentsPostStratification(
                 self.stats_count_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )
@@ -869,7 +884,7 @@ class TestPostStratification(TestCase):
 
     def test_post_strat_ratio_rel(self):
         result_dict = asdict(
-            PostStratification(
+            EffectMomentsPostStratification(
                 self.stats_ratio_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )
@@ -887,7 +902,7 @@ class TestPostStratification(TestCase):
 
     def test_post_strat_count_reg_rel(self):
         result_dict = asdict(
-            PostStratification(
+            EffectMomentsPostStratification(
                 self.stats_count_reg_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )
@@ -905,7 +920,7 @@ class TestPostStratification(TestCase):
 
     def test_post_strat_ratio_reg_rel(self):
         result_dict = asdict(
-            PostStratification(
+            EffectMomentsPostStratification(
                 self.stats_ratio_reg_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )

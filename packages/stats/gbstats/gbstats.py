@@ -452,7 +452,6 @@ def run_post_stratification(
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
-    # need to add a check for quantile metrics
     num_variations = df.at[0, "variations"]
     num_dimensions = df.shape[0]
 
@@ -850,8 +849,6 @@ def process_analysis(
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
-    file_output = "rows_" + analysis.dimension + ".csv"
-    rows.to_csv('/Users/lukesmith/Desktop/' + file_output, index=False)
     #get post-stratification df
     post_strat_df = get_post_strat_df(rows, analysis.dimension)
     post_stratify = (
@@ -868,6 +865,10 @@ def process_analysis(
         dimension=analysis.dimension,
         post_stratify=post_stratify,
     )
+    # inputs for reduce_dimensionality method
+    # Limit to the top X dimensions with the most users
+    # not possible to just re-sum for quantile metrics,
+    # so we throw away "other" dimension
     keep_other = True
     if metric.statistic_type in ["quantile_event", "quantile_unit"]:
         keep_other = False
@@ -888,9 +889,6 @@ def process_analysis(
                 post_strat_results = pd.concat([post_strat_results, this_result], ignore_index=True)
         return post_strat_results
 
-    # Limit to the top X dimensions with the most users
-    # not possible to just re-sum for quantile metrics,
-    # so we throw away "other" dimension
     else:
         reduced = reduce_dimensionality(
             df=df,
