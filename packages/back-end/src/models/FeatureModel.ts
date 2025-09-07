@@ -47,6 +47,11 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import {
+  DiffResult,
+  getObjectDiff,
+  formatDiffForSlack,
+} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import {
   createEvent,
   hasPreviousObject,
   CreateEventData,
@@ -465,20 +470,36 @@ export const createFeatureEvent = async <
       safeRolloutMap,
     });
 
+    // let patch: string | undefined;
+    let patch: DiffResult | undefined;
+    try {
+      // patch = createPatch(
+      //   "Changes",
+      //   JSON.stringify(previousApiFeature, null, 2),
+      //   JSON.stringify(currentApiFeature, null, 2),
+      // );
+
+      // patch = diffJson(previousApiFeature, currentApiFeature);
+      patch = getObjectDiff(
+        previousApiFeature,
+        currentApiFeature,
+        ["dateUpdated"],
+        [{ key: "environments", idField: "id", ignoredKeys: ["definition"] }],
+      );
+    } catch (e) {
+      logger.error(e, "error creating change patch");
+    }
+
     return {
       ...eventData,
       object: "feature",
       objectId: eventData.data.object.id,
       data: {
         object: currentApiFeature,
-        previous_object: getApiFeatureObj({
-          feature: eventData.data.previous_object,
-          organization: eventData.context.org,
-          groupMap,
-          experimentMap,
-          revision: previousRevision,
-          safeRolloutMap,
-        }),
+        previous_object: previousApiFeature,
+        changes: patch
+          ? { patch, formatted: formatDiffForSlack(patch) }
+          : undefined,
       },
       projects: Array.from(
         new Set([previousApiFeature.project, currentApiFeature.project]),

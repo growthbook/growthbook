@@ -154,6 +154,7 @@ export type CreateEventData<
   ? {
       object: Payload;
       previous_object: Payload;
+      changes?: unknown;
     } & NotificationEventPayloadExtraAttributes<Resource, Event>
   : { object: Payload } & NotificationEventPayloadExtraAttributes<
       Resource,
@@ -186,9 +187,10 @@ const diffData = <
       Payload
     >;
 
-  const { object, previous_object, ...remainingData } = data as {
+  const { object, previous_object, changes, ...remainingData } = data as {
     object: Record<string, unknown>;
     previous_object: Record<string, unknown>;
+    changes?: unknown;
   };
 
   return {
@@ -205,6 +207,7 @@ const diffData = <
         ...(isEqual(object[key], previous_object[key])
           ? {}
           : { [key]: previous_object[key] }),
+        changes,
       }),
       {},
     ),
