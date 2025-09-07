@@ -3,7 +3,6 @@ from typing import List, Optional, Tuple, Literal, Union
 from pydantic.dataclasses import dataclass
 from dataclasses import dataclass as dataclass_with_arbitrary_types_allowed
 
-from pydantic import ConfigDict
 import numpy as np
 import operator
 from functools import reduce
@@ -305,7 +304,7 @@ class BaseABTest(ABC):
             difference_type="relative" if self.relative else "absolute"
         )
         if self.config.post_stratify:
-            return PostStratification(self.stats, moments_config).compute_result()
+            return EffectMomentsPostStratification(self.stats, moments_config).compute_result()
 
         else:
             return EffectMoments(
@@ -327,26 +326,46 @@ class BaseABTest(ABC):
     def compute_result(self) -> TestResult:
         pass
 
-
-@dataclass_with_arbitrary_types_allowed
-class StrataResult:
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    metric_type: Literal["count", "ratio"]
+@dataclass
+class StrataResultCount:
     n: int
-    mean: np.ndarray  # Expected shape: (2,) for count and (4,) for ratio
-    covariance: np.ndarray  # Expected shape: (2, 2) for count and (4, 4) for ratio
+    effect: float
+    control_mean: float
+    effect_cov: float
+    control_mean_cov: float
+    effect_control_mean_cov: float
+
+@dataclass
+class StrataResultRatio:
+    n: int
+    numerator_effect: float
+    numerator_control_mean: float
+    denominator_effect: float
+    denominator_control_mean: float
+    numerator_effect_cov: float
+    numerator_control_mean_cov: float
+    denominator_effect_cov: float
+    denominator_control_mean_cov: float
+    numerator_effect_numerator_control_mean_cov: float
+    numerator_effect_denominator_effect_cov: float
+    numerator_effect_denominator_control_mean_cov: float
+    numerator_control_mean_denominator_effect_cov: float
+    numerator_control_mean_denominator_control_mean_cov: float
+    denominator_effect_denominator_control_mean_cov: float
 
 
-class BaseCreateStrataResult(ABC):
+class CreateStrataResultBase(ABC):
+    def __init__(self, stat_a: TestStatistic, stat_b: TestStatistic):
+        self.stat_a = stat_a
+        self.stat_b = stat_b
+
     @property
-    @abstractmethod
     def n_a(self) -> int:
-        pass
+        return self.stat_a.n
 
     @property
-    @abstractmethod
     def n_b(self) -> int:
-        pass
+        return self.stat_b.n
 
     @property
     def n(self) -> int:
@@ -354,7 +373,7 @@ class BaseCreateStrataResult(ABC):
 
     @property
     @abstractmethod
-    def strata_means(self) -> np.ndarray:
+    def regression_coefs(self) -> np.ndarray:
         pass
 
     @property
@@ -371,42 +390,26 @@ class BaseCreateStrataResult(ABC):
 
     @property
     @abstractmethod
-    def lambda_a(self) -> np.ndarray:
-        pass
-
-    @property
-    @abstractmethod
-    def lambda_b(self) -> np.ndarray:
-        pass
-
-    @property
-    def strata_covariance(self) -> np.ndarray:
-        nrow_v = 2 * self.len_alpha
-        v = np.zeros((nrow_v, nrow_v))
-        v[0 : self.len_alpha, 0 : self.len_alpha] = self.lambda_b * self.n / self.n_b
-        v[
-            self.len_alpha : (2 * self.len_alpha), self.len_alpha : (2 * self.len_alpha)
-        ] = (self.lambda_a * self.n / self.n_a)
-        return v
-
-    @property
-    @abstractmethod
     def contrast_matrix(self) -> np.ndarray:
         pass
 
     @property
     def mean(self) -> np.ndarray:
-        return self.contrast_matrix.dot(self.strata_means)
+        return self.contrast_matrix.dot(self.regression_coefs).ravel()
 
     @property
+    @abstractmethod
     def covariance(self) -> np.ndarray:
-        return self.contrast_matrix.dot(self.strata_covariance).dot(
-            self.contrast_matrix.T
-        )
+        pass
+    
+    @abstractmethod
+    def compute_result(self) -> Union[StrataResultCount, StrataResultRatio]:
+        pass
+
 
 
 # Algorithm 1 for count metrics
-class CreateStrataResult(BaseCreateStrataResult):
+class CreateStrataResult(CreateStrataResultBase):
     def __init__(
         self,
         stat_a: Union[ProportionStatistic, SampleMeanStatistic],
@@ -416,24 +419,26 @@ class CreateStrataResult(BaseCreateStrataResult):
         self.stat_b = stat_b
 
     @property
-    def metric_type(self) -> Literal["count", "ratio"]:
-        return "count"
-
-    @property
-    def n_a(self) -> int:
-        return self.stat_a.n
-
-    @property
-    def n_b(self) -> int:
-        return self.stat_b.n
-
-    @property
     def len_alpha(self) -> int:
         return 1
 
     @property
-    def strata_means(self) -> np.ndarray:
+    def regression_coefs(self) -> np.ndarray:
         return np.array([self.stat_b.mean, self.stat_a.mean])
+    
+    @staticmethod
+    def compute_regression_coefs_covariance(len_alpha: int, n: int, n_a: int, n_b: int, lambda_a: np.ndarray, lambda_b: np.ndarray) -> np.ndarray:
+        nrow_v = 2 * len_alpha
+        v = np.zeros((nrow_v, nrow_v))
+        v[0 : len_alpha, 0 : len_alpha] = lambda_b * n / n_b
+        v[
+            len_alpha : (2 * len_alpha), len_alpha : (2 * len_alpha)
+        ] = (lambda_a * n / n_a)
+        return v
+        
+    @property
+    def regression_coefs_covariance(self) -> np.ndarray:
+        return self.compute_regression_coefs_covariance(self.len_alpha, self.n, self.n_a, self.n_b, self.lambda_a, self.lambda_b)
 
     @property
     def lambda_a(self) -> np.ndarray:
@@ -446,18 +451,28 @@ class CreateStrataResult(BaseCreateStrataResult):
     @property
     def contrast_matrix(self) -> np.ndarray:
         return np.array([[0, 1], [1, -1]])
-
-    def compute_result(self) -> StrataResult:
-        return StrataResult(
-            metric_type=self.metric_type,
-            n=self.n,
-            mean=self.mean,
-            covariance=self.covariance,
+    
+    @staticmethod
+    def covariance_unadjusted(contrast_matrix: np.ndarray, regression_coefs_covariance: np.ndarray) -> np.ndarray:
+        return contrast_matrix.dot(regression_coefs_covariance).dot(contrast_matrix.T)
+    
+    @property
+    def covariance(self) -> np.ndarray:
+        return self.covariance_unadjusted(self.contrast_matrix, self.regression_coefs_covariance)
+    
+    def compute_result(self) -> StrataResultCount:
+        return StrataResultCount(
+            n=self.n, 
+            effect=self.mean[0],
+            effect_cov=self.covariance[0, 0],
+            control_mean=self.mean[1],
+            control_mean_cov=self.covariance[1, 1],
+            effect_control_mean_cov=self.covariance[0, 1],
         )
 
 
 # Regression version of Algorithm 1 for count metrics
-class CreateStrataResultRegressionAdjusted:
+class CreateStrataResultRegressionAdjusted(CreateStrataResultBase):
     def __init__(
         self,
         stat_a: RegressionAdjustedStatistic,
@@ -467,18 +482,6 @@ class CreateStrataResultRegressionAdjusted:
         self.stat_a = stat_a
         self.stat_b = stat_b
         self.theta = theta
-
-    @property
-    def metric_type(self) -> Literal["count", "ratio"]:
-        return "count"
-
-    @property
-    def n_a(self) -> int:
-        return self.stat_a.n
-
-    @property
-    def n_b(self) -> int:
-        return self.stat_b.n
 
     @property
     def n(self) -> int:
@@ -523,7 +526,7 @@ class CreateStrataResultRegressionAdjusted:
         return xty
 
     @property
-    def gammahat(self) -> np.ndarray:
+    def regression_coefs(self) -> np.ndarray:
         return self.xtx_inv.dot(self.xty)
 
     # covariance matrix, 1 x 1 in this case
@@ -546,19 +549,22 @@ class CreateStrataResultRegressionAdjusted:
         statistic_pre = self.stat_a.pre_statistic + self.stat_b.pre_statistic
         return statistic_pre.variance
 
-    def contrast_matrix_estimated_mean(self, i: int) -> np.ndarray:
-        return np.expand_dims(self.contrast_matrix[i, :], axis=1)
+    @staticmethod
+    def contrast_matrix_estimated_mean(contrast_matrix: np.ndarray, i: int) -> np.ndarray:
+        return np.expand_dims(contrast_matrix[i, :], axis=1)
 
-    def contrast_matrix_covariance(self, i: int, j: int) -> np.ndarray:
-        v = np.zeros((self.len_gamma, self.len_gamma))
+    @staticmethod
+    def contrast_matrix_covariance(len_gamma: int, n: int, baseline_variance: float, i: int, j: int) -> np.ndarray:
+        v = np.zeros((len_gamma, len_gamma))
         if i == 0 and j == 0:
-            v[2, 2] = self.baseline_variance / self.n
+            v[2, 2] = baseline_variance / n
         return v
 
-    def contrast_matrix_second_moment(self, i: int, j: int) -> np.ndarray:
-        m_i = self.contrast_matrix_estimated_mean(i)
-        m_j = self.contrast_matrix_estimated_mean(j)
-        return self.contrast_matrix_covariance(i, j) + m_i.dot(m_j.T)
+    @staticmethod
+    def contrast_matrix_second_moment(contrast_matrix: np.ndarray, len_gamma: int, n: int, baseline_variance: float, i: int, j: int) -> np.ndarray:
+        m_i = CreateStrataResultRegressionAdjusted.contrast_matrix_estimated_mean(contrast_matrix, i)
+        m_j = CreateStrataResultRegressionAdjusted.contrast_matrix_estimated_mean(contrast_matrix, j)
+        return CreateStrataResultRegressionAdjusted.contrast_matrix_covariance(len_gamma, n, baseline_variance, i, j) + m_i.dot(m_j.T)
 
     @property
     def contrast_matrix(self) -> np.ndarray:
@@ -569,56 +575,60 @@ class CreateStrataResultRegressionAdjusted:
 
     @property
     def mean(self) -> np.ndarray:
-        return self.contrast_matrix.dot(self.gammahat).ravel()
+        return self.contrast_matrix.dot(self.regression_coefs).ravel()
+    
+    @staticmethod
+    def create_coef_covariance(sigma: np.ndarray, xtx_inv: np.ndarray) -> np.ndarray:
+        return np.kron(sigma, xtx_inv)
 
     @property
     def coef_covariance(self) -> np.ndarray:
-        return np.kron(self.sigma, self.xtx_inv)
-
-    @property
-    def covariance(self) -> np.ndarray:
-        v_alpha = np.zeros((self.len_alpha, self.len_alpha))
-        for i in range(self.len_alpha):
+        return self.create_coef_covariance(self.sigma, self.xtx_inv)
+    
+    @staticmethod
+    def covariance_adjusted(n: int, coef_covariance: np.ndarray, contrast_matrix: np.ndarray, regression_coefs: np.ndarray, baseline_variance: float) -> np.ndarray:
+        len_alpha = contrast_matrix.shape[0]
+        len_gamma = regression_coefs.shape[0]
+        v_alpha = np.zeros((len_alpha, len_alpha))
+        for i in range(len_alpha):
             for j in range(i + 1):
                 sum_1 = sum(
                     np.diag(
-                        self.coef_covariance.dot(
-                            self.contrast_matrix_second_moment(i, j)
-                        )
-                    )
+                        coef_covariance.dot(CreateStrataResultRegressionAdjusted.contrast_matrix_second_moment(contrast_matrix, len_gamma, n, baseline_variance, i, j))
+                    )   
                 )
                 sum_2 = sum(
                     np.diag(
-                        self.gammahat.dot(self.gammahat.T).dot(
-                            self.contrast_matrix_covariance(i, j)
-                        )
-                    )
+                        regression_coefs.dot(regression_coefs.T).dot(CreateStrataResultRegressionAdjusted.contrast_matrix_covariance(len_gamma, n, baseline_variance, i, j)))
                 )
                 v_alpha[i, j] = sum_1 + sum_2
                 v_alpha[j, i] = v_alpha[i, j]
-        return float(self.n) * v_alpha
+        return float(n) * v_alpha
+
+    @property
+    def covariance(self) -> np.ndarray:
+        return self.covariance_adjusted(self.n, self.coef_covariance, self.contrast_matrix, self.regression_coefs, self.baseline_variance)
+
 
     def _baseline_covariance_zero(self) -> bool:
         return (
             self.stat_a.pre_statistic.variance + self.stat_b.pre_statistic.variance <= 0
         )
 
-    def compute_result(self) -> StrataResult:
-        if self._baseline_covariance_zero():
-            return CreateStrataResult(
-                self.stat_a.post_statistic, self.stat_b.post_statistic
-            ).compute_result()
-        else:
-            return StrataResult(
-                metric_type=self.metric_type,
-                n=self.n,
-                mean=self.mean,
-                covariance=self.covariance,
-            )
+    def compute_result(self) -> StrataResultCount:
+        return StrataResultCount(
+            n=self.n, 
+            effect=self.mean[0],
+            effect_cov=self.covariance[0, 0],
+            control_mean=self.mean[1],
+            control_mean_cov=self.covariance[1, 1],
+            effect_control_mean_cov=self.covariance[0, 1],
+        )
+
 
 
 # Algorithm 1 for ratio metrics
-class CreateStrataResultRatio(BaseCreateStrataResult):
+class CreateStrataResultRatio(CreateStrataResultBase):
     def __init__(
         self,
         stat_a: RatioStatistic,
@@ -628,20 +638,19 @@ class CreateStrataResultRatio(BaseCreateStrataResult):
         self.stat_b = stat_b
 
     @property
-    def metric_type(self) -> Literal["count", "ratio"]:
-        return "ratio"
-
-    @property
-    def n_a(self) -> int:
-        return self.stat_a.n
-
-    @property
-    def n_b(self) -> int:
-        return self.stat_b.n
-
-    @property
     def len_alpha(self) -> int:
         return 2
+    
+    @property
+    def regression_coefs(self) -> np.ndarray:
+        return np.array(
+            [
+                self.stat_b.m_statistic.mean,
+                self.stat_b.d_statistic.mean,
+                self.stat_a.m_statistic.mean,
+                self.stat_a.d_statistic.mean,
+            ]
+        )
 
     @property
     def lambda_a(self) -> np.ndarray:
@@ -664,33 +673,42 @@ class CreateStrataResultRatio(BaseCreateStrataResult):
                 self.stat_b.d_statistic.variance,
             ]
         ).reshape(self.len_alpha, self.len_alpha)
+    
 
     @property
-    def strata_means(self) -> np.ndarray:
-        return np.array(
-            [
-                self.stat_b.m_statistic.mean,
-                self.stat_b.d_statistic.mean,
-                self.stat_a.m_statistic.mean,
-                self.stat_a.d_statistic.mean,
-            ]
-        )
+    def regression_coefs_covariance(self) -> np.ndarray:
+        return CreateStrataResult.compute_regression_coefs_covariance(self.len_alpha, self.n, self.n_a, self.n_b, self.lambda_a, self.lambda_b)
 
     @property
     def contrast_matrix(self) -> np.ndarray:
         return np.array([[0, 0, 1, 0], [1, 0, -1, 0], [0, 0, 0, 1], [0, 1, 0, -1]])
+    
+    @property
+    def covariance(self) -> np.ndarray:
+        return CreateStrataResult.covariance_unadjusted(self.contrast_matrix, self.regression_coefs_covariance)
 
-    def compute_result(self) -> StrataResult:
-        return StrataResult(
-            metric_type=self.metric_type,
+    def compute_result(self) -> StrataResultRatio:
+        return StrataResultRatio(
             n=self.n,
-            mean=self.mean,
-            covariance=self.covariance,
+            numerator_effect=self.mean[0],
+            numerator_control_mean=self.mean[1],
+            denominator_effect=self.mean[2],
+            denominator_control_mean=self.mean[3],
+            numerator_effect_cov=self.covariance[0, 0],
+            numerator_control_mean_cov=self.covariance[1, 1],
+            denominator_effect_cov=self.covariance[2, 2],
+            denominator_control_mean_cov=self.covariance[3, 3],
+            numerator_effect_numerator_control_mean_cov=self.covariance[0, 1],
+            numerator_effect_denominator_effect_cov=self.covariance[0, 2],
+            numerator_effect_denominator_control_mean_cov=self.covariance[0, 3],
+            numerator_control_mean_denominator_effect_cov=self.covariance[1, 2],
+            numerator_control_mean_denominator_control_mean_cov=self.covariance[1, 3], 
+            denominator_effect_denominator_control_mean_cov=self.covariance[2, 3]
         )
 
 
 # Regression version of Algorithm 1 for ratio metrics
-class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultRegressionAdjusted):
+class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultBase):    
     def __init__(
         self,
         stat_a: RegressionAdjustedRatioStatistic,
@@ -700,10 +718,6 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultRegressionAdju
         self.stat_a = stat_a
         self.stat_b = stat_b
         self.theta = theta
-
-    @property
-    def metric_type(self) -> Literal["count", "ratio"]:
-        return "ratio"
 
     @property
     def len_alpha(self) -> int:
@@ -740,6 +754,10 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultRegressionAdju
             + self.stat_b.m_pre_d_pre_sum_of_products
         )
         return xtx
+    
+    @property
+    def xtx_inv(self) -> np.ndarray:
+        return np.linalg.inv(self.xtx)
 
     @property
     def xty_numerator(self) -> np.ndarray:
@@ -780,7 +798,7 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultRegressionAdju
         return self.xtx_inv.dot(self.xty_denominator)
 
     @property
-    def gammahat(self) -> np.ndarray:
+    def regression_coefs(self) -> np.ndarray:
         return np.concatenate(
             (self.gammahat_numerator, self.gammahat_denominator), axis=0
         )
@@ -912,8 +930,40 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultRegressionAdju
             <= 0
         )
         return m_check or d_check
+    
+    @property
+    def coef_covariance(self) -> np.ndarray:
+        return CreateStrataResultRegressionAdjusted.create_coef_covariance(self.sigma, self.xtx_inv)
+    
+    def contrast_matrix_second_moment(self, i: int, j: int) -> np.ndarray:
+        m_i = CreateStrataResultRegressionAdjusted.contrast_matrix_estimated_mean(self.contrast_matrix, i)
+        m_j = CreateStrataResultRegressionAdjusted.contrast_matrix_estimated_mean(self.contrast_matrix, j)
+        return self.contrast_matrix_covariance(i, j) + m_i.dot(m_j.T)
 
-    def compute_result(self) -> StrataResult:
+    @property
+    def covariance(self) -> np.ndarray:
+        v_alpha = np.zeros((self.len_alpha, self.len_alpha))
+        for i in range(self.len_alpha):
+            for j in range(i + 1):
+                sum_1 = sum(
+                    np.diag(
+                        self.coef_covariance.dot(
+                            self.contrast_matrix_second_moment(i, j)
+                        )
+                    )
+                )
+                sum_2 = sum(
+                    np.diag(
+                        self.regression_coefs.dot(self.regression_coefs.T).dot(
+                            self.contrast_matrix_covariance(i, j)
+                        )
+                    )
+                )
+                v_alpha[i, j] = sum_1 + sum_2
+                v_alpha[j, i] = v_alpha[i, j]
+        return float(self.n) * v_alpha
+
+    def compute_result(self) -> StrataResultRatio:
         if self._baseline_covariance_zero():
             stat_a = RatioStatistic(
                 n=self.stat_a.n,
@@ -929,11 +979,22 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultRegressionAdju
             )
             return CreateStrataResultRatio(stat_a, stat_b).compute_result()
         else:
-            return StrataResult(
-                metric_type=self.metric_type,
+            return StrataResultRatio(
                 n=self.n,
-                mean=self.mean,
-                covariance=self.covariance,
+                numerator_effect=self.mean[0],
+                numerator_control_mean=self.mean[1],
+                denominator_effect=self.mean[2],
+                denominator_control_mean=self.mean[3],
+                numerator_effect_cov=self.covariance[0, 0],
+                numerator_control_mean_cov=self.covariance[1, 1],
+                denominator_effect_cov=self.covariance[2, 2],
+                denominator_control_mean_cov=self.covariance[3, 3],
+                numerator_effect_numerator_control_mean_cov=self.covariance[0, 1],
+                numerator_effect_denominator_effect_cov=self.covariance[0, 2],
+                numerator_effect_denominator_control_mean_cov=self.covariance[0, 3],
+                numerator_control_mean_denominator_effect_cov=self.covariance[1, 2],
+                numerator_control_mean_denominator_control_mean_cov=self.covariance[1, 3], 
+                denominator_effect_denominator_control_mean_cov=self.covariance[2, 3]
             )
 
 
@@ -941,7 +1002,7 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultRegressionAdju
 class PostStratificationSummary:
     def __init__(
         self,
-        strata_results: List[StrataResult],
+        strata_results: List[StrataResultCount],
         nu_hat: Optional[np.ndarray] = None,
         relative: bool = True,
     ):
@@ -971,14 +1032,10 @@ class PostStratificationSummary:
         return len(self.strata_results)
 
     @property
-    def alpha_hat(self) -> np.ndarray:
-        return np.array([stat.mean for stat in self.strata_results])
-
-    @property
     def alpha_matrix(self) -> np.ndarray:
         alpha_matrix = np.zeros((self.len_alpha, self.num_cells))
         for i, stat in enumerate(self.strata_results):
-            alpha_matrix[:, i] = stat.mean
+            alpha_matrix[:, i] = [stat.effect, stat.control_mean]
         return alpha_matrix
 
     @property
@@ -1061,12 +1118,17 @@ class PostStratificationSummary:
         nu_mat = moments_theoretical_y / (self.n_total**3)
 
         return nu_mat
+    
+    @staticmethod
+    def cell_covariance(stat: StrataResultCount) -> np.ndarray:
+        return np.array([[stat.effect_cov, stat.effect_control_mean_cov], [stat.effect_control_mean_cov, stat.control_mean_cov]])
 
     @property
     def v_full(self) -> np.ndarray:
         v_full = np.empty((self.num_cells, self.len_alpha, self.len_alpha))
         for cell in range(self.num_cells):
-            v_full[cell] = self.strata_results[cell].covariance / self.nu_hat[cell]
+            v = self.cell_covariance(self.strata_results[cell])
+            v_full[cell] = v / self.nu_hat[cell]
         return v_full
 
     @property
@@ -1144,9 +1206,51 @@ class PostStratificationSummary:
 
 # Algorithm 3
 class PostStratificationSummaryRatio(PostStratificationSummary):
+    def __init__(
+        self,
+        strata_results: List[StrataResultRatio],
+        nu_hat: Optional[np.ndarray] = None,
+        relative: bool = True,
+    ):
+        self.strata_results = strata_results
+        self.nu_hat = (
+            nu_hat
+            if nu_hat is not None
+            else np.array([stat.n for stat in self.strata_results])
+            / np.sum([stat.n for stat in self.strata_results])
+        )
+        self.relative = relative
+
     @property
     def len_alpha(self) -> int:
         return 4
+    
+    @staticmethod
+    def cell_covariance(stat: StrataResultRatio) -> np.ndarray:
+        return np.array([[stat.numerator_effect_cov, 
+                          stat.numerator_effect_numerator_control_mean_cov,
+                          stat.numerator_effect_denominator_effect_cov,
+                          stat.numerator_effect_denominator_control_mean_cov],
+                          [stat.numerator_effect_numerator_control_mean_cov,
+                          stat.numerator_control_mean_cov,
+                          stat.numerator_control_mean_denominator_effect_cov,
+                          stat.numerator_control_mean_denominator_control_mean_cov],
+                          [stat.numerator_effect_denominator_effect_cov,
+                          stat.numerator_control_mean_denominator_effect_cov,
+                          stat.denominator_effect_cov,
+                          stat.denominator_effect_denominator_control_mean_cov],
+                          [stat.numerator_effect_denominator_control_mean_cov,
+                          stat.numerator_control_mean_denominator_control_mean_cov,
+                          stat.denominator_effect_denominator_control_mean_cov,
+                          stat.denominator_control_mean_cov]
+                          ])
+    
+    @property
+    def alpha_matrix(self) -> np.ndarray:
+        alpha_matrix = np.zeros((self.len_alpha, self.num_cells))
+        for i, stat in enumerate(self.strata_results):
+            alpha_matrix[:, i] = [stat.numerator_effect, stat.numerator_control_mean, stat.denominator_effect, stat.denominator_control_mean]
+        return alpha_matrix
 
     @property
     def nabla(self) -> np.ndarray:
@@ -1217,7 +1321,7 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             return self.mean[0] / self.mean[2]
 
 
-class PostStratification:
+class EffectMomentsPostStratification:
     def __init__(
         self,
         stats: List[Tuple[TestStatistic, TestStatistic]],
@@ -1252,7 +1356,7 @@ class PostStratification:
         strata_results = []
         for _, stat_pair in enumerate(self.stats):
             strata_results.append(self.compute_strata_result(stat_pair))
-        if strata_results[0].metric_type == "ratio":
+        if isinstance(strata_results[0], StrataResultRatio):
             return PostStratificationSummaryRatio(
                 strata_results, nu_hat=None, relative=self.relative
             ).compute_result()
@@ -1263,7 +1367,7 @@ class PostStratification:
 
     def compute_strata_result(
         self, stat_pair: Tuple[TestStatistic, TestStatistic]
-    ) -> StrataResult:
+    ) -> Union[StrataResultCount, StrataResultRatio]:
         if isinstance(
             stat_pair[0], Union[ProportionStatistic, SampleMeanStatistic]
         ) and isinstance(stat_pair[1], Union[ProportionStatistic, SampleMeanStatistic]):

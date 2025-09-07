@@ -154,7 +154,6 @@ def get_dimension_column_name(dimension: str) -> str:
         dimension_column_name = "dim_unit_" + dimension
 
     return dimension_column_name
-    # Overall columns
 
 
 # Transform raw SQL result for metrics into a dataframe of dimensions
@@ -167,33 +166,50 @@ def get_metric_df(
 ) -> pd.DataFrame:
     dfc = rows.copy()
     dimensions = {}
+    dimension_string = "" if not dimension else dimension
+    # strip dimension of prefix before `:`
+    dimension_column_name = get_dimension_column_name(dimension_string)
+
+
     if post_stratify:
-        dimension_cols = dfc.filter(like="dim_exp_")
-        num_dimensions = len(dimension_cols.columns)
-        if num_dimensions == 1:
-            dfc = dfc.rename(columns={dimension_cols.columns[0]: "dimension"})
+        precomputed_dimension_df = get_precomputed_dimension_df(rows)
+        precomputed_columns = precomputed_dimension_df.columns.tolist()
+        dfc["dimension"] = precomputed_dimension_df.astype(str).agg("_".join, axis=1)
+        if dimension: 
+            dfc = dfc.rename(columns={dimension_column_name: "post_strat_dimension"})
         else:
-            dfc["dimension"] = dimension_cols.astype(str).agg("_".join, axis=1)
+            dfc["post_strat_dimension"] = ""
+        for col in precomputed_columns:
+            if col in dfc.columns:
+                dfc = dfc.drop(columns=[col])
 
     # Each row in the raw SQL result is a dimension/variation combo
     # We want to end up with one row per dimension
     for row in dfc.itertuples(index=False):
-        # strip dimension of prefix before `:`
-        dimension_column_name = (
-            "dimension" if not dimension else get_dimension_column_name(dimension)
-        )
         # if not found, try to find a column with "dimension" for backwards compatibility
         # fall back to one unnamed dimension if even that column is not found
-        dim = getattr(row, dimension_column_name, getattr(row, "dimension", ""))
+        if post_stratify:
+            dim = getattr(row, "dimension", "")
+            post_strat_dim = getattr(row, "post_strat_dimension", "")
+        else:
+            dim = getattr(row, dimension_column_name, getattr(row, "dimension", ""))
 
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
             # Overall columns
-            dimensions[dim] = {
-                "dimension": dim,
-                "variations": len(var_names),
-                "total_users": 0,
-            }
+            if post_stratify:
+                dimensions[dim] = {
+                    "dimension": dim,
+                    "post_strat_dimension": post_strat_dim,
+                    "variations": len(var_names),
+                    "total_users": 0,
+                }
+            else:
+                dimensions[dim] = {
+                    "dimension": dim,
+                    "variations": len(var_names),
+                    "total_users": 0,
+                }
             # Add columns for each variation (including baseline)
             for key in var_id_map:
                 i = var_id_map[key]
@@ -436,15 +452,14 @@ def run_post_stratification(
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> pd.DataFrame:
-
     # need to add a check for quantile metrics
     num_variations = df.at[0, "variations"]
     num_dimensions = df.shape[0]
 
     # dataframe that is returned
     df_output = copy.deepcopy(df)
-    df_output = reduce_dimensionality(df_output, max=1, keep_other=True)
-    df_output["dimension"] = "NA"
+    df_output = df_output.drop("dimension", axis=1)
+    df_output = df_output.rename(columns={'post_strat_dimension': 'dimension'})
     df_output = initialize_df(df_output, analysis)
     s_output = df_output.iloc[0].copy()
 
@@ -545,9 +560,6 @@ def analyze_metric_df(
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
     df = initialize_df(df, analysis)
-    dir_desktop = "/Users/lukesmith/Desktop/"
-    df.to_csv(dir_desktop + "initial_df.csv")
-
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
         # Loop through each non-baseline variation and run an analysis
@@ -587,9 +599,6 @@ def analyze_metric_df(
             analysis.weights,
         )
         return s
-
-    df_2 = df.apply(analyze_row, axis=1)
-    df_2.to_csv(dir_desktop + "updated_df.csv")
     return df.apply(analyze_row, axis=1)
 
 
@@ -817,6 +826,19 @@ def base_statistic_from_metric_row(
     else:
         raise ValueError("Unexpectedly metric_type was None")
 
+def get_precomputed_dimension_df(rows: pd.DataFrame) -> pd.DataFrame:
+    return rows.filter(like="dim_exp_")
+
+def get_post_strat_df(rows: pd.DataFrame, dimension: str) -> pd.DataFrame:
+    dimension_column_name = (
+        "dimension" if not dimension else get_dimension_column_name(dimension)
+    )
+    precomputed_dimension_df = get_precomputed_dimension_df(rows)
+    post_strat_df = copy.deepcopy(precomputed_dimension_df)
+    if dimension_column_name in post_strat_df.columns:
+        post_strat_df = post_strat_df.drop(columns=dimension_column_name, axis=1)
+    return post_strat_df
+
 
 # Run a specific analysis given data and configuration settings
 def process_analysis(
@@ -828,10 +850,12 @@ def process_analysis(
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
-    precomputed_dimension = any([col.startswith("dim_exp") for col in rows.columns])
+    file_output = "rows_" + analysis.dimension + ".csv"
+    rows.to_csv('/Users/lukesmith/Desktop/' + file_output, index=False)
+    #get post-stratification df
+    post_strat_df = get_post_strat_df(rows, analysis.dimension)
     post_stratify = (
-        precomputed_dimension
-        and analysis.dimension == ""
+        any(post_strat_df.columns)
         and metric.statistic_type not in ["quantile_event", "quantile_unit"]
         and analysis.post_stratification_eligible
     )
@@ -844,24 +868,35 @@ def process_analysis(
         dimension=analysis.dimension,
         post_stratify=post_stratify,
     )
+    keep_other = True
+    if metric.statistic_type in ["quantile_event", "quantile_unit"]:
+        keep_other = False
+    if metric.keep_theta and metric.statistic_type == "mean_ra":
+        keep_other = False
+
+    if post_stratify:
+        post_strat_results = pd.DataFrame()
+        post_strat_levels = df['post_strat_dimension'].unique()
+        for level in post_strat_levels:
+            df_level = df[df['post_strat_dimension'] == level].reset_index()
+            reduced = reduce_dimensionality(df_level, max=1, keep_other=keep_other)
+            this_result = run_post_stratification(reduced, metric, analysis)
+            this_result['dimension'] = level
+            if post_strat_results.empty:
+                post_strat_results = this_result
+            else:
+                post_strat_results = pd.concat([post_strat_results, this_result], ignore_index=True)
+        return post_strat_results
 
     # Limit to the top X dimensions with the most users
     # not possible to just re-sum for quantile metrics,
     # so we throw away "other" dimension
-    if post_stratify:
-        result = run_post_stratification(df, metric, analysis)
     else:
-        keep_other = True
-        if metric.statistic_type in ["quantile_event", "quantile_unit"]:
-            keep_other = False
-        if metric.keep_theta and metric.statistic_type == "mean_ra":
-            keep_other = False
         reduced = reduce_dimensionality(
             df=df,
             max=max_dimensions,
             keep_other=keep_other,
         )
-
         # Run the analysis for each variation and dimension
         result = analyze_metric_df(
             df=reduced,
