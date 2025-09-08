@@ -1,5 +1,6 @@
 import { createHmac } from "crypto";
 import omit from "lodash/omit";
+import pick from "lodash/pick";
 import isEqual from "lodash/isEqual";
 import { SlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 
@@ -156,12 +157,13 @@ interface ContainerChanges {
 function getItemFieldChanges(
   oldItem: Record<string, unknown>,
   newItem: Record<string, unknown>,
+  ignoredKeys: string[] = [],
 ): ItemFieldChange[] {
   const fieldChanges: ItemFieldChange[] = [];
   const allKeys = new Set([...Object.keys(oldItem), ...Object.keys(newItem)]);
 
   allKeys.forEach((key) => {
-    if (!isEqual(oldItem[key], newItem[key])) {
+    if (!ignoredKeys.includes(key) && !isEqual(oldItem[key], newItem[key])) {
       fieldChanges.push({
         field: key,
         oldValue: oldItem[key],
@@ -314,6 +316,7 @@ export function getObjectDiff(
                     const fieldChanges = getItemFieldChanges(
                       prevItem,
                       currItem,
+                      nestedConfig?.ignoredKeys || [],
                     );
                     const change: ItemChange = {
                       id: currItemId,
@@ -706,7 +709,38 @@ export function formatDiffForSlack(
       ? (obj as Record<string, unknown>)[field]
       : undefined;
 
+  const isEmpty = (value: unknown): boolean => {
+    if (value === null || value === undefined) return true;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      return trimmed === "" || trimmed === "{}" || trimmed === "[]";
+    }
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === "object") return Object.keys(value).length === 0;
+    return false;
+  };
+
   const getItemLabel = (obj: unknown): string => {
+    // If we have multiple fields configured, prefer JSON summary using only specified fields
+    if (opts.itemLabelFields.length > 1 && obj && typeof obj === "object") {
+      try {
+        // Only pick the fields specified in itemLabelFields
+        const picked = pick(
+          obj as Record<string, unknown>,
+          opts.itemLabelFields,
+        );
+        // Filter out empty fields
+        const filtered = Object.fromEntries(
+          Object.entries(picked).filter(([_, value]) => !isEmpty(value)),
+        );
+        const json = JSON.stringify(filtered);
+        return truncate(json, Math.min(opts.maxJsonLength, 120));
+      } catch {
+        // Fall through to single field logic
+      }
+    }
+
+    // Single field or fallback logic
     for (const f of opts.itemLabelFields) {
       const v = tryGet(obj, f);
       if (
@@ -718,16 +752,47 @@ export function formatDiffForSlack(
         if (sv) return sv;
       }
     }
+
+    // Final fallback - use all fields if no itemLabelFields match
     try {
-      const cleaned =
-        obj && typeof obj === "object"
-          ? omit(obj as Record<string, unknown>, excludedFields)
-          : obj;
-      const json = JSON.stringify(cleaned);
+      if (obj && typeof obj === "object") {
+        const filtered = Object.fromEntries(
+          Object.entries(obj as Record<string, unknown>).filter(
+            ([key, value]) => !isEmpty(value) && !excludedFields.includes(key),
+          ),
+        );
+        const json = JSON.stringify(filtered);
+        return truncate(json, Math.min(opts.maxJsonLength, 120));
+      }
+      const json = JSON.stringify(obj);
       return truncate(json, Math.min(opts.maxJsonLength, 120));
     } catch {
       return "item";
     }
+  };
+
+  const getSummaryLabel = (obj: unknown, position?: number): string => {
+    if (opts.itemLabelFields.length > 0 && obj && typeof obj === "object") {
+      try {
+        const summary = pick(
+          obj as Record<string, unknown>,
+          opts.itemLabelFields,
+        );
+        // Filter out empty fields
+        const filtered = Object.fromEntries(
+          Object.entries(summary).filter(([_, value]) => !isEmpty(value)),
+        );
+        const summaryJson = JSON.stringify(filtered);
+        const truncated = truncate(
+          summaryJson,
+          Math.min(opts.maxJsonLength, 100),
+        );
+        return position ? `#${position} (${truncated})` : truncated;
+      } catch {
+        // Fall back to item label
+      }
+    }
+    return position ? `#${position} (${getItemLabel(obj)})` : getItemLabel(obj);
   };
 
   // Added properties
@@ -808,7 +873,7 @@ export function formatDiffForSlack(
             const hasOrderSummaries = !!value.changes.orderSummaries?.length;
             if (value.changes.added?.length) {
               const labels = value.changes.added.map(
-                (item) => `• ${getItemLabel(item)}`,
+                (item, index) => `• #${index + 1} ${getItemLabel(item)}`,
               );
               sections.push(`*Added ${value.key}:*\n${labels.join("\n")}`);
               if (opts.includeRawJson) {
@@ -831,7 +896,7 @@ export function formatDiffForSlack(
             }
             if (value.changes.removed?.length) {
               const labels = value.changes.removed.map(
-                (item) => `• ${getItemLabel(item)}`,
+                (item, index) => `• #${index + 1} ${getItemLabel(item)}`,
               );
               sections.push(`*Removed ${value.key}:*\n${labels.join("\n")}`);
               if (opts.includeRawJson) {
@@ -858,8 +923,14 @@ export function formatDiffForSlack(
                 if (s.type === "reorderShift") {
                   const fromPos = toOneBased(s.fromIndex);
                   const toPos = toOneBased(s.toIndex);
+                  // Try to find the moved item in the modified list to get its data
+                  const movedItem = value.changes.modified?.find(
+                    (m) => m.id === s.movedId,
+                  );
+                  const itemData = movedItem?.newValue || movedItem;
+                  const summaryLabel = getSummaryLabel(itemData, fromPos);
                   summaryLines.push(
-                    `• Moved ${s.movedId} from #${fromPos} to #${toPos} (${s.direction}). Shifted ${s.affectedCount} others.`,
+                    `• Moved ${summaryLabel} to #${toPos} (${s.direction}). Shifted ${s.affectedCount} others.`,
                   );
                 } else if (s.type === "insertShift") {
                   const atPos = toOneBased(s.insertIndex);
@@ -915,11 +986,21 @@ export function formatDiffForSlack(
                     (fc) =>
                       `    - ${fc.field}: ${JSON.stringify(fc.oldValue)} → ${JSON.stringify(fc.newValue)}`,
                   );
-                  updateLines.push(`• ${label}\n${fieldLines.join("\n")}`);
+                  const position =
+                    typeof change.newIndex === "number"
+                      ? `#${change.newIndex + 1} `
+                      : "";
+                  updateLines.push(
+                    `• ${position}${label}\n${fieldLines.join("\n")}`,
+                  );
                   continue;
                 }
 
-                updateLines.push(`• Changed ${change.id}`);
+                const position =
+                  typeof change.newIndex === "number"
+                    ? `#${change.newIndex + 1} `
+                    : "";
+                updateLines.push(`• ${position}${getItemLabel(change)}`);
               }
               if (!hasOrderSummaries && moveLines.length)
                 sections.push(

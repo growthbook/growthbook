@@ -488,7 +488,7 @@ export const createFeatureEvent = async <
           {
             key: "environments",
             idField: "id",
-            ignoredKeys: ["definition"],
+            ignoredKeys: ["definition", "savedGroups"],
             arrayField: "rules",
           },
         ],
@@ -509,12 +509,12 @@ export const createFeatureEvent = async <
               patch,
               formatted: formatDiffForSlack(patch, {
                 itemLabelFields: [
-                  "trackingKey",
-                  "id",
-                  "name",
-                  "description",
                   "type",
                   "value",
+                  "coverage",
+                  "condition",
+                  "savedGroupTargeting",
+                  "prerequisites",
                 ],
                 includeRawJson: false,
               }),
