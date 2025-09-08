@@ -796,8 +796,10 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultBase):
         return xty
 
     @staticmethod
-    def compute_sigma(stat_a: RegressionAdjustedRatioStatistic, stat_b: RegressionAdjustedRatioStatistic, xty_numerator: np.ndarray, xty_denominator: np.ndarray, xtx_inv: np.ndarray, n: int) -> np.ndarray:
+    def compute_sigma(stat_a: RegressionAdjustedRatioStatistic, stat_b: RegressionAdjustedRatioStatistic, xty_numerator: np.ndarray, xty_denominator: np.ndarray, xtx: np.ndarray, xtx_inv: np.ndarray, n: int) -> np.ndarray:
         n = stat_a.n + stat_b.n
+        gammahat_numerator = xtx_inv.dot(xty_numerator)
+        gammahat_denominator = xtx_inv.dot(xty_denominator)
         resids_part_1 = (
             stat_a.m_statistic_post.sum_squares
             + stat_b.m_statistic_post.sum_squares
@@ -817,12 +819,12 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultBase):
             stat_a.m_post_d_post_sum_of_products
             + stat_b.m_post_d_post_sum_of_products
         )
-        resids_part_2 = -xty_numerator.T.dot(xtx_inv).dot(xty_denominator)
-        resids_part_3 = -xty_denominator.T.dot(xtx_inv).dot(xty_numerator)
-        resids_part_4 = xtx_inv.dot(xty_numerator).T.dot(xtx_inv).dot(xty_denominator)
+        resids_part_2 = -xty_numerator.T.dot(gammahat_denominator)
+        resids_part_3 = -xty_denominator.T.dot(gammahat_numerator)
+        resids_part_4 = gammahat_numerator.T.dot(xtx).dot(gammahat_denominator)
         sigma_1_2 = (resids_part_1 + resids_part_2 + resids_part_3 + resids_part_4) / (
             n - 6
-        )
+        )    
         return np.array([[sigma_1_1, sigma_1_2], [sigma_1_2, sigma_2_2]]).reshape(2, 2)
 
     @property
@@ -973,7 +975,7 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultBase):
             regression_coefs = np.concatenate(
                 (gammahat_numerator, gammahat_denominator), axis=0
             )
-            sigma = self.compute_sigma(self.stat_a, self.stat_b, self.xty_numerator, self.xty_denominator, xtx_inv, self.n)
+            sigma = self.compute_sigma(self.stat_a, self.stat_b, self.xty_numerator, self.xty_denominator, self.xtx, xtx_inv, self.n)
             coef_covariance = CreateStrataResultRegressionAdjusted.create_coef_covariance(sigma, xtx_inv)            
             mean = CreateStrataResult.mean(self.contrast_matrix, regression_coefs)
             covariance = self.covariance(regression_coefs, coef_covariance)
