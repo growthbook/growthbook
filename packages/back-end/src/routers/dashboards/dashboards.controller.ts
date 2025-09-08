@@ -248,7 +248,6 @@ export async function refreshDashboardData(
   ]);
 
   for (const savedQuery of savedQueries) {
-    // TODO: cache in a map to reduce db queries
     const datasource = await getDataSourceById(
       context,
       savedQuery.datasourceId,

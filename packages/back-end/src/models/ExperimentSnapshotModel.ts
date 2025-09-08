@@ -1,10 +1,6 @@
 import mongoose, { FilterQuery, PipelineStage } from "mongoose";
 import omit from "lodash/omit";
-import {
-  dashboardCanAutoUpdate,
-  snapshotSatisfiesBlock,
-  blockHasFieldOfType,
-} from "shared/enterprise";
+import { snapshotSatisfiesBlock, blockHasFieldOfType } from "shared/enterprise";
 import { isString } from "shared/util";
 import {
   SnapshotType,
@@ -310,11 +306,7 @@ export async function updateSnapshot({
     const dashboard = await context.models.dashboards.getById(
       experimentSnapshotModel.dashboard!,
     );
-    if (
-      dashboard &&
-      dashboard.enableAutoUpdates &&
-      dashboardCanAutoUpdate(dashboard)
-    ) {
+    if (dashboard && dashboard.enableAutoUpdates) {
       const blocks = dashboard.blocks.map((block) => {
         if (
           !blockHasFieldOfType(block, "snapshotId", isString) ||
