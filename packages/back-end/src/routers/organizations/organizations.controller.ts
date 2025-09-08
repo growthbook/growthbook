@@ -2053,7 +2053,7 @@ export async function putLicenseKey(
 }
 
 export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: string }>,
+  req: AuthRequest<{ defaultRole: MemberRoleWithProjects }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2068,7 +2068,10 @@ export async function putDefaultRole(
     );
   }
 
-  if (!isRoleValid(defaultRole, org)) {
+  if (
+    !isRoleValid(defaultRole.role, org) ||
+    !areProjectRolesValid(defaultRole.projectRoles, org)
+  ) {
     throw new Error("Invalid role");
   }
 
@@ -2079,11 +2082,7 @@ export async function putDefaultRole(
   updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      defaultRole: {
-        role: defaultRole,
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
+      defaultRole,
     },
   });
 
