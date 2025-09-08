@@ -76,6 +76,56 @@ export async function postExperimentLaunchChecklist(
   });
 }
 
+// This is used to fetch the checklist for an experiment
+export async function getExperimentCheckListByExperiment(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id } = req.params;
+
+  if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
+    return res.status(200).json({
+      status: 200,
+      checklist: [],
+    });
+  }
+
+  const experiment = await getExperimentById(context, id);
+
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+
+  // First, check if the experiment has a project, and if that project
+  // has it's own checklist
+  if (experiment.project) {
+    const projectChecklist = await getExperimentLaunchChecklist(
+      org.id,
+      experiment.project,
+    );
+
+    if (projectChecklist) {
+      return res.status(200).json({
+        status: 200,
+        checklist: projectChecklist,
+      });
+    }
+  }
+
+  // If no project-level checklist, fall back to the organization-level checklist
+  const orgChecklist = await getExperimentLaunchChecklist(org.id, "");
+
+  return res.status(200).json({
+    status: 200,
+    checklist: orgChecklist,
+  });
+}
+
 // This is used to fetch the checklist for the org's settings page or the project's settings page
 export async function getExperimentCheckList(
   req: AuthRequest<null, null, { projectId: string }>,
