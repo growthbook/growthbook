@@ -98,12 +98,13 @@ export default function ProjectRolesSelector({
                 if (!newProject) return;
 
                 const newProjectRoles: ProjectMemberRole[] = [...projectRoles];
-                newProjectRoles.push(
-                  cloneDeep({
-                    project: newProject,
-                    ...defaultRole,
-                  }) as ProjectMemberRole,
-                );
+                newProjectRoles.push({
+                  project: newProject,
+                  role: defaultRole.role,
+                  limitAccessByEnvironment:
+                    defaultRole.limitAccessByEnvironment,
+                  environments: defaultRole.environments,
+                });
                 setProjectRoles(newProjectRoles);
                 setNewProject("");
               }}
