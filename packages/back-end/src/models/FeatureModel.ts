@@ -484,7 +484,14 @@ export const createFeatureEvent = async <
         previousApiFeature,
         currentApiFeature,
         ["dateUpdated"],
-        [{ key: "environments", idField: "id", ignoredKeys: ["definition"] }],
+        [
+          {
+            key: "environments",
+            idField: "id",
+            ignoredKeys: ["definition"],
+            arrayField: "rules",
+          },
+        ],
       );
     } catch (e) {
       logger.error(e, "error creating change patch");

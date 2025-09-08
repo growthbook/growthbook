@@ -1,10 +1,6 @@
 import { createHmac } from "crypto";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import {
-  FeatureEnvironment,
-  FeatureRule,
-} from "back-end/src/validators/features";
 import { SlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 
 export type EventWebHookSuccessResult = {
@@ -44,19 +40,9 @@ export const getEventWebHookSignatureForPayload = <T>({
 
 // endregion Web hook signing
 
-interface ArrayChanges {
-  added?: Record<string, unknown>[];
-  removed?: Record<string, unknown>[];
-  modified?: Array<{
-    id: string;
-    oldValue: unknown;
-    newValue: unknown;
-  }>;
-}
-
 interface HierarchicalValue {
   key: string;
-  changes?: ArrayChanges;
+  changes?: ItemChanges;
   added?: Record<string, unknown>;
   removed?: Record<string, unknown>;
   modified?: Array<{
@@ -102,54 +88,78 @@ export interface DiffResult {
   modified: ModificationItem[];
 }
 
-// Define key type for FeatureRule to allow indexing
-type KeyofFeatureRule = keyof FeatureRule;
-
-interface RuleFieldChange {
+interface ItemFieldChange {
   field: string;
   oldValue: unknown;
   newValue: unknown;
 }
 
-interface RuleChange {
+interface ItemChange {
   id: string;
-  newValue: FeatureRule;
-  fieldChanges: RuleFieldChange[];
+  oldValue?: unknown;
+  newValue: unknown;
+  fieldChanges?: ItemFieldChange[];
+  oldIndex?: number;
+  newIndex?: number;
+  steps?: number; // positive = moved up, negative = moved down
 }
 
-interface RuleChanges {
-  added?: FeatureRule[];
-  removed?: FeatureRule[];
-  modified?: RuleChange[];
+type OrderSummary =
+  | {
+      type: "insertShift";
+      insertIndex: number;
+      direction: "down" | "up";
+      affectedCount: number;
+    }
+  | {
+      type: "reorderShift";
+      movedId: string;
+      fromIndex: number;
+      toIndex: number;
+      direction: "down" | "up";
+      affectedCount: number;
+    }
+  | {
+      type: "deleteShift";
+      deleteIndex: number;
+      direction: "up" | "down";
+      affectedCount: number;
+    };
+
+interface ItemChanges {
+  added?: Record<string, unknown>[];
+  removed?: Record<string, unknown>[];
+  modified?: ItemChange[];
+  orderSummaries?: OrderSummary[];
 }
 
 interface NestedObjectConfig {
   key: string;
-  idField: string;
+  idField?: string; // Optional - only needed for array items
   ignoredKeys?: string[];
+  arrayField?: string; // Field name that contains array of items to diff
 }
 
-interface EnvironmentChanges {
+interface ContainerChanges {
   added?: Record<string, unknown>;
   removed?: Record<string, unknown>;
   modified?: ModificationItem[];
-  rules?: RuleChanges;
+  items?: ItemChanges;
 }
 
-function getRuleFieldChanges(
-  oldRule: FeatureRule,
-  newRule: FeatureRule,
-): RuleFieldChange[] {
-  const fieldChanges: RuleFieldChange[] = [];
-  const allKeys = new Set([...Object.keys(oldRule), ...Object.keys(newRule)]);
+function getItemFieldChanges(
+  oldItem: Record<string, unknown>,
+  newItem: Record<string, unknown>,
+): ItemFieldChange[] {
+  const fieldChanges: ItemFieldChange[] = [];
+  const allKeys = new Set([...Object.keys(oldItem), ...Object.keys(newItem)]);
 
   allKeys.forEach((key) => {
-    const typedKey = key as keyof FeatureRule;
-    if (!isEqual(oldRule[typedKey], newRule[typedKey])) {
+    if (!isEqual(oldItem[key], newItem[key])) {
       fieldChanges.push({
         field: key,
-        oldValue: oldRule[typedKey],
-        newValue: newRule[typedKey],
+        oldValue: oldItem[key],
+        newValue: newItem[key],
       });
     }
   });
@@ -182,7 +192,7 @@ export function getObjectDiff(
     } else if (!isEqual(prev[key], curr[key])) {
       const nestedConfig = nestedConfigMap.get(key);
 
-      // Special handling for environment settings or other nested objects with IDs
+      // Special handling for nested objects with IDs
       if (
         nestedConfig &&
         typeof prev[key] === "object" &&
@@ -190,157 +200,381 @@ export function getObjectDiff(
         typeof curr[key] === "object" &&
         curr[key] !== null
       ) {
-        // Process nested objects if they're records (like environmentSettings)
+        // Process nested objects if they're records (like containers)
         if (!Array.isArray(prev[key]) && !Array.isArray(curr[key])) {
-          const prevEnvs = prev[key] as Record<string, FeatureEnvironment>;
-          const currEnvs = curr[key] as Record<string, FeatureEnvironment>;
+          const prevContainers = prev[key] as Record<string, unknown>;
+          const currContainers = curr[key] as Record<string, unknown>;
 
-          // Process each environment
-          const allEnvs = new Set([
-            ...Object.keys(prevEnvs),
-            ...Object.keys(currEnvs),
+          // Process each container
+          const allContainers = new Set([
+            ...Object.keys(prevContainers),
+            ...Object.keys(currContainers),
           ]);
-          const envChanges: Record<string, EnvironmentChanges> = {};
+          const containerChanges: Record<string, ContainerChanges> = {};
 
-          allEnvs.forEach((envName) => {
-            if (!prevEnvs[envName]) {
-              // Added environment
-              envChanges[envName] = {
-                added: currEnvs[envName] as unknown as Record<string, unknown>,
+          allContainers.forEach((containerName) => {
+            if (!prevContainers[containerName]) {
+              // Added container
+              containerChanges[containerName] = {
+                added: currContainers[containerName] as Record<string, unknown>,
               };
-            } else if (!currEnvs[envName]) {
-              // Removed environment
-              envChanges[envName] = {
-                removed: prevEnvs[envName] as unknown as Record<
+            } else if (!currContainers[containerName]) {
+              // Removed container
+              containerChanges[containerName] = {
+                removed: prevContainers[containerName] as Record<
                   string,
                   unknown
                 >,
               };
-            } else if (!isEqual(prevEnvs[envName], currEnvs[envName])) {
-              // Modified environment
+            } else if (
+              !isEqual(
+                prevContainers[containerName],
+                currContainers[containerName],
+              )
+            ) {
+              // Modified container
 
-              // Check for rules changes, handle them specially
+              const prevContainer = prevContainers[containerName] as Record<
+                string,
+                unknown
+              >;
+              const currContainer = currContainers[containerName] as Record<
+                string,
+                unknown
+              >;
+
+              // Check for array field changes, handle them specially if configured
               if (
-                Array.isArray(prevEnvs[envName].rules) &&
-                Array.isArray(currEnvs[envName].rules)
+                nestedConfig?.arrayField &&
+                Array.isArray(prevContainer[nestedConfig.arrayField]) &&
+                Array.isArray(currContainer[nestedConfig.arrayField])
               ) {
-                const prevRules = prevEnvs[envName].rules;
-                const currRules = currEnvs[envName].rules;
+                const prevItems = prevContainer[
+                  nestedConfig.arrayField
+                ] as Record<string, unknown>[];
+                const currItems = currContainer[
+                  nestedConfig.arrayField
+                ] as Record<string, unknown>[];
                 const idField = nestedConfig.idField;
 
-                // Track changes by rule ID
-                const prevRulesMap = new Map(
-                  prevRules.map((r) => [
-                    r[idField as KeyofFeatureRule] as string,
-                    r,
+                // Track changes by item ID
+                const prevItemsMap = new Map(
+                  prevItems.map((item) => [
+                    item[idField || "id"] as string,
+                    item,
                   ]),
                 );
-                const currRulesMap = new Map(
-                  currRules.map((r) => [
-                    r[idField as KeyofFeatureRule] as string,
-                    r,
+                const currItemsMap = new Map(
+                  currItems.map((item) => [
+                    item[idField || "id"] as string,
+                    item,
                   ]),
                 );
+                const prevIndexMap = new Map<string, number>();
+                const currIndexMap = new Map<string, number>();
+                prevItems.forEach((item, idx) => {
+                  prevIndexMap.set(item[idField || "id"] as string, idx);
+                });
+                currItems.forEach((item, idx) => {
+                  currIndexMap.set(item[idField || "id"] as string, idx);
+                });
 
-                const addedRules: FeatureRule[] = [];
-                const removedRules: FeatureRule[] = [];
-                const modifiedRules: RuleChange[] = [];
+                const addedItems: Record<string, unknown>[] = [];
+                const removedItems: Record<string, unknown>[] = [];
+                const modifiedItems: ItemChange[] = [];
+                const modifiedById = new Map<string, ItemChange>();
 
-                // Find added rules
-                currRules.forEach((rule) => {
-                  const ruleId = rule[idField as KeyofFeatureRule] as string;
-                  if (!prevRulesMap.has(ruleId)) {
-                    addedRules.push(rule);
+                // Find added items
+                currItems.forEach((item) => {
+                  const itemId = item[idField || "id"] as string;
+                  if (!prevItemsMap.has(itemId)) {
+                    addedItems.push(item as Record<string, unknown>);
                   }
                 });
 
-                // Find removed rules
-                prevRules.forEach((rule) => {
-                  const ruleId = rule[idField as KeyofFeatureRule] as string;
-                  if (!currRulesMap.has(ruleId)) {
-                    removedRules.push(rule);
+                // Find removed items
+                prevItems.forEach((item) => {
+                  const itemId = item[idField || "id"] as string;
+                  if (!currItemsMap.has(itemId)) {
+                    removedItems.push(item as Record<string, unknown>);
                   }
                 });
 
-                // Find modified rules
-                currRules.forEach((currRule) => {
-                  const currRuleId = currRule[
-                    idField as KeyofFeatureRule
-                  ] as string;
-                  const prevRule = prevRulesMap.get(currRuleId);
-                  if (prevRule && !isEqual(prevRule, currRule)) {
-                    const fieldChanges = getRuleFieldChanges(
-                      prevRule,
-                      currRule,
+                // Find modified items
+                currItems.forEach((currItem) => {
+                  const currItemId = currItem[idField || "id"] as string;
+                  const prevItem = prevItemsMap.get(currItemId);
+                  if (prevItem && !isEqual(prevItem, currItem)) {
+                    const fieldChanges = getItemFieldChanges(
+                      prevItem,
+                      currItem,
                     );
-                    modifiedRules.push({
-                      id: currRuleId,
-                      newValue: currRule,
+                    const change: ItemChange = {
+                      id: currItemId,
+                      newValue: currItem,
                       fieldChanges,
-                    });
+                    };
+                    modifiedItems.push(change);
+                    modifiedById.set(currItemId, change);
                   }
                 });
 
-                const rulesChanges: RuleChanges = {
+                // Find reordered items (present in both arrays but index changed)
+                currItems.forEach((currItem) => {
+                  const currItemId = currItem[idField || "id"] as string;
+                  const prevIdx = prevIndexMap.get(currItemId);
+                  const currIdx = currIndexMap.get(currItemId);
+                  if (
+                    prevIdx !== undefined &&
+                    currIdx !== undefined &&
+                    prevIdx !== currIdx
+                  ) {
+                    // Merge reorder info into existing change or create a new one
+                    const existing = modifiedById.get(currItemId);
+                    if (existing) {
+                      existing.oldIndex = prevIdx;
+                      existing.newIndex = currIdx;
+                      existing.steps = prevIdx - currIdx;
+                    } else {
+                      const change: ItemChange = {
+                        id: currItemId,
+                        newValue: currItem,
+                        oldIndex: prevIdx,
+                        newIndex: currIdx,
+                        steps: prevIdx - currIdx,
+                      };
+                      modifiedItems.push(change);
+                      modifiedById.set(currItemId, change);
+                    }
+                  }
+                });
+
+                const itemChanges: ItemChanges = {
                   added: undefined,
                   removed: undefined,
                   modified: undefined,
                 };
 
-                if (addedRules.length > 0) rulesChanges.added = addedRules;
-                if (removedRules.length > 0)
-                  rulesChanges.removed = removedRules;
-                if (modifiedRules.length > 0)
-                  rulesChanges.modified = modifiedRules;
+                if (addedItems.length > 0) itemChanges.added = addedItems;
+                if (removedItems.length > 0) itemChanges.removed = removedItems;
+                // Post-process to build compact summaries for order shifts
+                const summaries: NonNullable<ItemChanges["orderSummaries"]> =
+                  [];
 
-                // Only include rules if something changed
-                if (Object.keys(rulesChanges).length > 0) {
-                  // Get other changes in the environment
-                  const otherPrevEnvProps = omit(prevEnvs[envName], ["rules"]);
-                  const otherCurrEnvProps = omit(currEnvs[envName], ["rules"]);
+                // Helper to detect contiguous indices
+                const isContiguous = (indices: number[]): boolean => {
+                  if (indices.length <= 1) return true;
+                  const sorted = [...indices].sort((a, b) => a - b);
+                  for (let i = 1; i < sorted.length; i++) {
+                    if (sorted[i] !== sorted[i - 1] + 1) return false;
+                  }
+                  return true;
+                };
+
+                // Case 1: Inserts causing bulk shift (support multiple inserts)
+                if (addedItems.length > 0) {
+                  const consumed = new Set<string>();
+                  for (const added of addedItems) {
+                    const addedId = (added[idField || "id"] || "") as string;
+                    const addedIndex = currIndexMap.get(addedId);
+                    if (typeof addedIndex !== "number") continue;
+                    const followers = modifiedItems.filter(
+                      (m) =>
+                        !m.fieldChanges?.length &&
+                        typeof m.oldIndex === "number" &&
+                        typeof m.newIndex === "number" &&
+                        m.steps === -1 &&
+                        (m.newIndex as number) >= addedIndex &&
+                        !consumed.has(m.id),
+                    );
+                    const affectedIndices = followers.map(
+                      (m) => m.newIndex as number,
+                    );
+                    if (followers.length > 0 && isContiguous(affectedIndices)) {
+                      summaries.push({
+                        type: "insertShift",
+                        insertIndex: addedIndex,
+                        direction: "down",
+                        affectedCount: followers.length,
+                      });
+                      for (const f of followers) {
+                        consumed.add(f.id);
+                        const idx = modifiedItems.indexOf(f);
+                        if (idx >= 0) modifiedItems.splice(idx, 1);
+                      }
+                    }
+                  }
+                }
+
+                // Case 2: Deletions causing bulk shift (support multiple deletions)
+                if (removedItems.length > 0) {
+                  const consumed = new Set<string>();
+                  for (const removed of removedItems) {
+                    const removedId = (removed[idField || "id"] ||
+                      "") as string;
+                    const removedIndex = prevIndexMap.get(removedId);
+                    if (typeof removedIndex !== "number") continue;
+                    const followers = modifiedItems.filter(
+                      (m) =>
+                        !m.fieldChanges?.length &&
+                        typeof m.oldIndex === "number" &&
+                        typeof m.newIndex === "number" &&
+                        m.steps === 1 &&
+                        (m.oldIndex as number) > removedIndex &&
+                        !consumed.has(m.id),
+                    );
+                    const affectedOld = followers.map(
+                      (m) => m.oldIndex as number,
+                    );
+                    if (followers.length > 0 && isContiguous(affectedOld)) {
+                      summaries.push({
+                        type: "deleteShift",
+                        deleteIndex: removedIndex,
+                        direction: "up",
+                        affectedCount: followers.length,
+                      });
+                      for (const f of followers) {
+                        consumed.add(f.id);
+                        const idx = modifiedItems.indexOf(f);
+                        if (idx >= 0) modifiedItems.splice(idx, 1);
+                      }
+                    }
+                  }
+                }
+
+                // Case 3: Reorders causing bulk shift (support multiple groups)
+                if (addedItems.length === 0 && removedItems.length === 0) {
+                  let reorderOnly = modifiedItems.filter(
+                    (m) =>
+                      !m.fieldChanges?.length &&
+                      typeof m.oldIndex === "number" &&
+                      typeof m.newIndex === "number" &&
+                      m.oldIndex !== m.newIndex,
+                  );
+                  while (reorderOnly.length > 0) {
+                    // Pick the moved item with largest absolute movement
+                    let moved = reorderOnly[0];
+                    for (const m of reorderOnly) {
+                      if (
+                        Math.abs((m.steps as number) || 0) >
+                        Math.abs((moved.steps as number) || 0)
+                      ) {
+                        moved = m;
+                      }
+                    }
+                    const direction: "down" | "up" =
+                      (moved.steps as number) < 0 ? "down" : "up";
+                    const lower = Math.min(
+                      moved.oldIndex as number,
+                      moved.newIndex as number,
+                    );
+                    const upper = Math.max(
+                      moved.oldIndex as number,
+                      moved.newIndex as number,
+                    );
+                    const expectedFollowerStep =
+                      (moved.steps as number) > 0 ? -1 : 1;
+                    const followers = reorderOnly.filter((m) => {
+                      if (m === moved) return false;
+                      const s = (m.steps as number) || 0;
+                      const idx = m.newIndex as number;
+                      return (
+                        s === expectedFollowerStep &&
+                        idx >= lower &&
+                        idx <= upper
+                      );
+                    });
+                    const followerIndices = followers.map(
+                      (m) => m.newIndex as number,
+                    );
+                    if (followers.length > 0 && isContiguous(followerIndices)) {
+                      summaries.push({
+                        type: "reorderShift",
+                        movedId: moved.id,
+                        fromIndex: moved.oldIndex as number,
+                        toIndex: moved.newIndex as number,
+                        direction,
+                        affectedCount: followers.length,
+                      });
+                      for (const f of followers) {
+                        const idx = modifiedItems.indexOf(f);
+                        if (idx >= 0) modifiedItems.splice(idx, 1);
+                      }
+                    }
+                    // Remove the moved candidate from consideration and continue
+                    reorderOnly = modifiedItems.filter(
+                      (m) =>
+                        !m.fieldChanges?.length &&
+                        typeof m.oldIndex === "number" &&
+                        typeof m.newIndex === "number" &&
+                        m.oldIndex !== m.newIndex,
+                    );
+                    // Break if no further grouping is possible
+                    const anyGroupable = reorderOnly.some(
+                      (m) => Math.abs((m.steps as number) || 0) > 1,
+                    );
+                    if (!anyGroupable) break;
+                  }
+                }
+
+                if (summaries.length > 0)
+                  itemChanges.orderSummaries = summaries;
+                if (modifiedItems.length > 0)
+                  itemChanges.modified = modifiedItems;
+                // modifiedItems may include pure reorder entries or field changes or both
+
+                // Only include items if something changed
+                if (Object.keys(itemChanges).length > 0) {
+                  // Get other changes in the container (excluding the array field)
+                  const otherPrevProps = omit(prevContainer, [
+                    nestedConfig.arrayField,
+                  ]);
+                  const otherCurrProps = omit(currContainer, [
+                    nestedConfig.arrayField,
+                  ]);
 
                   const otherChanges = getObjectDiff(
-                    otherPrevEnvProps,
-                    otherCurrEnvProps,
-                    nestedConfig.ignoredKeys || [],
+                    otherPrevProps,
+                    otherCurrProps,
+                    nestedConfig?.ignoredKeys || [],
                   );
 
-                  envChanges[envName] = {
-                    rules: rulesChanges,
+                  containerChanges[containerName] = {
+                    items: itemChanges,
                     ...otherChanges,
                   };
                 }
               } else {
-                // Handle non-rule environment changes
-                envChanges[envName] = getObjectDiff(
-                  prevEnvs[envName],
-                  currEnvs[envName],
-                  nestedConfig.ignoredKeys || [],
+                // Handle non-array container changes
+                containerChanges[containerName] = getObjectDiff(
+                  prevContainer,
+                  currContainer,
+                  nestedConfig?.ignoredKeys || [],
                 );
               }
             }
           });
 
-          if (Object.keys(envChanges).length > 0) {
+          if (Object.keys(containerChanges).length > 0) {
             const hierarchicalValues: HierarchicalValue[] = Object.entries(
-              envChanges,
-            ).map(([envName, changes]) => {
-              const envResult: HierarchicalValue = {
-                key: envName,
+              containerChanges,
+            ).map(([containerName, changes]) => {
+              const containerResult: HierarchicalValue = {
+                key: containerName,
                 added: changes.added || {},
                 removed: changes.removed || {},
                 modified: changes.modified || [],
               };
 
-              if (changes.rules) {
-                const rulesEntry: HierarchicalValue = {
-                  key: "rules",
-                  changes: changes.rules,
+              if (changes.items) {
+                const itemsEntry: HierarchicalValue = {
+                  key: nestedConfig?.arrayField || "items",
+                  changes: changes.items,
                 };
-                envResult.values = [rulesEntry];
+                containerResult.values = [itemsEntry];
               }
 
-              return envResult;
+              return containerResult;
             });
 
             const hierarchicalMod: HierarchicalModification = {
@@ -354,7 +588,6 @@ export function getObjectDiff(
           }
         } else {
           // Generic array handling for other nested configs
-          // This could be enhanced to handle arrays of objects with IDs too
           const simpleMod: SimpleModification = {
             key,
             oldValue: prev[key],
@@ -362,8 +595,42 @@ export function getObjectDiff(
           };
           result.modified.push(simpleMod);
         }
+      } else if (
+        typeof prev[key] === "object" &&
+        prev[key] !== null &&
+        typeof curr[key] === "object" &&
+        curr[key] !== null &&
+        !Array.isArray(prev[key]) &&
+        !Array.isArray(curr[key])
+      ) {
+        // Default behavior: handle object field changes by grouping under the parent key
+        const prevObj = prev[key] as Record<string, unknown>;
+        const currObj = curr[key] as Record<string, unknown>;
+
+        // Use ignoredKeys from nested config if available
+        const configIgnoredKeys = nestedConfig?.ignoredKeys || [];
+
+        // Compute a sub-diff relative to this nested object
+        const subDiff = getObjectDiff(prevObj, currObj, configIgnoredKeys);
+
+        // If there are any changes inside, wrap them as a hierarchical modification so
+        // sibling field changes are grouped under the parent key (e.g. "revision")
+        if (
+          Object.keys(subDiff.added).length > 0 ||
+          Object.keys(subDiff.removed).length > 0 ||
+          subDiff.modified.length > 0
+        ) {
+          const hierarchicalMod: HierarchicalModification = {
+            key,
+            added: subDiff.added,
+            removed: subDiff.removed,
+            modified: subDiff.modified,
+            values: [],
+          };
+          result.modified.push(hierarchicalMod);
+        }
       } else {
-        // Default behavior for regular key changes
+        // Default behavior for primitive values
         const simpleMod: SimpleModification = {
           key,
           oldValue: prev[key],
@@ -476,21 +743,62 @@ export function formatDiffForSlack(diff: DiffResult): SlackMessage {
                 `*Removed:* ${JSON.stringify(value.changes.removed.map((item) => (typeof item === "object" && item !== null ? omit(item, excludedFields) : item)))}`,
               );
             }
+            if (value.changes.orderSummaries?.length) {
+              const summaries = value.changes.orderSummaries.map((s) => {
+                switch (s.type) {
+                  case "insertShift":
+                    return {
+                      type: s.type,
+                      insertIndex: s.insertIndex,
+                      direction: s.direction,
+                      affectedCount: s.affectedCount,
+                    };
+                  case "deleteShift":
+                    return {
+                      type: s.type,
+                      deleteIndex: s.deleteIndex,
+                      direction: s.direction,
+                      affectedCount: s.affectedCount,
+                    };
+                  case "reorderShift":
+                    return {
+                      type: s.type,
+                      movedId: s.movedId,
+                      fromIndex: s.fromIndex,
+                      toIndex: s.toIndex,
+                      direction: s.direction,
+                      affectedCount: s.affectedCount,
+                    };
+                }
+              });
+              sections.push(`*Reorder Summary:* ${JSON.stringify(summaries)}`);
+            }
             if (value.changes.modified?.length) {
               const modifiedItems = value.changes.modified.map((change) => {
-                // Check if this is a RuleChange with fieldChanges
+                // Check if this is an ItemChange with fieldChanges
                 if ("fieldChanges" in change && change.fieldChanges) {
-                  return {
+                  const entry: Record<string, unknown> = {
                     id: change.id,
-                    fieldChanges: change.fieldChanges.map((fc) => ({
+                    fieldChanges: (
+                      change.fieldChanges as ItemFieldChange[]
+                    ).map((fc) => ({
                       field: fc.field,
                       oldValue: fc.oldValue,
                       newValue: fc.newValue,
                     })),
                   };
+                  if (
+                    typeof change.oldIndex === "number" &&
+                    typeof change.newIndex === "number"
+                  ) {
+                    entry.oldIndex = change.oldIndex;
+                    entry.newIndex = change.newIndex;
+                    entry.steps = change.steps;
+                  }
+                  return entry;
                 }
                 // Fallback to old format if no fieldChanges
-                return {
+                const entry: Record<string, unknown> = {
                   id: change.id,
                   oldValue:
                     typeof change.oldValue === "object" &&
@@ -503,9 +811,19 @@ export function formatDiffForSlack(diff: DiffResult): SlackMessage {
                       ? omit(change.newValue, excludedFields)
                       : change.newValue,
                 };
+                if (
+                  typeof change.oldIndex === "number" &&
+                  typeof change.newIndex === "number"
+                ) {
+                  entry.oldIndex = change.oldIndex;
+                  entry.newIndex = change.newIndex;
+                  entry.steps = change.steps;
+                }
+                return entry;
               });
               sections.push(`*Modified:* ${JSON.stringify(modifiedItems)}`);
             }
+            // Reorders are now represented within modified entries via oldIndex/newIndex/steps
           }
 
           // Recurse into nested values
@@ -517,11 +835,35 @@ export function formatDiffForSlack(diff: DiffResult): SlackMessage {
         return sections.join("\n");
       };
 
+      const lines: string[] = [];
+      // Include top-level added/removed/modified under this hierarchical key
+      if (mod.added && Object.keys(mod.added).length > 0) {
+        lines.push(`Added: ${JSON.stringify(omit(mod.added, excludedFields))}`);
+      }
+      if (mod.removed && Object.keys(mod.removed).length > 0) {
+        lines.push(
+          `Removed: ${JSON.stringify(omit(mod.removed, excludedFields))}`,
+        );
+      }
+      if (mod.modified && mod.modified.length > 0) {
+        mod.modified.forEach((change: ModificationItem) => {
+          if (isSimpleModification(change)) {
+            lines.push(
+              `Modified ${change.key}: ${JSON.stringify(change.oldValue)} → ${JSON.stringify(change.newValue)}`,
+            );
+          }
+        });
+      }
+      if (mod.values && mod.values.length > 0) {
+        const nested = formatHierarchicalChanges(mod.values);
+        if (nested) lines.push(nested);
+      }
+
       blocks.push({
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*${mod.key}*\n${formatHierarchicalChanges(mod.values)}`,
+          text: `*${mod.key}*\n${lines.join("\n")}`,
         },
       });
     }
