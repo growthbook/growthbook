@@ -349,7 +349,6 @@ function DashboardEditor({
           </>
         )}
         <DashboardUpdateDisplay
-          blocks={blocks}
           enableAutoUpdates={enableAutoUpdates}
           nextUpdate={nextUpdate}
           disabled={editSidebarDirty}
