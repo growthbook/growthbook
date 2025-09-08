@@ -98,22 +98,35 @@ import Foundation // For JSON type
 let value = gb.getFeatureValue(feature: "button-color", default: JSON("blue"))
 ```
 
-### 4) Track experiments
-
-```swift
-// trackingCallback is invoked automatically when a user is placed into an experiment
-// Send exposures to your analytics provider here
-```
-
-### 5) Wait for features to load
+### 4) Wait for features to load
 
 - With background sync off, call `gb.refreshCache()` at app start or navigation points and show a loading state until complete.
 - With background sync on, initial cache loads synchronously if present and updates stream in via SSE.
 - Use `refreshHandler` to re-render when new features arrive.
 
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { experiment, result in
+    // Track experiments
+  },
+  // Callback when features are refreshed
+  refreshHandler: { success in
+    if success {
+      print("Features refreshed successfully")
+    } else {
+      print("Failed to refresh features")
+    }
+  },
+  backgroundSync: true
+).initializer()
+```
+
 ## Functionality
 
-### Built-in fetching, caching, and refresh
+### Built-in fetching and refresh mechanisms
 
 If you pass an `apiHost` and `clientKey` into `GrowthBookBuilder`, the SDK handles network requests, caching, retry/backoff, and decryption (when `encryptionKey` is provided). Use `gb.refreshCache()` to manually refresh on navigation or app resume.
 
@@ -132,6 +145,91 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 // Refresh on demand (e.g., app start or navigation)
 _ = gb.refreshCache()
 ```
+
+#### Secure requests: custom HTTP headers
+
+Add custom headers for API requests (e.g., auth tokens, custom user-agent). Provide default headers for the standard feature fetches and separate headers for SSE streaming if needed.
+
+```swift
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { _, _ in }
+)
+  // Sent with feature fetch requests to the apiHost
+  .setApiHostRequestHeaders([
+    "Authorization": "Bearer <token>",
+    "X-App-Version": "1.2.3"
+  ])
+  // Sent with SSE connections to the streaming host
+  .setStreamingHostRequestHeaders([
+    "Authorization": "Bearer <token>",
+    "X-Device": "iPhone15,3"
+  ])
+  .initializer()
+```
+
+#### SSE resume support (Last-Event-Id)
+
+When using `backgroundSync: true`, the SDK connects via SSE. To resume after interruptions without duplicating events, you can provide the last received event id so the server continues from that point.
+
+```swift
+// Persist and restore lastEventId yourself (e.g., UserDefaults) if you need fine-grained control
+let lastEventId = UserDefaults.standard.string(forKey: "gb_last_event_id")
+
+var gb: GrowthBookSDK = GrowthBookBuilder(
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: [:],
+  trackingCallback: { _, _ in },
+  backgroundSync: true
+)
+  .setStreamingHostRequestHeaders(["Last-Event-Id": lastEventId ?? ""]) // optional
+  .initializer()
+
+// Somewhere in your SSE handler, update lastEventId when new events arrive
+// UserDefaults.standard.set(newEventId, forKey: "gb_last_event_id")
+```
+
+### Caching
+The SDK persists downloaded feature payloads and related metadata to disk. By default, it will:
+
+- Use a platform-specific system directory
+  - iOS/watchOS/macOS: **Application Support** (`.applicationSupport`)
+  - tvOS: **Caches** (`.caches`), since Application Support is not available on tvOS
+- Create the cache folder automatically on first use
+- Isolate data per `clientKey` by nesting under a client-specific subfolder
+- Generate deterministic cache file names by hashing keys with **SHA256** and prefixing file names with the first 5 characters of the hash for readability
+
+You can fully customize where and how the SDK caches data:
+
+```swift
+// Cache configuration
+var gb: GrowthBookSDK = GrowthBookBuilder(...)
+  // Choose a system directory (defaults shown below)
+  .setSystemCacheDirectory(
+    // Default: .applicationSupport for iOS/watchOS/macOS; .caches for tvOS
+    #if os(tvOS)
+    .caches
+    #else
+    .applicationSupport
+    #endif
+  )
+  // Or, provide an absolute custom path. The SDK will create it if missing.
+  .setCustomCacheDirectory("/path/to/custom/cache")
+  .initializer()
+
+// Cache management
+// Removes all on-disk cache for this SDK instance (scoped to the configured client key)
+gb.clearCache()
+```
+
+Notes:
+
+- The cache directory will be created automatically if it does not exist.
+- Cache file keys are SHA256-hashed with a 5-character prefix for human-friendly diagnostics while avoiding path-length and special-character issues.
+- Multiple environments/apps can safely share the same parent directory; per-`clientKey` subfolders prevent collisions.
 
 ### Custom integration (local evaluation)
 
@@ -172,6 +270,8 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 ).initializer()
 ```
 
+Monitor the SSE lifecycle using your app logs/telemetry. On transient network errors, the SDK will attempt automatic reconnects with backoff.
+
 ### Remote evaluation vs. local evaluation
 
 - Local evaluation loads a full feature payload into the SDK (e.g., via built-in fetching or a bundled JSON) and evaluates rules on-device.
@@ -201,6 +301,33 @@ let gbRemote = GrowthBookBuilder(
 ).initializer()
 ```
 
+### Manual remote evaluation
+
+If you use remote evaluation mode, you can trigger a re-fetch of evaluated payloads when user attributes or context change without waiting for the standard refresh cadence.
+
+```swift
+// When user attributes change significantly, trigger a remote eval refresh
+gb.setAttributes(["id": "user_123", "plan": "pro"]) 
+gb.refreshForRemoteEval()
+```
+
+Custom payload structure:
+
+When using remote evaluation, ensure the attributes you send include all fields required by your targeting rules. You may also include metadata your edge or proxy expects (e.g., headers added via `setApiHostRequestHeaders`).
+
+```swift
+// Attributes control what the remote evaluator returns
+gb.setAttributes([
+  "id": "user_123",
+  "country": "US",
+  "appVersion": "1.3.0",
+  "plan": "pro"
+])
+
+// Then manually trigger remote evaluation
+gb.refreshForRemoteEval()
+```
+
 ### Encrypted features
 
 Provide `encryptionKey` to transparently decrypt encrypted payloads. If decryption fails, the SDK will fall back to defaults. Rotate keys by updating the builder configuration and deploying updated clients.
@@ -217,7 +344,19 @@ let gbEncrypted = GrowthBookBuilder(
 
 ### Sticky bucketing
 
-Provide a stable identifier (e.g., `id`) in attributes to ensure consistent bucketing across sessions and devices. If a user logs out, fall back to `deviceId` to maintain consistency until login.
+Sticky bucketing ensures that once a user is assigned to a variation in an experiment or feature rule configured as “Sticky,” they will continue to see the same variation on subsequent evaluations. Read more about [Sticky bucketing Feature](https://docs.growthbook.io/app/sticky-bucketing)
+
+How to enable:
+
+- In GrowthBook, enable Sticky bucketing on the experiment or on the feature rule.
+- In the SDK, provide a stable identity attribute (commonly `id`). If no `id` is available (e.g., logged out), use a device-scoped fallback such as `deviceId` until login.
+
+By default, when a sticky rule runs the SDK will:
+
+- Look up an existing sticky assignment for the current identity key
+- If found, return the same variation without re-assigning
+- If not found, evaluate the rule normally, persist the chosen variation locally, and return it
+- Persist across app restarts and feature refreshes; changing non-identity attributes (e.g., `country`) will not change the sticky result. Changing the identity (e.g., user logs in/out) causes a lookup under the new identity key
 
 ```swift
 gb.setAttributes([
@@ -226,9 +365,29 @@ gb.setAttributes([
 ])
 ```
 
+#### Custom Sticky Bucket Service with custom storage
+Use this to control how and where sticky assignments are persisted. Provide a prefix to namespace data (e.g., by app or environment) and a storage backend that implements simple key/value get-set-delete semantics (e.g., `UserDefaults`, Keychain, SQLite, or your own cache layer). If not provided, the SDK uses its built-in persistent storage to remember sticky assignments.
+```swift
+// Custom Sticky Bucket Service with custom storage
+let customStorage = MyCachingManager()
+let stickyService = StickyBucketService(
+  prefix: "myapp_sticky_", 
+  localStorage: customStorage
+)
+
+var gb: GrowthBookSDK = GrowthBookBuilder(...)
+  .setStickyBucketService(stickyBucketService: stickyService)
+  .initializer()
+```
+
+Tips:
+
+- Use a unique `prefix` per environment (e.g., `prod_`, `staging_`) to avoid cross-environment bleed.
+- To “forget” a user’s sticky assignment on logout, either switch the identity you send in `attributes` (e.g., from `id` to `deviceId`) or clear the underlying storage used by your sticky service.
+
 ### Prerequisites
 
-Flags can depend on other flags via prerequisites. If a prerequisite is not met, the dependent flag will resolve to its fallback. Ensure attributes satisfy prerequisite rules before evaluating.
+Flags can depend on other flags via prerequisites. If a prerequisite is not met, the dependent flag will resolve to its fallback. Ensure attributes satisfy prerequisite rules before evaluating. Read more about [Prerequisite features](https://docs.growthbook.io/features/prerequisites)
 
 ```swift
 let enabled = gb.isOn(feature: "child-feature")
@@ -286,9 +445,41 @@ let gbFirebase = GrowthBookBuilder(
 ).initializer()
 ```
 
-## Examples
+#### Experiment Result subscriptions
+Subscribe to the experiments to receive callbacks for every experiment run.
 
-// Integration samples now appear inline within each section above.
+```swift
+// Subscribe to experiment results
+gb.subscribe { experiment, result in
+  print("Experiment: \(experiment.key), Variation: \(result.variationId)")
+}
+
+// Clear all subscriptions when done
+gb.clearSubscriptions()
+```
+
+### Troubleshooting and debugging
+
+- Comprehensive logging
+  - Set your app/logger to debug or trace during integration to observe evaluation decisions, cache reads/writes, and SSE state changes.
+    - Log levels: `.debug`, `.info`, `.warning`, `.error` are supported and use `setLogLevel()` to configure the level.
+  - Built-in OS logging integration (uses `os.Logger` on iOS 14+ and `OSLog` on older versions)
+  - QA Mode (`setQAMode()`) functionality and use cases
+  - Be mindful to disable verbose logs in production.
+- Network errors
+  - The SDK retries transient failures with backoff when fetching or streaming. Inspect your networking layer logs and verify headers/hosts.
+  - Confirm that custom headers are accepted by your proxy/CDN and not stripped.
+- SSE connection status monitoring
+  - Use your own telemetry around `refreshHandler` or UI updates to infer connectivity. Consider persisting the last event id to resume streams as shown above.
+
+```swift
+// Example: simple log wrapper
+func log(_ message: String) {
+  #if DEBUG
+  print("[GrowthBook] \(message)")
+  #endif
+}
+```
 
 ## Reference
 
