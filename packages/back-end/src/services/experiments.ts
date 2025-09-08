@@ -1160,7 +1160,7 @@ export async function createSnapshot({
     });
   }
 
-  if (type === "dashboard" && dashboardId && dashboardId.length > 0) {
+  if (type === "dashboard" && dashboardId) {
     await context.models.dashboards.updateById(dashboardId, {
       nextUpdate:
         determineNextDate(organization.settings?.updateSchedule || null) ??

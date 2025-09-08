@@ -136,14 +136,6 @@ export function getBlockSnapshotAnalysis<
   return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
 }
 
-export function dashboardCanAutoUpdate({
-  blocks: _blocks,
-}: {
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
-}) {
-  return true;
-}
-
 type CreateBlock<T extends DashboardBlockInterface> = (args: {
   experiment: ExperimentInterfaceStringDates | ExperimentInterface;
   metricGroups: MetricGroupInterface[];

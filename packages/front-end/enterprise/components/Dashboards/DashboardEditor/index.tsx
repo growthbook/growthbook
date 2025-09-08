@@ -291,7 +291,6 @@ function DashboardEditor({
         </Text>
         <div style={{ flexGrow: 1 }} />
         <DashboardUpdateDisplay
-          blocks={blocks}
           enableAutoUpdates={enableAutoUpdates}
           nextUpdate={nextUpdate}
           disabled={editSidebarDirty}
