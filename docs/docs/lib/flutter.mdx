@@ -23,32 +23,31 @@ This SDK supports the following versions:
 
 Add this to your `pubspec.yaml` file
 
-```
-growthbook_sdk_flutter: ^1.0.0
+```yaml
+growthbook_sdk_flutter: ^4.0.0
 ```
 
 ## Quick Usage
 
-To create a GrowthBook SDK instance, use `GBSDKBuilderApp`. Then, you can evaluate feature flags or run experiments.
+Create a `GrowthBookSDK` instance with `GBSDKBuilderApp`, set attributes, then evaluate features or run experiments.
 
 ```dart
-// User attributes for targeting and assigning users to experiment variations
-val attrs = HashMap<String, Any>()
-attrs.put("id", "123")
-attrs.put("env", "dev")
-attrs.put("betaUser", true)
-
-final GrowthBookSDK sdkInstance = GBSDKBuilderApp(
-  apiKey: "<API_KEY>",
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123", // Client key from GrowthBook
+  hostURL: "https://cdn.growthbook.io", // or your Proxy URL
   attributes: {
-    attrs
+    "id": "123",
+    "env": "dev",
+    "betaUser": true,
   },
-  growthBookTrackingCallBack: (gbExperiment, gbExperimentResult) {},
-  hostURL: '<GrowthBook_URL>',
+  growthBookTrackingCallBack: (exp, result) {
+    // Track exposures
+  },
 ).initialize();
 
-if (gb.feature("my-feature").on) {
-  // Feature is enabled!
+final feature = sdk.feature("my-feature");
+if (feature.on) {
+  // Feature is enabled
 }
 ```
 
@@ -79,7 +78,7 @@ if (feature.off) { }
 
 // Print the actual value of the feature
 // (depending on the feature, might be a string, number, boolean, etc.)
-Println(feature.value)
+print(feature.value)
 
 // Print the experiment id used to assign the feature value
 if (feature.source == "experiment") {
@@ -99,7 +98,7 @@ exp.variations = List.of("control", "variation")
 var result = gb.run(exp)
 
 // Either "control" or "variation"
-Println(result.value)
+print(result.value)
 ```
 
 The `GBExperiment` class has two required properties - `key` and `variations`. There are also a number of optional properties:
@@ -122,9 +121,150 @@ The `GBExperimentResult` object returns the following properties:
 - **hashAttribute** (`String`) - The user attribute used to assign a variation
 - **hashValue** (`String`) - The value of the attribute used to assign a variation
 
+## Loading Features
+
+### Built-in fetching and caching
+
+If you pass a `hostURL` and `apiKey` into the builder, the SDK handles network requests, caching, retry/backoff, and decryption (when configured in your SDK connection). You can enable streaming updates with `backgroundSync: true`.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  backgroundSync: false,
+).initialize();
+
+// Manually refresh (e.g., on app start or navigation)
+await sdk.refreshCache();
+```
+
+### Custom integration (local evaluation)
+
+If you prefer to control network and caching yourself, you can set a payload directly on the SDK. This enables fully local evaluation and offline-first behavior.
+
+```dart
+await sdk.setPayload({
+  "features": {
+    "feature-1": {"defaultValue": true},
+    "feature-2": {"defaultValue": "blue"}
+  }
+});
+```
+
+## Remote Evaluation
+
+Run GrowthBook in Remote Evaluation mode to evaluate flags on a private server (e.g., GrowthBook Proxy). Sensitive rules never reach the client.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://gb-proxy.yourcompany.com",
+  remoteEval: true,
+  // Optional: only trigger a new evaluation when selected attributes change
+  cacheKeyAttributes: ["id", "email"],
+  attributes: {"id": "123", "email": "user@example.com"},
+).initialize();
+
+// Manually trigger a remote evaluation when attributes change
+sdk.setAttributes({"plan": "pro"});
+await sdk.refreshForRemoteEval();
+```
+
+:::note
+If you want Sticky Bucketing with Remote Evaluation, configure your remote backend (e.g., GrowthBook Proxy) with a persistent store (e.g., Redis). You do not need to provide a sticky service on the client.
+:::
+
+## Real-time Updates (SSE)
+
+Enable `backgroundSync: true` to receive feature updates in real time via SSE. The SDK reconnects automatically when network conditions change.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  backgroundSync: true,
+).initialize();
+```
+
+You can also add custom headers for secure requests:
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  requestHeaders: {"Authorization": "Bearer <token>"},
+  streamingRequestHeaders: {
+    "Authorization": "Bearer <token>",
+    // Optionally resume after disconnects
+    "Last-Event-Id": "<persisted-last-id>"
+  },
+  backgroundSync: true,
+).initialize();
+```
+
+## Sticky Bucketing
+
+Sticky bucketing ensures users see the same experiment variant across sessions. Implement a `GBStickyBucketService` to persist assignments.
+
+```dart
+class MyAppStickyBucketService extends GBStickyBucketService {
+  @override
+  Future<Map<String, String>?> getAllAssignments(
+    Map<String, dynamic> attributes,
+  ) async {
+    // Retrieve from local storage
+    // ...
+    return null;
+  }
+
+  @override
+  Future<void> saveAssignments(
+    Map<String, dynamic> attributes,
+    Map<String, String> assignments,
+  ) async {
+    // Save to local storage
+    // ...
+  }
+}
+
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  stickyBucketService: MyAppStickyBucketService(),
+).initialize();
+```
+
+See the Flutter repo for examples and updates: [growthbook-flutter](https://github.com/growthbook/growthbook-flutter).
+
+## Attributes
+
+Attributes drive targeting and bucketing. Update when the user context changes.
+
+```dart
+sdk.setAttributes({
+  "id": "123",
+  "country": "US",
+  "plan": "pro",
+});
+```
+
+## Experimentation (A/B Testing)
+
+Provide a tracking callback to record experiment exposures.
+
+```dart
+final sdk = await GBSDKBuilderApp(
+  apiKey: "sdk-abc123",
+  hostURL: "https://cdn.growthbook.io",
+  growthBookTrackingCallBack: (exp, result) {
+    // e.g., send to analytics
+  },
+).initialize();
+```
+
 ## More Documentation
 
-The GitHub repo for this SDK has more detailed class and method documentation - https://github.com/growthbook/growthbook-flutter
+- Flutter SDK repo: `https://github.com/growthbook/growthbook-flutter`
+- React Native reference: `https://docs.growthbook.io/lib/react-native`
 
 ## Supported Features
 
