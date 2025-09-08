@@ -88,6 +88,12 @@ export interface DiffResult {
   modified: ModificationItem[];
 }
 
+export interface FormatOptions {
+  itemLabelFields?: string[];
+  includeRawJson?: boolean;
+  maxJsonLength?: number;
+}
+
 interface ItemFieldChange {
   field: string;
   oldValue: unknown;
@@ -444,12 +450,14 @@ export function getObjectDiff(
 
                 // Case 3: Reorders causing bulk shift (support multiple groups)
                 if (addedItems.length === 0 && removedItems.length === 0) {
+                  const processed = new Set<string>();
                   let reorderOnly = modifiedItems.filter(
                     (m) =>
                       !m.fieldChanges?.length &&
                       typeof m.oldIndex === "number" &&
                       typeof m.newIndex === "number" &&
-                      m.oldIndex !== m.newIndex,
+                      m.oldIndex !== m.newIndex &&
+                      !processed.has(m.id),
                   );
                   while (reorderOnly.length > 0) {
                     // Pick the moved item with largest absolute movement
@@ -500,20 +508,28 @@ export function getObjectDiff(
                         const idx = modifiedItems.indexOf(f);
                         if (idx >= 0) modifiedItems.splice(idx, 1);
                       }
+                    } else {
+                      // Create summary for standalone moves (no followers)
+                      summaries.push({
+                        type: "reorderShift",
+                        movedId: moved.id,
+                        fromIndex: moved.oldIndex as number,
+                        toIndex: moved.newIndex as number,
+                        direction,
+                        affectedCount: 0,
+                      });
                     }
-                    // Remove the moved candidate from consideration and continue
+                    // Mark the moved item as processed to guarantee progress
+                    processed.add(moved.id);
+                    // Refresh candidates excluding processed ones
                     reorderOnly = modifiedItems.filter(
                       (m) =>
                         !m.fieldChanges?.length &&
                         typeof m.oldIndex === "number" &&
                         typeof m.newIndex === "number" &&
-                        m.oldIndex !== m.newIndex,
+                        m.oldIndex !== m.newIndex &&
+                        !processed.has(m.id),
                     );
-                    // Break if no further grouping is possible
-                    const anyGroupable = reorderOnly.some(
-                      (m) => Math.abs((m.steps as number) || 0) > 1,
-                    );
-                    if (!anyGroupable) break;
                   }
                 }
 
@@ -653,10 +669,66 @@ export function getObjectDiff(
   return result;
 }
 
-export function formatDiffForSlack(diff: DiffResult): SlackMessage {
+export function formatDiffForSlack(
+  diff: DiffResult,
+  options?: FormatOptions,
+): SlackMessage {
   const blocks: SlackMessage["blocks"] = [];
 
   const excludedFields = ["dateUpdated", "version", "__v", "_id"];
+
+  const opts: Required<FormatOptions> = {
+    itemLabelFields: [
+      "id",
+      "name",
+      "key",
+      "trackingKey",
+      "slug",
+      "variationId",
+      "type",
+      "value",
+      "description",
+      "title",
+    ],
+    includeRawJson: false,
+    maxJsonLength: 600,
+    ...(options || {}),
+  } as Required<FormatOptions>;
+
+  const toOneBased = (n: number | undefined): number | undefined =>
+    typeof n === "number" ? n + 1 : undefined;
+
+  const truncate = (text: string, max: number): string =>
+    text.length > max ? `${text.slice(0, max - 1)}…` : text;
+
+  const tryGet = (obj: unknown, field: string): unknown =>
+    obj && typeof obj === "object" && field in (obj as Record<string, unknown>)
+      ? (obj as Record<string, unknown>)[field]
+      : undefined;
+
+  const getItemLabel = (obj: unknown): string => {
+    for (const f of opts.itemLabelFields) {
+      const v = tryGet(obj, f);
+      if (
+        typeof v === "string" ||
+        typeof v === "number" ||
+        typeof v === "boolean"
+      ) {
+        const sv = String(v).trim();
+        if (sv) return sv;
+      }
+    }
+    try {
+      const cleaned =
+        obj && typeof obj === "object"
+          ? omit(obj as Record<string, unknown>, excludedFields)
+          : obj;
+      const json = JSON.stringify(cleaned);
+      return truncate(json, Math.min(opts.maxJsonLength, 120));
+    } catch {
+      return "item";
+    }
+  };
 
   // Added properties
   if (Object.keys(diff.added).length > 0) {
@@ -733,95 +805,130 @@ export function formatDiffForSlack(diff: DiffResult): SlackMessage {
 
           // Handle array changes (added/removed/modified items)
           if (value.changes) {
+            const hasOrderSummaries = !!value.changes.orderSummaries?.length;
             if (value.changes.added?.length) {
-              sections.push(
-                `*Added:* ${JSON.stringify(value.changes.added.map((item) => (typeof item === "object" && item !== null ? omit(item, excludedFields) : item)))}`,
+              const labels = value.changes.added.map(
+                (item) => `• ${getItemLabel(item)}`,
               );
+              sections.push(`*Added ${value.key}:*\n${labels.join("\n")}`);
+              if (opts.includeRawJson) {
+                sections.push(
+                  truncate(
+                    JSON.stringify(
+                      value.changes.added.map((item) =>
+                        typeof item === "object" && item !== null
+                          ? omit(
+                              item as Record<string, unknown>,
+                              excludedFields,
+                            )
+                          : item,
+                      ),
+                    ),
+                    opts.maxJsonLength,
+                  ),
+                );
+              }
             }
             if (value.changes.removed?.length) {
-              sections.push(
-                `*Removed:* ${JSON.stringify(value.changes.removed.map((item) => (typeof item === "object" && item !== null ? omit(item, excludedFields) : item)))}`,
+              const labels = value.changes.removed.map(
+                (item) => `• ${getItemLabel(item)}`,
               );
+              sections.push(`*Removed ${value.key}:*\n${labels.join("\n")}`);
+              if (opts.includeRawJson) {
+                sections.push(
+                  truncate(
+                    JSON.stringify(
+                      value.changes.removed.map((item) =>
+                        typeof item === "object" && item !== null
+                          ? omit(
+                              item as Record<string, unknown>,
+                              excludedFields,
+                            )
+                          : item,
+                      ),
+                    ),
+                    opts.maxJsonLength,
+                  ),
+                );
+              }
             }
             if (value.changes.orderSummaries?.length) {
-              const summaries = value.changes.orderSummaries.map((s) => {
-                switch (s.type) {
-                  case "insertShift":
-                    return {
-                      type: s.type,
-                      insertIndex: s.insertIndex,
-                      direction: s.direction,
-                      affectedCount: s.affectedCount,
-                    };
-                  case "deleteShift":
-                    return {
-                      type: s.type,
-                      deleteIndex: s.deleteIndex,
-                      direction: s.direction,
-                      affectedCount: s.affectedCount,
-                    };
-                  case "reorderShift":
-                    return {
-                      type: s.type,
-                      movedId: s.movedId,
-                      fromIndex: s.fromIndex,
-                      toIndex: s.toIndex,
-                      direction: s.direction,
-                      affectedCount: s.affectedCount,
-                    };
+              const summaryLines: string[] = [];
+              for (const s of value.changes.orderSummaries) {
+                if (s.type === "reorderShift") {
+                  const fromPos = toOneBased(s.fromIndex);
+                  const toPos = toOneBased(s.toIndex);
+                  summaryLines.push(
+                    `• Moved ${s.movedId} from #${fromPos} to #${toPos} (${s.direction}). Shifted ${s.affectedCount} others.`,
+                  );
+                } else if (s.type === "insertShift") {
+                  const atPos = toOneBased(s.insertIndex);
+                  summaryLines.push(
+                    `• Insert at #${atPos}: shifted ${s.affectedCount} ${s.direction}.`,
+                  );
+                } else if (s.type === "deleteShift") {
+                  const atPos = toOneBased(s.deleteIndex);
+                  summaryLines.push(
+                    `• Delete at #${atPos}: shifted ${s.affectedCount} ${s.direction}.`,
+                  );
                 }
-              });
-              sections.push(`*Reorder Summary:* ${JSON.stringify(summaries)}`);
+              }
+              if (summaryLines.length) {
+                sections.push(
+                  `*Reordered ${value.key}:*\n${summaryLines.join("\n")}`,
+                );
+              }
             }
             if (value.changes.modified?.length) {
-              const modifiedItems = value.changes.modified.map((change) => {
-                // Check if this is an ItemChange with fieldChanges
-                if ("fieldChanges" in change && change.fieldChanges) {
-                  const entry: Record<string, unknown> = {
-                    id: change.id,
-                    fieldChanges: (
-                      change.fieldChanges as ItemFieldChange[]
-                    ).map((fc) => ({
-                      field: fc.field,
-                      oldValue: fc.oldValue,
-                      newValue: fc.newValue,
-                    })),
-                  };
-                  if (
-                    typeof change.oldIndex === "number" &&
-                    typeof change.newIndex === "number"
-                  ) {
-                    entry.oldIndex = change.oldIndex;
-                    entry.newIndex = change.newIndex;
-                    entry.steps = change.steps;
-                  }
-                  return entry;
-                }
-                // Fallback to old format if no fieldChanges
-                const entry: Record<string, unknown> = {
-                  id: change.id,
-                  oldValue:
-                    typeof change.oldValue === "object" &&
-                    change.oldValue !== null
-                      ? omit(change.oldValue, excludedFields)
-                      : change.oldValue,
-                  newValue:
-                    typeof change.newValue === "object" &&
-                    change.newValue !== null
-                      ? omit(change.newValue, excludedFields)
-                      : change.newValue,
-                };
-                if (
+              const moveLines: string[] = [];
+              const updateLines: string[] = [];
+              for (const change of value.changes.modified) {
+                const hasIndexMove =
                   typeof change.oldIndex === "number" &&
-                  typeof change.newIndex === "number"
-                ) {
-                  entry.oldIndex = change.oldIndex;
-                  entry.newIndex = change.newIndex;
-                  entry.steps = change.steps;
+                  typeof change.newIndex === "number" &&
+                  change.oldIndex !== change.newIndex;
+                const hasFieldChanges =
+                  "fieldChanges" in change && !!change.fieldChanges?.length;
+
+                if (hasIndexMove && !hasFieldChanges) {
+                  const fromPos = toOneBased(change.oldIndex);
+                  const toPos = toOneBased(change.newIndex);
+                  const steps = Math.abs((change.steps as number) || 0);
+                  const dir = (change.steps as number) > 0 ? "up" : "down";
+                  if (!hasOrderSummaries) {
+                    moveLines.push(
+                      `• ${getItemLabel((change as unknown as { newValue?: unknown }).newValue || change)} moved ${dir} ${steps} to #${toPos} (from #${fromPos})`,
+                    );
+                  }
+                  // Always skip fallback when this is purely a move
+                  continue;
                 }
-                return entry;
-              });
-              sections.push(`*Modified:* ${JSON.stringify(modifiedItems)}`);
+
+                if (hasFieldChanges) {
+                  const label = getItemLabel(
+                    (change as unknown as { newValue?: unknown }).newValue ||
+                      change,
+                  );
+                  const fieldLines = (
+                    change as unknown as { fieldChanges?: ItemFieldChange[] }
+                  ).fieldChanges!.map(
+                    (fc) =>
+                      `    - ${fc.field}: ${JSON.stringify(fc.oldValue)} → ${JSON.stringify(fc.newValue)}`,
+                  );
+                  updateLines.push(`• ${label}\n${fieldLines.join("\n")}`);
+                  continue;
+                }
+
+                updateLines.push(`• Changed ${change.id}`);
+              }
+              if (!hasOrderSummaries && moveLines.length)
+                sections.push(
+                  `*Reordered ${value.key}:*\n${moveLines.join("\n")}`,
+                );
+              if (updateLines.length)
+                sections.push(
+                  `*Updated ${value.key}:*\n${updateLines.join("\n")}`,
+                );
             }
             // Reorders are now represented within modified entries via oldIndex/newIndex/steps
           }

@@ -505,7 +505,20 @@ export const createFeatureEvent = async <
         object: currentApiFeature,
         previous_object: previousApiFeature,
         changes: patch
-          ? { patch, formatted: formatDiffForSlack(patch) }
+          ? {
+              patch,
+              formatted: formatDiffForSlack(patch, {
+                itemLabelFields: [
+                  "trackingKey",
+                  "id",
+                  "name",
+                  "description",
+                  "type",
+                  "value",
+                ],
+                includeRawJson: false,
+              }),
+            }
           : undefined,
       },
       projects: Array.from(
