@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ProjectMemberRole } from "back-end/types/organization";
-import cloneDeep from "lodash/cloneDeep";
 import { getDefaultRole } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
