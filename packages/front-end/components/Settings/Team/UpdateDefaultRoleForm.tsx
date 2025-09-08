@@ -48,7 +48,6 @@ export default function UpdateDefaultRoleForm() {
     },
   });
 
-
   const saveSettings = form.handleSubmit(async (data) => {
     setDefaultRoleError(null);
     try {
