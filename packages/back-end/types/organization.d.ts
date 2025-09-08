@@ -392,7 +392,7 @@ type UsageLimit = number | "unlimited";
 export type UsageLimits = {
   cdnRequests: UsageLimit;
   cdnBandwidth: UsageLimit;
-  managedClickhouseEvents: UsageLimit;
+  managedClickhouseEvents?: UsageLimit;
 };
 
 export type OrganizationUsage = {

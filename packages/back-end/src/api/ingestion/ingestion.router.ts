@@ -81,7 +81,8 @@ export const getDataEnrichment = createApiRequestHandler({
       sdkInfo(
         conn,
         dataSourcesByOrgId[conn.organization],
-        usages[conn.organization]?.managedClickhouse.status === "over" || false,
+        usages[conn.organization]?.managedClickhouse?.status === "over" ||
+          false,
       ),
     ]),
   );
