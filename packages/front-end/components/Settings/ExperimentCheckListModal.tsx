@@ -78,7 +78,7 @@ export default function ExperimentCheckListModal({
       size="max"
       header={`${
         checklist?.id ? "Edit" : "Add"
-      } Experiment Pre-Launch Checklist ${projectParams?.projectName ? `for ${projectParams.projectName}` : ""}`}
+      } Experiment Pre-Launch Checklist${projectParams?.projectName ? ` for ${projectParams.projectName}` : ""}`}
       cta="Save"
       submit={() => handleSubmit()}
     >

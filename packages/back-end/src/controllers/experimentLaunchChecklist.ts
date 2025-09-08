@@ -161,7 +161,7 @@ export async function putExperimentLaunchChecklist(
 
   if (!orgHasPremiumFeature(org, "custom-launch-checklist")) {
     throw new Error(
-      "Must have a commercial License Key to update the a pre-launch checklist.",
+      "Must have a commercial License Key to update a pre-launch checklist.",
     );
   }
 
@@ -268,7 +268,7 @@ export async function deleteProjectScopedExperimentLaunchChecklist(
     context.permissions.throwPermissionError();
   }
 
-  await deleteExperimentLaunchChecklist(context.org.id, checklist.id);
+  await deleteExperimentLaunchChecklist(context, checklist.id);
 
   return res.status(200).json({ status: 200 });
 }

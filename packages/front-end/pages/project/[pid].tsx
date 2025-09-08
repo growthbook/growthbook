@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { getScopedSettings } from "shared/settings";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -217,14 +217,16 @@ const ProjectPage: FC = () => {
                 parentSettings={parentSettings}
               />
               <Box mb="6" mt="6">
-                <PremiumTooltip
-                  commercialFeature="custom-launch-checklist"
-                  premiumText="Custom pre-launch checklists are available to Enterprise customers"
-                >
-                  <Text size="3" className="font-weight-semibold">
-                    Experiment Pre-Launch Checklist
-                  </Text>
-                </PremiumTooltip>
+                <Flex>
+                  <PremiumTooltip
+                    commercialFeature="custom-launch-checklist"
+                    premiumText="Custom pre-launch checklists are available to Enterprise customers"
+                  >
+                    <Text size="3" className="font-weight-semibold">
+                      Experiment Pre-Launch Checklist
+                    </Text>
+                  </PremiumTooltip>
+                </Flex>
                 <p className="pt-2">
                   Configure required steps that need to be completed before an
                   experiment can be launched. By default, experiments use your

@@ -5,6 +5,8 @@ import {
   ChecklistTask,
   ExperimentLaunchChecklistInterface,
 } from "back-end/types/experimentLaunchChecklist";
+import { ReqContext } from "back-end/types/organization";
+import { ApiReqContext } from "back-end/types/api";
 
 const experimentLaunchChecklistSchema = new mongoose.Schema({
   id: String,
@@ -119,11 +121,11 @@ export async function updateExperimentLaunchChecklist(
 }
 
 export async function deleteExperimentLaunchChecklist(
-  organizationId: string,
+  context: ReqContext | ApiReqContext,
   checklistId: string,
 ): Promise<void> {
   await ExperimentLaunchChecklistModel.deleteOne({
-    organizationId,
+    organizationId: context.org.id,
     id: checklistId,
   });
 }
