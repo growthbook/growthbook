@@ -62,6 +62,7 @@ export default function UpdateDefaultRoleForm() {
     } catch (e) {
       setDefaultRoleError(e.message);
     }
+    setIsDirty(false);
   });
 
   return (
@@ -94,7 +95,7 @@ export default function UpdateDefaultRoleForm() {
               color={"primary"}
               disabled={!isDirty}
               onClick={async () => {
-                if (isDirty) return;
+                if (!isDirty) return;
                 await saveSettings();
               }}
             >
