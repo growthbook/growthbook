@@ -16,6 +16,7 @@ export function validateRoleAndEnvs(
   org: OrganizationInterface,
   role: string,
   environments?: string[],
+  validateEnvs = true,
 ): { memberIsValid: boolean; reason: string } {
   try {
     if (!isRoleValid(role, org)) {
@@ -41,15 +42,17 @@ export function validateRoleAndEnvs(
         );
       }
 
-      environments.forEach((env) => {
-        const environmentIds =
-          org.settings?.environments?.map((e) => e.id) || [];
-        if (!environmentIds.includes(env)) {
-          throw new Error(
-            `${env} is not a valid environment ID for this organization.`,
-          );
-        }
-      });
+      if (validateEnvs) {
+        environments.forEach((env) => {
+          const environmentIds =
+            org.settings?.environments?.map((e) => e.id) || [];
+          if (!environmentIds.includes(env)) {
+            throw new Error(
+              `${env} is not a valid environment ID for this organization.`,
+            );
+          }
+        });
+      }
     }
   } catch (e) {
     return {

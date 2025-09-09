@@ -2073,16 +2073,11 @@ export async function putDefaultRole(
     context.permissions.throwPermissionError();
   }
 
-  if (!isRoleValid(defaultRole.role, org)) {
-    throw new Error(
-      `Role "${defaultRole.role}" does not exist in this organization`,
-    );
-  }
-
   const { memberIsValid, reason } = validateRoleAndEnvs(
     org,
     defaultRole.role,
     defaultRole.environments,
+    false,
   );
 
   if (!memberIsValid) {
@@ -2095,6 +2090,7 @@ export async function putDefaultRole(
         org,
         p.role,
         p.environments,
+        false,
       );
 
       if (!memberIsValid) {
