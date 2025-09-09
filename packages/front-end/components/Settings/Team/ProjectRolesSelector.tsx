@@ -100,9 +100,8 @@ export default function ProjectRolesSelector({
                 newProjectRoles.push({
                   project: newProject,
                   role: defaultRole.role,
-                  limitAccessByEnvironment:
-                    defaultRole.limitAccessByEnvironment,
-                  environments: defaultRole.environments,
+                  limitAccessByEnvironment: false,
+                  environments: [],
                 });
                 setProjectRoles(newProjectRoles);
                 setNewProject("");

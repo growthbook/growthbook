@@ -12,7 +12,7 @@ import {
   ProjectMemberRole,
 } from "back-end/types/organization";
 
-function validateRoleAndEnvs(
+export function validateRoleAndEnvs(
   org: OrganizationInterface,
   role: string,
   environments?: string[],
@@ -62,6 +62,21 @@ function validateRoleAndEnvs(
     memberIsValid: true,
     reason: "",
   };
+}
+
+export function validateProjectRoleAndEnvs(
+  org: OrganizationInterface,
+  orgProjects: string[],
+  projectRole: ProjectMemberRole,
+): { memberIsValid: boolean; reason: string } {
+  if (!orgProjects.includes(projectRole.project)) {
+    return {
+      memberIsValid: false,
+      reason: `${projectRole.project} is not a valid project in the organization`,
+    };
+  }
+
+  return validateRoleAndEnvs(org, projectRole.role, projectRole.environments);
 }
 
 export const updateMemberRole = createApiRequestHandler(
