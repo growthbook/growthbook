@@ -67,7 +67,28 @@ export default function SingleRoleSelector({
     groupedOptions.push({ label: "Custom", options: customOptions });
   }
 
-  const availableEnvs = useEnvironments();
+  const activeEnvs = useEnvironments();
+
+  // Create a list of envs that combines current active envs, and any deleted envs that are still in the value.environments
+  const allEnvs = useMemo(() => {
+    const activeEnvIds = new Set(activeEnvs.map((env) => env.id));
+    const envOptions = [...activeEnvs];
+
+    // Add any environments from the current value that are not in activeEnvs
+    // These are likely deleted environments
+    const deletedEnvIds = value.environments.filter(
+      (envId) => !activeEnvIds.has(envId),
+    );
+
+    deletedEnvIds.forEach((envId) => {
+      envOptions.push({
+        id: envId,
+        description: `Deleted environment`,
+      });
+    });
+
+    return envOptions;
+  }, [activeEnvs, value.environments]);
 
   const id = useMemo(() => uniqid(), []);
 
@@ -109,50 +130,54 @@ export default function SingleRoleSelector({
         disabled={disabled}
       />
 
-      {roleSupportsEnvLimit(value.role, organization) &&
-        availableEnvs.length > 1 && (
-          <div>
-            <div className="form-group">
-              <label htmlFor={`role-modal--${id}`}>
-                <PremiumTooltip commercialFeature="advanced-permissions">
-                  Restrict Access to Specific Environments
-                </PremiumTooltip>
-              </label>
-              <div>
-                <Toggle
-                  disabled={!hasFeature}
-                  id={`role-modal--${id}`}
-                  value={value.limitAccessByEnvironment}
-                  setValue={(limitAccessByEnvironment) => {
-                    setValue({
-                      ...value,
-                      limitAccessByEnvironment,
-                    });
-                  }}
-                />
-              </div>
-            </div>
-            {value.limitAccessByEnvironment && (
-              <MultiSelectField
-                label="Environments"
-                className="mb-4"
-                helpText="Select all environments you want the person to have permissions for"
-                value={value.environments}
-                onChange={(environments) => {
+      {roleSupportsEnvLimit(value.role, organization) && allEnvs.length > 1 && (
+        <div>
+          <div className="form-group">
+            <label htmlFor={`role-modal--${id}`}>
+              <PremiumTooltip commercialFeature="advanced-permissions">
+                Restrict Access to Specific Environments
+              </PremiumTooltip>
+            </label>
+            <div>
+              <Toggle
+                disabled={!hasFeature}
+                id={`role-modal--${id}`}
+                value={value.limitAccessByEnvironment}
+                setValue={(limitAccessByEnvironment) => {
                   setValue({
                     ...value,
-                    environments,
+                    limitAccessByEnvironment,
                   });
                 }}
-                options={availableEnvs.map((env) => ({
-                  label: env.id,
+              />
+            </div>
+          </div>
+          {value.limitAccessByEnvironment && (
+            <MultiSelectField
+              label="Environments"
+              className="mb-4"
+              helpText="Select all environments you want the person to have permissions for"
+              value={value.environments}
+              onChange={(environments) => {
+                setValue({
+                  ...value,
+                  environments,
+                });
+              }}
+              options={allEnvs.map((env) => {
+                const isDeleted = !activeEnvs.some(
+                  (availableEnv) => availableEnv.id === env.id,
+                );
+                return {
+                  label: isDeleted ? `Deleted Env - ${env.id}` : env.id,
                   value: env.id,
                   tooltip: env.description,
-                }))}
-              />
-            )}
-          </div>
-        )}
+                };
+              })}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
