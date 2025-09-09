@@ -1,8 +1,6 @@
 import { createHmac } from "crypto";
 import omit from "lodash/omit";
-import pick from "lodash/pick";
 import isEqual from "lodash/isEqual";
-import { SlackMessage } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 
 export type EventWebHookSuccessResult = {
   result: "success";
@@ -41,6 +39,8 @@ export const getEventWebHookSignatureForPayload = <T>({
 
 // endregion Web hook signing
 
+// region Diff generation
+
 interface HierarchicalValue {
   key: string;
   changes?: ItemChanges;
@@ -71,28 +71,10 @@ interface HierarchicalModification {
 
 type ModificationItem = SimpleModification | HierarchicalModification;
 
-const isSimpleModification = (
-  mod: ModificationItem,
-): mod is SimpleModification => {
-  return "oldValue" in mod && "newValue" in mod;
-};
-
-const isHierarchicalModification = (
-  mod: ModificationItem,
-): mod is HierarchicalModification => {
-  return "values" in mod;
-};
-
 export interface DiffResult {
-  added?: Record<string, unknown>;
-  removed?: Record<string, unknown>;
-  modified?: ModificationItem[];
-}
-
-export interface FormatOptions {
-  itemLabelFields?: string[];
-  includeRawJson?: boolean;
-  maxJsonLength?: number;
+  added: Record<string, unknown>;
+  removed: Record<string, unknown>;
+  modified: ModificationItem[];
 }
 
 interface ItemFieldChange {
@@ -293,23 +275,31 @@ export function getObjectDiff(
                 const modifiedById = new Map<string, ItemChange>();
 
                 // Find added items
-                currItems.forEach((item) => {
+                currItems.forEach((item, index) => {
                   const itemId = item[idField || "id"] as string;
                   if (!prevItemsMap.has(itemId)) {
-                    addedItems.push(item as Record<string, unknown>);
+                    const itemWithIndex = {
+                      ...(item as Record<string, unknown>),
+                      __index: index,
+                    };
+                    addedItems.push(itemWithIndex);
                   }
                 });
 
                 // Find removed items
-                prevItems.forEach((item) => {
+                prevItems.forEach((item, index) => {
                   const itemId = item[idField || "id"] as string;
                   if (!currItemsMap.has(itemId)) {
-                    removedItems.push(item as Record<string, unknown>);
+                    const itemWithIndex = {
+                      ...(item as Record<string, unknown>),
+                      __index: index,
+                    };
+                    removedItems.push(itemWithIndex);
                   }
                 });
 
                 // Find modified items
-                currItems.forEach((currItem) => {
+                currItems.forEach((currItem, index) => {
                   const currItemId = currItem[idField || "id"] as string;
                   const prevItem = prevItemsMap.get(currItemId);
                   if (prevItem && !isEqual(prevItem, currItem)) {
@@ -320,7 +310,10 @@ export function getObjectDiff(
                     );
                     const change: ItemChange = {
                       id: currItemId,
-                      newValue: currItem,
+                      newValue: {
+                        ...(currItem as Record<string, unknown>),
+                        __index: index,
+                      },
                       fieldChanges,
                     };
                     modifiedItems.push(change);
@@ -329,7 +322,7 @@ export function getObjectDiff(
                 });
 
                 // Find reordered items (present in both arrays but index changed)
-                currItems.forEach((currItem) => {
+                currItems.forEach((currItem, index) => {
                   const currItemId = currItem[idField || "id"] as string;
                   const prevIdx = prevIndexMap.get(currItemId);
                   const currIdx = currIndexMap.get(currItemId);
@@ -347,7 +340,10 @@ export function getObjectDiff(
                     } else {
                       const change: ItemChange = {
                         id: currItemId,
-                        newValue: currItem,
+                        newValue: {
+                          ...(currItem as Record<string, unknown>),
+                          __index: index,
+                        },
                         oldIndex: prevIdx,
                         newIndex: currIdx,
                         steps: prevIdx - currIdx,
@@ -672,393 +668,4 @@ export function getObjectDiff(
   return result;
 }
 
-export function formatDiffForSlack(
-  diff: DiffResult,
-  options?: FormatOptions,
-): SlackMessage {
-  const blocks: SlackMessage["blocks"] = [];
-
-  const excludedFields = ["dateUpdated", "version", "__v", "_id"];
-
-  const opts: Required<FormatOptions> = {
-    itemLabelFields: [
-      "id",
-      "name",
-      "key",
-      "trackingKey",
-      "slug",
-      "variationId",
-      "type",
-      "value",
-      "description",
-      "title",
-    ],
-    includeRawJson: false,
-    maxJsonLength: 600,
-    ...(options || {}),
-  } as Required<FormatOptions>;
-
-  const toOneBased = (n: number | undefined): number | undefined =>
-    typeof n === "number" ? n + 1 : undefined;
-
-  const truncate = (text: string, max: number): string =>
-    text.length > max ? `${text.slice(0, max - 1)}…` : text;
-
-  const tryGet = (obj: unknown, field: string): unknown =>
-    obj && typeof obj === "object" && field in (obj as Record<string, unknown>)
-      ? (obj as Record<string, unknown>)[field]
-      : undefined;
-
-  const isEmpty = (value: unknown): boolean => {
-    if (value === null || value === undefined) return true;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      return trimmed === "" || trimmed === "{}" || trimmed === "[]";
-    }
-    if (Array.isArray(value)) return value.length === 0;
-    if (typeof value === "object") return Object.keys(value).length === 0;
-    return false;
-  };
-
-  const getItemLabel = (obj: unknown): string => {
-    // If we have multiple fields configured, prefer JSON summary using only specified fields
-    if (opts.itemLabelFields.length > 1 && obj && typeof obj === "object") {
-      try {
-        // Only pick the fields specified in itemLabelFields
-        const picked = pick(
-          obj as Record<string, unknown>,
-          opts.itemLabelFields,
-        );
-        // Filter out empty fields
-        const filtered = Object.fromEntries(
-          Object.entries(picked).filter(([_, value]) => !isEmpty(value)),
-        );
-        const json = JSON.stringify(filtered);
-        return truncate(json, Math.min(opts.maxJsonLength, 120));
-      } catch {
-        // Fall through to single field logic
-      }
-    }
-
-    // Single field or fallback logic
-    for (const f of opts.itemLabelFields) {
-      const v = tryGet(obj, f);
-      if (
-        typeof v === "string" ||
-        typeof v === "number" ||
-        typeof v === "boolean"
-      ) {
-        const sv = String(v).trim();
-        if (sv) return sv;
-      }
-    }
-
-    // Final fallback - use all fields if no itemLabelFields match
-    try {
-      if (obj && typeof obj === "object") {
-        const filtered = Object.fromEntries(
-          Object.entries(obj as Record<string, unknown>).filter(
-            ([key, value]) => !isEmpty(value) && !excludedFields.includes(key),
-          ),
-        );
-        const json = JSON.stringify(filtered);
-        return truncate(json, Math.min(opts.maxJsonLength, 120));
-      }
-      const json = JSON.stringify(obj);
-      return truncate(json, Math.min(opts.maxJsonLength, 120));
-    } catch {
-      return "item";
-    }
-  };
-
-  const getSummaryLabel = (obj: unknown, position?: number): string => {
-    if (opts.itemLabelFields.length > 0 && obj && typeof obj === "object") {
-      try {
-        const summary = pick(
-          obj as Record<string, unknown>,
-          opts.itemLabelFields,
-        );
-        // Filter out empty fields
-        const filtered = Object.fromEntries(
-          Object.entries(summary).filter(([_, value]) => !isEmpty(value)),
-        );
-        const summaryJson = JSON.stringify(filtered);
-        const truncated = truncate(
-          summaryJson,
-          Math.min(opts.maxJsonLength, 100),
-        );
-        return position ? `#${position} (${truncated})` : truncated;
-      } catch {
-        // Fall back to item label
-      }
-    }
-    return position ? `#${position} (${getItemLabel(obj)})` : getItemLabel(obj);
-  };
-
-  // Added properties
-  if (Object.keys(diff.added || []).length > 0) {
-    const cleanedAdded = omit(diff.added, excludedFields);
-    if (Object.keys(cleanedAdded).length > 0) {
-      blocks.push({
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Added properties*\n${JSON.stringify(cleanedAdded, null, 2)}`,
-        },
-      });
-    }
-  }
-
-  // Removed properties
-  if (Object.keys(diff.removed || []).length > 0) {
-    const cleanedRemoved = omit(diff.removed, excludedFields);
-    if (Object.keys(cleanedRemoved).length > 0) {
-      blocks.push({
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Removed properties*\n${JSON.stringify(cleanedRemoved, null, 2)}`,
-        },
-      });
-    }
-  }
-
-  // Modified properties - one block per key
-  (diff.modified || []).forEach((mod: ModificationItem) => {
-    if (isSimpleModification(mod)) {
-      if (excludedFields.includes(mod.key)) return;
-
-      blocks.push({
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*${mod.key}*\nOld: ${JSON.stringify(mod.oldValue)}\nNew: ${JSON.stringify(mod.newValue)}`,
-        },
-      });
-    } else if (isHierarchicalModification(mod)) {
-      if (excludedFields.includes(mod.key)) return;
-
-      const formatHierarchicalChanges = (
-        values: HierarchicalValue[],
-      ): string => {
-        const sections: string[] = [];
-
-        values.forEach((value) => {
-          sections.push(`*${value.key}:*`);
-
-          if (value.added && Object.keys(value.added).length > 0) {
-            sections.push(
-              `Added: ${JSON.stringify(omit(value.added, excludedFields))}`,
-            );
-          }
-
-          if (value.removed && Object.keys(value.removed).length > 0) {
-            sections.push(
-              `Removed: ${JSON.stringify(omit(value.removed, excludedFields))}`,
-            );
-          }
-
-          if (value.modified && value.modified.length > 0) {
-            value.modified.forEach((change: ModificationItem) => {
-              if (isSimpleModification(change)) {
-                sections.push(
-                  `Modified ${change.key}: ${JSON.stringify(change.oldValue)} → ${JSON.stringify(change.newValue)}`,
-                );
-              }
-            });
-          }
-
-          // Handle array changes (added/removed/modified items)
-          if (value.changes) {
-            const hasOrderSummaries = !!value.changes.orderSummaries?.length;
-            if (value.changes.added?.length) {
-              const labels = value.changes.added.map(
-                (item, index) => `• #${index + 1} ${getItemLabel(item)}`,
-              );
-              sections.push(`*Added ${value.key}:*\n${labels.join("\n")}`);
-              if (opts.includeRawJson) {
-                sections.push(
-                  truncate(
-                    JSON.stringify(
-                      value.changes.added.map((item) =>
-                        typeof item === "object" && item !== null
-                          ? omit(
-                              item as Record<string, unknown>,
-                              excludedFields,
-                            )
-                          : item,
-                      ),
-                    ),
-                    opts.maxJsonLength,
-                  ),
-                );
-              }
-            }
-            if (value.changes.removed?.length) {
-              const labels = value.changes.removed.map(
-                (item, index) => `• #${index + 1} ${getItemLabel(item)}`,
-              );
-              sections.push(`*Removed ${value.key}:*\n${labels.join("\n")}`);
-              if (opts.includeRawJson) {
-                sections.push(
-                  truncate(
-                    JSON.stringify(
-                      value.changes.removed.map((item) =>
-                        typeof item === "object" && item !== null
-                          ? omit(
-                              item as Record<string, unknown>,
-                              excludedFields,
-                            )
-                          : item,
-                      ),
-                    ),
-                    opts.maxJsonLength,
-                  ),
-                );
-              }
-            }
-            if (value.changes.orderSummaries?.length) {
-              const summaryLines: string[] = [];
-              for (const s of value.changes.orderSummaries) {
-                if (s.type === "reorderShift") {
-                  const fromPos = toOneBased(s.fromIndex);
-                  const toPos = toOneBased(s.toIndex);
-                  // Try to find the moved item in the modified list to get its data
-                  const movedItem = value.changes.modified?.find(
-                    (m) => m.id === s.movedId,
-                  );
-                  const itemData = movedItem?.newValue || movedItem;
-                  const summaryLabel = getSummaryLabel(itemData, fromPos);
-                  summaryLines.push(
-                    `• Moved ${summaryLabel} to #${toPos} (${s.direction}). Shifted ${s.affectedCount} others.`,
-                  );
-                } else if (s.type === "insertShift") {
-                  const atPos = toOneBased(s.insertIndex);
-                  summaryLines.push(
-                    `• Insert at #${atPos}: shifted ${s.affectedCount} ${s.direction}.`,
-                  );
-                } else if (s.type === "deleteShift") {
-                  const atPos = toOneBased(s.deleteIndex);
-                  summaryLines.push(
-                    `• Delete at #${atPos}: shifted ${s.affectedCount} ${s.direction}.`,
-                  );
-                }
-              }
-              if (summaryLines.length) {
-                sections.push(
-                  `*Reordered ${value.key}:*\n${summaryLines.join("\n")}`,
-                );
-              }
-            }
-            if (value.changes.modified?.length) {
-              const moveLines: string[] = [];
-              const updateLines: string[] = [];
-              for (const change of value.changes.modified) {
-                const hasIndexMove =
-                  typeof change.oldIndex === "number" &&
-                  typeof change.newIndex === "number" &&
-                  change.oldIndex !== change.newIndex;
-                const hasFieldChanges =
-                  "fieldChanges" in change && !!change.fieldChanges?.length;
-
-                if (hasIndexMove && !hasFieldChanges) {
-                  const fromPos = toOneBased(change.oldIndex);
-                  const toPos = toOneBased(change.newIndex);
-                  const steps = Math.abs((change.steps as number) || 0);
-                  const dir = (change.steps as number) > 0 ? "up" : "down";
-                  if (!hasOrderSummaries) {
-                    moveLines.push(
-                      `• ${getItemLabel((change as unknown as { newValue?: unknown }).newValue || change)} moved ${dir} ${steps} to #${toPos} (from #${fromPos})`,
-                    );
-                  }
-                  // Always skip fallback when this is purely a move
-                  continue;
-                }
-
-                if (hasFieldChanges) {
-                  const label = getItemLabel(
-                    (change as unknown as { newValue?: unknown }).newValue ||
-                      change,
-                  );
-                  const fieldLines = (
-                    change as unknown as { fieldChanges?: ItemFieldChange[] }
-                  ).fieldChanges!.map(
-                    (fc) =>
-                      `    - ${fc.field}: ${JSON.stringify(fc.oldValue)} → ${JSON.stringify(fc.newValue)}`,
-                  );
-                  const position =
-                    typeof change.newIndex === "number"
-                      ? `#${change.newIndex + 1} `
-                      : "";
-                  updateLines.push(
-                    `• ${position}${label}\n${fieldLines.join("\n")}`,
-                  );
-                  continue;
-                }
-
-                const position =
-                  typeof change.newIndex === "number"
-                    ? `#${change.newIndex + 1} `
-                    : "";
-                updateLines.push(`• ${position}${getItemLabel(change)}`);
-              }
-              if (!hasOrderSummaries && moveLines.length)
-                sections.push(
-                  `*Reordered ${value.key}:*\n${moveLines.join("\n")}`,
-                );
-              if (updateLines.length)
-                sections.push(
-                  `*Updated ${value.key}:*\n${updateLines.join("\n")}`,
-                );
-            }
-            // Reorders are now represented within modified entries via oldIndex/newIndex/steps
-          }
-
-          // Recurse into nested values
-          if (value.values && value.values.length > 0) {
-            sections.push(formatHierarchicalChanges(value.values));
-          }
-        });
-
-        return sections.join("\n");
-      };
-
-      const lines: string[] = [];
-      // Include top-level added/removed/modified under this hierarchical key
-      if (mod.added && Object.keys(mod.added).length > 0) {
-        lines.push(`Added: ${JSON.stringify(omit(mod.added, excludedFields))}`);
-      }
-      if (mod.removed && Object.keys(mod.removed).length > 0) {
-        lines.push(
-          `Removed: ${JSON.stringify(omit(mod.removed, excludedFields))}`,
-        );
-      }
-      if (mod.modified && mod.modified.length > 0) {
-        mod.modified.forEach((change: ModificationItem) => {
-          if (isSimpleModification(change)) {
-            lines.push(
-              `Modified ${change.key}: ${JSON.stringify(change.oldValue)} → ${JSON.stringify(change.newValue)}`,
-            );
-          }
-        });
-      }
-      if (mod.values && mod.values.length > 0) {
-        const nested = formatHierarchicalChanges(mod.values);
-        if (nested) lines.push(nested);
-      }
-
-      blocks.push({
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*${mod.key}*\n${lines.join("\n")}`,
-        },
-      });
-    }
-  });
-
-  return {
-    text: "Changes detected",
-    blocks,
-  };
-}
+// endregion Diff generation

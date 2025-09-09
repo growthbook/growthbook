@@ -14,6 +14,7 @@ import {
   safeRolloutUnhealthyNotificationPayload,
 } from "back-end/src/validators/safe-rollout-notifications";
 import { EventUser } from "./event-types";
+import { DiffResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 
 type WebhookEntry = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,6 +221,13 @@ export const notificationEventPayloadData = <
     ...(data.isDiff
       ? {
           previous_attributes: schema.partial(),
+          changes: z
+            .object({
+              added: z.record(z.string(), z.unknown()),
+              removed: z.record(z.string(), z.unknown()),
+              modified: z.record(z.string(), z.unknown()),
+            })
+            .optional(),
         }
       : {}),
   });
@@ -240,6 +248,7 @@ export type NotificationEventPayloadDataType<
   ? {
       object: Obj;
       previous_attributes: PreviousAttributes;
+      changes?: DiffResult;
     } & NotificationEventPayloadExtraAttributes<Resource, Event>
   : { object: Obj } & NotificationEventPayloadExtraAttributes<Resource, Event>;
 

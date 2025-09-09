@@ -44,6 +44,10 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/openai";
+import {
+  DiffResult,
+  getObjectDiff,
+} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { ExperimentInterfaceExcludingHoldouts } from "../validators/experiments";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -944,6 +948,15 @@ export const logExperimentUpdated = async ({
     ? getEnvironmentIdsFromOrg(context.org)
     : [];
 
+  let changes: DiffResult | undefined;
+  try {
+    changes = getObjectDiff(previousApiExperiment, currentApiExperiment, [
+      "dateUpdated",
+    ]);
+  } catch (e) {
+    logger.error(e, "error creating change patch");
+  }
+
   await createEvent({
     context,
     object: "experiment",
@@ -952,6 +965,7 @@ export const logExperimentUpdated = async ({
     data: {
       object: currentApiExperiment,
       previous_object: previousApiExperiment,
+      changes,
     },
     projects: Array.from(
       new Set([previousApiExperiment.project, currentApiExperiment.project]),

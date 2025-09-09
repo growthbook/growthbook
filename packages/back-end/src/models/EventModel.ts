@@ -20,6 +20,7 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/organization";
 import { EventNotifier } from "back-end/src/events/notifiers/EventNotifier";
+import { DiffResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 
 const API_VERSION = "2024-07-31" as const;
 const MODEL_VERSION = 1 as const;
@@ -154,7 +155,7 @@ export type CreateEventData<
   ? {
       object: Payload;
       previous_object: Payload;
-      changes?: unknown;
+      changes?: DiffResult;
     } & NotificationEventPayloadExtraAttributes<Resource, Event>
   : { object: Payload } & NotificationEventPayloadExtraAttributes<
       Resource,
@@ -190,7 +191,7 @@ const diffData = <
   const { object, previous_object, changes, ...remainingData } = data as {
     object: Record<string, unknown>;
     previous_object: Record<string, unknown>;
-    changes?: unknown;
+    changes?: DiffResult;
   };
 
   return {
@@ -207,10 +208,10 @@ const diffData = <
         ...(isEqual(object[key], previous_object[key])
           ? {}
           : { [key]: previous_object[key] }),
-        changes,
       }),
       {},
     ),
+    changes,
   } as unknown as NotificationEventPayloadDataType<Resource, Event, Payload>;
 };
 

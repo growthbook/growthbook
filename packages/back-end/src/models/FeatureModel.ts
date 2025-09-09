@@ -469,13 +469,12 @@ export const createFeatureEvent = async <
       safeRolloutMap,
     });
 
-    // let patch: string | undefined;
     let changes: DiffResult | undefined;
     try {
       changes = getObjectDiff(
         previousApiFeature,
         currentApiFeature,
-        ["dateUpdated"],
+        ["dateUpdated", "date"],
         [
           {
             key: "environments",
