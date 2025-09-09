@@ -84,9 +84,9 @@ const isHierarchicalModification = (
 };
 
 export interface DiffResult {
-  added: Record<string, unknown>;
-  removed: Record<string, unknown>;
-  modified: ModificationItem[];
+  added?: Record<string, unknown>;
+  removed?: Record<string, unknown>;
+  modified?: ModificationItem[];
 }
 
 export interface FormatOptions {
@@ -796,7 +796,7 @@ export function formatDiffForSlack(
   };
 
   // Added properties
-  if (Object.keys(diff.added).length > 0) {
+  if (Object.keys(diff.added || []).length > 0) {
     const cleanedAdded = omit(diff.added, excludedFields);
     if (Object.keys(cleanedAdded).length > 0) {
       blocks.push({
@@ -810,7 +810,7 @@ export function formatDiffForSlack(
   }
 
   // Removed properties
-  if (Object.keys(diff.removed).length > 0) {
+  if (Object.keys(diff.removed || []).length > 0) {
     const cleanedRemoved = omit(diff.removed, excludedFields);
     if (Object.keys(cleanedRemoved).length > 0) {
       blocks.push({
@@ -824,7 +824,7 @@ export function formatDiffForSlack(
   }
 
   // Modified properties - one block per key
-  diff.modified.forEach((mod: ModificationItem) => {
+  (diff.modified || []).forEach((mod: ModificationItem) => {
     if (isSimpleModification(mod)) {
       if (excludedFields.includes(mod.key)) return;
 

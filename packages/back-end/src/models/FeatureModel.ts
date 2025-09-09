@@ -49,7 +49,6 @@ import {
 import {
   DiffResult,
   getObjectDiff,
-  formatDiffForSlack,
 } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import {
   createEvent,
@@ -471,16 +470,9 @@ export const createFeatureEvent = async <
     });
 
     // let patch: string | undefined;
-    let patch: DiffResult | undefined;
+    let changes: DiffResult | undefined;
     try {
-      // patch = createPatch(
-      //   "Changes",
-      //   JSON.stringify(previousApiFeature, null, 2),
-      //   JSON.stringify(currentApiFeature, null, 2),
-      // );
-
-      // patch = diffJson(previousApiFeature, currentApiFeature);
-      patch = getObjectDiff(
+      changes = getObjectDiff(
         previousApiFeature,
         currentApiFeature,
         ["dateUpdated"],
@@ -504,22 +496,7 @@ export const createFeatureEvent = async <
       data: {
         object: currentApiFeature,
         previous_object: previousApiFeature,
-        changes: patch
-          ? {
-              patch,
-              formatted: formatDiffForSlack(patch, {
-                itemLabelFields: [
-                  "type",
-                  "value",
-                  "coverage",
-                  "condition",
-                  "savedGroupTargeting",
-                  "prerequisites",
-                ],
-                includeRawJson: false,
-              }),
-            }
-          : undefined,
+        changes,
       },
       projects: Array.from(
         new Set([previousApiFeature.project, currentApiFeature.project]),

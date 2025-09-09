@@ -21,6 +21,11 @@ import {
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
 } from "back-end/src/validators/safe-rollout-notifications";
+import {
+  DiffResult,
+  formatDiffForSlack,
+  FormatOptions,
+} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 
 // region Filtering
 
@@ -276,6 +281,30 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
   eventId: string,
 ): Promise<SlackMessage> => {
   const eventUser = await getEventUserFormatted(eventId);
+  const event = await getEvent(eventId);
+
+  let changeBlocks: KnownBlock[] = [];
+
+  // Check if we have changes data to format
+  if (event?.data?.data?.previous_attributes?.changes) {
+    const formatOptions: FormatOptions = {
+      itemLabelFields: [
+        "type",
+        "value",
+        "coverage",
+        "condition",
+        "savedGroupTargeting",
+        "prerequisites",
+      ],
+      includeRawJson: false,
+    };
+
+    const formattedDiff = formatDiffForSlack(
+      event?.data?.data?.previous_attributes?.changes as DiffResult,
+      formatOptions,
+    );
+    changeBlocks = formattedDiff.blocks;
+  }
 
   const text = `The feature ${featureId} has been updated by ${eventUser}`;
 
@@ -292,6 +321,7 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
             getEventUrlFormatted(eventId),
         },
       },
+      ...changeBlocks,
     ],
   };
 };
