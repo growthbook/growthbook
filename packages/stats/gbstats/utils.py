@@ -124,6 +124,7 @@ class MatrixInversionResult:
     """
     Represents the result of a symmetric matrix inversion operation.
     """
+
     success: bool
     inverse: Optional[np.ndarray] = None
     error: Optional[str] = None
@@ -140,11 +141,13 @@ def invert_symmetric_matrix(v: np.ndarray) -> MatrixInversionResult:
     Returns:
         A MatrixInversionResult object containing either the inverse and log_det
         (if successful) or an error message (if unsuccessful).
-    """    
+    """
     n = v.shape[0]
     if v.shape[1] != n:
-        return MatrixInversionResult(success=False, error="Input matrix must be square.")
-        
+        return MatrixInversionResult(
+            success=False, error="Input matrix must be square."
+        )
+
     try:
         # Compute the Cholesky factorization of v
         v_cholesky = la.cholesky(v, lower=True, check_finite=True)
@@ -152,20 +155,20 @@ def invert_symmetric_matrix(v: np.ndarray) -> MatrixInversionResult:
         # cho_solve solves Ax=B for x. Here, A is v (via its Cholesky factor)
         # and B is the identity matrix, so x will be inv(v).
         v_inv = la.cho_solve((v_cholesky, True), np.identity(n))
-        
+
         # Return a success object with the results
         return MatrixInversionResult(
-            success=True, 
-            inverse=v_inv, 
+            success=True,
+            inverse=v_inv,
         )
-        
+
     except la.LinAlgError as e:
         # Catch the specific error raised by the LAPACK routine for non-positive-definite matrices
-        return MatrixInversionResult(success=False, error=f"Matrix is not positive-definite: {e}")
+        return MatrixInversionResult(
+            success=False, error=f"Matrix is not positive-definite: {e}"
+        )
     except Exception as e:
         # Catch any other unexpected errors during computation
-        return MatrixInversionResult(success=False, error=f"An unexpected error occurred: {e}")
-
-
-
-
+        return MatrixInversionResult(
+            success=False, error=f"An unexpected error occurred: {e}"
+        )

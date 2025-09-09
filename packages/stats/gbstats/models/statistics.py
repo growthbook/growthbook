@@ -57,9 +57,10 @@ class SampleMeanStatistic(Statistic):
         return self.sum / self.n
 
     def __add__(self, other):
-        if not isinstance(
-            other, Union[ProportionStatistic, SampleMeanStatistic]):
-            raise TypeError("Can add only another ProportionStatistic or SampleMeanStatistic instance")
+        if not isinstance(other, Union[ProportionStatistic, SampleMeanStatistic]):
+            raise TypeError(
+                "Can add only another ProportionStatistic or SampleMeanStatistic instance"
+            )
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
@@ -87,8 +88,10 @@ class ProportionStatistic(Statistic):
 
     def __add__(self, other):
         if not isinstance(other, Union[ProportionStatistic, SampleMeanStatistic]):
-            raise TypeError("Can add only another ProportionStatistic or SampleMeanStatistic instance")
-        
+            raise TypeError(
+                "Can add only another ProportionStatistic or SampleMeanStatistic instance"
+            )
+
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,

@@ -170,12 +170,11 @@ def get_metric_df(
     # strip dimension of prefix before `:`
     dimension_column_name = get_dimension_column_name(dimension_string)
 
-
     if post_stratify:
         precomputed_dimension_df = get_precomputed_dimension_df(rows)
         precomputed_columns = precomputed_dimension_df.columns.tolist()
         dfc["dimension"] = precomputed_dimension_df.astype(str).agg("_".join, axis=1)
-        if dimension: 
+        if dimension:
             dfc = dfc.rename(columns={dimension_column_name: "post_strat_dimension"})
         else:
             dfc["post_strat_dimension"] = ""
@@ -193,6 +192,7 @@ def get_metric_df(
             post_strat_dim = getattr(row, "post_strat_dimension", "")
         else:
             dim = getattr(row, dimension_column_name, getattr(row, "dimension", ""))
+            post_strat_dim = None
 
         # If this is the first time we're seeing this dimension, create an empty dict
         if dim not in dimensions:
@@ -458,7 +458,7 @@ def run_post_stratification(
     # dataframe that is returned
     df_output = copy.deepcopy(df)
     df_output = df_output.drop("dimension", axis=1)
-    df_output = df_output.rename(columns={'post_strat_dimension': 'dimension'})
+    df_output = df_output.rename(columns={"post_strat_dimension": "dimension"})
     df_output = initialize_df(df_output, analysis)
     s_output = df_output.iloc[0].copy()
 
@@ -559,6 +559,7 @@ def analyze_metric_df(
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
     df = initialize_df(df, analysis)
+
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
         # Loop through each non-baseline variation and run an analysis
@@ -598,6 +599,7 @@ def analyze_metric_df(
             analysis.weights,
         )
         return s
+
     return df.apply(analyze_row, axis=1)
 
 
@@ -825,8 +827,10 @@ def base_statistic_from_metric_row(
     else:
         raise ValueError("Unexpectedly metric_type was None")
 
+
 def get_precomputed_dimension_df(rows: pd.DataFrame) -> pd.DataFrame:
     return rows.filter(like="dim_exp_")
+
 
 def get_post_strat_df(rows: pd.DataFrame, dimension: str) -> pd.DataFrame:
     dimension_column_name = (
@@ -849,7 +853,7 @@ def process_analysis(
     # diff data, convert raw sql into df of dimensions, and get rid of extra dimensions
     var_names = analysis.var_names
     max_dimensions = analysis.max_dimensions
-    #get post-stratification df
+    # get post-stratification df
     post_strat_df = get_post_strat_df(rows, analysis.dimension)
     post_stratify = (
         any(post_strat_df.columns)
@@ -877,16 +881,18 @@ def process_analysis(
 
     if post_stratify:
         post_strat_results = pd.DataFrame()
-        post_strat_levels = df['post_strat_dimension'].unique()
+        post_strat_levels = df["post_strat_dimension"].unique()
         for level in post_strat_levels:
-            df_level = df[df['post_strat_dimension'] == level].reset_index()
+            df_level = df[df["post_strat_dimension"] == level].reset_index()
             reduced = reduce_dimensionality(df_level, max=1, keep_other=keep_other)
             this_result = run_post_stratification(reduced, metric, analysis)
-            this_result['dimension'] = level
+            this_result["dimension"] = level
             if post_strat_results.empty:
                 post_strat_results = this_result
             else:
-                post_strat_results = pd.concat([post_strat_results, this_result], ignore_index=True)
+                post_strat_results = pd.concat(
+                    [post_strat_results, this_result], ignore_index=True
+                )
         return post_strat_results
 
     else:

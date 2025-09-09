@@ -700,15 +700,24 @@ class TestPostStratification(TestCase):
         self.assertEqual(default_output, result_output)
 
     def test_missing_variation_data(self):
-        #remove one control observation from the biggest cell, place the observation in a new cell, and test that the output doesn't change
+        # remove one control observation from the biggest cell, place the observation in a new cell, and test that the output doesn't change
         num_strata = len(self.stats_count_strata)
-        last_cell_a = self.stats_count_strata[num_strata-1][0]
-        last_cell_a_minus_obs = SampleMeanStatistic(n=last_cell_a.n-1, sum=last_cell_a.sum-1, sum_squares=last_cell_a.sum_squares-1)
-        last_cell = (SampleMeanStatistic(n=1, sum=1, sum_squares=1), SampleMeanStatistic(n=0, sum=0, sum_squares=0))        
+        last_cell_a = self.stats_count_strata[num_strata - 1][0]
+        last_cell_a_minus_obs = SampleMeanStatistic(
+            n=last_cell_a.n - 1,
+            sum=last_cell_a.sum - 1,
+            sum_squares=last_cell_a.sum_squares - 1,
+        )
+        last_cell = (
+            SampleMeanStatistic(n=1, sum=1, sum_squares=1),
+            SampleMeanStatistic(n=0, sum=0, sum_squares=0),
+        )
         stats_count_strata = []
-        for cell in range(0, num_strata-1):
+        for cell in range(0, num_strata - 1):
             stats_count_strata.append(self.stats_count_strata[cell])
-        stats_count_strata.append((last_cell_a_minus_obs, self.stats_count_strata[num_strata-1][1]))
+        stats_count_strata.append(
+            (last_cell_a_minus_obs, self.stats_count_strata[num_strata - 1][1])
+        )
         stats_count_strata.append(last_cell)
         expected = EffectMomentsPostStratification(self.stats_count_strata, self.moments_config_abs).compute_result()  # type: ignore
         output = EffectMomentsPostStratification(stats_count_strata, self.moments_config_abs).compute_result()  # type: ignore
