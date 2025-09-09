@@ -1,6 +1,5 @@
 import { existsSync } from "fs";
 import { FormatDialect } from "shared/src/types";
-import odbc from "odbc";
 import { ODBCConnectionParams } from "back-end/types/integrations/odbc";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import {
@@ -10,6 +9,14 @@ import {
 } from "back-end/src/types/Integration";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import SqlIntegration from "./SqlIntegration";
+
+let _odbc: typeof import("odbc") | null = null;
+export async function getOdbc() {
+  if (!_odbc) {
+    _odbc = await import("odbc");
+  }
+  return _odbc;
+}
 
 let odbcFilesExist: boolean | null = null;
 
@@ -53,6 +60,8 @@ export default class ODBC extends SqlIntegration {
     if (this.params.dsn.indexOf(";") !== -1) {
       throw new Error("DSN cannot contain semicolons");
     }
+
+    const odbc = await getOdbc();
 
     const connectionString = `DSN=${this.params.dsn}`;
 
