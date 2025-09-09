@@ -1,5 +1,6 @@
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { ChangeEventHandler } from "react";
+import ODBCForm from "@/components/Settings/ODBCForm";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
@@ -186,6 +187,15 @@ export default function ConnectionSettings({
           setParams={setParams}
           params={datasource?.params || {}}
           onParamChange={onParamChange}
+        />
+      );
+      break;
+    case "odbc":
+      datasourceComponent = (
+        <ODBCForm
+          params={datasource?.params || {}}
+          onParamChange={onParamChange}
+          setParams={setParams}
         />
       );
       break;

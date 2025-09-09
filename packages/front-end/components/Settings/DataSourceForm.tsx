@@ -21,6 +21,7 @@ import { ensureAndReturn } from "@/types/utils";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { isCloud } from "@/services/env";
 import EditSchemaOptions from "./EditSchemaOptions";
 
 const typeOptions = dataSourceConnections;
@@ -224,12 +225,19 @@ const DataSourceForm: FC<{
         required
         autoFocus={true}
         placeholder="Choose Type..."
-        options={typeOptions.map((o) => {
-          return {
-            value: o.type,
-            label: o.display,
-          };
-        })}
+        options={typeOptions
+          .filter((o) => {
+            if (o.selfHostOnly && isCloud()) {
+              return false;
+            }
+            return true;
+          })
+          .map((o) => {
+            return {
+              value: o.type,
+              label: o.display,
+            };
+          })}
         helpText={
           <DocLink
             docSection={datasource.type as DocSection}

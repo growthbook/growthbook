@@ -43,6 +43,7 @@ const docSections = {
   redshift: "/warehouses/redshift",
   google_analytics: "/app/datasources#google-analytics",
   growthbook_clickhouse: "/app/managed-warehouse",
+  odbc: "/warehouses/odbc",
   //Language
   buildYourOwn: "/lib/build-your-own",
   sdks: "/lib",
