@@ -308,6 +308,8 @@ Triggered when a feature is created
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -874,6 +876,8 @@ Triggered when a feature is updated
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1173,6 +1177,8 @@ Triggered when a feature is deleted
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1210,6 +1216,8 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1247,6 +1255,8 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1285,6 +1295,8 @@ Triggered when a safe rollout is failing a health check and may not be working a
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1444,6 +1456,8 @@ Triggered when an experiment is created
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1730,6 +1744,8 @@ Triggered when an experiment is updated
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1889,6 +1905,8 @@ Triggered when an experiment is deleted
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1938,6 +1956,8 @@ Triggered when a warning condition is detected on an experiment
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -1981,6 +2001,8 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -2018,6 +2040,8 @@ Triggered when an experiment is ready to ship a variation.
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -2055,6 +2079,8 @@ Triggered when an experiment should be rolled back to the control.
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -2092,6 +2118,8 @@ Triggered when an experiment has reached the desired power point, but the result
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];
@@ -2133,6 +2161,8 @@ Triggered when a user logs in
     } | {
         type: "api_key";
         apiKey: string;
+    } | {
+        type: "system";
     } | null;
     tags: string[];
     environments: string[];

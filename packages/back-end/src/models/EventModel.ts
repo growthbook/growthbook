@@ -257,7 +257,14 @@ export const createEvent = async <
             email: context.email,
             name: context.userName || "",
           }
-        : null,
+        : context.apiKey
+          ? {
+              type: "api_key",
+              apiKey: context.apiKey,
+            }
+          : {
+              type: "system",
+            },
     },
     organizationId: context.org.id,
     ...(objectId ? { objectId } : {}),
