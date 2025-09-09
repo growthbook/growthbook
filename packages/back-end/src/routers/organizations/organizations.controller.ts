@@ -19,10 +19,7 @@ import {
   findSdkWebhookById,
   updateSdkWebhook,
 } from "back-end/src/models/WebhookModel";
-import {
-  validateProjectRoleAndEnvs,
-  validateRoleAndEnvs,
-} from "back-end/src/api/members/updateMemberRole";
+import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -2093,14 +2090,11 @@ export async function putDefaultRole(
   }
 
   if (defaultRole.projectRoles?.length) {
-    const orgProjects = (await context.models.projects.getAll()).map(
-      (p) => p.id,
-    );
     defaultRole.projectRoles.forEach((p) => {
-      const { memberIsValid, reason } = validateProjectRoleAndEnvs(
+      const { memberIsValid, reason } = validateRoleAndEnvs(
         org,
-        orgProjects,
-        p,
+        p.role,
+        p.environments,
       );
 
       if (!memberIsValid) {

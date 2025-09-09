@@ -64,21 +64,6 @@ export function validateRoleAndEnvs(
   };
 }
 
-export function validateProjectRoleAndEnvs(
-  org: OrganizationInterface,
-  orgProjects: string[],
-  projectRole: ProjectMemberRole,
-): { memberIsValid: boolean; reason: string } {
-  if (!orgProjects.includes(projectRole.project)) {
-    return {
-      memberIsValid: false,
-      reason: `${projectRole.project} is not a valid project in the organization`,
-    };
-  }
-
-  return validateRoleAndEnvs(org, projectRole.role, projectRole.environments);
-}
-
 export const updateMemberRole = createApiRequestHandler(
   updateMemberRoleValidator,
 )(async (req): Promise<UpdateMemberRoleResponse> => {
