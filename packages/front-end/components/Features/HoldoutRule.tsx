@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { PiArrowBendRightDown, PiArrowSquareOut } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -12,6 +12,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/components/Radix/Badge";
 import useApi from "@/hooks/useApi";
 import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
+import Callout from "../Radix/Callout";
 import HoldoutSummary from "./HoldoutSummary";
 import ConditionDisplay from "./ConditionDisplay";
 
@@ -52,6 +53,9 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
+    const isInactive =
+      holdoutExperiment.status === "stopped" || holdoutExperiment.archived;
+
     return (
       <Box {...props} ref={ref}>
         <Box mt="3">
@@ -63,7 +67,9 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 top: 0,
                 bottom: 0,
                 width: "4px",
-                backgroundColor: "var(--green-9)",
+                backgroundColor: isInactive
+                  ? "var(--amber-7)"
+                  : "var(--green-9)",
               }}
             ></div>
             <Flex align="start" justify="between" gap="3" p="1" px="2">
@@ -87,42 +93,67 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                       </Flex>
                     </Heading>
                   </Box>
-                </Flex>
-                <Box style={{ opacity: 1 }} mt="3">
-                  {hasCondition && (
-                    <Flex align="center" justify="start" gap="3">
-                      <Box pb="3">
-                        <strong className="font-weight-semibold">IF</strong>
-                      </Box>
-                      <Box
-                        width="100%"
-                        flexShrink="4"
-                        flexGrow="1"
-                        overflowX="auto"
-                        pb="3"
-                      >
-                        <ConditionDisplay
-                          condition={
-                            holdoutExperiment.phases[0].condition || ""
-                          }
-                          savedGroups={holdoutExperiment.phases[0].savedGroups}
-                          prerequisites={
-                            holdoutExperiment.phases[0].prerequisites
-                          }
-                        />
-                      </Box>
-                    </Flex>
+                  {isInactive && (
+                    <Badge
+                      color="amber"
+                      label={
+                        <>
+                          <PiArrowBendRightDown />
+                          Skipped
+                        </>
+                      }
+                    />
                   )}
-                  <HoldoutSummary
-                    feature={feature}
-                    value={feature.holdout?.value || ""}
-                    hashAttribute={holdoutExperiment.hashAttribute || ""}
-                    holdoutWeight={
-                      holdoutExperiment.phases[0].coverage *
-                        holdoutExperiment.phases[0].variationWeights[0] || 1
-                    }
-                  />
+                </Flex>
+                <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
+                  {holdoutExperiment.status === "stopped" && (
+                    <Callout status="info">
+                      This Holdout is stopped and this rule will be skipped.{" "}
+                      <Link href={`/holdout/${holdout.id}#results`}>
+                        View Results
+                      </Link>
+                    </Callout>
+                  )}
                 </Box>
+                {!isInactive && (
+                  <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
+                    {hasCondition && (
+                      <Flex align="center" justify="start" gap="3">
+                        <Box pb="3">
+                          <strong className="font-weight-semibold">IF</strong>
+                        </Box>
+                        <Box
+                          width="100%"
+                          flexShrink="4"
+                          flexGrow="1"
+                          overflowX="auto"
+                          pb="3"
+                        >
+                          <ConditionDisplay
+                            condition={
+                              holdoutExperiment.phases[0].condition || ""
+                            }
+                            savedGroups={
+                              holdoutExperiment.phases[0].savedGroups
+                            }
+                            prerequisites={
+                              holdoutExperiment.phases[0].prerequisites
+                            }
+                          />
+                        </Box>
+                      </Flex>
+                    )}
+                    <HoldoutSummary
+                      feature={feature}
+                      value={feature.holdout?.value || ""}
+                      hashAttribute={holdoutExperiment.hashAttribute || ""}
+                      holdoutWeight={
+                        holdoutExperiment.phases[0].coverage *
+                          holdoutExperiment.phases[0].variationWeights[0] || 1
+                      }
+                    />
+                  </Box>
+                )}
               </Box>
               <Flex>
                 {canEdit && (

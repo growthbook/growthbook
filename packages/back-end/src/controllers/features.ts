@@ -531,7 +531,7 @@ export async function postFeatures(
     );
   }
 
-  if (holdout) {
+  if (holdout && holdout.id) {
     const holdoutObj = await context.models.holdout.getById(holdout.id);
     if (!holdoutObj) {
       throw new Error("Holdout not found");
@@ -559,7 +559,7 @@ export async function postFeatures(
     archived: false,
     version: 1,
     hasDrafts: false,
-    holdout,
+    holdout: holdout?.id ? holdout : undefined,
     jsonSchema: {
       schemaType: "schema",
       simple: {
@@ -1318,7 +1318,7 @@ export async function postFeatureRule(
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
   // experiment-ref rules
-  if (rule.type === "experiment-ref" && feature.holdout) {
+  if (rule.type === "experiment-ref" && feature.holdout?.id) {
     const experiment = await getExperimentById(context, rule.experimentId);
     const expHasLinkedChanges =
       (experiment?.linkedFeatures?.length ?? 0) > 0 ||
@@ -2315,7 +2315,7 @@ export async function putFeature(
 
   const updatedFeature = await updateFeature(context, feature, updates);
 
-  if (updates.holdout?.id !== feature.holdout?.id) {
+  if (updates.holdout && updates.holdout?.id !== feature.holdout?.id) {
     const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
       async (experimentId) => {
         const experiment = await getExperimentById(context, experimentId);
@@ -2337,14 +2337,18 @@ export async function putFeature(
     }
   }
 
-  if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
+  if (
+    updates.holdout &&
+    updates.holdout.id !== feature.holdout?.id &&
+    feature.holdout?.id
+  ) {
     await context.models.holdout.removeFeatureFromHoldout(
       feature.holdout.id,
       feature.id,
     );
   }
 
-  if (updates.holdout) {
+  if (updates.holdout && updates.holdout.id) {
     const holdoutObj = await context.models.holdout.getById(updates.holdout.id);
     if (!holdoutObj) {
       throw new Error("Holdout not found");

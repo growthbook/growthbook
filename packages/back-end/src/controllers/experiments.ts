@@ -1371,7 +1371,11 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
-  if (data.holdoutId !== experiment.holdoutId && experiment.holdoutId) {
+  if (
+    data.holdoutId &&
+    data.holdoutId !== experiment.holdoutId &&
+    experiment.holdoutId
+  ) {
     if (
       experiment.status !== "draft" ||
       experiment.hasURLRedirects ||
