@@ -13,9 +13,6 @@ import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-cri
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
-  API_ROOT_HIDE_API_HOST,
-  API_ROOT_HIDE_APP_ORIGIN,
-  API_ROOT_HIDE_BUILD_INFO,
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
   DISABLE_API_ROOT_PATH,
@@ -201,33 +198,23 @@ app.get("/robots.txt", (_req, res) => {
 
 app.use(compression());
 
-if (!DISABLE_API_ROOT_PATH) {
-  app.get("/", (req, res) => {
+app.get("/", (req, res) => {
+  if (DISABLE_API_ROOT_PATH) {
+    res.json({ status: 200 });
+  } else {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      ...(API_ROOT_HIDE_API_HOST
-        ? {}
-        : {
-            api_host:
-              process.env.API_HOST ||
-              req.protocol + "://" + req.hostname + ":" + app.get("port"),
-          }),
-      ...(API_ROOT_HIDE_APP_ORIGIN
-        ? {}
-        : {
-            app_origin: APP_ORIGIN,
-          }),
+      api_host:
+        process.env.API_HOST ||
+        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+      app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
-      ...(API_ROOT_HIDE_BUILD_INFO
-        ? {}
-        : {
-            build: getBuild(),
-          }),
+      build: getBuild(),
     });
-  });
-}
+  }
+});
 
 app.use(httpLogger);
 

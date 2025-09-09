@@ -279,19 +279,9 @@ export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
 export const CLICKHOUSE_DEV_PREFIX =
   process.env.CLICKHOUSE_DEV_PREFIX || "test_";
 
-// Enable fully disabling the root api path or controlling which fields should be removed from the response
 // Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.
 export const DISABLE_API_ROOT_PATH = stringToBoolean(
   process.env.DISABLE_API_ROOT_PATH,
-);
-export const API_ROOT_HIDE_API_HOST = stringToBoolean(
-  process.env.API_ROOT_HIDE_API_HOST,
-);
-export const API_ROOT_HIDE_APP_ORIGIN = stringToBoolean(
-  process.env.API_ROOT_HIDE_APP_ORIGIN,
-);
-export const API_ROOT_HIDE_BUILD_INFO = stringToBoolean(
-  process.env.API_ROOT_HIDE_BUILD_INFO,
 );
 
 export type SecretsReplacer = <T extends string | Record<string, string>>(
