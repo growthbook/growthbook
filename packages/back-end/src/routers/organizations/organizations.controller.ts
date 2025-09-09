@@ -2076,6 +2076,7 @@ export async function putDefaultRole(
   const { memberIsValid, reason } = validateRoleAndEnvs(
     org,
     defaultRole.role,
+    defaultRole.limitAccessByEnvironment,
     defaultRole.environments,
   );
 
@@ -2088,6 +2089,7 @@ export async function putDefaultRole(
       const { memberIsValid, reason } = validateRoleAndEnvs(
         org,
         p.role,
+        p.limitAccessByEnvironment,
         p.environments,
       );
 
