@@ -66,7 +66,7 @@ export const trackJob =
     let res;
     try {
       if (!disableJobLogs) {
-        logger.info({ job: job.attrs }, `Starting job ${jobName}`);
+        logger.debug({ job: job.attrs }, `Starting job ${jobName}`);
       }
       res = await fn(job);
     } catch (e) {
@@ -85,7 +85,7 @@ export const trackJob =
 
     // on successful job
     if (!disableJobLogs) {
-      logger.info({ job: job.attrs }, `Successfully finished job ${jobName}`);
+      logger.debug({ job: job.attrs }, `Successfully finished job ${jobName}`);
     }
     try {
       wrapUpMetrics();
