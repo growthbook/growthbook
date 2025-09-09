@@ -2077,7 +2077,6 @@ export async function putDefaultRole(
     org,
     defaultRole.role,
     defaultRole.environments,
-    false,
   );
 
   if (!memberIsValid) {
@@ -2090,7 +2089,6 @@ export async function putDefaultRole(
         org,
         p.role,
         p.environments,
-        false,
       );
 
       if (!memberIsValid) {
