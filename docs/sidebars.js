@@ -408,6 +408,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/experiment-dashboards",
+          label: "Experiment Dashboards",
+        },
+        {
+          type: "doc",
           id: "importing-experiments",
           label: "Importing External Experiments",
         },
