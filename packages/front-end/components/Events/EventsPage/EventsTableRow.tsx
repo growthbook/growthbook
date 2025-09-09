@@ -53,7 +53,9 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
                 API Key
               </span>
             ) : user?.type === "system" ? (
-              <span title="system">System</span>
+              <span title="An automatic process or background job not associated with a user">
+                System
+              </span>
             ) : (
               ""
             )}
