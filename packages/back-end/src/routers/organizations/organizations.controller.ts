@@ -2068,11 +2068,31 @@ export async function putDefaultRole(
     );
   }
 
-  if (
-    !isRoleValid(defaultRole.role, org) ||
-    !areProjectRolesValid(defaultRole.projectRoles, org)
-  ) {
-    throw new Error("Invalid role");
+  if (!isRoleValid(defaultRole.role, org)) {
+    throw new Error(
+      `Role "${defaultRole.role}" does not exist in this organization`,
+    );
+  }
+
+  if (!areProjectRolesValid(defaultRole.projectRoles, org)) {
+    const invalidRoles =
+      defaultRole.projectRoles
+        ?.filter((pr) => !isRoleValid(pr.role, org))
+        .map((pr) => pr.role) || [];
+    throw new Error(`Invalid project roles: ${invalidRoles.join(", ")}`);
+  }
+
+  // Validate environments exist in organization
+  const orgEnvironmentIds = org.settings?.environments?.map((e) => e.id) || [];
+  const allEnvironmentIds = [
+    ...defaultRole.environments,
+    ...(defaultRole.projectRoles?.flatMap((pr) => pr.environments) || []),
+  ];
+  const invalidEnvironments = allEnvironmentIds.filter(
+    (envId) => !orgEnvironmentIds.includes(envId),
+  );
+  if (invalidEnvironments.length > 0) {
+    throw new Error(`Invalid environments: ${invalidEnvironments.join(", ")}`);
   }
 
   if (!context.permissions.canManageTeam()) {
