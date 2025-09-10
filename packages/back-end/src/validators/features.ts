@@ -69,6 +69,7 @@ export const rolloutRule = baseRule
     value: z.string(),
     coverage: z.number(),
     hashAttribute: z.string(),
+    seed: z.string().optional(),
   })
   .strict();
 

@@ -55,6 +55,7 @@ import HelperText from "@/components/Radix/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import TemplateForm from "../Templates/TemplateForm";
 import AddToHoldoutModal from "../holdout/AddToHoldoutModal";
 import ProjectTagBar from "./ProjectTagBar";
@@ -211,12 +212,12 @@ export default function ExperimentHeader({
     | undefined
     | ExperimentPhaseStringDates;
   const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted)
+    ? date(phases[0].dateStarted, "UTC")
     : null;
   const endDate =
     phases.length > 0
       ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded ?? "")
+        ? date(lastPhase.dateEnded, "UTC")
         : "now"
       : date(new Date());
   const viewingOldPhase = phases.length > 0 && phase < phases.length - 1;
@@ -229,6 +230,7 @@ export default function ExperimentHeader({
   const hasHoldoutsFeature = hasCommercialFeature("holdouts");
   const holdoutsEnabled =
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
+  const { holdouts } = useHoldouts(experiment.project);
 
   const hasUpdatePermissions = !holdout
     ? permissionsUtil.canViewExperimentModal(experiment.project)
@@ -814,6 +816,8 @@ export default function ExperimentHeader({
                 {canEditExperiment &&
                   !isHoldout &&
                   holdoutsEnabled &&
+                  holdouts.length > 0 &&
+                  !experiment.holdoutId &&
                   experiment.status === "draft" && (
                     <DropdownMenuItem
                       onClick={() => {
@@ -833,7 +837,7 @@ export default function ExperimentHeader({
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               {isHoldout &&
-                experiment.status !== "stopped" &&
+                experiment.status === "running" &&
                 experiment.phases.length < 2 && (
                   <>
                     <DropdownMenuSeparator />

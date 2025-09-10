@@ -79,6 +79,7 @@ import Link from "@/components/Radix/Link";
 import Markdown from "@/components/Markdown/Markdown";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { AppFeatures } from "@/types/app-features";
+import { useHoldouts } from "@/hooks/useHoldouts";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
@@ -196,6 +197,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     templatesMap,
     mutateTemplates: refreshTemplates,
   } = useTemplates();
+
+  const { experimentsMap, holdoutsMap } = useHoldouts();
+
   const envs = environments.map((e) => e.id);
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
@@ -317,11 +321,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       banditBurnInValue: scopedSettings.banditBurnInValue.value,
       banditBurnInUnit: scopedSettings.banditScheduleUnit.value,
       templateId: initialValue?.templateId || "",
-      holdoutId: initialValue?.holdoutId || "",
+      holdoutId: initialValue?.holdoutId || undefined,
     },
   });
 
-  const [selectedProject, setSelectedProject] = useState(form.watch("project"));
+  const selectedProject = form.watch("project");
   const customFields = filterCustomFieldsForSectionAndProject(
     useCustomFields(),
     "experiment",
@@ -336,8 +340,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const value = { ...rawValue, name: rawValue.name?.trim() };
-    if (value.holdoutId === "none") {
-      delete value.holdoutId;
+    if (value.holdoutId === "") {
+      value.holdoutId = undefined;
     }
     // Make sure there's an experiment name
     if ((value.name?.length ?? 0) < 1) {
@@ -491,6 +495,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // If a holdout is set for a new experiment, use the hash attribute of the holdout experiment
+  const holdoutId = form.watch("holdoutId");
+  const holdoutExperimentId = holdoutId
+    ? holdoutsMap.get(holdoutId)?.experimentId
+    : undefined;
+  const holdoutHashAttribute = holdoutExperimentId
+    ? experimentsMap.get(holdoutExperimentId)?.hashAttribute
+    : undefined;
+
+  useEffect(() => {
+    if (holdoutId && holdoutHashAttribute) {
+      form.setValue("hashAttribute", holdoutHashAttribute);
+    }
+  }, [holdoutId, holdoutHashAttribute]);
 
   const templateRequired =
     hasCommercialFeature("templates") &&
@@ -681,7 +700,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   value={form.watch("project") ?? ""}
                   onChange={(p) => {
                     form.setValue("project", p);
-                    setSelectedProject(p);
                   }}
                   name="project"
                   initialOption={allowAllProjects ? "All Projects" : undefined}
@@ -698,8 +716,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   setHoldout={(holdoutId) => {
                     form.setValue("holdoutId", holdoutId);
                   }}
+                  formType="experiment"
                 />
-                <Separator size="4" mt="6" mb="5" />
+                <Separator size="4" mt="5" mb="5" />
               </>
             )}
 
@@ -1064,6 +1083,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       variationValuesAsIds={true}
                       hideVariationIds={!isImport}
                       orgStickyBucketing={orgStickyBucketing}
+                      holdoutHashAttribute={holdoutHashAttribute}
                     />
                   </div>
                 </Page>

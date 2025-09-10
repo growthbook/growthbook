@@ -1371,7 +1371,11 @@ export async function postExperiment(
     validateVariationIds(data.variations);
   }
 
-  if (data.holdoutId !== experiment.holdoutId && experiment.holdoutId) {
+  if (
+    data.holdoutId &&
+    data.holdoutId !== experiment.holdoutId &&
+    experiment.holdoutId
+  ) {
     if (
       experiment.status !== "draft" ||
       experiment.hasURLRedirects ||
@@ -2640,16 +2644,19 @@ export async function deleteExperiment(
     removeExperimentFromPresentations(experiment.id),
   ];
 
+  await Promise.all(promises);
+
   if (experiment.holdoutId) {
-    promises.push(
-      context.models.holdout.removeExperimentFromHoldout(
+    try {
+      await context.models.holdout.removeExperimentFromHoldout(
         experiment.holdoutId,
         experiment.id,
-      ),
-    );
+      );
+    } catch (e) {
+      // This is not a fatal error, so don't block the request from happening
+      logger.warn(e, "Error removing experiment from holdout");
+    }
   }
-
-  await Promise.all(promises);
 
   await req.audit({
     event: "experiment.delete",

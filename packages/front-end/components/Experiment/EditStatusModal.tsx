@@ -26,13 +26,20 @@ export default function EditStatusModal({
   source,
   holdout,
 }: Props) {
+  const isHoldout = experiment.type === "holdout";
+  const experimentStatus = experiment.status;
   const form = useForm<{
     status: ExperimentStatus | "analysis";
     reason: string;
     dateEnded: string;
   }>({
     defaultValues: {
-      status: experiment.status,
+      status:
+        isHoldout &&
+        experimentStatus === "running" &&
+        experiment.phases.length === 2
+          ? "analysis"
+          : experiment.status,
       reason: "",
       dateEnded: new Date().toISOString().substr(0, 16),
     },
@@ -40,7 +47,6 @@ export default function EditStatusModal({
   const { apiCall } = useAuth();
   const hasLinkedChanges =
     !!experiment.linkedFeatures?.length || !!experiment.hasVisualChangesets;
-  const isHoldout = experiment.type === "holdout";
   const statusOptions = [
     {
       value: "draft",

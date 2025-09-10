@@ -47,6 +47,10 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import {
+  DiffResult,
+  getObjectDiff,
+} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import {
   createEvent,
   hasPreviousObject,
   CreateEventData,
@@ -465,20 +469,31 @@ export const createFeatureEvent = async <
       safeRolloutMap,
     });
 
+    let changes: DiffResult | undefined;
+    try {
+      changes = getObjectDiff(previousApiFeature, currentApiFeature, {
+        ignoredKeys: ["dateUpdated", "date"],
+        nestedObjectConfigs: [
+          {
+            key: "environments",
+            idField: "id",
+            ignoredKeys: ["definition", "savedGroups"],
+            arrayField: "rules",
+          },
+        ],
+      });
+    } catch (e) {
+      logger.error(e, "error creating change patch");
+    }
+
     return {
       ...eventData,
       object: "feature",
       objectId: eventData.data.object.id,
       data: {
         object: currentApiFeature,
-        previous_object: getApiFeatureObj({
-          feature: eventData.data.previous_object,
-          organization: eventData.context.org,
-          groupMap,
-          experimentMap,
-          revision: previousRevision,
-          safeRolloutMap,
-        }),
+        previous_object: previousApiFeature,
+        changes,
       },
       projects: Array.from(
         new Set([previousApiFeature.project, currentApiFeature.project]),
@@ -608,8 +623,16 @@ export async function onFeatureUpdate(
     skipRefreshForProject,
   );
 
-  // New event-based webhooks
-  await logFeatureUpdatedEvent(context, feature, updatedFeature);
+  // Don't fire webhooks if only `dateUpdated` changes (ex: creating/modifying a unpublished draft)
+  if (
+    !isEqual(
+      omit(feature, ["dateUpdated", "hasDrafts"]),
+      omit(updatedFeature, ["dateUpdated", "hasDrafts"]),
+    )
+  ) {
+    // Event-based webhooks
+    await logFeatureUpdatedEvent(context, feature, updatedFeature);
+  }
 
   if (context.org.isVercelIntegration)
     await updateVercelExperimentationItemFromFeature({
@@ -896,6 +919,17 @@ export async function removeTagInFeature(
       logger.error(e, "Error refreshing SDK Payload on feature update");
     });
   });
+}
+
+export async function removeHoldoutFromFeature(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+) {
+  if (!feature.holdout) return;
+  await FeatureModel.updateOne(
+    { organization: context.org.id, id: feature.id },
+    { $unset: { holdout: "" } },
+  );
 }
 
 export async function removeProjectFromFeatures(

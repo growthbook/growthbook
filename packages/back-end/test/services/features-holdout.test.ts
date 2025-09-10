@@ -453,4 +453,80 @@ describe("getFeatureDefinitions - Holdout Tests", () => {
     // Verify holdout feature definition is not included
     expect(result.features).not.toHaveProperty("$holdout:hld_test_holdout");
   });
+
+  it("should include feature definitions normally when no holdouts are present", async () => {
+    // Mock features
+    (getAllFeatures as jest.Mock).mockResolvedValue([
+      {
+        id: "feature-1",
+        valueType: "string",
+        defaultValue: "default_value",
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                id: "sample_rule",
+                value: "sample_value",
+                type: "force",
+                enabled: true,
+              },
+            ],
+          },
+        },
+        project: "project-1",
+      },
+      {
+        id: "feature-2",
+        valueType: "boolean",
+        defaultValue: "true",
+        environmentSettings: {
+          production: {
+            enabled: true,
+            rules: [
+              {
+                id: "fr_123456",
+                type: "force",
+                description: "",
+                value: "true",
+                condition: '{"user_id":12345}',
+                enabled: true,
+              },
+            ],
+          },
+        },
+        project: "project-1",
+      },
+    ]);
+
+    // Mock holdouts
+    (
+      mockContext.models.holdout.getAllPayloadHoldouts as jest.Mock
+    ).mockResolvedValue(new Map());
+
+    const result = await getFeatureDefinitions({
+      context: mockContext,
+      capabilities: ["prerequisites"],
+      environment: "production",
+      projects: ["project-1"], // Only requesting project-1
+    });
+
+    expect(result.features).toStrictEqual({
+      "feature-1": {
+        defaultValue: "default_value",
+        rules: [{ force: "sample_value" }],
+      },
+      "feature-2": {
+        defaultValue: true,
+        rules: [
+          {
+            condition: {
+              user_id: 12345,
+            },
+            force: true,
+          },
+        ],
+      },
+    });
+  });
 });

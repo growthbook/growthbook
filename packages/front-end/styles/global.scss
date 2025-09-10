@@ -18,6 +18,9 @@ body {
   -webkit-font-smoothing: antialiased;
   background-color: var(--background-color);
   color: var(--text-color-main);
+  &.no-scroll {
+    overflow: hidden;
+  }
 }
 
 .text-main {
@@ -931,7 +934,9 @@ main.main {
 
 .hover-show {
   .show-target {
-    transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    &:not(.instant) {
+      transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
+    }
     opacity: 0;
   }
   &:hover {
@@ -944,7 +949,7 @@ main.main {
   opacity: 0.5;
   transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
   &:hover {
-    opacity: 1;
+    opacity: 1 !important;
   }
 }
 .hover-underline {
@@ -1398,6 +1403,11 @@ main.main {
 .badge-used {
   opacity: 0.5;
 }
+
+// Required for the collapsible component to work correctly with lazyRender={true} - https://github.com/glennflanagan/react-collapsible/issues/36
+.Collapsible__contentInner {
+  border: 1px solid transparent;
+  }
 
 .Collapsible__trigger {
   &:hover {
@@ -3711,6 +3721,20 @@ input:disabled {
 .dashboard-disabled {
   opacity: 50%;
   pointer-events: none;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
+.hover-border-violet {
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0);
+  border-radius: 2px;
+  &:hover {
+    border-color: var(--violet-11);
+  }
 }
 
 // For absolute or fixed containers that should position themselves after the sidebar
