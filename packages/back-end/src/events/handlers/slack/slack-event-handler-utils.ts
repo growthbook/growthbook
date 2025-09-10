@@ -1052,7 +1052,7 @@ export function formatDiffForSlack(
         ...Object.keys(oldClassified),
         ...Object.keys(newClassified),
       ]);
-      const changes = [];
+      const changes: string[] = [];
 
       for (const type of allTypes) {
         const oldTypeCount = oldClassified[type] || 0;
