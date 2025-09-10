@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
-  InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
   TestQueryRow,
 } from "back-end/src/types/Integration";
 import { TemplateVariables } from "back-end/types/sql";
@@ -81,7 +81,7 @@ export default function EditSqlModal({
   const [apply5RowLimit, setApply5RowLimit] = useState(true);
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
   const [informationSchema, setInformationSchema] = useState<
-    InformationSchemaInterface | undefined
+    InformationSchemaInterfaceWithPaths | undefined
   >();
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useLocalStorage(
     "sql-editor-autocomplete-enabled",
@@ -223,7 +223,7 @@ export default function EditSqlModal({
       }
       try {
         const response = await apiCall<{
-          informationSchema: InformationSchemaInterface;
+          informationSchema: InformationSchemaInterfaceWithPaths;
         }>(`/datasource/${datasourceId}/schema`);
         setInformationSchema(response.informationSchema);
       } catch (error) {

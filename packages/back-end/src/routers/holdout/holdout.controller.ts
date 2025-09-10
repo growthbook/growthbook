@@ -3,6 +3,7 @@ import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { v4 as uuidv4 } from "uuid";
 import { generateVariationId } from "shared/util";
+import { omit } from "lodash";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -23,8 +24,9 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
+  getFeature,
   getFeaturesByIds,
-  updateFeature,
+  removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { FeatureInterface } from "back-end/types/feature";
 import { logger } from "back-end/src/util/logger";
@@ -321,10 +323,15 @@ export const getHoldouts = async (
 
   const holdouts = await context.models.holdout.getAll();
   const experiments = await getAllExperiments(context, {
-    project,
     includeArchived,
     type: "holdout",
   });
+
+  const filteredHoldouts = project
+    ? holdouts.filter((h) => {
+        return h.projects.includes(project);
+      })
+    : holdouts;
 
   const hasArchived = includeArchived
     ? experiments.some((e) => e.archived)
@@ -334,7 +341,7 @@ export const getHoldouts = async (
     status: 200,
     experiments,
     hasArchived,
-    holdouts,
+    holdouts: filteredHoldouts,
   });
 };
 
@@ -344,19 +351,25 @@ export const getHoldouts = async (
 
 export const updateHoldout = async (
   req: AuthRequest<Partial<HoldoutInterface>, { id: string }>,
-  res: Response<{ status: 200 | 404; holdout?: HoldoutInterface }>,
+  res: Response<
+    | { status: 200; holdout?: HoldoutInterface }
+    | { status: 404; message?: string }
+  >,
 ) => {
   const context = getContextFromReq(req);
   const holdout = await context.models.holdout.getById(req.params.id);
 
   if (!holdout) {
-    return res.status(404).json({ status: 404 });
+    return res.status(404).json({ status: 404, message: "Holdout not found" });
   }
 
   const experiment = await getExperimentById(context, holdout.experimentId);
 
   if (!experiment) {
-    return res.status(404).json({ status: 404 });
+    return res.status(404).json({
+      status: 404,
+      message: "Holdout experiment not found",
+    });
   }
 
   const updatedHoldout = await context.models.holdout.update(holdout, req.body);
@@ -375,20 +388,23 @@ export const editStatus = async (
     },
     { id: string }
   >,
-  res: Response<{ status: 200 | 404 }>,
+  res: Response<{ status: 200 | 404; message?: string }>,
 ) => {
   const context = getContextFromReq(req);
 
   const holdout = await context.models.holdout.getById(req.params.id);
 
   if (!holdout) {
-    return res.status(404).json({ status: 404 });
+    return res.status(404).json({ status: 404, message: "Holdout not found" });
   }
 
   const experiment = await getExperimentById(context, holdout.experimentId);
 
   if (!experiment) {
-    return res.status(404).json({ status: 404 });
+    return res.status(404).json({
+      status: 404,
+      message: "Holdout experiment not found",
+    });
   }
 
   if (!context.permissions.canUpdateHoldout(holdout, holdout)) {
@@ -399,8 +415,12 @@ export const editStatus = async (
 
   if (req.body.status === "stopped" && experiment.status !== "stopped") {
     // put end date on both phases
-    phases[0].dateEnded = new Date();
-    phases[1].dateEnded = new Date();
+    if (phases[0]) {
+      phases[0].dateEnded = new Date();
+    }
+    if (phases[1]) {
+      phases[1].dateEnded = new Date();
+    }
     // set the status to stopped for the experiment
     await updateExperiment({
       context,
@@ -533,16 +553,14 @@ export const deleteHoldout = async (
 
   // Remove holdout links from linked features and experiments
   await Promise.all(
-    linkedFeatures.map((f) =>
-      updateFeature(context, f, { holdout: undefined }),
-    ),
+    linkedFeatures.map((f) => removeHoldoutFromFeature(context, f)),
   );
   await Promise.all(
     linkedExperiments.map((e) =>
       updateExperiment({
         context,
         experiment: e,
-        changes: { holdoutId: undefined },
+        changes: { holdoutId: "" },
       }),
     ),
   );
@@ -558,3 +576,47 @@ export const deleteHoldout = async (
 };
 
 // endregion DELETE /holdout/:id
+
+// region DELETE /holdout/:id/feature/:featureId
+
+export const deleteHoldoutFeature = async (
+  req: AuthRequest<null, { id: string; featureId: string }>,
+  res: Response<{ status: 200 | 404 | 400; message?: string }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const holdout = await context.models.holdout.getById(req.params.id);
+
+  if (!holdout) {
+    return res.status(404).json({ status: 404, message: "Holdout not found" });
+  }
+
+  const feature = await getFeature(context, req.params.featureId);
+
+  if (!feature) {
+    return res.status(404).json({ status: 404, message: "Feature not found" });
+  }
+
+  if (!feature.holdout) {
+    return res.status(400).json({
+      status: 400,
+      message: "Feature is not linked to a holdout",
+    });
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, omit(feature, "holdout"))
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  await removeHoldoutFromFeature(context, feature);
+
+  await context.models.holdout.update(holdout, {
+    linkedFeatures: omit(holdout.linkedFeatures, feature.id),
+  });
+
+  return res.status(200).json({ status: 200 });
+};
+
+// endregion DELETE /holdout/:id/feature/:featureId

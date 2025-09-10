@@ -524,6 +524,27 @@ export interface InformationSchemaTablesInterface {
   informationSchemaId: string;
 }
 
+// Extended types that include path properties
+export interface TableWithPath extends Table {
+  path: string;
+}
+
+export interface SchemaWithPath extends Omit<Schema, "tables"> {
+  path: string;
+  tables: TableWithPath[];
+}
+
+export interface InformationSchemaWithPath
+  extends Omit<InformationSchema, "schemas"> {
+  path: string;
+  schemas: SchemaWithPath[];
+}
+
+export interface InformationSchemaInterfaceWithPaths
+  extends Omit<InformationSchemaInterface, "databases"> {
+  databases: InformationSchemaWithPath[];
+}
+
 export interface InsertTrackEventProps {
   event_name: string;
   value?: number;

@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import {
-  InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "back-end/src/types/Integration";
 import {
@@ -9,7 +9,6 @@ import {
   getAutoCompletions,
 } from "@/services/sqlAutoComplete";
 import { CursorData } from "@/components/Segments/SegmentForm";
-import { InformationSchemaInterfaceWithPaths } from "@/services/datasources";
 import { getTemplateCompletions } from "@/services/sqlKeywords";
 
 const mockSqlKeywords = [
@@ -86,82 +85,6 @@ type ApiCallReturn = Promise<{ table: InformationSchemaTablesInterface }>;
 
 // Type for the API call function
 type ApiCallFunction = (url: string, options?: RequestInit) => ApiCallReturn;
-
-// Mock data for testing
-const mockInformationSchema: InformationSchemaInterface = {
-  id: "schema-123",
-  datasourceId: "datasource-456",
-  organization: "test-org",
-  status: "COMPLETE",
-  refreshMS: 1000,
-  dateCreated: new Date("2023-01-01"),
-  dateUpdated: new Date("2023-01-01"),
-  databases: [
-    {
-      databaseName: "analytics",
-      dateCreated: new Date("2023-01-01"),
-      dateUpdated: new Date("2023-01-01"),
-      schemas: [
-        {
-          schemaName: "public",
-          dateCreated: new Date("2023-01-01"),
-          dateUpdated: new Date("2023-01-01"),
-          tables: [
-            {
-              tableName: "table-users-123",
-              id: "table-users-123",
-              numOfColumns: 3,
-              dateCreated: new Date("2023-01-01"),
-              dateUpdated: new Date("2023-01-01"),
-            },
-            {
-              tableName: "table-events-456",
-              id: "table-events-456",
-              numOfColumns: 4,
-              dateCreated: new Date("2023-01-01"),
-              dateUpdated: new Date("2023-01-01"),
-            },
-          ],
-        },
-        {
-          schemaName: "staging",
-          dateCreated: new Date("2023-01-01"),
-          dateUpdated: new Date("2023-01-01"),
-          tables: [
-            {
-              tableName: "table-temp-789",
-              id: "table-temp-789",
-              numOfColumns: 2,
-              dateCreated: new Date("2023-01-01"),
-              dateUpdated: new Date("2023-01-01"),
-            },
-          ],
-        },
-      ],
-    },
-    {
-      databaseName: "warehouse",
-      dateCreated: new Date("2023-01-01"),
-      dateUpdated: new Date("2023-01-01"),
-      schemas: [
-        {
-          schemaName: "prod",
-          dateCreated: new Date("2023-01-01"),
-          dateUpdated: new Date("2023-01-01"),
-          tables: [
-            {
-              tableName: "table-orders-999",
-              id: "table-orders-999",
-              numOfColumns: 5,
-              dateCreated: new Date("2023-01-01"),
-              dateUpdated: new Date("2023-01-01"),
-            },
-          ],
-        },
-      ],
-    },
-  ],
-};
 
 // Mock data for testing
 const mockInformationSchemaWithPaths: InformationSchemaInterfaceWithPaths = {
@@ -600,7 +523,7 @@ describe("getAutoCompletions", () => {
   it("should return SQL keywords when no cursor data", async () => {
     const result = await getAutoCompletions(
       null,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -626,7 +549,7 @@ describe("getAutoCompletions", () => {
     const cursorData: CursorData = { input: [""], row: 0, column: 0 };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -639,7 +562,7 @@ describe("getAutoCompletions", () => {
     const cursorData: CursorData = { input: ["SELECT "], row: 0, column: 7 };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -659,7 +582,7 @@ describe("getAutoCompletions", () => {
     // First, let's test that it returns template completions and keywords when no tables are selected
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -682,7 +605,7 @@ describe("getAutoCompletions", () => {
     };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -705,7 +628,7 @@ describe("getAutoCompletions", () => {
     };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -725,7 +648,7 @@ describe("getAutoCompletions", () => {
     };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -759,7 +682,7 @@ describe("getAutoCompletions", () => {
 
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -791,7 +714,7 @@ describe("getAutoCompletions", () => {
 
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -819,7 +742,7 @@ describe("getAutoCompletions", () => {
 
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -852,7 +775,7 @@ describe("Edge Cases", () => {
     };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -871,7 +794,7 @@ describe("Edge Cases", () => {
     const cursorData: CursorData = { input: [""], row: 0, column: 0 };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -889,7 +812,7 @@ describe("Edge Cases", () => {
     };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -907,7 +830,7 @@ describe("Edge Cases", () => {
     };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -927,7 +850,7 @@ describe("Edge Cases", () => {
 
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       failingApiCall,
       "EditSqlModal",
@@ -950,7 +873,7 @@ describe("Edge Cases", () => {
     };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -973,7 +896,7 @@ describe("Edge Cases", () => {
     };
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",
@@ -997,7 +920,7 @@ describe("Edge Cases", () => {
 
     const result = await getAutoCompletions(
       cursorData,
-      mockInformationSchema,
+      mockInformationSchemaWithPaths,
       "bigquery",
       mockApiCall,
       "EditSqlModal",

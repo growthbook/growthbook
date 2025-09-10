@@ -241,6 +241,7 @@ const experimentSchema = new mongoose.Schema({
           snapshotId: String,
         },
       ],
+      lookbackStartDate: Date,
     },
   ],
   data: String,

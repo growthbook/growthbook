@@ -13,6 +13,7 @@ import {
 } from "./types";
 import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
 import metricTargetMDEResolver from "./resolvers/metricTargetMDEResolver";
+export * from "./types";
 
 export const resolvers: Record<
   keyof Settings,
@@ -177,5 +178,3 @@ export const getScopedSettings = (
 
   return scopeSettings(settings, scopes);
 };
-
-export type { ScopedSettings } from "./types";
