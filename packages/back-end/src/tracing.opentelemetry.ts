@@ -41,7 +41,6 @@ diag.setLogger(
 
 const metricReader = new PeriodicExportingMetricReader({
   exporter: new OTLPMetricExporter(),
-  exportIntervalMillis: 1000,
 });
 
 const sdk = new opentelemetry.NodeSDK({
