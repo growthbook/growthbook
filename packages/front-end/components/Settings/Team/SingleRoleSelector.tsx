@@ -6,7 +6,10 @@ import { useUser } from "@/services/UserContext";
 import { useEnvironments } from "@/services/features";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Toggle from "@/components/Forms/Toggle";
-import SelectField, { GroupedValue } from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 export default function SingleRoleSelector({
@@ -70,9 +73,15 @@ export default function SingleRoleSelector({
   const activeEnvs = useEnvironments();
 
   // Create a list of envs that combines current active envs, and any deleted envs that are still in the value.environments
-  const allEnvs = useMemo(() => {
+  const envOptions: SingleValue[] = useMemo(() => {
     const activeEnvIds = new Set(activeEnvs.map((env) => env.id));
-    const envOptions = [...activeEnvs];
+    const envOptions: SingleValue[] = [...activeEnvs].map((env) => {
+      return {
+        label: env.id,
+        value: env.id,
+        tooltip: env.description,
+      };
+    });
 
     // Add any environments from the current value that are not in activeEnvs
     // These are likely deleted environments
@@ -82,11 +91,11 @@ export default function SingleRoleSelector({
 
     deletedEnvIds.forEach((envId) => {
       envOptions.push({
-        id: envId,
-        description: `Deleted environment`,
+        label: `(Deleted) - ${envId}`,
+        value: envId,
+        tooltip: `Deleted environment`,
       });
     });
-
     return envOptions;
   }, [activeEnvs, value.environments]);
 
@@ -130,54 +139,46 @@ export default function SingleRoleSelector({
         disabled={disabled}
       />
 
-      {roleSupportsEnvLimit(value.role, organization) && allEnvs.length > 1 && (
-        <div>
-          <div className="form-group">
-            <label htmlFor={`role-modal--${id}`}>
-              <PremiumTooltip commercialFeature="advanced-permissions">
-                Restrict Access to Specific Environments
-              </PremiumTooltip>
-            </label>
-            <div>
-              <Toggle
-                disabled={!hasFeature}
-                id={`role-modal--${id}`}
-                value={value.limitAccessByEnvironment}
-                setValue={(limitAccessByEnvironment) => {
+      {roleSupportsEnvLimit(value.role, organization) &&
+        envOptions.length > 1 && (
+          <div>
+            <div className="form-group">
+              <label htmlFor={`role-modal--${id}`}>
+                <PremiumTooltip commercialFeature="advanced-permissions">
+                  Restrict Access to Specific Environments
+                </PremiumTooltip>
+              </label>
+              <div>
+                <Toggle
+                  disabled={!hasFeature}
+                  id={`role-modal--${id}`}
+                  value={value.limitAccessByEnvironment}
+                  setValue={(limitAccessByEnvironment) => {
+                    setValue({
+                      ...value,
+                      limitAccessByEnvironment,
+                    });
+                  }}
+                />
+              </div>
+            </div>
+            {value.limitAccessByEnvironment && (
+              <MultiSelectField
+                label="Environments"
+                className="mb-4"
+                helpText="Select all environments you want the person to have permissions for"
+                value={value.environments}
+                onChange={(environments) => {
                   setValue({
                     ...value,
-                    limitAccessByEnvironment,
+                    environments,
                   });
                 }}
+                options={envOptions}
               />
-            </div>
+            )}
           </div>
-          {value.limitAccessByEnvironment && (
-            <MultiSelectField
-              label="Environments"
-              className="mb-4"
-              helpText="Select all environments you want the person to have permissions for"
-              value={value.environments}
-              onChange={(environments) => {
-                setValue({
-                  ...value,
-                  environments,
-                });
-              }}
-              options={allEnvs.map((env) => {
-                const isDeleted = !activeEnvs.some(
-                  (availableEnv) => availableEnv.id === env.id,
-                );
-                return {
-                  label: isDeleted ? `Deleted Env - ${env.id}` : env.id,
-                  value: env.id,
-                  tooltip: env.description,
-                };
-              })}
-            />
-          )}
-        </div>
-      )}
+        )}
     </div>
   );
 }
