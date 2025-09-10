@@ -13,8 +13,8 @@ import {
   safeRolloutDecisionNotificationPayload,
   safeRolloutUnhealthyNotificationPayload,
 } from "back-end/src/validators/safe-rollout-notifications";
-import { EventUser } from "./event-types";
 import { DiffResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { EventUser } from "./event-types";
 
 type WebhookEntry = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
