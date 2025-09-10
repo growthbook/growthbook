@@ -157,13 +157,18 @@ function getItemFieldChanges(
   return fieldChanges;
 }
 
+export interface GetObjectDiffOptions {
+  ignoredKeys?: string[];
+  nestedObjectConfigs?: NestedObjectConfig[];
+  maxDepth?: number;
+}
+
 export function getObjectDiff(
   prev: Record<string, unknown>,
   curr: Record<string, unknown>,
-  ignoredKeys: string[] = [],
-  nestedObjectConfigs: NestedObjectConfig[] = [],
-  maxDepth: number = 10,
+  options: GetObjectDiffOptions = {},
 ): DiffResult {
+  const { ignoredKeys = [], nestedObjectConfigs = [], maxDepth = 10 } = options;
   // Check recursion depth limit
   if (maxDepth <= 0) {
     return {
@@ -567,9 +572,10 @@ export function getObjectDiff(
                   const otherChanges = getObjectDiff(
                     otherPrevProps,
                     otherCurrProps,
-                    nestedConfig?.ignoredKeys || [],
-                    [],
-                    maxDepth - 1,
+                    {
+                      ignoredKeys: nestedConfig?.ignoredKeys || [],
+                      maxDepth: maxDepth - 1,
+                    },
                   );
 
                   containerChanges[containerName] = {
@@ -582,9 +588,10 @@ export function getObjectDiff(
                 containerChanges[containerName] = getObjectDiff(
                   prevContainer,
                   currContainer,
-                  nestedConfig?.ignoredKeys || [],
-                  [],
-                  maxDepth - 1,
+                  {
+                    ignoredKeys: nestedConfig?.ignoredKeys || [],
+                    maxDepth: maxDepth - 1,
+                  },
                 );
               }
             }
@@ -677,13 +684,10 @@ export function getObjectDiff(
         const configIgnoredKeys = nestedConfig?.ignoredKeys || [];
 
         // Compute a sub-diff relative to this nested object
-        const subDiff = getObjectDiff(
-          prevObj,
-          currObj,
-          configIgnoredKeys,
-          [],
-          maxDepth - 1,
-        );
+        const subDiff = getObjectDiff(prevObj, currObj, {
+          ignoredKeys: configIgnoredKeys,
+          maxDepth: maxDepth - 1,
+        });
 
         // If there are any changes inside, wrap them as a hierarchical modification so
         // sibling field changes are grouped under the parent key (e.g. "revision")

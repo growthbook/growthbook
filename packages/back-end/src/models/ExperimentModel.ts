@@ -950,11 +950,9 @@ export const logExperimentUpdated = async ({
 
   let changes: DiffResult | undefined;
   try {
-    changes = getObjectDiff(
-      previousApiExperiment,
-      currentApiExperiment,
-      ["dateUpdated"],
-      [
+    changes = getObjectDiff(previousApiExperiment, currentApiExperiment, {
+      ignoredKeys: ["dateUpdated"],
+      nestedObjectConfigs: [
         {
           key: "phases",
           idField: "__index",
@@ -968,14 +966,14 @@ export const logExperimentUpdated = async ({
         {
           key: "variations",
           idField: "variationId",
-          ignoredKeys: ["screenshots", "dom", "css", "js"],
+          ignoredKeys: ["screenshots"],
         },
         {
           key: "metricOverrides",
           idField: "id",
         },
       ],
-    );
+    });
   } catch (e) {
     logger.error(e, "error creating change patch");
   }

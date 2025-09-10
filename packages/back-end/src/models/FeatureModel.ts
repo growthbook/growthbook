@@ -471,11 +471,9 @@ export const createFeatureEvent = async <
 
     let changes: DiffResult | undefined;
     try {
-      changes = getObjectDiff(
-        previousApiFeature,
-        currentApiFeature,
-        ["dateUpdated", "date"],
-        [
+      changes = getObjectDiff(previousApiFeature, currentApiFeature, {
+        ignoredKeys: ["dateUpdated", "date"],
+        nestedObjectConfigs: [
           {
             key: "environments",
             idField: "id",
@@ -483,7 +481,7 @@ export const createFeatureEvent = async <
             arrayField: "rules",
           },
         ],
-      );
+      });
     } catch (e) {
       logger.error(e, "error creating change patch");
     }
