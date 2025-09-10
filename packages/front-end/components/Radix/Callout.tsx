@@ -1,9 +1,23 @@
-import { Callout as RadixCallout, Box } from "@radix-ui/themes";
-import { forwardRef, ReactNode } from "react";
+import { Callout as RadixCallout, Box, IconButton } from "@radix-ui/themes";
+import React, { forwardRef, ReactNode } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
+import { PiX } from "react-icons/pi";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
 import styles from "./RadixOverrides.module.scss";
+
+type DismissibleProps = {
+  dismissible: true;
+  id: string;
+  renderWhenDismissed?: (undismiss: () => void) => React.ReactElement;
+};
+
+type UndismissibleProps = {
+  dismissible?: false;
+  id?: string;
+  renderWhenDismissed?: never;
+};
 
 export function getRadixSize(size: Size): Responsive<"1" | "2"> {
   switch (size) {
@@ -22,7 +36,8 @@ export default forwardRef<
     size?: "sm" | "md";
     icon?: ReactNode | null;
     contentsAs?: "text" | "div";
-  } & MarginProps
+  } & (DismissibleProps | UndismissibleProps) &
+    MarginProps
 >(function Callout(
   {
     children,
@@ -30,10 +45,21 @@ export default forwardRef<
     size = "md",
     icon,
     contentsAs = "text",
+    dismissible = false,
+    id,
+    renderWhenDismissed,
     ...containerProps
   },
   ref,
 ) {
+  const [dismissed, setDismissed] = useLocalStorage(`callout:${id}`, false);
+
+  if (dismissible && dismissed && id) {
+    return renderWhenDismissed
+      ? renderWhenDismissed(() => setDismissed(false))
+      : null;
+  }
+
   const renderedIcon = (() => {
     if (icon === null) {
       return null; // Render no icon if icon prop is null
@@ -53,6 +79,9 @@ export default forwardRef<
       role={status === "error" ? "alert" : undefined}
       size={getRadixSize(size)}
       {...containerProps}
+      style={{
+        position: "relative",
+      }}
     >
       {renderedIcon ? (
         <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
@@ -62,9 +91,28 @@ export default forwardRef<
           <div className={styles.calloutContent}>{children}</div>
         </Box>
       ) : (
-        <RadixCallout.Text size={getRadixSize(size)}>
-          {children}
-        </RadixCallout.Text>
+        <>
+          <RadixCallout.Text size={getRadixSize(size)}>
+            {children}
+          </RadixCallout.Text>
+          {dismissible && id ? (
+            <IconButton
+              variant="ghost"
+              color="gray"
+              size="1"
+              onClick={() => setDismissed(true)}
+              aria-label="Dismiss"
+              style={{
+                position: "absolute",
+                right: 8,
+                top: "50%",
+                marginTop: -11,
+              }}
+            >
+              <PiX />
+            </IconButton>
+          ) : null}
+        </>
       )}
     </RadixCallout.Root>
   );

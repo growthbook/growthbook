@@ -99,6 +99,7 @@ const docSections = {
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",
   devTools: "/tools/chrome-extension",
   pipelineMode: "/app/data-pipeline",
+  holdouts: "/app/holdouts",
 };
 
 export type DocSection = keyof typeof docSections;
