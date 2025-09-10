@@ -164,6 +164,11 @@ const sidebars = {
               id: "warehouses/snowflake",
               label: "Snowflake",
             },
+            {
+              type: "doc",
+              id: "warehouses/odbc",
+              label: "ODBC (Impala)",
+            },
           ],
         },
         {
