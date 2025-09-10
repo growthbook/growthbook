@@ -518,6 +518,131 @@ const buildSlackMessageForExperimentUpdatedEvent = async (
         arrayZeroBasedIndex: {
           variations: true,
         },
+        fieldFormatters: {
+          trafficSplit: (val: unknown) => {
+            if (Array.isArray(val)) {
+              const weights = val.map((item: unknown) => {
+                if (
+                  typeof item === "object" &&
+                  item !== null &&
+                  "weight" in item
+                ) {
+                  return (item as Record<string, unknown>).weight;
+                }
+                return item;
+              });
+              return `\`[${weights.join(", ")}]\``;
+            }
+            return `\`${JSON.stringify(val)}\``;
+          },
+          resultSummary: (val: unknown) => {
+            if (typeof val === "object" && val !== null) {
+              const obj = val as Record<string, unknown>;
+              const lines: string[] = [];
+
+              // Get current experiment data to look up variation index
+              const eventData = event?.data?.data as Record<string, unknown>;
+              const currentExperiment = eventData?.object as Record<
+                string,
+                unknown
+              >;
+              const variations =
+                (currentExperiment?.variations as unknown[]) || [];
+
+              if (obj.status) {
+                lines.push(`- status: \`"${obj.status}"\``);
+              }
+
+              // Skip winner if empty
+              if (obj.winner && obj.winner !== "") {
+                // Look up variation index from variations array
+                const variationIndex = variations.findIndex(
+                  (v: unknown) =>
+                    typeof v === "object" &&
+                    v !== null &&
+                    (v as Record<string, unknown>).variationId === obj.winner,
+                );
+                const displayIndex =
+                  variationIndex >= 0 ? variationIndex : obj.winner;
+                lines.push(`- winner: \`${displayIndex}\``);
+              }
+
+              // Skip conclusions if empty
+              if (obj.conclusions && obj.conclusions !== "") {
+                lines.push(`- conclusions: "${obj.conclusions}"`);
+              }
+
+              if (obj.releasedVariationId) {
+                // Look up variation index from variations array
+                const variationIndex = variations.findIndex(
+                  (v: unknown) =>
+                    typeof v === "object" &&
+                    v !== null &&
+                    (v as Record<string, unknown>).variationId ===
+                      obj.releasedVariationId,
+                );
+                const displayIndex =
+                  variationIndex >= 0
+                    ? variationIndex
+                    : obj.releasedVariationId;
+                lines.push(`- releasedVariationId: \`${displayIndex}\``);
+              }
+
+              if (obj.excludeFromPayload !== undefined) {
+                lines.push(
+                  `- excludeFromPayload: \`${obj.excludeFromPayload}\``,
+                );
+              }
+
+              return "\n" + lines.join("\n");
+            }
+            return `\`${JSON.stringify(val)}\``;
+          },
+          // Individual resultSummary property formatters (for hierarchical modifications)
+          status: (val: unknown) => `\`"${val}"\``,
+          conclusions: (val: unknown) => `\`"${val}"\``,
+          winner: (val: unknown) => {
+            if (typeof val === "string" && val !== "") {
+              // Get current experiment data to look up variation index
+              const eventData = event?.data?.data as Record<string, unknown>;
+              const currentExperiment = eventData?.object as Record<
+                string,
+                unknown
+              >;
+              const variations =
+                (currentExperiment?.variations as unknown[]) || [];
+              const variationIndex = variations.findIndex(
+                (v: unknown) =>
+                  typeof v === "object" &&
+                  v !== null &&
+                  (v as Record<string, unknown>).variationId === val,
+              );
+              return variationIndex >= 0 ? `\`${variationIndex}\`` : "none";
+            }
+            return "none";
+          },
+          releasedVariationId: (val: unknown) => {
+            if (typeof val === "string" && val !== "") {
+              // Get current experiment data to look up variation index
+              const eventData = event?.data?.data as Record<string, unknown>;
+              const currentExperiment = eventData?.object as Record<
+                string,
+                unknown
+              >;
+              const variations =
+                (currentExperiment?.variations as unknown[]) || [];
+              const variationIndex = variations.findIndex(
+                (v: unknown) =>
+                  typeof v === "object" &&
+                  v !== null &&
+                  (v as Record<string, unknown>).variationId === val,
+              );
+              return variationIndex >= 0 ? `\`${variationIndex}\`` : "none";
+            }
+            return "none";
+          },
+          excludeFromPayload: (val: unknown) => `\`${val}\``,
+        },
       },
     );
     changeBlocks = formattedDiff.blocks;
@@ -870,6 +995,7 @@ export interface FormatOptions {
   arrayItemNames?: Record<string, string>;
   arrayItemClassifiers?: Record<string, (item: unknown) => string | null>;
   arrayZeroBasedIndex?: Record<string, boolean>;
+  fieldFormatters?: Record<string, (value: unknown) => string>;
 }
 
 interface ItemFieldChange {
@@ -1154,6 +1280,11 @@ export function formatDiffForSlack(
           const newVal = newItem[field];
           if (!isEqual(oldVal, newVal)) {
             const formatFieldValue = (val: unknown): string => {
+              // Check if there's a custom formatter for this field
+              if (opts.fieldFormatters?.[field]) {
+                return opts.fieldFormatters[field](val);
+              }
+
               if (val === null || val === undefined) return "`null`";
               if (
                 typeof val === "string" ||
@@ -1196,6 +1327,12 @@ export function formatDiffForSlack(
     fieldName?: string,
   ): string => {
     const effectiveMaxLength = maxLength || Math.min(opts.maxJsonLength, 120);
+
+    // Check if there's a custom formatter for this field
+    if (fieldName && opts.fieldFormatters?.[fieldName]) {
+      const formatted = opts.fieldFormatters[fieldName](obj);
+      return position !== undefined ? `#${position} (${formatted})` : formatted;
+    }
 
     // Handle arrays specially
     if (Array.isArray(obj)) {
@@ -1314,11 +1451,24 @@ export function formatDiffForSlack(
   if (Object.keys(diff.added || []).length > 0) {
     const cleanedAdded = omit(diff.added, excludedFields);
     if (Object.keys(cleanedAdded).length > 0) {
+      const propertyLines: string[] = [];
+
+      Object.entries(cleanedAdded).forEach(([key, value]) => {
+        // Check if there's a custom field formatter for this key
+        if (opts.fieldFormatters?.[key]) {
+          const formatted = opts.fieldFormatters[key](value);
+          propertyLines.push(`${key}:${formatted}`);
+        } else {
+          // Default formatting
+          propertyLines.push(`${key}: ${getItemLabel(value)}`);
+        }
+      });
+
       blocks.push({
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `⊳ *added properties*\n\`\`\`\n${truncate(JSON.stringify(cleanedAdded, null, 2), opts.maxJsonLength)}\n\`\`\``,
+          text: `⊳ *added properties*\n${propertyLines.join("\n")}`,
         },
       });
     }
