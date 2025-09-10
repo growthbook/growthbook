@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import asdict
 from typing import List, Optional, Tuple, Literal, Union, cast
 from pydantic.dataclasses import dataclass
 
@@ -282,8 +283,15 @@ class BaseABTest(ABC):
                 self.stat_a = self.stat_a.post_statistic
                 self.stat_b = self.stat_b.post_statistic
             else:
-                self.stat_a.theta = theta
-                self.stat_b.theta = theta
+                # override statistic with theta initialized
+                self.stat_a = RegressionAdjustedStatistic(
+                    **asdict(self.stat_a),
+                    theta=theta,
+                )
+                self.stat_b = RegressionAdjustedStatistic(
+                    **asdict(self.stat_b),
+                    theta=theta,
+                )
         if (
             isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
             and isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
@@ -305,8 +313,14 @@ class BaseABTest(ABC):
                     m_d_sum_of_products=self.stat_b.m_post_d_post_sum_of_products,
                 )
             else:
-                self.stat_a.theta = theta
-                self.stat_b.theta = theta
+                self.stat_a = RegressionAdjustedRatioStatistic(
+                    **asdict(self.stat_a),
+                    theta=theta,
+                )
+                self.stat_b = RegressionAdjustedRatioStatistic(
+                    **asdict(self.stat_b),
+                    theta=theta,
+                )
 
     def compute_moments_result(self) -> EffectMomentsResult:
         moments_config = EffectMomentsConfig(

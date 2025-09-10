@@ -180,7 +180,9 @@ def get_metric_dfs(
 ) -> List[DimensionMetricData]:
     dfc = rows.copy()
     dimensions: Dict[str, InitialMetricDataStrata] = {}
-    dimension_column_name = "" if not dimension else get_dimension_column_name(dimension)
+    dimension_column_name = (
+        "" if not dimension else get_dimension_column_name(dimension)
+    )
 
     if post_stratify:
         # if post-stratifying, then we need to create a strata column
@@ -211,7 +213,7 @@ def get_metric_dfs(
                 "dimension": dim,
                 "strata": strata,
             }
-    
+
             # Add columns for each variation (including baseline)
             for key in var_id_map:
                 i = var_id_map[key]
@@ -232,9 +234,13 @@ def get_metric_dfs(
             for col in SUM_COLS:
                 # Special handling for count, if missing returns a method, so override with user value
                 if col == "count" and callable(getattr(row, col)):
-                    dimensions[dim].data[strata][f"{prefix}_count"] += getattr(row, "users", 0)
+                    dimensions[dim].data[strata][f"{prefix}_count"] += getattr(
+                        row, "users", 0
+                    )
                 else:
-                    dimensions[dim].data[strata][f"{prefix}_{col}"] += getattr(row, col, 0)
+                    dimensions[dim].data[strata][f"{prefix}_{col}"] += getattr(
+                        row, col, 0
+                    )
             for col in NON_SUMMABLE_COLS:
                 if dimensions[dim].data[strata][f"{prefix}_{col}"] != 0:
                     raise ValueError(
@@ -246,16 +252,21 @@ def get_metric_dfs(
             dimension=dimension,
             total_units=dimension_data.total_units,
             data=pd.DataFrame([s for s in dimension_data.data.values()]),
-        ) for dimension, dimension_data in dimensions.items()
+        )
+        for dimension, dimension_data in dimensions.items()
     ]
 
 
 # Limit to the top X dimensions with the most users
 # Merge the rest into an "(other)" dimension
 def reduce_dimensionality(
-    metric_data: List[DimensionMetricData], num_variations: int, max: int = 20, keep_other: bool = True, combine_strata: bool = True
+    metric_data: List[DimensionMetricData],
+    num_variations: int,
+    max: int = 20,
+    keep_other: bool = True,
+    combine_strata: bool = True,
 ) -> List[DimensionMetricData]:
-    
+
     metric_data.sort(key=lambda i: i.total_units, reverse=True)
 
     new_metric_data: List[DimensionMetricData] = []
@@ -276,7 +287,9 @@ def reduce_dimensionality(
                 if combine_strata:
                     for row in dimension.data.itertuples(index=False):
                         for col in SUM_COLS:
-                            current.data[f"{prefix}_{col}"] += getattr(row, f"{prefix}_{col}", 0)
+                            current.data[f"{prefix}_{col}"] += getattr(
+                                row, f"{prefix}_{col}", 0
+                            )
                 else:
                     current.data = pd.concat([current.data, dimension.data])
     # TODO: test that dimension with 21 values collapses correctly
@@ -433,16 +446,28 @@ def run_mid_experiment_power(
         power_config=power_config,
     )
     mid_experiment_power_result = mid_experiment_power.calculate_sample_size()
-    
+
     return PowerResponse(
         status=mid_experiment_power_result.update_message,
         errorMessage=mid_experiment_power_result.error,
         firstPeriodPairwiseSampleSize=mid_experiment_power.pairwise_sample_size,
         targetMDE=metric.target_mde,
         sigmahat2Delta=mid_experiment_power.sigmahat_2_delta,
-        priorProper=mid_experiment_power.prior_effect.proper if mid_experiment_power.prior_effect else None,
-        priorLiftMean=mid_experiment_power.prior_effect.mean if mid_experiment_power.prior_effect else None,
-        priorLiftVariance=mid_experiment_power.prior_effect.variance if mid_experiment_power.prior_effect else None,
+        priorProper=(
+            mid_experiment_power.prior_effect.proper
+            if mid_experiment_power.prior_effect
+            else None
+        ),
+        priorLiftMean=(
+            mid_experiment_power.prior_effect.mean
+            if mid_experiment_power.prior_effect
+            else None
+        ),
+        priorLiftVariance=(
+            mid_experiment_power.prior_effect.variance
+            if mid_experiment_power.prior_effect
+            else None
+        ),
         upperBoundAchieved=mid_experiment_power_result.upper_bound_achieved,
         scalingFactor=mid_experiment_power_result.scaling_factor,
     )
@@ -455,30 +480,40 @@ def analyze_metric_df(
     metric: MetricSettingsForStatsEngine,
     analysis: AnalysisSettingsForStatsEngine,
 ) -> List[DimensionResponse]:
-    
+
     def analyze_dimension(dimensionData: DimensionMetricData) -> DimensionResponse:
         d = dimensionData.data
         variation_data = []
-        
+
         # Loop through each non-baseline variation and run an analysis
         for i in range(1, num_variations):
-            
             control_stats = []
             variation_stats = []
             # get one statistic per row (should be one row for non-post-stratified tests)
             for _, row in d.iterrows():
-                control_stats.append(variation_statistic_from_metric_row(row, "baseline", metric))
-                variation_stats.append(variation_statistic_from_metric_row(row, f"v{i}", metric))
-            
+                control_stats.append(
+                    variation_statistic_from_metric_row(row, "baseline", metric)
+                )
+                variation_stats.append(
+                    variation_statistic_from_metric_row(row, f"v{i}", metric)
+                )
+
             stats = list(zip(control_stats, variation_stats))
-            
+
             # TODO throw error if post-stratify is false and there are 2+ rows?
-            post_stratify = analysis.post_stratification_eligible and metric.statistic_type not in ["quantile_event", "quantile_unit"]
+            post_stratify = (
+                analysis.post_stratification_eligible
+                and metric.statistic_type not in ["quantile_event", "quantile_unit"]
+            )
             test = get_configured_test(
-                stats, dimensionData.total_units, analysis=analysis, metric=metric, post_stratify=post_stratify
+                stats,
+                dimensionData.total_units,
+                analysis=analysis,
+                metric=metric,
+                post_stratify=post_stratify,
             )
             res = test.compute_result()
-            
+
             power_response: Optional[PowerResponse] = None
             if decision_making_conditions(metric, analysis):
                 power_response = run_mid_experiment_power(
@@ -489,7 +524,7 @@ def analyze_metric_df(
                     metric,
                     analysis,
                 )
-                
+
             if metric.statistic_type in ["quantile_event", "quantile_unit"]:
                 d[f"v{i}_count"] = d[f"v{i}_quantile_n"]
 
@@ -498,7 +533,7 @@ def analyze_metric_df(
                 None if np.isinf(res.ci[0]) else res.ci[0],
                 None if np.isinf(res.ci[1]) else res.ci[1],
             )
-            
+
             # Create base variation response first
             base_variation_response = BaseVariationResponse(
                 **asdict(metric_response),
@@ -508,7 +543,7 @@ def analyze_metric_df(
                 errorMessage=res.error_message,
                 power=power_response,
             )
-            
+
             # Safely build specific response type from base response
             if isinstance(res, BayesianTestResult):
                 variation_response = BayesianVariationResponse(
@@ -525,9 +560,9 @@ def analyze_metric_df(
                 )
             else:
                 raise NotImplementedError(f"Unexpected test result type: {type(res)}")
-            
+
             variation_data.append(variation_response)
-            
+
         if metric.statistic_type in ["quantile_event", "quantile_unit"]:
             for i in range(num_variations):
                 prefix = f"v{i}" if i > 0 else "baseline"
@@ -539,7 +574,7 @@ def analyze_metric_df(
             + [d[f"v{i}_users"].sum() for i in range(1, num_variations)],
             analysis.weights,
         )
-        
+
         # replace count with quantile_n for quantile metrics
         if metric.statistic_type in ["quantile_event", "quantile_unit"]:
             d["baseline_count"] = d["baseline_quantile_n"]
@@ -549,13 +584,11 @@ def analyze_metric_df(
         baseline_data = get_metric_response(d, test.stat_a, 0)
 
         variation_data.insert(analysis.baseline_index, baseline_data)
-        
+
         return DimensionResponse(
-            dimension=dimensionData.dimension,
-            srm=srm_p,
-            variations=variation_data
+            dimension=dimensionData.dimension, srm=srm_p, variations=variation_data
         )
-    
+
     return [analyze_dimension(mdat) for mdat in metric_data]
 
 
@@ -746,14 +779,14 @@ def process_analysis(
         keep_other=keep_other,
         combine_strata=analysis.post_stratification_eligible,
     )
-    
+
     result = analyze_metric_df(
         metric_data=reduced_metric_data,
         num_variations=len(var_names),
         metric=metric,
         analysis=analysis,
     )
-    
+
     return result
 
 
@@ -833,7 +866,9 @@ def create_bandit_statistics(
     for i in range(0, num_variations):
         prefix = f"v{i}" if i > 0 else "baseline"
         # TODO only one row per dimension for bandits
-        stat = variation_statistic_from_metric_row(row=metric_data, prefix=prefix, metric=metric)
+        stat = variation_statistic_from_metric_row(
+            row=metric_data, prefix=prefix, metric=metric
+        )
         # recast proportion metrics in case they slipped through
         # for bandits we weight by period; iid data over periods no longer holds
         if isinstance(stat, ProportionStatistic):
@@ -864,7 +899,9 @@ def preprocess_bandits(
             dimension=dimension,
         )
         # Bandit analyses only have one dimension and one row as period reduction is done in SQL
-        bandit_stats = create_bandit_statistics(metric_data[0].data.iloc[0], metric, len(bandit_settings.var_names))
+        bandit_stats = create_bandit_statistics(
+            metric_data[0].data.iloc[0], metric, len(bandit_settings.var_names)
+        )
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
