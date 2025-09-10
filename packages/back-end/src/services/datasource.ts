@@ -27,6 +27,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { TemplateVariables } from "back-end/types/sql";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import ODBC from "back-end/src/integrations/ODBC";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
@@ -93,6 +94,8 @@ function getIntegrationObj(
       return new Presto(context, datasource);
     case "databricks":
       return new Databricks(context, datasource);
+    case "odbc":
+      return new ODBC(context, datasource);
   }
 }
 

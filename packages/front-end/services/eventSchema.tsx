@@ -331,6 +331,7 @@ export const dataSourceConnections: {
   icon: ReactElement;
   docs: DocSection;
   default: Partial<DataSourceParams>;
+  selfHostOnly?: boolean;
 }[] = [
   {
     type: "bigquery",
@@ -498,6 +499,17 @@ export const dataSourceConnections: {
       username: "",
       secret: "",
       projectId: "",
+    },
+  },
+  {
+    type: "odbc",
+    display: "ODBC",
+    icon: <BsDatabase />,
+    selfHostOnly: true,
+    docs: "odbc",
+    default: {
+      dsn: "",
+      driver: "impala",
     },
   },
 ];

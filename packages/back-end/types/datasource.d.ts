@@ -1,3 +1,4 @@
+import { ODBCConnectionParams } from "back-end/types/integrations/odbc";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
@@ -26,7 +27,8 @@ export type DataSourceType =
   | "presto"
   | "databricks"
   | "mixpanel"
-  | "vertica";
+  | "vertica"
+  | "odbc";
 
 export type DataSourceParams =
   | PostgresConnectionParams
@@ -39,7 +41,8 @@ export type DataSourceParams =
   | SnowflakeConnectionParams
   | BigQueryConnectionParams
   | ClickHouseConnectionParams
-  | MixpanelConnectionParams;
+  | MixpanelConnectionParams
+  | ODBCConnectionParams;
 
 export type QueryLanguage = "sql" | "javascript" | "json" | "none";
 
@@ -311,6 +314,10 @@ interface ClickHouseDataSource extends DataSourceBase {
   type: "clickhouse";
 }
 
+interface ODBCDataSource extends DataSourceBase {
+  type: "odbc";
+}
+
 interface MixpanelDataSource extends DataSourceBase {
   type: "mixpanel";
 }
@@ -368,6 +375,11 @@ export type ClickHouseDataSourceWithParams = WithParams<
   ClickHouseDataSource,
   ClickHouseConnectionParams
 >;
+export type ODBCDataSourceWithParams = WithParams<
+  ODBCDataSource,
+  ODBCConnectionParams
+>;
+
 export type MixpanelDataSourceWithParams = WithParams<
   MixpanelDataSource,
   MixpanelConnectionParams
@@ -387,6 +399,7 @@ export type DataSourceInterface =
   | MssqlDataSource
   | BigQueryDataSource
   | ClickHouseDataSource
+  | ODBCDataSource
   | MixpanelDataSource;
 
 export type DataSourceInterfaceWithParams =
@@ -403,4 +416,5 @@ export type DataSourceInterfaceWithParams =
   | MssqlDataSourceWithParams
   | BigQueryDataSourceWithParams
   | ClickHouseDataSourceWithParams
+  | ODBCDataSourceWithParams
   | MixpanelDataSourceWithParams;

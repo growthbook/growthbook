@@ -2,6 +2,7 @@ import { DataSourceType } from "back-end/types/datasource";
 import { Text } from "@radix-ui/themes";
 import { dataSourceConnections } from "@/services/eventSchema";
 import RadioCards from "@/components/Radix/RadioCards";
+import { isCloud } from "@/services/env";
 
 export interface Props {
   value: DataSourceType | "";
@@ -13,6 +14,13 @@ export default function DataSourceTypeSelector({ value, setValue }: Props) {
     <RadioCards
       options={dataSourceConnections
         .filter((o) => o.type !== "google_analytics")
+        .filter((o) => o.type !== "mixpanel")
+        .filter((o) => {
+          if (o.selfHostOnly && isCloud()) {
+            return false;
+          }
+          return true;
+        })
         .map((o) => {
           return {
             value: o.type,

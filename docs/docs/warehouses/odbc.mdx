@@ -1,0 +1,65 @@
+---
+title: Setting up ODBC (Impala) as a data source
+description: This document outlines the steps needed to add your ODBC (Impala) database to GrowthBook.
+sidebar_label: ODBC (Impala)
+slug: odbc
+---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
+GrowthBook supports connecting to databases through an ODBC driver. Currently, only **Apache Impala** is supported. If you would like to see support for other databases please reach out to us.
+
+ODBC connections are only supported for self-hosted GrowthBook instances.
+
+## Setting up ODBC
+
+### 1. Install ODBC Driver
+
+First download and install a Linux ODBC driver for your database. For example, the [Cloudera Impala ODBC driver](https://www.cloudera.com/downloads/connectors/impala/odbc/2-6-11.html).
+
+Locate the installed driver `.so` file. You will need this path in the next step.
+
+### 2. Configure ODBC
+
+Next, create `odbc.ini` and `odbcinst.ini` files if they don't exist yet. Look at the driver's documentation for the exact configuration needed. Below is an example configuration for the Cloudera ODBC Driver for Impala.
+
+```ini
+# odbcinst.ini
+[Cloudera ODBC Driver for Impala]
+Description=Cloudera ODBC Driver for Impala
+Driver=/opt/cloudera/impalaodbc/lib/64/libclouderaimpalaodbc64.so
+```
+
+```ini
+# odbc.ini
+[ImpalaDSN]
+Driver=Cloudera ODBC Driver for Impala
+Host=impala-host.example.com
+Port=21050
+Database=default
+AuthMech=0
+```
+
+Take note of the DSN name you used in the `odbc.ini` file (`ImpalaDSN` in this example).
+
+### 3. Mount Files in Docker
+
+When starting GrowthBook in Docker, mount the driver directory, `odbc.ini`, and `odbcinst.ini` files into the container. For example:
+
+```bash
+docker run -d \
+  -v /etc/odbc.ini:/etc/odbc.ini \
+  -v /etc/odbcinst.ini:/etc/odbcinst.ini \
+  -v /opt/cloudera/impalaodbc/lib:/opt/cloudera/impalaodbc/lib/64/ \
+  growthbook/growthbook
+```
+
+### 4. Add the Data Source to GrowthBook
+
+In GrowthBook, go to the Data Sources page and add a new data source. Select "ODBC" as the type and pick your driver (Impala is the only option currently).
+
+The only required field is the `DSN`, which should match the DSN name you used in the `odbc.ini` file (`ImpalaDSN` in the example above).
+
+## Configuring the Data Source
+
+Once you have added the data source, you can customize the settings and default SQL to match your data schema. See the [Data Sources documentation](/app/datasources) for more information.
