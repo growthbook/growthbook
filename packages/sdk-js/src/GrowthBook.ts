@@ -831,15 +831,20 @@ export class GrowthBook<
   }
 
   private _onExperimentEval<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (this._subscriptions.size > 0) {
-      this._fireSubscriptions(experiment, result);
-    }
+    const prev = this._assigned.get(experiment.key);
     this._assigned.set(experiment.key, { experiment, result });
+    if (this._subscriptions.size > 0) {
+      this._fireSubscriptions<T>(experiment, result, prev);
+    }
   }
 
-  private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
+  private _fireSubscriptions<T>(
+    experiment: Experiment<T>,
+    result: Result<T>,
+    // eslint-disable-next-line
+    prev?: { experiment: Experiment<any>; result: Result<any> },
+  ) {
     // If assigned variation has changed, fire subscriptions
-    const prev = this._assigned.get(experiment.key);
     // TODO: what if the experiment definition has changed?
     if (
       !prev ||
