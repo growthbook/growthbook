@@ -162,7 +162,23 @@ export function getObjectDiff(
   curr: Record<string, unknown>,
   ignoredKeys: string[] = [],
   nestedObjectConfigs: NestedObjectConfig[] = [],
+  maxDepth: number = 10,
 ): DiffResult {
+  // Check recursion depth limit
+  if (maxDepth <= 0) {
+    return {
+      added: {},
+      removed: {},
+      modified: [
+        {
+          key: "[recursion limit reached]",
+          oldValue: "",
+          newValue: "",
+        },
+      ],
+    };
+  }
+
   const result: DiffResult = {
     added: {},
     removed: {},
@@ -552,6 +568,8 @@ export function getObjectDiff(
                     otherPrevProps,
                     otherCurrProps,
                     nestedConfig?.ignoredKeys || [],
+                    [],
+                    maxDepth - 1,
                   );
 
                   containerChanges[containerName] = {
@@ -565,6 +583,8 @@ export function getObjectDiff(
                   prevContainer,
                   currContainer,
                   nestedConfig?.ignoredKeys || [],
+                  [],
+                  maxDepth - 1,
                 );
               }
             }
@@ -657,7 +677,13 @@ export function getObjectDiff(
         const configIgnoredKeys = nestedConfig?.ignoredKeys || [];
 
         // Compute a sub-diff relative to this nested object
-        const subDiff = getObjectDiff(prevObj, currObj, configIgnoredKeys);
+        const subDiff = getObjectDiff(
+          prevObj,
+          currObj,
+          configIgnoredKeys,
+          [],
+          maxDepth - 1,
+        );
 
         // If there are any changes inside, wrap them as a hierarchical modification so
         // sibling field changes are grouped under the parent key (e.g. "revision")

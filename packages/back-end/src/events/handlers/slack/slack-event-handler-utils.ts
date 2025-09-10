@@ -284,7 +284,7 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
 
   let changeBlocks: KnownBlock[] = [];
 
-  // Check if we have changes data to format
+  // Check if we have changes (diff) to format
   if (event?.data?.data && "changes" in event.data.data) {
     const formattedDiff = formatDiffForSlack(
       event.data.data.changes as DiffResult,
@@ -471,7 +471,7 @@ const buildSlackMessageForExperimentUpdatedEvent = async (
 
   let changeBlocks: KnownBlock[] = [];
 
-  // Check if we have changes data to format
+  // Check if we have changes (diff) to format
   if (event?.data?.data && "changes" in event.data.data) {
     const metricClassifier = (item: unknown) => {
       if (typeof item === "object" && item !== null && "metricId" in item) {
