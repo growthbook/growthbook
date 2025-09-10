@@ -608,7 +608,15 @@ export function getObjectDiff(
                 modified: changes.modified || [],
               };
 
-              if (changes.items) {
+              if (
+                changes.items &&
+                ((changes.items.added && changes.items.added.length > 0) ||
+                  (changes.items.removed && changes.items.removed.length > 0) ||
+                  (changes.items.modified &&
+                    changes.items.modified.length > 0) ||
+                  (changes.items.orderSummaries &&
+                    changes.items.orderSummaries.length > 0))
+              ) {
                 const itemsEntry: HierarchicalValue = {
                   key: nestedConfig?.arrayField || "items",
                   changes: changes.items,
