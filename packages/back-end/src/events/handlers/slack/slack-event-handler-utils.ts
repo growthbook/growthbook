@@ -515,6 +515,9 @@ const buildSlackMessageForExperimentUpdatedEvent = async (
           secondaryMetrics: metricClassifier,
           guardrails: metricClassifier,
         },
+        arrayZeroBasedIndex: {
+          variations: true,
+        },
       },
     );
     changeBlocks = formattedDiff.blocks;
@@ -866,6 +869,7 @@ export interface FormatOptions {
   countArrayFields?: string[];
   arrayItemNames?: Record<string, string>;
   arrayItemClassifiers?: Record<string, (item: unknown) => string | null>;
+  arrayZeroBasedIndex?: Record<string, boolean>;
 }
 
 interface ItemFieldChange {
@@ -1114,8 +1118,11 @@ export function formatDiffForSlack(
       if (!oldMap.has(id)) {
         const name =
           newItem.name || newItem.key || newItem.title || `Item ${index + 1}`;
+        const displayIndex = opts.arrayZeroBasedIndex?.[key]
+          ? index
+          : index + 1;
         changes.push(
-          `${indent}${prefix} Added ${key.slice(0, -1)}: #${index + 1} ${name}`,
+          `${indent}${prefix} Added ${key.slice(0, -1)}: #${displayIndex} ${name}`,
         );
       }
     });
@@ -1126,8 +1133,11 @@ export function formatDiffForSlack(
       if (!newMap.has(id)) {
         const name =
           oldItem.name || oldItem.key || oldItem.title || `Item ${index + 1}`;
+        const displayIndex = opts.arrayZeroBasedIndex?.[key]
+          ? index
+          : index + 1;
         changes.push(
-          `${indent}${prefix} Removed ${key.slice(0, -1)}: #${index + 1} ${name}`,
+          `${indent}${prefix} Removed ${key.slice(0, -1)}: #${displayIndex} ${name}`,
         );
       }
     });
@@ -1166,8 +1176,11 @@ export function formatDiffForSlack(
         if (fieldChanges.length > 0) {
           const name =
             newItem.name || newItem.key || newItem.title || `Item ${index + 1}`;
+          const displayIndex = opts.arrayZeroBasedIndex?.[key]
+            ? index
+            : index + 1;
           changes.push(
-            `${indent}${prefix} Modified ${key.slice(0, -1)} #${index + 1} ${name}:\n${indent}  ${fieldChanges.join(`\n${indent}  `)}`,
+            `${indent}${prefix} Modified ${key.slice(0, -1)} #${displayIndex} ${name}:\n${indent}  ${fieldChanges.join(`\n${indent}  `)}`,
           );
         }
       }
