@@ -1,5 +1,8 @@
 import { KnownBlock } from "@slack/types";
 import formatNumber from "number-format.js";
+import omit from "lodash/omit";
+import pick from "lodash/pick";
+import isEqual from "lodash/isEqual";
 import { logger } from "back-end/src/util/logger";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
@@ -21,12 +24,7 @@ import {
   SafeRolloutDecisionNotificationPayload,
   SafeRolloutUnhealthyNotificationPayload,
 } from "back-end/src/validators/safe-rollout-notifications";
-import {
-  DiffResult,
-} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import omit from "lodash/omit";
-import pick from "lodash/pick";
-
+import { DiffResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 
 // region Filtering
 
@@ -82,13 +80,13 @@ export const getSlackMessageForNotificationEvent = async (
       );
 
     case "experiment.created":
-      return buildSlackMessageForExperimentCreatedEvent(
+      return await buildSlackMessageForExperimentCreatedEvent(
         event.data.object,
         eventId,
       );
 
     case "experiment.updated":
-      return buildSlackMessageForExperimentUpdatedEvent(
+      return await buildSlackMessageForExperimentUpdatedEvent(
         event.data.object,
         eventId,
       );
@@ -102,7 +100,7 @@ export const getSlackMessageForNotificationEvent = async (
       );
 
     case "experiment.deleted":
-      return buildSlackMessageForExperimentDeletedEvent(
+      return await buildSlackMessageForExperimentDeletedEvent(
         event.data.object.name,
         eventId,
       );
@@ -154,13 +152,13 @@ export const getSlackMessageForLegacyNotificationEvent = async (
       );
 
     case "experiment.created":
-      return buildSlackMessageForExperimentCreatedEvent(
+      return await buildSlackMessageForExperimentCreatedEvent(
         event.data.current,
         eventId,
       );
 
     case "experiment.updated":
-      return buildSlackMessageForExperimentUpdatedEvent(
+      return await buildSlackMessageForExperimentUpdatedEvent(
         event.data.current,
         eventId,
       );
@@ -169,7 +167,7 @@ export const getSlackMessageForLegacyNotificationEvent = async (
       return buildSlackMessageForExperimentWarningEvent(event.data);
 
     case "experiment.deleted":
-      return buildSlackMessageForExperimentDeletedEvent(
+      return await buildSlackMessageForExperimentDeletedEvent(
         event.data.previous.name,
         eventId,
       );
@@ -288,28 +286,37 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
 
   // Check if we have changes data to format
   if (event?.data?.data && "changes" in event.data.data) {
-    const formatOptions: FormatOptions = {
-      itemLabelFields: [
-        "type",
-        "value",
-        "coverage",
-        "condition",
-        "savedGroupTargeting",
-        "prerequisites",
-      ],
-      includeRawJson: false,
-      maxJsonLength: 600,
-      excludedFields: ["dateUpdated", "date", "__v", "_id"],
-    };
-
     const formattedDiff = formatDiffForSlack(
       event.data.data.changes as DiffResult,
-      formatOptions,
+      {
+        itemLabelFields: [
+          "type",
+          "value",
+          "coverage",
+          "condition",
+          "savedGroupTargeting",
+          "prerequisites",
+        ],
+      },
     );
     changeBlocks = formattedDiff.blocks;
   }
 
-  const text = `The feature ${featureId} has been updated by ${eventUser}`;
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The feature ${featureId} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+
+  // If no change blocks, show a fallback message
+  if (changeBlocks.length === 0) {
+    changeBlocks = [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: "_Changes cannot be displayed here._",
+        },
+      },
+    ];
+  }
 
   return {
     text,
@@ -319,7 +326,7 @@ const buildSlackMessageForFeatureUpdatedEvent = async (
         text: {
           type: "mrkdwn",
           text:
-            `The feature *${featureId}* has been updated ${eventUser}.` +
+            `The feature *${featureId}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getFeatureUrlFormatted(featureId) +
             getEventUrlFormatted(eventId),
         },
@@ -430,11 +437,13 @@ export const getExperimentUrlAndNameFormatted = (
   experimentName: string,
 ): string => `<${APP_ORIGIN}/experiment/${experimentId}|${experimentName}>`;
 
-const buildSlackMessageForExperimentCreatedEvent = (
+const buildSlackMessageForExperimentCreatedEvent = async (
   { id: experimentId, name: experimentName }: { id: string; name: string },
   eventId: string,
-): SlackMessage => {
-  const text = `The experiment ${experimentName} has been created`;
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The experiment ${experimentName} has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
 
   return {
     text,
@@ -444,7 +453,7 @@ const buildSlackMessageForExperimentCreatedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The experiment *${experimentName}* has been created.` +
+            `The experiment *${experimentName}* has been created ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getExperimentUrlFormatted(experimentId) +
             getEventUrlFormatted(eventId),
         },
@@ -453,11 +462,79 @@ const buildSlackMessageForExperimentCreatedEvent = (
   };
 };
 
-const buildSlackMessageForExperimentUpdatedEvent = (
+const buildSlackMessageForExperimentUpdatedEvent = async (
   { id: experimentId, name: experimentName }: { id: string; name: string },
   eventId: string,
-): SlackMessage => {
-  const text = `The experiment ${experimentName} has been updated`;
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const event = await getEvent(eventId);
+
+  let changeBlocks: KnownBlock[] = [];
+
+  // Check if we have changes data to format
+  if (event?.data?.data && "changes" in event.data.data) {
+    const metricClassifier = (item: unknown) => {
+      if (typeof item === "object" && item !== null && "metricId" in item) {
+        const metricId = (item as Record<string, unknown>).metricId;
+        if (typeof metricId === "string") {
+          if (metricId.startsWith("mg_")) {
+            return "metric group";
+          } else if (metricId.startsWith("met_")) {
+            return "metric";
+          }
+        }
+      }
+      return null;
+    };
+    const formattedDiff = formatDiffForSlack(
+      event.data.data.changes as DiffResult,
+      {
+        itemLabelFields: [
+          "name",
+          "description",
+          "status",
+          "hypothesis",
+          "metrics",
+        ],
+        arrayIdFields: {
+          variations: "variationId",
+          phases: "__index",
+        },
+        arrayIgnoredFields: {
+          variations: ["screenshots", "dom", "css", "js"],
+          phases: ["dateStarted", "dateEnded"],
+        },
+        countArrayFields: ["*"],
+        arrayItemNames: {
+          goals: "metric",
+          secondaryMetrics: "metric",
+          guardrails: "metric",
+        },
+        arrayItemClassifiers: {
+          goals: metricClassifier,
+          secondaryMetrics: metricClassifier,
+          guardrails: metricClassifier,
+        },
+      },
+    );
+    changeBlocks = formattedDiff.blocks;
+  }
+
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The experiment ${experimentName} has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
+
+  // If no change blocks, show a fallback message
+  if (changeBlocks.length === 0) {
+    changeBlocks = [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: "_Changes cannot be displayed here._",
+        },
+      },
+    ];
+  }
 
   return {
     text,
@@ -467,11 +544,12 @@ const buildSlackMessageForExperimentUpdatedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The experiment *${experimentName}* has been updated.` +
+            `The experiment *${experimentName}* has been updated ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getExperimentUrlFormatted(experimentId) +
             getEventUrlFormatted(eventId),
         },
       },
+      ...changeBlocks,
     ],
   };
 };
@@ -491,11 +569,13 @@ const buildSlackMessageForWebhookTestEvent = (
   ],
 });
 
-const buildSlackMessageForExperimentDeletedEvent = (
+const buildSlackMessageForExperimentDeletedEvent = async (
   experimentName: string,
   eventId: string,
-): SlackMessage => {
-  const text = `The experiment ${experimentName} has been deleted`;
+): Promise<SlackMessage> => {
+  const eventUser = await getEventUserFormatted(eventId);
+  const isUnknownUser = eventUser === "an unknown user";
+  const text = `The experiment ${experimentName} has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}`;
 
   return {
     text,
@@ -505,7 +585,7 @@ const buildSlackMessageForExperimentDeletedEvent = (
         text: {
           type: "mrkdwn",
           text:
-            `The experiment *${experimentName}* has been deleted.` +
+            `The experiment *${experimentName}* has been deleted ${isUnknownUser ? "automatically" : `by ${eventUser}`}.` +
             getEventUrlFormatted(eventId),
         },
       },
@@ -781,6 +861,11 @@ export interface FormatOptions {
   includeRawJson?: boolean;
   maxJsonLength?: number;
   excludedFields?: string[];
+  arrayIdFields?: Record<string, string>;
+  arrayIgnoredFields?: Record<string, string[]>;
+  countArrayFields?: string[];
+  arrayItemNames?: Record<string, string>;
+  arrayItemClassifiers?: Record<string, (item: unknown) => string | null>;
 }
 
 interface ItemFieldChange {
@@ -873,7 +958,7 @@ export function formatDiffForSlack(
 
   const opts: Required<FormatOptions> = {
     itemLabelFields: [],
-    excludedFields: [],
+    excludedFields: ["dateUpdated", "date", "__v", "_id"],
     includeRawJson: false,
     maxJsonLength: 600,
     ...(options || {}),
@@ -903,9 +988,252 @@ export function formatDiffForSlack(
     return false;
   };
 
-  const getItemLabel = (obj: unknown, position?: number, maxLength?: number): string => {
+  const formatPrimitiveArrayChanges = (
+    key: string,
+    oldItems: unknown[],
+    newItems: unknown[],
+    indent: string = "",
+    prefix: string = "•",
+  ): string[] => {
+    const changes: string[] = [];
+
+    // Check for added items
+    newItems.forEach((newItem, _index) => {
+      if (!oldItems.includes(newItem)) {
+        changes.push(
+          `${indent}${prefix} Added ${key.slice(0, -1)}: \`${newItem}\``,
+        );
+      }
+    });
+
+    // Check for removed items
+    oldItems.forEach((oldItem, _index) => {
+      if (!newItems.includes(oldItem)) {
+        changes.push(
+          `${indent}${prefix} Removed ${key.slice(0, -1)}: \`${oldItem}\``,
+        );
+      }
+    });
+
+    return changes;
+  };
+
+  const formatCountArrayChange = (
+    key: string,
+    oldItems: unknown[],
+    newItems: unknown[],
+    itemName: string = "item",
+  ): string => {
+    const oldCount = oldItems.length;
+    const newCount = newItems.length;
+
+    // Check if we have a classifier for this field
+    const classifier = opts.arrayItemClassifiers?.[key];
+    if (classifier) {
+      const oldClassified: Record<string, number> = {};
+      oldItems.forEach((item) => {
+        const classification = classifier(item);
+        if (classification) {
+          oldClassified[classification] =
+            (oldClassified[classification] || 0) + 1;
+        }
+      });
+
+      const newClassified: Record<string, number> = {};
+      newItems.forEach((item) => {
+        const classification = classifier(item);
+        if (classification) {
+          newClassified[classification] =
+            (newClassified[classification] || 0) + 1;
+        }
+      });
+
+      const allTypes = new Set([
+        ...Object.keys(oldClassified),
+        ...Object.keys(newClassified),
+      ]);
+      const changes = [];
+
+      for (const type of allTypes) {
+        const oldTypeCount = oldClassified[type] || 0;
+        const newTypeCount = newClassified[type] || 0;
+
+        if (oldTypeCount !== newTypeCount) {
+          const diff = newTypeCount - oldTypeCount;
+          const action = diff > 0 ? "added" : "removed";
+          const absDiff = Math.abs(diff);
+          changes.push(
+            `${action} ${absDiff} ${type}${absDiff === 1 ? "" : "s"} (${oldTypeCount} → ${newTypeCount})`,
+          );
+        }
+      }
+
+      if (changes.length === 0) {
+        changes.push(
+          `modified ${oldCount} ${itemName}${oldCount === 1 ? "" : "s"} (${oldCount} → ${newCount})`,
+        );
+      }
+      return changes.join(", ");
+    }
+
+    if (oldCount === 0 && newCount > 0) {
+      return `added ${newCount} ${itemName}${newCount === 1 ? "" : "s"} (0 → ${newCount})`;
+    } else if (oldCount > 0 && newCount === 0) {
+      return `removed ${oldCount} ${itemName}${oldCount === 1 ? "" : "s"} (${oldCount} → 0)`;
+    } else if (oldCount !== newCount) {
+      const diff = newCount - oldCount;
+      const action = diff > 0 ? "added" : "removed";
+      const absDiff = Math.abs(diff);
+      return `${action} ${absDiff} ${itemName}${absDiff === 1 ? "" : "s"} (${oldCount} → ${newCount})`;
+    } else {
+      return `modified ${oldCount} ${itemName}${oldCount === 1 ? "" : "s"} (${oldCount} → ${newCount})`;
+    }
+  };
+
+  const formatArrayChanges = (
+    key: string,
+    oldItems: Record<string, unknown>[],
+    newItems: Record<string, unknown>[],
+    idField: string,
+    indent: string = "",
+    prefix: string = "•",
+    ignoredFields: string[] = [],
+  ): string[] => {
+    const oldMap = new Map(
+      oldItems.map((item, index) => [item[idField] || index, item]),
+    );
+    const newMap = new Map(
+      newItems.map((item, index) => [item[idField] || index, item]),
+    );
+
+    const changes: string[] = [];
+
+    // Check for added items
+    newItems.forEach((newItem, index) => {
+      const id = newItem[idField] || index;
+      if (!oldMap.has(id)) {
+        const name =
+          newItem.name || newItem.key || newItem.title || `Item ${index + 1}`;
+        changes.push(
+          `${indent}${prefix} Added ${key.slice(0, -1)}: #${index + 1} ${name}`,
+        );
+      }
+    });
+
+    // Check for removed items
+    oldItems.forEach((oldItem, index) => {
+      const id = oldItem[idField] || index;
+      if (!newMap.has(id)) {
+        const name =
+          oldItem.name || oldItem.key || oldItem.title || `Item ${index + 1}`;
+        changes.push(
+          `${indent}${prefix} Removed ${key.slice(0, -1)}: #${index + 1} ${name}`,
+        );
+      }
+    });
+
+    // Check for modified items
+    newItems.forEach((newItem, index) => {
+      const id = newItem[idField] || index;
+      const oldItem = oldMap.get(id);
+      if (oldItem) {
+        const fieldChanges: string[] = [];
+        Object.keys(newItem).forEach((field) => {
+          if (ignoredFields.includes(field)) return;
+          const oldVal = oldItem[field];
+          const newVal = newItem[field];
+          if (!isEqual(oldVal, newVal)) {
+            const formatFieldValue = (val: unknown): string => {
+              if (val === null || val === undefined) return "`null`";
+              if (
+                typeof val === "string" ||
+                typeof val === "number" ||
+                typeof val === "boolean"
+              ) {
+                return `\`${val}\``;
+              }
+              if (Array.isArray(val) || typeof val === "object") {
+                const json = JSON.stringify(val);
+                return `\`${truncate(json, opts.maxJsonLength)}\``;
+              }
+              return `\`${val}\``;
+            };
+            fieldChanges.push(
+              `${field}: ${formatFieldValue(oldVal)} → ${formatFieldValue(newVal)}`,
+            );
+          }
+        });
+        if (fieldChanges.length > 0) {
+          const name =
+            newItem.name || newItem.key || newItem.title || `Item ${index + 1}`;
+          changes.push(
+            `${indent}${prefix} Modified ${key.slice(0, -1)} #${index + 1} ${name}:\n${indent}  ${fieldChanges.join(`\n${indent}  `)}`,
+          );
+        }
+      }
+    });
+
+    return changes;
+  };
+
+  const getItemLabel = (
+    obj: unknown,
+    position?: number,
+    maxLength?: number,
+    fieldName?: string,
+  ): string => {
     const effectiveMaxLength = maxLength || Math.min(opts.maxJsonLength, 120);
-    
+
+    // Handle arrays specially
+    if (Array.isArray(obj)) {
+      if (obj.length === 0) {
+        return position !== undefined
+          ? `#${position} (empty array)`
+          : "empty array";
+      }
+
+      // Check if it's an array of primitives
+      const isPrimitiveArray =
+        typeof obj[0] === "string" ||
+        typeof obj[0] === "number" ||
+        typeof obj[0] === "boolean";
+
+      if (isPrimitiveArray) {
+        const json = JSON.stringify(obj);
+        const truncated = `\`${truncate(json, effectiveMaxLength)}\``;
+        return position !== undefined
+          ? `#${position} (${truncated})`
+          : truncated;
+      } else {
+        // Array of objects - check if it should show count
+        const shouldShowCount =
+          opts.countArrayFields?.includes("*") ||
+          (fieldName && opts.countArrayFields?.includes(fieldName));
+
+        if (shouldShowCount && fieldName) {
+          const count = obj.length;
+          const itemName =
+            opts.arrayItemNames?.[fieldName] || fieldName.slice(0, -1); // Remove 's' from plural
+          const result = `${count} ${itemName}${count === 1 ? "" : "s"}`;
+          return position !== undefined ? `#${position} (${result})` : result;
+        } else {
+          // Regular array of objects - show count and first few items
+          const preview = obj.slice(0, 2).map((item, _index) => {
+            if (typeof item === "object" && item !== null) {
+              const keys = Object.keys(item as Record<string, unknown>);
+              return `{${keys.join(", ")}}`;
+            }
+            return String(item);
+          });
+          const previewStr =
+            preview.length > 0 ? preview.join(", ") : "objects";
+          const count = obj.length;
+          const result = `[${count} items: ${previewStr}${count > 2 ? "..." : ""}]`;
+          return position !== undefined ? `#${position} (${result})` : result;
+        }
+      }
+    }
+
     // If we have multiple fields configured, prefer JSON summary using only specified fields
     if (opts.itemLabelFields.length > 1 && obj && typeof obj === "object") {
       try {
@@ -920,7 +1248,9 @@ export function formatDiffForSlack(
         );
         const json = JSON.stringify(filtered);
         const truncated = `\`${truncate(json, effectiveMaxLength)}\``;
-        return position !== undefined ? `#${position} (${truncated})` : truncated;
+        return position !== undefined
+          ? `#${position} (${truncated})`
+          : truncated;
       } catch {
         // Fall through to single field logic
       }
@@ -947,12 +1277,17 @@ export function formatDiffForSlack(
       if (obj && typeof obj === "object") {
         const filtered = Object.fromEntries(
           Object.entries(obj as Record<string, unknown>).filter(
-            ([key, value]) => !isEmpty(value) && !excludedFields.includes(key) && key !== "__index",
+            ([key, value]) =>
+              !isEmpty(value) &&
+              !excludedFields.includes(key) &&
+              key !== "__index",
           ),
         );
         const json = JSON.stringify(filtered);
         const truncated = `\`${truncate(json, effectiveMaxLength)}\``;
-        return position !== undefined ? `#${position} (${truncated})` : truncated;
+        return position !== undefined
+          ? `#${position} (${truncated})`
+          : truncated;
       }
       const json = JSON.stringify(obj);
       const truncated = `\`${truncate(json, effectiveMaxLength)}\``;
@@ -995,13 +1330,80 @@ export function formatDiffForSlack(
     if (isSimpleModification(mod)) {
       if (excludedFields.includes(mod.key)) return;
 
-      blocks.push({
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*${mod.key}*\nold: ${getItemLabel(mod.oldValue)}\nnew: ${getItemLabel(mod.newValue)}`,
-        },
-      });
+      // Special handling for arrays (but not nested arrays)
+      if (
+        Array.isArray(mod.oldValue) &&
+        Array.isArray(mod.newValue) &&
+        !mod.key.includes("[") &&
+        !mod.key.includes(".")
+      ) {
+        // Check if this is an array of primitives (strings, numbers, etc.)
+        const isPrimitiveArray =
+          mod.newValue.length > 0 &&
+          (typeof mod.newValue[0] === "string" ||
+            typeof mod.newValue[0] === "number" ||
+            typeof mod.newValue[0] === "boolean");
+
+        if (isPrimitiveArray) {
+          // Handle arrays of primitives (like guardrailMetrics, goalMetrics, etc.)
+          const changes = formatPrimitiveArrayChanges(
+            mod.key,
+            mod.oldValue as unknown[],
+            mod.newValue as unknown[],
+            "",
+            "•",
+          );
+
+          if (changes.length > 0) {
+            blocks.push({
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*${mod.key}*\n${changes.join("\n")}`,
+              },
+            });
+          }
+          return;
+        } else if (opts.arrayIdFields?.[mod.key]) {
+          // Handle arrays of objects (like variations, phases, etc.)
+          const oldItems = mod.oldValue as Record<string, unknown>[];
+          const newItems = mod.newValue as Record<string, unknown>[];
+          const idField = opts.arrayIdFields[mod.key];
+          const ignoredFields = opts.arrayIgnoredFields?.[mod.key] || [];
+
+          const changes = formatArrayChanges(
+            mod.key,
+            oldItems,
+            newItems,
+            idField,
+            "",
+            "•",
+            ignoredFields,
+          );
+
+          if (changes.length > 0) {
+            blocks.push({
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `*${mod.key}*\n${changes.join("\n")}`,
+              },
+            });
+          }
+          return;
+        }
+      }
+
+      // Fallback to regular field change display
+      {
+        blocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*${mod.key}*\nold: ${getItemLabel(mod.oldValue)}\nnew: ${getItemLabel(mod.newValue)}`,
+          },
+        });
+      }
     } else if (isHierarchicalModification(mod)) {
       if (excludedFields.includes(mod.key)) return;
 
@@ -1014,15 +1416,11 @@ export function formatDiffForSlack(
           sections.push(`\t*${value.key}:*`);
 
           if (value.added && Object.keys(value.added).length > 0) {
-            sections.push(
-              `\t⊳ *added:* ${getItemLabel(value.added)}`,
-            );
+            sections.push(`\t⊳ *added:* ${getItemLabel(value.added)}`);
           }
 
           if (value.removed && Object.keys(value.removed).length > 0) {
-            sections.push(
-              `\t⊳ *removed:* ${getItemLabel(value.removed)}`,
-            );
+            sections.push(`\t⊳ *removed:* ${getItemLabel(value.removed)}`);
           }
 
           if (value.modified && value.modified.length > 0) {
@@ -1038,57 +1436,54 @@ export function formatDiffForSlack(
           // Handle array changes (added/removed/modified items)
           if (value.changes) {
             const hasOrderSummaries = !!value.changes.orderSummaries?.length;
-             if (value.changes.added?.length) {
-               const labels = value.changes.added.map(
-                 (item) => {
-                   const index = (item as Record<string, unknown>).__index as number;
-                   const position = typeof index === "number" ? `#${index + 1}` : "";
-                   return `\t  • ${position} (${getItemLabel(item)})`;
-                 },
-               );
-               sections.push(`\t⊳ *added ${value.key}:*\n${labels.join("\n")}`);
-               if (opts.includeRawJson) {
-                 sections.push(
-                   truncate(
-                     `\`\`\`\n${truncate(JSON.stringify(
-                       value.changes.added.map((item) =>
-                         typeof item === "object" && item !== null
-                           ? omit(
-                               item as Record<string, unknown>,
-                               [...excludedFields, "__index"],
-                             )
-                           : item,
-                       ),
-                     ), opts.maxJsonLength)}\n\`\`\``,
-                     opts.maxJsonLength,
-                   ),
-                 );
-               }
-             }
-            if (value.changes.removed?.length) {
-              const labels = value.changes.removed.map(
-                (item) => {
-                  const index = (item as Record<string, unknown>).__index as number;
-                  const position = typeof index === "number" ? `#${index + 1}` : "";
-                  return `\t  • ${position} (${getItemLabel(item)})`;
-                },
+
+            // Use consolidated array formatting if we have array ID fields configured
+            if (
+              opts.arrayIdFields?.[value.key] &&
+              value.changes.added &&
+              value.changes.removed &&
+              value.changes.modified
+            ) {
+              const idField = opts.arrayIdFields[value.key];
+              const ignoredFields = opts.arrayIgnoredFields?.[value.key] || [];
+              const changes = formatArrayChanges(
+                value.key,
+                value.changes.removed,
+                value.changes.added,
+                idField,
+                "\t  ",
+                "•",
+                ignoredFields,
               );
-              sections.push(`\t⊳ *removed ${value.key}:*\n${labels.join("\n")}`);
-              if (opts.includeRawJson) {
+              if (changes.length > 0) {
                 sections.push(
-                  truncate(
-                     `\`\`\`\n${truncate(JSON.stringify(
-                       value.changes.removed.map((item) =>
-                         typeof item === "object" && item !== null
-                           ? omit(
-                               item as Record<string, unknown>,
-                               [...excludedFields, "__index"],
-                             )
-                           : item,
-                       ),
-                     ), opts.maxJsonLength)}\n\`\`\``,
-                    opts.maxJsonLength,
-                  ),
+                  `\t⊳ *${value.key} changes:*\n${changes.join("\n")}`,
+                );
+              }
+            } else {
+              // Fallback to original logic for non-configured arrays
+              if (value.changes.added?.length) {
+                const labels = value.changes.added.map((item) => {
+                  const index = (item as Record<string, unknown>)
+                    .__index as number;
+                  const position =
+                    typeof index === "number" ? `#${index + 1}` : "";
+                  return `\t  • ${position} (${getItemLabel(item)})`;
+                });
+                sections.push(
+                  `\t⊳ *added ${value.key}:*\n${labels.join("\n")}`,
+                );
+              }
+              if (value.changes.removed?.length) {
+                const labels = value.changes.removed.map((item) => {
+                  const index = (item as Record<string, unknown>)
+                    .__index as number;
+                  const position =
+                    typeof index === "number" ? `#${index + 1}` : "";
+                  return `\t  • ${position} (${getItemLabel(item)})`;
+                });
+                sections.push(
+                  `\t⊳ *removed ${value.key}:*\n${labels.join("\n")}`,
                 );
               }
             }
@@ -1150,39 +1545,44 @@ export function formatDiffForSlack(
                   continue;
                 }
 
-                 if (hasFieldChanges) {
-                   const label = getItemLabel(
-                     (change as unknown as { newValue?: unknown }).newValue ||
-                       change,
-                   );
-                   const fieldLines = (
-                     change as unknown as { fieldChanges?: ItemFieldChange[] }
-                   ).fieldChanges!.map(
-                     (fc) =>
-                       `\t\t- ${fc.field}: ${getItemLabel(fc.oldValue)} → ${getItemLabel(fc.newValue)}`,
-                   );
-                   const newValue = (change as unknown as { newValue?: unknown }).newValue;
-                   const index = newValue && typeof newValue === "object" && "__index" in newValue 
-                     ? (newValue as Record<string, unknown>).__index as number
-                     : change.newIndex;
-                   const position =
-                     typeof index === "number"
-                       ? `#${index + 1} `
-                       : "";
-                   updateLines.push(
-                     `\t• ${position}${label}\n${fieldLines.join("\n")}`,
-                   );
-                   continue;
-                 }
+                if (hasFieldChanges) {
+                  const label = getItemLabel(
+                    (change as unknown as { newValue?: unknown }).newValue ||
+                      change,
+                  );
+                  const fieldLines = (
+                    change as unknown as { fieldChanges?: ItemFieldChange[] }
+                  ).fieldChanges!.map(
+                    (fc) =>
+                      `\t\t- ${fc.field}: ${getItemLabel(fc.oldValue)} → ${getItemLabel(fc.newValue)}`,
+                  );
+                  const newValue = (change as unknown as { newValue?: unknown })
+                    .newValue;
+                  const index =
+                    newValue &&
+                    typeof newValue === "object" &&
+                    "__index" in newValue
+                      ? ((newValue as Record<string, unknown>)
+                          .__index as number)
+                      : change.newIndex;
+                  const position =
+                    typeof index === "number" ? `#${index + 1} ` : "";
+                  updateLines.push(
+                    `\t• ${position}${label}\n${fieldLines.join("\n")}`,
+                  );
+                  continue;
+                }
 
-                const newValue = (change as unknown as { newValue?: unknown }).newValue;
-                const index = newValue && typeof newValue === "object" && "__index" in newValue 
-                  ? (newValue as Record<string, unknown>).__index as number
-                  : change.newIndex;
+                const newValue = (change as unknown as { newValue?: unknown })
+                  .newValue;
+                const index =
+                  newValue &&
+                  typeof newValue === "object" &&
+                  "__index" in newValue
+                    ? ((newValue as Record<string, unknown>).__index as number)
+                    : change.newIndex;
                 const position =
-                  typeof index === "number"
-                    ? `#${index + 1} `
-                    : "";
+                  typeof index === "number" ? `#${index + 1} ` : "";
                 updateLines.push(`• ${position} (${getItemLabel(change)})`);
               }
               if (!hasOrderSummaries && moveLines.length)
@@ -1190,9 +1590,9 @@ export function formatDiffForSlack(
                   `\t⊳ *reordered ${value.key}:*\n${moveLines.join("\n")}`,
                 );
               if (updateLines.length)
-              sections.push(
-                `\t⊳ *updated ${value.key}:*\n${updateLines.join("\n")}`,
-              );
+                sections.push(
+                  `\t⊳ *updated ${value.key}:*\n${updateLines.join("\n")}`,
+                );
             }
             // Reorders are represented within modified entries via oldIndex/newIndex/steps
           }
@@ -1209,22 +1609,70 @@ export function formatDiffForSlack(
       const lines: string[] = [];
       // Include top-level added/removed/modified under this hierarchical key
       if (mod.added && Object.keys(mod.added).length > 0) {
-        lines.push(
-          `• added: ${getItemLabel(mod.added)}`,
-        );
+        lines.push(`• added: ${getItemLabel(mod.added)}`);
       }
       if (mod.removed && Object.keys(mod.removed).length > 0) {
-        lines.push(
-          `• removed: ${getItemLabel(mod.removed)}`,
-        );
+        lines.push(`• removed: ${getItemLabel(mod.removed)}`);
       }
       if (mod.modified && mod.modified.length > 0) {
         mod.modified.forEach((change: ModificationItem) => {
           if (excludedFields.includes(change.key)) return;
           if (isSimpleModification(change)) {
-            lines.push(
-              `• modified ${change.key}: ${getItemLabel(change.oldValue)} → ${getItemLabel(change.newValue)}`,
-            );
+            // Check if this is an array change within a hierarchical modification
+            if (
+              Array.isArray(change.oldValue) &&
+              Array.isArray(change.newValue)
+            ) {
+              // Check if this is an array of primitives (strings, numbers, etc.)
+              const isPrimitiveArray =
+                change.newValue.length > 0 &&
+                (typeof change.newValue[0] === "string" ||
+                  typeof change.newValue[0] === "number" ||
+                  typeof change.newValue[0] === "boolean");
+
+              if (isPrimitiveArray) {
+                // Handle arrays of primitives
+                const changes = formatPrimitiveArrayChanges(
+                  change.key,
+                  change.oldValue as unknown[],
+                  change.newValue as unknown[],
+                  "",
+                  "•",
+                );
+                if (changes.length > 0) {
+                  lines.push(...changes);
+                }
+              } else {
+                // Check if this should use count formatting
+                const shouldUseCountFormat =
+                  opts.countArrayFields?.includes("*") ||
+                  opts.countArrayFields?.includes(change.key);
+
+                if (shouldUseCountFormat) {
+                  // Handle arrays with count formatting
+                  const itemName =
+                    opts.arrayItemNames?.[change.key] ||
+                    change.key.slice(0, -1); // Remove 's' from plural
+                  const countChange = formatCountArrayChange(
+                    change.key,
+                    change.oldValue as unknown[],
+                    change.newValue as unknown[],
+                    itemName,
+                  );
+                  lines.push(`• modified ${change.key}: ${countChange}`);
+                } else {
+                  // Handle arrays of objects or fallback to regular display
+                  lines.push(
+                    `• modified ${change.key}: ${getItemLabel(change.oldValue, undefined, undefined, change.key)} → ${getItemLabel(change.newValue, undefined, undefined, change.key)}`,
+                  );
+                }
+              }
+            } else {
+              // Regular field change
+              lines.push(
+                `• modified ${change.key}: ${getItemLabel(change.oldValue, undefined, undefined, change.key)} → ${getItemLabel(change.newValue, undefined, undefined, change.key)}`,
+              );
+            }
           }
         });
       }

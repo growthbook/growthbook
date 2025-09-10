@@ -610,6 +610,37 @@ export function getObjectDiff(
           };
           result.modified.push(simpleMod);
         }
+      } else if (Array.isArray(prev[key]) && Array.isArray(curr[key])) {
+        // Handle arrays automatically - no config needed for arrays of primitives
+        const prevArray = prev[key] as unknown[];
+        const currArray = curr[key] as unknown[];
+
+        // Check if this is an array of primitives (strings, numbers, booleans)
+        const isPrimitiveArray =
+          currArray.length > 0 &&
+          (typeof currArray[0] === "string" ||
+            typeof currArray[0] === "number" ||
+            typeof currArray[0] === "boolean");
+
+        if (isPrimitiveArray) {
+          // For arrays of primitives, just treat as a simple field change
+          // The Slack formatter will handle the display properly
+          const simpleMod: SimpleModification = {
+            key,
+            oldValue: prevArray,
+            newValue: currArray,
+          };
+          result.modified.push(simpleMod);
+        } else {
+          // For arrays of objects, we need nested config to know the ID field
+          // If no config, fall through to simple field change
+          const simpleMod: SimpleModification = {
+            key,
+            oldValue: prevArray,
+            newValue: currArray,
+          };
+          result.modified.push(simpleMod);
+        }
       } else if (
         typeof prev[key] === "object" &&
         prev[key] !== null &&
