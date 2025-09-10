@@ -350,7 +350,6 @@ export type UserContext = {
   attributeOverrides?: Attributes;
   trackingCallback?: TrackingCallback;
   onFeatureUsage?: FeatureUsageCallback;
-  onExperimentEval?: (experiment: Experiment<any>, result: Result<any>) => void;
   trackedExperiments?: Set<string>;
   trackedFeatureUsage?: Record<string, string>;
   devLogs?: LogUnion[];
