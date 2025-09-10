@@ -60,6 +60,42 @@ export default class BigQuery extends SqlIntegration {
     );
   }
 
+  async validateQueryColumns(
+    sql: string,
+    requiredColumns: string[],
+  ): Promise<{ isValid: boolean; duration?: number; error?: string }> {
+    try {
+      const { columns, statistics } = await this.runQuery(
+        `SELECT * FROM (${sql}) AS subquery LIMIT 0`,
+      );
+
+      if (!columns) {
+        return {
+          isValid: false,
+          error: "No column information returned",
+        };
+      }
+
+      const missingColumns = requiredColumns.filter(
+        (col) => !columns.includes(col.toLowerCase()),
+      );
+
+      return {
+        isValid: missingColumns.length === 0,
+        duration: statistics?.executionDurationMs,
+        error:
+          missingColumns.length > 0
+            ? `Missing columns: ${missingColumns.join(", ")}`
+            : undefined,
+      };
+    } catch (e) {
+      return {
+        isValid: false,
+        error: e.message,
+      };
+    }
+  }
+
   async runQuery(
     sql: string,
     setExternalId?: ExternalIdCallback,

@@ -56,6 +56,8 @@ type Props = {
   // Currently the allowlist for what event props are valid is controlled outside of the codebase.
   // Make sure you've checked that any props you pass here are in the list!
   allowlistedTrackingEventProps?: TrackEventProps;
+  // Optional external error to display in the modal footer
+  error?: string;
 };
 
 const PagedModal: FC<Props> = (props) => {
@@ -91,7 +93,7 @@ const PagedModal: FC<Props> = (props) => {
   } = props;
   const [modalUuid] = useState(uuidv4());
 
-  const [error, setError] = useState("");
+  const [internalError, setInternalError] = useState("");
   const style = navStyle ? navStyle : "default";
   const steps: {
     display: string;
@@ -120,7 +122,8 @@ const PagedModal: FC<Props> = (props) => {
   async function validateSteps(before?: number) {
     before = before ?? steps.length;
     for (let i = 0; i < before; i++) {
-      if (!steps[i].enabled) continue;
+      // Only skip validation if the step is explicitly disabled
+      if (steps[i].enabled === false) continue;
       if (!steps[i].validate) continue;
       try {
         await steps[i].validate?.();
@@ -244,7 +247,11 @@ const PagedModal: FC<Props> = (props) => {
           </button>
         ) : null
       }
-      error={error}
+      error={
+        internalError ||
+        (passThrough as unknown as { error?: string })?.error ||
+        ""
+      }
       autoCloseOnSubmit={false}
       cta={
         forceCtaText || !nextStep ? (
@@ -288,12 +295,12 @@ const PagedModal: FC<Props> = (props) => {
                     className="nav-link d-flex align-items-center"
                     onClick={async (e) => {
                       e.preventDefault();
-                      setError("");
+                      setInternalError("");
                       try {
                         await validateSteps(i);
                         setStep(i);
                       } catch (e) {
-                        setError(e.message);
+                        setInternalError(e.message);
                       }
                     }}
                   >
@@ -328,12 +335,12 @@ const PagedModal: FC<Props> = (props) => {
                   })}
                   onClick={async (e) => {
                     e.preventDefault();
-                    setError("");
+                    setInternalError("");
                     try {
                       await validateSteps(i);
                       setStep(i);
                     } catch (e) {
-                      setError(e.message);
+                      setInternalError(e.message);
                     }
                   }}
                 >

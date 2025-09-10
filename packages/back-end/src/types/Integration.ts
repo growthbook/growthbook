@@ -665,6 +665,10 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[],
   ): Promise<TestQueryResult>;
+  validateQueryColumns?(
+    sql: string,
+    requiredColumns: string[],
+  ): Promise<{ isValid: boolean; duration?: number; error?: string }>;
   getMetricAnalysisQuery(params: MetricAnalysisParams): string;
   runMetricAnalysisQuery(
     query: string,

@@ -24,6 +24,7 @@ import {
   testQuery,
   getIntegrationFromDatasourceId,
   runFreeFormQuery,
+  validateQueryWithLimitZero,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
@@ -779,12 +780,19 @@ export async function testLimitedQuery(
     datasourceId: string;
     templateVariables?: TemplateVariables;
     limit?: number;
+    validateReturnedColumns?: string[];
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
 
-  const { query, datasourceId, templateVariables, limit } = req.body;
+  const {
+    query,
+    datasourceId,
+    templateVariables,
+    limit,
+    validateReturnedColumns,
+  } = req.body;
 
   // Sanity check to prevent potential abuse
   if (limit && limit > SQL_ROW_LIMIT) {
@@ -794,13 +802,37 @@ export async function testLimitedQuery(
     });
   }
 
-  const maxLimit = limit || SQL_ROW_LIMIT;
+  const maxLimit = limit ?? SQL_ROW_LIMIT;
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
     return res.status(404).json({
       status: 404,
       message: "Cannot find data source",
+    });
+  }
+
+  // For certain integrations we can optimize the query and not scan any data, but ensure
+  // that the query is valid and returns the required columns.
+  if (
+    ["bigquery", "presto"].includes(datasource.type) &&
+    maxLimit === 0 &&
+    validateReturnedColumns?.length
+  ) {
+    const { isValid, sql, duration, error } = await validateQueryWithLimitZero(
+      context,
+      datasource,
+      query,
+      validateReturnedColumns,
+      templateVariables,
+    );
+
+    return res.status(200).json({
+      results: [],
+      duration,
+      sql,
+      isValid,
+      error,
     });
   }
 
