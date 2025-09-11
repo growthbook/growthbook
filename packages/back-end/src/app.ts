@@ -83,6 +83,8 @@ const informationSchemasController = wrapController(
 import * as statsigProxyControllerRaw from "./controllers/statsig-proxy";
 const statsigProxyController = wrapController(statsigProxyControllerRaw);
 
+import { importStatsigBulkInternal } from "./api/statsig-import/importBulkInternal";
+
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -301,6 +303,8 @@ app.get(
   }),
   experimentsController.getExperimentPublic,
 );
+
+
 
 // Secret API routes (no JWT or CORS)
 app.use(
@@ -949,7 +953,10 @@ app.use("/ai", aiRouter);
 
 // StatSig Proxy
 app.post("/statsig-proxy", statsigProxyController.statsigProxy);
-
+app.post(
+  "/statsig-import/bulk",
+  importStatsigBulkInternal,
+);
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
   res.status(404).json({

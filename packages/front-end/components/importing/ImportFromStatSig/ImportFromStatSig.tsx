@@ -225,57 +225,207 @@ async function runImport(
   apiCall: ApiCallType<any>,
   callback: (data: ImportData) => void,
 ) {
-  // For now, just mark everything as completed since we're only fetching
   data = cloneDeep(data);
-  data.status = "completed";
-  
-  // Mark all entities as completed for now
-  data.featureGates?.forEach((gate) => {
-    if (gate.status === "pending") {
-      gate.status = "completed";
-    }
-  });
-  
-  data.dynamicConfigs?.forEach((config) => {
-    if (config.status === "pending") {
-      config.status = "completed";
-    }
-  });
-  
-  data.experiments?.forEach((exp) => {
-    if (exp.status === "pending") {
-      exp.status = "completed";
-    }
-  });
-  
-  data.segments?.forEach((segment) => {
-    if (segment.status === "pending") {
-      segment.status = "completed";
-    }
-  });
-  
-  data.layers?.forEach((layer) => {
-    if (layer.status === "pending") {
-      layer.status = "completed";
-    }
-  });
-  
-  data.metrics?.forEach((metric) => {
-    if (metric.status === "pending") {
-      metric.status = "completed";
-    }
-  });
-  
+  data.status = "importing";
   callback(data);
+
+  try {
+    // Prepare bulk import data
+    const bulkData = {
+      featureGates: data.featureGates?.filter(g => g.status === "pending" && g.featureGate).map(g => g.featureGate) || [],
+      dynamicConfigs: data.dynamicConfigs?.filter(c => c.status === "pending" && c.dynamicConfig).map(c => c.dynamicConfig) || [],
+      layers: data.layers?.filter(l => l.status === "pending" && l.layer).map(l => l.layer) || [],
+      experiments: data.experiments?.filter(e => e.status === "pending" && e.experiment).map(e => e.experiment) || [],
+      segments: data.segments?.filter(s => s.status === "pending" && s.segment).map(s => s.segment) || [],
+      metrics: data.metrics?.filter(m => m.status === "pending" && m.metric).map(m => m.metric) || [],
+      datasourceId: "default", // TODO: Get from user selection
+    };
+
+    // Make single bulk import call
+    console.log("Sending bulk import data:", bulkData);
+    const response = await apiCall("/statsig-import/bulk", {
+      method: "POST",
+      body: JSON.stringify(bulkData),
+    });
+    console.log("Bulk import response:", response);
+
+    // Update status based on results
+    if (response && response.results) {
+      // Update feature gates
+      if (data.featureGates && response.results.featureGates) {
+        data.featureGates.forEach((gate, index) => {
+          if (gate.status === "pending") {
+            const result = response.results.featureGates[index];
+            if (result) {
+              gate.status = result.success ? "completed" : "failed";
+              gate.error = result.error;
+            }
+          }
+        });
+      }
+
+      // Update dynamic configs
+      if (data.dynamicConfigs && response.results.dynamicConfigs) {
+        data.dynamicConfigs.forEach((config, index) => {
+          if (config.status === "pending") {
+            const result = response.results.dynamicConfigs[index];
+            if (result) {
+              config.status = result.success ? "completed" : "failed";
+              config.error = result.error;
+            }
+          }
+        });
+      }
+
+      // Update layers
+      if (data.layers && response.results.layers) {
+        data.layers.forEach((layer, index) => {
+          if (layer.status === "pending") {
+            const result = response.results.layers[index];
+            if (result) {
+              layer.status = result.success ? "completed" : "failed";
+              layer.error = result.error;
+            }
+          }
+        });
+      }
+
+      // Update experiments
+      if (data.experiments && response.results.experiments) {
+        data.experiments.forEach((exp, index) => {
+          if (exp.status === "pending") {
+            const result = response.results.experiments[index];
+            if (result) {
+              exp.status = result.success ? "completed" : "failed";
+              exp.error = result.error;
+            }
+          }
+        });
+      }
+
+      // Update segments
+      if (data.segments && response.results.segments) {
+        data.segments.forEach((segment, index) => {
+          if (segment.status === "pending") {
+            const result = response.results.segments[index];
+            if (result) {
+              segment.status = result.success ? "completed" : "failed";
+              segment.error = result.error;
+            }
+          }
+        });
+      }
+
+      // Update metrics
+      if (data.metrics && response.results.metrics) {
+        data.metrics.forEach((metric, index) => {
+          if (metric.status === "pending") {
+            const result = response.results.metrics[index];
+            if (result) {
+              metric.status = result.success ? "completed" : "failed";
+              metric.error = result.error;
+            }
+          }
+        });
+      }
+    } else {
+      console.error("Unexpected response structure:", response);
+      // Mark all pending items as failed due to unexpected response
+      data.featureGates?.forEach(gate => {
+        if (gate.status === "pending") {
+          gate.status = "failed";
+          gate.error = "Unexpected response from server";
+        }
+      });
+      data.dynamicConfigs?.forEach(config => {
+        if (config.status === "pending") {
+          config.status = "failed";
+          config.error = "Unexpected response from server";
+        }
+      });
+      data.layers?.forEach(layer => {
+        if (layer.status === "pending") {
+          layer.status = "failed";
+          layer.error = "Unexpected response from server";
+        }
+      });
+      data.experiments?.forEach(exp => {
+        if (exp.status === "pending") {
+          exp.status = "failed";
+          exp.error = "Unexpected response from server";
+        }
+      });
+      data.segments?.forEach(segment => {
+        if (segment.status === "pending") {
+          segment.status = "failed";
+          segment.error = "Unexpected response from server";
+        }
+      });
+      data.metrics?.forEach(metric => {
+        if (metric.status === "pending") {
+          metric.status = "failed";
+          metric.error = "Unexpected response from server";
+        }
+      });
+    }
+
+    data.status = "completed";
+    callback(data);
+  } catch (error) {
+    // Mark all pending items as failed
+    data.featureGates?.forEach(gate => {
+      if (gate.status === "pending") {
+        gate.status = "failed";
+        gate.error = error.message || "Import failed";
+      }
+    });
+    data.dynamicConfigs?.forEach(config => {
+      if (config.status === "pending") {
+        config.status = "failed";
+        config.error = error.message || "Import failed";
+      }
+    });
+    data.layers?.forEach(layer => {
+      if (layer.status === "pending") {
+        layer.status = "failed";
+        layer.error = error.message || "Import failed";
+      }
+    });
+    data.experiments?.forEach(exp => {
+      if (exp.status === "pending") {
+        exp.status = "failed";
+        exp.error = error.message || "Import failed";
+      }
+    });
+    data.segments?.forEach(segment => {
+      if (segment.status === "pending") {
+        segment.status = "failed";
+        segment.error = error.message || "Import failed";
+      }
+    });
+    data.metrics?.forEach(metric => {
+      if (metric.status === "pending") {
+        metric.status = "failed";
+        metric.error = error.message || "Import failed";
+      }
+    });
+
+    data.status = "completed";
+    callback(data);
+  }
 }
 
 function ImportStatusDisplay({
   data,
+  itemType,
+  itemId,
 }: {
   data: {
     status: ImportStatus;
     error?: string;
   };
+  itemType?: string;
+  itemId?: string;
 }) {
   const color = ["failed", "invalid"].includes(data.status)
     ? "danger"
@@ -285,17 +435,36 @@ function ImportStatusDisplay({
         ? "secondary"
         : "purple";
 
+  const getItemUrl = (type: string, id: string) => {
+    switch (type) {
+      case "metric":
+        return `/metrics/${id}`;
+      case "experiment":
+        return `/experiment/${id}`;
+      case "segment":
+        return `/segments/${id}`;
+      case "feature":
+        return `/features/${id}`;
+      default:
+        return null;
+    }
+  };
+
+  const url = itemType && itemId ? getItemUrl(itemType, itemId) : null;
+  console.log("Generated URL for", itemType, itemId, ":", url);
+
   return (
-    <Tooltip
-      body={
-        <div>
-          <strong>{data.status}</strong>{" "}
-          {data.error ? <>: {data.error}</> : null}
-        </div>
-      }
-    >
-      <span className={`text-${color} mr-3`}>
-        {data.status === "invalid" ? (
+    <div className="d-flex align-items-center">
+      <Tooltip
+        body={
+          <div>
+            <strong>{data.status}</strong>{" "}
+            {data.error ? <>: {data.error}</> : null}
+          </div>
+        }
+      >
+        <span className={`text-${color} mr-3`}>
+          {data.status === "invalid" ? (
           <FaTriangleExclamation />
         ) : data.status === "skipped" ? (
           <FaMinusCircle />
@@ -309,6 +478,18 @@ function ImportStatusDisplay({
         <span className="ml-1">{data.status}</span>
       </span>
     </Tooltip>
+    {url && data.status === "completed" && (
+      <a 
+        href={url} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="btn btn-sm btn-outline-primary ml-2"
+        title={`View ${itemType}`}
+      >
+        View
+      </a>
+    )}
+  </div>
   );
 }
 
@@ -494,7 +675,11 @@ export default function ImportFromStatSig() {
                         {data.featureGates?.map((gate, i) => (
                           <tr key={i}>
                             <td>
-                              <ImportStatusDisplay data={gate} />
+                              <ImportStatusDisplay 
+                                data={gate} 
+                                itemType="feature"
+                                itemId={gate.featureGate?.id}
+                              />
                             </td>
                             <td>{gate.featureGate?.name}</td>
                             <td>{gate.featureGate?.description}</td>
@@ -529,7 +714,11 @@ export default function ImportFromStatSig() {
                         {data.dynamicConfigs?.map((config, i) => (
                           <tr key={i}>
                             <td>
-                              <ImportStatusDisplay data={config} />
+                              <ImportStatusDisplay 
+                                data={config} 
+                                itemType="feature"
+                                itemId={config.dynamicConfig?.id}
+                              />
                             </td>
                             <td>{config.dynamicConfig?.name}</td>
                             <td>{config.dynamicConfig?.description}</td>
@@ -566,19 +755,31 @@ export default function ImportFromStatSig() {
                         </tr>
                       </thead>
                       <tbody>
-                        {data.experiments?.map((exp, i) => (
-                          <tr key={i}>
-                            <td>
-                              <ImportStatusDisplay data={exp} />
-                            </td>
-                            <td>{exp.experiment?.name}</td>
-                            <td>{exp.experiment?.status}</td>
-                            <td>{exp.experiment?.primary_metric}</td>
-                            <td>
-                              <em>{exp.error}</em>
-                            </td>
-                          </tr>
-                        ))}
+                        {data.experiments?.map((exp, i) => {
+                          console.log("Experiment data:", exp);
+                          console.log("Experiment object:", exp.experiment);
+                          console.log("Experiment ID:", exp.experiment?.id);
+                          console.log("Experiment trackingKey:", exp.experiment?.trackingKey);
+                          // Use trackingKey if available, otherwise fall back to id
+                          const experimentId = exp.experiment?.id;
+                          return (
+                            <tr key={i}>
+                              <td>
+                                <ImportStatusDisplay 
+                                  data={exp} 
+                                  itemType="experiment"
+                                  itemId={experimentId}
+                                />
+                              </td>
+                              <td>{exp.experiment?.name}</td>
+                              <td>{exp.experiment?.status}</td>
+                              <td>{exp.experiment?.primary_metric}</td>
+                              <td>
+                                <em>{exp.error}</em>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -604,7 +805,11 @@ export default function ImportFromStatSig() {
                         {data.segments?.map((segment, i) => (
                           <tr key={i}>
                             <td>
-                              <ImportStatusDisplay data={segment} />
+                              <ImportStatusDisplay 
+                                data={segment} 
+                                itemType="segment"
+                                itemId={segment.segment?.id}
+                              />
                             </td>
                             <td>{segment.segment?.name}</td>
                             <td>{segment.segment?.type}</td>
@@ -638,7 +843,11 @@ export default function ImportFromStatSig() {
                         {data.layers?.map((layer, i) => (
                           <tr key={i}>
                             <td>
-                              <ImportStatusDisplay data={layer} />
+                              <ImportStatusDisplay 
+                                data={layer} 
+                                itemType="feature"
+                                itemId={layer.layer?.id}
+                              />
                             </td>
                             <td>{layer.layer?.name || layer.layer?.id}</td>
                             <td>{layer.layer?.description}</td>
@@ -672,7 +881,11 @@ export default function ImportFromStatSig() {
                         {data.metrics?.map((metric, i) => (
                           <tr key={i}>
                             <td>
-                              <ImportStatusDisplay data={metric} />
+                              <ImportStatusDisplay 
+                                data={metric} 
+                                itemType="metric"
+                                itemId={metric.metric?.id}
+                              />
                             </td>
                             <td>{metric.metric?.name || metric.metric?.id}</td>
                             <td>{metric.metric?.type}</td>
