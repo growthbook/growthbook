@@ -38,11 +38,6 @@ const importBulkValidator = z.object({
   }),
 });
 
-type ImportBulkRequest = AuthRequest<
-  z.infer<typeof importBulkValidator>["body"],
-  unknown,
-  unknown
->;
 
 type ImportResult = {
   success: boolean;
@@ -125,7 +120,7 @@ export const importStatsigBulk = createApiRequestHandler(
       await createFeature(req.context, conversionResult.data as any);
       results.featureGates.push({
         success: true,
-        id: `feature_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: conversionResult.data.id,
       });
     } catch (error) {
       results.featureGates.push({
@@ -135,83 +130,83 @@ export const importStatsigBulk = createApiRequestHandler(
     }
   }
 
-  // Import dynamic configs
-  for (const configData of dynamicConfigs) {
-    try {
-      const validationResult = validateStatsigDynamicConfigData(configData);
-      if (!validationResult.success) {
-        results.dynamicConfigs.push({
-          success: false,
-          error: validationResult.error,
-        });
-        continue;
-      }
+  // // Import dynamic configs
+  // for (const configData of dynamicConfigs) {
+  //   try {
+  //     const validationResult = validateStatsigDynamicConfigData(configData);
+  //     if (!validationResult.success) {
+  //       results.dynamicConfigs.push({
+  //         success: false,
+  //         error: validationResult.error,
+  //       });
+  //       continue;
+  //     }
 
-      const conversionResult = convertStatsigDynamicConfig(
-        configData as StatsigDynamicConfigData,
-        org.id,
-        projectId
-      );
+  //     const conversionResult = convertStatsigDynamicConfig(
+  //       configData as StatsigDynamicConfigData,
+  //       org.id,
+  //       projectId
+  //     );
 
-      if (!conversionResult.success || !conversionResult.data) {
-        results.dynamicConfigs.push({
-          success: false,
-          error: conversionResult.error,
-        });
-        continue;
-      }
+  //     if (!conversionResult.success || !conversionResult.data) {
+  //       results.dynamicConfigs.push({
+  //         success: false,
+  //         error: conversionResult.error,
+  //       });
+  //       continue;
+  //     }
 
-      await createFeature(req.context, conversionResult.data as any);
-      results.dynamicConfigs.push({
-        success: true,
-        id: `dynamic_config_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      });
-    } catch (error) {
-      results.dynamicConfigs.push({
-        success: false,
-        error: error.message || "Failed to import dynamic config",
-      });
-    }
-  }
+  //     await createFeature(req.context, conversionResult.data as any);
+  //     results.dynamicConfigs.push({
+  //       success: true,
+  //       id: conversionResult.data.id,
+  //     });
+  //   } catch (error) {
+  //     results.dynamicConfigs.push({
+  //       success: false,
+  //       error: error.message || "Failed to import dynamic config",
+  //     });
+  //   }
+  // }
 
-  // Import layers
-  for (const layerData of layers) {
-    try {
-      const validationResult = validateStatsigLayerData(layerData);
-      if (!validationResult.success) {
-        results.layers.push({
-          success: false,
-          error: validationResult.error,
-        });
-        continue;
-      }
+  // // Import layers
+  // for (const layerData of layers) {
+  //   try {
+  //     const validationResult = validateStatsigLayerData(layerData);
+  //     if (!validationResult.success) {
+  //       results.layers.push({
+  //         success: false,
+  //         error: validationResult.error,
+  //       });
+  //       continue;
+  //     }
 
-      const conversionResult = convertStatsigLayer(
-        layerData as StatsigLayerData,
-        org.id,
-        projectId
-      );
+  //     const conversionResult = convertStatsigLayer(
+  //       layerData as StatsigLayerData,
+  //       org.id,
+  //       projectId
+  //     );
 
-      if (!conversionResult.success || !conversionResult.data) {
-        results.layers.push({
-          success: false,
-          error: conversionResult.error,
-        });
-        continue;
-      }
+  //     if (!conversionResult.success || !conversionResult.data) {
+  //       results.layers.push({
+  //         success: false,
+  //         error: conversionResult.error,
+  //       });
+  //       continue;
+  //     }
 
-      await createFeature(req.context, conversionResult.data as any);
-      results.layers.push({
-        success: true,
-        id: `layer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      });
-    } catch (error) {
-      results.layers.push({
-        success: false,
-        error: error.message || "Failed to import layer",
-      });
-    }
-  }
+  //     await createFeature(req.context, conversionResult.data as any);
+  //     results.layers.push({
+  //       success: true,
+  //       id: `layer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  //     });
+  //   } catch (error) {
+  //     results.layers.push({
+  //       success: false,
+  //       error: error.message || "Failed to import layer",
+  //     });
+  //   }
+  // }
 
   // Import experiments
   for (const expData of experiments) {
@@ -255,45 +250,45 @@ export const importStatsigBulk = createApiRequestHandler(
     }
   }
 
-  // Import segments
-  for (const segmentData of segments) {
-    try {
-      const validationResult = validateStatsigSegmentData(segmentData);
-      if (!validationResult.success) {
-        results.segments.push({
-          success: false,
-          error: validationResult.error,
-        });
-        continue;
-      }
+  // // Import segments
+  // for (const segmentData of segments) {
+  //   try {
+  //     const validationResult = validateStatsigSegmentData(segmentData);
+  //     if (!validationResult.success) {
+  //       results.segments.push({
+  //         success: false,
+  //         error: validationResult.error,
+  //       });
+  //       continue;
+  //     }
 
-      const conversionResult = convertStatsigSegment(
-        segmentData as StatsigSegmentData,
-        org.id,
-        datasourceId,
-        projectId
-      );
+  //     const conversionResult = convertStatsigSegment(
+  //       segmentData as StatsigSegmentData,
+  //       org.id,
+  //       datasourceId,
+  //       projectId
+  //     );
 
-      if (!conversionResult.success || !conversionResult.data) {
-        results.segments.push({
-          success: false,
-          error: conversionResult.error,
-        });
-        continue;
-      }
+  //     if (!conversionResult.success || !conversionResult.data) {
+  //       results.segments.push({
+  //         success: false,
+  //         error: conversionResult.error,
+  //       });
+  //       continue;
+  //     }
 
-      const createdSegment = await req.context.models.segments.create(conversionResult.data as any);
-      results.segments.push({
-        success: true,
-        id: createdSegment.id,
-      });
-    } catch (error) {
-      results.segments.push({
-        success: false,
-        error: error.message || "Failed to import segment",
-      });
-    }
-  }
+  //     const createdSegment = await req.context.models.segments.create(conversionResult.data as any);
+  //     results.segments.push({
+  //       success: true,
+  //       id: createdSegment.id,
+  //     });
+  //   } catch (error) {
+  //     results.segments.push({
+  //       success: false,
+  //       error: error.message || "Failed to import segment",
+  //     });
+  //   }
+  // }
 
   // Import metrics
   for (const metricData of metrics) {
@@ -321,12 +316,12 @@ export const importStatsigBulk = createApiRequestHandler(
         });
         continue;
       }
-
-      const createdMetric = await insertMetric(conversionResult.data as any);
-      results.metrics.push({
-        success: true,
-        id: createdMetric.id,
-      });
+      // TODO: Add metric import to Fact metrics
+      // const createdMetric = await insertMetric(conversionResult.data as any);
+      // results.metrics.push({
+      //   success: true,
+      //   id: createdMetric.id,
+      // });
     } catch (error) {
       results.metrics.push({
         success: false,

@@ -113,7 +113,8 @@ export function convertStatsigFeatureGateToGrowthBook(
                     normalizedData.owner.userID || 
                     "unknown@example.com";
 
-  const feature: Omit<FeatureInterface, "id" | "dateCreated" | "dateUpdated"> = {
+  const feature: Omit<FeatureInterface, "dateCreated" | "dateUpdated"> = {
+    id: normalizedData.id,
     organization: organizationId,
     project: projectId,
     owner: ownerEmail,
@@ -218,7 +219,7 @@ export function convertStatsigFeatureGate(
   statsigData: any,
   organizationId: string,
   projectId?: string
-): { success: boolean; data?: Omit<FeatureInterface, "id" | "dateCreated" | "dateUpdated">; error?: string } {
+): { success: boolean; data?: Omit<FeatureInterface, "dateCreated" | "dateUpdated">; error?: string } {
   // Validate input data first
   const validation = validateStatsigFeatureGateData(statsigData);
   if (!validation.success) {
