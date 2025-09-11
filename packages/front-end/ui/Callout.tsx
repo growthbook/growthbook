@@ -5,7 +5,7 @@ import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { PiX } from "react-icons/pi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
-import styles from "./RadixOverrides.module.scss";
+import styles from "./Callout.module.scss";
 
 type DismissibleProps = {
   dismissible: true;
@@ -88,7 +88,7 @@ export default forwardRef<
       ) : null}
       {contentsAs === "div" ? (
         <Box>
-          <div className={styles.calloutContent}>{children}</div>
+          <div>{children}</div>
         </Box>
       ) : (
         <>
