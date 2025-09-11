@@ -47,10 +47,3 @@ export {
   convertStatsigExperiment,
   type StatsigExperimentData,
 } from "./statsig-experiments-converter";
-
-// Re-export the original experiment converter for backward compatibility
-export {
-  convertStatsigToGrowthBook,
-  validateStatsigData,
-  convertStatsigExperiment as convertStatsigExperimentLegacy,
-} from "./statsig-experiment-converter";
