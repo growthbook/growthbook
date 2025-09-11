@@ -17,7 +17,7 @@ import {
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
@@ -566,7 +566,7 @@ export default function MetricsOverridesSelector({
                         >
                           Use proper prior for this metric
                         </label>
-                        <Toggle
+                        <Switch
                           id={`toggle-properPrior_${i}`}
                           value={
                             !!form.watch(
@@ -693,7 +693,7 @@ export default function MetricsOverridesSelector({
                             >
                               Apply regression adjustment for this metric
                             </label>
-                            <Toggle
+                            <Switch
                               id={`toggle-regressionAdjustmentEnabled_${i}`}
                               value={
                                 !!form.watch(

@@ -8,7 +8,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
@@ -140,7 +140,7 @@ const ReportsPage = (): React.ReactElement => {
           <Field placeholder="Search..." type="search" {...searchInputProps} />
         </div>
         <div className="col-auto">
-          <Toggle
+          <Switch
             id={"onlymine"}
             value={onlyMyReports}
             label={"onlymine"}

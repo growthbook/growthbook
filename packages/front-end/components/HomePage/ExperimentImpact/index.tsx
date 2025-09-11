@@ -13,7 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatNumber, getExperimentMetricFormatter } from "@/services/metrics";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import {
@@ -532,7 +532,7 @@ export default function ExperimentImpact({
             />
           </label>
           <div className="d-flex pl-3">
-            <Toggle
+            <Switch
               id="adjust-scaled-impact"
               className="form-check-input"
               disabled={nExpsUsedForAdjustment < 5}

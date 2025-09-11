@@ -13,7 +13,7 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import SelectField, {
   GroupedValue,
   SingleValue,
@@ -226,7 +226,7 @@ export default function CustomFieldModal({
       ) : (
         <>
           <label className="mr-2">Default value</label>
-          <Toggle
+          <Switch
             id={"defaultValue"}
             label="Default value"
             value={!!form.watch("defaultValue")}
@@ -254,7 +254,7 @@ export default function CustomFieldModal({
         )}
       </div>
       <div className="mb-3 mt-3">
-        <Toggle
+        <Switch
           id={"required"}
           label="Required"
           value={!!form.watch("required")}
@@ -273,7 +273,7 @@ export default function CustomFieldModal({
       </div>
       {showSearchableToggle && (
         <>
-          <Toggle
+          <Switch
             id={"index"}
             label="Index"
             value={!!form.watch("index")}

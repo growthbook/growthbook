@@ -50,7 +50,7 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/components/Radix/Switch";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import {
   Tabs,
@@ -2062,7 +2062,7 @@ export default function FactMetricModal({
               ) : type === "quantile" ? (
                 <div>
                   <div className="form-group">
-                    <Toggle
+                    <Switch
                       id="quantileTypeSelector"
                       label="Aggregate by User First"
                       value={
@@ -2130,7 +2130,7 @@ export default function FactMetricModal({
                                 />
                               </label>
                               <div style={{ padding: "6px 0" }}>
-                                <Toggle
+                                <Switch
                                   id="quantileIgnoreZeros"
                                   value={quantileSettings.ignoreZeros}
                                   setValue={(ignoreZeros) =>
@@ -2349,7 +2349,7 @@ export default function FactMetricModal({
                                 >
                                   Apply regression adjustment for this metric
                                 </label>
-                                <Toggle
+                                <Switch
                                   id={"toggle-regressionAdjustmentEnabled"}
                                   value={
                                     !!form.watch("regressionAdjustmentEnabled")
