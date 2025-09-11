@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import PQueue from "p-queue";
 import { FeatureInterface } from "back-end/types/feature";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { cloneDeep } from "lodash";
+import { Environment } from "back-end/types/organization";
 import {
   getAllStatSigEntities,
   StatSigEnvironment,
@@ -18,7 +19,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
 import { ApiCallType, useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useFeaturesList } from "@/services/features";
+import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -93,6 +94,7 @@ async function buildImportedData(
   apiKey: string,
   intervalCap: number,
   features: FeatureInterface[],
+  existingEnvironments: Set<string>,
   apiCall: (path: string, options?: unknown) => Promise<unknown>,
   callback: (data: ImportData) => void,
 ): Promise<void> {
@@ -142,10 +144,14 @@ async function buildImportedData(
         // Note: environments.data is an array of environment objects, not nested
         entities.environments.data.forEach((environment) => {
           const env = environment as StatSigEnvironment;
+          const envKey = env.name || env.id;
           data.environments?.push({
-            key: env.name || env.id,
-            status: "pending",
+            key: envKey,
+            status: existingEnvironments.has(envKey) ? "skipped" : "pending",
             environment: env,
+            error: existingEnvironments.has(envKey)
+              ? "Environment already exists"
+              : undefined,
           });
         });
 
@@ -233,17 +239,63 @@ async function runImport(
   apiCall: ApiCallType<any>,
   callback: (data: ImportData) => void,
 ) {
-  // For now, just mark everything as completed since we're only fetching
+  // We will mutate this shared object and sync it back to the component periodically
   data = cloneDeep(data);
-  data.status = "completed";
 
-  // Mark all entities as completed for now
-  data.environments?.forEach((environment) => {
-    if (environment.status === "pending") {
-      environment.status = "completed";
+  // Debounced updater
+  let timer: number | null = null;
+  const update = () => {
+    if (timer) return;
+    timer = window.setTimeout(() => {
+      timer = null;
+      callback(cloneDeep(data));
+    }, 500);
+  };
+
+  data.status = "importing";
+  update();
+
+  const queue = new PQueue({ concurrency: 6 });
+
+  // Import Environments in a single API call
+  queue.add(async () => {
+    const envsToAdd: Environment[] = [];
+    data.environments?.forEach((e) => {
+      if (e.status === "pending" && e.environment) {
+        envsToAdd.push({
+          id: e.environment.name,
+          description: e.environment.name,
+        });
+      }
+    });
+
+    if (envsToAdd.length > 0) {
+      try {
+        await apiCall("/environment", {
+          method: "PUT",
+          body: JSON.stringify({
+            environments: envsToAdd,
+          }),
+        });
+        data.environments?.forEach((env) => {
+          if (env.status === "pending") {
+            env.status = "completed";
+          }
+        });
+      } catch (e) {
+        data.environments?.forEach((env) => {
+          if (env.status === "pending") {
+            env.status = "failed";
+            env.error = e.message;
+          }
+        });
+      }
     }
+    update();
   });
+  await queue.onIdle();
 
+  // For now, just mark everything else as completed since we're only implementing environments
   data.featureGates?.forEach((gate) => {
     if (gate.status === "pending") {
       gate.status = "completed";
@@ -280,6 +332,8 @@ async function runImport(
     }
   });
 
+  data.status = "completed";
+  timer && clearTimeout(timer);
   callback(data);
 }
 
@@ -403,8 +457,14 @@ export default function ImportFromStatSig() {
 
   const { features, mutate: mutateFeatures } = useFeaturesList(false);
   const { mutateDefinitions } = useDefinitions();
+  const environments = useEnvironments();
   const { refreshOrganization } = useUser();
   const { apiCall } = useAuth();
+
+  const existingEnvironments = useMemo(
+    () => new Set(environments.map((e) => e.id)),
+    [environments],
+  );
 
   const step = ["init", "loading", "error"].includes(data.status)
     ? 1
@@ -457,6 +517,7 @@ export default function ImportFromStatSig() {
                     token,
                     intervalCap,
                     features,
+                    existingEnvironments,
                     apiCall,
                     (d) => setData(d),
                   );
@@ -507,6 +568,7 @@ export default function ImportFromStatSig() {
                         <tr>
                           <th style={{ width: 150 }}>Status</th>
                           <th>Name</th>
+                          <th></th>
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
@@ -521,6 +583,11 @@ export default function ImportFromStatSig() {
                                   <ImportStatusDisplay data={environment} />
                                 </td>
                                 <td>{environment.environment?.name}</td>
+                                <td>
+                                  {environment.error ? (
+                                    <em>{environment.error}</em>
+                                  ) : null}
+                                </td>
                                 <EntityAccordion
                                   entity={environment.environment}
                                   entityId={entityId}
