@@ -24,7 +24,7 @@ export type StatSigDynamicConfig = {
   description?: string;
   enabled: boolean;
   rules: StatSigRule[];
-  default_value: any;
+  default_value: unknown;
   tags?: string[];
 };
 
@@ -43,7 +43,7 @@ export type StatSigExperiment = {
 export type StatSigVariant = {
   name: string;
   description?: string;
-  value: any;
+  value: unknown;
   weight: number;
 };
 
@@ -54,7 +54,7 @@ export type StatSigTargeting = {
 
 export type StatSigCondition = {
   type: string;
-  targetValue: any;
+  targetValue: unknown;
   operator: string;
 };
 
@@ -64,7 +64,7 @@ export type StatSigRule = {
   name: string;
   passPercentage: number;
   conditions: StatSigCondition[];
-  environments?: any;
+  environments?: unknown;
 };
 
 export type StatSigHoldout = {
@@ -84,6 +84,14 @@ export type StatSigAttribute = {
   name: string;
   type: "string" | "number" | "boolean" | "array";
   description?: string;
+};
+
+export type StatSigEnvironment = {
+  id: string;
+  name: string;
+  isProduction: boolean;
+  requiresReview: boolean;
+  requiresReleasePipeline: boolean;
 };
 
 // API Response types
@@ -173,15 +181,24 @@ export const getStatSigSegments = async (
 /**
  * Fetch layers (based on Console API endpoints)
  */
-export const getStatSigLayers = async (apiKey: string): Promise<any> => {
+export const getStatSigLayers = async (apiKey: string): Promise<unknown> => {
   return getFromStatSig("layers", apiKey, "GET");
 };
 
 /**
  * Fetch metrics (based on Console API endpoints)
  */
-export const getStatSigMetrics = async (apiKey: string): Promise<any> => {
+export const getStatSigMetrics = async (apiKey: string): Promise<unknown> => {
   return getFromStatSig("metrics/list", apiKey, "GET");
+};
+
+/**
+ * Fetch environments (based on Console API endpoints)
+ */
+export const getStatSigEnvironments = async (
+  apiKey: string,
+): Promise<unknown> => {
+  return getFromStatSig("environments", apiKey, "GET");
 };
 
 /**
@@ -191,26 +208,89 @@ async function fetchAllPages(
   endpoint: string,
   apiKey: string,
   intervalCap: number = 50,
-): Promise<any[]> {
+): Promise<unknown[]> {
   const PQueue = (await import("p-queue")).default;
   const queue = new PQueue({ interval: 10000, intervalCap: intervalCap });
 
-  const allData: any[] = [];
+  const allData: unknown[] = [];
   let pageNumber = 1;
   let hasMorePages = true;
+  const maxPages = 50; // Safety limit to prevent infinite loops
 
-  while (hasMorePages) {
+  while (hasMorePages && pageNumber <= maxPages) {
     const response = (await queue.add(async () => {
       return getFromStatSig(`${endpoint}?page=${pageNumber}`, apiKey, "GET");
-    })) as any;
+    })) as {
+      data: unknown[] | Record<string, unknown>;
+      pagination?: { nextPage: unknown };
+    };
 
-    if (response.data && response.data.length > 0) {
-      allData.push(...response.data);
+    console.log(`Page ${pageNumber} for ${endpoint}:`, {
+      hasData: Array.isArray(response.data) ? response.data.length > 0 : false,
+      dataLength: Array.isArray(response.data) ? response.data.length : 0,
+      pagination: response.pagination,
+      responseKeys: Object.keys(response),
+    });
+
+    // Handle different response structures
+    let dataArray: unknown[] = [];
+    if (Array.isArray(response.data)) {
+      dataArray = response.data;
+    } else if (response.data && typeof response.data === "object") {
+      const dataObj = response.data as Record<string, unknown>;
+      // Check for common nested structures
+      if (dataObj.environments && Array.isArray(dataObj.environments)) {
+        dataArray = dataObj.environments;
+      } else if (dataObj.gates && Array.isArray(dataObj.gates)) {
+        dataArray = dataObj.gates;
+      } else if (dataObj.configs && Array.isArray(dataObj.configs)) {
+        dataArray = dataObj.configs;
+      } else if (dataObj.experiments && Array.isArray(dataObj.experiments)) {
+        dataArray = dataObj.experiments;
+      } else if (dataObj.segments && Array.isArray(dataObj.segments)) {
+        dataArray = dataObj.segments;
+      } else if (dataObj.layers && Array.isArray(dataObj.layers)) {
+        dataArray = dataObj.layers;
+      } else if (dataObj.metrics && Array.isArray(dataObj.metrics)) {
+        dataArray = dataObj.metrics;
+      } else {
+        // If it's an object but we can't find a known array property, treat it as a single item
+        dataArray = [response.data];
+      }
     }
 
-    // Check if there are more pages
-    hasMorePages = response.pagination?.nextPage !== null;
+    if (dataArray.length > 0) {
+      allData.push(...dataArray);
+    } else {
+      // If no data returned, assume we've reached the end
+      console.log(
+        `No data on page ${pageNumber}, stopping pagination for ${endpoint}`,
+      );
+      hasMorePages = false;
+      break;
+    }
+
+    // Check if there are more pages based on pagination metadata
+    if (response.pagination) {
+      hasMorePages = response.pagination.nextPage !== null;
+      console.log(
+        `Pagination metadata found: nextPage=${response.pagination.nextPage}, hasMorePages=${hasMorePages}`,
+      );
+    } else {
+      // If no pagination metadata, assume single page (most APIs return all data on first page)
+      console.log(
+        `No pagination metadata found, assuming single page for ${endpoint}`,
+      );
+      hasMorePages = false;
+    }
+
     pageNumber++;
+  }
+
+  if (pageNumber > maxPages) {
+    console.warn(
+      `Reached maximum page limit (${maxPages}) for endpoint: ${endpoint}`,
+    );
   }
 
   return allData;
@@ -224,6 +304,7 @@ export const getAllStatSigEntities = async (
   intervalCap: number = 50,
 ) => {
   const [
+    environmentsData,
     featureGatesData,
     dynamicConfigsData,
     experimentsData,
@@ -231,6 +312,7 @@ export const getAllStatSigEntities = async (
     layersData,
     metricsData,
   ] = await Promise.all([
+    fetchAllPages("environments", apiKey, intervalCap),
     fetchAllPages("gates", apiKey, intervalCap),
     fetchAllPages("dynamic_configs", apiKey, intervalCap),
     fetchAllPages("experiments", apiKey, intervalCap),
@@ -240,6 +322,7 @@ export const getAllStatSigEntities = async (
   ]);
 
   return {
+    environments: { data: environmentsData },
     featureGates: { data: featureGatesData },
     dynamicConfigs: { data: dynamicConfigsData },
     experiments: { data: experimentsData },

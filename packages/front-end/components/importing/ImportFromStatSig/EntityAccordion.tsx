@@ -1,20 +1,17 @@
-import React, { useState } from "react";
+import React from "react";
 import { FaChevronDown, FaChevronRight } from "react-icons/fa";
 
 interface EntityAccordionProps {
-  entity: any;
+  entity: unknown;
   entityId: string;
   isExpanded: boolean;
   onToggle: (id: string) => void;
-  children?: React.ReactNode;
 }
 
 export const EntityAccordion: React.FC<EntityAccordionProps> = ({
-  entity,
   entityId,
   isExpanded,
   onToggle,
-  children,
 }) => {
   const toggleExpanded = () => {
     onToggle(entityId);
@@ -27,14 +24,18 @@ export const EntityAccordion: React.FC<EntityAccordionProps> = ({
         onClick={toggleExpanded}
         className="btn btn-link px-2 py-0"
       >
-        {isExpanded ? <FaChevronDown size={18}/> : <FaChevronRight size={18}/>}
+        {isExpanded ? (
+          <FaChevronDown size={18} />
+        ) : (
+          <FaChevronRight size={18} />
+        )}
       </button>
     </td>
   );
 };
 
 interface EntityAccordionContentProps {
-  entity: any;
+  entity: unknown;
   isExpanded: boolean;
 }
 
@@ -46,12 +47,12 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
 
   return (
     <tr>
-      <td 
-        colSpan={100} 
+      <td
+        colSpan={100}
         className="p-0"
-        style={{ 
+        style={{
           padding: 0,
-          border: "none"
+          border: "none",
         }}
       >
         <div
@@ -63,16 +64,18 @@ export const EntityAccordionContent: React.FC<EntityAccordionContentProps> = ({
             width: "100%",
             padding: "12px",
             margin: 0,
-            boxSizing: "border-box"
+            boxSizing: "border-box",
           }}
         >
-          <code style={{ 
-            fontSize: "12px", 
-            whiteSpace: "pre-wrap", 
-            display: "block",
-            width: "100%",
-            wordBreak: "break-all"
-          }}>
+          <code
+            style={{
+              fontSize: "12px",
+              whiteSpace: "pre-wrap",
+              display: "block",
+              width: "100%",
+              wordBreak: "break-all",
+            }}
+          >
             {JSON.stringify(entity, null, 2)}
           </code>
         </div>

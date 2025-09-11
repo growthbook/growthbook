@@ -458,7 +458,7 @@ function ImportStatusDisplay({
       ? "success"
       : data.status === "skipped"
         ? "secondary"
-        : "purple";
+        : "info";
 
   return (
     <Tooltip
