@@ -240,20 +240,20 @@ When subscriptions fire vs. don’t fire
 - Don’t fire: repeated reads of the same assignment that hasn’t changed.
 :::
 
-### Efficient subscription patterns
+#### Efficient subscription patterns
 
 - Keep callbacks lightweight; offload heavy work to background tasks.
 - Coalesce multiple exposure events before sending to analytics to reduce overhead.
 - Include `experiment.key`, `variationId`, and optional `featureId` for correlation.
 
-### Unsubscribing and memory management
+#### Unsubscribing and memory management
 
 - Remove any of your app-layer listeners in `dispose()`.
 - Dispose the SDK instance when not needed (e.g., app shutdown) to release resources and close streams.
 
 ## Loading Features
 
-### Built-in fetching and caching
+#### Built-in fetching and caching
 
 If you pass a `hostURL` and `apiKey` into the builder, the SDK handles network requests, caching, retry/backoff, and decryption (when configured in your SDK connection). You can enable streaming updates with `backgroundSync: true`.
 
@@ -268,7 +268,7 @@ final sdk = await GBSDKBuilderApp(
 await sdk.refreshCache();
 ```
 
-### Custom integration (local evaluation)
+#### Custom integration (local evaluation)
 
 If you prefer to control network and caching yourself, you can set a payload directly on the SDK. This enables fully local evaluation and offline-first behavior.
 
@@ -315,7 +315,7 @@ await sdk.refreshCache();
 // If you store sticky assignments yourself, clear the old user's keys
 await myStickyStorage.clearForUser("old-user");
 ```
-### Web-specific caching considerations
+#### Web-specific caching considerations
 
 - For Flutter Web, ensure your CDN respects cache-control headers for GrowthBook endpoints.
 - Avoid overly aggressive service worker caching for evaluated payloads unless you manage invalidation carefully.
@@ -378,7 +378,7 @@ await storage.write(key: 'gb_last_event_id', value: lastEventId);
 // Then pass it back during init via `streamingRequestHeaders` as shown above
 ```
 
-### Performance Considerations
+#### Performance Considerations
 
 - Prefer streaming when you need near real-time flag updates (admin toggles, ops tooling).
 - Prefer polling/manual refresh when updates are infrequent or the app is latency- or battery-sensitive.
@@ -440,13 +440,13 @@ final sdk = await GBSDKBuilderApp(
 - Log the response status/source from your SDK callbacks to confirm whether updates came from network or cache.
 - Check your proxy/server logs for rejected requests, auth failures, or schema mismatches.
 
-### Security considerations
+#### Security considerations
 
 - Treat the `apiKey` as public. Protect sensitive data with server-side auth on your proxy.
 - Use short-lived tokens in `requestHeaders` when possible and rotate regularly.
 - Avoid putting PII directly in attributes unless hashed/secured per your policies.
 
-### Fallback strategies
+#### Fallback strategies
 
 - If remote eval fails, keep using the last known values from cache and retry later.
 - Consider a hybrid approach: bootstrap with a local payload and switch to remote eval when online.
@@ -544,7 +544,7 @@ final sdk = await GBSDKBuilderApp(
 ).initialize();
 ```
 
-## Performance optimizations
+### Performance optimizations
 
 - Track refresh times and payload sizes; reduce attribute surface area where possible.
 - Avoid multiple SDK instances with streaming enabled; prefer a single shared instance.
@@ -584,20 +584,7 @@ gbLog('Initializing GrowthBook');
 - Decryption errors
   - Confirm `decryptionKey` matches the SDK Connection and is valid; prefer server-side decryption.
 
-### Network connectivity troubleshooting
-
-```dart
-try {
-  await sdk.refreshCache();
-  gbLog('Refresh succeeded');
-} catch (e) {
-  gbLog('Refresh error: ' + e.toString());
-}
-```
-
-If streaming is enabled, rely on auto-reconnect with backoff. Allow a manual refresh UI if business-critical.
-
-### Feature evaluation debugging techniques
+#### Feature evaluation debugging techniques
 
 ```dart
 final res = sdk.feature('checkout_v2');
@@ -616,6 +603,19 @@ final currentAttrs = {"id": "123", "country": "US"};
 sdk.setAttributes(currentAttrs);
 gbLog('attrs=' + currentAttrs.toString());
 ```
+
+### Network connectivity troubleshooting
+
+```dart
+try {
+  await sdk.refreshCache();
+  gbLog('Refresh succeeded');
+} catch (e) {
+  gbLog('Refresh error: ' + e.toString());
+}
+```
+
+If streaming is enabled, rely on auto-reconnect with backoff. Allow a manual refresh UI if business-critical.
 
 ## Platform-specific considerations
 
