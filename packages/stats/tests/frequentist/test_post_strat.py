@@ -33,9 +33,9 @@ from gbstats.models.settings import (
 )
 from gbstats.devtools.simulation import CreateRow
 from gbstats.gbstats import (
-    get_metric_df,
+    get_metric_dfs,
     variation_statistic_from_metric_row,
-    get_configured_test,
+    process_single_metric,
 )
 
 DECIMALS = 5
@@ -90,84 +90,85 @@ def _round_result_dict(result_dict):
 
 
 class TestPostStratification(TestCase):
-    @staticmethod
-    def run_post_strat_gbstats(
-        stat_a: List[TestStatistic],
-        stat_b: List[TestStatistic],
-        config: FrequentistConfig,
-    ) -> TestResult:
-        var_names = ["Control", "Treatment1"]
-        var_id_map = {"0": 0, "1": 1}
-        if isinstance(stat_a[0], SampleMeanStatistic) or isinstance(
-            stat_a[0], ProportionStatistic
-        ):
-            metric = COUNT_METRIC
-        elif isinstance(stat_a[0], RegressionAdjustedStatistic):
-            metric = RA_METRIC
-        elif isinstance(stat_a[0], RatioStatistic):
-            metric = RATIO_METRIC
-        elif isinstance(stat_a[0], RegressionAdjustedRatioStatistic):
-            metric = RATIO_RA_METRIC
-        else:
-            raise ValueError(f"Unsupported statistic type: {type(stat_a)}")
+    # @staticmethod
+    # def run_post_strat_gbstats(
+    #     stat_a: List[TestStatistic],
+    #     stat_b: List[TestStatistic],
+    #     config: FrequentistConfig,
+    # ) -> TestResult:
+    #     var_names = ["Control", "Treatment1"]
+    #     var_id_map = {"0": 0, "1": 1}
+    #     if isinstance(stat_a[0], SampleMeanStatistic) or isinstance(
+    #         stat_a[0], ProportionStatistic
+    #     ):
+    #         metric = COUNT_METRIC
+    #     elif isinstance(stat_a[0], RegressionAdjustedStatistic):
+    #         metric = RA_METRIC
+    #     elif isinstance(stat_a[0], RatioStatistic):
+    #         metric = RATIO_METRIC
+    #     elif isinstance(stat_a[0], RegressionAdjustedRatioStatistic):
+    #         metric = RATIO_RA_METRIC
+    #     else:
+    #         raise ValueError(f"Unsupported statistic type: {type(stat_a)}")
 
-        analysis = AnalysisSettingsForStatsEngine(
-            var_names=["Current", "Dev-Compact"],
-            var_ids=["0", "1"],
-            weights=[0.5, 0.5],
-            baseline_index=0,
-            dimension="",
-            stats_engine="frequentist",
-            p_value_corrected=False,
-            sequential_testing_enabled=False,
-            sequential_tuning_parameter=5000.0,
-            difference_type=config.difference_type,
-            phase_length_days=191.625,
-            alpha=config.alpha,
-            max_dimensions=20,
-            traffic_percentage=1.0,
-            num_goal_metrics=6,
-            one_sided_intervals=False,
-        )
+    #     analysis = AnalysisSettingsForStatsEngine(
+    #         var_names=["Current", "Dev-Compact"],
+    #         var_ids=["0", "1"],
+    #         weights=[0.5, 0.5],
+    #         baseline_index=0,
+    #         dimension="",
+    #         stats_engine="frequentist",
+    #         p_value_corrected=False,
+    #         sequential_testing_enabled=False,
+    #         sequential_tuning_parameter=5000.0,
+    #         difference_type=config.difference_type,
+    #         phase_length_days=191.625,
+    #         alpha=config.alpha,
+    #         max_dimensions=20,
+    #         traffic_percentage=1.0,
+    #         num_goal_metrics=6,
+    #         one_sided_intervals=False,
+    #     )
 
-        num_cells = len(stat_a)
-        browsers = [f"browser_{i}" for i in range(num_cells)]
-        rows_a = [
-            CreateRow(s, dimension=b, variation="0").create_row()
-            for s, b in zip(stat_a, browsers)
-        ]
-        rows_b = [
-            CreateRow(s, dimension=b, variation="1").create_row()
-            for s, b in zip(stat_b, browsers)
-        ]
-        rows = pd.DataFrame(rows_a + rows_b)
-        rows = rows.rename(columns={"dimension": "dim_exp_browser"})
+    #     num_cells = len(stat_a)
+    #     browsers = [f"browser_{i}" for i in range(num_cells)]
+    #     rows_a = [
+    #         CreateRow(s, dimension=b, variation="0").create_row()
+    #         for s, b in zip(stat_a, browsers)
+    #     ]
+    #     rows_b = [
+    #         CreateRow(s, dimension=b, variation="1").create_row()
+    #         for s, b in zip(stat_b, browsers)
+    #     ]
+    #     rows = pd.DataFrame(rows_a + rows_b)
+    #     rows = rows.rename(columns={"dimension": "dim_exp_browser"})
 
-        df = get_metric_df(
-            rows=rows,
-            var_id_map=var_id_map,
-            var_names=var_names,
-            dimension="",
-            post_stratify=True,
-        )
-        reduced = copy.deepcopy(df)
-        stats_control = []
-        for dimension in range(0, reduced.shape[0]):
-            s = reduced.iloc[dimension]
-            stat = variation_statistic_from_metric_row(
-                row=s, prefix="baseline", metric=metric
-            )
-            stats_control.append(stat)
-        stats_variation = []
-        for dimension in range(0, reduced.shape[0]):
-            s = reduced.iloc[dimension]
-            stat = variation_statistic_from_metric_row(
-                row=s, prefix="v1", metric=metric
-            )
-            stats_variation.append(stat)
+    #     df = get_metric_dfs(
+    #         rows=rows,
+    #         var_id_map=var_id_map,
+    #         var_names=var_names,
+    #         dimension="",
+    #         post_stratify=True,
+    #     )
+    #     reduced = copy.deepcopy(df)
+    #     num_dimensions = len(reduced)
+    #     stats_control = []
+    #     for dimension in range(0, num_dimensions):
+    #         s = reduced[dimension].data
+    #         stat = variation_statistic_from_metric_row(
+    #             row=s, prefix="baseline", metric=metric
+    #         )
+    #         stats_control.append(stat)
+    #     stats_variation = []
+    #     for dimension in range(0, num_dimensions):
+    #         s = reduced[dimension].data
+    #         stat = variation_statistic_from_metric_row(
+    #             row=s, prefix="v1", metric=metric
+    #         )
+    #         stats_variation.append(stat)
 
-        stats = list(zip(stats_control, stats_variation))
-        return TwoSidedTTest(stats, config=config).compute_result()
+    #     stats = list(zip(stats_control, stats_variation))
+    #     return TwoSidedTTest(stats, config=config).compute_result()
 
     def setUp(self):
         self.stats_count_strata = [
@@ -680,6 +681,12 @@ class TestPostStratification(TestCase):
         ]
         self.moments_config_abs = EffectMomentsConfig(difference_type="absolute")
         self.moments_config_rel = EffectMomentsConfig(difference_type="relative")
+
+    def test_gbstats_post_stratification(self):
+        pass
+        # process_single_metric(
+        #     rows=self.rows, metric=self.metric, analyses=[self.analysis]
+        # )
 
     def test_zero_negative_variance(self):
         stats_count_strata = [

@@ -27,7 +27,7 @@ from gbstats.power.midexperimentpower import (
     MidExperimentPowerConfig,
 )
 
-from gbstats.models.tests import BaseConfig
+from gbstats.models.tests import BaseConfig, sum_stats
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -180,6 +180,9 @@ def get_metric_dfs(
 ) -> List[DimensionMetricData]:
     dfc = rows.copy()
     dimensions: Dict[str, InitialMetricDataStrata] = {}
+    dimension_column_name = (
+        "" if not dimension else get_dimension_column_name(dimension)
+    )
     dimension_column_name = (
         "" if not dimension else get_dimension_column_name(dimension)
     )
@@ -581,8 +584,15 @@ def analyze_metric_df(
         # insert baseline data in the appropriate position, uses test from last variation
         # but should be the same for the baseline
         # TODO: refactor to get these statistics directly
-        baseline_data = get_metric_response(d, test.stat_a, 0)
-
+        control_stats = []
+        # get one statistic per row (should be one row for non-post-stratified tests)
+        for _, row in d.iterrows():
+            control_stats.append(
+                variation_statistic_from_metric_row(row, "baseline", metric)
+            )
+        stats = list(zip(control_stats, control_stats))
+        stat_a_summed, _ = sum_stats(stats)
+        baseline_data = get_metric_response(d, stat_a_summed, 0)
         variation_data.insert(analysis.baseline_index, baseline_data)
 
         return DimensionResponse(
