@@ -101,7 +101,7 @@ export default function ExperimentCheckListModal({
             </div>
             <Box mb="2">
               {!experimentLaunchChecklist?.length ? (
-                <Text as="span" className="text-muted fst-italic">
+                <Text as="span" className="text-muted font-italic">
                   No tasks have been added yet.
                 </Text>
               ) : (
