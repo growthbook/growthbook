@@ -15,6 +15,7 @@ import { AuthRequest } from "./types/AuthRequest";
 import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
+  DISABLE_API_ROOT_PATH,
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
@@ -198,17 +199,21 @@ app.get("/robots.txt", (_req, res) => {
 app.use(compression());
 
 app.get("/", (req, res) => {
-  res.json({
-    name: "GrowthBook API",
-    production: ENVIRONMENT === "production",
-    api_host:
-      process.env.API_HOST ||
-      req.protocol + "://" + req.hostname + ":" + app.get("port"),
-    app_origin: APP_ORIGIN,
-    config_source: usingFileConfig() ? "file" : "db",
-    email_enabled: isEmailEnabled(),
-    build: getBuild(),
-  });
+  if (DISABLE_API_ROOT_PATH) {
+    res.json({ status: 200 });
+  } else {
+    res.json({
+      name: "GrowthBook API",
+      production: ENVIRONMENT === "production",
+      api_host:
+        process.env.API_HOST ||
+        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+      app_origin: APP_ORIGIN,
+      config_source: usingFileConfig() ? "file" : "db",
+      email_enabled: isEmailEnabled(),
+      build: getBuild(),
+    });
+  }
 });
 
 app.use(httpLogger);
