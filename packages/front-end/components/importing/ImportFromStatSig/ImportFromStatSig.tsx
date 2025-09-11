@@ -3,10 +3,7 @@ import { ProjectInterface } from "back-end/types/project";
 import PQueue from "p-queue";
 import { FeatureInterface } from "back-end/types/feature";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import {
-  FaCheck,
-  FaMinusCircle,
-} from "react-icons/fa";
+import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { cloneDeep } from "lodash";
 import { Environment } from "back-end/types/organization";
@@ -19,10 +16,9 @@ import {
 } from "@/services/statsig-importing";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Code from "@/components/SyntaxHighlighting/Code";
-import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import { ApiCallType, useAuth } from "@/services/auth";
+import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -43,8 +39,6 @@ interface FeatureImport {
   error?: string;
   existing?: FeatureInterface;
 }
-
-
 
 interface FeatureGateImport {
   key: string;
@@ -99,7 +93,6 @@ interface ImportData {
   error?: string;
 }
 
-
 async function buildImportedData(
   apiKey: string,
   intervalCap: number,
@@ -137,7 +130,7 @@ async function buildImportedData(
       try {
         console.log(`Fetching entities from StatSig`);
         const entities = await getAllStatSigEntities(apiKey, intervalCap);
-          
+
         console.log(`StatSig entities:`, {
           featureGates: entities.featureGates,
           dynamicConfigs: entities.dynamicConfigs,
@@ -228,44 +221,44 @@ async function runImport(
   // For now, just mark everything as completed since we're only fetching
   data = cloneDeep(data);
   data.status = "completed";
-  
+
   // Mark all entities as completed for now
   data.featureGates?.forEach((gate) => {
     if (gate.status === "pending") {
       gate.status = "completed";
     }
   });
-  
+
   data.dynamicConfigs?.forEach((config) => {
     if (config.status === "pending") {
       config.status = "completed";
     }
   });
-  
+
   data.experiments?.forEach((exp) => {
     if (exp.status === "pending") {
       exp.status = "completed";
     }
   });
-  
+
   data.segments?.forEach((segment) => {
     if (segment.status === "pending") {
       segment.status = "completed";
     }
   });
-  
+
   data.layers?.forEach((layer) => {
     if (layer.status === "pending") {
       layer.status = "completed";
     }
   });
-  
+
   data.metrics?.forEach((metric) => {
     if (metric.status === "pending") {
       metric.status = "completed";
     }
   });
-  
+
   callback(data);
 }
 
@@ -311,7 +304,6 @@ function ImportStatusDisplay({
     </Tooltip>
   );
 }
-
 
 function ImportHeader({
   name,
@@ -372,6 +364,19 @@ export default function ImportFromStatSig() {
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
+  const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
+
+  const toggleAccordion = (id: string) => {
+    setExpandedAccordions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
 
   const { features, mutate: mutateFeatures } = useFeaturesList(false);
   const { mutateDefinitions } = useDefinitions();
@@ -480,30 +485,45 @@ export default function ImportFromStatSig() {
                 <ImportHeader name="Feature Gates" items={data.featureGates} />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <table className="gbtable table w-auto">
+                    <table className="gbtable table w-100">
                       <thead>
                         <tr>
                           <th>Status</th>
                           <th>Name</th>
                           <th>Description</th>
                           <th>Enabled</th>
-                          <th></th>
+                          <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.featureGates?.map((gate, i) => (
-                          <tr key={i}>
-                            <td>
-                              <ImportStatusDisplay data={gate} />
-                            </td>
-                            <td>{gate.featureGate?.name}</td>
-                            <td>{gate.featureGate?.description}</td>
-                            <td>{gate.featureGate?.isEnabled ? "Yes" : "No"}</td>
-                            <td>
-                              <em>{gate.error}</em>
-                            </td>
-                          </tr>
-                        ))}
+                        {data.featureGates?.map((gate, i) => {
+                          const entityId = `featureGate-${i}`;
+                          const isExpanded = expandedAccordions.has(entityId);
+                          return (
+                            <React.Fragment key={i}>
+                              <tr>
+                                <td>
+                                  <ImportStatusDisplay data={gate} />
+                                </td>
+                                <td>{gate.featureGate?.name}</td>
+                                <td>{gate.featureGate?.description}</td>
+                                <td>
+                                  {gate.featureGate?.isEnabled ? "Yes" : "No"}
+                                </td>
+                                <EntityAccordion 
+                                  entity={gate.featureGate} 
+                                  entityId={entityId}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleAccordion}
+                                />
+                              </tr>
+                              <EntityAccordionContent 
+                                entity={gate.featureGate} 
+                                isExpanded={isExpanded}
+                              />
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -512,38 +532,47 @@ export default function ImportFromStatSig() {
             ) : null}
             {data.dynamicConfigs ? (
               <div className="appbox mb-4">
-                <ImportHeader name="Dynamic Configs" items={data.dynamicConfigs} />
+                <ImportHeader
+                  name="Dynamic Configs"
+                  items={data.dynamicConfigs}
+                />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <table className="gbtable table w-auto">
+                    <table className="gbtable table w-100">
                       <thead>
                         <tr>
                           <th>Status</th>
                           <th>Name</th>
                           <th>Description</th>
-                          <th>Default Value</th>
-                          <th></th>
+                          <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.dynamicConfigs?.map((config, i) => (
-                          <tr key={i}>
-                            <td>
-                              <ImportStatusDisplay data={config} />
-                            </td>
-                            <td>{config.dynamicConfig?.name}</td>
-                            <td>{config.dynamicConfig?.description}</td>
-                            <td>
-                              <Code
-                                language="json"
-                                code={JSON.stringify(config.dynamicConfig?.default_value, null, 2)}
+                        {data.dynamicConfigs?.map((config, i) => {
+                          const entityId = `dynamicConfig-${i}`;
+                          const isExpanded = expandedAccordions.has(entityId);
+                          return (
+                            <React.Fragment key={i}>
+                              <tr>
+                                <td>
+                                  <ImportStatusDisplay data={config} />
+                                </td>
+                                <td>{config.dynamicConfig?.name}</td>
+                                <td>{config.dynamicConfig?.description}</td>
+                                <EntityAccordion 
+                                  entity={config.dynamicConfig} 
+                                  entityId={entityId}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleAccordion}
+                                />
+                              </tr>
+                              <EntityAccordionContent 
+                                entity={config.dynamicConfig} 
+                                isExpanded={isExpanded}
                               />
-                            </td>
-                            <td>
-                              <em>{config.error}</em>
-                            </td>
-                          </tr>
-                        ))}
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -555,30 +584,43 @@ export default function ImportFromStatSig() {
                 <ImportHeader name="Experiments" items={data.experiments} />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <table className="gbtable table w-auto">
+                    <table className="gbtable table w-100">
                       <thead>
                         <tr>
                           <th>Status</th>
                           <th>Name</th>
                           <th>Status</th>
                           <th>Primary Metric</th>
-                          <th></th>
+                          <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.experiments?.map((exp, i) => (
-                          <tr key={i}>
-                            <td>
-                              <ImportStatusDisplay data={exp} />
-                            </td>
-                            <td>{exp.experiment?.name}</td>
-                            <td>{exp.experiment?.status}</td>
-                            <td>{exp.experiment?.primary_metric}</td>
-                            <td>
-                              <em>{exp.error}</em>
-                            </td>
-                          </tr>
-                        ))}
+                        {data.experiments?.map((exp, i) => {
+                          const entityId = `experiment-${i}`;
+                          const isExpanded = expandedAccordions.has(entityId);
+                          return (
+                            <React.Fragment key={i}>
+                              <tr>
+                                <td>
+                                  <ImportStatusDisplay data={exp} />
+                                </td>
+                                <td>{exp.experiment?.name}</td>
+                                <td>{exp.experiment?.status}</td>
+                                <td>{exp.experiment?.primary_metric}</td>
+                                <EntityAccordion 
+                                  entity={exp.experiment} 
+                                  entityId={entityId}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleAccordion}
+                                />
+                              </tr>
+                              <EntityAccordionContent 
+                                entity={exp.experiment} 
+                                isExpanded={isExpanded}
+                              />
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -590,30 +632,43 @@ export default function ImportFromStatSig() {
                 <ImportHeader name="Segments" items={data.segments} />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <table className="gbtable table w-auto">
+                    <table className="gbtable table w-100">
                       <thead>
                         <tr>
                           <th>Status</th>
                           <th>Name</th>
                           <th>Type</th>
                           <th>Description</th>
-                          <th></th>
+                          <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.segments?.map((segment, i) => (
-                          <tr key={i}>
-                            <td>
-                              <ImportStatusDisplay data={segment} />
-                            </td>
-                            <td>{segment.segment?.name}</td>
-                            <td>{segment.segment?.type}</td>
-                            <td>{segment.segment?.description}</td>
-                            <td>
-                              <em>{segment.error}</em>
-                            </td>
-                          </tr>
-                        ))}
+                        {data.segments?.map((segment, i) => {
+                          const entityId = `segment-${i}`;
+                          const isExpanded = expandedAccordions.has(entityId);
+                          return (
+                            <React.Fragment key={i}>
+                              <tr>
+                                <td>
+                                  <ImportStatusDisplay data={segment} />
+                                </td>
+                                <td>{segment.segment?.name}</td>
+                                <td>{segment.segment?.type}</td>
+                                <td>{segment.segment?.description}</td>
+                                <EntityAccordion 
+                                  entity={segment.segment} 
+                                  entityId={entityId}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleAccordion}
+                                />
+                              </tr>
+                              <EntityAccordionContent 
+                                entity={segment.segment} 
+                                isExpanded={isExpanded}
+                              />
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -625,28 +680,41 @@ export default function ImportFromStatSig() {
                 <ImportHeader name="Layers" items={data.layers} />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <table className="gbtable table w-auto">
+                    <table className="gbtable table w-100">
                       <thead>
                         <tr>
                           <th>Status</th>
                           <th>Name</th>
                           <th>Description</th>
-                          <th></th>
+                          <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.layers?.map((layer, i) => (
-                          <tr key={i}>
-                            <td>
-                              <ImportStatusDisplay data={layer} />
-                            </td>
-                            <td>{layer.layer?.name || layer.layer?.id}</td>
-                            <td>{layer.layer?.description}</td>
-                            <td>
-                              <em>{layer.error}</em>
-                            </td>
-                          </tr>
-                        ))}
+                        {data.layers?.map((layer, i) => {
+                          const entityId = `layer-${i}`;
+                          const isExpanded = expandedAccordions.has(entityId);
+                          return (
+                            <React.Fragment key={i}>
+                              <tr>
+                                <td>
+                                  <ImportStatusDisplay data={layer} />
+                                </td>
+                                <td>{layer.layer?.name || layer.layer?.id}</td>
+                                <td>{layer.layer?.description}</td>
+                                <EntityAccordion 
+                                  entity={layer.layer} 
+                                  entityId={entityId}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleAccordion}
+                                />
+                              </tr>
+                              <EntityAccordionContent 
+                                entity={layer.layer} 
+                                isExpanded={isExpanded}
+                              />
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -658,30 +726,43 @@ export default function ImportFromStatSig() {
                 <ImportHeader name="Metrics" items={data.metrics} />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
-                    <table className="gbtable table w-auto">
+                    <table className="gbtable table w-100">
                       <thead>
                         <tr>
                           <th>Status</th>
                           <th>Name</th>
                           <th>Type</th>
                           <th>Description</th>
-                          <th></th>
+                          <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.metrics?.map((metric, i) => (
-                          <tr key={i}>
-                            <td>
-                              <ImportStatusDisplay data={metric} />
-                            </td>
-                            <td>{metric.metric?.name || metric.metric?.id}</td>
-                            <td>{metric.metric?.type}</td>
-                            <td>{metric.metric?.description}</td>
-                            <td>
-                              <em>{metric.error}</em>
-                            </td>
-                          </tr>
-                        ))}
+                        {data.metrics?.map((metric, i) => {
+                          const entityId = `metric-${i}`;
+                          const isExpanded = expandedAccordions.has(entityId);
+                          return (
+                            <React.Fragment key={i}>
+                              <tr>
+                                <td>
+                                  <ImportStatusDisplay data={metric} />
+                                </td>
+                                <td>{metric.metric?.name || metric.metric?.id}</td>
+                                <td>{metric.metric?.type}</td>
+                                <td>{metric.metric?.description}</td>
+                                <EntityAccordion 
+                                  entity={metric.metric} 
+                                  entityId={entityId}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleAccordion}
+                                />
+                              </tr>
+                              <EntityAccordionContent 
+                                entity={metric.metric} 
+                                isExpanded={isExpanded}
+                              />
+                            </React.Fragment>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

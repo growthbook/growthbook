@@ -1,7 +1,6 @@
 // StatSig importing utilities
 // Based on StatSig Console API documentation
 
-
 export type StatSigFeatureGate = {
   id: string;
   name: string;
@@ -32,7 +31,7 @@ export type StatSigDynamicConfig = {
 export type StatSigExperiment = {
   name: string;
   description?: string;
-  status: 'draft' | 'running' | 'stopped';
+  status: "draft" | "running" | "stopped";
   hypothesis?: string;
   primary_metric: string;
   secondary_metrics?: string[];
@@ -76,14 +75,14 @@ export type StatSigHoldout = {
 export type StatSigSavedGroup = {
   name: string;
   description?: string;
-  type: 'static' | 'dynamic';
+  type: "static" | "dynamic";
   members?: string[];
   conditions?: StatSigCondition[];
 };
 
 export type StatSigAttribute = {
   name: string;
-  type: 'string' | 'number' | 'boolean' | 'array';
+  type: "string" | "number" | "boolean" | "array";
   description?: string;
 };
 
@@ -110,16 +109,16 @@ export type StatSigSavedGroupsResponse = {
 async function getFromStatSig<ResType>(
   endpoint: string,
   apiKey: string,
-  method: string = 'GET',
+  method: string = "GET",
 ): Promise<ResType> {
   const url = `https://statsigapi.net/console/v1/${endpoint}`;
-  
+
   const fetchOptions: RequestInit = {
     method,
     headers: {
-      'STATSIG-API-KEY': apiKey,
-      'STATSIG-API-VERSION': '20240601',
-      'Content-Type': 'application/json',
+      "STATSIG-API-KEY": apiKey,
+      "STATSIG-API-VERSION": "20240601",
+      "Content-Type": "application/json",
     },
   };
 
@@ -127,12 +126,13 @@ async function getFromStatSig<ResType>(
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`StatSig Console API error (${url}): ${response.status} ${response.statusText} - ${errorText}`);
+    throw new Error(
+      `StatSig Console API error (${url}): ${response.status} ${response.statusText} - ${errorText}`,
+    );
   }
 
   return response.json();
 }
-
 
 /**
  * Fetch feature gates (based on Console API endpoints)
@@ -140,7 +140,7 @@ async function getFromStatSig<ResType>(
 export const getStatSigFeatureGates = async (
   apiKey: string,
 ): Promise<StatSigFeatureGatesResponse> => {
-  return getFromStatSig('gates', apiKey, 'GET');
+  return getFromStatSig("gates", apiKey, "GET");
 };
 
 /**
@@ -149,7 +149,7 @@ export const getStatSigFeatureGates = async (
 export const getStatSigDynamicConfigs = async (
   apiKey: string,
 ): Promise<StatSigDynamicConfigsResponse> => {
-  return getFromStatSig('dynamic_configs', apiKey, 'GET');
+  return getFromStatSig("dynamic_configs", apiKey, "GET");
 };
 
 /**
@@ -158,7 +158,7 @@ export const getStatSigDynamicConfigs = async (
 export const getStatSigExperiments = async (
   apiKey: string,
 ): Promise<StatSigExperimentsResponse> => {
-  return getFromStatSig('experiments', apiKey, 'GET');
+  return getFromStatSig("experiments", apiKey, "GET");
 };
 
 /**
@@ -167,25 +167,21 @@ export const getStatSigExperiments = async (
 export const getStatSigSegments = async (
   apiKey: string,
 ): Promise<StatSigSavedGroupsResponse> => {
-  return getFromStatSig('segments', apiKey, 'GET');
+  return getFromStatSig("segments", apiKey, "GET");
 };
 
 /**
  * Fetch layers (based on Console API endpoints)
  */
-export const getStatSigLayers = async (
-  apiKey: string,
-): Promise<any> => {
-  return getFromStatSig('layers', apiKey, 'GET');
+export const getStatSigLayers = async (apiKey: string): Promise<any> => {
+  return getFromStatSig("layers", apiKey, "GET");
 };
 
 /**
  * Fetch metrics (based on Console API endpoints)
  */
-export const getStatSigMetrics = async (
-  apiKey: string,
-): Promise<any> => {
-  return getFromStatSig('metrics/list', apiKey, 'GET');
+export const getStatSigMetrics = async (apiKey: string): Promise<any> => {
+  return getFromStatSig("metrics/list", apiKey, "GET");
 };
 
 /**
@@ -196,18 +192,18 @@ async function fetchAllPages(
   apiKey: string,
   intervalCap: number = 50,
 ): Promise<any[]> {
-  const PQueue = (await import('p-queue')).default;
+  const PQueue = (await import("p-queue")).default;
   const queue = new PQueue({ interval: 10000, intervalCap: intervalCap });
-  
+
   const allData: any[] = [];
   let pageNumber = 1;
   let hasMorePages = true;
 
   while (hasMorePages) {
-    const response = await queue.add(async () => {
-      return getFromStatSig(`${endpoint}?page=${pageNumber}`, apiKey, 'GET');
-    }) as any;
-    
+    const response = (await queue.add(async () => {
+      return getFromStatSig(`${endpoint}?page=${pageNumber}`, apiKey, "GET");
+    })) as any;
+
     if (response.data && response.data.length > 0) {
       allData.push(...response.data);
     }
@@ -235,12 +231,12 @@ export const getAllStatSigEntities = async (
     layersData,
     metricsData,
   ] = await Promise.all([
-    fetchAllPages('gates', apiKey, intervalCap),
-    fetchAllPages('dynamic_configs', apiKey, intervalCap),
-    fetchAllPages('experiments', apiKey, intervalCap),
-    fetchAllPages('segments', apiKey, intervalCap),
-    fetchAllPages('layers', apiKey, intervalCap),
-    fetchAllPages('metrics/list', apiKey, intervalCap),
+    fetchAllPages("gates", apiKey, intervalCap),
+    fetchAllPages("dynamic_configs", apiKey, intervalCap),
+    fetchAllPages("experiments", apiKey, intervalCap),
+    fetchAllPages("segments", apiKey, intervalCap),
+    fetchAllPages("layers", apiKey, intervalCap),
+    fetchAllPages("metrics/list", apiKey, intervalCap),
   ]);
 
   return {
