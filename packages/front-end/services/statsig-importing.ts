@@ -105,22 +105,32 @@ export type StatSigSavedGroupsResponse = {
 };
 
 /**
- * Make a request to StatSig Console API via GrowthBook proxy
+ * Make a direct request to StatSig Console API
  */
 async function getFromStatSig<ResType>(
   endpoint: string,
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
   method: string = 'GET',
 ): Promise<ResType> {
-  return apiCall('/statsig-proxy', {
-    method: 'POST',
-    body: JSON.stringify({
-      endpoint,
-      apiKey,
-      method,
-    }),
-  });
+  const url = `https://statsigapi.net/console/v1/${endpoint}`;
+  
+  const fetchOptions: RequestInit = {
+    method,
+    headers: {
+      'STATSIG-API-KEY': apiKey,
+      'STATSIG-API-VERSION': '20240601',
+      'Content-Type': 'application/json',
+    },
+  };
+
+  const response = await fetch(url, fetchOptions);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`StatSig Console API error (${url}): ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  return response.json();
 }
 
 
@@ -129,9 +139,8 @@ async function getFromStatSig<ResType>(
  */
 export const getStatSigFeatureGates = async (
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
 ): Promise<StatSigFeatureGatesResponse> => {
-  return getFromStatSig('gates', apiKey, apiCall, 'GET');
+  return getFromStatSig('gates', apiKey, 'GET');
 };
 
 /**
@@ -139,9 +148,8 @@ export const getStatSigFeatureGates = async (
  */
 export const getStatSigDynamicConfigs = async (
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
 ): Promise<StatSigDynamicConfigsResponse> => {
-  return getFromStatSig('dynamic_configs', apiKey, apiCall, 'GET');
+  return getFromStatSig('dynamic_configs', apiKey, 'GET');
 };
 
 /**
@@ -149,9 +157,8 @@ export const getStatSigDynamicConfigs = async (
  */
 export const getStatSigExperiments = async (
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
 ): Promise<StatSigExperimentsResponse> => {
-  return getFromStatSig('experiments', apiKey, apiCall, 'GET');
+  return getFromStatSig('experiments', apiKey, 'GET');
 };
 
 /**
@@ -159,9 +166,8 @@ export const getStatSigExperiments = async (
  */
 export const getStatSigSegments = async (
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
 ): Promise<StatSigSavedGroupsResponse> => {
-  return getFromStatSig('segments', apiKey, apiCall, 'GET');
+  return getFromStatSig('segments', apiKey, 'GET');
 };
 
 /**
@@ -169,9 +175,8 @@ export const getStatSigSegments = async (
  */
 export const getStatSigLayers = async (
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
 ): Promise<any> => {
-  return getFromStatSig('layers', apiKey, apiCall, 'GET');
+  return getFromStatSig('layers', apiKey, 'GET');
 };
 
 /**
@@ -179,9 +184,8 @@ export const getStatSigLayers = async (
  */
 export const getStatSigMetrics = async (
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
 ): Promise<any> => {
-  return getFromStatSig('metrics/list', apiKey, apiCall, 'GET');
+  return getFromStatSig('metrics/list', apiKey, 'GET');
 };
 
 /**
@@ -190,7 +194,6 @@ export const getStatSigMetrics = async (
 async function fetchAllPages(
   endpoint: string,
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
   intervalCap: number = 50,
 ): Promise<any[]> {
   const PQueue = (await import('p-queue')).default;
@@ -202,7 +205,7 @@ async function fetchAllPages(
 
   while (hasMorePages) {
     const response = await queue.add(async () => {
-      return getFromStatSig(`${endpoint}?page=${pageNumber}`, apiKey, apiCall, 'GET');
+      return getFromStatSig(`${endpoint}?page=${pageNumber}`, apiKey, 'GET');
     }) as any;
     
     if (response.data && response.data.length > 0) {
@@ -222,7 +225,6 @@ async function fetchAllPages(
  */
 export const getAllStatSigEntities = async (
   apiKey: string,
-  apiCall: (path: string, options?: any) => Promise<any>,
   intervalCap: number = 50,
 ) => {
   const [
@@ -233,12 +235,12 @@ export const getAllStatSigEntities = async (
     layersData,
     metricsData,
   ] = await Promise.all([
-    fetchAllPages('gates', apiKey, apiCall, intervalCap),
-    fetchAllPages('dynamic_configs', apiKey, apiCall, intervalCap),
-    fetchAllPages('experiments', apiKey, apiCall, intervalCap),
-    fetchAllPages('segments', apiKey, apiCall, intervalCap),
-    fetchAllPages('layers', apiKey, apiCall, intervalCap),
-    fetchAllPages('metrics/list', apiKey, apiCall, intervalCap),
+    fetchAllPages('gates', apiKey, intervalCap),
+    fetchAllPages('dynamic_configs', apiKey, intervalCap),
+    fetchAllPages('experiments', apiKey, intervalCap),
+    fetchAllPages('segments', apiKey, intervalCap),
+    fetchAllPages('layers', apiKey, intervalCap),
+    fetchAllPages('metrics/list', apiKey, intervalCap),
   ]);
 
   return {

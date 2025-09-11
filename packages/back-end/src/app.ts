@@ -80,9 +80,6 @@ const informationSchemasController = wrapController(
   informationSchemasControllerRaw,
 );
 
-import * as statsigProxyControllerRaw from "./controllers/statsig-proxy";
-const statsigProxyController = wrapController(statsigProxyControllerRaw);
-
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -946,9 +943,6 @@ app.get("/meta/ai", (req, res) => {
 });
 
 app.use("/ai", aiRouter);
-
-// StatSig Proxy
-app.post("/statsig-proxy", statsigProxyController.statsigProxy);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

@@ -136,7 +136,7 @@ async function buildImportedData(
     queue.add(async () => {
       try {
         console.log(`Fetching entities from StatSig`);
-        const entities = await getAllStatSigEntities(apiKey, apiCall, intervalCap);
+        const entities = await getAllStatSigEntities(apiKey, intervalCap);
           
         console.log(`StatSig entities:`, {
           featureGates: entities.featureGates,
