@@ -87,14 +87,16 @@ export default function TeamModal({
           />
         </div>
       )}
-      <SelectField
-        label="Default Project"
-        value={form.watch("defaultProject")}
-        onChange={(p) => form.setValue("defaultProject", p)}
-        name="project"
-        initialOption="All Projects"
-        options={availableProjects}
-      />
+      {availableProjects.length > 0 && (
+        <SelectField
+          label="Default Project"
+          value={form.watch("defaultProject")}
+          onChange={(p) => form.setValue("defaultProject", p)}
+          name="project"
+          initialOption="All Projects"
+          options={availableProjects}
+        />
+      )}
     </Modal>
   );
 }
