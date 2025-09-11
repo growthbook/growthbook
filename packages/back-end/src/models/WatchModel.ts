@@ -104,6 +104,7 @@ export async function deleteWatchedByEntityForAllUsers({
   return await WatchModel.updateMany(
     {
       organization: organization,
+      [type]: item,
     },
     {
       $pull: {
