@@ -9,7 +9,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Link from "@/ui/Link";
-import styles from "./RadixOverrides.module.scss";
+import styles from "./Callout.module.scss";
 
 export type Props = {
   commercialFeature: CommercialFeature;

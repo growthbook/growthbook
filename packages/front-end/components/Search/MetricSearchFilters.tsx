@@ -3,10 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { MetricTableItem } from "@/components/Metrics/MetricsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tag from "@/components/Tags/Tag";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import {
   BaseSearchFiltersProps,
   FilterDropdown,
