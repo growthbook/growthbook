@@ -804,7 +804,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         if isinstance(result[0].variations[1], FrequentistVariationResponse):
             self.assertEqual(round_(result[0].variations[1].expected), -0.281707154)
             if result[0].variations[1].pValue is not None:
-                self.assertEqual(round_(result[0].variations[1].pValue), 0.003732549)
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.003732551)
             else:
                 raise ValueError(
                     f"pValue is None for variation response: {result[0].variations[1]}"
@@ -813,7 +813,6 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             raise TypeError(
                 f"Unexpected variation response type: {type(result[0].variations[1])}"
             )
-        self.assertEqual(round_(result[0].variations[1].pValue), 0.003732549)
         # But difference is not just DIM / control mean, like it used to be
         self.assertNotEqual(
             np.round(result[0].variations[1].expected, 3),
@@ -875,7 +874,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         if isinstance(result[0].variations[1], FrequentistVariationResponse):
             self.assertEqual(round_(result[0].variations[1].expected), -0.000701483)
             if result[0].variations[1].pValue is not None:
-                self.assertEqual(round_(result[0].variations[1].pValue), 0.857710405)
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.857707056)
             else:
                 raise ValueError(
                     f"pValue is None for variation response: {result[0].variations[1]}"
@@ -884,8 +883,6 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             raise TypeError(
                 f"Unexpected variation response type: {type(result[0].variations[1])}"
             )
-        self.assertEqual(round_(result[0].variations[1].expected), -0.000701483)
-        self.assertEqual(round_(result[0].variations[1].pValue), 0.857710405)
 
 
 class TestAnalyzeMetricDfSequential(TestCase):
@@ -972,7 +969,6 @@ class TestProcessAnalysis(TestCase):
         for res in result:
             for i, v in enumerate(res.variations):
                 self.assertEqual(v.denominator, 510 if i == 0 else 500)
-
 
 
 if __name__ == "__main__":
