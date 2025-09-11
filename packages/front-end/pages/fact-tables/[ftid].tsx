@@ -35,6 +35,7 @@ import {
 } from "@/components/Radix/Tabs";
 import Badge from "@/components/Radix/Badge";
 import Frame from "@/components/Radix/Frame";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -46,6 +47,8 @@ export default function FactTablePage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
 
   const [duplicateFactTable, setDuplicateFactTable] = useState<
     FactTableInterface | undefined
@@ -88,6 +91,21 @@ export default function FactTablePage() {
     <div className="pagecontents container-fluid">
       {editOpen && (
         <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
+      )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          resourceType="Fact Table"
+          close={() => setShowConvertToOfficialModal(false)}
+          onSubmit={async () => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "api",
+              }),
+            });
+            await mutateDefinitions();
+          }}
+        />
       )}
       {duplicateFactTable && (
         <FactTableModal
@@ -198,6 +216,17 @@ export default function FactTablePage() {
               >
                 Edit Fact Table
               </button>
+              {!factTable.managedBy ? (
+                <button
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowConvertToOfficialModal(true);
+                  }}
+                >
+                  Convert to Official Fact Table
+                </button>
+              ) : null}
               <button
                 className="dropdown-item"
                 onClick={(e) => {

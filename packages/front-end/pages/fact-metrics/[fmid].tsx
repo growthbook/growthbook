@@ -61,6 +61,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/Radix/DropdownMenu";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -164,6 +165,8 @@ export default function FactMetricPage() {
   const [auditModal, setAuditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(false);
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
@@ -378,6 +381,21 @@ export default function FactMetricPage() {
           <HistoryTable type="metric" id={factMetric.id} />
         </Modal>
       )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          resourceType="Fact Metric"
+          close={() => setShowConvertToOfficialModal(false)}
+          onSubmit={async () => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "api",
+              }),
+            });
+            await mutateDefinitions();
+          }}
+        />
+      )}
       {showDeleteModal && (
         <Modal
           trackingEventModalType=""
@@ -522,6 +540,16 @@ export default function FactMetricPage() {
             >
               Audit log
             </DropdownMenuItem>
+            {!factMetric.managedBy ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setShowConvertToOfficialModal(true);
+                }}
+              >
+                Convert to Official Fact Metric
+              </DropdownMenuItem>
+            ) : null}
             {canEdit || canDelete ? <DropdownMenuSeparator /> : null}
             {canEdit && (
               <DropdownMenuItem
