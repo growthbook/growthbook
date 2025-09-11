@@ -656,7 +656,15 @@ app.put(
 );
 app.get(
   "/experiments/launch-checklist",
-  experimentLaunchChecklistController.getExperimentCheckListByOrg,
+  experimentLaunchChecklistController.getExperimentCheckList,
+);
+app.get(
+  "/experiment/:id/launch-checklist/",
+  experimentLaunchChecklistController.getExperimentCheckListByExperiment,
+);
+app.delete(
+  "/experiments/launch-checklist/:checklistId",
+  experimentLaunchChecklistController.deleteProjectScopedExperimentLaunchChecklist,
 );
 app.put(
   "/experiment/:id/launch-checklist",
