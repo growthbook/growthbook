@@ -8,7 +8,7 @@ import { DocLink, DocSection } from "@/components/DocLink";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import styles from "./RadixOverrides.module.scss";
 
 export type Props = {
