@@ -279,6 +279,19 @@ export const CLICKHOUSE_MAIN_TABLE = process.env.CLICKHOUSE_MAIN_TABLE || "";
 export const CLICKHOUSE_DEV_PREFIX =
   process.env.CLICKHOUSE_DEV_PREFIX || "test_";
 
+export const OPENID_CACHE = stringToBoolean(process.env.OPENID_CACHE, true);
+export const OPENID_CACHE_MAX_ENTRIES =
+  parseInt(process.env.OPENID_CACHE_MAX_ENTRIES || "") || 50;
+// Undefined means we use the library default which is currently 10 minutes
+export const OPENID_CACHE_MAX_AGE =
+  parseInt(process.env.OPENID_CACHE_MAX_AGE || "") || undefined;
+export const OPENID_RATE_LIMIT = stringToBoolean(
+  process.env.OPENID_RATE_LIMIT,
+  true,
+);
+export const OPENID_JWKS_REQUESTS_PER_MINUTE =
+  parseInt(process.env.OPENID_JWKS_REQUESTS_PER_MINUTE || "") || 5;
+
 export type SecretsReplacer = <T extends string | Record<string, string>>(
   s: T,
   options?: {
