@@ -3,7 +3,7 @@
 export default {
   js: {
     name: "JS SDK",
-    version: "1.6.1",
+    version: "1.6.2",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -68,7 +68,7 @@ export default {
   },
   react: {
     name: "React SDK",
-    version: "1.6.1",
+    version: "1.6.2",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
@@ -232,7 +232,7 @@ export default {
   },
   node: {
     name: "Node SDK",
-    version: "1.6.1",
+    version: "1.6.2",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
@@ -648,7 +648,7 @@ export default {
   },
   reactNative: {
     name: "React Native SDK",
-    version: "1.6.1",
+    version: "1.6.2",
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
