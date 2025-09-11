@@ -285,11 +285,11 @@ class BaseABTest(ABC):
             else:
                 # override statistic with theta initialized
                 self.stat_a = RegressionAdjustedStatistic(
-                    **asdict(self.stat_a),
+                    **{k: v for k, v in asdict(self.stat_a).items() if k != "theta"},
                     theta=theta,
                 )
                 self.stat_b = RegressionAdjustedStatistic(
-                    **asdict(self.stat_b),
+                    **{k: v for k, v in asdict(self.stat_b).items() if k != "theta"},
                     theta=theta,
                 )
         if (
@@ -314,11 +314,11 @@ class BaseABTest(ABC):
                 )
             else:
                 self.stat_a = RegressionAdjustedRatioStatistic(
-                    **asdict(self.stat_a),
+                    **{k: v for k, v in asdict(self.stat_a).items() if k != "theta"},
                     theta=theta,
                 )
                 self.stat_b = RegressionAdjustedRatioStatistic(
-                    **asdict(self.stat_b),
+                    **{k: v for k, v in asdict(self.stat_b).items() if k != "theta"},
                     theta=theta,
                 )
 

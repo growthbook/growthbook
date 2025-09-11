@@ -511,11 +511,11 @@ def compute_theta_regression_adjusted_ratio(
 ) -> float:
     # set theta equal to 1, so the partial derivatives are unaffected by theta
     a_one = RegressionAdjustedRatioStatistic(
-        **asdict(a),
+        **{k: v for k, v in asdict(a).items() if k != "theta"},
         theta=1,
     )
     b_one = RegressionAdjustedRatioStatistic(
-        **asdict(b),
+        **{k: v for k, v in asdict(b).items() if k != "theta"},
         theta=1,
     )
     if a_one.var_pre + b_one.var_pre == 0:

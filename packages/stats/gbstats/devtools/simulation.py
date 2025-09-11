@@ -197,7 +197,6 @@ class CreateStatistic:
                 post_pre_sum_of_products=post_pre_sum_of_products,
                 theta=None,
             )
-            stat.theta = stat.covariance / stat.pre_statistic.variance
             return stat
         elif self.statistic_type == "regression_adjusted_ratio":
             if self.x is None:
