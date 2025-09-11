@@ -21,8 +21,11 @@ export default class Databricks extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return databricksCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {},
+      this.datasource.settings.pipelineSettings,
     );
   }
   getFormatDialect(): FormatDialect {

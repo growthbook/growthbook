@@ -844,6 +844,11 @@ if (IS_CLOUD) {
   );
 }
 
+app.post(
+  "/datasource/:id/pipeline/validate",
+  datasourcesController.postValidatePipelineSettings,
+);
+
 // Information Schemas
 app.get(
   "/datasource/:datasourceId/schema/table/:tableId",

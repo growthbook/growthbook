@@ -17,8 +17,11 @@ export default class Snowflake extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return snowflakeCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {},
+      this.datasource.settings.pipelineSettings,
     );
   }
   getFormatDialect(): FormatDialect {

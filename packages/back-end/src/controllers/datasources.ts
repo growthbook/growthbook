@@ -2,6 +2,13 @@ import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
+import {
+  DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE,
+  getPipelineValidationCreateTableQuery,
+  getPipelineValidationDropTableQuery,
+  getPipelineValidationInsertQuery,
+  type PipelineValidationResults,
+} from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -26,6 +33,7 @@ import {
   runFreeFormQuery,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
   getQueriesByDatasource,
   getQueriesByIds,
@@ -521,6 +529,155 @@ export async function putDataSource(
       message: e.message || "An error occurred",
     });
   }
+}
+
+/**
+ * Validates the pipeline settings for the given data source.
+ * Ensures we can create a table, insert data and drop the table.
+ */
+export async function postValidatePipelineSettings(
+  req: AuthRequest<
+    {
+      pipelineSettings: DataSourceSettings["pipelineSettings"];
+    },
+    { id: string }
+  >,
+  res: Response<
+    | { message: string }
+    | { tableName?: string; results: PipelineValidationResults }
+  >,
+) {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    return res.status(404).json({ message: "Cannot find data source" });
+  }
+
+  if (!context.permissions.canRunPipelineValidationQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { pipelineSettings } = req.body;
+  if (!pipelineSettings) {
+    return res.status(400).json({
+      message: "Pipeline settings are required to be validated",
+    });
+  }
+
+  if (!DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE.includes(datasource.type)) {
+    return res.status(400).json({
+      message: "This data source does not support pipeline mode.",
+    });
+  }
+
+  if (!pipelineSettings.allowWriting) {
+    return res.status(200).json({
+      results: {
+        create: {
+          result: "skipped",
+          resultMessage: "Skipped because allowWriting is false",
+        },
+        insert: {
+          result: "skipped",
+          resultMessage: "Skipped because allowWriting is false",
+        },
+        drop: {
+          result: "skipped",
+          resultMessage: "Skipped because allowWriting is false",
+        },
+      },
+    });
+  }
+
+  const integration = getSourceIntegrationObject(context, {
+    ...datasource,
+    settings: {
+      ...datasource.settings,
+      pipelineSettings,
+    },
+  });
+
+  if (!(integration instanceof SqlIntegration)) {
+    return res.status(400).json({
+      message: "This data source does not support ad-hoc validation.",
+    });
+  }
+
+  const randomSuffix = Math.random().toString(36).substring(2, 7);
+  const testTableName = `gb_pipeline_validate_${randomSuffix}`;
+
+  const fullTestTablePath = integration.generateTablePath(
+    testTableName,
+    pipelineSettings.writeDataset,
+    pipelineSettings.writeDatabase,
+    true,
+  );
+
+  const results: PipelineValidationResults = {
+    create: { result: "skipped" },
+    insert: { result: "skipped" },
+    drop: { result: "skipped" },
+  };
+
+  try {
+    await integration.runTestQuery(
+      getPipelineValidationCreateTableQuery({
+        tableFullName: fullTestTablePath,
+        integration,
+      }),
+    );
+    results.create.result = "success";
+  } catch (e) {
+    results.create = {
+      result: "failed",
+      resultMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  try {
+    if (results.create.result === "success") {
+      await integration.runTestQuery(
+        getPipelineValidationInsertQuery({
+          tableFullName: fullTestTablePath,
+        }),
+      );
+      results.insert.result = "success";
+    } else {
+      results.insert = {
+        result: "skipped",
+        resultMessage: "Skipped due to create failure",
+      };
+    }
+  } catch (e) {
+    results.insert = {
+      result: "failed",
+      resultMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  try {
+    if (results.create.result === "success") {
+      await integration.runTestQuery(
+        getPipelineValidationDropTableQuery({
+          tableFullName: fullTestTablePath,
+        }),
+      );
+      results.drop.result = "success";
+    } else {
+      results.drop = {
+        result: "skipped",
+        resultMessage: "Skipped due to create failure",
+      };
+    }
+  } catch (e) {
+    results.drop = {
+      result: "failed",
+      resultMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  res.status(200).json({ tableName: fullTestTablePath, results });
 }
 
 export async function updateExposureQuery(
