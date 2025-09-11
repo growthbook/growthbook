@@ -154,7 +154,7 @@ function useTeamProjectConstraint() {
 
     const defaultProjects = new Set<string>();
     (teams || []).forEach((team) => {
-      if (team?.defaultProject && user!.teams!.includes(team.id)) {
+      if (team?.defaultProject && user?.teams?.includes(team.id)) {
         defaultProjects.add(team.defaultProject);
       }
     });
