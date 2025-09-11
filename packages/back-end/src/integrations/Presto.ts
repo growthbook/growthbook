@@ -90,7 +90,11 @@ export default class Presto extends SqlIntegration {
           }
         },
         success: () => {
-          resolve({ rows: rows, statistics: statistics });
+          resolve({
+            rows,
+            columns: cols,
+            statistics,
+          });
         },
       });
     });
