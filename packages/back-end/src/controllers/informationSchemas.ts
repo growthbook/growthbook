@@ -8,7 +8,10 @@ import {
   createInformationSchemaTable,
   getInformationSchemaTableById,
 } from "back-end/src/models/InformationSchemaTablesModel";
-import { fetchTableData } from "back-end/src/services/informationSchema";
+import {
+  fetchTableData,
+  getInformationSchemaWithPaths,
+} from "back-end/src/services/informationSchema";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { Column } from "back-end/src/types/Integration";
@@ -37,7 +40,9 @@ export async function getInformationSchema(
 
   res.status(200).json({
     status: 200,
-    informationSchema,
+    informationSchema: informationSchema
+      ? getInformationSchemaWithPaths(informationSchema, datasource.type)
+      : null,
   });
 }
 

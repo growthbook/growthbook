@@ -1,4 +1,4 @@
-import { FC } from "react";
+import React, { FC } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
