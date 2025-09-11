@@ -3,11 +3,6 @@ import { Flex, Text } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
-import { dashboardCanAutoUpdate } from "shared/enterprise";
-import {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Radix/Button";
@@ -16,17 +11,16 @@ import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
 function SnapshotStatusSummary({
-  blocks,
   enableAutoUpdates,
+  nextUpdate,
 }: {
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
 }) {
   const {
     settings: { updateSchedule },
   } = useUser();
   const {
-    experiment,
     defaultSnapshot: snapshot,
     refreshError,
     allQueries,
@@ -37,13 +31,6 @@ function SnapshotStatusSummary({
   );
 
   if (!snapshot) return null;
-
-  const autoUpdateEnabled =
-    enableAutoUpdates &&
-    dashboardCanAutoUpdate({ blocks }) &&
-    updateSchedule?.type !== "never" &&
-    experiment?.autoSnapshots;
-  const nextUpdate = experiment?.nextSnapshotAttempt;
 
   const textColor = refreshError || numFailed > 0 ? "red" : undefined;
   const content = refreshError
@@ -58,16 +45,18 @@ function SnapshotStatusSummary({
   return (
     <Flex gap="1" align="center">
       <Text size="1">
-        {autoUpdateEnabled &&
-          nextUpdate &&
-          getValidDate(nextUpdate) > new Date() && (
-            <Tooltip
-              tipPosition="top"
-              body={`Next auto-update ${ago(nextUpdate)}`}
-            >
-              <PiLightning style={{ color: "var(--violet-11)" }} />{" "}
-            </Tooltip>
-          )}
+        {enableAutoUpdates && updateSchedule?.type !== "never" && (
+          <Tooltip
+            tipPosition="top"
+            body={
+              nextUpdate && getValidDate(nextUpdate) > new Date()
+                ? `Next auto-update ${ago(nextUpdate)}`
+                : "Auto-update starting soon"
+            }
+          >
+            <PiLightning style={{ color: "var(--violet-11)" }} />{" "}
+          </Tooltip>
+        )}
       </Text>
       <Text size="1" color={textColor}>
         {content}
@@ -91,15 +80,15 @@ function SnapshotStatusSummary({
 }
 
 interface Props {
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
   disabled: boolean;
   isEditing: boolean;
 }
 
 export default function DashboardUpdateDisplay({
-  blocks,
   enableAutoUpdates,
+  nextUpdate,
   disabled,
   isEditing,
 }: Props) {
@@ -136,8 +125,8 @@ export default function DashboardUpdateDisplay({
       justify={"end"}
     >
       <SnapshotStatusSummary
-        blocks={blocks}
         enableAutoUpdates={enableAutoUpdates}
+        nextUpdate={nextUpdate}
       />
       {isEditing && (
         <DashboardViewQueriesButton

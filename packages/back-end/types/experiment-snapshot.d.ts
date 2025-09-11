@@ -136,7 +136,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   };
 }
 
-export type SnapshotType = "standard" | "exploratory" | "report";
+export type SnapshotType = "standard" | "exploratory" | "report" | "dashboard";
 export type SnapshotTriggeredBy = "schedule" | "manual";
 
 export interface ExperimentSnapshotAnalysis {
@@ -209,6 +209,7 @@ export interface ExperimentSnapshotInterface {
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
+  dashboard?: string;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
