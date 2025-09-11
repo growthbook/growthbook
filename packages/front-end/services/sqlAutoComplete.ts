@@ -1,5 +1,6 @@
 import {
   InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "back-end/src/types/Integration";
 import { DataSourceType } from "back-end/types/datasource";
@@ -11,10 +12,6 @@ import {
   COMPLETION_TYPES,
   getTemplateCompletions,
 } from "./sqlKeywords";
-import {
-  getInformationSchemaWithPaths,
-  InformationSchemaInterfaceWithPaths,
-} from "./datasources";
 
 type Keywords = "SELECT" | "FROM" | "WHERE" | "GROUP BY" | "ORDER BY";
 
@@ -488,7 +485,7 @@ function formatTableCompletion(
  */
 export async function getAutoCompletions(
   cursorData: CursorData | null,
-  informationSchema: InformationSchemaInterface | undefined,
+  informationSchema: InformationSchemaInterfaceWithPaths | undefined,
   datasourceType: DataSourceType | undefined,
   apiCall: (
     url: string,
@@ -502,22 +499,13 @@ export async function getAutoCompletions(
   // Always provide SQL keywords as a baseline
   if (!cursorData || !informationSchema || !datasourceType) return sqlKeywords;
 
-  // Add path data the informationSchema at db, schema, and table level
-  const informationSchemaWithPaths = getInformationSchemaWithPaths(
-    informationSchema,
-    datasourceType,
-  );
-
   const context = getCurrentContext(cursorData);
 
   // If no context is detected, still provide SQL keywords
   if (!context?.type) return sqlKeywords;
 
   // Get selected tables and their data
-  let selectedTables = getSelectedTables(
-    cursorData,
-    informationSchemaWithPaths,
-  );
+  let selectedTables = getSelectedTables(cursorData, informationSchema);
 
   // Add event name table if eventName is provided and used in the query
   // When creating legacy metrics, we sometimes use the event name as a template variable
@@ -528,7 +516,7 @@ export async function getAutoCompletions(
       selectedTables,
       eventName,
       cursorData,
-      informationSchemaWithPaths,
+      informationSchema,
     );
   }
 
@@ -570,7 +558,7 @@ export async function getAutoCompletions(
 
       return handleFromClauseCompletions(
         textAfterFrom,
-        informationSchemaWithPaths,
+        informationSchema,
         source,
       );
     }

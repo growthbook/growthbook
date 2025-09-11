@@ -1,4 +1,4 @@
-import { getTablePath } from "../datasources";
+import { getTablePath } from "back-end/src/services/informationSchema";
 
 describe("schema service", () => {
   describe("getTablePath", () => {

@@ -76,8 +76,9 @@ export default class BigQuery extends SqlIntegration {
       await setExternalId(job.id);
     }
 
-    const [rows] = await job.getQueryResults();
+    const [rows, _, queryResultsResponse] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
+
     const statistics = {
       executionDurationMs: Number(
         metadata?.statistics?.finalExecutionDurationMs,
@@ -91,6 +92,10 @@ export default class BigQuery extends SqlIntegration {
           ? metadata.statistics.query.totalPartitionsProcessed > 0
           : undefined,
     };
+
+    const columns = queryResultsResponse?.schema?.fields
+      ?.map((field) => field.name?.toLowerCase())
+      .filter((field) => field !== undefined);
 
     // BigQuery dates are stored nested in an object, so need to extract the value
     for (const row of rows) {
@@ -107,7 +112,11 @@ export default class BigQuery extends SqlIntegration {
       }
     }
 
-    return { rows, statistics };
+    return {
+      rows,
+      columns,
+      statistics,
+    };
   }
 
   createUnitsTableOptions() {

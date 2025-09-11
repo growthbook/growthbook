@@ -1,11 +1,10 @@
 import { useState } from "react";
 import {
-  InformationSchemaInterface,
+  InformationSchemaInterfaceWithPaths,
   InformationSchemaTablesInterface,
 } from "back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
-import { getTablePath } from "@/services/datasources";
 import useApi from "./useApi";
 
 export default function useSchemaFormOptions(
@@ -17,7 +16,7 @@ export default function useSchemaFormOptions(
     datasource?.properties?.supportsInformationSchema;
 
   const { data } = useApi<{
-    informationSchema: InformationSchemaInterface;
+    informationSchema: InformationSchemaInterfaceWithPaths;
   }>(`/datasource/${datasource?.id}/schema`, {
     shouldRun: () => !!supportsInformationSchema && !!datasource?.id,
   });
@@ -37,16 +36,11 @@ export default function useSchemaFormOptions(
         }
 
         schema?.tables?.forEach((table) => {
-          const tablePath = getTablePath(datasource.type, {
-            catalog: database.databaseName,
-            schema: schema.schemaName,
-            tableName: table.tableName,
-          });
           group?.options?.push({
             label: table.tableName,
-            value: tablePath,
+            value: table.path,
           });
-          tableIdMapping.set(tablePath, table.id);
+          tableIdMapping.set(table.path, table.id);
         });
       });
     });

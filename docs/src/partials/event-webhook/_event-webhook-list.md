@@ -865,6 +865,17 @@ Triggered when a feature is updated
                 [x: string]: any;
             } | undefined) | undefined;
         };
+        changes?: {
+            added: {
+                [x: string]: unknown;
+            };
+            removed: {
+                [x: string]: unknown;
+            };
+            modified: {
+                [x: string]: unknown;
+            };
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1721,6 +1732,17 @@ Triggered when an experiment is updated
                 [x: string]: any;
             } | undefined) | undefined;
         };
+        changes?: {
+            added: {
+                [x: string]: unknown;
+            };
+            removed: {
+                [x: string]: unknown;
+            };
+            modified: {
+                [x: string]: unknown;
+            };
+        } | undefined;
     };
     user: {
         type: "dashboard";
