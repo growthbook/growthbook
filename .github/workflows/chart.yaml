@@ -1,4 +1,13 @@
-on: push
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish chart to OCI registry"
+        required: false
+        default: false
+        type: boolean
+
 jobs:
   build-chart:
     runs-on: ubuntu-latest
@@ -25,7 +34,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push helm chart to OCI registry
-        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') || inputs.publish }}
         run: |
           for chart in *.tgz; do
               helm push "$chart" oci://ghcr.io/growthbook/charts
