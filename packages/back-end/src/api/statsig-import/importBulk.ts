@@ -198,7 +198,7 @@ export const importStatsigBulk = createApiRequestHandler(
   //     await createFeature(req.context, conversionResult.data as any);
   //     results.layers.push({
   //       success: true,
-  //       id: `layer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  //       id: conversionResult.data.id,
   //     });
   //   } catch (error) {
   //     results.layers.push({
