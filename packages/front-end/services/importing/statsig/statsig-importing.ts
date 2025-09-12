@@ -15,6 +15,7 @@ import {
   ImportData,
 } from "./types";
 import { transformStatSigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
+import { transformStatSigFeatureGateToGB } from "./transformers/featureTransformer";
 
 /**
  * Make a direct request to StatSig Console API
@@ -346,12 +347,16 @@ export async function buildImportedData(
         });
 
         // Process feature gates
+        const featuresMap = new Map(features.map((f) => [f.id, f]));
         entities.featureGates.data.forEach((gate) => {
           const fg = gate as StatSigFeatureGate;
           data.featureGates?.push({
             key: fg.name,
-            status: "pending",
+            status: featuresMap.has(fg.name) ? "skipped" : "pending",
             featureGate: fg,
+            error: featuresMap.has(fg.name)
+              ? "Feature already exists"
+              : undefined,
           });
         });
 
@@ -413,6 +418,7 @@ export async function buildImportedData(
         console.error(`Error fetching entities from StatSig:`, e);
       }
     });
+
 
     await queue.onIdle();
     timer && clearTimeout(timer);
@@ -527,34 +533,73 @@ export async function runImport(
   });
   await queue.onIdle();
 
-  // For now, just mark everything else as completed since we're only implementing environments and segments
-  data.featureGates?.forEach((gate) => {
-    if (gate.status === "pending") {
-      gate.status = "completed";
+  // Import Feature Gates
+  data.featureGates?.forEach((featureGate) => {
+    if (featureGate.status === "pending") {
+      queue.add(async () => {
+        try {
+          const fg = featureGate.featureGate as StatSigFeatureGate;
+          if (!fg) {
+            throw new Error("No feature gate data available");
+          }
+
+          // Transform StatSig feature gate to GrowthBook feature
+          // Get available environments from the processed data
+          const availableEnvironments = data.environments?.map(e => e.environment?.name || e.key).filter(Boolean) || [];
+          const transformedFeature = await transformStatSigFeatureGateToGB(
+            fg,
+            availableEnvironments,
+            existingAttributeSchema,
+            apiCall,
+          );
+
+          const res: { feature: FeatureInterface } = await apiCall(
+            `/feature/${featureGate.key}/sync`,
+            {
+              method: "POST",
+              body: JSON.stringify(transformedFeature),
+            },
+          );
+
+          featureGate.status = "completed";
+          featureGate.existing = res.feature;
+        } catch (e) {
+          featureGate.status = "failed";
+          featureGate.error = e.message;
+        }
+        update();
+      });
     }
   });
+  await queue.onIdle();
+
+  // For now, just mark everything else as completed since we're only implementing environments, segments, and feature gates
 
   data.dynamicConfigs?.forEach((config) => {
     if (config.status === "pending") {
-      config.status = "completed";
+      config.status = "failed";
+      config.error = "Not implemented yet";
     }
   });
 
   data.experiments?.forEach((exp) => {
     if (exp.status === "pending") {
-      exp.status = "completed";
+      exp.status = "failed";
+      exp.error = "Not implemented yet";
     }
   });
 
   data.layers?.forEach((layer) => {
     if (layer.status === "pending") {
-      layer.status = "completed";
+      layer.status = "failed";
+      layer.error = "Not implemented yet";
     }
   });
 
   data.metrics?.forEach((metric) => {
     if (metric.status === "pending") {
-      metric.status = "completed";
+      metric.status = "failed";
+      metric.error = "Not implemented yet";
     }
   });
 

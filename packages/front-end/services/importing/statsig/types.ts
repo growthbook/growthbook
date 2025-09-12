@@ -1,3 +1,5 @@
+import { FeatureInterface } from "back-end/types/feature";
+
 // beginregion Import Types
 
 export type ImportStatus =
@@ -19,6 +21,8 @@ export type EnvironmentImport = BaseImportStatus & {
 
 export type FeatureGateImport = BaseImportStatus & {
   featureGate?: StatSigFeatureGate;
+  feature?: Omit<FeatureInterface, "organization" | "dateCreated" | "dateUpdated" | "version">;
+  existing?: FeatureInterface;
 };
 
 export type DynamicConfigImport = BaseImportStatus & {
@@ -120,7 +124,7 @@ export type StatSigRule = {
   name: string;
   passPercentage: number;
   conditions: StatSigCondition[];
-  environments?: unknown;
+  environments?: string[] | null; // null means all environments, array means specific environments
 };
 
 export type StatSigHoldout = {
