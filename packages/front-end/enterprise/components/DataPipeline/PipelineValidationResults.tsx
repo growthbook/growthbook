@@ -23,8 +23,8 @@ export default function PipelineValidationResultsView({
         <Text>Validation failed.</Text>
 
         <Text>
-          We attempted to create a <abbr title={tableName}>test table</abbr>,
-          insert a row, then drop the table and we were unable to do so.
+          We were unable to validate the current settings using a{" "}
+          <abbr title={tableName}>temporary test table</abbr>.
         </Text>
 
         <Flex direction="column" mt="1" gap="3">

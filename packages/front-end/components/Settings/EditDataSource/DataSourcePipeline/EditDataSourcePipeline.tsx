@@ -93,7 +93,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         form.watch("allowWriting") ? (
           <Tooltip
             body={
-              "If checked, GrowthBook will create a temporary table, insert a single row, and drop it to verify permissions and settings before saving."
+              "If checked, GrowthBook will simulate a pipeline run using a temporary table to verify permissions and settings before saving."
             }
             style={{ display: "flex" }}
           >

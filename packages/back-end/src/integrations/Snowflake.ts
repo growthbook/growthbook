@@ -3,7 +3,7 @@ import { FormatDialect } from "shared/src/types";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
-import { QueryResponse } from "back-end/src/types/Integration";
+import { QueryResponse, DataType } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
@@ -65,5 +65,25 @@ export default class Snowflake extends SqlIntegration {
   }
   getDefaultDatabase() {
     return this.params.database || "";
+  }
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "VARCHAR";
+      case "integer":
+        return "INTEGER";
+      case "float":
+        return "DOUBLE";
+      case "boolean":
+        return "BOOLEAN";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
   }
 }

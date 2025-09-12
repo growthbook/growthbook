@@ -44,11 +44,9 @@ export function useDataSourcePipelineSettingsValidation() {
         setTableName(requestTableName);
         setResults(validationResults);
 
-        const allSuccesses = [
-          validationResults.create,
-          validationResults.insert,
-          validationResults.drop,
-        ].every((r) => r.result === "success");
+        const allSuccesses = Object.values(validationResults).every(
+          (result) => result.result === "success",
+        );
 
         return allSuccesses;
       } catch (e) {
