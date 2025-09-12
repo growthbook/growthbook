@@ -27,64 +27,70 @@ export default class Presto extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
-    return format(
-      `
-    CREATE TABLE ${params.unitsTableFullName}
-    ${this.createUnitsTableOptions()}
-    AS (
-      WITH
-        ${this.getExperimentUnitsQuery(params)}
-      SELECT * FROM __experimentUnits
-    )
-    `,
-      this.getFormatDialect(),
-    );
+  dropUnitsTable(): boolean {
+    return true;
   }
+  canRunIncrementalRefreshQueries(): boolean {
+    return true;
+  }
+  // getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+  //   return format(
+  //     `
+  //   CREATE TABLE ${params.unitsTableFullName}
+  //   ${this.createUnitsTableOptions()}
+  //   AS (
+  //     WITH
+  //       ${this.getExperimentUnitsQuery(params)}
+  //     SELECT * FROM __experimentUnits
+  //   )
+  //   `,
+  //     this.getFormatDialect(),
+  //   );
+  // }
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
-  async validateQueryColumns(
-    sql: string,
-    requiredColumns: string[],
-  ): Promise<{ isValid: boolean; duration?: number; error?: string }> {
-    try {
-      const { columns, statistics } = await this.runQuery(
-        `SELECT * FROM (${sql}) AS subquery LIMIT 0`,
-      );
+  // async validateQueryColumns(
+  //   sql: string,
+  //   requiredColumns: string[],
+  // ): Promise<{ isValid: boolean; duration?: number; error?: string }> {
+  //   try {
+  //     const { columns, statistics } = await this.runQuery(
+  //       `SELECT * FROM (${sql}) AS subquery LIMIT 0`,
+  //     );
 
-      if (!columns) {
-        return {
-          isValid: false,
-          error: "No column information returned",
-        };
-      }
+  //     if (!columns) {
+  //       return {
+  //         isValid: false,
+  //         error: "No column information returned",
+  //       };
+  //     }
 
-      const missingColumns = requiredColumns.filter(
-        (col) =>
-          !columns?.some(
-            (actual) => actual.toLowerCase() === col.toLowerCase(),
-          ),
-      );
+  //     const missingColumns = requiredColumns.filter(
+  //       (col) =>
+  //         !columns?.some(
+  //           (actual) => actual.toLowerCase() === col.toLowerCase(),
+  //         ),
+  //     );
 
-      return {
-        isValid: missingColumns.length === 0,
-        duration: statistics?.executionDurationMs,
-        error:
-          missingColumns.length > 0
-            ? `Missing columns: ${missingColumns.join(", ")}`
-            : undefined,
-      };
-    } catch (e) {
-      return {
-        isValid: false,
-        error: e.message,
-      };
-    }
-  }
+  //     return {
+  //       isValid: missingColumns.length === 0,
+  //       duration: statistics?.executionDurationMs,
+  //       error:
+  //         missingColumns.length > 0
+  //           ? `Missing columns: ${missingColumns.join(", ")}`
+  //           : undefined,
+  //     };
+  //   } catch (e) {
+  //     return {
+  //       isValid: false,
+  //       error: e.message,
+  //     };
+  //   }
+  // }
   runQuery(sql: string): Promise<QueryResponse> {
     const configOptions: IPrestoClientOptions = {
       host: this.params.host,

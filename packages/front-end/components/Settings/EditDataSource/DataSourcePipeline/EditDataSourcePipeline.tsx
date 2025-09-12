@@ -6,18 +6,27 @@ import {
   ExposureQuery,
   DataSourcePipelineSettings,
 } from "back-end/types/datasource";
-import { Text, Container, Flex } from "@radix-ui/themes";
+import {
+  Text,
+  Container,
+  Flex,
+  TextField,
+  SegmentedControl,
+  Box,
+} from "@radix-ui/themes";
 import Link from "next/link";
+import Collapsible from "react-collapsible";
+import { PiCaretRightFill } from "react-icons/pi";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
-import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import RadioCards from "@/components/Radix/RadioCards";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Callout from "@/components/Radix/Callout";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
+import Button from "@/components/Radix/Button";
+import Badge from "@/components/Radix/Badge";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -50,9 +59,13 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   const pathNames = dataSourcePathNames(dataSource.type);
 
   const initialPipelineSettings = dataSource.settings.pipelineSettings;
+  const initialEnabledMode: "temporary" | "incremental" =
+    initialPipelineSettings?.mode === "incremental"
+      ? "incremental"
+      : "temporary";
   const [previousEnabledMode, setPreviousEnabledMode] = useState<
     "temporary" | "incremental"
-  >(initialPipelineSettings?.mode ?? "temporary");
+  >(initialEnabledMode);
 
   const supportsIncrementalMode = useMemo(() => {
     return dataSource.type === "presto" || dataSource.type === "bigquery";
@@ -169,9 +182,9 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
     const ps = form.getValues("partitionSettings");
     if (
       form.getValues("mode") === "incremental" &&
-      ps?.type === "yearMonthDate"
+      ps?.type === "yearMonthDay"
     ) {
-      return [ps.yearColumn, ps.monthColumn, ps.dateColumn].filter(
+      return [ps.yearColumn, ps.monthColumn, ps.dayColumn].filter(
         Boolean,
       ) as string[];
     }
@@ -287,13 +300,52 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   const shouldShowStep2 = useMemo(() => {
     return (
       watchMode === "incremental" &&
-      watchPartitionSettings?.type === "yearMonthDate"
+      watchPartitionSettings?.type === "yearMonthDay"
     );
   }, [watchMode, watchPartitionSettings]);
 
   const [stagedPipelineSettings, setStagedPipelineSettings] = useState<
     DataSourcePipelineSettings | undefined
   >(undefined);
+
+  // Footer CTA text and status indicator
+  const ctaText = useMemo(() => {
+    if (step === 0 && shouldShowStep2) return "Validate";
+    return "Validate & Save";
+  }, [step, shouldShowStep2]);
+
+  const footerStatus = useMemo(() => {
+    if (step === 0) {
+      if (validating) return { label: "Validating…", color: "gray" as const };
+      if (validation) {
+        const ok =
+          validation.create.success &&
+          validation.insert.success &&
+          validation.drop.success;
+        return ok
+          ? { label: "Validated", color: "green" as const }
+          : { label: "Errors found", color: "red" as const };
+      }
+      return { label: "Not validated", color: "gray" as const };
+    }
+    // Step 1 (queries check)
+    const ready =
+      !checkingExposure &&
+      !checkingFactTables &&
+      allExposureValidated &&
+      allFactTablesValidated;
+    return ready
+      ? { label: "Ready to save", color: "green" as const }
+      : { label: "Fix queries", color: "amber" as const };
+  }, [
+    step,
+    validating,
+    validation,
+    checkingExposure,
+    checkingFactTables,
+    allExposureValidated,
+    allFactTablesValidated,
+  ]);
 
   const validateStepOne = form.handleSubmit(async (value) => {
     setValidation(null);
@@ -335,7 +387,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
           insert: { success: boolean; error?: string };
           drop: { success: boolean; error?: string };
         };
-      }>(`/datasource/${dataSource.id}/pipeline-validation`, {
+      }>(`/datasource/${dataSource.id}/pipeline/validate`, {
         method: "POST",
         body: JSON.stringify({ pipelineSettings }),
       });
@@ -415,14 +467,24 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   return (
     <PagedModal
       trackingEventModalType="edit-datasource-pipeline"
-      header={"Edit Data Source Pipeline Settings"}
+      header="Edit Data Source Pipeline Settings"
       close={onCancel}
-      submit={finalSubmit}
+      submit={async () => {
+        if (step === 0 && shouldShowStep2) {
+          await validateStepOne();
+          if (shouldShowStep2) {
+            setStep(1);
+            return;
+          }
+        }
+        await finalSubmit();
+      }}
       size="lg"
       step={step}
+      hideNav={!shouldShowStep2}
       setStep={setStep}
       backButton={true}
-      cta={"Enable Pipeline"}
+      cta={ctaText}
       ctaEnabled={
         step === 1
           ? !checkingExposure &&
@@ -438,6 +500,24 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
       }
       loading={validating || checkingExposure || checkingFactTables}
       error={modalError || undefined}
+      secondaryCTA={
+        <div className="d-flex align-items-center text-muted small">
+          <span
+            className={`badge mr-2 ${
+              footerStatus.color === "green"
+                ? "badge-success"
+                : footerStatus.color === "red"
+                  ? "badge-danger"
+                  : footerStatus.color === "amber"
+                    ? "badge-warning"
+                    : "badge-secondary"
+            }`}
+          >
+            ●
+          </span>
+          {footerStatus.label}
+        </div>
+      }
     >
       <Page
         display="Settings"
@@ -445,14 +525,14 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
           await validateStepOne();
         }}
       >
-        <Flex direction="column" gap="3">
-          {/* Pipeline settings visible regardless; disabled mode controls validation/saving mapping */}
-        </Flex>
         {
-          <Flex direction="column" gap="3" className="w-100 mb-4 mt-4">
+          <Flex direction="column" gap="3">
             <Container className="w-100" mb="2">
-              <Select
-                label="Pipeline Mode"
+              <Text as="label" size="3" weight="medium">
+                Pipeline Mode
+              </Text>
+              <RadioCards
+                columns="1"
                 value={form.watch("mode")}
                 setValue={(v) => {
                   const newMode = v as "disabled" | "temporary" | "incremental";
@@ -469,151 +549,261 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
                     form.setValue("partitionSettings", undefined);
                   }
                 }}
-              >
-                <SelectItem value="disabled">Disabled</SelectItem>
-                {supportsIncrementalMode && (
-                  <SelectItem value="incremental">
-                    Incremental (persist units table)
-                  </SelectItem>
-                )}
-                <SelectItem value="temporary">
-                  Temporary (per-analysis)
-                </SelectItem>
-              </Select>
+                options={[
+                  {
+                    value: "disabled",
+                    label: "Disabled",
+                    description: "No tables are written by GrowthBook.",
+                  },
+                  ...(supportsIncrementalMode
+                    ? ([
+                        {
+                          value: "incremental",
+                          label: "Incremental (persist units table)",
+                          description:
+                            "Keep a units table while the experiment runs; queries hit this table to reduce source scans.",
+                          badge: "Recommended",
+                        },
+                      ] as const)
+                    : []),
+                  {
+                    value: "temporary",
+                    label: "Temporary (per-analysis)",
+                    description:
+                      "Create an ephemeral units table for each validation; removed automatically.",
+                  },
+                ]}
+              />
             </Container>
             {form.watch("mode") !== "disabled" && (
               <>
                 <Container className="w-100" mb="2">
                   <Text as="label" size="3" weight="medium">
-                    {`Destination ${pathNames.databaseName} (optional)`}{" "}
-                    <Tooltip
-                      body={`If left blank will try to write to default ${pathNames.databaseName}`}
-                    />
+                    Destination
                   </Text>
-                  <Field type="text" {...form.register("writeDatabase")} />
-                </Container>
-                <Container className="w-100" mb="2">
-                  <Text as="label" size="3" weight="medium">
-                    {`Destination ${pathNames.schemaName}`}{" "}
-                  </Text>
-                  <Field
-                    type="text"
-                    required
-                    {...form.register("writeDataset")}
-                  />
-                </Container>
-                {dataSource.type === "databricks" ? (
-                  <>
-                    <Container className="w-100" mt="2">
-                      <Flex align="center" gap="3">
-                        <Text as="label" size="3" weight="medium">
-                          Delete temporary units table (recommended)
+                  <Flex gap="3" align="end">
+                    <Box style={{ flex: 1 }}>
+                      <Flex align="center" justify="between" mb="1">
+                        <Text as="label" size="2" weight="regular">
+                          {`Destination ${pathNames.databaseName}`}{" "}
+                          <Tooltip
+                            body={`If left blank will try to write to default ${pathNames.databaseName}`}
+                          />
                         </Text>
-                        <Toggle
-                          id={"toggle-unitsTableDeletion"}
-                          value={!!form.watch("unitsTableDeletion")}
-                          setValue={(value) => {
-                            form.setValue("unitsTableDeletion", value);
-                          }}
-                        />
+                        <Badge label="Optional" variant="soft" color="gray" />
                       </Flex>
-                    </Container>
-                    {!form.watch("unitsTableDeletion") ? (
-                      <Callout status="warning" size="sm">
-                        Disabling this will require you to periodically remove
-                        temporary tables from your Databricks Warehouse
-                      </Callout>
-                    ) : null}
-                  </>
-                ) : form.watch("mode") === "temporary" ? (
-                  <>
-                    <Container className="w-100" mb="1">
-                      <Field
-                        label="Retention of temporary units table (hours)"
-                        type="number"
-                        min={1}
-                        {...form.register("unitsTableRetentionHours")}
+                      <TextField.Root
+                        size="3"
+                        placeholder={`e.g. analytics`}
+                        value={form.watch("writeDatabase")}
+                        onChange={(e) =>
+                          form.setValue("writeDatabase", e.target.value)
+                        }
                       />
-                    </Container>
-                    {dataSource.type === "snowflake" ? (
-                      <Callout status="info" size="sm">
-                        Rounded up to nearest day for Snowflake
-                      </Callout>
-                    ) : null}
-                  </>
-                ) : null}
+                      <Text size="1" color="gray">
+                        Leave blank to use connection default
+                      </Text>
+                    </Box>
+                    <Box style={{ flex: 1 }}>
+                      <Text as="label" size="2" weight="regular">
+                        {`Destination ${pathNames.schemaName}`}
+                      </Text>
+                      <TextField.Root
+                        size="3"
+                        placeholder={`e.g. gbhive`}
+                        required
+                        value={form.watch("writeDataset")}
+                        onChange={(e) =>
+                          form.setValue("writeDataset", e.target.value)
+                        }
+                      />
+                      <Text size="1" color="gray">
+                        {`${form.watch("writeDatabase") || "(default)"}.${form.watch("writeDataset") || ""}`}
+                      </Text>
+                    </Box>
+                  </Flex>
+                </Container>
+                <Collapsible
+                  trigger={
+                    <div className="link-purple font-weight-bold mt-2 mb-1">
+                      <PiCaretRightFill className="chevron mr-1" />
+                      Advanced
+                    </div>
+                  }
+                  transitionTime={100}
+                >
+                  {dataSource.type === "databricks" ? (
+                    <>
+                      <Container className="w-100" mt="2">
+                        <Flex align="center" gap="3">
+                          <Text as="label" size="3" weight="medium">
+                            Delete temporary units table (recommended)
+                          </Text>
+                          <Toggle
+                            id={"toggle-unitsTableDeletion"}
+                            value={!!form.watch("unitsTableDeletion")}
+                            setValue={(value) => {
+                              form.setValue("unitsTableDeletion", value);
+                            }}
+                          />
+                        </Flex>
+                      </Container>
+                      {!form.watch("unitsTableDeletion") ? (
+                        <Callout status="warning" size="sm">
+                          Disabling this will require you to periodically remove
+                          temporary tables from your Databricks Warehouse
+                        </Callout>
+                      ) : null}
+                    </>
+                  ) : form.watch("mode") === "temporary" ? (
+                    <>
+                      <Container className="w-100" mb="1">
+                        <Text as="label" size="3" weight="medium">
+                          Retention of temporary units table (hours)
+                        </Text>
+                        <TextField.Root
+                          size="3"
+                          type="number"
+                          min={1}
+                          value={String(
+                            form.watch("unitsTableRetentionHours") ?? "",
+                          )}
+                          onChange={(e) =>
+                            form.setValue(
+                              "unitsTableRetentionHours",
+                              Number(e.target.value || 0),
+                            )
+                          }
+                        />
+                      </Container>
+                      {dataSource.type === "snowflake" ? (
+                        <Callout status="info" size="sm">
+                          Rounded up to nearest day for Snowflake
+                        </Callout>
+                      ) : null}
+                    </>
+                  ) : null}
+                </Collapsible>
 
                 {form.watch("mode") === "incremental" ? (
                   <>
                     <Container className="w-100" mt="2" mb="2">
-                      <Select
-                        label="Partition Type (optional)"
-                        value={form.watch("partitionSettings")?.type || "none"}
-                        setValue={(v) => {
-                          if (!v || v === "none") {
-                            // Clear partition settings
-                            form.setValue("partitionSettings", undefined);
-                            return;
+                      <Text as="label" size="3" weight="medium">
+                        Partition Type (optional){" "}
+                        <Tooltip body="Use Timestamp if your query returns a single time column; use Year/Month/Day when you output discrete year, month, and day columns." />
+                      </Text>
+                      <Box mt="1">
+                        <SegmentedControl.Root
+                          value={
+                            form.watch("partitionSettings")?.type || "none"
                           }
-                          if (v === "timestamp") {
-                            form.setValue("partitionSettings", {
-                              type: "timestamp",
-                            });
-                          } else if (v === "yearMonthDate") {
-                            const current = form.getValues("partitionSettings");
-                            const isYMD =
-                              current && current.type === "yearMonthDate";
-                            form.setValue(
-                              "partitionSettings",
-                              {
-                                type: "yearMonthDate",
-                                yearColumn: isYMD
-                                  ? (current as Record<string, string>)
-                                      .yearColumn || ""
-                                  : "",
-                                monthColumn: isYMD
-                                  ? (current as Record<string, string>)
-                                      .monthColumn || ""
-                                  : "",
-                                dateColumn: isYMD
-                                  ? (current as Record<string, string>)
-                                      .dateColumn || ""
-                                  : "",
-                              },
-                              { shouldDirty: true },
-                            );
-                          }
-                        }}
-                      >
-                        <SelectItem value="none">None</SelectItem>
-                        <SelectItem value="timestamp">Timestamp</SelectItem>
-                        <SelectItem value="yearMonthDate">
-                          Year/Month/Date
-                        </SelectItem>
-                      </Select>
+                          onValueChange={(v) => {
+                            if (!v || v === "none") {
+                              form.setValue("partitionSettings", undefined);
+                              return;
+                            }
+                            if (v === "timestamp") {
+                              form.setValue("partitionSettings", {
+                                type: "timestamp",
+                              });
+                            } else if (v === "yearMonthDay") {
+                              const current =
+                                form.getValues("partitionSettings");
+                              const isYMD =
+                                current && current.type === "yearMonthDay";
+                              form.setValue(
+                                "partitionSettings",
+                                {
+                                  type: "yearMonthDay",
+                                  yearColumn: isYMD
+                                    ? (current as Record<string, string>)
+                                        .yearColumn || ""
+                                    : "",
+                                  monthColumn: isYMD
+                                    ? (current as Record<string, string>)
+                                        .monthColumn || ""
+                                    : "",
+                                  dayColumn: isYMD
+                                    ? (current as Record<string, string>)
+                                        .dayColumn || ""
+                                    : "",
+                                },
+                                { shouldDirty: true },
+                              );
+                            }
+                          }}
+                        >
+                          <SegmentedControl.Item value="none">
+                            None
+                          </SegmentedControl.Item>
+                          <SegmentedControl.Item value="timestamp">
+                            Timestamp
+                          </SegmentedControl.Item>
+                          <SegmentedControl.Item value="yearMonthDay">
+                            Year/Month/Day
+                          </SegmentedControl.Item>
+                        </SegmentedControl.Root>
+                      </Box>
                     </Container>
                     {form.watch("partitionSettings")?.type ===
-                    "yearMonthDate" ? (
+                    "yearMonthDay" ? (
                       <Container className="w-100">
                         <Flex direction="column" gap="2">
-                          <Field
-                            label="Year column"
-                            type="text"
-                            required
-                            {...form.register("partitionSettings.yearColumn")}
-                          />
-                          <Field
-                            label="Month column"
-                            type="text"
-                            required
-                            {...form.register("partitionSettings.monthColumn")}
-                          />
-                          <Field
-                            label="Date column"
-                            type="text"
-                            required
-                            {...form.register("partitionSettings.dateColumn")}
-                          />
+                          <div>
+                            <Text as="label" size="2" weight="regular">
+                              Year column
+                            </Text>
+                            <TextField.Root
+                              size="3"
+                              required
+                              value={
+                                form.watch("partitionSettings.yearColumn") || ""
+                              }
+                              onChange={(e) =>
+                                form.setValue(
+                                  "partitionSettings.yearColumn",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Text as="label" size="2" weight="regular">
+                              Month column
+                            </Text>
+                            <TextField.Root
+                              size="3"
+                              required
+                              value={
+                                form.watch("partitionSettings.monthColumn") ||
+                                ""
+                              }
+                              onChange={(e) =>
+                                form.setValue(
+                                  "partitionSettings.monthColumn",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Text as="label" size="2" weight="regular">
+                              Day column
+                            </Text>
+                            <TextField.Root
+                              size="3"
+                              required
+                              value={
+                                form.watch("partitionSettings.dayColumn") || ""
+                              }
+                              onChange={(e) =>
+                                form.setValue(
+                                  "partitionSettings.dayColumn",
+                                  e.target.value,
+                                )
+                              }
+                            />
+                          </div>
                         </Flex>
                       </Container>
                     ) : null}

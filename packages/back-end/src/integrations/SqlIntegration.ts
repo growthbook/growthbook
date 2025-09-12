@@ -66,8 +66,8 @@ import {
   UserDimension,
   ExperimentDimension,
   ExternalIdCallback,
-  DimensionSlicesQueryParams,
   DimensionSlicesQueryResponse,
+  DimensionSlicesQueryParams,
   ExperimentFactMetricsQueryParams,
   ExperimentFactMetricsQueryResponse,
   FactMetricData,
@@ -78,14 +78,15 @@ import {
   TrackedEventData,
   AutoMetricTrackedEvent,
   AutoMetricToCreate,
-  DropTableQueryParams,
   DropTableQueryResponse,
+  DropTableQueryParams,
   TestQueryParams,
   ColumnTopValuesParams,
   ColumnTopValuesResponse,
   PopulationMetricQueryParams,
   PopulationFactMetricsQueryParams,
   VariationPeriodWeight,
+  DimensionColumnData,
   DataType,
   IncrementalWithNoOutputQueryResponse,
   CreateExperimentIncrementalUnitsQueryParams,
@@ -93,7 +94,6 @@ import {
   DropOldIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
-  DimensionColumnData,
   DropTempIncrementalUnitsQueryParams,
   PartitionSettings,
 } from "back-end/src/types/Integration";
@@ -192,9 +192,8 @@ export default abstract class SqlIntegration
     };
   }
 
-  // TODO: set for other engines
   canRunIncrementalRefreshQueries(): boolean {
-    return true;
+    return false;
   }
 
   async testConnection(): Promise<boolean> {

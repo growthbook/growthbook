@@ -187,14 +187,15 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
 
 export type PartitionSettings =
   | {
-      type: "yearMonthDate";
+      type: "yearMonthDay";
       yearColumn: string;
       monthColumn: string;
-      dateColumn: string;
+      dayColumn: string;
     }
   | {
       type: "timestamp";
     };
+
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: ExperimentSnapshotSettings;
   segment: SegmentInterface | null;

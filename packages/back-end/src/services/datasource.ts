@@ -186,54 +186,54 @@ export async function runFreeFormQuery(
   }
 }
 
-// Validates that the query is valid and returns the required columns
-// without scanning any data.
-export async function validateQueryWithLimitZero(
-  context: ReqContext,
-  datasource: DataSourceInterface,
-  query: string,
-  requiredColumns: string[],
-  templateVariables?: TemplateVariables,
-): Promise<{
-  isValid: boolean;
-  sql: string;
-  duration?: number;
-  error?: string;
-}> {
-  if (!context.permissions.canRunTestQueries(datasource)) {
-    throw new Error("Permission denied");
-  }
+// // Validates that the query is valid and returns the required columns
+// // without scanning any data.
+// export async function validateQueryWithLimitZero(
+//   context: ReqContext,
+//   datasource: DataSourceInterface,
+//   query: string,
+//   requiredColumns: string[],
+//   templateVariables?: TemplateVariables,
+// ): Promise<{
+//   isValid: boolean;
+//   sql: string;
+//   duration?: number;
+//   error?: string;
+// }> {
+//   if (!context.permissions.canRunTestQueries(datasource)) {
+//     throw new Error("Permission denied");
+//   }
 
-  const integration = getSourceIntegrationObject(context, datasource);
-  if (!integration.getTestQuery || !integration.validateQueryColumns) {
-    throw new Error("Unable to test query.");
-  }
+//   const integration = getSourceIntegrationObject(context, datasource);
+//   if (!integration.getTestQuery || !integration.validateQueryColumns) {
+//     throw new Error("Unable to test query.");
+//   }
 
-  const sql = integration.getTestQuery({
-    query,
-    templateVariables,
-    testDays: context.org.settings?.testQueryDays,
-  });
+//   const sql = integration.getTestQuery({
+//     query,
+//     templateVariables,
+//     testDays: context.org.settings?.testQueryDays,
+//   });
 
-  try {
-    const { isValid, duration, error } = await integration.validateQueryColumns(
-      sql,
-      requiredColumns,
-    );
-    return {
-      isValid,
-      sql,
-      duration,
-      error,
-    };
-  } catch (e) {
-    return {
-      isValid: false,
-      error: e.message,
-      sql,
-    };
-  }
-}
+//   try {
+//     const { isValid, duration, error } = await integration.validateQueryColumns(
+//       sql,
+//       requiredColumns,
+//     );
+//     return {
+//       isValid,
+//       sql,
+//       duration,
+//       error,
+//     };
+//   } catch (e) {
+//     return {
+//       isValid: false,
+//       error: e.message,
+//       sql,
+//     };
+//   }
+// }
 
 export async function testQuery(
   context: ReqContext,

@@ -832,8 +832,8 @@ if (IS_CLOUD) {
 }
 
 app.post(
-  "/datasource/:id/pipeline-validation",
-  datasourcesController.validatePipeline,
+  "/datasource/:id/pipeline/validate",
+  datasourcesController.postValidatePipelineSettings,
 );
 
 // Information Schemas
