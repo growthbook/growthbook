@@ -87,6 +87,7 @@ import {
   PopulationFactMetricsQueryParams,
   VariationPeriodWeight,
   DimensionColumnData,
+  DataType,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -1786,18 +1787,30 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+  getExperimentUnitsTableQueryFromCte(
+    unitsTableFullName: string,
+    cteSql: string,
+  ): string {
     return format(
       `
-    CREATE OR REPLACE TABLE ${params.unitsTableFullName}
+    CREATE OR REPLACE TABLE ${unitsTableFullName}
     ${this.createUnitsTableOptions()}
     AS (
       WITH
-        ${this.getExperimentUnitsQuery(params)}
+        ${cteSql}
       SELECT * FROM __experimentUnits
     );
     `,
       this.getFormatDialect(),
+    );
+  }
+
+  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+    const cteSql = this.getExperimentUnitsQuery(params);
+
+    return this.getExperimentUnitsTableQueryFromCte(
+      params.unitsTableFullName || "",
+      cteSql,
     );
   }
 
@@ -5495,5 +5508,26 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
 
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
+  }
+
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "VARCHAR";
+      case "integer":
+        return "INTEGER";
+      case "float":
+        return "FLOAT";
+      case "boolean":
+        return "BOOLEAN";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
   }
 }
