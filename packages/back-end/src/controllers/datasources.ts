@@ -71,6 +71,7 @@ import {
 } from "back-end/src/services/clickhouse";
 import { FactTableColumnType } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
+import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -595,7 +596,7 @@ export async function postValidatePipelineSettings(
   }
 
   const randomSuffix = Math.random().toString(36).substring(2, 7);
-  const testTableName = `gb_pipeline_validate_${randomSuffix}`;
+  const testTableName = `${UNITS_TABLE_PREFIX}_validation_${randomSuffix}`;
 
   const fullTestTablePath = integration.generateTablePath(
     testTableName,
@@ -637,6 +638,7 @@ export async function postValidatePipelineSettings(
         await integration.runTestQuery(
           getPipelineValidationDropTableQuery({
             tableFullName: fullTestTablePath,
+            integration,
           }),
         );
         results.drop = { result: "success" };

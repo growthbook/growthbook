@@ -1787,18 +1787,30 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+  getExperimentUnitsTableQueryFromCte(
+    unitsTableFullName: string,
+    cteSql: string,
+  ): string {
     return format(
       `
-    CREATE OR REPLACE TABLE ${params.unitsTableFullName}
+    CREATE OR REPLACE TABLE ${unitsTableFullName}
     ${this.createUnitsTableOptions()}
     AS (
       WITH
-        ${this.getExperimentUnitsQuery(params)}
+        ${cteSql}
       SELECT * FROM __experimentUnits
     );
     `,
       this.getFormatDialect(),
+    );
+  }
+
+  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+    const cteSql = this.getExperimentUnitsQuery(params);
+
+    return this.getExperimentUnitsTableQueryFromCte(
+      params.unitsTableFullName || "",
+      cteSql,
     );
   }
 

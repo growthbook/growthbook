@@ -61,23 +61,26 @@ export function getPipelineValidationCreateTableQuery({
   tableFullName: string;
   integration: SqlIntegration;
 }): string {
-  return `CREATE TABLE ${tableFullName} (test_col ${integration.getDataType(
-    "string",
-  )}, created_at ${integration.getDataType("timestamp")})`;
-}
+  const sampleUnitsCte = `__experimentUnits AS (
+    SELECT 'user_1' AS user_id, 'A' AS variation, CURRENT_TIMESTAMP() AS first_exposure_timestamp
+    UNION ALL
+    SELECT 'user_2' AS user_id, 'B' AS variation, CURRENT_TIMESTAMP() AS first_exposure_timestamp
+  )`;
 
-export function getPipelineValidationInsertQuery({
-  tableFullName,
-}: {
-  tableFullName: string;
-}): string {
-  return `INSERT INTO ${tableFullName} (test_col, created_at) VALUES ('growthbook', CURRENT_TIMESTAMP)`;
+  return integration.getExperimentUnitsTableQueryFromCte(
+    tableFullName,
+    sampleUnitsCte,
+  );
 }
 
 export function getPipelineValidationDropTableQuery({
   tableFullName,
+  integration,
 }: {
   tableFullName: string;
+  integration: SqlIntegration;
 }): string {
-  return `DROP TABLE IF EXISTS ${tableFullName}`;
+  return integration.getDropUnitsTableQuery({
+    fullTablePath: tableFullName,
+  });
 }
