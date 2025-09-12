@@ -238,20 +238,17 @@ export const putSegment = async (
     managedBy,
   } = req.body;
 
-  const datasource = segment.datasource;
-
   if (!context.permissions.canUpdateSegment(segment, { projects })) {
     context.permissions.throwPermissionError();
   }
 
-  const datasourceDoc = await getDataSourceById(context, datasource);
+  const datasourceDoc = await getDataSourceById(context, segment.datasource);
   if (!datasourceDoc) {
     throw new Error("Invalid data source");
   }
 
   await context.models.segments.updateById(id, {
     owner: owner || segment.owner,
-    datasource: datasource || segment.datasource,
     userIdType: userIdType || segment.userIdType,
     name: name || segment.name,
     sql: sql || segment.sql,

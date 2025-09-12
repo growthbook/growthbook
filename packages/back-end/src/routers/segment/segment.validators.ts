@@ -35,5 +35,6 @@ export const updateSegmentValidator = segmentValidator
     organization: true,
     dateCreated: true,
     dateUpdated: true,
+    datasource: true,
   })
   .partial();
