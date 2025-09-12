@@ -201,6 +201,24 @@ class TestPostStratification(TestCase):
         )
 
     def setUp(self):
+        self.point_estimate_count_rel = 0.10994584851937338
+        self.point_estimate_count_abs = 3.548094377986586
+        self.point_estimate_count_reg_rel = 0.11529547657147853
+        self.point_estimate_count_reg_abs = 3.7116918650826403
+        self.point_estimate_ratio_rel = 0.13371299783026003
+        self.point_estimate_ratio_abs = 0.10008903417216031
+        self.point_estimate_ratio_reg_rel = 0.13929489348145818
+        self.point_estimate_ratio_reg_abs = 0.10399412678969455
+
+        self.standard_error_count_rel = 0.01224418556792039
+        self.standard_error_count_abs = 0.3769153078989124
+        self.standard_error_count_reg_rel = 0.0022103200530259534
+        self.standard_error_count_reg_abs = 0.07401168371016856
+        self.standard_error_ratio_rel = 0.007141416587299529
+        self.standard_error_ratio_abs = 0.0050779658636993154
+        self.standard_error_ratio_reg_rel = 0.0012337665987066867
+        self.standard_error_ratio_reg_abs = 0.0012278145208316127
+
         self.stats_count_strata = [
             (
                 SampleMeanStatistic(
@@ -832,130 +850,177 @@ class TestPostStratification(TestCase):
         )._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
         self.assertEqual(default_output, result_output)
 
-    def test_post_strat_count_abs(self):
-        result_dict = asdict(
+    def test_post_strat_count_effect_moments(self):
+        result_dict_rel = asdict(
+            EffectMomentsPostStratification(
+                self.stats_count_strata, self.moments_config_rel  # type: ignore
+            ).compute_result()
+        )
+        result_dict_abs = asdict(
             EffectMomentsPostStratification(
                 self.stats_count_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
-        expected_rounded_dict = asdict(
+        expected_rounded_dict_rel = asdict(
             EffectMomentsResult(
-                point_estimate=3.548094377986586,
-                standard_error=0.3769153078989125,
+                point_estimate=self.point_estimate_count_rel,
+                standard_error=self.standard_error_count_rel,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+        expected_rounded_dict_abs = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_count_abs,
+                standard_error=self.standard_error_count_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
             )
         )
         self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+            _round_result_dict(result_dict_rel),
+            _round_result_dict(expected_rounded_dict_rel),
         )
 
-    def test_post_strat_ratio_abs(self):
-        result_dict = asdict(
+        self.assertDictEqual(
+            _round_result_dict(result_dict_abs),
+            _round_result_dict(expected_rounded_dict_abs),
+        )
+
+    def test_post_strat_count_reg_effect_moments(self):
+        result_dict_rel = asdict(
             EffectMomentsPostStratification(
-                self.stats_ratio_strata, self.moments_config_abs  # type: ignore
+                self.stats_count_reg_strata, self.moments_config_rel  # type: ignore
             ).compute_result()
         )
-        expected_rounded_dict = asdict(
-            EffectMomentsResult(
-                point_estimate=0.10008903417216042,
-                standard_error=0.0050779658636993154,
-                pairwise_sample_size=1000,
-                error_message=None,
-            )
-        )
-        self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
-        )
-
-    def test_post_strat_count_reg_abs(self):
-        result_dict = asdict(
+        result_dict_abs = asdict(
             EffectMomentsPostStratification(
                 self.stats_count_reg_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
-        expected_rounded_dict = asdict(
+
+        expected_rounded_dict_rel = asdict(
             EffectMomentsResult(
-                point_estimate=3.7116918650826403,
-                standard_error=0.07401168371016856,
+                point_estimate=self.point_estimate_count_reg_rel,
+                standard_error=self.standard_error_count_reg_rel,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+        expected_rounded_dict_abs = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_count_reg_abs,
+                standard_error=self.standard_error_count_reg_abs,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+
+        self.assertDictEqual(
+            _round_result_dict(result_dict_rel),
+            _round_result_dict(expected_rounded_dict_rel),
+        )
+
+        self.assertDictEqual(
+            _round_result_dict(result_dict_abs),
+            _round_result_dict(expected_rounded_dict_abs),
+        )
+
+    def test_post_strat_ratio_effect_moments(self):
+        result_dict_rel = asdict(
+            EffectMomentsPostStratification(
+                self.stats_ratio_strata, self.moments_config_rel  # type: ignore
+            ).compute_result()
+        )
+        result_dict_abs = asdict(
+            EffectMomentsPostStratification(
+                self.stats_ratio_strata, self.moments_config_abs  # type: ignore
+            ).compute_result()
+        )
+        expected_rounded_dict_rel = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_ratio_rel,
+                standard_error=self.standard_error_ratio_rel,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+        expected_rounded_dict_abs = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_ratio_abs,
+                standard_error=self.standard_error_ratio_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
             )
         )
         self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+            _round_result_dict(result_dict_rel),
+            _round_result_dict(expected_rounded_dict_rel),
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict_abs),
+            _round_result_dict(expected_rounded_dict_abs),
         )
 
-    def test_post_strat_ratio_reg_abs(self):
-        result_dict = asdict(
+    def test_post_strat_ratio_reg_effect_moments(self):
+        result_dict_rel = asdict(
+            EffectMomentsPostStratification(
+                self.stats_ratio_reg_strata, self.moments_config_rel  # type: ignore
+            ).compute_result()
+        )
+        result_dict_abs = asdict(
             EffectMomentsPostStratification(
                 self.stats_ratio_reg_strata, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
-        expected_rounded_dict = asdict(
+        expected_rounded_dict_rel = asdict(
             EffectMomentsResult(
-                point_estimate=0.10399412678969455,
-                standard_error=0.0012278145208316127,
+                point_estimate=self.point_estimate_ratio_reg_rel,
+                standard_error=self.standard_error_ratio_reg_rel,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+        expected_rounded_dict_abs = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_ratio_reg_abs,
+                standard_error=self.standard_error_ratio_reg_abs,
                 pairwise_sample_size=1000,
                 error_message=None,
             )
         )
         self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
+            _round_result_dict(result_dict_rel),
+            _round_result_dict(expected_rounded_dict_rel),
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict_abs),
+            _round_result_dict(expected_rounded_dict_abs),
         )
 
-    def test_post_strat_mean_gbstats(self):
+    def test_post_strat_count_gbstats(self):
         stats_a, stats_b = zip(*self.stats_count_strata)
         test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
         result_true_rel = FrequentistTestResult(
-            expected=0.10994584851937336,
+            expected=self.point_estimate_count_rel,
             ci=[0.0859177257922717, 0.133973971246475],
             uplift=Uplift(
-                dist="normal", mean=0.10994584851937336, stddev=0.01224418556792039
+                dist="normal",
+                mean=self.point_estimate_count_rel,
+                stddev=self.standard_error_count_rel,
             ),
             error_message=None,
             p_value=None,
             p_value_error_message=None,
         )
         result_true_abs = FrequentistTestResult(
-            expected=3.548094377986586,
+            expected=self.point_estimate_count_abs,
             ci=[2.8084316845652717, 4.2877570714079],
             uplift=Uplift(
-                dist="normal", mean=3.548094377986586, stddev=0.3769153078989124
-            ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
-        )
-        self.assertEqual(
-            _round_result_dict(asdict(result_true_rel)),
-            _round_result_dict(asdict(test_result_rel)),
-        )
-        self.assertEqual(
-            _round_result_dict(asdict(result_true_abs)),
-            _round_result_dict(asdict(test_result_abs)),
-        )
-
-    def test_post_strat_mean_reg_gbstats(self):
-        stats_a, stats_b = zip(*self.stats_count_reg_strata)
-        test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
-        test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
-        result_true_rel = FrequentistTestResult(
-            expected=0.11529547657147865,
-            ci=[0.11095792049593042, 0.11963303264702688],
-            uplift=Uplift(
-                dist="normal", mean=0.11529547657147865, stddev=0.0022103200530259534
-            ),
-            error_message=None,
-            p_value=None,
-            p_value_error_message=None,
-        )
-        result_true_abs = FrequentistTestResult(
-            expected=3.7116918650826394,
-            ci=[3.5664505332225285, 3.8569331969427503],
-            uplift=Uplift(
-                dist="normal", mean=3.7116918650826394, stddev=0.07401168371016856
+                dist="normal",
+                mean=self.point_estimate_count_abs,
+                stddev=self.standard_error_count_abs,
             ),
             error_message=None,
             p_value=None,
@@ -975,20 +1040,61 @@ class TestPostStratification(TestCase):
         test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
         result_true_rel = FrequentistTestResult(
-            expected=0.13371299783026003,
+            expected=self.point_estimate_ratio_rel,
             ci=[0.11969832381222022, 0.14772767184829982],
             uplift=Uplift(
-                dist="normal", mean=0.13371299783026003, stddev=0.007141416587299529
+                dist="normal",
+                mean=self.point_estimate_ratio_rel,
+                stddev=self.standard_error_ratio_rel,
             ),
             error_message=None,
             p_value=None,
             p_value_error_message=None,
         )
         result_true_abs = FrequentistTestResult(
-            expected=0.10008903417216031,
+            expected=self.point_estimate_ratio_abs,
             ci=[0.0901237793260779, 0.11005428901824271],
             uplift=Uplift(
-                dist="normal", mean=0.10008903417216031, stddev=0.0050779658636993154
+                dist="normal",
+                mean=self.point_estimate_ratio_abs,
+                stddev=self.standard_error_ratio_abs,
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_rel)),
+            _round_result_dict(asdict(test_result_rel)),
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_abs)),
+            _round_result_dict(asdict(test_result_abs)),
+        )
+
+    def test_post_strat_mean_reg_gbstats(self):
+        stats_a, stats_b = zip(*self.stats_count_reg_strata)
+        test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
+        test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        result_true_rel = FrequentistTestResult(
+            expected=self.point_estimate_count_reg_rel,
+            ci=[0.11095792049593042, 0.11963303264702688],
+            uplift=Uplift(
+                dist="normal",
+                mean=self.point_estimate_count_reg_rel,
+                stddev=self.standard_error_count_reg_rel,
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        result_true_abs = FrequentistTestResult(
+            expected=self.point_estimate_count_reg_abs,
+            ci=[3.5664505332225285, 3.8569331969427503],
+            uplift=Uplift(
+                dist="normal",
+                mean=self.point_estimate_count_reg_abs,
+                stddev=self.standard_error_count_reg_abs,
             ),
             error_message=None,
             p_value=None,
@@ -1008,20 +1114,24 @@ class TestPostStratification(TestCase):
         test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
         test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
         result_true_rel = FrequentistTestResult(
-            expected=0.13929489348144797,
+            expected=self.point_estimate_ratio_reg_rel,
             ci=[0.13687368804104674, 0.1417160989218492],
             uplift=Uplift(
-                dist="normal", mean=0.13929489348144797, stddev=0.0012337665985726312
+                dist="normal",
+                mean=self.point_estimate_ratio_reg_rel,
+                stddev=self.standard_error_ratio_reg_rel,
             ),
             error_message=None,
             p_value=None,
             p_value_error_message=None,
         )
         result_true_abs = FrequentistTestResult(
-            expected=0.10399412678968833,
+            expected=self.point_estimate_ratio_reg_abs,
             ci=[0.10158460200524244, 0.10640365157413423],
             uplift=Uplift(
-                dist="normal", mean=0.10399412678968833, stddev=0.0012278145207659946
+                dist="normal",
+                mean=self.point_estimate_ratio_reg_abs,
+                stddev=self.standard_error_ratio_reg_abs,
             ),
             error_message=None,
             p_value=None,
@@ -1034,78 +1144,6 @@ class TestPostStratification(TestCase):
         self.assertEqual(
             _round_result_dict(asdict(result_true_abs)),
             _round_result_dict(asdict(test_result_abs)),
-        )
-
-    def test_post_strat_count_rel(self):
-        result_dict = asdict(
-            EffectMomentsPostStratification(
-                self.stats_count_strata, self.moments_config_rel  # type: ignore
-            ).compute_result()
-        )
-        expected_rounded_dict = asdict(
-            EffectMomentsResult(
-                point_estimate=0.10994584851937338,
-                standard_error=0.01224418556792039,
-                pairwise_sample_size=1000,
-                error_message=None,
-            )
-        )
-        self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
-        )
-
-    def test_post_strat_ratio_rel(self):
-        result_dict = asdict(
-            EffectMomentsPostStratification(
-                self.stats_ratio_strata, self.moments_config_rel  # type: ignore
-            ).compute_result()
-        )
-        expected_rounded_dict = asdict(
-            EffectMomentsResult(
-                point_estimate=0.13371299783026025,
-                standard_error=0.007141416587299529,
-                pairwise_sample_size=1000,
-                error_message=None,
-            )
-        )
-        self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
-        )
-
-    def test_post_strat_count_reg_rel(self):
-        result_dict = asdict(
-            EffectMomentsPostStratification(
-                self.stats_count_reg_strata, self.moments_config_rel  # type: ignore
-            ).compute_result()
-        )
-        expected_rounded_dict = asdict(
-            EffectMomentsResult(
-                point_estimate=0.11529547657147853,
-                standard_error=0.0022103200530259534,
-                pairwise_sample_size=1000,
-                error_message=None,
-            )
-        )
-        self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
-        )
-
-    def test_post_strat_ratio_reg_rel(self):
-        result_dict = asdict(
-            EffectMomentsPostStratification(
-                self.stats_ratio_reg_strata, self.moments_config_rel  # type: ignore
-            ).compute_result()
-        )
-        expected_rounded_dict = asdict(
-            EffectMomentsResult(
-                point_estimate=0.13929489348145818,
-                standard_error=0.0012337665987066867,
-                pairwise_sample_size=1000,
-                error_message=None,
-            )
-        )
-        self.assertDictEqual(
-            _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
         )
 
 
