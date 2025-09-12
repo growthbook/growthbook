@@ -11611,6 +11611,7 @@ export interface operations {
                 project: string;
                 role: string;
                 environments: (string)[];
+                limitAccessByEnvironment?: boolean;
               })[];
           };
         };
