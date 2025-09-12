@@ -8,7 +8,7 @@ import {
   xAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
 import { PiWrench } from "react-icons/pi";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { Select, SelectItem } from "@/ui/Select";
 import { requiresXAxis } from "@/services/dataVizTypeGuards";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import DataVizFilterPanel from "./DataVizFilterPanel";

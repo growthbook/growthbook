@@ -17,7 +17,7 @@ import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 export default function SDKConnectionPage() {

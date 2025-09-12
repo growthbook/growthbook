@@ -1,5 +1,5 @@
 import React from "react";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ShareStatusBadge({

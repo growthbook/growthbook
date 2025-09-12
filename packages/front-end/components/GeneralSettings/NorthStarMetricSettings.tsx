@@ -2,7 +2,7 @@ import { Box, Flex, Heading } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import { ConnectSettingsForm } from "@/pages/settings";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 
 export default function NorthStarMetricSettings() {
   return (

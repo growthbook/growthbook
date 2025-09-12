@@ -23,7 +23,7 @@ import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
@@ -40,15 +40,10 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import { AppFeatures } from "@/types/app-features";
-import {
-  StickyTabsList,
-  Tabs,
-  TabsContent,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Frame from "@/components/Radix/Frame";
+import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
+import Frame from "@/ui/Frame";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();

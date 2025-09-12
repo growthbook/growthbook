@@ -10,7 +10,7 @@ import { BsLightningFill } from "react-icons/bs";
 import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
 
 interface Props {

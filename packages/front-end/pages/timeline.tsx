@@ -11,7 +11,7 @@ import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 
 const ExperimentTimelinePage = (): React.ReactElement => {
   const { ready, project } = useDefinitions();

@@ -12,7 +12,7 @@ import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 
 export function PercentileLabel({
   metric,

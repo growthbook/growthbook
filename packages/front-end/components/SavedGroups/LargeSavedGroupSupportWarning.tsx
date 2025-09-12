@@ -3,8 +3,8 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import React from "react";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useUser } from "@/services/UserContext";
-import Link from "@/components/Radix/Link";
-import Callout from "@/components/Radix/Callout";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 
 interface LargeSavedGroupSupport {
   hasLargeSavedGroupFeature: boolean;

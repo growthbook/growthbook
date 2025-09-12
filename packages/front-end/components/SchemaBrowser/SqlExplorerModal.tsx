@@ -25,16 +25,11 @@ import { useUser } from "@/services/UserContext";
 import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Radix/Button";
-import { SelectItem } from "@/components/Radix/Select";
+import Button from "@/ui/Button";
+import { SelectItem } from "@/ui/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   Panel,
   PanelGroup,
@@ -47,12 +42,12 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
-import { DropdownMenu, DropdownMenuItem } from "../Radix/DropdownMenu";
 import { filterOptions } from "../DataViz/DataVizFilter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";

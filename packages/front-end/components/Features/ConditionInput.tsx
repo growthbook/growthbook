@@ -27,7 +27,7 @@ import CountrySelector, {
 } from "@/components/Forms/CountrySelector";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import DatePicker from "@/components/DatePicker";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {

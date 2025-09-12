@@ -12,8 +12,8 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
-import Badge from "@/components/Radix/Badge";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 const ProjectsPage: FC = () => {

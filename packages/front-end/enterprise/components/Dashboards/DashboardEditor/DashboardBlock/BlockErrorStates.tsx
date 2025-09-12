@@ -3,7 +3,7 @@ import {
   DashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Flex, Text } from "@radix-ui/themes";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { BLOCK_TYPE_INFO } from "..";
 
