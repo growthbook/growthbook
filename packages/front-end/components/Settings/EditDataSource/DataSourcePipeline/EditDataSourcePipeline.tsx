@@ -7,7 +7,7 @@ import {
   DataSourcePipelineSettings,
 } from "back-end/types/datasource";
 import { UNITS_TABLE_RETENTION_HOURS_DEFAULT } from "shared/enterprise";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
@@ -37,9 +37,10 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   const { validate, validationError, validationResults, validationTableName } =
     useDataSourcePipelineSettingsValidation();
   const allValidationsSucceeded =
-    validationResults?.create.result === "success" &&
-    validationResults?.insert.result === "success" &&
-    validationResults?.drop.result === "success";
+    validationResults &&
+    Object.values(validationResults).every(
+      (result) => result.result === "success",
+    );
 
   const form = useForm<DataSourcePipelineSettings>({
     defaultValues: {

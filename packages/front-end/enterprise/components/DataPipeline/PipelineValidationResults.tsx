@@ -4,8 +4,8 @@ import type {
   PipelineValidationResults,
 } from "shared/enterprise";
 import { Flex, Text, Blockquote } from "@radix-ui/themes";
-import Callout from "@/components/Radix/Callout";
-import HelperText from "@/components/Radix/HelperText";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 type Props = {
@@ -29,8 +29,9 @@ export default function PipelineValidationResultsView({
 
         <Flex direction="column" mt="1" gap="3">
           <ResultStepSummary title="Create table" result={results.create} />
-          <ResultStepSummary title="Insert row" result={results.insert} />
-          <ResultStepSummary title="Drop table" result={results.drop} />
+          {results.drop && (
+            <ResultStepSummary title="Drop table" result={results.drop} />
+          )}
         </Flex>
       </Flex>
     </Callout>

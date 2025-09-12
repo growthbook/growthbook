@@ -6,7 +6,6 @@ import {
   DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE,
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
-  getPipelineValidationInsertQuery,
   type PipelineValidationResults,
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -533,7 +532,6 @@ export async function putDataSource(
 
 /**
  * Validates the pipeline settings for the given data source.
- * Ensures we can create a table, insert data and drop the table.
  */
 export async function postValidatePipelineSettings(
   req: AuthRequest<
@@ -578,14 +576,6 @@ export async function postValidatePipelineSettings(
           result: "skipped",
           resultMessage: "Skipped because allowWriting is false",
         },
-        insert: {
-          result: "skipped",
-          resultMessage: "Skipped because allowWriting is false",
-        },
-        drop: {
-          result: "skipped",
-          resultMessage: "Skipped because allowWriting is false",
-        },
       },
     });
   }
@@ -616,8 +606,6 @@ export async function postValidatePipelineSettings(
 
   const results: PipelineValidationResults = {
     create: { result: "skipped" },
-    insert: { result: "skipped" },
-    drop: { result: "skipped" },
   };
 
   try {
@@ -635,46 +623,30 @@ export async function postValidatePipelineSettings(
     };
   }
 
-  try {
-    if (results.create.result === "success") {
-      await integration.runTestQuery(
-        getPipelineValidationInsertQuery({
-          tableFullName: fullTestTablePath,
-        }),
-      );
-      results.insert.result = "success";
-    } else {
-      results.insert = {
-        result: "skipped",
-        resultMessage: "Skipped due to create failure",
-      };
-    }
-  } catch (e) {
-    results.insert = {
-      result: "failed",
-      resultMessage: e instanceof Error ? e.message : String(e),
-    };
-  }
-
-  try {
-    if (results.create.result === "success") {
-      await integration.runTestQuery(
-        getPipelineValidationDropTableQuery({
-          tableFullName: fullTestTablePath,
-        }),
-      );
-      results.drop.result = "success";
-    } else {
+  if (
+    integration.dropUnitsTable() &&
+    pipelineSettings.unitsTableDeletion === true
+  ) {
+    if (results.create.result !== "success") {
       results.drop = {
         result: "skipped",
         resultMessage: "Skipped due to create failure",
       };
+    } else {
+      try {
+        await integration.runTestQuery(
+          getPipelineValidationDropTableQuery({
+            tableFullName: fullTestTablePath,
+          }),
+        );
+        results.drop = { result: "success" };
+      } catch (e) {
+        results.drop = {
+          result: "failed",
+          resultMessage: e instanceof Error ? e.message : String(e),
+        };
+      }
     }
-  } catch (e) {
-    results.drop = {
-      result: "failed",
-      resultMessage: e instanceof Error ? e.message : String(e),
-    };
   }
 
   res.status(200).json({ tableName: fullTestTablePath, results });

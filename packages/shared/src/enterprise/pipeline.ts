@@ -9,10 +9,10 @@ export type PipelineValidationResult = {
   resultMessage?: string;
 };
 
+// If optional, means the validation is not needed
 export type PipelineValidationResults = {
   create: PipelineValidationResult;
-  insert: PipelineValidationResult;
-  drop: PipelineValidationResult;
+  drop?: PipelineValidationResult;
 };
 
 export const DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE: readonly DataSourceType[] =
