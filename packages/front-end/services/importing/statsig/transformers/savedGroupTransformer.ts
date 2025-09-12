@@ -1,6 +1,9 @@
 import { SavedGroupInterface } from "shared/src/types";
 import { SDKAttribute } from "back-end/types/organization";
-import { StatSigSavedGroup } from "@/services/importing/statsig/types";
+import {
+  StatSigSavedGroup,
+  StatSigCondition,
+} from "@/services/importing/statsig/types";
 import { transformStatSigConditionsToGB } from "./ruleTransformer";
 import { mapStatSigAttributeToGB } from "./attributeMapper";
 import { ensureAttributeExists } from "./attributeCreator";
@@ -11,7 +14,10 @@ import { ensureAttributeExists } from "./attributeCreator";
 export async function transformStatSigSegmentToSavedGroup(
   segment: StatSigSavedGroup,
   existingAttributeSchema: SDKAttribute[],
-  apiCall: (path: string, options?: any) => Promise<any>,
+  apiCall: (
+    path: string,
+    options?: { method: string; body: string },
+  ) => Promise<unknown>,
 ): Promise<
   Omit<
     SavedGroupInterface,
@@ -26,7 +32,7 @@ export async function transformStatSigSegmentToSavedGroup(
     }
 
     // Collect all conditions from all rules
-    const allConditions: any[] = [];
+    const allConditions: StatSigCondition[] = [];
     rules.forEach((rule) => {
       if (rule.conditions && rule.conditions.length > 0) {
         allConditions.push(...rule.conditions);

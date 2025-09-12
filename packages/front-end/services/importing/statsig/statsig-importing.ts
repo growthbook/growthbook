@@ -297,7 +297,19 @@ export async function buildImportedData(
   features: FeatureInterface[],
   existingEnvironments: Set<string>,
   existingSavedGroups: Set<string>,
-  existingAttributeSchema: any[],
+  existingAttributeSchema: Array<{
+    property: string;
+    datatype:
+      | "string"
+      | "number"
+      | "boolean"
+      | "enum"
+      | "secureString"
+      | "string[]"
+      | "number[]"
+      | "secureString[]";
+    archived?: boolean;
+  }>,
   apiCall: (path: string, options?: unknown) => Promise<unknown>,
   callback: (data: ImportData) => void,
 ): Promise<void> {
@@ -419,7 +431,6 @@ export async function buildImportedData(
       }
     });
 
-
     await queue.onIdle();
     timer && clearTimeout(timer);
     data.status = "ready";
@@ -437,7 +448,19 @@ export async function buildImportedData(
  */
 export async function runImport(
   data: ImportData,
-  existingAttributeSchema: any[],
+  existingAttributeSchema: Array<{
+    property: string;
+    datatype:
+      | "string"
+      | "number"
+      | "boolean"
+      | "enum"
+      | "secureString"
+      | "string[]"
+      | "number[]"
+      | "secureString[]";
+    archived?: boolean;
+  }>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall: (path: string, options?: any) => Promise<any>,
   callback: (data: ImportData) => void,
@@ -545,7 +568,10 @@ export async function runImport(
 
           // Transform StatSig feature gate to GrowthBook feature
           // Get available environments from the processed data
-          const availableEnvironments = data.environments?.map(e => e.environment?.name || e.key).filter(Boolean) || [];
+          const availableEnvironments =
+            data.environments
+              ?.map((e) => e.environment?.name || e.key)
+              .filter(Boolean) || [];
           const transformedFeature = await transformStatSigFeatureGateToGB(
             fg,
             availableEnvironments,

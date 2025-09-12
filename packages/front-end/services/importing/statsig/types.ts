@@ -21,7 +21,10 @@ export type EnvironmentImport = BaseImportStatus & {
 
 export type FeatureGateImport = BaseImportStatus & {
   featureGate?: StatSigFeatureGate;
-  feature?: Omit<FeatureInterface, "organization" | "dateCreated" | "dateUpdated" | "version">;
+  feature?: Omit<
+    FeatureInterface,
+    "organization" | "dateCreated" | "dateUpdated" | "version"
+  >;
   existing?: FeatureInterface;
 };
 

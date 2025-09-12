@@ -17,7 +17,10 @@ function getAttributeDataType(attributeName: string): string {
 export async function ensureAttributeExists(
   attributeName: string,
   existingAttributeSchema: SDKAttribute[],
-  apiCall: (path: string, options?: any) => Promise<any>,
+  apiCall: (
+    path: string,
+    options?: { method: string; body: string },
+  ) => Promise<unknown>,
 ): Promise<void> {
   // Check if attribute already exists
   const existingAttribute = existingAttributeSchema.find(

@@ -5,7 +5,11 @@ import { mapStatSigAttributeToGB } from "./attributeMapper";
 export type TransformedCondition = {
   condition: string; // JSON string for targeting conditions
   savedGroups: string[]; // Array of saved group IDs
-  prerequisites: string[]; // Array of prerequisite feature IDs
+  prerequisites?: string[]; // Array of prerequisite feature IDs
+  scheduleRules?: [
+    start: { timestamp: string; enabled: boolean },
+    end: { timestamp: string; enabled: boolean },
+  ];
 };
 
 /**
@@ -17,6 +21,8 @@ export function transformStatSigConditionsToGB(
   const targetingConditions: StatSigCondition[] = [];
   const savedGroups: string[] = [];
   const prerequisites: string[] = [];
+  let startTime: string | null = null;
+  let endTime: string | null = null;
 
   // Separate conditions into categories
   conditions.forEach((condition) => {
@@ -25,6 +31,17 @@ export function transformStatSigConditionsToGB(
     // Handle special condition types
     if (type === "public") {
       // Everyone condition - no targeting needed
+      return;
+    }
+
+    // Handle time-based conditions
+    if (type === "time" && operator && targetValue) {
+      const timestamp = new Date(Number(targetValue)).toISOString();
+      if (operator === "after") {
+        startTime = timestamp;
+      } else if (operator === "before") {
+        endTime = timestamp;
+      }
       return;
     }
 
@@ -57,10 +74,25 @@ export function transformStatSigConditionsToGB(
       ? transformTargetingConditions(targetingConditions)
       : "{}";
 
+  // Create schedule rules tuple if we have both start and end times
+  const scheduleRules:
+    | [
+        start: { timestamp: string; enabled: boolean },
+        end: { timestamp: string; enabled: boolean },
+      ]
+    | undefined =
+    startTime && endTime
+      ? [
+          { timestamp: startTime, enabled: true },
+          { timestamp: endTime, enabled: false },
+        ]
+      : undefined;
+
   return {
     condition: conditionString,
     savedGroups,
-    prerequisites,
+    prerequisites: prerequisites?.length > 0 ? prerequisites : undefined,
+    scheduleRules,
   };
 }
 
