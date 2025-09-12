@@ -558,8 +558,8 @@ After deploying with Helm, access GrowthBook using the Ingress hostnames you con
   When running Minikube on MacOS with Docker Desktop, you may need to add some rules to your `/etc/hosts` file:
 
   ```bash
-  echo "127.0.0.1 growthbook.192.168.49.2.sslip.io" | sudo tee -a /etc/hosts
-  echo "127.0.0.1 api.192.168.49.2.sslip.io" | sudo tee -a /etc/hosts
+  echo "127.0.0.1 growthbook.${MINIKUBE-IP}.sslip.io" | sudo tee -a /etc/hosts
+  echo "127.0.0.1 api.${MINIKUBE-IP}.sslip.io" | sudo tee -a /etc/hosts
   ```
 
 - **AWS & GCP**
