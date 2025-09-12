@@ -29,9 +29,11 @@ export const createSegmentValidator = segmentValidator.omit({
   dateUpdated: true,
 });
 
-export const updateSegmentValidator = segmentValidator.omit({
-  id: true,
-  organization: true,
-  dateCreated: true,
-  dateUpdated: true,
-});
+export const updateSegmentValidator = segmentValidator
+  .omit({
+    id: true,
+    organization: true,
+    dateCreated: true,
+    dateUpdated: true,
+  })
+  .partial();

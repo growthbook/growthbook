@@ -1,5 +1,5 @@
 import React, { FC, Fragment, ReactElement, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt, FaCheckCircle } from "react-icons/fa";
 import { SegmentInterface } from "back-end/types/segment";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
@@ -19,8 +19,12 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
 
 const SegmentPage: FC = () => {
+  const [segmentToConvertToOfficial, setSegmentToConvertToOfficial] = useState<
+    string | null
+  >(null);
   const {
     segments,
     ready,
@@ -205,6 +209,21 @@ const SegmentPage: FC = () => {
       {segmentForm && (
         <SegmentForm close={() => setSegmentForm(null)} current={segmentForm} />
       )}
+      {segmentToConvertToOfficial && (
+        <OfficialResourceModal
+          resourceType="Segment"
+          close={() => setSegmentToConvertToOfficial(null)}
+          onSubmit={async () => {
+            await apiCall(`/segments/${segmentToConvertToOfficial}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "api",
+              }),
+            });
+            await mutate();
+          }}
+        />
+      )}
       <div className="row mb-3">
         <div className="col-auto d-flex">
           <h1>Segments</h1>
@@ -330,6 +349,19 @@ const SegmentPage: FC = () => {
                               <>View Details</>
                             )}
                           </button>
+                          {!s.managedBy ? (
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setSegmentToConvertToOfficial(s.id);
+                              }}
+                            >
+                              <span>
+                                <FaCheckCircle /> Convert to Official Segment
+                              </span>
+                            </button>
+                          ) : null}
                           {permissionsUtil.canDeleteSegment(s) &&
                           canStoreSegmentsInMongo &&
                           // if the segment has a managedBy value, it can't be deleted in the UI

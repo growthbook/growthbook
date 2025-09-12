@@ -11,6 +11,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import OfficialResourceModal from "../OfficialResourceModal";
 import FactFilterModal from "./FactFilterModal";
 
 export interface Props {
@@ -20,6 +21,9 @@ export interface Props {
 export default function FactFilterList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [filterToConvertToOfficial, setFilterToConvertToOfficial] = useState<
+    string | null
+  >(null);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -52,6 +56,24 @@ export default function FactFilterList({ factTable }: Props) {
           close={() => setEditOpen("")}
           factTable={factTable}
           existing={factTable.filters.find((f) => f.id === editOpen)}
+        />
+      )}
+      {filterToConvertToOfficial && (
+        <OfficialResourceModal
+          resourceType="Fact Filter"
+          close={() => setFilterToConvertToOfficial(null)}
+          onSubmit={async () => {
+            await apiCall(
+              `/fact-tables/${factTable.id}/filter/${filterToConvertToOfficial}`,
+              {
+                method: "PUT",
+                body: JSON.stringify({
+                  managedBy: "api",
+                }),
+              },
+            );
+            await mutateDefinitions();
+          }}
         />
       )}
 
@@ -120,6 +142,17 @@ export default function FactFilterList({ factTable }: Props) {
                           }}
                         >
                           Edit
+                        </button>
+                      ) : null}
+                      {!filter.managedBy ? (
+                        <button
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setFilterToConvertToOfficial(filter.id);
+                          }}
+                        >
+                          Convert to Official Filter
                         </button>
                       ) : null}
                       {canDelete && !filter.managedBy ? (

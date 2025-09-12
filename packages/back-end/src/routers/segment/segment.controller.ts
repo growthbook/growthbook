@@ -226,7 +226,6 @@ export const putSegment = async (
   }
 
   const {
-    datasource,
     name,
     sql,
     userIdType,
@@ -236,7 +235,10 @@ export const putSegment = async (
     filters,
     type,
     projects,
+    managedBy,
   } = req.body;
+
+  const datasource = segment.datasource;
 
   if (!context.permissions.canUpdateSegment(segment, { projects })) {
     context.permissions.throwPermissionError();
@@ -248,16 +250,17 @@ export const putSegment = async (
   }
 
   await context.models.segments.updateById(id, {
-    owner: owner,
-    datasource,
-    userIdType,
-    name,
-    sql,
-    description,
-    type,
-    factTableId,
-    filters,
-    projects,
+    owner: owner || segment.owner,
+    datasource: datasource || segment.datasource,
+    userIdType: userIdType || segment.userIdType,
+    name: name || segment.name,
+    sql: sql || segment.sql,
+    description: description || segment.description,
+    type: type || segment.type,
+    factTableId: factTableId || segment.factTableId,
+    filters: filters || segment.filters,
+    projects: projects || segment.projects,
+    managedBy: managedBy || segment.managedBy,
   });
 
   res.status(200).json({

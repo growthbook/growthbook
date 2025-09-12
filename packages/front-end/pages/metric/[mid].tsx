@@ -69,6 +69,7 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -93,6 +94,8 @@ const MetricPage: FC = () => {
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
   const storageKeyAvg = `metric_smoothBy_avg`; // to make metric-specific, include `${mid}`
   const storageKeySum = `metric_smoothBy_sum`;
   const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
@@ -310,6 +313,21 @@ const MetricPage: FC = () => {
           }}
         />
       )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          resourceType="Metric"
+          close={() => setShowConvertToOfficialModal(false)}
+          onSubmit={async () => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "api",
+              }),
+            });
+            await mutateDefinitions();
+          }}
+        />
+      )}
       {duplicateModalOpen && (
         <MetricModal
           mode="duplicate"
@@ -450,6 +468,15 @@ const MetricPage: FC = () => {
                 onClick={() => setEditModalOpen(true)}
               >
                 Edit metric
+              </Button>
+            ) : null}
+            {!metric.managedBy ? (
+              <Button
+                className="btn dropdown-item py-2"
+                color=""
+                onClick={() => setShowConvertToOfficialModal(true)}
+              >
+                Convert to Official Metric
               </Button>
             ) : null}
             {canDuplicateMetric ? (
