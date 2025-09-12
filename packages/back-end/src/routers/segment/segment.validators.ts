@@ -7,13 +7,13 @@ export const segmentValidator = z
     id: z.string(),
     organization: z.string(),
     owner: z.string().default(""),
-    datasource: z.string(), //
+    datasource: z.string(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
-    name: z.string(), //
-    description: z.string(), //
-    userIdType: z.string(), //
-    type: z.enum(TYPES), //
+    name: z.string(),
+    description: z.string(),
+    userIdType: z.string(),
+    type: z.enum(TYPES),
     managedBy: z.enum(["", "api", "config"]).optional(),
     sql: z.string().optional(),
     factTableId: z.string().optional(),
