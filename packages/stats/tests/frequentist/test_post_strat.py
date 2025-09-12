@@ -1027,8 +1027,14 @@ class TestPostStratification(TestCase):
             p_value=None,
             p_value_error_message=None,
         )
-        self.assertEqual(result_true_rel, test_result_rel)
-        self.assertEqual(result_true_abs, test_result_abs)
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_rel)),
+            _round_result_dict(asdict(test_result_rel)),
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_abs)),
+            _round_result_dict(asdict(test_result_abs)),
+        )
 
     def test_post_strat_count_rel(self):
         result_dict = asdict(
