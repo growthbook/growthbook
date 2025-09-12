@@ -30,6 +30,11 @@ export type FeatureGateImport = BaseImportStatus & {
 
 export type DynamicConfigImport = BaseImportStatus & {
   dynamicConfig?: StatSigDynamicConfig;
+  feature?: Omit<
+    FeatureInterface,
+    "organization" | "dateCreated" | "dateUpdated" | "version"
+  >;
+  existing?: FeatureInterface;
 };
 
 export type ExperimentImport = BaseImportStatus & {
@@ -81,12 +86,21 @@ export type StatSigFeatureGate = {
 };
 
 export type StatSigDynamicConfig = {
+  id: string;
   name: string;
   description?: string;
-  enabled: boolean;
+  isEnabled: boolean;
   rules: StatSigRule[];
-  default_value: unknown;
+  defaultValue: unknown;
   tags?: string[];
+  owner?: {
+    ownerID: string;
+    ownerType: string;
+    ownerName: string;
+    ownerEmail: string;
+  };
+  lastModifiedTime: number;
+  createdTime: number;
 };
 
 export type StatSigExperiment = {
@@ -128,6 +142,14 @@ export type StatSigRule = {
   passPercentage: number;
   conditions: StatSigCondition[];
   environments?: string[] | null; // null means all environments, array means specific environments
+  returnValue?: unknown; // For dynamic configs - the JSON value to return
+  variants?: Array<{
+    id: string;
+    name: string;
+    passPercentage: number;
+    returnValue: unknown;
+    returnValueJson5?: string;
+  }>; // For dynamic configs - multiple variants for A/B/n splits
 };
 
 export type StatSigHoldout = {

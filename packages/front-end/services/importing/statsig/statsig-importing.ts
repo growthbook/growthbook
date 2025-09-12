@@ -363,10 +363,10 @@ export async function buildImportedData(
         entities.featureGates.data.forEach((gate) => {
           const fg = gate as StatSigFeatureGate;
           data.featureGates?.push({
-            key: fg.name,
-            status: featuresMap.has(fg.name) ? "skipped" : "pending",
+            key: fg.id, // Use ID instead of name for uniqueness
+            status: featuresMap.has(fg.id) ? "skipped" : "pending",
             featureGate: fg,
-            error: featuresMap.has(fg.name)
+            error: featuresMap.has(fg.id)
               ? "Feature already exists"
               : undefined,
           });
@@ -375,10 +375,17 @@ export async function buildImportedData(
         // Process dynamic configs
         entities.dynamicConfigs.data.forEach((config) => {
           const dc = config as StatSigDynamicConfig;
+          // Check if there's already a feature gate with the same ID
+          const existingFeature = featuresMap.get(dc.id);
+          const featureKey = existingFeature ? `_config_${dc.id}` : dc.id;
+
           data.dynamicConfigs?.push({
-            key: dc.name,
-            status: "pending",
+            key: featureKey, // Use ID instead of name for uniqueness
+            status: featuresMap.has(dc.id) ? "pending" : "pending", // Always pending for dynamic configs
             dynamicConfig: dc,
+            error: featuresMap.has(dc.id)
+              ? `Feature gate exists, using _config prefix`
+              : undefined,
           });
         });
 
@@ -577,6 +584,7 @@ export async function runImport(
             availableEnvironments,
             existingAttributeSchema,
             apiCall,
+            "featureGate",
           );
 
           const res: { feature: FeatureInterface } = await apiCall(
@@ -599,14 +607,51 @@ export async function runImport(
   });
   await queue.onIdle();
 
-  // For now, just mark everything else as completed since we're only implementing environments, segments, and feature gates
+  // Import Dynamic Configs
+  data.dynamicConfigs?.forEach((dynamicConfig) => {
+    if (dynamicConfig.status === "pending") {
+      queue.add(async () => {
+        try {
+          const dc = dynamicConfig.dynamicConfig as StatSigDynamicConfig;
+          if (!dc) {
+            throw new Error("No dynamic config data available");
+          }
 
-  data.dynamicConfigs?.forEach((config) => {
-    if (config.status === "pending") {
-      config.status = "failed";
-      config.error = "Not implemented yet";
+          // Transform StatSig dynamic config to GrowthBook feature
+          // Get available environments from the processed data
+          const availableEnvironments =
+            data.environments
+              ?.map((e) => e.environment?.name || e.key)
+              .filter(Boolean) || [];
+          const transformedFeature = await transformStatSigFeatureGateToGB(
+            dc,
+            availableEnvironments,
+            existingAttributeSchema,
+            apiCall,
+            "dynamicConfig",
+          );
+
+          const res: { feature: FeatureInterface } = await apiCall(
+            `/feature/${dynamicConfig.key}/sync`,
+            {
+              method: "POST",
+              body: JSON.stringify(transformedFeature),
+            },
+          );
+
+          dynamicConfig.status = "completed";
+          dynamicConfig.existing = res.feature;
+        } catch (e) {
+          dynamicConfig.status = "failed";
+          dynamicConfig.error = e.message;
+        }
+        update();
+      });
     }
   });
+  await queue.onIdle();
+
+  // For now, just mark everything else as completed since we're only implementing environments, segments, feature gates, and dynamic configs
 
   data.experiments?.forEach((exp) => {
     if (exp.status === "pending") {

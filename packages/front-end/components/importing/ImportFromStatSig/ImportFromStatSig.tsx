@@ -311,7 +311,7 @@ export default function ImportFromStatSig() {
                       <thead>
                         <tr>
                           <th style={{ width: 150 }}>Status</th>
-                          <th>Name</th>
+                          <th>ID</th>
                           <th>Description</th>
                           <th>Enabled</th>
                           <th style={{ width: 40 }}></th>
@@ -327,7 +327,7 @@ export default function ImportFromStatSig() {
                                 <td>
                                   <ImportStatusDisplay data={gate} />
                                 </td>
-                                <td>{gate.featureGate?.name}</td>
+                                <td>{gate.featureGate?.id}</td>
                                 <td>{gate.featureGate?.description}</td>
                                 <td>
                                   {gate.featureGate?.isEnabled ? "Yes" : "No"}
@@ -364,7 +364,7 @@ export default function ImportFromStatSig() {
                       <thead>
                         <tr>
                           <th style={{ width: 150 }}>Status</th>
-                          <th>Name</th>
+                          <th>ID</th>
                           <th>Description</th>
                           <th style={{ width: 40 }}></th>
                         </tr>
@@ -379,7 +379,7 @@ export default function ImportFromStatSig() {
                                 <td>
                                   <ImportStatusDisplay data={config} />
                                 </td>
-                                <td>{config.dynamicConfig?.name}</td>
+                                <td>{config.dynamicConfig?.id}</td>
                                 <td>{config.dynamicConfig?.description}</td>
                                 <EntityAccordion
                                   entity={config.dynamicConfig}
