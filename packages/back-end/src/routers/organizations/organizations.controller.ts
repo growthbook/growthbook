@@ -19,6 +19,7 @@ import {
   findSdkWebhookById,
   updateSdkWebhook,
 } from "back-end/src/models/WebhookModel";
+import { validateRoleAndEnvs } from "back-end/src/api/members/updateMemberRole";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -2053,7 +2054,7 @@ export async function putLicenseKey(
 }
 
 export async function putDefaultRole(
-  req: AuthRequest<{ defaultRole: string }>,
+  req: AuthRequest<{ defaultRole: MemberRoleWithProjects }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -2068,22 +2069,40 @@ export async function putDefaultRole(
     );
   }
 
-  if (!isRoleValid(defaultRole, org)) {
-    throw new Error("Invalid role");
-  }
-
   if (!context.permissions.canManageTeam()) {
     context.permissions.throwPermissionError();
+  }
+
+  const { memberIsValid, reason } = validateRoleAndEnvs(
+    org,
+    defaultRole.role,
+    defaultRole.limitAccessByEnvironment,
+    defaultRole.environments,
+  );
+
+  if (!memberIsValid) {
+    throw new Error(reason);
+  }
+
+  if (defaultRole.projectRoles?.length) {
+    defaultRole.projectRoles.forEach((p) => {
+      const { memberIsValid, reason } = validateRoleAndEnvs(
+        org,
+        p.role,
+        p.limitAccessByEnvironment,
+        p.environments,
+      );
+
+      if (!memberIsValid) {
+        throw new Error(reason);
+      }
+    });
   }
 
   updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      defaultRole: {
-        role: defaultRole,
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
+      defaultRole,
     },
   });
 
