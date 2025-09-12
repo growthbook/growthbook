@@ -26,6 +26,7 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
+import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
 import { ensureLimit, format, SQL_ROW_LIMIT } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
@@ -88,6 +89,14 @@ import {
   VariationPeriodWeight,
   DimensionColumnData,
   DataType,
+  IncrementalWithNoOutputQueryResponse,
+  CreateExperimentIncrementalUnitsQueryParams,
+  UpdateExperimentIncrementalUnitsQueryParams,
+  DropOldIncrementalUnitsQueryParams,
+  AlterNewIncrementalUnitsQueryParams,
+  MaxTimestampIncrementalUnitsQueryParams,
+  DropTempIncrementalUnitsQueryParams,
+  PartitionSettings,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -114,6 +123,7 @@ import {
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { ReqContextClass } from "back-end/src/services/context";
 import { PopulationDataQuerySettings } from "back-end/src/queryRunners/PopulationDataQueryRunner";
+import { INCREMENTAL_UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 
 export const MAX_ROWS_UNIT_AGGREGATE_QUERY = 3000;
 export const MAX_ROWS_PAST_EXPERIMENTS_QUERY = 3000;
@@ -179,7 +189,14 @@ export default abstract class SqlIntegration
       hasQuantileTesting: this.hasQuantileTesting(),
       hasEfficientPercentiles: this.hasEfficientPercentile(),
       hasCountDistinctHLL: this.hasCountDistinctHLL(),
+      hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
     };
+  }
+
+  canRunIncrementalRefreshQueries(): boolean {
+    return PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES["incremental"].includes(
+      this.datasource.type,
+    );
   }
 
   async testConnection(): Promise<boolean> {
@@ -1592,8 +1609,8 @@ export default abstract class SqlIntegration
   }
 
   private getDimensionColumn(
-    baseIdType: string,
     dimension: UserDimension | ExperimentDimension | null,
+    experimentDimensionPrefix?: string,
   ) {
     const missingDimString = "__NULL_DIMENSION";
     if (!dimension) {
@@ -1607,7 +1624,7 @@ export default abstract class SqlIntegration
         MIN(
           CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
             coalesce(${this.castToString(
-              `e.dim_${dimension.id}`,
+              `e.${experimentDimensionPrefix ?? "dim_"}${dimension.id}`,
             )}, ${this.castToString(`'${missingDimString}'`)})
           )
         ),
@@ -2020,15 +2037,13 @@ export default abstract class SqlIntegration
         ${unitDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_unit_${
-            d.dimension.id
-          }`,
+          , ${this.getDimensionColumn(d)} AS dim_unit_${d.dimension.id}`,
           )
           .join("\n")}
         ${experimentDimensions
           .map(
             (d) => `
-          , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`,
+          , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
           )
           .join("\n")}
         ${
@@ -2338,7 +2353,7 @@ export default abstract class SqlIntegration
           ${params.dimensions
             .map(
               (d) => `
-            , ${this.getDimensionColumn(baseIdType, d)} AS dim_exp_${d.id}`,
+            , ${this.getDimensionColumn(d)} AS dim_exp_${d.id}`,
             )
             .join("\n")}
           , 1 AS variation
@@ -5513,6 +5528,369 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
 
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
+  }
+
+  // Separate "if use old table" vs "not"
+  // If restarting/no old table: getCreateExperimentIncrementalUnitsQuery
+  // Then: getUpdateExperimentIncrementalUnitsQuery
+
+  // Then housekeeping
+  // getDropOldIncrementalUnitsQuery
+  // getAlterNewIncrementalUnitsQuery
+  // getMaxTimestampIncrementalUnitsQuery
+
+  // Incremental Metrics
+  // Per fact table...
+  // If restarting/no old table: getCreateExperimentIncrementalMetricsQuery
+  // Else: nothing
+
+  // getUpdateExperimentIncrementalMetricsQuery
+  // Then housekeeping
+  // getMaxTimestampIncrementalMetricsQuery
+
+  // TODO
+  // If restarting/no old table + CUPED: getCreateExperimentIncrementalMetricsCupedQuery
+  // Else: nothing
+  // Then: getUpdateExperimentIncrementalMetricsCupedQuery
+
+  // Finally, one per fact table for now:
+  // getExperimentIncrementalStatisticsQuery
+  parseExperimentParams(params: {
+    settings: ExperimentSnapshotSettings;
+    activationMetric: ExperimentMetricInterface | null;
+    dimensions: Dimension[];
+    unitsTableFullName: string;
+  }): {
+    exposureQuery: ExposureQuery;
+    activationMetric: ExperimentMetricInterface | null;
+    experimentDimensions: ExperimentDimension[];
+    unitDimensions: Dimension[];
+  } {
+    const { settings, activationMetric: activationMetricDoc } = params;
+
+    const exposureQuery = this.getExposureQuery(
+      settings.exposureQueryId || "",
+      undefined,
+    );
+
+    const activationMetric = this.processActivationMetric(
+      activationMetricDoc,
+      settings,
+    );
+
+    const { experimentDimensions } = this.processDimensions(
+      params.dimensions,
+      settings,
+      activationMetric,
+    );
+
+    return {
+      activationMetric,
+      experimentDimensions,
+      exposureQuery,
+      unitDimensions: params.dimensions,
+    };
+  }
+
+  getCreateExperimentIncrementalUnitsQuery(
+    params: CreateExperimentIncrementalUnitsQueryParams,
+  ): string {
+    const { exposureQuery, activationMetric, experimentDimensions } =
+      this.parseExperimentParams(params);
+
+    // TODO : partition on `max_timestamp` for faster retrieval of the maximum timestamp for last scanned
+    return format(
+      `
+    CREATE TABLE ${params.unitsTableFullName}
+    ${this.createUnitsTableOptions()}
+    (
+      ${exposureQuery.userIdType} ${this.getDataType("string")}
+      , variation ${this.getDataType("string")}
+      , first_exposure_timestamp ${this.getDataType("timestamp")}
+      ${
+        activationMetric
+          ? `, first_activation_timestamp ${this.getDataType("timestamp")}`
+          : ""
+      }
+      ${experimentDimensions
+        .map((d) => `, dim_exp_${d.id} ${this.getDataType("string")}`)
+        .join("\n")}
+      , max_timestamp ${this.getDataType("timestamp")}
+    )
+    `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getPartitionWhereClause(
+    partitionSettings: PartitionSettings,
+    date: Date,
+    type: "onOrAfter" | "onOrBefore",
+  ): string {
+    // TODO do we need to know if zero padded?
+    // TODO do we need to know if the column is a string or number?
+    if (partitionSettings.type === "yearMonthDay") {
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      switch (type) {
+        case "onOrAfter":
+          return `
+            (
+              ${partitionSettings.yearColumn} >= '${year}'
+              AND ${
+                partitionSettings.monthColumn
+              } >= '${month.toString().padStart(2, "0")}'
+              AND ${partitionSettings.dayColumn} >= '${day
+                .toString()
+                .padStart(2, "0")}'
+            ) OR (
+              ${partitionSettings.yearColumn} >= '${year}'
+              AND ${
+                partitionSettings.monthColumn
+              } > '${month.toString().padStart(2, "0")}'
+            ) OR (
+              ${partitionSettings.yearColumn} > '${year}'
+            )
+          `;
+        case "onOrBefore":
+          return `
+            (
+              ${partitionSettings.yearColumn} <= '${year}'
+              AND ${
+                partitionSettings.monthColumn
+              } <= '${month.toString().padStart(2, "0")}'
+              AND ${partitionSettings.dayColumn} <= '${day
+                .toString()
+                .padStart(2, "0")}'
+            ) OR (
+              ${partitionSettings.yearColumn} <= '${year}'
+              AND ${
+                partitionSettings.monthColumn
+              } < '${month.toString().padStart(2, "0")}'
+            ) OR (
+              ${partitionSettings.yearColumn} < '${year}'
+            )
+          `;
+      }
+    }
+    return "";
+  }
+
+  getUpdateExperimentIncrementalUnitsQuery(
+    params: UpdateExperimentIncrementalUnitsQueryParams,
+  ): string {
+    const { settings, partitionSettings, segment, factTableMap } = params;
+    const { exposureQuery, activationMetric, experimentDimensions } =
+      this.parseExperimentParams(params);
+
+    if (!partitionSettings) {
+      throw new Error(
+        "Partition settings are required for incremental refresh",
+      );
+    }
+    const partitionWhereClause = this.getPartitionWhereClause(
+      partitionSettings,
+      params.lastMaxTimestamp,
+      "onOrAfter",
+    );
+
+    // TODO test joins, re-use this logic for create;
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: [
+        [exposureQuery.userIdType],
+        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
+        segment ? [segment.userIdType || "user_id"] : [],
+      ],
+      from: settings.startDate,
+      to: settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: settings.experimentId,
+    });
+
+    // TODO: activation metric
+    if (activationMetric) {
+      throw new Error(
+        "Activation metrics are not supported for incremental refresh",
+      );
+    }
+
+    // Segment and SQL only checks against new exposures
+    // TODO: test segment, SQL filter, and ID joins
+    // TODO: partitioning for quick max timestamp retrieval
+    return format(
+      `
+      CREATE TABLE ${params.unitsTableFullName}_tmp AS (
+        WITH ${idJoinSQL}
+        __existingUnits AS (
+          SELECT 
+            ${baseIdType}
+            , variation
+            , first_exposure_timestamp AS timestamp
+            ${
+              activationMetric
+                ? `, first_activation_timestamp AS activation_timestamp`
+                : ""
+            }
+            ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
+          FROM ${params.unitsTableFullName}
+          -- Redundant where statement could be used for safety to prevent counting units twice
+          -- WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}
+        ),
+        ${
+          segment
+            ? `, __segment as (${this.getSegmentCTE(
+                segment,
+                baseIdType,
+                idJoinMap,
+                factTableMap,
+                {
+                  startDate: settings.startDate,
+                  endDate: settings.endDate,
+                  experimentId: settings.experimentId,
+                },
+              )})`
+            : ""
+        }
+        __newExposures AS (
+          ${compileSqlTemplate(exposureQuery.query, {
+            startDate: settings.startDate,
+            endDate: settings.endDate,
+            experimentId: settings.experimentId,
+            // TODO add incremental start data as template variable
+          })}
+        ),
+        __filteredNewExposures AS (
+          SELECT 
+            ${this.castToString(`n.${baseIdType}`)} AS ${baseIdType}
+            , n.variation_id AS variation
+            , ${this.castUserDateCol("n.timestamp")} AS timestamp
+            -- TODO activation metric timestamp
+            ${activationMetric ? `, NULL AS activation_timestamp` : ""}
+            ${experimentDimensions
+              .map((d) => `, n.${d.id} AS dim_exp_${d.id}`)
+              .join(",\n")}
+          FROM __newExposures n
+          -- TODO: confirm this always works for all incremental refresh datasources
+          -- and their partitioning strategy
+          ${
+            segment
+              ? `JOIN __segment s ON (s.${baseIdType} = n.${baseIdType})`
+              : ""
+          }
+          WHERE 
+            timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
+            ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
+            ${partitionWhereClause ? `AND (${partitionWhereClause})` : ""}
+        ),
+        __jointExposures AS (
+          SELECT * FROM __existingUnits
+          UNION ALL
+          SELECT * FROM __filteredNewExposures
+        ),
+        -- TODO refactor this to a shared CTE
+        __experimentUnits AS (
+          SELECT
+            e.${baseIdType} AS ${baseIdType}
+            , ${this.ifElse(
+              "COUNT(DISTINCT e.variation) > 1",
+              "'__multiple__'",
+              "MAX(e.variation)",
+            )} AS variation
+            , MIN(e.timestamp) AS first_exposure_timestamp
+            ${experimentDimensions
+              .map(
+                (d) => `
+              , ${this.getDimensionColumn(d, "dim_exp_")} AS dim_exp_${d.id}`,
+              )
+              .join("\n")}
+          FROM __jointExposures e
+          GROUP BY
+            ${baseIdType}
+        )
+        SELECT 
+          ${baseIdType}
+          , variation
+          , first_exposure_timestamp
+          ${activationMetric ? `, first_activation_timestamp` : ""}
+          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
+          , MAX(first_exposure_timestamp) OVER () AS max_timestamp
+        FROM __experimentUnits
+      )
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getDropOldIncrementalUnitsQuery(
+    params: DropOldIncrementalUnitsQueryParams,
+  ): string {
+    if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
+      throw new Error(
+        "Unable to drop table that is not an incremental refresh units table.",
+      );
+    }
+    return format(
+      `
+      DROP TABLE IF EXISTS ${params.unitsTableFullName}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getDropTempIncrementalUnitsQuery(
+    params: DropTempIncrementalUnitsQueryParams,
+  ): string {
+    if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
+      throw new Error(
+        "Unable to drop table that is not an incremental refresh units table.",
+      );
+    }
+    return format(
+      `
+      DROP TABLE IF EXISTS ${params.unitsTableFullName}_tmp
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getAlterNewIncrementalUnitsQuery(
+    params: AlterNewIncrementalUnitsQueryParams,
+  ): string {
+    return format(
+      `
+      ALTER TABLE ${params.unitsTableFullName}_tmp RENAME TO ${params.unitsTableFullName}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  getMaxTimestampIncrementalUnitsQuery(
+    params: MaxTimestampIncrementalUnitsQueryParams,
+  ): string {
+    // TODO: partitioning for quick max timestamp retrieval
+    return format(
+      `
+      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  async runMaxTimestampIncrementalUnitsQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
+    const results = await this.runQuery(sql, setExternalId);
+    return results;
+  }
+
+  async runIncrementalWithNoOutputQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
+    const results = await this.runQuery(sql, setExternalId);
+    return results;
   }
 
   getDataType(dataType: DataType): string {

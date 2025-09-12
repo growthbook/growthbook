@@ -14,6 +14,7 @@ import {
   DimensionSlicesQueryResponse,
   MetricAnalysisQueryResponse,
   DropTableQueryResponse,
+  IncrementalWithNoOutputQueryResponse,
 } from "back-end/src/types/Integration";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -115,6 +116,27 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getCreateExperimentIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getUpdateExperimentIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropOldIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropTempIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getAlterNewIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getMaxTimestampIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runIncrementalWithNoOutputQuery(): Promise<IncrementalWithNoOutputQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {

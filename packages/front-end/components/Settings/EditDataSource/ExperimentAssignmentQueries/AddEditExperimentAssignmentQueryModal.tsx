@@ -22,11 +22,19 @@ type EditExperimentAssignmentQueryProps = {
   mode: "add" | "edit";
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
+  extraRequiredColumns?: string[]; // optional additional required columns to append (e.g., pipeline partition columns)
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
-> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+> = ({
+  exposureQuery,
+  dataSource,
+  mode,
+  onSave,
+  onCancel,
+  extraRequiredColumns = [],
+}) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -83,15 +91,51 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   });
 
   const requiredColumns = useMemo(() => {
-    return new Set([
-      "experiment_id",
-      "variation_id",
-      "timestamp",
-      userEnteredUserIdType,
-      ...(userEnteredDimensions || []),
-      ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
-    ]);
-  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
+    const base = new Set<string>(
+      [
+        "experiment_id",
+        "variation_id",
+        "timestamp",
+        userEnteredUserIdType,
+        ...(userEnteredDimensions || []),
+        ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
+      ].filter(Boolean) as string[],
+    );
+
+    // Include extra required columns if provided (e.g., from a wizard flow)
+    for (const col of extraRequiredColumns.filter(Boolean)) base.add(col);
+
+    // Fallback: if no extraRequiredColumns passed, include datasource pipeline partition columns when applicable
+    if (!extraRequiredColumns.length) {
+      const ps = dataSource?.settings?.pipelineSettings?.partitionSettings as
+        | {
+            type: "yearMonthDate";
+            yearColumn?: string;
+            monthColumn?: string;
+            dateColumn?: string;
+          }
+        | { type: "timestamp" }
+        | undefined;
+      const mode = dataSource?.settings?.pipelineSettings?.mode;
+      if (mode === "incremental" && ps && ps.type === "yearMonthDate") {
+        [ps.yearColumn, ps.monthColumn, ps.dateColumn]
+          .filter(Boolean)
+          .forEach((c) => base.add(c as string));
+      }
+    }
+
+    return base;
+  }, [
+    userEnteredUserIdType,
+    userEnteredDimensions,
+    userEnteredHasNameCol,
+    dataSource?.settings?.pipelineSettings?.mode,
+    // stringify to avoid deep deps; safe because we only read keys
+    JSON.stringify(
+      dataSource?.settings?.pipelineSettings?.partitionSettings || {},
+    ),
+    JSON.stringify(extraRequiredColumns || []),
+  ]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],

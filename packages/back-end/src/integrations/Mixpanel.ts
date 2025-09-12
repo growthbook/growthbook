@@ -20,6 +20,7 @@ import {
   ExperimentMetricQueryResponse,
   ExperimentQueryResponses,
   ExperimentUnitsQueryResponse,
+  IncrementalWithNoOutputQueryResponse,
   MetricAnalysisQueryResponse,
   MetricValueParams,
   MetricValueQueryResponse,
@@ -92,6 +93,27 @@ export default class Mixpanel implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   runExperimentUnitsQuery(): Promise<ExperimentUnitsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getCreateExperimentIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getUpdateExperimentIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropOldIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropTempIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getAlterNewIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  getMaxTimestampIncrementalUnitsQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runIncrementalWithNoOutputQuery(): Promise<IncrementalWithNoOutputQueryResponse> {
     throw new Error("Method not implemented.");
   }
   private getMetricAggregationExpression(metric: MetricInterface) {
