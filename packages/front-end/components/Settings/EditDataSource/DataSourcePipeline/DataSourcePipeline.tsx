@@ -90,7 +90,7 @@ export default function DataSourcePipeline({
                           </code>
                           {", "}
                           <code>
-                            date={pipelineSettings.partitionSettings.dateColumn}
+                            day={pipelineSettings.partitionSettings.dayColumn}
                           </code>
                           {"]"}
                         </>
@@ -120,8 +120,8 @@ export default function DataSourcePipeline({
                         ? "Enabled"
                         : "Disabled"}
                     </Box>
-                  ) : (pipelineSettings?.mode ?? "temporary") ===
-                    "temporary" ? (
+                  ) : (pipelineSettings?.mode ?? "ephemeral") ===
+                    "ephemeral" ? (
                     <Box mt="2">
                       {"Retention of temporary units table (hours): "}
                       {pipelineSettings?.unitsTableRetentionHours ?? 24}

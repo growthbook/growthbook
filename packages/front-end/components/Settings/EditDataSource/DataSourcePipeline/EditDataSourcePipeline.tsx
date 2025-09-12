@@ -1,6 +1,5 @@
 import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Box } from "@radix-ui/themes";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
@@ -21,13 +20,13 @@ import { PiCaretRightFill } from "react-icons/pi";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import Toggle from "@/components/Forms/Toggle";
-import RadioCards from "@/components/Radix/RadioCards";
+import RadioCards from "@/ui/RadioCards";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
-import Badge from "@/components/Radix/Badge";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -145,7 +144,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
       validation.drop.success
     );
 
-  const modalError: string | null =
+  const _modalError: string | null =
     validationError ||
     (hasValidationFailures
       ? [
@@ -500,7 +499,6 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
           : undefined
       }
       loading={validating || checkingExposure || checkingFactTables}
-      error={modalError || undefined}
       secondaryCTA={
         <div className="d-flex align-items-center text-muted small">
           <span

@@ -26,6 +26,7 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
+import { PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES } from "shared/enterprise";
 import { ensureLimit, format, SQL_ROW_LIMIT } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
@@ -193,7 +194,9 @@ export default abstract class SqlIntegration
   }
 
   canRunIncrementalRefreshQueries(): boolean {
-    return false;
+    return PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES["incremental"].includes(
+      this.datasource.type,
+    );
   }
 
   async testConnection(): Promise<boolean> {
@@ -1905,17 +1908,7 @@ export default abstract class SqlIntegration
       activationMetric,
     );
 
-    const exposureQuery = this.getExposureQuery(
-      settings.exposureQueryId || "",
-      undefined,
-    );
-
-    // For testing of the start from scratch example
-    if (!params.incrementalStartDate) {
-      exposureQuery.query = `${
-        exposureQuery.query
-      } WHERE timestamp < ${this.toTimestamp(new Date("2025-08-05 13:00:00"))}`;
-    }
+    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
@@ -5557,7 +5550,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
   // Finally, one per fact table for now:
   // getExperimentIncrementalStatisticsQuery
-
   parseExperimentParams(params: {
     settings: ExperimentSnapshotSettings;
     activationMetric: ExperimentMetricInterface | null;
@@ -5632,7 +5624,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     // TODO do we need to know if zero padded?
     // TODO do we need to know if the column is a string or number?
-    if (partitionSettings.type === "yearMonthDate") {
+    if (partitionSettings.type === "yearMonthDay") {
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
       const day = date.getDate();
@@ -5644,7 +5636,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               AND ${
                 partitionSettings.monthColumn
               } >= '${month.toString().padStart(2, "0")}'
-              AND ${partitionSettings.dateColumn} >= '${day
+              AND ${partitionSettings.dayColumn} >= '${day
                 .toString()
                 .padStart(2, "0")}'
             ) OR (
@@ -5663,7 +5655,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               AND ${
                 partitionSettings.monthColumn
               } <= '${month.toString().padStart(2, "0")}'
-              AND ${partitionSettings.dateColumn} <= '${day
+              AND ${partitionSettings.dayColumn} <= '${day
                 .toString()
                 .padStart(2, "0")}'
             ) OR (

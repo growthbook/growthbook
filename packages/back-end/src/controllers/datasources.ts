@@ -3,7 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
-  DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE,
+  PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
   type PipelineValidationResults,
@@ -564,9 +564,13 @@ export async function postValidatePipelineSettings(
     });
   }
 
-  if (!DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE.includes(datasource.type)) {
+  if (
+    !PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES[pipelineSettings.mode].includes(
+      datasource.type,
+    )
+  ) {
     return res.status(400).json({
-      message: "This data source does not support pipeline mode.",
+      message: `This data source does not support pipeline mode ${pipelineSettings.mode}`,
     });
   }
 

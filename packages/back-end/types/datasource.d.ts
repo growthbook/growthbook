@@ -271,9 +271,6 @@ export type DataSourceSettings = {
   };
   pipelineSettings?: DataSourcePipelineSettings;
   maxConcurrentQueries?: string;
-  incrementalRefresh?: {
-    enabled?: boolean;
-  };
 };
 
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {

@@ -187,8 +187,6 @@ interface ExperimentBaseQueryParams {
 
 export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
-  incrementalOldUnitsTableFullName?: string;
-  incrementalStartDate?: Date;
 }
 
 export type PartitionSettings =
@@ -672,10 +670,6 @@ export interface SourceIntegrationInterface {
     sql: string,
     timestampCols?: string[],
   ): Promise<TestQueryResult>;
-  validateQueryColumns?(
-    sql: string,
-    requiredColumns: string[],
-  ): Promise<{ isValid: boolean; duration?: number; error?: string }>;
   getMetricAnalysisQuery(params: MetricAnalysisParams): string;
   runMetricAnalysisQuery(
     query: string,
@@ -721,14 +715,6 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<IncrementalWithNoOutputQueryResponse>;
-  // Pipeline validation helpers
-  getPipelineValidationCreateTableQuery?(params: {
-    tableFullName: string;
-  }): string;
-  getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
-  getPipelineValidationDropTableQuery?(params: {
-    tableFullName: string;
-  }): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(

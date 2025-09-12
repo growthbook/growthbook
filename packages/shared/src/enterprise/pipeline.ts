@@ -1,5 +1,6 @@
 import type {
   DataSourceType,
+  DataSourcePipelineMode,
   DataSourcePipelineSettings,
 } from "back-end/types/datasource";
 import type SqlIntegration from "back-end/src/integrations/SqlIntegration";
@@ -15,8 +16,13 @@ export type PipelineValidationResults = {
   drop?: PipelineValidationResult;
 };
 
-export const DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE: readonly DataSourceType[] =
-  ["bigquery", "databricks", "snowflake"] as const;
+export const PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES: Record<
+  DataSourcePipelineMode,
+  DataSourceType[]
+> = {
+  ephemeral: ["bigquery", "databricks", "snowflake"],
+  incremental: ["bigquery", "presto"],
+};
 
 export const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;
 

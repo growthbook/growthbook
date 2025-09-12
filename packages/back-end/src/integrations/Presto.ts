@@ -1,14 +1,10 @@
 /// <reference types="../../typings/presto-client" />
-import { format } from "shared/sql";
 import { Client, IPrestoClientOptions } from "presto-client";
 import { FormatDialect } from "shared/src/types";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
-import {
-  ExperimentUnitsQueryParams,
-  QueryResponse,
-} from "back-end/src/types/Integration";
+import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -28,9 +24,6 @@ export default class Presto extends SqlIntegration {
     return true;
   }
   dropUnitsTable(): boolean {
-    return true;
-  }
-  canRunIncrementalRefreshQueries(): boolean {
     return true;
   }
   // getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {

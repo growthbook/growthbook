@@ -26,9 +26,6 @@ export default class BigQuery extends SqlIntegration {
   isWritingTablesSupported(): boolean {
     return true;
   }
-  canRunIncrementalRefreshQueries(): boolean {
-    return true;
-  }
   getFormatDialect(): FormatDialect {
     return "bigquery";
   }

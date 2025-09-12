@@ -136,6 +136,9 @@ export const startExperimentIncrementalRefreshQueries = async (
         partitionSettings: {
           type: "timestamp",
         },
+        // TODO fix this
+        segment: null,
+        factTableMap: new Map(),
       }),
       dependencies: [dropOldUnitsTableQuery.query],
       run: (query, setExternalId) =>
@@ -178,6 +181,9 @@ export const startExperimentIncrementalRefreshQueries = async (
       lastMaxTimestamp: lastMaxTimestamp,
       partitionSettings:
         integration.datasource.settings.pipelineSettings?.partitionSettings,
+      // TODO: Fix this
+      segment: null,
+      factTableMap: new Map(),
     }),
     dependencies: [
       dropTempUnitsTableQuery.query,
