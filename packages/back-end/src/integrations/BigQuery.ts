@@ -257,7 +257,9 @@ export default class BigQuery extends SqlIntegration {
     switch (dataType) {
       case "string":
         return "STRING";
-      case "number":
+      case "integer":
+        return "INT64";
+      case "float":
         return "FLOAT64";
       case "boolean":
         return "BOOL";
@@ -265,6 +267,10 @@ export default class BigQuery extends SqlIntegration {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
     }
   }
 }

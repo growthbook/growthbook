@@ -5502,7 +5502,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     switch (dataType) {
       case "string":
         return "VARCHAR";
-      case "number":
+      case "integer":
+        return "INTEGER";
+      case "float":
         return "FLOAT";
       case "boolean":
         return "BOOLEAN";
@@ -5510,6 +5512,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
     }
   }
 }
