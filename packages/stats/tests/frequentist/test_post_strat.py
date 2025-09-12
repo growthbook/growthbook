@@ -22,7 +22,6 @@ from gbstats.models.statistics import (
 from gbstats.models.tests import (
     EffectMomentsResult,
     TestStatistic,
-    TestResult,
     ProportionStatistic,
     EffectMomentsConfig,
     EffectMomentsPostStratification,
@@ -96,7 +95,7 @@ class TestPostStratification(TestCase):
         stat_a: List[TestStatistic],
         stat_b: List[TestStatistic],
         config: FrequentistConfig,
-    ) -> TestResult:
+    ) -> FrequentistTestResult:
         type_a = stat_a[0]
         statistic_type = None
         denominator_metric_type = None
