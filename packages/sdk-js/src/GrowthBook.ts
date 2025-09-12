@@ -28,6 +28,7 @@ import type {
   StickyAssignmentsDocument,
   EventLogger,
   LogUnion,
+  DestroyOptions,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -38,6 +39,7 @@ import {
   promiseTimeout,
 } from "./util";
 import {
+  clearAutoRefresh,
   configureCache,
   refreshFeatures,
   startStreaming,
@@ -539,7 +541,8 @@ export class GrowthBook<
     return !!this._destroyed;
   }
 
-  public destroy() {
+  public destroy(options?: DestroyOptions) {
+    options = options || {};
     this._destroyed = true;
 
     // Custom callbacks
@@ -563,6 +566,9 @@ export class GrowthBook<
     this._payload = undefined;
     this._saveStickyBucketAssignmentDoc = undefined;
     unsubscribe(this);
+    if (options.destroyAllStreams) {
+      clearAutoRefresh();
+    }
     this.logs = [];
 
     if (isBrowser && window._growthbook === this) {
