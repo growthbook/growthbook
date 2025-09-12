@@ -111,7 +111,7 @@ export function convertStatsigFeatureGateToGrowthBook(
   const ownerEmail = normalizedData.owner.ownerEmail || 
                     normalizedData.owner.email || 
                     normalizedData.owner.userID || 
-                    "unknown@example.com";
+                    "API_IMPORT";
 
   const feature: Omit<FeatureInterface, "dateCreated" | "dateUpdated"> = {
     id: normalizedData.id,

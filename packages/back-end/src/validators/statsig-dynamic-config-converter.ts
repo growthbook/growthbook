@@ -120,7 +120,7 @@ export function convertStatsigDynamicConfigToGrowthBook(
   const ownerEmail = normalizedData.owner.ownerEmail || 
                     normalizedData.owner.email || 
                     normalizedData.owner.userID || 
-                    "unknown@example.com";
+                    "API_IMPORT";
 
   const feature: Omit<FeatureInterface, "id" | "dateCreated" | "dateUpdated"> = {
     organization: organizationId,
