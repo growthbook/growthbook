@@ -397,6 +397,8 @@ export default abstract class SqlIntegration
             AND SUBSTRING(experiment_id, 1, ${
               SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
             }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
+            AND experiment_id IS NOT NULL
+            AND variation_id IS NOT NULL
           GROUP BY
             experiment_id,
             variation_id,
