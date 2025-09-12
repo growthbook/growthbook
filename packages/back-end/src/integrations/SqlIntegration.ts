@@ -1801,18 +1801,30 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+  getExperimentUnitsTableQueryFromCte(
+    unitsTableFullName: string,
+    cteSql: string,
+  ): string {
     return format(
       `
-    CREATE OR REPLACE TABLE ${params.unitsTableFullName}
+    CREATE OR REPLACE TABLE ${unitsTableFullName}
     ${this.createUnitsTableOptions()}
     AS (
       WITH
-        ${this.getExperimentUnitsQuery(params)}
+        ${cteSql}
       SELECT * FROM __experimentUnits
     );
     `,
       this.getFormatDialect(),
+    );
+  }
+
+  getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+    const cteSql = this.getExperimentUnitsQuery(params);
+
+    return this.getExperimentUnitsTableQueryFromCte(
+      params.unitsTableFullName || "",
+      cteSql,
     );
   }
 
@@ -5520,55 +5532,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
   }
 
-  // Incremental Refresh Queries
-
-  // Data Types used for table creation
-
-  // TODO: customize per engine, or break it into `getStringDataType` methods to override just one
-  // although I think the full mapping is file
-  getDataType(dataType: DataType): string {
-    switch (dataType) {
-      case "string":
-        return "VARCHAR";
-      case "number":
-        return "FLOAT";
-      case "boolean":
-        return "BOOLEAN";
-      case "date":
-        return "DATE";
-      case "timestamp":
-        return "TIMESTAMP";
-    }
-  }
-
-  // Pipeline validation queries (engine-aware)
-  getPipelineValidationCreateTableQuery({
-    tableFullName,
-  }: {
-    tableFullName: string;
-  }): string {
-    return `CREATE TABLE ${tableFullName} (test_col ${this.getDataType(
-      "string",
-    )}, created_at ${this.getDataType("timestamp")})`;
-  }
-
-  getPipelineValidationInsertQuery({
-    tableFullName,
-  }: {
-    tableFullName: string;
-  }): string {
-    return `INSERT INTO ${tableFullName} (test_col, created_at) VALUES ('growthbook', CURRENT_TIMESTAMP)`;
-  }
-
-  getPipelineValidationDropTableQuery({
-    tableFullName,
-  }: {
-    tableFullName: string;
-  }): string {
-    return `DROP TABLE IF EXISTS ${tableFullName}`;
-  }
-
-  // Incremental Units
   // Separate "if use old table" vs "not"
   // If restarting/no old table: getCreateExperimentIncrementalUnitsQuery
   // Then: getUpdateExperimentIncrementalUnitsQuery
@@ -5931,5 +5894,26 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): Promise<IncrementalWithNoOutputQueryResponse> {
     const results = await this.runQuery(sql, setExternalId);
     return results;
+  }
+
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "VARCHAR";
+      case "integer":
+        return "INTEGER";
+      case "float":
+        return "FLOAT";
+      case "boolean":
+        return "BOOLEAN";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
   }
 }

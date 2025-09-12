@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 const docSections = {
   //Pages

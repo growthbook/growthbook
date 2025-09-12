@@ -7,10 +7,10 @@ import { useEffect, useState } from "react";
 import { FaAngleRight, FaPlusCircle } from "react-icons/fa";
 import { PiSlidersHorizontal } from "react-icons/pi";
 import Collapsible from "react-collapsible";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { requiresXAxis } from "@/services/dataVizTypeGuards";
-import Button from "../Radix/Button";
-import Link from "../Radix/Link";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { inferFieldType } from "./DataVizConfigPanel";
 import DataVizFilter from "./DataVizFilter";
 

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import React, { FC } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { date } from "shared/dates";
@@ -12,7 +12,7 @@ import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 const TeamsList: FC = () => {

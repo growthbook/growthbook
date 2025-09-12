@@ -12,11 +12,11 @@ import dJSON from "dirty-json";
 import { CommercialFeature } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 const metricToCreateValidator = z.object({
   metricType: metricTypeValidator,

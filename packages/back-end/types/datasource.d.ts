@@ -291,6 +291,7 @@ interface DataSourceBase {
   projects?: string[];
   settings: DataSourceSettings;
   lockUntil?: Date | null;
+  type: DataSourceType;
 }
 
 export interface GrowthbookClickhouseDataSource extends DataSourceBase {
