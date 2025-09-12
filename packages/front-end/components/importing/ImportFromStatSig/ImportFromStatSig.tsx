@@ -1,341 +1,26 @@
 import React, { useMemo, useState } from "react";
-import PQueue from "p-queue";
-import { FeatureInterface } from "back-end/types/feature";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
-import { cloneDeep } from "lodash";
-import { Environment } from "back-end/types/organization";
 import {
-  getAllStatSigEntities,
-  StatSigEnvironment,
-  StatSigFeatureGate,
-  StatSigDynamicConfig,
-  StatSigExperiment,
-  StatSigSavedGroup,
-} from "@/services/statsig-importing";
+  buildImportedData,
+  runImport,
+} from "@/services/importing/statsig/statsig-importing";
+import { ImportStatus, ImportData } from "@/services/importing/statsig/types";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
-import { ApiCallType, useAuth } from "@/services/auth";
+import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useEnvironments, useFeaturesList } from "@/services/features";
+import {
+  useEnvironments,
+  useFeaturesList,
+  useAttributeSchema,
+} from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
-
-type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
-
-// Removed unused FeatureImport interface
-
-interface EnvironmentImport {
-  key: string;
-  status: ImportStatus;
-  environment?: StatSigEnvironment;
-  error?: string;
-}
-
-interface FeatureGateImport {
-  key: string;
-  status: ImportStatus;
-  featureGate?: StatSigFeatureGate;
-  error?: string;
-}
-
-interface DynamicConfigImport {
-  key: string;
-  status: ImportStatus;
-  dynamicConfig?: StatSigDynamicConfig;
-  error?: string;
-}
-
-interface ExperimentImport {
-  key: string;
-  status: ImportStatus;
-  experiment?: StatSigExperiment;
-  error?: string;
-}
-
-interface SegmentImport {
-  key: string;
-  status: ImportStatus;
-  segment?: StatSigSavedGroup;
-  error?: string;
-}
-
-interface LayerImport {
-  key: string;
-  status: ImportStatus;
-  layer?: unknown;
-  error?: string;
-}
-
-interface MetricImport {
-  key: string;
-  status: ImportStatus;
-  metric?: unknown;
-  error?: string;
-}
-
-interface ImportData {
-  status: "init" | "fetching" | "error" | "ready" | "importing" | "completed";
-  environments?: EnvironmentImport[];
-  featureGates?: FeatureGateImport[];
-  dynamicConfigs?: DynamicConfigImport[];
-  experiments?: ExperimentImport[];
-  segments?: SegmentImport[];
-  layers?: LayerImport[];
-  metrics?: MetricImport[];
-  error?: string;
-}
-
-async function buildImportedData(
-  apiKey: string,
-  intervalCap: number,
-  features: FeatureInterface[],
-  existingEnvironments: Set<string>,
-  apiCall: (path: string, options?: unknown) => Promise<unknown>,
-  callback: (data: ImportData) => void,
-): Promise<void> {
-  const data: ImportData = {
-    status: "fetching",
-    environments: [],
-    featureGates: [],
-    dynamicConfigs: [],
-    experiments: [],
-    segments: [],
-    layers: [],
-    metrics: [],
-  };
-
-  // Debounced updater
-  let timer: number | null = null;
-  const update = () => {
-    if (timer) return;
-    timer = window.setTimeout(() => {
-      timer = null;
-      callback(cloneDeep(data));
-    }, 500);
-  };
-
-  try {
-    console.log(`Fetching StatSig entities`);
-
-    const queue = new PQueue({ interval: 10000, intervalCap: intervalCap });
-
-    // Fetch entities
-    queue.add(async () => {
-      try {
-        console.log(`Fetching entities from StatSig`);
-        const entities = await getAllStatSigEntities(apiKey, intervalCap);
-
-        console.log(`StatSig entities:`, {
-          environments: entities.environments,
-          featureGates: entities.featureGates,
-          dynamicConfigs: entities.dynamicConfigs,
-          experiments: entities.experiments,
-          segments: entities.segments,
-          layers: entities.layers,
-          metrics: entities.metrics,
-        });
-
-        // Process environments
-        // Note: environments.data is an array of environment objects, not nested
-        entities.environments.data.forEach((environment) => {
-          const env = environment as StatSigEnvironment;
-          const envKey = env.name || env.id;
-          data.environments?.push({
-            key: envKey,
-            status: existingEnvironments.has(envKey) ? "skipped" : "pending",
-            environment: env,
-            error: existingEnvironments.has(envKey)
-              ? "Environment already exists"
-              : undefined,
-          });
-        });
-
-        // Process feature gates
-        entities.featureGates.data.forEach((gate) => {
-          const fg = gate as StatSigFeatureGate;
-          data.featureGates?.push({
-            key: fg.name,
-            status: "pending",
-            featureGate: fg,
-          });
-        });
-
-        // Process dynamic configs
-        entities.dynamicConfigs.data.forEach((config) => {
-          const dc = config as StatSigDynamicConfig;
-          data.dynamicConfigs?.push({
-            key: dc.name,
-            status: "pending",
-            dynamicConfig: dc,
-          });
-        });
-
-        // Process experiments
-        entities.experiments.data.forEach((experiment) => {
-          const exp = experiment as StatSigExperiment;
-          data.experiments?.push({
-            key: exp.name,
-            status: "pending",
-            experiment: exp,
-          });
-        });
-
-        // Process segments
-        entities.segments.data.forEach((segment) => {
-          const seg = segment as StatSigSavedGroup;
-          data.segments?.push({
-            key: seg.name,
-            status: "pending",
-            segment: seg,
-          });
-        });
-
-        // Process layers
-        entities.layers.data.forEach((layer) => {
-          const l = layer as { name?: string; id?: string };
-          data.layers?.push({
-            key: l.name || l.id || "unknown",
-            status: "pending",
-            layer: layer,
-          });
-        });
-
-        // Process metrics
-        entities.metrics.data.forEach((metric) => {
-          const m = metric as { name?: string; id?: string };
-          data.metrics?.push({
-            key: m.name || m.id || "unknown",
-            status: "pending",
-            metric: metric,
-          });
-        });
-
-        update();
-      } catch (e) {
-        console.error(`Error fetching entities from StatSig:`, e);
-      }
-    });
-
-    await queue.onIdle();
-    timer && clearTimeout(timer);
-    data.status = "ready";
-    callback(data);
-  } catch (e) {
-    console.error("Error in buildImportedData:", e);
-    data.status = "error";
-    data.error = e.message;
-    callback(data);
-  }
-}
-
-async function runImport(
-  data: ImportData,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall: ApiCallType<any>,
-  callback: (data: ImportData) => void,
-) {
-  // We will mutate this shared object and sync it back to the component periodically
-  data = cloneDeep(data);
-
-  // Debounced updater
-  let timer: number | null = null;
-  const update = () => {
-    if (timer) return;
-    timer = window.setTimeout(() => {
-      timer = null;
-      callback(cloneDeep(data));
-    }, 500);
-  };
-
-  data.status = "importing";
-  update();
-
-  const queue = new PQueue({ concurrency: 6 });
-
-  // Import Environments in a single API call
-  queue.add(async () => {
-    const envsToAdd: Environment[] = [];
-    data.environments?.forEach((e) => {
-      if (e.status === "pending" && e.environment) {
-        envsToAdd.push({
-          id: e.environment.name,
-          description: e.environment.name,
-        });
-      }
-    });
-
-    if (envsToAdd.length > 0) {
-      try {
-        await apiCall("/environment", {
-          method: "PUT",
-          body: JSON.stringify({
-            environments: envsToAdd,
-          }),
-        });
-        data.environments?.forEach((env) => {
-          if (env.status === "pending") {
-            env.status = "completed";
-          }
-        });
-      } catch (e) {
-        data.environments?.forEach((env) => {
-          if (env.status === "pending") {
-            env.status = "failed";
-            env.error = e.message;
-          }
-        });
-      }
-    }
-    update();
-  });
-  await queue.onIdle();
-
-  // For now, just mark everything else as completed since we're only implementing environments
-  data.featureGates?.forEach((gate) => {
-    if (gate.status === "pending") {
-      gate.status = "completed";
-    }
-  });
-
-  data.dynamicConfigs?.forEach((config) => {
-    if (config.status === "pending") {
-      config.status = "completed";
-    }
-  });
-
-  data.experiments?.forEach((exp) => {
-    if (exp.status === "pending") {
-      exp.status = "completed";
-    }
-  });
-
-  data.segments?.forEach((segment) => {
-    if (segment.status === "pending") {
-      segment.status = "completed";
-    }
-  });
-
-  data.layers?.forEach((layer) => {
-    if (layer.status === "pending") {
-      layer.status = "completed";
-    }
-  });
-
-  data.metrics?.forEach((metric) => {
-    if (metric.status === "pending") {
-      metric.status = "completed";
-    }
-  });
-
-  data.status = "completed";
-  timer && clearTimeout(timer);
-  callback(data);
-}
 
 function ImportStatusDisplay({
   data,
@@ -455,15 +140,20 @@ export default function ImportFromStatSig() {
     });
   };
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
-  const { mutateDefinitions } = useDefinitions();
-  const environments = useEnvironments();
   const { refreshOrganization } = useUser();
   const { apiCall } = useAuth();
 
+  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  const { mutateDefinitions, savedGroups } = useDefinitions();
+  const environments = useEnvironments();
+  const attributeSchema = useAttributeSchema();
   const existingEnvironments = useMemo(
     () => new Set(environments.map((e) => e.id)),
     [environments],
+  );
+  const existingSavedGroups = useMemo(
+    () => new Set(savedGroups.map((sg) => sg.groupName)),
+    [savedGroups],
   );
 
   const step = ["init", "loading", "error"].includes(data.status)
@@ -518,6 +208,8 @@ export default function ImportFromStatSig() {
                     intervalCap,
                     features,
                     existingEnvironments,
+                    existingSavedGroups,
+                    attributeSchema,
                     apiCall,
                     (d) => setData(d),
                   );
@@ -537,7 +229,9 @@ export default function ImportFromStatSig() {
               color={step === 2 ? "primary" : "outline-primary"}
               disabled={step < 2}
               onClick={async () => {
-                await runImport(data, apiCall, (d) => setData(d));
+                await runImport(data, attributeSchema, apiCall, (d) =>
+                  setData(d),
+                );
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();
@@ -767,6 +461,7 @@ export default function ImportFromStatSig() {
                           <th>Name</th>
                           <th>Type</th>
                           <th>Description</th>
+                          <th></th>
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
@@ -780,9 +475,21 @@ export default function ImportFromStatSig() {
                                 <td>
                                   <ImportStatusDisplay data={segment} />
                                 </td>
-                                <td>{segment.segment?.name}</td>
+                                <td>
+                                  {
+                                    // @ts-expect-error works fine...
+                                    segment.segment?.name ??
+                                      segment.segment?.groupName ??
+                                      segment.segment?.id
+                                  }
+                                </td>
                                 <td>{segment.segment?.type}</td>
                                 <td>{segment.segment?.description}</td>
+                                <td>
+                                  {segment.error ? (
+                                    <em>{segment.error}</em>
+                                  ) : null}
+                                </td>
                                 <EntityAccordion
                                   entity={segment.segment}
                                   entityId={entityId}

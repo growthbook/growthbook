@@ -14,16 +14,6 @@ import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "back-end/types/organization";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import {
-  FeatureVariationsMap,
-  getLDEnvironments,
-  getLDFeatureFlag,
-  getLDFeatureFlags,
-  getLDProjects,
-  getTypeAndVariations,
-  transformLDFeatureFlag,
-  transformLDProjectsToGBProject,
-} from "@/services/importing";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -35,6 +25,16 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import {
+  FeatureVariationsMap,
+  getLDEnvironments,
+  getLDFeatureFlag,
+  getLDFeatureFlags,
+  getLDProjects,
+  getTypeAndVariations,
+  transformLDFeatureFlag,
+  transformLDProjectsToGBProject,
+} from "@/services/importing/launchdarkly/launchdarkly-importing";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
