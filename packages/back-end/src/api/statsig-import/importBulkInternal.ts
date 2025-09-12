@@ -23,7 +23,7 @@ import {
   type StatsigExperimentData,
   type StatsigMetricData,
   type StatsigSegmentData,
-} from "back-end/src/validators/statsig-converters";
+} from "back-end/src/statsig-converters/statsig-converters";
 
 const importBulkValidator = z.object({
   body: z.object({

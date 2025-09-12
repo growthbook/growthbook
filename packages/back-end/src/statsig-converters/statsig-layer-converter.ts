@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FeatureInterface, FeatureRule, FeatureEnvironment } from "./features";
+import { FeatureInterface, FeatureRule, FeatureEnvironment } from "../validators/features";
 
 // Statsig Layer data structure
 export interface StatsigLayerData {

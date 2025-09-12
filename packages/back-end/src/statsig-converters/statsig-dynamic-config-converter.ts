@@ -1,21 +1,20 @@
-import { z } from "zod";
-import { FeatureInterface, FeatureRule, FeatureEnvironment } from "./features";
+import { FeatureInterface, FeatureRule, FeatureEnvironment } from "../validators/features";
 
-// Statsig Feature Gate data structure
-export interface StatsigFeatureGateData {
+// Statsig Dynamic Config data structure
+export interface StatsigDynamicConfigData {
   id: string;
   name: string;
   description?: string;
-  type: "feature_gate";
-  configType: "feature_gate";
-  value: boolean;
-  defaultValue: boolean;
+  type: "dynamic_config";
+  configType: "dynamic_config";
+  value: Record<string, any>;
+  defaultValue: Record<string, any>;
   rules: Array<{
     id: string;
     name?: string;
     description?: string;
     condition: string;
-    value: boolean;
+    value: Record<string, any>;
     passPercentage?: number;
     salt?: string;
     idType?: string;
@@ -39,21 +38,21 @@ export interface StatsigFeatureGateData {
 }
 
 /**
- * Converts Statsig feature gate data to GrowthBook feature format
+ * Converts Statsig dynamic config data to GrowthBook feature format
  * @param statsigData - The input data from Statsig
  * @param organizationId - The GrowthBook organization ID
  * @param projectId - The GrowthBook project ID (optional)
  * @returns Partial FeatureInterface ready for creation
  */
-export function convertStatsigFeatureGateToGrowthBook(
+export function convertStatsigDynamicConfigToGrowthBook(
   statsigData: any,
   organizationId: string,
   projectId?: string
 ): Omit<FeatureInterface, "id" | "dateCreated" | "dateUpdated"> {
   // Normalize the data structure to handle different field names
   const normalizedData = {
-    id: statsigData.id || statsigData.gateName || statsigData.name,
-    name: statsigData.name || statsigData.gateName || statsigData.id,
+    id: statsigData.id || statsigData.configName || statsigData.name,
+    name: statsigData.name || statsigData.configName || statsigData.id,
     description: statsigData.description || "",
     value: statsigData.value !== undefined ? statsigData.value : statsigData.defaultValue,
     defaultValue: statsigData.defaultValue !== undefined ? statsigData.defaultValue : statsigData.value,
@@ -81,7 +80,7 @@ export function convertStatsigFeatureGateToGrowthBook(
         type: "rollout",
         description: rule.description || "",
         condition: rule.condition || "{}",
-        value: ruleValue.toString(),
+        value: typeof ruleValue === "object" ? JSON.stringify(ruleValue) : ruleValue.toString(),
         coverage: passPercentage / 100,
         hashAttribute: rule.idType === "stableID" ? "id" : "anonymousId",
         enabled: true,
@@ -93,7 +92,7 @@ export function convertStatsigFeatureGateToGrowthBook(
         type: "force",
         description: rule.description || "",
         condition: rule.condition || "{}",
-        value: ruleValue.toString(),
+        value: typeof ruleValue === "object" ? JSON.stringify(ruleValue) : ruleValue.toString(),
         enabled: true,
       };
     }
@@ -107,20 +106,29 @@ export function convertStatsigFeatureGateToGrowthBook(
     },
   };
 
+  // Determine value type based on the structure of the value
+  const getValueType = (value: any): "boolean" | "string" | "number" | "json" => {
+    if (typeof value === "boolean") return "boolean";
+    if (typeof value === "string") return "string";
+    if (typeof value === "number") return "number";
+    return "json";
+  };
+
+  const valueType = getValueType(normalizedData.defaultValue);
+
   // Get owner email from various possible field names
   const ownerEmail = normalizedData.owner.ownerEmail || 
                     normalizedData.owner.email || 
                     normalizedData.owner.userID || 
                     "API_IMPORT";
 
-  const feature: Omit<FeatureInterface, "dateCreated" | "dateUpdated"> = {
-    id: normalizedData.id,
+  const feature: Omit<FeatureInterface, "id" | "dateCreated" | "dateUpdated"> = {
     organization: organizationId,
     project: projectId,
     owner: ownerEmail,
     description: normalizedData.description,
-    valueType: "boolean",
-    defaultValue: normalizedData.defaultValue.toString(),
+    valueType,
+    defaultValue: typeof normalizedData.defaultValue === "object" ? JSON.stringify(normalizedData.defaultValue) : normalizedData.defaultValue.toString(),
     version: 1,
     tags: normalizedData.tags,
     environmentSettings,
@@ -136,35 +144,35 @@ export function convertStatsigFeatureGateToGrowthBook(
 }
 
 /**
- * Validates the input Statsig feature gate data before conversion
+ * Validates the input Statsig dynamic config data before conversion
  * @param data - The input data to validate
  * @returns Validation result with success/error information
  */
-export function validateStatsigFeatureGateData(data: any): { success: boolean; error?: string } {
+export function validateStatsigDynamicConfigData(data: any): { success: boolean; error?: string } {
   try {
-    console.log("Validating Statsig feature gate data:", JSON.stringify(data, null, 2));
+    console.log("Validating Statsig dynamic config data:", JSON.stringify(data, null, 2));
     
     // Basic required fields validation - be more flexible with field names
-    if (!data.id && !data.gateName && !data.name) {
-      return { success: false, error: "Missing required field: id, gateName, or name" };
+    if (!data.id && !data.configName && !data.name) {
+      return { success: false, error: "Missing required field: id, configName, or name" };
     }
     
     // Handle different possible field names for name
-    const name = data.name || data.gateName || data.id;
+    const name = data.name || data.configName || data.id;
     if (!name) {
-      return { success: false, error: "Missing required field: name/gateName" };
+      return { success: false, error: "Missing required field: name/configName" };
     }
     
     // Handle different possible field names for value
     const value = data.value !== undefined ? data.value : data.defaultValue;
-    if (typeof value !== "boolean") {
-      return { success: false, error: "Missing or invalid value field (must be boolean). Found: " + typeof value };
+    if (!value || (typeof value !== "object" && typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean")) {
+      return { success: false, error: "Missing or invalid value field. Found: " + typeof value };
     }
     
     // Handle different possible field names for defaultValue
     const defaultValue = data.defaultValue !== undefined ? data.defaultValue : data.value;
-    if (typeof defaultValue !== "boolean") {
-      return { success: false, error: "Missing or invalid defaultValue field (must be boolean). Found: " + typeof defaultValue };
+    if (!defaultValue || (typeof defaultValue !== "object" && typeof defaultValue !== "string" && typeof defaultValue !== "number" && typeof defaultValue !== "boolean")) {
+      return { success: false, error: "Missing or invalid defaultValue field. Found: " + typeof defaultValue };
     }
     
     // Handle different possible owner structures
@@ -196,8 +204,8 @@ export function validateStatsigFeatureGateData(data: any): { success: boolean; e
           return { success: false, error: "Each rule must have an id or ruleID" };
         }
         const ruleValue = rule.value !== undefined ? rule.value : rule.returnValue;
-        if (typeof ruleValue !== "boolean") {
-          return { success: false, error: "Each rule must have a boolean value. Found: " + typeof ruleValue };
+        if (!ruleValue || (typeof ruleValue !== "object" && typeof ruleValue !== "string" && typeof ruleValue !== "number" && typeof ruleValue !== "boolean")) {
+          return { success: false, error: "Each rule must have a valid value. Found: " + typeof ruleValue };
         }
       }
     }
@@ -209,25 +217,25 @@ export function validateStatsigFeatureGateData(data: any): { success: boolean; e
 }
 
 /**
- * Helper function to convert a complete Statsig feature gate with validation
+ * Helper function to convert a complete Statsig dynamic config with validation
  * @param statsigData - The input data from Statsig
  * @param organizationId - The GrowthBook organization ID
  * @param projectId - The GrowthBook project ID (optional)
  * @returns Conversion result with success/error information and converted data
  */
-export function convertStatsigFeatureGate(
+export function convertStatsigDynamicConfig(
   statsigData: any,
   organizationId: string,
   projectId?: string
-): { success: boolean; data?: Omit<FeatureInterface, "dateCreated" | "dateUpdated">; error?: string } {
+): { success: boolean; data?: Omit<FeatureInterface, "id" | "dateCreated" | "dateUpdated">; error?: string } {
   // Validate input data first
-  const validation = validateStatsigFeatureGateData(statsigData);
+  const validation = validateStatsigDynamicConfigData(statsigData);
   if (!validation.success) {
     return { success: false, error: validation.error };
   }
 
   try {
-    const convertedData = convertStatsigFeatureGateToGrowthBook(statsigData, organizationId, projectId);
+    const convertedData = convertStatsigDynamicConfigToGrowthBook(statsigData, organizationId, projectId);
     return { success: true, data: convertedData };
   } catch (error) {
     return { success: false, error: `Conversion error: ${error.message}` };

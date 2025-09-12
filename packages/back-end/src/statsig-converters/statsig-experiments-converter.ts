@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ExperimentInterface, ExperimentPhase, Variation } from "./experiments";
+import { ExperimentInterface, ExperimentPhase, Variation } from "../validators/experiments";
 
 // Enhanced Statsig Experiment data structure
 export interface StatsigExperimentData {
