@@ -13,16 +13,18 @@ export default function OfficialResourceModal({
   close,
   resourceType,
   onSubmit,
+  source,
 }: {
   close: () => void;
   resourceType: ResourceType;
   onSubmit: () => Promise<void>;
+  source: string;
 }) {
   return (
     <Modal
       open={true}
       trackingEventModalType={`convert-to-official-${resourceType}`}
-      trackingEventModalSource="segment-list"
+      trackingEventModalSource={source}
       close={close}
       header={null}
       showHeaderCloseButton={false}

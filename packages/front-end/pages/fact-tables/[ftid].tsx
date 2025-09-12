@@ -95,6 +95,7 @@ export default function FactTablePage() {
       {showConvertToOfficialModal && (
         <OfficialResourceModal
           resourceType="Fact Table"
+          source="fact-table-page"
           close={() => setShowConvertToOfficialModal(false)}
           onSubmit={async () => {
             await apiCall(`/fact-tables/${factTable.id}`, {

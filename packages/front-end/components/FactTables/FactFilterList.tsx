@@ -62,6 +62,7 @@ export default function FactFilterList({ factTable }: Props) {
         <OfficialResourceModal
           resourceType="Fact Filter"
           close={() => setFilterToConvertToOfficial(null)}
+          source="fact-filter-list"
           onSubmit={async () => {
             await apiCall(
               `/fact-tables/${factTable.id}/filter/${filterToConvertToOfficial}`,

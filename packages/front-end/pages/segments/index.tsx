@@ -212,6 +212,7 @@ const SegmentPage: FC = () => {
       {segmentToConvertToOfficial && (
         <OfficialResourceModal
           resourceType="Segment"
+          source="segment-list"
           close={() => setSegmentToConvertToOfficial(null)}
           onSubmit={async () => {
             await apiCall(`/segments/${segmentToConvertToOfficial}`, {

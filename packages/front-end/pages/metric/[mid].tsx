@@ -316,6 +316,7 @@ const MetricPage: FC = () => {
       {showConvertToOfficialModal && (
         <OfficialResourceModal
           resourceType="Metric"
+          source="metric-page"
           close={() => setShowConvertToOfficialModal(false)}
           onSubmit={async () => {
             await apiCall(`/metric/${metric.id}`, {

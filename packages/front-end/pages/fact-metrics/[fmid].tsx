@@ -384,6 +384,7 @@ export default function FactMetricPage() {
       {showConvertToOfficialModal && (
         <OfficialResourceModal
           resourceType="Fact Metric"
+          source="fact-metric-page"
           close={() => setShowConvertToOfficialModal(false)}
           onSubmit={async () => {
             await apiCall(`/fact-metrics/${factMetric.id}`, {
