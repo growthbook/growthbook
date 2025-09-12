@@ -1,7 +1,7 @@
 import { Flex, Text, RadioGroup as RadixRadioGroup } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { forwardRef, ReactElement } from "react";
-import HelperText, { getRadixColor } from "@/components/Radix/HelperText";
+import HelperText, { getRadixColor } from "@/ui/HelperText";
 
 export type RadioOptions = {
   value: string;

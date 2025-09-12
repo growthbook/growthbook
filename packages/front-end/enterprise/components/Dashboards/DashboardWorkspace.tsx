@@ -23,7 +23,7 @@ import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";

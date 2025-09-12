@@ -4,7 +4,7 @@ import { FeatureEnvironment } from "back-end/types/feature";
 import { Box, Grid, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 const EnvironmentSelect: FC<{
   environmentSettings: Record<string, FeatureEnvironment>;

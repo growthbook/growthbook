@@ -5,7 +5,7 @@ import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const ViewSampleDataButton = ({
   resource = "experiment",

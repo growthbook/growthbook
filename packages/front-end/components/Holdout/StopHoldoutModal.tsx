@@ -2,7 +2,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useState } from "react";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import Modal from "@/components/Modal";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 

@@ -44,13 +44,8 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import DataList, { DataListItem } from "@/components/Radix/DataList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -60,7 +55,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();

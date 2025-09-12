@@ -3,9 +3,9 @@ import { PiArrowSquareOutFill } from "react-icons/pi";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { upperFirst } from "lodash";
 import { useAuth } from "@/services/auth";
+import Link from "@/ui/Link";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Modal from "../Modal";
-import Link from "../Radix/Link";
 
 interface Props {
   source: string;

@@ -4,7 +4,7 @@ import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { Box, Flex, Heading } from "@radix-ui/themes";
 import { TemplatesPage } from "@/components/Experiment/Templates/TemplatesPage";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";

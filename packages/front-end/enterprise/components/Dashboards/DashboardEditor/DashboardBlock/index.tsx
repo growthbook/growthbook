@@ -30,7 +30,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useExperiments } from "@/hooks/useExperiments";
 import {
   DashboardSnapshotContext,

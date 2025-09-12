@@ -16,15 +16,15 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import OldButton from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ClickToReveal from "@/components/Settings/ClickToReveal";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
