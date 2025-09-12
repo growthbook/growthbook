@@ -78,10 +78,11 @@ docker compose up -d growthbook
 ## Kubernetes (Helm) Installation
 
 :::tip
-Our official Helm chart to deploy GrowthBook on Kubernetes is distributed as a OCI artifact via [ghcr.io](ghcr.io/growthbook/charts/growthbook):
+Our official Helm chart to deploy GrowthBook on Kubernetes is distributed as a OCI artifact via [ghcr.io](https://ghcr.io/growthbook/charts/growthbook):
+
 - For production and scalable cloud-native deployments, use GCP (GKE) or AWS (EKS).
 - For local testing and development, use Minikube.
-:::
+  :::
 
 ### Minimal Prerequisites
 
@@ -115,10 +116,12 @@ Reference these secrets in your environment specific values file.
 For quick testing without configuring DNS, you can use public DNS services that automatically resolve to your cluster's ingress IP.
 
 Services like `sslip.io` and `traefik.me` provide wildcard DNS that resolves based on the IP address in the hostname:
+
 - `sslip.io`: If your ingress IP is `35.X.X.X`, then `myapp.35.X.X.X.sslip.io` resolves to `35.X.X.X`
 - `traefik.me`: Similar functionality but with dashes, e.g., `myapp.35-X-X-X.traefik.me`
 
 These services are useful for:
+
 - Local development with Minikube
 - Quick testing in cloud environments before setting up proper DNS
 - Temporary deployments or demos
@@ -218,6 +221,7 @@ ingress:
           service: backend
   tls: []
 ```
+
       </details>
       Installation:
       ```bash
@@ -232,6 +236,7 @@ ingress:
         </p>
       </div>
     </div>
+
   </TabItem>
   <TabItem value="gcp" label="GCP">
     <div>
@@ -322,6 +327,7 @@ ingress:
                 number: 3100
   tls: []
 ```
+
       </details>
       Installation:
       ```bash
@@ -336,6 +342,7 @@ ingress:
         </p>
       </div>
     </div>
+
   </TabItem>
   <TabItem value="minikube" label="Minikube">
     <div>
@@ -535,12 +542,14 @@ ingress:
         - growthbook.${MINIKUBE-IP}.sslip.io
         - api.${MINIKUBE-IP}.sslip.io
 ```
+
       </details>
       Installation:
       ```bash
       helm upgrade --install growthbook oci://ghcr.io/growthbook/charts/growthbook -f values-minikube.yaml
       ```
     </div>
+
   </TabItem>
 </Tabs>
 
