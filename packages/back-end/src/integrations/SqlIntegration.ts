@@ -370,6 +370,9 @@ export default abstract class SqlIntegration
       ${experimentQueries
         .map((q, i) => {
           const hasNameCol = q.hasNameCol || false;
+          const userCountColumn = this.hasCountDistinctHLL()
+            ? this.hllCardinality(this.hllAggregate(q.userIdType))
+            : `COUNT(distinct ${q.userIdType})`;
           return `
         __exposures${i} as (
           SELECT 
@@ -385,7 +388,7 @@ export default abstract class SqlIntegration
                 : this.castToString("variation_id")
             } as variation_name,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
-            count(distinct ${q.userIdType}) as users,
+            ${userCountColumn} as users,
             MAX(${this.castUserDateCol("timestamp")}) as latest_data
           FROM
             (
