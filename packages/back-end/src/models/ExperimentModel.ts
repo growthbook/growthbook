@@ -57,6 +57,7 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
+import { deleteWatchedByEntityForAllUsers } from "./WatchModel";
 
 const COLLECTION = "experiments";
 
@@ -1013,8 +1014,12 @@ export async function deleteExperimentByIdForOrganization(
       id: experiment.id,
       organization: context.org.id,
     });
-
     await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await deleteWatchedByEntityForAllUsers({
+      organization: context.org.id,
+      type: "experiments",
+      item: experiment.id,
+    });
 
     await onExperimentDelete(context, experiment);
   } catch (e) {
@@ -1047,6 +1052,12 @@ export async function deleteAllExperimentsForAProject({
       organization: context.org.id,
     });
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await deleteWatchedByEntityForAllUsers({
+      organization: context.org.id,
+      type: "experiments",
+      item: experiment.id,
+    });
+
     await onExperimentDelete(context, toInterface(experiment));
   }
 }
