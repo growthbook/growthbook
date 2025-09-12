@@ -585,7 +585,11 @@ export async function postValidatePipelineSettings(
     ...datasource,
     settings: {
       ...datasource.settings,
-      pipelineSettings,
+      pipelineSettings: {
+        ...pipelineSettings,
+        // Ensure minimum retention hours for testing
+        unitsTableRetentionHours: 1,
+      },
     },
   });
 
