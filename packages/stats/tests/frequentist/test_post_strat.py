@@ -2,6 +2,7 @@ from dataclasses import asdict
 from functools import partial
 from typing import Optional, List
 from unittest import TestCase, main as unittest_main
+from gbstats.models.results import Uplift
 
 import pandas as pd
 import numpy as np
@@ -26,7 +27,7 @@ from gbstats.models.tests import (
     EffectMomentsConfig,
     EffectMomentsPostStratification,
 )
-from gbstats.frequentist.tests import FrequentistConfig, TwoSidedTTest
+from gbstats.frequentist.tests import FrequentistConfig, FrequentistTestResult
 from gbstats.models.settings import (
     MetricSettingsForStatsEngine,
     AnalysisSettingsForStatsEngine,
@@ -90,85 +91,115 @@ def _round_result_dict(result_dict):
 
 
 class TestPostStratification(TestCase):
-    # @staticmethod
-    # def run_post_strat_gbstats(
-    #     stat_a: List[TestStatistic],
-    #     stat_b: List[TestStatistic],
-    #     config: FrequentistConfig,
-    # ) -> TestResult:
-    #     var_names = ["Control", "Treatment1"]
-    #     var_id_map = {"0": 0, "1": 1}
-    #     if isinstance(stat_a[0], SampleMeanStatistic) or isinstance(
-    #         stat_a[0], ProportionStatistic
-    #     ):
-    #         metric = COUNT_METRIC
-    #     elif isinstance(stat_a[0], RegressionAdjustedStatistic):
-    #         metric = RA_METRIC
-    #     elif isinstance(stat_a[0], RatioStatistic):
-    #         metric = RATIO_METRIC
-    #     elif isinstance(stat_a[0], RegressionAdjustedRatioStatistic):
-    #         metric = RATIO_RA_METRIC
-    #     else:
-    #         raise ValueError(f"Unsupported statistic type: {type(stat_a)}")
+    @staticmethod
+    def run_post_strat_gbstats(
+        stat_a: List[TestStatistic],
+        stat_b: List[TestStatistic],
+        config: FrequentistConfig,
+    ) -> TestResult:
+        type_a = stat_a[0]
+        statistic_type = None
+        denominator_metric_type = None
+        covariate_metric_type = None
+        if isinstance(type_a, RatioStatistic):
+            statistic_type = "ratio"
+            denominator_metric_type = "count"
+            covariate_metric_type = None
+        elif isinstance(type_a, RegressionAdjustedRatioStatistic):
+            statistic_type = "ratio_ra"
+            denominator_metric_type = "count"
+            covariate_metric_type = "count"
+        elif isinstance(type_a, SampleMeanStatistic):
+            statistic_type = "mean"
+            denominator_metric_type = None
+            covariate_metric_type = None
+        elif isinstance(type_a, RegressionAdjustedStatistic):
+            statistic_type = "mean_ra"
+            denominator_metric_type = None
+            covariate_metric_type = "count"
+        main_metric_type = "count"
 
-    #     analysis = AnalysisSettingsForStatsEngine(
-    #         var_names=["Current", "Dev-Compact"],
-    #         var_ids=["0", "1"],
-    #         weights=[0.5, 0.5],
-    #         baseline_index=0,
-    #         dimension="",
-    #         stats_engine="frequentist",
-    #         p_value_corrected=False,
-    #         sequential_testing_enabled=False,
-    #         sequential_tuning_parameter=5000.0,
-    #         difference_type=config.difference_type,
-    #         phase_length_days=191.625,
-    #         alpha=config.alpha,
-    #         max_dimensions=20,
-    #         traffic_percentage=1.0,
-    #         num_goal_metrics=6,
-    #         one_sided_intervals=False,
-    #     )
+        metric = MetricSettingsForStatsEngine(
+            id="fact__ab8nzw215xmcozhcmz",
+            name="revenue_bigquery",
+            statistic_type=statistic_type,  # type: ignore
+            main_metric_type="count",
+            inverse=False,
+            prior_proper=False,
+            prior_mean=0,
+            prior_stddev=0,
+            keep_theta=False,
+            denominator_metric_type=denominator_metric_type,
+            covariate_metric_type=covariate_metric_type,
+            quantile_value=None,
+            business_metric_type=["goal"],
+            target_mde=0.1,
+        )
+        analysis = AnalysisSettingsForStatsEngine(
+            var_names=["Control", "Variation 1"],
+            var_ids=["0", "1"],
+            weights=[0.5, 0.5],
+            baseline_index=0,
+            dimension="",
+            stats_engine="frequentist",
+            p_value_corrected=False,
+            sequential_testing_enabled=False,
+            sequential_tuning_parameter=5000.0,
+            difference_type=config.difference_type,
+            phase_length_days=191.875,
+            alpha=0.05,
+            max_dimensions=20,
+            traffic_percentage=1.0,
+            num_goal_metrics=1,
+            one_sided_intervals=False,
+            post_stratification_eligible=True,
+        )
+        var_names = ["Control", "Treatment1"]
+        var_id_map = {"0": 0, "1": 1}
+        if isinstance(stat_a[0], SampleMeanStatistic) or isinstance(
+            stat_a[0], ProportionStatistic
+        ):
+            metric = COUNT_METRIC
+        elif isinstance(stat_a[0], RegressionAdjustedStatistic):
+            metric = RA_METRIC
+        elif isinstance(stat_a[0], RatioStatistic):
+            metric = RATIO_METRIC
+        elif isinstance(stat_a[0], RegressionAdjustedRatioStatistic):
+            metric = RATIO_RA_METRIC
+        else:
+            raise ValueError(f"Unsupported statistic type: {type(stat_a)}")
 
-    #     num_cells = len(stat_a)
-    #     browsers = [f"browser_{i}" for i in range(num_cells)]
-    #     rows_a = [
-    #         CreateRow(s, dimension=b, variation="0").create_row()
-    #         for s, b in zip(stat_a, browsers)
-    #     ]
-    #     rows_b = [
-    #         CreateRow(s, dimension=b, variation="1").create_row()
-    #         for s, b in zip(stat_b, browsers)
-    #     ]
-    #     rows = pd.DataFrame(rows_a + rows_b)
-    #     rows = rows.rename(columns={"dimension": "dim_exp_browser"})
+        num_cells = len(stat_a)
+        browsers = [f"browser_{i}" for i in range(num_cells)]
+        rows_a = [
+            CreateRow(s, dimension=b, variation="0").create_row()
+            for s, b in zip(stat_a, browsers)
+        ]
+        rows_b = [
+            CreateRow(s, dimension=b, variation="1").create_row()
+            for s, b in zip(stat_b, browsers)
+        ]
+        rows = pd.DataFrame(rows_a + rows_b)
+        rows = rows.rename(columns={"dimension": "dim_exp_browser"})
+        rows = rows.to_dict("records")
 
-    #     df = get_metric_dfs(
-    #         rows=rows,
-    #         var_id_map=var_id_map,
-    #         var_names=var_names,
-    #         dimension="",
-    #         post_stratify=True,
-    #     )
-    #     reduced = copy.deepcopy(df)
-    #     num_dimensions = len(reduced)
-    #     stats_control = []
-    #     for dimension in range(0, num_dimensions):
-    #         s = reduced[dimension].data
-    #         stat = variation_statistic_from_metric_row(
-    #             row=s, prefix="baseline", metric=metric
-    #         )
-    #         stats_control.append(stat)
-    #     stats_variation = []
-    #     for dimension in range(0, num_dimensions):
-    #         s = reduced[dimension].data
-    #         stat = variation_statistic_from_metric_row(
-    #             row=s, prefix="v1", metric=metric
-    #         )
-    #         stats_variation.append(stat)
-
-    #     stats = list(zip(stats_control, stats_variation))
-    #     return TwoSidedTTest(stats, config=config).compute_result()
+        results = process_single_metric(
+            rows=rows,  # type: ignore
+            metric=metric,
+            analyses=[analysis],
+        )
+        this_result = results.analyses[0].dimensions[0].variations[1]
+        uplift = this_result.uplift  # type: ignore
+        expected = uplift.mean
+        ci = this_result.ci  # type: ignore
+        return FrequentistTestResult(
+            expected=expected,
+            ci=ci,  # type: ignore
+            uplift=uplift,
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
 
     def setUp(self):
         self.stats_count_strata = [
@@ -682,12 +713,6 @@ class TestPostStratification(TestCase):
         self.moments_config_abs = EffectMomentsConfig(difference_type="absolute")
         self.moments_config_rel = EffectMomentsConfig(difference_type="relative")
 
-    def test_gbstats_post_stratification(self):
-        pass
-        # process_single_metric(
-        #     rows=self.rows, metric=self.metric, analyses=[self.analysis]
-        # )
-
     def test_zero_negative_variance(self):
         stats_count_strata = [
             (
@@ -879,6 +904,132 @@ class TestPostStratification(TestCase):
         self.assertDictEqual(
             _round_result_dict(result_dict), _round_result_dict(expected_rounded_dict)
         )
+
+    def test_post_strat_mean_gbstats(self):
+        stats_a, stats_b = zip(*self.stats_count_strata)
+        test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
+        test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        result_true_rel = FrequentistTestResult(
+            expected=0.10994584851937336,
+            ci=[0.0859177257922717, 0.133973971246475],
+            uplift=Uplift(
+                dist="normal", mean=0.10994584851937336, stddev=0.01224418556792039
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        result_true_abs = FrequentistTestResult(
+            expected=3.548094377986586,
+            ci=[2.8084316845652717, 4.2877570714079],
+            uplift=Uplift(
+                dist="normal", mean=3.548094377986586, stddev=0.3769153078989124
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_rel)),
+            _round_result_dict(asdict(test_result_rel)),
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_abs)),
+            _round_result_dict(asdict(test_result_abs)),
+        )
+
+    def test_post_strat_mean_reg_gbstats(self):
+        stats_a, stats_b = zip(*self.stats_count_reg_strata)
+        test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
+        test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        result_true_rel = FrequentistTestResult(
+            expected=0.11529547657147865,
+            ci=[0.11095792049593042, 0.11963303264702688],
+            uplift=Uplift(
+                dist="normal", mean=0.11529547657147865, stddev=0.0022103200530259534
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        result_true_abs = FrequentistTestResult(
+            expected=3.7116918650826394,
+            ci=[3.5664505332225285, 3.8569331969427503],
+            uplift=Uplift(
+                dist="normal", mean=3.7116918650826394, stddev=0.07401168371016856
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_rel)),
+            _round_result_dict(asdict(test_result_rel)),
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_abs)),
+            _round_result_dict(asdict(test_result_abs)),
+        )
+
+    def test_post_strat_ratio_gbstats(self):
+        stats_a, stats_b = zip(*self.stats_ratio_strata)
+        test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
+        test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        result_true_rel = FrequentistTestResult(
+            expected=0.13371299783026003,
+            ci=[0.11969832381222022, 0.14772767184829982],
+            uplift=Uplift(
+                dist="normal", mean=0.13371299783026003, stddev=0.007141416587299529
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        result_true_abs = FrequentistTestResult(
+            expected=0.10008903417216031,
+            ci=[0.0901237793260779, 0.11005428901824271],
+            uplift=Uplift(
+                dist="normal", mean=0.10008903417216031, stddev=0.0050779658636993154
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_rel)),
+            _round_result_dict(asdict(test_result_rel)),
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(result_true_abs)),
+            _round_result_dict(asdict(test_result_abs)),
+        )
+
+    def test_post_strat_ratio_reg_gbstats(self):
+        stats_a, stats_b = zip(*self.stats_ratio_reg_strata)
+        test_result_rel = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="relative"))  # type: ignore
+        test_result_abs = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type="absolute"))  # type: ignore
+        result_true_rel = FrequentistTestResult(
+            expected=0.13929489348144797,
+            ci=[0.13687368804104674, 0.1417160989218492],
+            uplift=Uplift(
+                dist="normal", mean=0.13929489348144797, stddev=0.0012337665985726312
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        result_true_abs = FrequentistTestResult(
+            expected=0.10399412678968833,
+            ci=[0.10158460200524244, 0.10640365157413423],
+            uplift=Uplift(
+                dist="normal", mean=0.10399412678968833, stddev=0.0012278145207659946
+            ),
+            error_message=None,
+            p_value=None,
+            p_value_error_message=None,
+        )
+        self.assertEqual(result_true_rel, test_result_rel)
+        self.assertEqual(result_true_abs, test_result_abs)
 
     def test_post_strat_count_rel(self):
         result_dict = asdict(
