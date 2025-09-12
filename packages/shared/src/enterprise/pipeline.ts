@@ -61,6 +61,10 @@ export function getPipelineValidationCreateTableQuery({
   tableFullName: string;
   integration: SqlIntegration;
 }): string {
+  // return `CREATE TABLE ${tableFullName} (test_col ${this.getDataType(
+  //   "string",
+  // )}, created_at ${this.getDataType("timestamp")})`;
+
   const sampleUnitsCte = `__experimentUnits AS (
     SELECT 'user_1' AS user_id, 'A' AS variation, CURRENT_TIMESTAMP() AS first_exposure_timestamp
     UNION ALL
@@ -72,6 +76,9 @@ export function getPipelineValidationCreateTableQuery({
     sampleUnitsCte,
   );
 }
+
+// Insert
+// return `INSERT INTO ${tableFullName} (test_col, created_at) VALUES ('growthbook', CURRENT_TIMESTAMP)`;
 
 export function getPipelineValidationDropTableQuery({
   tableFullName,
