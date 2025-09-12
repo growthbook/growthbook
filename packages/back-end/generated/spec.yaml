@@ -4118,6 +4118,8 @@ paths:
                             type: array
                             items:
                               type: string
+                          limitAccessByEnvironment:
+                            type: boolean
       responses:
         '200':
           content:
