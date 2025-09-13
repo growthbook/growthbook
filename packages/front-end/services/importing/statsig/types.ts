@@ -1,4 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 // beginregion Import Types
 
@@ -39,6 +40,16 @@ export type DynamicConfigImport = BaseImportStatus & {
 
 export type ExperimentImport = BaseImportStatus & {
   experiment?: StatSigExperiment;
+  gbExperiment?: Omit<
+    ExperimentInterfaceStringDates,
+    "organization" | "dateCreated" | "dateUpdated"
+  >;
+  gbFeature?: Omit<
+    FeatureInterface,
+    "organization" | "dateCreated" | "dateUpdated" | "version"
+  >;
+  existingExperiment?: ExperimentInterfaceStringDates;
+  existingFeature?: FeatureInterface;
 };
 
 export type SegmentImport = BaseImportStatus & {
@@ -104,15 +115,56 @@ export type StatSigDynamicConfig = {
 };
 
 export type StatSigExperiment = {
+  id: string;
   name: string;
   description?: string;
-  status: "draft" | "running" | "stopped";
+  idType?: string;
+  status: "setup" | "running" | "stopped";
   hypothesis?: string;
-  primary_metric: string;
-  secondary_metrics?: string[];
-  variants: StatSigVariant[];
-  targeting: StatSigTargeting;
-  holdout?: StatSigHoldout;
+  primaryMetrics: Array<{
+    name: string;
+    type: string;
+    timestamp: number;
+  }>;
+  secondaryMetrics: Array<{
+    name: string;
+    type: string;
+    timestamp: number;
+  }>;
+  groups: Array<{
+    name: string;
+    id: string;
+    size: number;
+    parameterValues: Record<string, unknown>;
+    description?: string;
+    disabled: boolean;
+  }>;
+  controlGroupID: string;
+  allocation: number;
+  duration: number;
+  startTime?: number | null;
+  endTime?: number | null;
+  decisionTime?: number | null;
+  winner?: number; // variation index (0-based)
+  results?: "won" | "lost" | "inconclusive" | "dnf";
+  inlineTargetingRulesJSON: string;
+  analyticsType: "frequentist" | "bayesian";
+  sequentialTesting: boolean;
+  bonferroniCorrection: boolean;
+  bonferroniCorrectionPerMetric: boolean;
+  benjaminiHochbergPerVariant: boolean;
+  benjaminiHochbergPerMetric: boolean;
+  benjaminiPrimaryMetricsOnly: boolean;
+  defaultConfidenceInterval: string;
+  owner?: {
+    ownerID: string;
+    ownerType: string;
+    ownerName: string;
+    ownerEmail: string;
+  };
+  lastModifiedTime: number;
+  createdTime: number;
+  tags?: string[];
 };
 
 export type StatSigVariant = {

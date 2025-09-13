@@ -16,6 +16,8 @@ import {
 } from "./types";
 import { transformStatSigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
 import { transformStatSigFeatureGateToGB } from "./transformers/featureTransformer";
+import { transformStatSigExperimentToGB } from "./transformers/experimentTransformer";
+import { transformStatSigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
 
 /**
  * Make a direct request to StatSig Console API
@@ -312,7 +314,7 @@ export async function buildImportedData(
   }>,
   apiCall: (path: string, options?: unknown) => Promise<unknown>,
   callback: (data: ImportData) => void,
-): Promise<void> {
+): Promise<Map<string, FeatureInterface>> {
   const data: ImportData = {
     status: "fetching",
     environments: [],
@@ -323,6 +325,8 @@ export async function buildImportedData(
     layers: [],
     metrics: [],
   };
+
+  let featuresMap: Map<string, FeatureInterface> = new Map();
 
   // Debounced updater
   let timer: number | null = null;
@@ -359,7 +363,7 @@ export async function buildImportedData(
         });
 
         // Process feature gates
-        const featuresMap = new Map(features.map((f) => [f.id, f]));
+        featuresMap = new Map(features.map((f) => [f.id, f]));
         entities.featureGates.data.forEach((gate) => {
           const fg = gate as StatSigFeatureGate;
           data.featureGates?.push({
@@ -447,7 +451,10 @@ export async function buildImportedData(
     data.status = "error";
     data.error = e.message;
     callback(data);
+    throw e;
   }
+
+  return featuresMap;
 }
 
 /**
@@ -471,6 +478,10 @@ export async function runImport(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   apiCall: (path: string, options?: any) => Promise<any>,
   callback: (data: ImportData) => void,
+  featuresMap: Map<string, FeatureInterface>,
+  project?: string,
+  datasource?: string,
+  exposureQueryId?: string,
 ) {
   // We will mutate this shared object and sync it back to the component periodically
   data = cloneDeep(data);
@@ -651,14 +662,111 @@ export async function runImport(
   });
   await queue.onIdle();
 
-  // For now, just mark everything else as completed since we're only implementing environments, segments, feature gates, and dynamic configs
+  // Import Experiments
+  data.experiments?.forEach((experiment) => {
+    if (experiment.status === "pending") {
+      queue.add(async () => {
+        let featureId: string | null = null;
+        try {
+          const exp = experiment.experiment as StatSigExperiment;
+          if (!exp) {
+            throw new Error("No experiment data available");
+          }
 
-  data.experiments?.forEach((exp) => {
-    if (exp.status === "pending") {
-      exp.status = "failed";
-      exp.error = "Not implemented yet";
+          // Get available environments from the processed data
+          const availableEnvironments =
+            data.environments
+              ?.map((e) => e.environment?.name || e.key)
+              .filter(Boolean) || [];
+
+          // Transform StatSig experiment to GrowthBook experiment
+          const transformedExperiment = await transformStatSigExperimentToGB(
+            exp,
+            availableEnvironments,
+          );
+
+          // Set project and datasource (will be provided by the importer)
+          transformedExperiment.project = project || "";
+          transformedExperiment.datasource = datasource || "";
+          transformedExperiment.exposureQueryId = exposureQueryId || "";
+
+          // Create the experiment first
+          const experimentRes = await apiCall(`/experiments`, {
+            method: "POST",
+            body: JSON.stringify(transformedExperiment),
+          });
+
+          // Check if experiment creation was successful
+          if (
+            !experimentRes ||
+            (typeof experimentRes === "object" &&
+              "status" in experimentRes &&
+              experimentRes.status >= 400)
+          ) {
+            throw new Error(
+              `Experiment creation failed: ${experimentRes?.message || "Unknown error"}`,
+            );
+          }
+
+          // Create the companion feature
+          const transformedFeature = await transformStatSigExperimentToFeature(
+            exp,
+            availableEnvironments,
+            {
+              id: experimentRes.experiment.id,
+              variations: experimentRes.experiment.variations.map((v) => ({
+                id: v.id,
+                key: v.key,
+              })),
+            },
+          );
+
+          console.log({ featuresMap });
+          // Check for duplicate feature ID and add prefix if needed
+          const existingFeature = featuresMap.get(transformedFeature.id);
+          featureId = existingFeature
+            ? `exp_${transformedFeature.id}`
+            : transformedFeature.id;
+
+          console.log({ featureId, transformedFeature });
+
+          const featureRes: { feature: FeatureInterface } = await apiCall(
+            `/feature/${featureId}/sync`,
+            {
+              method: "POST",
+              body: JSON.stringify(transformedFeature),
+            },
+          );
+
+          experiment.status = "completed";
+          experiment.gbExperiment = experimentRes.experiment;
+          experiment.gbFeature = featureRes.feature;
+          experiment.existingExperiment = experimentRes.experiment;
+          experiment.existingFeature = featureRes.feature;
+        } catch (e) {
+          console.log("error", { e });
+          experiment.status = "failed";
+          experiment.error = e.message;
+
+          // Clean up the feature if it was created but experiment failed
+          if (featureId) {
+            try {
+              await apiCall(`/feature/${featureId}`, {
+                method: "DELETE",
+              });
+            } catch (deleteError) {
+              console.warn(
+                `Failed to delete feature ${featureId} after experiment failure:`,
+                deleteError,
+              );
+            }
+          }
+        }
+        update();
+      });
     }
   });
+  await queue.onIdle();
 
   data.layers?.forEach((layer) => {
     if (layer.status === "pending") {

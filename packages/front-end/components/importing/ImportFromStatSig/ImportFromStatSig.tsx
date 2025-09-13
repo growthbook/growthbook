@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
+import { FeatureInterface } from "back-end/types/feature";
 import {
   buildImportedData,
   runImport,
@@ -124,6 +125,10 @@ export default function ImportFromStatSig() {
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
+  const [featuresMap, setFeaturesMap] = useState<Map<
+    string,
+    FeatureInterface
+  > | null>(null);
   const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(
     new Set(),
   );
@@ -203,7 +208,7 @@ export default function ImportFromStatSig() {
                 });
 
                 try {
-                  await buildImportedData(
+                  const featuresMap = await buildImportedData(
                     token,
                     intervalCap,
                     features,
@@ -213,6 +218,8 @@ export default function ImportFromStatSig() {
                     apiCall,
                     (d) => setData(d),
                   );
+                  // Store featuresMap for use in runImport
+                  setFeaturesMap(featuresMap);
                 } catch (e) {
                   setData({
                     ...data,
@@ -229,8 +236,16 @@ export default function ImportFromStatSig() {
               color={step === 2 ? "primary" : "outline-primary"}
               disabled={step < 2}
               onClick={async () => {
-                await runImport(data, attributeSchema, apiCall, (d) =>
-                  setData(d),
+                if (!featuresMap) {
+                  console.error("featuresMap not available");
+                  return;
+                }
+                await runImport(
+                  data,
+                  attributeSchema,
+                  apiCall,
+                  (d) => setData(d),
+                  featuresMap,
                 );
                 mutateDefinitions();
                 mutateFeatures();
