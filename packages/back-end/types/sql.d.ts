@@ -1,6 +1,5 @@
 export type TemplateVariables = {
-  eventName?: string;
-  valueColumn?: string;
+  [key: string]: string | undefined;
 };
 
 export type SQLVars = {

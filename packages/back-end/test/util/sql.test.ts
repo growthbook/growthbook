@@ -38,6 +38,16 @@ describe("backend", () => {
       ).toEqual("SELECT amount as value from db.purchase");
     });
 
+    it("replaces arbitrary template variables", () => {
+      expect(
+        compileSqlTemplate(`SELECT {{foo}} as value from db.{{bar}}`, {
+          startDate,
+          endDate,
+          templateVariables: { foo: "amount", bar: "purchase" },
+        }),
+      ).toEqual("SELECT amount as value from db.purchase");
+    });
+
     it("throws error when eventName is in sql but is not set", () => {
       expect(() => {
         compileSqlTemplate(`SELECT {{ snakecase eventName }}`, {
@@ -60,7 +70,7 @@ describe("backend", () => {
       );
     });
 
-    it("throws error listing avialable variables when using an unknown one", () => {
+    it("throws error listing available variables when using an unknown one", () => {
       expect(() => {
         compileSqlTemplate(`SELECT {{ unknown }}`, {
           startDate,
@@ -69,6 +79,29 @@ describe("backend", () => {
       }).toThrowError(
         "Unknown variable: unknown. Available variables: startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId",
       );
+    });
+
+    it("throws error when using an unknown variable with a helper", () => {
+      expect(() => {
+        compileSqlTemplate(`SELECT {{ snakecase unknown }}`, {
+          startDate,
+          endDate,
+        });
+      }).toThrowError(
+        "Error compiling SQL template: Missing variable passed to helper 'snakecase'",
+      );
+    });
+
+    it("does not throw when checking for existence of a variable that is not used", () => {
+      expect(
+        compileSqlTemplate(
+          `SELECT * WHERE 1=1{{#if unknown}} AND foo = '{{unknown}}' {{/if}}`,
+          {
+            startDate,
+            endDate,
+          },
+        ),
+      ).toEqual("SELECT * WHERE 1=1");
     });
 
     it("compiles and runs a helper function", () => {

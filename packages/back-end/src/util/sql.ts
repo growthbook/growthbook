@@ -90,6 +90,7 @@ export function compileSqlTemplate(
   }
 
   const replacements: Record<string, string> = {
+    ...templateVariables,
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
@@ -105,17 +106,16 @@ export function compileSqlTemplate(
     experimentId,
   };
 
-  if (templateVariables?.eventName) {
-    replacements.eventName = templateVariables.eventName;
-  } else if (usesTemplateVariable(sql, "eventName")) {
+  // Better error messages for known variables that are missing
+  if (!templateVariables?.eventName && usesTemplateVariable(sql, "eventName")) {
     throw new Error(
       "Error compiling SQL template: You must set eventName first.",
     );
   }
-
-  if (templateVariables?.valueColumn) {
-    replacements.valueColumn = templateVariables.valueColumn;
-  } else if (usesTemplateVariable(sql, "valueColumn")) {
+  if (
+    !templateVariables?.valueColumn &&
+    usesTemplateVariable(sql, "valueColumn")
+  ) {
     throw new Error(
       "Error compiling SQL template: You must set valueColumn first.",
     );
@@ -137,16 +137,6 @@ export function compileSqlTemplate(
     });
     return template(replacements);
   } catch (e) {
-    if (e.message.includes("eventName")) {
-      throw new Error(
-        "Error compiling SQL template: You must set eventName first.",
-      );
-    }
-    if (e.message.includes("valueColumn")) {
-      throw new Error(
-        "Error compiling SQL template: You must set valueColumn first.",
-      );
-    }
     if (e.message.includes("not defined in [object Object]")) {
       const variableName = e.message.match(/"(.+?)"/)[1];
       throw new Error(
