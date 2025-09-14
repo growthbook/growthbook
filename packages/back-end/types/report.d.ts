@@ -55,6 +55,7 @@ export interface ExperimentReportMetadata {
   type: ExperimentType;
   phases: ExperimentReportPhase[];
   variations: Omit<Variation, "description" | "screenshots">[];
+  customFields?: Record<string, unknown>;
 }
 export type ExperimentReportPhase = Pick<
   ExperimentPhase,
@@ -111,6 +112,8 @@ export interface ExperimentReportArgs {
   exposureQueryId: string;
   startDate: Date;
   endDate?: Date;
+  phase?: string;
+  customFields?: Record<string, unknown>;
   dimension?: string | null;
   variations: ExperimentReportVariation[];
   coverage?: number;

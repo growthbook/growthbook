@@ -65,7 +65,13 @@ function usesTemplateVariable(sql: string, variableName: string) {
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
 export function compileSqlTemplate(
   sql: string,
-  { startDate, endDate, experimentId, templateVariables }: SQLVars,
+  {
+    startDate,
+    endDate,
+    experimentId,
+    templateVariables,
+    ...otherVars
+  }: SQLVars,
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -89,8 +95,9 @@ export function compileSqlTemplate(
     experimentId = "%";
   }
 
-  const replacements: Record<string, string> = {
+  const replacements: Record<string, unknown> = {
     ...templateVariables,
+    ...otherVars,
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),

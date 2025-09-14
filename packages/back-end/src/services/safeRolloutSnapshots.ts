@@ -266,6 +266,7 @@ function getSafeRolloutSnapshotSettings({
   factTableMap,
   metricGroups,
   datasource,
+  customFields,
 }: {
   safeRollout: SafeRolloutInterface;
   safeRolloutRule: SafeRolloutRule;
@@ -276,6 +277,7 @@ function getSafeRolloutSnapshotSettings({
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
+  customFields?: Record<string, unknown>;
 }): SafeRolloutSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -317,6 +319,8 @@ function getSafeRolloutSnapshotSettings({
   return {
     queryFilter: "",
     experimentId: safeRolloutRule.trackingKey,
+    phase: "0",
+    customFields,
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
     startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
@@ -336,6 +340,7 @@ function getSafeRolloutSnapshotSettings({
 
 export async function _createSafeRolloutSnapshot({
   safeRollout,
+  customFields,
   context,
   triggeredBy,
   useCache = false,
@@ -345,6 +350,7 @@ export async function _createSafeRolloutSnapshot({
   factTableMap,
 }: {
   safeRollout: SafeRolloutInterface;
+  customFields?: Record<string, unknown>;
   context: ReqContext | ApiReqContext;
   triggeredBy: SnapshotTriggeredBy;
   useCache?: boolean;
@@ -382,6 +388,7 @@ export async function _createSafeRolloutSnapshot({
     factTableMap,
     metricGroups,
     datasource,
+    customFields,
   });
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
     safeRolloutId: safeRollout.id,
@@ -432,11 +439,13 @@ export async function _createSafeRolloutSnapshot({
 export async function createSafeRolloutSnapshot({
   context,
   safeRollout,
+  customFields,
   useCache = true,
   triggeredBy,
 }: {
   context: ReqContext;
   safeRollout: SafeRolloutInterface;
+  customFields?: Record<string, unknown>;
   useCache?: boolean;
   triggeredBy?: SnapshotTriggeredBy;
 }): Promise<{
@@ -465,6 +474,7 @@ export async function createSafeRolloutSnapshot({
     factTableMap,
     triggeredBy: triggeredBy ?? "manual",
     safeRollout,
+    customFields,
   });
   const snapshot = queryRunner.model;
 
