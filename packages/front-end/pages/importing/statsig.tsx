@@ -3,7 +3,7 @@ import { NextPage } from "next";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import ImportFromStatsig from "@/components/importing/ImportFromStatsig/ImportFromStatsig";
 import { AppFeatures } from "@/types/app-features";
-import Avatar from "@/components/Radix/Avatar";
+import Avatar from "@/ui/Avatar";
 
 const ImportFromStatsigPage: NextPage = () => {
   const growthbook = useGrowthBook<AppFeatures>();
