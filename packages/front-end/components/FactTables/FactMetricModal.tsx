@@ -1469,6 +1469,7 @@ export default function FactMetricModal({
     project,
     getFactTableById,
     mutateDefinitions,
+    metrics,
   } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -1477,6 +1478,12 @@ export default function FactMetricModal({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
+
+  const filteredMetrics = metrics
+    .filter((f) => !datasource || f.datasource === datasource)
+    .filter((f) => isProjectListValidForProject(f.projects, project));
+
+  const showSwitchToLegacy = filteredMetrics.length > 0;
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,
@@ -1775,7 +1782,7 @@ export default function FactMetricModal({
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
           {showSQLPreview ? <h3>Enter Details</h3> : null}
-          {switchToLegacy && (
+          {showSwitchToLegacy && switchToLegacy && (
             <Callout status="info" mb="3">
               You are creating a Fact Table Metric.{" "}
               <a

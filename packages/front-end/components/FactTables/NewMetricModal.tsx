@@ -78,14 +78,17 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
     .filter((f) => isProjectListValidForProject(f.projects, project));
 
   // Determine the most appropriate default type based on what the org has already created
-  // - If there are no fact tables yet, always default to legacy
-  // - If there are more legacy metrics than fact metrics, default to legacy
+  // - If there are no metrics, default to fact
+  // - If there are fact tables, default to fact
+  // - If there are no fact tables and there is at least one legacy metric, default to legacy
   // - Otherwise, default to fact
   // TODO: add an org setting to explicitly override this default
   let defaultType: "fact" | "legacy" = "fact";
-  if (filteredFactTables.length === 0) {
-    defaultType = "legacy";
-  } else if (filteredMetrics.length > filteredFactMetrics.length) {
+  if (filteredMetrics.length === 0) {
+    defaultType = "fact";
+  } else if (filteredFactTables.length > 0) {
+    defaultType = "fact";
+  } else if (filteredFactMetrics.length === 0 && filteredMetrics.length > 0) {
     defaultType = "legacy";
   }
 
