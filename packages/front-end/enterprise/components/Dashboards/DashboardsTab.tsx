@@ -77,10 +77,12 @@ export default function DashboardsTab({
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
-    if (initialDashboardId) {
+    if (experiment.defaultDashboardId) {
+      setDashboardId(experiment.defaultDashboardId);
+    } else if (initialDashboardId) {
       setDashboardId(initialDashboardId);
     }
-  }, [initialDashboardId]);
+  }, [initialDashboardId, experiment.defaultDashboardId]);
   const {
     dashboards,
     mutateDashboards,
@@ -288,7 +290,7 @@ export default function DashboardsTab({
               <>
                 <Flex align="center" justify="between" mb="1">
                   <Flex gap="1" align="center">
-                    {dashboards.length > 0 ? (
+                    {dashboards.length > 0 && !experiment.defaultDashboardId ? (
                       <Flex gap="4" align="center">
                         <Select
                           style={{
@@ -346,7 +348,7 @@ export default function DashboardsTab({
                       <></>
                     )}
                   </Flex>
-                  {dashboard ? (
+                  {dashboard && !experiment.defaultDashboardId ? (
                     <Flex gap="4" align="center">
                       <Tooltip
                         state={copySuccess}

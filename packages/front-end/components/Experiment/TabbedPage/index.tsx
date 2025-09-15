@@ -124,6 +124,9 @@ export default function TabbedPage({
   const [featureModal, setFeatureModal] = useState(false);
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
+  const [showDashboardView, setShowDashboardView] = useState(
+    experiment.defaultDashboardId ? true : false,
+  );
 
   // Results tab filters
   const [analysisBarSettings, setAnalysisBarSettings] = useState<{
@@ -359,6 +362,7 @@ export default function TabbedPage({
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
         stop={stop}
+        showDashboardView={showDashboardView}
       />
 
       <div className="container-fluid pagecontents">
@@ -377,9 +381,11 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        {experiment.type !== "holdout" && tab !== "dashboards" && (
-          <CustomMarkdown page={"experiment"} variables={variables} />
-        )}
+        {experiment.type !== "holdout" &&
+          tab !== "dashboards" &&
+          !showDashboardView && (
+            <CustomMarkdown page={"experiment"} variables={variables} />
+          )}
         {showStoppedBanner && (
           <div className="pt-3">
             <StoppedExperimentBanner
@@ -418,10 +424,27 @@ export default function TabbedPage({
               )}
             </div>
           )}
+        <div className="text-right">
+          <Button onClick={() => setShowDashboardView((prev) => !prev)}>
+            {showDashboardView
+              ? "View Regular Experiment View"
+              : "View Dashboard View"}
+          </Button>
+        </div>
+
+        {showDashboardView && (
+          <DashboardsTab
+            experiment={experiment}
+            initialDashboardId={""}
+            isTabActive
+          />
+        )}
         <div
           className={clsx(
             "pt-3",
-            tab === "overview" ? "d-block" : "d-none d-print-block",
+            tab === "overview" && !showDashboardView
+              ? "d-block"
+              : "d-none d-print-block",
           )}
         >
           <SetupTabOverview
@@ -466,7 +489,7 @@ export default function TabbedPage({
             </div>
           )}
         </div>
-        {isBandit ? (
+        {isBandit && !showDashboardView ? (
           <div
             className={
               // todo: standardize explore & results tabs across experiment types
@@ -486,7 +509,9 @@ export default function TabbedPage({
       <div
         className={
           // todo: standardize explore & results tabs across experiment types
-          (!isBandit && tab === "results") || (isBandit && tab === "explore")
+          ((!isBandit && tab === "results") ||
+            (isBandit && tab === "explore")) &&
+          !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
@@ -526,7 +551,7 @@ export default function TabbedPage({
       </div>
       <div
         className={
-          tab === "dashboards"
+          tab === "dashboards" && !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
@@ -539,7 +564,7 @@ export default function TabbedPage({
       </div>
       <div
         className={
-          tab === "health"
+          tab === "health" && !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
@@ -559,7 +584,7 @@ export default function TabbedPage({
         />
       </div>
 
-      {tab !== "dashboards" && (
+      {tab !== "dashboards" && !showDashboardView && (
         <div className="mt-4 px-4 border-top pb-3">
           <div className="pt-2 pt-4 pb-5 container pagecontents">
             <div className="h3 mb-4">Comments</div>
