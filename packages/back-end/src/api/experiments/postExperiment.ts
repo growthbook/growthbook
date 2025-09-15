@@ -19,6 +19,20 @@ import {
   ExperimentInterfaceExcludingHoldouts,
   Variation,
 } from "back-end/src/validators/experiments";
+import { ApiReqContext } from "back-end/types/api";
+
+const validateCustomFields = async (
+  customFields: Record<string, string>,
+  context: ApiReqContext,
+) => {
+  for (const [key, value] of Object.entries(customFields)) {
+    const customField =
+      await context.models.customFields.getCustomFieldByFieldId(key);
+    if (!customField) {
+      throw new Error(`Custom field not found: ${key}`);
+    }
+  }
+};
 
 export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {

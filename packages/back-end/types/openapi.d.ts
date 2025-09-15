@@ -4568,6 +4568,9 @@ export interface operations {
           prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
+          customFields?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };
@@ -6123,6 +6126,9 @@ export interface operations {
           prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
+          customFields?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };
@@ -9130,6 +9136,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          customFields?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };
@@ -9591,6 +9600,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          customFields?: {
+            [key: string]: string | undefined;
+          };
         };
       };
     };

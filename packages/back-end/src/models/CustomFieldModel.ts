@@ -59,6 +59,17 @@ export class CustomFieldModel extends BaseClass {
     );
   }
 
+  public async getCustomFieldsByProject(projectId: string) {
+    const customFields = await this.getCustomFields();
+    if (!customFields) {
+      return null;
+    }
+    return customFields.fields.filter(
+      (field) =>
+        field.projects?.includes(projectId) || field.projects?.length === 0,
+    );
+  }
+
   /**
    * Because each organization should only have one set of custom fields,
    * this method will either create a new set of custom fields or update

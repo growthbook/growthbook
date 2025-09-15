@@ -126,6 +126,9 @@ tags:
   - name: CodeRef_model
     x-displayName: CodeRef
     description: <SchemaDefinition schemaRef="#/components/schemas/CodeRef" />
+  - name: CustomField_model
+    x-displayName: CustomField
+    description: <SchemaDefinition schemaRef="#/components/schemas/CustomField" />
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -644,6 +647,10 @@ paths:
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -739,6 +746,10 @@ paths:
                 jsonSchema:
                   type: string
                   description: Use JSON schema to validate the payload of a JSON-type feature value (enterprise only).
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -2110,6 +2121,10 @@ paths:
                   enum:
                     - days
                     - hours
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -2446,6 +2461,10 @@ paths:
                   enum:
                     - days
                     - hours
+                customFields:
+                  type: object
+                  additionalProperties:
+                    type: string
       responses:
         '200':
           content:
@@ -8270,6 +8289,7 @@ x-tagGroups:
       - Archetype_model
       - Attribute_model
       - CodeRef_model
+      - CustomField_model
       - DataSource_model
       - Dimension_model
       - Environment_model
