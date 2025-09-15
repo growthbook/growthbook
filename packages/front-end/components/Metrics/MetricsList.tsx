@@ -23,14 +23,14 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   MetricModal,
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
-import PremiumCallout from "../Radix/PremiumCallout";
+import PremiumCallout from "@/ui/PremiumCallout";
 
 export interface MetricTableItem {
   id: string;

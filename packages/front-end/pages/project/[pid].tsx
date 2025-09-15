@@ -5,10 +5,13 @@ import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { getScopedSettings } from "shared/settings";
+import { Box, Flex, Text } from "@radix-ui/themes";
+import { ExperimentLaunchChecklistInterface } from "back-end/types/experimentLaunchChecklist";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import Button from "@/components/Button";
+import RadixButton from "@/ui/Button";
 import TempMessage from "@/components/TempMessage";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import MemberList from "@/components/Settings/Team/MemberList";
@@ -16,9 +19,13 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Frame from "@/components/Radix/Frame";
-import Badge from "@/components/Radix/Badge";
+import Frame from "@/ui/Frame";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
+import useApi from "@/hooks/useApi";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -27,6 +34,8 @@ function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
 }
 
 const ProjectPage: FC = () => {
+  const [editChecklistOpen, setEditChecklistOpen] = useState(false);
+  const { hasCommercialFeature } = useUser();
   const { organization, refreshOrganization } = useUser();
   const { getProjectById, mutateDefinitions, ready, error } = useDefinitions();
 
@@ -52,6 +61,12 @@ const ProjectPage: FC = () => {
   const canManageTeam = permissionsUtil.canManageTeam();
 
   const form = useForm<ProjectSettings>();
+
+  const { data, mutate } = useApi<{
+    checklist: ExperimentLaunchChecklistInterface;
+  }>(`/experiments/launch-checklist?projectId=${pid}`);
+
+  const checklist = data?.checklist;
 
   useEffect(() => {
     if (settings) {
@@ -115,6 +130,12 @@ const ProjectPage: FC = () => {
           existing={modalOpen}
           close={() => setModalOpen(null)}
           onSuccess={() => mutateDefinitions()}
+        />
+      )}
+      {editChecklistOpen && (
+        <ExperimentCheckListModal
+          close={() => setEditChecklistOpen(false)}
+          projectParams={{ projectId: pid, projectName: p.name }}
         />
       )}
 
@@ -184,7 +205,7 @@ const ProjectPage: FC = () => {
         <Frame>
           <div className="row">
             <div className="col-sm-3">
-              <h4>Experiment Settings</h4>
+              <h3>Experiment Settings</h3>
             </div>
             <div className="col-sm-9">
               <StatsEngineSelect
@@ -195,6 +216,51 @@ const ProjectPage: FC = () => {
                 label="Default Statistics Engine"
                 parentSettings={parentSettings}
               />
+              <Box mb="6" mt="6">
+                <Flex>
+                  <PremiumTooltip
+                    commercialFeature="custom-launch-checklist"
+                    premiumText="Custom pre-launch checklists are available to Enterprise customers"
+                  >
+                    <Text size="3" className="font-weight-semibold">
+                      Experiment Pre-Launch Checklist
+                    </Text>
+                  </PremiumTooltip>
+                </Flex>
+                <p className="pt-2">
+                  Configure required steps that need to be completed before an
+                  experiment can be launched. By default, experiments use your
+                  organization&apos;s default Pre-Launch Checklist. However, you
+                  can create a custom checklist for experiments in this project.
+                </p>
+                <RadixButton
+                  variant="soft"
+                  className="mr-2"
+                  disabled={!hasCommercialFeature("custom-launch-checklist")}
+                  onClick={async () => {
+                    setEditChecklistOpen(true);
+                  }}
+                >
+                  {checklist?.id ? "Edit" : "Create"} Checklist
+                </RadixButton>
+                {checklist?.id ? (
+                  <DeleteButton
+                    displayName="Checklist"
+                    useRadix={true}
+                    text="Delete Checklist"
+                    deleteMessage="Once deleted, all experiments in this project will revert to using your organization's default Pre-Launch Checklist."
+                    onClick={async () => {
+                      await apiCall(
+                        `/experiments/launch-checklist/${checklist.id}`,
+                        {
+                          method: "DELETE",
+                        },
+                      );
+                      mutate();
+                    }}
+                  />
+                ) : null}
+              </Box>
             </div>
           </div>
         </Frame>

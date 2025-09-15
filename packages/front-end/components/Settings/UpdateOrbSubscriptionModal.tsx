@@ -17,8 +17,8 @@ import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import { taxIdTypeOptions } from "@/enterprise/components/Billing/CloudProUpgradeModal";
-import Checkbox from "../Radix/Checkbox";
-import Callout from "../Radix/Callout";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 
 interface StripeCustomerData {
   name: string;

@@ -12,15 +12,24 @@ import SortableExperimentChecklist from "./SortableExperimentChecklist";
 import ExperimentChecklistEmptyState from "./ExperimentChecklistEmptyState";
 import NewExperimentChecklistItem from "./NewExperimentChecklistItem";
 
+type ProjectParams = {
+  projectId: string;
+  projectName: string;
+};
+
 export default function ExperimentCheckListModal({
   close,
+  projectParams,
 }: {
   close: () => void;
+  projectParams?: ProjectParams;
 }) {
   const [loading, setLoading] = useState(true);
   const { data, mutate } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
-  }>("/experiments/launch-checklist");
+  }>(
+    `/experiments/launch-checklist?projectId=${projectParams?.projectId || ""}`,
+  );
 
   const checklist = data?.checklist;
 
@@ -45,9 +54,7 @@ export default function ExperimentCheckListModal({
     } else {
       await apiCall(`/experiments/launch-checklist`, {
         method: "POST",
-        body: JSON.stringify({
-          tasks,
-        }),
+        body: JSON.stringify({ tasks, projectId: projectParams?.projectId }),
       });
     }
     mutate();
@@ -71,7 +78,7 @@ export default function ExperimentCheckListModal({
       size="max"
       header={`${
         checklist?.id ? "Edit" : "Add"
-      } Experiment Pre-Launch Checklist`}
+      } Experiment Pre-Launch Checklist${projectParams?.projectName ? ` for ${projectParams.projectName}` : ""}`}
       cta="Save"
       submit={() => handleSubmit()}
     >
@@ -80,10 +87,10 @@ export default function ExperimentCheckListModal({
       ) : (
         <>
           <p>
-            Customize your organizations experiment pre-launch checklist to
+            {`Customize your ${projectParams?.projectName ? `project's` : `organization's`} experiment pre-launch checklist to
             ensure all experiments meet essential critera before launch. Choose
             from our pre-defined options, or create your own custom launch
-            requirements.
+            requirements.`}
           </p>
           <div className="d-flex align-items-center justify-content-between pb-3">
             <h4>Pre-Launch Requirements</h4>

@@ -5,9 +5,9 @@ import { getValidDate } from "shared/dates";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import DatePicker from "@/components/DatePicker";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 
 interface Props {
   defaultValue: ScheduleRule[];

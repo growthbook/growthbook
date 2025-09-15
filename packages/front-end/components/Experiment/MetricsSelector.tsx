@@ -17,7 +17,7 @@ import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
-import Link from "../Radix/Link";
+import Link from "@/ui/Link";
 
 type MetricOption = {
   id: string;

@@ -5,8 +5,8 @@ import { hasFileConfig } from "@/services/env";
 import { supportedCurrencies } from "@/services/settings";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/components/Radix/Callout";
-import Frame from "@/components/Radix/Frame";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
 
 export default function MetricsSettings() {
   const form = useFormContext();

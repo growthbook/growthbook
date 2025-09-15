@@ -23,10 +23,10 @@ import Button from "@/components/Button";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Callout from "@/components/Radix/Callout";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 export interface Props {
   feature: FeatureInterface;
   version: number;

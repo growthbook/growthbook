@@ -28,7 +28,7 @@ import TargetingAttributeCodeSnippet from "@/components/SyntaxHighlighting/Snipp
 import SelectField from "@/components/Forms/SelectField";
 import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConnectionModal";
 import MultivariateFeatureCodeSnippet from "@/components/SyntaxHighlighting/Snippets/MultivariateFeatureCodeSnippet";
-import Callout from "../Radix/Callout";
+import Callout from "@/ui/Callout";
 import SDKLanguageSelector from "./SDKConnections/SDKLanguageSelector";
 import {
   getPackageRepositoryName,

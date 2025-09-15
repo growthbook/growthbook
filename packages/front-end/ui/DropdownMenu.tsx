@@ -8,7 +8,7 @@ import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.j
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import React, { useState } from "react";
 import { amber } from "@radix-ui/colors";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 

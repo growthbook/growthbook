@@ -37,6 +37,7 @@ const teamSchema = new mongoose.Schema({
   ],
   managedByIdp: Boolean,
   managedBy: {},
+  defaultProject: String,
 });
 
 const TeamModel = mongoose.model<TeamInterface>("Team", teamSchema);

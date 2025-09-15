@@ -18,7 +18,7 @@ import useApi from "@/hooks/useApi";
 import { SlackIntegrationAddEditModal } from "@/components/SlackIntegrations/SlackIntegrationAddEditModal/SlackIntegrationAddEditModal";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 type SlackIntegrationsListViewProps = {
   onEditModalOpen: (id: string, data: SlackIntegrationEditParams) => void;
