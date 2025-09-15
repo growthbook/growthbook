@@ -458,9 +458,17 @@ export async function postMetrics(
     userIdColumns,
     userIdTypes,
     templateVariables,
+    managedBy,
   } = req.body;
 
   if (!context.permissions.canCreateMetric({ projects })) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (
+    managedBy === "admin" &&
+    !context.permissions.canManageOfficialResources({ projects })
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -511,6 +519,7 @@ export async function postMetrics(
     regressionAdjustmentEnabled,
     regressionAdjustmentDays,
     templateVariables,
+    managedBy,
   });
 
   res.status(200).json({
