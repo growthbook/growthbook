@@ -62,12 +62,7 @@ export function MetricModal({
 }
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
-  const { factMetrics, metrics, factTables, project, getDatasourceById } =
-    useDefinitions();
-
-  const filteredFactMetrics = factMetrics
-    .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
+  const { metrics, factTables, project, getDatasourceById } = useDefinitions();
 
   const filteredMetrics = metrics
     .filter((f) => !datasource || f.datasource === datasource)
@@ -88,7 +83,7 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
     defaultType = "fact";
   } else if (filteredFactTables.length > 0) {
     defaultType = "fact";
-  } else if (filteredFactMetrics.length === 0 && filteredMetrics.length > 0) {
+  } else if (filteredFactTables.length === 0 && filteredMetrics.length > 0) {
     defaultType = "legacy";
   }
 
