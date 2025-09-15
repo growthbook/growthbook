@@ -18,11 +18,11 @@ export type BaseImportStatus = {
 };
 
 export type EnvironmentImport = BaseImportStatus & {
-  environment?: StatSigEnvironment;
+  environment?: StatsigEnvironment;
 };
 
 export type FeatureGateImport = BaseImportStatus & {
-  featureGate?: StatSigFeatureGate;
+  featureGate?: StatsigFeatureGate;
   feature?: Omit<
     FeatureInterface,
     "organization" | "dateCreated" | "dateUpdated" | "version"
@@ -31,7 +31,7 @@ export type FeatureGateImport = BaseImportStatus & {
 };
 
 export type DynamicConfigImport = BaseImportStatus & {
-  dynamicConfig?: StatSigDynamicConfig;
+  dynamicConfig?: StatsigDynamicConfig;
   feature?: Omit<
     FeatureInterface,
     "organization" | "dateCreated" | "dateUpdated" | "version"
@@ -40,7 +40,7 @@ export type DynamicConfigImport = BaseImportStatus & {
 };
 
 export type ExperimentImport = BaseImportStatus & {
-  experiment?: StatSigExperiment;
+  experiment?: StatsigExperiment;
   gbExperiment?: Omit<
     ExperimentInterfaceStringDates,
     "organization" | "dateCreated" | "dateUpdated"
@@ -54,7 +54,7 @@ export type ExperimentImport = BaseImportStatus & {
 };
 
 export type SegmentImport = BaseImportStatus & {
-  segment?: StatSigSavedGroup;
+  segment?: StatsigSavedGroup;
 };
 
 export type MetricImport = BaseImportStatus & {

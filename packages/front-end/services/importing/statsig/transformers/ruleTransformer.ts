@@ -1,6 +1,6 @@
 import { ConditionInterface } from "@growthbook/growthbook-react";
 import { StatSigCondition } from "@/services/importing/statsig/types";
-import { mapStatSigAttributeToGB } from "./attributeMapper";
+import { mapStatsigAttributeToGB } from "./attributeMapper";
 
 export type TransformedCondition = {
   condition: string; // JSON string for targeting conditions
@@ -13,9 +13,9 @@ export type TransformedCondition = {
 };
 
 /**
- * Transform StatSig conditions to GrowthBook format
+ * Transform Statsig conditions to GrowthBook format
  */
-export function transformStatSigConditionsToGB(
+export function transformStatsigConditionsToGB(
   conditions: StatSigCondition[],
 ): TransformedCondition {
   const targetingConditions: StatSigCondition[] = [];
@@ -126,7 +126,7 @@ function transformTargetingConditions(conditions: StatSigCondition[]): string {
     const gbOperator = operatorMap[operator] || "$eq";
 
     // Map StatSig attribute name to GrowthBook attribute name
-    const gbAttributeName = mapStatSigAttributeToGB(type);
+    const gbAttributeName = mapStatsigAttributeToGB(type);
 
     if (operator === "str_contains_none") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];

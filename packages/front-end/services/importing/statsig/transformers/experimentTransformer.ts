@@ -3,11 +3,11 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { StatSigExperiment } from "../types";
-import { transformStatSigConditionsToGB } from "./ruleTransformer";
-import { mapStatSigAttributeToGB } from "./attributeMapper";
+import { transformStatsigConditionsToGB } from "./ruleTransformer";
+import { mapStatsigAttributeToGB } from "./attributeMapper";
 
 /**
- * Parse StatSig inline targeting rules JSON
+ * Parse Statsig inline targeting rules JSON
  */
 function parseInlineTargetingRules(inlineTargetingRulesJSON: string): Array<{
   groupName: string;
@@ -34,7 +34,7 @@ function parseInlineTargetingRules(inlineTargetingRulesJSON: string): Array<{
 }
 
 /**
- * Transform StatSig experiment to GrowthBook experiment
+ * Transform Statsig experiment to GrowthBook experiment
  */
 export function transformStatSigExperimentToGB(
   experiment: StatSigExperiment,
@@ -58,7 +58,7 @@ export function transformStatSigExperimentToGB(
   } = experiment;
 
   // Map StatSig idType to GrowthBook hashAttribute
-  const hashAttribute = mapStatSigAttributeToGB(experiment.idType || "userID");
+  const hashAttribute = mapStatsigAttributeToGB(experiment.idType || "userID");
 
   // Convert groups to variations
   const variations: Variation[] = groups.map((group, index) => ({
@@ -94,7 +94,7 @@ export function transformStatSigExperimentToGB(
       field: undefined,
       customID: undefined,
     }));
-    const transformedCondition = transformStatSigConditionsToGB(conditions);
+    const transformedCondition = transformStatsigConditionsToGB(conditions);
     phaseCondition = transformedCondition.condition || "";
     phaseSavedGroups = transformedCondition.savedGroups.map((id) => ({
       match: "all" as const,

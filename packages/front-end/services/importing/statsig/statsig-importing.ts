@@ -16,13 +16,13 @@ import {
   StatSigSavedGroupsResponse,
   ImportData,
 } from "./types";
-import { transformStatSigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
+import { transformStatsigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
 import { transformStatSigFeatureGateToGB } from "./transformers/featureTransformer";
 import { transformStatSigExperimentToGB } from "./transformers/experimentTransformer";
 import { transformStatSigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
 
 /**
- * Make a direct request to StatSig Console API
+ * Make a direct request to Statsig Console API
  */
 async function getFromStatSig<ResType>(
   endpoint: string,
@@ -556,7 +556,7 @@ export async function runImport(
           const seg = segment.segment as StatSigSavedGroup;
 
           // Transform StatSig segment to GrowthBook saved group
-          const savedGroupData = await transformStatSigSegmentToSavedGroup(
+          const savedGroupData = await transformStatsigSegmentToSavedGroup(
             seg,
             existingAttributeSchema,
             apiCall,

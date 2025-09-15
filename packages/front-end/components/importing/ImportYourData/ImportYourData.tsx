@@ -12,11 +12,11 @@ const supportedServices = [
     text: "Import your projects, features and environments from LaunchDarkly.",
   },
   {
-    service: "StatSig",
+    service: "Statsig",
     icon: "statsig",
     path: "statsig",
     accentColor: "#000",
-    text: "Import your projects, features and environments from LaunchDarkly.",
+    text: "Import your projects, features and environments from Statsig.",
   },
 ];
 

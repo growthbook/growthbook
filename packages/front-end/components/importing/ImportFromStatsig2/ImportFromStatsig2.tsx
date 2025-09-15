@@ -72,9 +72,11 @@ function ImportStatusDisplay({
 function ImportHeader({
   name,
   items,
+  beta,
 }: {
   name: string;
   items: { status: ImportStatus }[];
+  beta?: boolean;
 }) {
   const countsByStatus = items.reduce(
     (acc, item) => {
@@ -88,7 +90,12 @@ function ImportHeader({
     <div className="bg-light p-3 border-bottom">
       <div className="row">
         <div className="col-auto" style={{ minWidth: 300 }}>
-          <h3 className="mb-0">{name}</h3>
+          <h3 className="mb-0">
+            {name}
+            {beta ? (
+              <span className="ml-1 badge badge-warning badge-pill">Beta</span>
+            ) : null}
+          </h3>
         </div>
         <div className="col-auto mr-4">
           <strong>{items.length}</strong> total
@@ -122,7 +129,7 @@ function ImportHeader({
   );
 }
 
-export default function ImportFromStatSig() {
+export default function ImportFromStatsig2() {
   const [token, setToken] = useSessionStorage("ssApiToken", "");
   const [intervalCap, setIntervalCap] = useState(50);
   const [data, setData] = useState<ImportData>({
@@ -194,7 +201,7 @@ export default function ImportFromStatSig() {
       method: "POST",
       body: JSON.stringify({
         name: projectName.trim(),
-        description: `Created during StatSig import on ${new Date().toISOString()}`,
+        description: `Created during Statsig import on ${new Date().toISOString()}`,
       }),
     });
 
@@ -212,7 +219,7 @@ export default function ImportFromStatSig() {
 
   return (
     <div>
-      <h1>StatSig Importer</h1>
+      <h1>Statsig Importer</h1>
       <p>
         Import your existing projects, environments, and feature flags from the
         StatSig API.
@@ -451,10 +458,7 @@ export default function ImportFromStatSig() {
                                   <ImportStatusDisplay data={segment} />
                                 </td>
                                 <td>
-                                  {
-                                    // @ts-expect-error works fine...
-                                    segment.segment?.name ?? segment.segment?.id
-                                  }
+                                  {segment.segment?.name ?? segment.segment?.id}
                                 </td>
                                 <td>{segment.segment?.type}</td>
                                 <td>{segment.segment?.description}</td>
@@ -637,7 +641,7 @@ export default function ImportFromStatSig() {
 
             {data.metrics ? (
               <div className="appbox mb-4">
-                <ImportHeader name="Metrics" items={data.metrics} />
+                <ImportHeader name="Metrics" beta={true} items={data.metrics} />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">

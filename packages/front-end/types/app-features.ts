@@ -30,6 +30,7 @@ export type AppFeatures = {
   "organization-message-list": Record<string, unknown>;
   "remote-evaluation": boolean;
   "import-from-x": boolean;
+  "import-from-s": boolean;
   "demo-datasource": boolean;
   "new-experiment-rule": boolean;
   "visual-editor-ai-enabled": boolean;

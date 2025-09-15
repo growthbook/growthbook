@@ -1,20 +1,46 @@
 import React from "react";
 import { NextPage } from "next";
-import ImportFromStatSig from "@/components/importing/ImportFromStatSig/ImportFromStatSig";
-import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import ImportFromStatsig2 from "@/components/importing/ImportFromStatsig2/ImportFromStatsig2";
+import { AppFeatures } from "@/types/app-features";
+import Avatar from "@/components/Radix/Avatar";
 
-const ImportFromStatSigPage: NextPage = () => {
-  const { shouldRender } = useFeatureDisabledRedirect("import-from-x");
+const ImportFromStatsigPage: NextPage = () => {
+  const growthbook = useGrowthBook<AppFeatures>();
+  const isStatsigImportEnabled = growthbook?.isOn("import-from-s");
 
-  if (!shouldRender) {
-    return null;
+  // Show painted door if feature is disabled
+  if (!isStatsigImportEnabled) {
+    return (
+      <div className="contents container pagecontents">
+        <div className="row">
+          <div className="col-md-8 mx-auto">
+            <div className="card">
+              <div className="card-body text-center p-5">
+                <h2 className="mb-3">
+                  <Avatar size="lg" color="gray" mr="2">
+                    <img src="/images/3rd-party-logos/importing/icons/statsig.svg" />
+                  </Avatar>
+                  Import from Statsig
+                </h2>
+                <p className="mt-5 mb-3">
+                  Our Statsig importer is in closed beta. To unlock this
+                  feature, please contact our sales team.
+                </p>
+                <p>Please contact sales@growthbook.io learn more.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="contents container pagecontents">
-      <ImportFromStatSig />
+      <ImportFromStatsig2 />
     </div>
   );
 };
 
-export default ImportFromStatSigPage;
+export default ImportFromStatsigPage;

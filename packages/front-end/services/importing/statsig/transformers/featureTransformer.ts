@@ -1,9 +1,9 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { StatSigFeatureGate, StatSigDynamicConfig } from "../types";
-import { transformStatSigConditionsToGB } from "./ruleTransformer";
+import { transformStatsigConditionsToGB } from "./ruleTransformer";
 
 /**
- * Transform StatSig feature gate or dynamic config to GrowthBook feature
+ * Transform Statsig feature gate or dynamic config to GrowthBook feature
  */
 export function transformStatSigFeatureGateToGB(
   featureGate: StatSigFeatureGate | StatSigDynamicConfig,
@@ -66,7 +66,7 @@ export function transformStatSigFeatureGateToGB(
   // Process each StatSig rule and assign to appropriate environments
   rules.forEach((rule, ruleIndex) => {
     try {
-      const transformedCondition = transformStatSigConditionsToGB(
+      const transformedCondition = transformStatsigConditionsToGB(
         rule.conditions,
       );
 

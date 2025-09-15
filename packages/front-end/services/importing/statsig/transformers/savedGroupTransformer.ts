@@ -1,18 +1,18 @@
 import { SavedGroupInterface } from "shared/src/types";
 import { SDKAttribute } from "back-end/types/organization";
 import {
-  StatSigSavedGroup,
-  StatSigCondition,
+  StatsigSavedGroup,
+  StatsigCondition,
 } from "@/services/importing/statsig/types";
-import { transformStatSigConditionsToGB } from "./ruleTransformer";
-import { mapStatSigAttributeToGB } from "./attributeMapper";
+import { transformStatsigConditionsToGB } from "./ruleTransformer";
+import { mapStatsigAttributeToGB } from "./attributeMapper";
 import { ensureAttributeExists } from "./attributeCreator";
 
 /**
- * Transform StatSig segment to GrowthBook saved group
+ * Transform Statsig segment to GrowthBook saved group
  */
-export async function transformStatSigSegmentToSavedGroup(
-  segment: StatSigSavedGroup,
+export async function transformStatsigSegmentToSavedGroup(
+  segment: StatsigSavedGroup,
   existingAttributeSchema: SDKAttribute[],
   apiCall: (
     path: string,
@@ -25,15 +25,15 @@ export async function transformStatSigSegmentToSavedGroup(
     "id" | "organization" | "dateCreated" | "dateUpdated"
   >
 > {
-  function transformStatSigRulesToCondition(
-    rules: StatSigSavedGroup["rules"],
+  function transformStatsigRulesToCondition(
+    rules: StatsigSavedGroup["rules"],
   ): string {
     if (!rules || rules.length === 0) {
       return "{}";
     }
 
     // Collect all conditions from all rules
-    const allConditions: StatSigCondition[] = [];
+    const allConditions: StatsigCondition[] = [];
     rules.forEach((rule) => {
       if (rule.conditions && rule.conditions.length > 0) {
         allConditions.push(...rule.conditions);
@@ -45,14 +45,14 @@ export async function transformStatSigSegmentToSavedGroup(
     }
 
     // Transform all conditions to GrowthBook format
-    const transformed = transformStatSigConditionsToGB(allConditions);
+    const transformed = transformStatsigConditionsToGB(allConditions);
     return transformed.condition;
   }
 
   if (segment.type === "id_list") {
     // ID List type - convert to GrowthBook "list" type
     const statSigAttributeKey = segment.idType || "id";
-    const gbAttributeKey = mapStatSigAttributeToGB(statSigAttributeKey);
+    const gbAttributeKey = mapStatsigAttributeToGB(statSigAttributeKey);
 
     // Ensure the attribute exists before using it
     await ensureAttributeExists(
@@ -71,7 +71,7 @@ export async function transformStatSigSegmentToSavedGroup(
       projects: project ? [project] : [],
     };
   } else if (segment.type === "rule_based") {
-    const condition = transformStatSigRulesToCondition(segment.rules);
+    const condition = transformStatsigRulesToCondition(segment.rules);
 
     // Extract attribute names from the condition and ensure they exist
     if (segment.rules) {
@@ -79,7 +79,7 @@ export async function transformStatSigSegmentToSavedGroup(
         (rule) => rule.conditions || [],
       );
       const uniqueAttributeNames = new Set(
-        allConditions.map((cond) => mapStatSigAttributeToGB(cond.type)),
+        allConditions.map((cond) => mapStatsigAttributeToGB(cond.type)),
       );
 
       // Ensure all attributes exist

@@ -1,6 +1,6 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { StatSigExperiment } from "../types";
-import { transformStatSigConditionsToGB } from "./ruleTransformer";
+import { transformStatsigConditionsToGB } from "./ruleTransformer";
 
 /**
  * Parse StatSig inline targeting rules JSON
@@ -85,7 +85,7 @@ export function transformStatSigExperimentToFeature(
         field: undefined,
         customID: undefined,
       }));
-      const transformedCondition = transformStatSigConditionsToGB(conditions);
+      const transformedCondition = transformStatsigConditionsToGB(conditions);
 
       // Determine which environments this rule applies to
       const targetEnvironments =
