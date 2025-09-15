@@ -1,5 +1,6 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { TagInterface } from "back-end/types/tag";
 
 // beginregion Import Types
 
@@ -60,6 +61,19 @@ export type MetricImport = BaseImportStatus & {
   metric?: unknown;
 };
 
+export type TagImport = BaseImportStatus & {
+  tag?: StatSigTag;
+  gbTag?: TagInterface;
+  existingTag?: TagInterface;
+};
+
+export type StatSigTag = {
+  id: string;
+  name: string;
+  description?: string;
+  isCore?: boolean;
+};
+
 export interface ImportData {
   status: "init" | "fetching" | "error" | "ready" | "importing" | "completed";
   environments?: EnvironmentImport[];
@@ -67,6 +81,7 @@ export interface ImportData {
   dynamicConfigs?: DynamicConfigImport[];
   experiments?: ExperimentImport[];
   segments?: SegmentImport[];
+  tags?: TagImport[];
   metrics?: MetricImport[];
   error?: string;
 }

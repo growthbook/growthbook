@@ -1,6 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { Environment } from "back-end/types/organization";
 import { SavedGroupInterface } from "shared/src/types";
+import { TagInterface } from "back-end/types/tag";
 import { cloneDeep } from "lodash";
 import {
   StatSigFeatureGate,
@@ -8,6 +9,7 @@ import {
   StatSigExperiment,
   StatSigSavedGroup,
   StatSigEnvironment,
+  StatSigTag,
   StatSigFeatureGatesResponse,
   StatSigDynamicConfigsResponse,
   StatSigExperimentsResponse,
@@ -97,6 +99,13 @@ export const getStatSigSegmentIdList = async (
 };
 
 /**
+ * Fetch tags (based on Console API endpoints)
+ */
+export const getStatSigTags = async (apiKey: string): Promise<unknown> => {
+  return getFromStatSig("tags", apiKey, "GET");
+};
+
+/**
  * Fetch metrics (based on Console API endpoints)
  */
 export const getStatSigMetrics = async (apiKey: string): Promise<unknown> => {
@@ -155,6 +164,8 @@ async function fetchAllPages(
         dataArray = dataObj.segments;
       } else if (dataObj.metrics && Array.isArray(dataObj.metrics)) {
         dataArray = dataObj.metrics;
+      } else if (dataObj.tags && Array.isArray(dataObj.tags)) {
+        dataArray = dataObj.tags;
       } else {
         // If it's an object but we can't find a known array property, treat it as a single item
         dataArray = [response.data];
@@ -202,6 +213,7 @@ export const getAllStatSigEntities = async (
     dynamicConfigsData,
     experimentsData,
     segmentsData,
+    tagsData,
     metricsData,
   ] = await Promise.all([
     fetchAllPages("environments", apiKey, intervalCap),
@@ -209,6 +221,7 @@ export const getAllStatSigEntities = async (
     fetchAllPages("dynamic_configs", apiKey, intervalCap),
     fetchAllPages("experiments", apiKey, intervalCap),
     fetchAllPages("segments", apiKey, intervalCap),
+    fetchAllPages("tags", apiKey, intervalCap),
     fetchAllPages("metrics/list", apiKey, intervalCap),
   ]);
 
@@ -225,6 +238,7 @@ export const getAllStatSigEntities = async (
     dynamicConfigs: { data: dynamicConfigsData },
     experiments: { data: experimentsData },
     segments: { data: processedSegmentsData },
+    tags: { data: tagsData },
     metrics: { data: metricsData },
   };
 };
@@ -287,6 +301,7 @@ export async function buildImportedData(
   features: FeatureInterface[],
   existingEnvironments: Set<string>,
   existingSavedGroups: Set<string>,
+  existingTags: Set<string>,
   existingAttributeSchema: Array<{
     property: string;
     datatype:
@@ -310,6 +325,7 @@ export async function buildImportedData(
     dynamicConfigs: [],
     experiments: [],
     segments: [],
+    tags: [],
     metrics: [],
   };
 
@@ -400,6 +416,17 @@ export async function buildImportedData(
             key: exp.name,
             status: "pending",
             experiment: exp,
+          });
+        });
+
+        // Process tags
+        entities.tags.data.forEach((tag) => {
+          const t = tag as StatSigTag;
+          data.tags?.push({
+            key: t.id,
+            status: existingTags.has(t.id) ? "skipped" : "pending",
+            tag: t,
+            error: existingTags.has(t.id) ? "Tag already exists" : undefined,
           });
         });
 
@@ -698,7 +725,6 @@ export async function runImport(
             },
           );
 
-          console.log({ featuresMap });
           // Check for duplicate feature ID and add prefix if needed
           const existingFeature = featuresMap.get(transformedFeature.id);
           featureId = existingFeature
@@ -745,6 +771,38 @@ export async function runImport(
   });
   await queue.onIdle();
 
+  // Import Tags
+  data.tags?.forEach((tagImport) => {
+    if (tagImport.status === "pending") {
+      queue.add(async () => {
+        try {
+          const tag = tagImport.tag as StatSigTag;
+          if (!tag) {
+            throw new Error("No tag data available");
+          }
+
+          // Create new tag
+          const tagPayload = {
+            id: tag.name,
+            description: tag.description || "",
+            color: tag.isCore ? "purple" : "blue",
+          };
+
+          const tagRes: TagInterface = await apiCall("/tag", {
+            method: "POST",
+            body: JSON.stringify(tagPayload),
+          });
+
+          tagImport.status = "completed";
+          tagImport.gbTag = tagRes;
+        } catch (e) {
+          tagImport.status = "failed";
+          tagImport.error = e.message;
+        }
+        update();
+      });
+    }
+  });
   await queue.onIdle();
 
   data.metrics?.forEach((metric) => {

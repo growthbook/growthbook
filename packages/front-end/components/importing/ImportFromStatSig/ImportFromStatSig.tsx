@@ -149,7 +149,7 @@ export default function ImportFromStatSig() {
   const { apiCall } = useAuth();
 
   const { features, mutate: mutateFeatures } = useFeaturesList(false);
-  const { mutateDefinitions, savedGroups } = useDefinitions();
+  const { mutateDefinitions, savedGroups, tags } = useDefinitions();
   const environments = useEnvironments();
   const attributeSchema = useAttributeSchema();
   const existingEnvironments = useMemo(
@@ -159,6 +159,10 @@ export default function ImportFromStatSig() {
   const existingSavedGroups = useMemo(
     () => new Set(savedGroups.map((sg) => sg.groupName)),
     [savedGroups],
+  );
+  const existingTags = useMemo(
+    () => new Set((tags || []).map((t) => t.id)),
+    [tags],
   );
 
   const step = ["init", "loading", "error"].includes(data.status)
@@ -214,6 +218,7 @@ export default function ImportFromStatSig() {
                     features,
                     existingEnvironments,
                     existingSavedGroups,
+                    existingTags,
                     attributeSchema,
                     apiCall,
                     (d) => setData(d),
@@ -306,6 +311,53 @@ export default function ImportFromStatSig() {
                               </tr>
                               <EntityAccordionContent
                                 entity={environment.environment}
+                                isExpanded={isExpanded}
+                              />
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {data.tags ? (
+              <div className="appbox mb-4">
+                <ImportHeader name="Tags" items={data.tags} />
+                <div className="p-3">
+                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                    <table className="gbtable table w-100">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 150 }}>Status</th>
+                          <th>Tag</th>
+                          <th>Description</th>
+                          <th style={{ width: 40 }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.tags?.map((tag, i) => {
+                          const entityId = `tag-${i}`;
+                          const isExpanded = expandedAccordions.has(entityId);
+                          return (
+                            <React.Fragment key={i}>
+                              <tr>
+                                <td>
+                                  <ImportStatusDisplay data={tag} />
+                                </td>
+                                <td>{tag.tag?.name || "Unknown"}</td>
+                                <td>{tag.tag?.description}</td>
+                                <EntityAccordion
+                                  entity={tag.tag}
+                                  entityId={entityId}
+                                  isExpanded={isExpanded}
+                                  onToggle={toggleAccordion}
+                                />
+                              </tr>
+                              <EntityAccordionContent
+                                entity={tag.tag}
                                 isExpanded={isExpanded}
                               />
                             </React.Fragment>
