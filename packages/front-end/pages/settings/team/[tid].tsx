@@ -12,7 +12,7 @@ import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";

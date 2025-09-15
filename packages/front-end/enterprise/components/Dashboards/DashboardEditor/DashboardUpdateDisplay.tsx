@@ -10,7 +10,7 @@ import {
 } from "back-end/src/enterprise/validators/dashboard-block";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";

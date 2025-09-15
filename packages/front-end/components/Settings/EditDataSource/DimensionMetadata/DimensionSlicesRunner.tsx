@@ -15,7 +15,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { AppFeatures } from "@/types/app-features";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 
 const smallPercentFormatter = new Intl.NumberFormat(undefined, {

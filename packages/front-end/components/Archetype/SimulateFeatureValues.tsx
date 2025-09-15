@@ -36,7 +36,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 

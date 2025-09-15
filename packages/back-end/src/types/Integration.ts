@@ -40,6 +40,14 @@ export class DataSourceNotSupportedError extends Error {
   }
 }
 
+export type DataType =
+  | "string"
+  | "integer"
+  | "float"
+  | "boolean"
+  | "date"
+  | "timestamp";
+
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
 export type FactMetricData = {
