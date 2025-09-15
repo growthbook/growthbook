@@ -64,6 +64,7 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -82,6 +83,8 @@ const MetricPage: FC = () => {
   const settings = useOrgSettings();
   const { organization } = useUser();
 
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
   const [editTags, setEditTags] = useState(false);
@@ -133,11 +136,18 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canDuplicateMetric = permissionsUtil.canCreateMetric(metric);
+  const canDuplicateMetric =
+    metric.managedBy === "admin"
+      ? permissionsUtil.canManageOfficialResources(metric)
+      : permissionsUtil.canCreateMetric(metric);
   const canEditMetric =
-    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
+    metric.managedBy === "admin"
+      ? permissionsUtil.canManageOfficialResources(metric)
+      : permissionsUtil.canUpdateMetric(metric, {});
   const canDeleteMetric =
-    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
+    metric.managedBy === "admin"
+      ? permissionsUtil.canManageOfficialResources(metric)
+      : permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -316,6 +326,22 @@ const MetricPage: FC = () => {
           source="metrics-detail"
         />
       )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          resourceType="Metric"
+          source="metric-page"
+          close={() => setShowConvertToOfficialModal(false)}
+          onSubmit={async () => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "admin",
+              }),
+            });
+            await mutateDefinitions();
+          }}
+        />
+      )}
       {editTags && (
         <EditTagsForm
           cancel={() => setEditTags(false)}
@@ -445,6 +471,15 @@ const MetricPage: FC = () => {
                 onClick={() => setEditModalOpen(true)}
               >
                 Edit metric
+              </Button>
+            ) : null}
+            {!metric.managedBy ? (
+              <Button
+                className="btn dropdown-item py-2"
+                color=""
+                onClick={() => setShowConvertToOfficialModal(true)}
+              >
+                Convert to Official Metric
               </Button>
             ) : null}
             {canDuplicateMetric ? (

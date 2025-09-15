@@ -98,6 +98,7 @@ export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "userIdTypes",
   "timestampColumn",
   "templateVariables",
+  "managedBy",
 ];
 
 export async function deleteMetric(
@@ -119,6 +120,13 @@ export async function deleteMetric(
 
   if (!context.permissions.canDeleteMetric(metric)) {
     context.permissions.throwPermissionError();
+  }
+
+  // If this is an Official Metric, we need to check that the user has permission
+  if (metric.managedBy === "admin") {
+    if (!context.permissions.canManageOfficialResources(metric)) {
+      throw new Error("Cannot delete an official metric");
+    }
   }
 
   // now remove the metric itself:
@@ -529,6 +537,12 @@ export async function putMetric(
   const metric = await getMetricById(context, id);
   if (!metric) {
     throw new Error("Could not find metric");
+  }
+
+  if (metric.managedBy === "admin") {
+    if (!context.permissions.canManageOfficialResources(metric)) {
+      throw new Error("Cannot delete an official metric");
+    }
   }
 
   const updates: Partial<MetricInterface> = {};

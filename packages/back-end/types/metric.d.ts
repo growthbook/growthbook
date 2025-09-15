@@ -36,7 +36,8 @@ export interface Condition {
   value: string;
 }
 
-export type ManagedBy = "" | "config" | "api";
+// admin is used for Official Metrics and can be managed by any admin, even in the UI
+export type ManagedBy = "" | "config" | "api" | "admin";
 
 export interface MetricInterface {
   id: string;

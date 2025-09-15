@@ -131,6 +131,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   ManageOfficialResources: [
     "readData",
     "createSegments",
+    "createMetrics",
     "runQueries",
     "manageFactTables",
     "manageFactMetrics",
