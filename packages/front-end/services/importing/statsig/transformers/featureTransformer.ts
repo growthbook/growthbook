@@ -33,18 +33,6 @@ export function transformStatSigFeatureGateToGB(
   // Set value type and default value based on explicit type
   const isDynamicConfig = type === "dynamicConfig";
 
-  console.log("Feature transformer debug:", {
-    id: featureGate.id,
-    type,
-    isDynamicConfig,
-    hasDefaultValue: "defaultValue" in featureGate,
-    hasVariants:
-      isDynamicConfig &&
-      (featureGate as StatSigDynamicConfig).rules.some(
-        (r) => (r.variants?.length ?? 0) > 0,
-      ),
-  });
-
   const valueType: "boolean" | "string" | "number" | "json" = isDynamicConfig
     ? "json"
     : "boolean";
@@ -81,12 +69,6 @@ export function transformStatSigFeatureGateToGB(
 
       // Handle different rule types based on whether it's a dynamic config with variants
       if (isDynamicConfig && rule.variants && rule.variants.length > 0) {
-        console.log(
-          "Processing variants for rule:",
-          rule.id,
-          "variants:",
-          rule.variants.length,
-        );
         // Dynamic config with variants - create stacked rollout rules
         let cumulativeCoverage = 0;
 
@@ -189,7 +171,7 @@ export function transformStatSigFeatureGateToGB(
   // Format owner information
   const ownerString = owner ? `${owner.ownerName} (${owner.ownerEmail})` : "";
 
-  const result = {
+  return {
     id,
     description: description || "",
     valueType,
@@ -199,16 +181,4 @@ export function transformStatSigFeatureGateToGB(
     tags: tags || [],
     project: project || "",
   };
-
-  console.log("Final feature result:", {
-    id: result.id,
-    valueType: result.valueType,
-    defaultValue: result.defaultValue,
-    rulesCount: Object.values(result.environmentSettings).reduce(
-      (sum, env) => sum + env.rules.length,
-      0,
-    ),
-  });
-
-  return result;
 }

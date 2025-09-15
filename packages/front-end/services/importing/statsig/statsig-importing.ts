@@ -739,8 +739,6 @@ export async function runImport(
             ? `exp_${transformedFeature.id}`
             : transformedFeature.id;
 
-          console.log({ featureId, transformedFeature });
-
           const featureRes: { feature: FeatureInterface } = await apiCall(
             `/feature/${featureId}/sync`,
             {
@@ -755,7 +753,7 @@ export async function runImport(
           experiment.existingExperiment = experimentRes.experiment;
           experiment.existingFeature = featureRes.feature;
         } catch (e) {
-          console.log("error", { e });
+          console.log("import experiment error", e);
           experiment.status = "failed";
           experiment.error = e.message;
 
