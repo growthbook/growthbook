@@ -171,6 +171,21 @@ export class Permissions {
   };
 
   //Project Permissions
+  public canManageOfficialResources = (
+    resource: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      resource,
+      "manageOfficialResources",
+    );
+  };
+
   public canCreateSegment = (
     segment: Pick<SegmentInterface, "projects">,
   ): boolean => {

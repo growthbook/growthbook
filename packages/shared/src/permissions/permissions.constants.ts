@@ -45,6 +45,7 @@ export const POLICIES = [
   "DecisionCriteriaFullAccess",
   "SqlExplorerFullAccess",
   "HoldoutsFullAccess",
+  "ManageOfficialResources",
 ] as const;
 
 export type Policy = (typeof POLICIES)[number];
@@ -127,6 +128,16 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   TemplatesFullAccess: ["readData", "manageTemplates"],
   SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
   HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
+  ManageOfficialResources: [
+    "readData",
+    "createSegments",
+    "runQueries",
+    "manageFactTables",
+    "manageFactMetrics",
+    "manageFactFilters",
+    "createDimensions",
+    "manageOfficialResources",
+  ],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -164,6 +175,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "FactMetricsFullAccess",
       "DimensionsFullAccess",
       "SegmentsFullAccess",
+      "ManageOfficialResources",
     ],
   },
   {
@@ -384,6 +396,11 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Holdouts Full Access",
     description: "Create, edit, and delete holdouts",
   },
+  ManageOfficialResources: {
+    displayName: "Manage Official Resources",
+    description:
+      "Create, edit, and delete official resources. For example: Manage resources like Fact Tables, Metrics, Segments, etc that have been marked as 'Official'.",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -540,6 +557,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",
+  "manageOfficialResources",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
