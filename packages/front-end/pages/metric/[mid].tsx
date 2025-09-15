@@ -473,7 +473,10 @@ const MetricPage: FC = () => {
                 Edit metric
               </Button>
             ) : null}
-            {!metric.managedBy ? (
+            {!metric.managedBy &&
+            permissionsUtil.canManageOfficialResources({
+              projects: metric.projects,
+            }) ? (
               <Button
                 className="btn dropdown-item py-2"
                 color=""

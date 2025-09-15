@@ -1464,7 +1464,9 @@ const MetricForm: FC<MetricFormProps> = ({
                   </div>
                 )}
               </div>
-              {permissionsUtil.canManageOfficialResources({ projects }) ? (
+              {permissionsUtil.canManageOfficialResources({
+                projects: form.watch("projects"),
+              }) ? (
                 <Checkbox
                   label="Mark as Official Metric"
                   disabled={form.watch("managedBy") === "api"}
