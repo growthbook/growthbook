@@ -129,7 +129,7 @@ function ImportHeader({
   );
 }
 
-export default function ImportFromStatsig2() {
+export default function ImportFromStatsig() {
   const [token, setToken] = useSessionStorage("ssApiToken", "");
   const [intervalCap, setIntervalCap] = useState(50);
   const [data, setData] = useState<ImportData>({

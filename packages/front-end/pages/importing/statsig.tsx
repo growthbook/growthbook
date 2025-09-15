@@ -1,7 +1,7 @@
 import React from "react";
 import { NextPage } from "next";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import ImportFromStatsig2 from "@/components/importing/ImportFromStatsig2/ImportFromStatsig2";
+import ImportFromStatsig from "@/components/importing/ImportFromStatsig/ImportFromStatsig";
 import { AppFeatures } from "@/types/app-features";
 import Avatar from "@/components/Radix/Avatar";
 
@@ -38,7 +38,7 @@ const ImportFromStatsigPage: NextPage = () => {
 
   return (
     <div className="contents container pagecontents">
-      <ImportFromStatsig2 />
+      <ImportFromStatsig />
     </div>
   );
 };
