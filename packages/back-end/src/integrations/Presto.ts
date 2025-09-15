@@ -189,6 +189,9 @@ export default class Presto extends SqlIntegration {
   hllCardinality(col: string): string {
     return `CARDINALITY(${col})`;
   }
+  hllDataType(): string {
+    return "HyperLogLog";
+  }
   getDefaultDatabase() {
     return this.params.catalog || "";
   }

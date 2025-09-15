@@ -46,14 +46,16 @@ export type DataType =
   | "float"
   | "boolean"
   | "date"
-  | "timestamp";
+  | "timestamp"
+  | "hll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
+export type FactMetricAggregationType = "sum" | "count" | "countDistinctHLL" | "max" | "eventQuantile" | "unitQuantileIgnoreZeros" | "unitQuantile" | "binomial" | "binomialAggregateFilter" | "userCountAggregateFilter";
 
 export type FactMetricData = {
   alias: string;
   id: string;
-  metric: ExperimentMetricInterface;
+  metric: FactMetricInterface;
   ratioMetric: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
@@ -198,6 +200,10 @@ export type PartitionSettings =
     }
   | {
       type: "timestamp";
+    }
+  | {
+      type: "date";
+      dateColumn: string;
     };
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
@@ -229,6 +235,34 @@ export interface AlterNewIncrementalUnitsQueryParams {
 
 export interface MaxTimestampIncrementalUnitsQueryParams {
   unitsTableFullName: string;
+}
+
+export interface MaxTimestampMetricSourceQueryParams {
+  metricSourceTableFullName: string;
+}
+
+export interface CreateMetricSourceTableQueryParams {
+  settings: ExperimentSnapshotSettings;
+  metrics: FactMetricInterface[];
+  factTableMap: FactTableMap;
+  metricSourceTableFullName: string;
+  partitionSettings: PartitionSettings | undefined;
+}
+
+export interface InsertMetricSourceDataQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  dimensions: Dimension[];
+  factTableMap: FactTableMap;
+  metricSourceTableFullName: string;
+  unitsSourceTableFullName: string;
+  partitionSettings: PartitionSettings;
+  metrics: FactMetricInterface[];
+  lastMaxTimestamp?: Date;
+}
+
+export interface DropMetricSourceTableQueryParams {
+  metricSourceTableFullName: string;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
@@ -472,8 +506,12 @@ export type DimensionSlicesQueryResponseRows = {
   total_units: number;
 }[];
 
-export type MaxTimestampIncrementalUnitsQueryResponseRow = {
+export type MaxTimestampQueryResponseRow = {
   max_timestamp: string;
+};
+
+export type IncrementalRefreshStatisticsQueryResponseRow = {
+  [key: string]: number | string;
 };
 
 // eslint-disable-next-line
@@ -500,8 +538,10 @@ export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
 export type IncrementalWithNoOutputQueryResponse = QueryResponse;
-export type MaxTimestampIncrementalUnitsQueryResponse =
-  QueryResponse<MaxTimestampIncrementalUnitsQueryResponseRow>;
+export type MaxTimestampQueryResponse =
+  QueryResponse<MaxTimestampQueryResponseRow[]>;
+export type IncrementalRefreshStatisticsQueryResponse =
+  QueryResponse<IncrementalRefreshStatisticsQueryResponseRow[]>;
 
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
@@ -711,10 +751,53 @@ export interface SourceIntegrationInterface {
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
   ): string;
+  getMaxTimestampMetricSourceQuery(
+    params: MaxTimestampMetricSourceQueryParams,
+  ): string;
+  getCreateMetricSourceTableQuery(
+    params: CreateMetricSourceTableQueryParams,
+  ): string;
+  getInsertMetricSourceDataQuery(
+    params: InsertMetricSourceDataQueryParams,
+  ): string;
+  getDropMetricSourceTableQuery(
+    params: DropMetricSourceTableQueryParams,
+  ): string;
+  // getIncrementalRefreshStatisticsQuery(
+  //   params: IncrementalRefreshStatisticsQueryParams,
+  // ): string;
   runIncrementalWithNoOutputQuery(
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<IncrementalWithNoOutputQueryResponse>;
+  runMaxTimestampQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<MaxTimestampQueryResponse>;
+  runCreateMetricSourceTableQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse>;
+  runInsertMetricSourceDataQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse>;
+  runDropMetricSourceTableQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse>;
+  // runIncrementalRefreshStatisticsQuery(
+  //   query: string,
+  //   setExternalId: ExternalIdCallback,
+  // ): Promise<IncrementalRefreshStatisticsQueryResponse>;
+  // Pipeline validation helpers
+  getPipelineValidationCreateTableQuery?(params: {
+    tableFullName: string;
+  }): string;
+  getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
+  getPipelineValidationDropTableQuery?(params: {
+    tableFullName: string;
+  }): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(

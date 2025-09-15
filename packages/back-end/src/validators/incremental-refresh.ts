@@ -9,6 +9,16 @@ const incrementalRefresh = z
     // Settings
     unitsTableFullName: z.string(),
     lastScannedTimestamp: z.date(),
+
+    // Metrics
+    metricSources: z.array(
+      z.object({
+        groupId: z.string(),
+        metricIds: z.array(z.string()),
+        maxTimestamp: z.date(),
+        tableFullName: z.string(),
+      })
+    ),
   })
   .strict();
 

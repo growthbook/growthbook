@@ -33,7 +33,7 @@ export class IncrementalRefreshModel extends BaseClass {
     experimentId: string,
     data: Pick<
       IncrementalRefreshInterface,
-      "unitsTableFullName" | "lastScannedTimestamp"
+      "unitsTableFullName" | "lastScannedTimestamp" | "metricSources"
     >,
   ) {
     const existing = await this._findOne({ experimentId });

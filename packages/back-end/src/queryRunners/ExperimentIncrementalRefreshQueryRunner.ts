@@ -2,6 +2,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  isFactMetric,
 } from "shared/experiments";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
@@ -24,7 +25,11 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { SnapshotResult } from "./ExperimentResultsQueryRunner";
+import { getFactMetricGroup, getFactMetricGroups, MAX_METRICS_PER_QUERY, SnapshotResult } from "./ExperimentResultsQueryRunner";
+import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import { IncrementalRefreshInterface } from "back-end/src/validators/incremental-refresh";
+import chunk from "lodash/chunk";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "growthbook_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "growthbook_metrics";
@@ -38,6 +43,79 @@ export type ExperimentIncrementalRefreshQueryParams = {
   queryParentId: string;
   recreateUnitsTable: boolean;
 };
+
+// TODO: add metrics to existing metric source to force recreating the whole thing.
+// UI side to let the user know a refresh will trigger restating the whole metric source.
+
+// TODO: follow-up slice and dice
+
+// TODO: allow pipeline for an individual experiment.
+export interface MetricSourceGroups {
+  groupId: string;
+  metrics: FactMetricInterface[];
+}
+
+function getIncrementalRefreshMetricSources(
+  metrics: FactMetricInterface[], 
+  existingMetricSources: Pick<IncrementalRefreshInterface, "metricSources">
+): {
+  metrics: FactMetricInterface[];
+  groupId: string
+}[] {
+  // TODO skip partial data gets ignored
+  // TODO error if no efficient percentiles (shouldn't be possible)
+  const groups: Record<string, {
+    alreadyExists: boolean;
+    metrics: FactMetricInterface[];
+  }> = {};
+
+  metrics.forEach((metric) => {
+    const existingGroup = existingMetricSources.metricSources.find((group) => group.metricIds.includes(metric.id));
+
+    if (existingGroup) {
+      groups[existingGroup.groupId] = groups[existingGroup.groupId] || {
+        alreadyExists: true,
+        metrics: [],
+      };
+      groups[existingGroup.groupId].metrics.push(metric);
+      return;
+    }
+
+    const group = getFactMetricGroup(metric) ?? metric.id;
+    groups[group] = groups[group] || {
+      alreadyExists: false,
+      metrics: [],
+    };
+  });
+
+  const finalGroups: {
+    groupId: string;
+    metrics: FactMetricInterface[];
+  }[] = [];
+  Object.entries(groups).forEach(([groupId, group]) => {
+
+    if (group.alreadyExists) {
+      finalGroups.push({
+        groupId,
+        metrics: group.metrics,
+      });
+      return;
+    }
+
+    // if a new group, ensure chunks are small enough
+    const chunks = chunk(group.metrics, MAX_METRICS_PER_QUERY);
+    chunks.forEach((chunk, i) => {
+      const randomId = Math.random().toString(36).substring(2, 15);
+      finalGroups.push({
+        groupId: groupId + '_' + randomId + i,
+        metrics: chunk,
+      });
+    });
+
+  })
+
+  return finalGroups;
+}
 
 export const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
@@ -133,6 +211,8 @@ export const startExperimentIncrementalRefreshQueries = async (
         settings: snapshotSettings,
         activationMetric: activationMetric,
         dimensions: [], // TODO experiment dimensions
+        segment: null, // TODO experiment segment
+        factTableMap: params.factTableMap,
         partitionSettings: {
           type: "timestamp",
         },
@@ -178,6 +258,8 @@ export const startExperimentIncrementalRefreshQueries = async (
       settings: snapshotSettings,
       activationMetric: activationMetric,
       dimensions: [], // TODO experiment dimensions
+      segment: null, // TODO experiment segment
+      factTableMap: params.factTableMap,
       lastMaxTimestamp: lastMaxTimestamp,
       partitionSettings:
         integration.datasource.settings.pipelineSettings?.partitionSettings,
@@ -247,6 +329,106 @@ export const startExperimentIncrementalRefreshQueries = async (
     queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
   });
   queries.push(maxTimestampQuery);
+
+  // Metric Queries
+  const existingSources = incrementalRefreshModel?.metricSources;
+  const metricSourceGroups = getIncrementalRefreshMetricSources(
+    selectedMetrics.filter((m) => isFactMetric(m)), // TODO cleaner way to only allow fact metrics
+    existingSources ?? [],
+  );
+
+  for (const group of metricSourceGroups) {
+    // TODO: figure out if we need to drop and recreate
+    const existingSource = existingSources?.find((s) => s.groupId === group.groupId);
+
+    const metricSourceTableFullName: string | undefined = existingSource?.tableFullName ?? (integration.generateTablePath &&
+    integration.generateTablePath(
+      `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}`,
+      settings.pipelineSettings?.writeDataset,
+      settings.pipelineSettings?.writeDatabase,
+      true,
+    ));
+    if (!metricSourceTableFullName) {
+      // TODO: validate earlier
+      throw new Error("Unable to generate table; table path generator not specified.");
+    }
+    
+    let createMetricsSourceQuery: QueryPointer | null = null;
+    if (!existingSource) {
+      createMetricsSourceQuery = await startQuery({
+        name: `create_metrics_source_${group.groupId}`,
+        query: integration.getCreateMetricSourceTableQuery({
+          settings: snapshotSettings,
+          metrics: group.metrics,
+          factTableMap: params.factTableMap,
+          partitionSettings: {
+            type: "timestamp",
+          },
+          metricSourceTableFullName,
+        }),
+        dependencies: [alterUnitsTableQuery.query],
+        run: (query, setExternalId) =>
+          integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+        process: (rows) => rows,
+        queryType: "experimentIncrementalRefreshCreateMetricsSourceTable",
+      });
+      queries.push(createMetricsSourceQuery);
+    }
+
+    const insertMetricsSourceDataQuery = await startQuery({
+      name: `insert_metrics_source_data_${group.groupId}`,
+      query: integration.getInsertMetricSourceDataQuery({
+        settings: snapshotSettings,
+        activationMetric: activationMetric,
+        dimensions: [], // TODO experiment dimensions
+        factTableMap: params.factTableMap,
+        metricSourceTableFullName,
+        unitsSourceTableFullName: unitsTableFullName,
+        metrics: group.metrics,
+        partitionSettings: {
+          type: "timestamp",
+        },
+        lastMaxTimestamp: existingSource?.maxTimestamp,
+      }),
+      dependencies: createMetricsSourceQuery ? [createMetricsSourceQuery.query] : [alterUnitsTableQuery.query],
+      run: (query, setExternalId) =>
+        integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentIncrementalRefreshInsertMetricsSourceData",
+    });
+    queries.push(insertMetricsSourceDataQuery);
+
+    // TODO Statistics Queries
+
+    const maxTimestampMetricsSourceQuery = await startQuery({
+      name: `max_timestamp_metrics_source_${group.groupId}`,
+      query: integration.getMaxTimestampMetricSourceQuery({
+        metricSourceTableFullName,
+      }),
+      dependencies: [insertMetricsSourceDataQuery.query],
+      run: (query, setExternalId) =>
+        integration.runMaxTimestampQuery(query, setExternalId),
+      process: (rows) => {
+        // TODO: is this the right place to do this
+        // TODO can we type max_timestamp better?
+        const maxTimestamp = new Date(rows[0].max_timestamp as string);
+        if (maxTimestamp) {
+          // TODO just update max timestamp for the one group
+          context.models.incrementalRefresh
+            .upsertByExperimentId(snapshotSettings.experimentId, {
+              metricSources: existingSources ?? [],
+              lastScannedTimestamp: maxTimestamp,
+            })
+            .catch((e) => context.logger.error(e));
+        }
+        return rows;
+      },
+      queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
+    });
+    queries.push(maxTimestampMetricsSourceQuery);
+  }
+
+  // TODO Health Queries
 
   return queries;
 };
