@@ -34,7 +34,7 @@ import PremiumCallout from "@/ui/PremiumCallout";
 
 export interface MetricTableItem {
   id: string;
-  managedBy: "" | "api" | "config";
+  managedBy: "" | "api" | "config" | "admin";
   name: string;
   description?: string;
   type: string;
