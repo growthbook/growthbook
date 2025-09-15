@@ -68,21 +68,23 @@ interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
   isTabActive: boolean;
+  showDashboardView?: boolean;
 }
 
 export default function DashboardsTab({
   experiment,
   initialDashboardId,
   isTabActive,
+  showDashboardView = false,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
-    if (experiment.defaultDashboardId) {
+    if (experiment.defaultDashboardId && showDashboardView) {
       setDashboardId(experiment.defaultDashboardId);
     } else if (initialDashboardId) {
       setDashboardId(initialDashboardId);
     }
-  }, [initialDashboardId, experiment.defaultDashboardId]);
+  }, [initialDashboardId, experiment.defaultDashboardId, showDashboardView]);
   const {
     dashboards,
     mutateDashboards,
@@ -290,7 +292,7 @@ export default function DashboardsTab({
               <>
                 <Flex align="center" justify="between" mb="1">
                   <Flex gap="1" align="center">
-                    {dashboards.length > 0 && !experiment.defaultDashboardId ? (
+                    {dashboards.length > 0 && !showDashboardView ? (
                       <Flex gap="4" align="center">
                         <Select
                           style={{
@@ -348,7 +350,7 @@ export default function DashboardsTab({
                       <></>
                     )}
                   </Flex>
-                  {dashboard && !experiment.defaultDashboardId ? (
+                  {dashboard && !showDashboardView ? (
                     <Flex gap="4" align="center">
                       <Tooltip
                         state={copySuccess}

@@ -437,6 +437,7 @@ export default function TabbedPage({
             experiment={experiment}
             initialDashboardId={""}
             isTabActive
+            showDashboardView
           />
         )}
         <div
