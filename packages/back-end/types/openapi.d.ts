@@ -393,7 +393,7 @@ export interface components {
        * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api" | "config";
+      managedBy: "" | "api" | "config" | "admin";
       dateCreated: string;
       dateUpdated: string;
       owner: string;
@@ -9978,7 +9978,7 @@ export interface operations {
                  * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api" | "config";
+                managedBy: "" | "api" | "config" | "admin";
                 dateCreated: string;
                 dateUpdated: string;
                 owner: string;
@@ -10245,7 +10245,7 @@ export interface operations {
                * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "config";
+              managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -10366,7 +10366,7 @@ export interface operations {
                * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "config";
+              managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
               owner: string;

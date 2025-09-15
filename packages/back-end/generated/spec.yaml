@@ -5751,6 +5751,7 @@ components:
             - ''
             - api
             - config
+            - admin
         dateCreated:
           type: string
         dateUpdated:
