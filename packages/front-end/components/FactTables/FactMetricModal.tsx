@@ -67,6 +67,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 export interface Props {
   close?: () => void;
@@ -1472,6 +1473,8 @@ export default function FactMetricModal({
     metrics,
   } = useDefinitions();
 
+  const { demoDataSourceId } = useDemoDataSourceProject();
+
   const { apiCall } = useAuth();
 
   const validDatasources = datasources
@@ -1481,7 +1484,8 @@ export default function FactMetricModal({
 
   const filteredMetrics = metrics
     .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
+    .filter((f) => isProjectListValidForProject(f.projects, project))
+    .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
 
   const showSwitchToLegacy = filteredMetrics.length > 0;
 

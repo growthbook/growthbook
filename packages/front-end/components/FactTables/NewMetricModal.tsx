@@ -5,6 +5,7 @@ import { FactMetricInterface } from "back-end/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 export type MetricModalState = {
   currentMetric?: MetricInterface;
@@ -63,10 +64,12 @@ export function MetricModal({
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
   const { metrics, factTables, project, getDatasourceById } = useDefinitions();
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const filteredMetrics = metrics
     .filter((f) => !datasource || f.datasource === datasource)
-    .filter((f) => isProjectListValidForProject(f.projects, project));
+    .filter((f) => isProjectListValidForProject(f.projects, project))
+    .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
 
   const filteredFactTables = factTables
     .filter((f) => !datasource || f.datasource === datasource)
