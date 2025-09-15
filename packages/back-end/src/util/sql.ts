@@ -70,7 +70,8 @@ export function compileSqlTemplate(
     endDate,
     experimentId,
     templateVariables,
-    ...otherVars
+    customFields,
+    phase,
   }: SQLVars,
 ) {
   // If there's no end date, use a near future date by default
@@ -97,7 +98,8 @@ export function compileSqlTemplate(
 
   const replacements: Record<string, unknown> = {
     ...templateVariables,
-    ...otherVars,
+    customFields: customFields || {},
+    phase: phase || "",
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
