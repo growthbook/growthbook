@@ -36,6 +36,7 @@ export function transformStatSigExperimentToFeature(
   experiment: StatSigExperiment,
   availableEnvironments: string[],
   gbExperiment: { id: string; variations: Array<{ id: string; key: string }> },
+  project?: string,
 ): Omit<
   FeatureInterface,
   "organization" | "dateCreated" | "dateUpdated" | "version"
@@ -158,5 +159,6 @@ export function transformStatSigExperimentToFeature(
     environmentSettings,
     owner: ownerString,
     tags: tags || [],
+    project: project || "",
   };
 }

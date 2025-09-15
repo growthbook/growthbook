@@ -18,6 +18,7 @@ export async function transformStatSigSegmentToSavedGroup(
     path: string,
     options?: { method: string; body: string },
   ) => Promise<unknown>,
+  project?: string,
 ): Promise<
   Omit<
     SavedGroupInterface,
@@ -67,7 +68,7 @@ export async function transformStatSigSegmentToSavedGroup(
       attributeKey: gbAttributeKey,
       values: segment.ids || [],
       description: segment.description,
-      projects: [],
+      projects: project ? [project] : [],
     };
   } else if (segment.type === "rule_based") {
     const condition = transformStatSigRulesToCondition(segment.rules);
@@ -97,7 +98,7 @@ export async function transformStatSigSegmentToSavedGroup(
       type: "condition",
       condition: condition,
       description: segment.description,
-      projects: [],
+      projects: project ? [project] : [],
     };
   }
 

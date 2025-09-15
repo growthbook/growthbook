@@ -3,6 +3,7 @@ import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
 import { FeatureInterface } from "back-end/types/feature";
+import { ProjectInterface } from "back-end/types/project";
 import {
   buildImportedData,
   runImport,
@@ -18,8 +19,10 @@ import {
   useFeaturesList,
   useAttributeSchema,
 } from "@/services/features";
+import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 
@@ -132,6 +135,10 @@ export default function ImportFromStatSig() {
   const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(
     new Set(),
   );
+  const [projectName, setProjectName] = useLocalStorage(
+    "statsig_import_project",
+    "",
+  );
 
   const toggleAccordion = (id: string) => {
     setExpandedAccordions((prev) => {
@@ -149,7 +156,8 @@ export default function ImportFromStatSig() {
   const { apiCall } = useAuth();
 
   const { features, mutate: mutateFeatures } = useFeaturesList(false);
-  const { mutateDefinitions, savedGroups, tags } = useDefinitions();
+  const { mutateDefinitions, savedGroups, tags, projects } = useDefinitions();
+  const { experiments } = useExperiments();
   const environments = useEnvironments();
   const attributeSchema = useAttributeSchema();
   const existingEnvironments = useMemo(
@@ -164,6 +172,37 @@ export default function ImportFromStatSig() {
     () => new Set((tags || []).map((t) => t.id)),
     [tags],
   );
+  const existingExperiments = useMemo(
+    () => new Set((experiments || []).map((e) => e.trackingKey)),
+    [experiments],
+  );
+
+  // Function to create or find project
+  const getOrCreateProject = async (projectName: string): Promise<string> => {
+    if (!projectName.trim()) {
+      return ""; // Empty string means "All projects"
+    }
+
+    // Check if project already exists
+    const existingProject = projects.find((p) => p.name === projectName.trim());
+    if (existingProject) {
+      return existingProject.id;
+    }
+
+    // Create new project
+    const newProject: ProjectInterface = await apiCall("/projects", {
+      method: "POST",
+      body: JSON.stringify({
+        name: projectName.trim(),
+        description: `Created during StatSig import on ${new Date().toISOString()}`,
+      }),
+    });
+
+    // Refresh projects list
+    await mutateDefinitions();
+
+    return newProject.id;
+  };
 
   const step = ["init", "loading", "error"].includes(data.status)
     ? 1
@@ -200,6 +239,15 @@ export default function ImportFromStatSig() {
                   onChange={(e) => setIntervalCap(parseInt(e.target.value))}
                 />
               </div>
+              <div className="col" style={{ maxWidth: 350 }}>
+                <Field
+                  label="GrowthBook Project"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="All projects"
+                  helpText="Import into a specific project. Leave blank for no project"
+                />
+              </div>
             </div>
             <Button
               type="button"
@@ -219,6 +267,7 @@ export default function ImportFromStatSig() {
                     existingEnvironments,
                     existingSavedGroups,
                     existingTags,
+                    existingExperiments,
                     attributeSchema,
                     apiCall,
                     (d) => setData(d),
@@ -245,12 +294,14 @@ export default function ImportFromStatSig() {
                   console.error("featuresMap not available");
                   return;
                 }
+                const projectId = await getOrCreateProject(projectName);
                 await runImport(
                   data,
                   attributeSchema,
                   apiCall,
                   (d) => setData(d),
                   featuresMap,
+                  projectId,
                 );
                 mutateDefinitions();
                 mutateFeatures();

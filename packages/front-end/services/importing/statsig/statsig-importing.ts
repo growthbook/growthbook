@@ -302,6 +302,7 @@ export async function buildImportedData(
   existingEnvironments: Set<string>,
   existingSavedGroups: Set<string>,
   existingTags: Set<string>,
+  existingExperiments: Set<string>,
   existingAttributeSchema: Array<{
     property: string;
     datatype:
@@ -401,10 +402,10 @@ export async function buildImportedData(
 
           data.dynamicConfigs?.push({
             key: featureKey, // Use ID instead of name for uniqueness
-            status: featuresMap.has(dc.id) ? "pending" : "pending", // Always pending for dynamic configs
+            status: featuresMap.has(dc.id) ? "skipped" : "pending",
             dynamicConfig: dc,
             error: featuresMap.has(dc.id)
-              ? `Feature gate exists, using _config prefix`
+              ? "Feature already exists"
               : undefined,
           });
         });
@@ -414,8 +415,11 @@ export async function buildImportedData(
           const exp = experiment as StatSigExperiment;
           data.experiments?.push({
             key: exp.name,
-            status: "pending",
+            status: existingExperiments.has(exp.id) ? "skipped" : "pending",
             experiment: exp,
+            error: existingExperiments.has(exp.id)
+              ? "Experiment already exists"
+              : undefined,
           });
         });
 
@@ -423,10 +427,10 @@ export async function buildImportedData(
         entities.tags.data.forEach((tag) => {
           const t = tag as StatSigTag;
           data.tags?.push({
-            key: t.id,
-            status: existingTags.has(t.id) ? "skipped" : "pending",
+            key: t.name, // Use name as key since that's what becomes the GB tag ID
+            status: existingTags.has(t.name) ? "skipped" : "pending",
             tag: t,
-            error: existingTags.has(t.id) ? "Tag already exists" : undefined,
+            error: existingTags.has(t.name) ? "Tag already exists" : undefined,
           });
         });
 
@@ -556,6 +560,7 @@ export async function runImport(
             seg,
             existingAttributeSchema,
             apiCall,
+            project,
           );
 
           const res: { savedGroup: SavedGroupInterface } = await apiCall(
@@ -600,6 +605,7 @@ export async function runImport(
             existingAttributeSchema,
             apiCall,
             "featureGate",
+            project,
           );
 
           const res: { feature: FeatureInterface } = await apiCall(
@@ -644,6 +650,7 @@ export async function runImport(
             existingAttributeSchema,
             apiCall,
             "dynamicConfig",
+            project,
           );
 
           const res: { feature: FeatureInterface } = await apiCall(
@@ -723,6 +730,7 @@ export async function runImport(
                 key: v.key,
               })),
             },
+            project,
           );
 
           // Check for duplicate feature ID and add prefix if needed

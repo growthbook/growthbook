@@ -23,6 +23,7 @@ export function transformStatSigFeatureGateToGB(
   }>,
   _apiCall: (path: string, options?: unknown) => Promise<unknown>,
   type: "featureGate" | "dynamicConfig" = "featureGate",
+  project?: string,
 ): Omit<
   FeatureInterface,
   "organization" | "dateCreated" | "dateUpdated" | "version"
@@ -196,6 +197,7 @@ export function transformStatSigFeatureGateToGB(
     environmentSettings,
     owner: ownerString,
     tags: tags || [],
+    project: project || "",
   };
 
   console.log("Final feature result:", {
