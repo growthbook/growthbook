@@ -3,9 +3,12 @@ import {
   dashboardInterface,
   DashboardInterface,
 } from "back-end/src/enterprise/validators/dashboard";
-import { MakeModelClass, UpdateProps } from "back-end/src/models/BaseModel";
 import {
-  getCollection,
+  MakeModelClass,
+  ScopedFilterQuery,
+  UpdateProps,
+} from "back-end/src/models/BaseModel";
+import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
@@ -46,30 +49,14 @@ export const toInterface: ToInterface<DashboardInterface> = (doc) => {
 export class DashboardModel extends BaseClass {
   public async findByExperiment(
     experimentId: string,
+    additionalFilter: ScopedFilterQuery<typeof dashboardInterface> = {},
   ): Promise<DashboardInterface[]> {
-    return this._find({ experimentId, isDeleted: false, isDefault: false });
-  }
-
-  public static async getDashboardsToUpdate(): Promise<
-    { id: string; organization: string }[]
-  > {
-    const dashboards = await getCollection(COLLECTION_NAME)
-      .find({
-        enableAutoUpdates: true,
-        isDefault: false,
-        isDeleted: false,
-        $or: [
-          { nextUpdate: { $exists: true, $lte: new Date() } },
-          { nextUpdate: { $exists: false } },
-        ],
-      })
-      .limit(100)
-      .sort({ nextUpdate: 1 })
-      .toArray();
-    return dashboards.map((dash) => ({
-      id: dash.id,
-      organization: dash.organization,
-    }));
+    return this._find({
+      experimentId,
+      isDeleted: false,
+      isDefault: false,
+      ...additionalFilter,
+    });
   }
 
   protected canCreate(doc: DashboardInterface): boolean {

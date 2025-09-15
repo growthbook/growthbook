@@ -136,7 +136,7 @@ export interface ExperimentSnapshotAnalysisSettings {
   };
 }
 
-export type SnapshotType = "standard" | "exploratory" | "report" | "dashboard";
+export type SnapshotType = "standard" | "exploratory" | "report";
 export type SnapshotTriggeredBy = "schedule" | "manual";
 
 export interface ExperimentSnapshotAnalysis {

@@ -1160,14 +1160,6 @@ export async function createSnapshot({
     });
   }
 
-  if (type === "dashboard" && dashboardId) {
-    await context.models.dashboards.updateById(dashboardId, {
-      nextUpdate:
-        determineNextDate(organization.settings?.updateSchedule || null) ??
-        undefined,
-    });
-  }
-
   const snapshot = await createExperimentSnapshotModel({ data });
 
   const integration = getSourceIntegrationObject(context, datasource, true);

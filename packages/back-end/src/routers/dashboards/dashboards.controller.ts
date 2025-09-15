@@ -188,7 +188,8 @@ export async function refreshDashboardData(
     phase: experiment.phases.length - 1,
     useCache: false,
     triggeredBy: "manual",
-    type: "dashboard",
+    // Should this be standard given that it's using standard settings? It would affect other dashboards and the main results tab if so
+    type: "exploratory",
     dashboardId: id,
   });
 
@@ -224,7 +225,7 @@ export async function refreshDashboardData(
       phase: experiment.phases.length - 1,
       useCache: false,
       triggeredBy: "manual",
-      type: "dashboard",
+      type: "exploratory",
       dashboardId: id,
     });
 

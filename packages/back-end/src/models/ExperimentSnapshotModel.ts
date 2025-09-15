@@ -15,6 +15,7 @@ import { updateExperimentAnalysisSummary } from "back-end/src/services/experimen
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { DashboardInterface } from "../enterprise/validators/dashboard";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
 import { getExperimentById } from "./ExperimentModel";
@@ -298,29 +299,36 @@ export async function updateSnapshot({
     }
   }
 
-  const shouldUpdateDashboard =
-    experimentSnapshotModel.type === "dashboard" &&
-    experimentSnapshotModel.dashboard &&
-    experimentSnapshotModel.status === "success";
-  if (shouldUpdateDashboard) {
-    const dashboard = await context.models.dashboards.getById(
-      experimentSnapshotModel.dashboard!,
-    );
-    if (dashboard && dashboard.enableAutoUpdates) {
-      const blocks = dashboard.blocks.map((block) => {
-        if (
-          !blockHasFieldOfType(block, "snapshotId", isString) ||
-          !snapshotSatisfiesBlock(experimentSnapshotModel, block)
-        )
-          return block;
-        return { ...block, snapshotId: experimentSnapshotModel.id };
-      });
-      await context.models.dashboards.dangerousUpdateBypassPermission(
-        dashboard,
-        {
-          blocks,
-        },
+  const updateDashboardWithSnapshot = async (dashboard: DashboardInterface) => {
+    const blocks = dashboard.blocks.map((block) => {
+      if (
+        !blockHasFieldOfType(block, "snapshotId", isString) ||
+        !snapshotSatisfiesBlock(experimentSnapshotModel, block)
+      )
+        return block;
+      return { ...block, snapshotId: experimentSnapshotModel.id };
+    });
+    await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
+      blocks,
+    });
+  };
+
+  if (experimentSnapshotModel.status === "success") {
+    if (experimentSnapshotModel.type === "standard") {
+      const dashboards = await context.models.dashboards.findByExperiment(
+        experimentSnapshotModel.experiment,
+        { enableAutoUpdates: true },
       );
+      for (const dashboard of dashboards) {
+        await updateDashboardWithSnapshot(dashboard);
+      }
+    } else if (experimentSnapshotModel.dashboard) {
+      const dashboard = await context.models.dashboards.getById(
+        experimentSnapshotModel.dashboard!,
+      );
+      if (dashboard && dashboard.enableAutoUpdates) {
+        await updateDashboardWithSnapshot(dashboard);
+      }
     }
   }
 }

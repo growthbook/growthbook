@@ -215,7 +215,6 @@ export default function DashboardsTab({
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: dashboard.title,
               }}
-              disableAutoUpdate={autoUpdateDisabled}
               submit={async (data) => {
                 await submitDashboard({
                   method: "PUT",
@@ -518,7 +517,7 @@ export default function DashboardsTab({
                         isEditing={false}
                         scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
-                        nextUpdate={dashboard.nextUpdate}
+                        nextUpdate={experiment.nextSnapshotAttempt}
                         setBlock={(i, block) => {
                           const newBlocks = [
                             ...blocks.slice(0, i),

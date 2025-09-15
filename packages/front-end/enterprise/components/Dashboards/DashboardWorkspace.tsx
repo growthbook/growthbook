@@ -283,7 +283,7 @@ export default function DashboardWorkspace({
             blocks={effectiveBlocks}
             isEditing={true}
             enableAutoUpdates={dashboard.enableAutoUpdates}
-            nextUpdate={dashboard.nextUpdate}
+            nextUpdate={experiment.nextSnapshotAttempt}
             editSidebarDirty={editSidebarDirty}
             focusedBlockIndex={focusedBlockIndex}
             stagedBlockIndex={addBlockIndex ?? editingBlockIndex}
