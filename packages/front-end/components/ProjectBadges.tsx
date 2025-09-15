@@ -1,7 +1,7 @@
 import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import React from "react";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import Tooltip from "./Tooltip/Tooltip";
 
 export interface Props {

@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { ReactElement } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 export interface Props {
   className?: string;

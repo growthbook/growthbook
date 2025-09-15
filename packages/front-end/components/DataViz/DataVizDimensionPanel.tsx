@@ -6,10 +6,10 @@ import {
   DataVizConfig,
   dimensionAxisConfiguration,
 } from "back-end/src/validators/saved-queries";
-import { Select, SelectItem } from "@/components/Radix/Select";
+import { Select, SelectItem } from "@/ui/Select";
 import { supportsDimension } from "@/services/dataVizTypeGuards";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 
 export default function DataVizDimensionPanel({
   dataVizConfig,

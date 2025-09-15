@@ -16,13 +16,13 @@ import { PiArrowClockwise } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;

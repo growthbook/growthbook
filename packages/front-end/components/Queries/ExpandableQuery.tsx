@@ -13,8 +13,8 @@ import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Callout from "@/components/Radix/Callout";
-import HelperText from "@/components/Radix/HelperText";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

@@ -28,3 +28,5 @@ properties:
               type: array
               items:
                 type: string
+            limitAccessByEnvironment:
+              type: boolean

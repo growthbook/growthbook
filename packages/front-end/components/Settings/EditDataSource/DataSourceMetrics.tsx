@@ -19,8 +19,8 @@ import {
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<

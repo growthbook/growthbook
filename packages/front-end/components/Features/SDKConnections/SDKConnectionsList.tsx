@@ -24,10 +24,10 @@ import StatusCircle from "@/components/Helpers/StatusCircle";
 import ProjectBadges from "@/components/ProjectBadges";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useEnvironments } from "@/services/features";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   languageMapping,

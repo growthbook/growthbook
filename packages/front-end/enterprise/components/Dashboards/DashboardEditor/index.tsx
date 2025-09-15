@@ -20,14 +20,14 @@ import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/react";
 import { isPersistedDashboardBlock } from "shared/enterprise";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
-import Callout from "@/components/Radix/Callout";
+} from "@/ui/DropdownMenu";
+import Callout from "@/ui/Callout";
 import Field from "@/components/Forms/Field";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
