@@ -20,6 +20,24 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
     await req.context.models.projects.ensureProjectsExist(req.body.projects);
   }
 
+  // If the metric is official, only admins or those with the ManageOfficialResources policy can update it
+  if (metric.managedBy === "admin") {
+    if (!req.context.permissions.canManageOfficialResources(metric)) {
+      req.context.permissions.throwPermissionError();
+    }
+    // Otherwise, if it's not already official and the user is trying to make it official, they need the ManageOfficialResources policy
+  } else {
+    if (req.body.managedBy === "admin") {
+      if (
+        !req.context.permissions.canManageOfficialResources({
+          projects: req.body.projects || metric.projects,
+        })
+      ) {
+        req.context.permissions.throwPermissionError();
+      }
+    }
+  }
+
   const validationResult = putMetricApiPayloadIsValid(req.body);
 
   if (!validationResult.valid) {

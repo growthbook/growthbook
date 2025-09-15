@@ -34,8 +34,14 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(async (
     datasource,
   );
 
-  if (!req.context.permissions.canCreateMetric(metric)) {
-    req.context.permissions.throwPermissionError();
+  if (req.body.managedBy === "admin") {
+    if (!req.context.permissions.canManageOfficialResources({ projects })) {
+      req.context.permissions.throwPermissionError();
+    }
+  } else {
+    if (!req.context.permissions.canCreateMetric(metric)) {
+      req.context.permissions.throwPermissionError();
+    }
   }
 
   const createdMetric = await createMetric(metric);
