@@ -56,10 +56,6 @@ export type SegmentImport = BaseImportStatus & {
   segment?: StatSigSavedGroup;
 };
 
-export type LayerImport = BaseImportStatus & {
-  layer?: unknown;
-};
-
 export type MetricImport = BaseImportStatus & {
   metric?: unknown;
 };
@@ -71,7 +67,6 @@ export interface ImportData {
   dynamicConfigs?: DynamicConfigImport[];
   experiments?: ExperimentImport[];
   segments?: SegmentImport[];
-  layers?: LayerImport[];
   metrics?: MetricImport[];
   error?: string;
 }

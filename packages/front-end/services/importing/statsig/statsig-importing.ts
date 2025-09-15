@@ -97,13 +97,6 @@ export const getStatSigSegmentIdList = async (
 };
 
 /**
- * Fetch layers (based on Console API endpoints)
- */
-export const getStatSigLayers = async (apiKey: string): Promise<unknown> => {
-  return getFromStatSig("layers", apiKey, "GET");
-};
-
-/**
  * Fetch metrics (based on Console API endpoints)
  */
 export const getStatSigMetrics = async (apiKey: string): Promise<unknown> => {
@@ -160,8 +153,6 @@ async function fetchAllPages(
         dataArray = dataObj.experiments;
       } else if (dataObj.segments && Array.isArray(dataObj.segments)) {
         dataArray = dataObj.segments;
-      } else if (dataObj.layers && Array.isArray(dataObj.layers)) {
-        dataArray = dataObj.layers;
       } else if (dataObj.metrics && Array.isArray(dataObj.metrics)) {
         dataArray = dataObj.metrics;
       } else {
@@ -211,7 +202,6 @@ export const getAllStatSigEntities = async (
     dynamicConfigsData,
     experimentsData,
     segmentsData,
-    layersData,
     metricsData,
   ] = await Promise.all([
     fetchAllPages("environments", apiKey, intervalCap),
@@ -219,7 +209,6 @@ export const getAllStatSigEntities = async (
     fetchAllPages("dynamic_configs", apiKey, intervalCap),
     fetchAllPages("experiments", apiKey, intervalCap),
     fetchAllPages("segments", apiKey, intervalCap),
-    fetchAllPages("layers", apiKey, intervalCap),
     fetchAllPages("metrics/list", apiKey, intervalCap),
   ]);
 
@@ -236,7 +225,6 @@ export const getAllStatSigEntities = async (
     dynamicConfigs: { data: dynamicConfigsData },
     experiments: { data: experimentsData },
     segments: { data: processedSegmentsData },
-    layers: { data: layersData },
     metrics: { data: metricsData },
   };
 };
@@ -322,7 +310,6 @@ export async function buildImportedData(
     dynamicConfigs: [],
     experiments: [],
     segments: [],
-    layers: [],
     metrics: [],
   };
 
@@ -358,6 +345,19 @@ export async function buildImportedData(
             environment: env,
             error: existingEnvironments.has(envKey)
               ? "Environment already exists"
+              : undefined,
+          });
+        });
+
+        // Process segments
+        entities.segments.data.forEach((segment) => {
+          const seg = segment as StatSigSavedGroup;
+          data.segments?.push({
+            key: seg.id,
+            status: existingSavedGroups.has(seg.id) ? "skipped" : "pending",
+            segment: seg,
+            error: existingSavedGroups.has(seg.id)
+              ? "Saved group already exists"
               : undefined,
           });
         });
@@ -400,29 +400,6 @@ export async function buildImportedData(
             key: exp.name,
             status: "pending",
             experiment: exp,
-          });
-        });
-
-        // Process segments
-        entities.segments.data.forEach((segment) => {
-          const seg = segment as StatSigSavedGroup;
-          data.segments?.push({
-            key: seg.id,
-            status: existingSavedGroups.has(seg.id) ? "skipped" : "pending",
-            segment: seg,
-            error: existingSavedGroups.has(seg.id)
-              ? "Saved group already exists"
-              : undefined,
-          });
-        });
-
-        // Process layers
-        entities.layers.data.forEach((layer) => {
-          const l = layer as { name?: string; id?: string };
-          data.layers?.push({
-            key: l.name || l.id || "unknown",
-            status: "pending",
-            layer: layer,
           });
         });
 
@@ -768,12 +745,7 @@ export async function runImport(
   });
   await queue.onIdle();
 
-  data.layers?.forEach((layer) => {
-    if (layer.status === "pending") {
-      layer.status = "failed";
-      layer.error = "Not implemented yet";
-    }
-  });
+  await queue.onIdle();
 
   data.metrics?.forEach((metric) => {
     if (metric.status === "pending") {
