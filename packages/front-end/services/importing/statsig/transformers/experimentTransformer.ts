@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { StatSigExperiment } from "../types";
+import { StatsigExperiment } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 
@@ -36,8 +36,8 @@ function parseInlineTargetingRules(inlineTargetingRulesJSON: string): Array<{
 /**
  * Transform Statsig experiment to GrowthBook experiment
  */
-export function transformStatSigExperimentToGB(
-  experiment: StatSigExperiment,
+export function transformStatsigExperimentToGB(
+  experiment: StatsigExperiment,
   _availableEnvironments: string[],
 ): Partial<ExperimentInterfaceStringDates> {
   const {
@@ -57,7 +57,7 @@ export function transformStatSigExperimentToGB(
     tags,
   } = experiment;
 
-  // Map StatSig idType to GrowthBook hashAttribute
+  // Map Statsig idType to GrowthBook hashAttribute
   const hashAttribute = mapStatsigAttributeToGB(experiment.idType || "userID");
 
   // Convert groups to variations
@@ -86,7 +86,7 @@ export function transformStatSigExperimentToGB(
   if (targetingRules.length === 1) {
     // Single rule - put condition directly on phase
     const rule = targetingRules[0];
-    // Convert StatSig condition format to our format
+    // Convert Statsig condition format to our format
     const conditions = rule.conditionJSON.map((cond) => ({
       type: cond.conditionType.toString(),
       operator: cond.operator.toString(),
@@ -147,7 +147,7 @@ export function transformStatSigExperimentToGB(
     project: "", // Will be set by the importer
     datasource: "", // Will be set by the importer
     exposureQueryId: "", // Will be set by the importer
-    hashAttribute, // Use mapped StatSig idType
+    hashAttribute, // Use mapped Statsig idType
     hashVersion: 2, // Default to v2
     disableStickyBucketing: false,
     attributionModel: "firstExposure",

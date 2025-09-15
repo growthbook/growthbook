@@ -1,9 +1,9 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { StatSigExperiment } from "../types";
+import { StatsigExperiment } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 
 /**
- * Parse StatSig inline targeting rules JSON
+ * Parse Statsig inline targeting rules JSON
  */
 function parseInlineTargetingRules(inlineTargetingRulesJSON: string): Array<{
   groupName: string;
@@ -30,10 +30,10 @@ function parseInlineTargetingRules(inlineTargetingRulesJSON: string): Array<{
 }
 
 /**
- * Transform StatSig experiment to GrowthBook experiment-ref feature
+ * Transform Statsig experiment to GrowthBook experiment-ref feature
  */
-export function transformStatSigExperimentToFeature(
-  experiment: StatSigExperiment,
+export function transformStatsigExperimentToFeature(
+  experiment: StatsigExperiment,
   availableEnvironments: string[],
   gbExperiment: { id: string; variations: Array<{ id: string; key: string }> },
   project?: string,
@@ -77,7 +77,7 @@ export function transformStatSigExperimentToFeature(
   // Process targeting rules
   targetingRules.forEach((rule, ruleIndex) => {
     try {
-      // Convert StatSig condition format to our format
+      // Convert Statsig condition format to our format
       const conditions = rule.conditionJSON.map((cond) => ({
         type: cond.conditionType.toString(),
         operator: cond.operator.toString(),

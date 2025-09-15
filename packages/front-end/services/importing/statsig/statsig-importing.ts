@@ -4,27 +4,27 @@ import { SavedGroupInterface } from "shared/src/types";
 import { TagInterface } from "back-end/types/tag";
 import { cloneDeep } from "lodash";
 import {
-  StatSigFeatureGate,
-  StatSigDynamicConfig,
-  StatSigExperiment,
-  StatSigSavedGroup,
-  StatSigEnvironment,
-  StatSigTag,
-  StatSigFeatureGatesResponse,
-  StatSigDynamicConfigsResponse,
-  StatSigExperimentsResponse,
-  StatSigSavedGroupsResponse,
+  StatsigFeatureGate,
+  StatsigDynamicConfig,
+  StatsigExperiment,
+  StatsigSavedGroup,
+  StatsigEnvironment,
+  StatsigTag,
+  StatsigFeatureGatesResponse,
+  StatsigDynamicConfigsResponse,
+  StatsigExperimentsResponse,
+  StatsigSavedGroupsResponse,
   ImportData,
 } from "./types";
 import { transformStatsigSegmentToSavedGroup } from "./transformers/savedGroupTransformer";
-import { transformStatSigFeatureGateToGB } from "./transformers/featureTransformer";
-import { transformStatSigExperimentToGB } from "./transformers/experimentTransformer";
-import { transformStatSigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
+import { transformStatsigFeatureGateToGB } from "./transformers/featureTransformer";
+import { transformStatsigExperimentToGB } from "./transformers/experimentTransformer";
+import { transformStatsigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
 
 /**
  * Make a direct request to Statsig Console API
  */
-async function getFromStatSig<ResType>(
+async function getFromStatsig<ResType>(
   endpoint: string,
   apiKey: string,
   method: string = "GET",
@@ -45,7 +45,7 @@ async function getFromStatSig<ResType>(
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(
-      `StatSig Console API error (${url}): ${response.status} ${response.statusText} - ${errorText}`,
+      `Statsig Console API error (${url}): ${response.status} ${response.statusText} - ${errorText}`,
     );
   }
 
@@ -55,70 +55,70 @@ async function getFromStatSig<ResType>(
 /**
  * Fetch feature gates (based on Console API endpoints)
  */
-export const getStatSigFeatureGates = async (
+export const getStatsigFeatureGates = async (
   apiKey: string,
-): Promise<StatSigFeatureGatesResponse> => {
-  return getFromStatSig("gates", apiKey, "GET");
+): Promise<StatsigFeatureGatesResponse> => {
+  return getFromStatsig("gates", apiKey, "GET");
 };
 
 /**
  * Fetch dynamic configs (based on Console API endpoints)
  */
-export const getStatSigDynamicConfigs = async (
+export const getStatsigDynamicConfigs = async (
   apiKey: string,
-): Promise<StatSigDynamicConfigsResponse> => {
-  return getFromStatSig("dynamic_configs", apiKey, "GET");
+): Promise<StatsigDynamicConfigsResponse> => {
+  return getFromStatsig("dynamic_configs", apiKey, "GET");
 };
 
 /**
  * Fetch experiments (based on Console API endpoints)
  */
-export const getStatSigExperiments = async (
+export const getStatsigExperiments = async (
   apiKey: string,
-): Promise<StatSigExperimentsResponse> => {
-  return getFromStatSig("experiments", apiKey, "GET");
+): Promise<StatsigExperimentsResponse> => {
+  return getFromStatsig("experiments", apiKey, "GET");
 };
 
 /**
  * Fetch segments/saved groups (based on Console API endpoints)
  */
-export const getStatSigSegments = async (
+export const getStatsigSegments = async (
   apiKey: string,
-): Promise<StatSigSavedGroupsResponse> => {
-  return getFromStatSig("segments", apiKey, "GET");
+): Promise<StatsigSavedGroupsResponse> => {
+  return getFromStatsig("segments", apiKey, "GET");
 };
 
 /**
  * Fetch ID list for a specific segment
  */
-export const getStatSigSegmentIdList = async (
+export const getStatsigSegmentIdList = async (
   apiKey: string,
   segmentId: string,
 ): Promise<{ data: { name: string; count: number; ids: string[] } }> => {
-  return getFromStatSig(`segments/${segmentId}/id_list`, apiKey, "GET");
+  return getFromStatsig(`segments/${segmentId}/id_list`, apiKey, "GET");
 };
 
 /**
  * Fetch tags (based on Console API endpoints)
  */
-export const getStatSigTags = async (apiKey: string): Promise<unknown> => {
-  return getFromStatSig("tags", apiKey, "GET");
+export const getStatsigTags = async (apiKey: string): Promise<unknown> => {
+  return getFromStatsig("tags", apiKey, "GET");
 };
 
 /**
  * Fetch metrics (based on Console API endpoints)
  */
-export const getStatSigMetrics = async (apiKey: string): Promise<unknown> => {
-  return getFromStatSig("metrics/list", apiKey, "GET");
+export const getStatsigMetrics = async (apiKey: string): Promise<unknown> => {
+  return getFromStatsig("metrics/list", apiKey, "GET");
 };
 
 /**
  * Fetch environments (based on Console API endpoints)
  */
-export const getStatSigEnvironments = async (
+export const getStatsigEnvironments = async (
   apiKey: string,
 ): Promise<unknown> => {
-  return getFromStatSig("environments", apiKey, "GET");
+  return getFromStatsig("environments", apiKey, "GET");
 };
 
 /**
@@ -139,7 +139,7 @@ async function fetchAllPages(
 
   while (hasMorePages && pageNumber <= maxPages) {
     const response = (await queue.add(async () => {
-      return getFromStatSig(`${endpoint}?page=${pageNumber}`, apiKey, "GET");
+      return getFromStatsig(`${endpoint}?page=${pageNumber}`, apiKey, "GET");
     })) as {
       data: unknown[] | Record<string, unknown>;
       pagination?: { nextPage: unknown };
@@ -203,7 +203,7 @@ async function fetchAllPages(
 /**
  * Fetch all entities (convenience function)
  */
-export const getAllStatSigEntities = async (
+export const getAllStatsigEntities = async (
   apiKey: string,
   intervalCap: number = 50,
 ) => {
@@ -256,13 +256,13 @@ async function processSegmentsWithIdLists(
 
   const processedSegments = await Promise.all(
     segmentsData.map(async (segment) => {
-      const seg = segment as StatSigSavedGroup;
+      const seg = segment as StatsigSavedGroup;
 
       // If this is an id_list type segment, fetch the ID list
       if (seg.type === "id_list") {
         try {
           const idListData = await queue.add(async () => {
-            return getStatSigSegmentIdList(apiKey, seg.id);
+            return getStatsigSegmentIdList(apiKey, seg.id);
           });
 
           // Merge the ID list into the segment
@@ -293,7 +293,7 @@ async function processSegmentsWithIdLists(
 }
 
 /**
- * Build imported data from StatSig entities
+ * Build imported data from Statsig entities
  */
 export async function buildImportedData(
   apiKey: string,
@@ -349,12 +349,12 @@ export async function buildImportedData(
     // Fetch entities
     queue.add(async () => {
       try {
-        const entities = await getAllStatSigEntities(apiKey, intervalCap);
+        const entities = await getAllStatsigEntities(apiKey, intervalCap);
 
         // Process environments
         // Note: environments.data is an array of environment objects, not nested
         entities.environments.data.forEach((environment) => {
-          const env = environment as StatSigEnvironment;
+          const env = environment as StatsigEnvironment;
           const envKey = env.name || env.id;
           data.environments?.push({
             key: envKey,
@@ -368,7 +368,7 @@ export async function buildImportedData(
 
         // Process segments
         entities.segments.data.forEach((segment) => {
-          const seg = segment as StatSigSavedGroup;
+          const seg = segment as StatsigSavedGroup;
           data.segments?.push({
             key: seg.id,
             status: existingSavedGroups.has(seg.id) ? "skipped" : "pending",
@@ -382,7 +382,7 @@ export async function buildImportedData(
         // Process feature gates
         featuresMap = new Map(features.map((f) => [f.id, f]));
         entities.featureGates.data.forEach((gate) => {
-          const fg = gate as StatSigFeatureGate;
+          const fg = gate as StatsigFeatureGate;
           data.featureGates?.push({
             key: fg.id, // Use ID instead of name for uniqueness
             status: featuresMap.has(fg.id) ? "skipped" : "pending",
@@ -395,7 +395,7 @@ export async function buildImportedData(
 
         // Process dynamic configs
         entities.dynamicConfigs.data.forEach((config) => {
-          const dc = config as StatSigDynamicConfig;
+          const dc = config as StatsigDynamicConfig;
           // Check if there's already a feature gate with the same ID
           const existingFeature = featuresMap.get(dc.id);
           const featureKey = existingFeature ? `_config_${dc.id}` : dc.id;
@@ -412,7 +412,7 @@ export async function buildImportedData(
 
         // Process experiments
         entities.experiments.data.forEach((experiment) => {
-          const exp = experiment as StatSigExperiment;
+          const exp = experiment as StatsigExperiment;
           data.experiments?.push({
             key: exp.name,
             status: existingExperiments.has(exp.id) ? "skipped" : "pending",
@@ -425,7 +425,7 @@ export async function buildImportedData(
 
         // Process tags
         entities.tags.data.forEach((tag) => {
-          const t = tag as StatSigTag;
+          const t = tag as StatsigTag;
           data.tags?.push({
             key: t.name, // Use name as key since that's what becomes the GB tag ID
             status: existingTags.has(t.name) ? "skipped" : "pending",
@@ -446,7 +446,7 @@ export async function buildImportedData(
 
         update();
       } catch (e) {
-        console.error(`Error fetching entities from StatSig:`, e);
+        console.error(`Error fetching entities from Statsig:`, e);
       }
     });
 
@@ -553,9 +553,9 @@ export async function runImport(
     if (segment.status === "pending") {
       queue.add(async () => {
         try {
-          const seg = segment.segment as StatSigSavedGroup;
+          const seg = segment.segment as StatsigSavedGroup;
 
-          // Transform StatSig segment to GrowthBook saved group
+          // Transform Statsig segment to GrowthBook saved group
           const savedGroupData = await transformStatsigSegmentToSavedGroup(
             seg,
             existingAttributeSchema,
@@ -572,7 +572,7 @@ export async function runImport(
           );
 
           segment.status = "completed";
-          segment.segment = res.savedGroup as unknown as StatSigSavedGroup;
+          segment.segment = res.savedGroup as unknown as StatsigSavedGroup;
         } catch (e) {
           segment.status = "failed";
           segment.error = e.message;
@@ -588,18 +588,18 @@ export async function runImport(
     if (featureGate.status === "pending") {
       queue.add(async () => {
         try {
-          const fg = featureGate.featureGate as StatSigFeatureGate;
+          const fg = featureGate.featureGate as StatsigFeatureGate;
           if (!fg) {
             throw new Error("No feature gate data available");
           }
 
-          // Transform StatSig feature gate to GrowthBook feature
+          // Transform Statsig feature gate to GrowthBook feature
           // Get available environments from the processed data
           const availableEnvironments =
             data.environments
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
-          const transformedFeature = await transformStatSigFeatureGateToGB(
+          const transformedFeature = await transformStatsigFeatureGateToGB(
             fg,
             availableEnvironments,
             existingAttributeSchema,
@@ -633,18 +633,18 @@ export async function runImport(
     if (dynamicConfig.status === "pending") {
       queue.add(async () => {
         try {
-          const dc = dynamicConfig.dynamicConfig as StatSigDynamicConfig;
+          const dc = dynamicConfig.dynamicConfig as StatsigDynamicConfig;
           if (!dc) {
             throw new Error("No dynamic config data available");
           }
 
-          // Transform StatSig dynamic config to GrowthBook feature
+          // Transform Statsig dynamic config to GrowthBook feature
           // Get available environments from the processed data
           const availableEnvironments =
             data.environments
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
-          const transformedFeature = await transformStatSigFeatureGateToGB(
+          const transformedFeature = await transformStatsigFeatureGateToGB(
             dc,
             availableEnvironments,
             existingAttributeSchema,
@@ -679,7 +679,7 @@ export async function runImport(
       queue.add(async () => {
         let featureId: string | null = null;
         try {
-          const exp = experiment.experiment as StatSigExperiment;
+          const exp = experiment.experiment as StatsigExperiment;
           if (!exp) {
             throw new Error("No experiment data available");
           }
@@ -690,8 +690,8 @@ export async function runImport(
               ?.map((e) => e.environment?.name || e.key)
               .filter(Boolean) || [];
 
-          // Transform StatSig experiment to GrowthBook experiment
-          const transformedExperiment = await transformStatSigExperimentToGB(
+          // Transform Statsig experiment to GrowthBook experiment
+          const transformedExperiment = await transformStatsigExperimentToGB(
             exp,
             availableEnvironments,
           );
@@ -720,7 +720,7 @@ export async function runImport(
           }
 
           // Create the companion feature
-          const transformedFeature = await transformStatSigExperimentToFeature(
+          const transformedFeature = await transformStatsigExperimentToFeature(
             exp,
             availableEnvironments,
             {
@@ -782,7 +782,7 @@ export async function runImport(
     if (tagImport.status === "pending") {
       queue.add(async () => {
         try {
-          const tag = tagImport.tag as StatSigTag;
+          const tag = tagImport.tag as StatsigTag;
           if (!tag) {
             throw new Error("No tag data available");
           }
