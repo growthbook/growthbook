@@ -60,7 +60,6 @@ const experimentSnapshotSchema = new mongoose.Schema({
   type: { type: String },
   triggeredBy: String,
   report: String,
-  dashboard: String,
   dateCreated: Date,
   runStarted: Date,
   manual: Boolean,
