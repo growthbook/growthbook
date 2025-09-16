@@ -1177,7 +1177,7 @@ class TestPostStratification(TestCase):
         )
         result_true_abs = FrequentistTestResult(
             expected=self.point_estimate_count_reg_abs,
-            ci=[3.5664505332225285, 3.8569331969427503],
+            ci=[3.566444475201323, 3.856939254963956],
             uplift=Uplift(
                 dist="normal",
                 mean=self.point_estimate_count_reg_abs,
@@ -1187,6 +1187,7 @@ class TestPostStratification(TestCase):
             p_value=None,
             p_value_error_message=None,
         )
+
         self.assertEqual(
             _round_result_dict(asdict(result_true_rel)),
             _round_result_dict(asdict(test_result_rel)),

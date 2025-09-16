@@ -804,7 +804,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         if isinstance(result[0].variations[1], FrequentistVariationResponse):
             self.assertEqual(round_(result[0].variations[1].expected), -0.281707154)
             if result[0].variations[1].pValue is not None:
-                self.assertEqual(round_(result[0].variations[1].pValue), 0.003732551)
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.003732549)
             else:
                 raise ValueError(
                     f"pValue is None for variation response: {result[0].variations[1]}"
@@ -874,7 +874,7 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         if isinstance(result[0].variations[1], FrequentistVariationResponse):
             self.assertEqual(round_(result[0].variations[1].expected), -0.000701483)
             if result[0].variations[1].pValue is not None:
-                self.assertEqual(round_(result[0].variations[1].pValue), 0.857707056)
+                self.assertEqual(round_(result[0].variations[1].pValue), 0.857710405)
             else:
                 raise ValueError(
                     f"pValue is None for variation response: {result[0].variations[1]}"

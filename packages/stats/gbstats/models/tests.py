@@ -165,58 +165,6 @@ class EffectMoments:
     ):
         self.stat_a, self.stat_b = sum_stats(stats)
         self.relative = config.difference_type == "relative"
-        self.initialize_theta()
-
-    def initialize_theta(self) -> None:
-        if (
-            isinstance(self.stat_b, RegressionAdjustedStatistic)
-            and isinstance(self.stat_a, RegressionAdjustedStatistic)
-            and (self.stat_a.theta is None or self.stat_b.theta is None)
-        ):
-            theta = compute_theta(self.stat_a, self.stat_b)
-            if theta == 0:
-                # revert to non-RA under the hood if no variance in a time period
-                self.stat_a = self.stat_a.post_statistic
-                self.stat_b = self.stat_b.post_statistic
-            else:
-                # override statistic with theta initialized
-                self.stat_a = RegressionAdjustedStatistic(
-                    **{k: v for k, v in asdict(self.stat_a).items() if k != "theta"},
-                    theta=theta,
-                )
-                self.stat_b = RegressionAdjustedStatistic(
-                    **{k: v for k, v in asdict(self.stat_b).items() if k != "theta"},
-                    theta=theta,
-                )
-        if (
-            isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
-            and isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
-            and (self.stat_a.theta is None or self.stat_b.theta is None)
-        ):
-            theta = compute_theta_regression_adjusted_ratio(self.stat_a, self.stat_b)
-            if abs(theta) < 1e-8:
-                # revert to non-RA under the hood if no variance in a time period
-                self.stat_a = RatioStatistic(
-                    n=self.stat_a.n,
-                    m_statistic=self.stat_a.m_statistic_post,
-                    d_statistic=self.stat_a.d_statistic_post,
-                    m_d_sum_of_products=self.stat_a.m_post_d_post_sum_of_products,
-                )
-                self.stat_b = RatioStatistic(
-                    n=self.stat_b.n,
-                    m_statistic=self.stat_b.m_statistic_post,
-                    d_statistic=self.stat_b.d_statistic_post,
-                    m_d_sum_of_products=self.stat_b.m_post_d_post_sum_of_products,
-                )
-            else:
-                self.stat_a = RegressionAdjustedRatioStatistic(
-                    **{k: v for k, v in asdict(self.stat_a).items() if k != "theta"},
-                    theta=theta,
-                )
-                self.stat_b = RegressionAdjustedRatioStatistic(
-                    **{k: v for k, v in asdict(self.stat_b).items() if k != "theta"},
-                    theta=theta,
-                )
 
     def _default_output(
         self,
@@ -313,6 +261,7 @@ class BaseABTest(ABC):
     ):
         self.stats = stats
         self.stat_a, self.stat_b = sum_stats(self.stats)
+        self.initialize_theta()
         self.config = config
         self.alpha = config.alpha
         self.relative = config.difference_type == "relative"
@@ -321,6 +270,57 @@ class BaseABTest(ABC):
         self.total_users = config.total_users
         self.phase_length_days = config.phase_length_days
         self.moments_result = self.compute_moments_result()
+
+    def initialize_theta(self) -> None:
+        if (
+            isinstance(self.stat_b, RegressionAdjustedStatistic)
+            and isinstance(self.stat_a, RegressionAdjustedStatistic)
+            and (self.stat_a.theta is None or self.stat_b.theta is None)
+        ):
+            theta = compute_theta(self.stat_a, self.stat_b)
+            if theta == 0:
+                # revert to non-RA under the hood if no variance in a time period
+                self.stat_a = self.stat_a.post_statistic
+                self.stat_b = self.stat_b.post_statistic
+            else:
+                # override statistic with theta initialized
+                self.stat_a = RegressionAdjustedStatistic(
+                    **{k: v for k, v in asdict(self.stat_a).items() if k != "theta"},
+                    theta=theta,
+                )
+                self.stat_b = RegressionAdjustedStatistic(
+                    **{k: v for k, v in asdict(self.stat_b).items() if k != "theta"},
+                    theta=theta,
+                )
+        if (
+            isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
+            and isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
+            and (self.stat_a.theta is None or self.stat_b.theta is None)
+        ):
+            theta = compute_theta_regression_adjusted_ratio(self.stat_a, self.stat_b)
+            if abs(theta) < 1e-8:
+                # revert to non-RA under the hood if no variance in a time period
+                self.stat_a = RatioStatistic(
+                    n=self.stat_a.n,
+                    m_statistic=self.stat_a.m_statistic_post,
+                    d_statistic=self.stat_a.d_statistic_post,
+                    m_d_sum_of_products=self.stat_a.m_post_d_post_sum_of_products,
+                )
+                self.stat_b = RatioStatistic(
+                    n=self.stat_b.n,
+                    m_statistic=self.stat_b.m_statistic_post,
+                    d_statistic=self.stat_b.d_statistic_post,
+                    m_d_sum_of_products=self.stat_b.m_post_d_post_sum_of_products,
+                )
+            else:
+                self.stat_a = RegressionAdjustedRatioStatistic(
+                    **{k: v for k, v in asdict(self.stat_a).items() if k != "theta"},
+                    theta=theta,
+                )
+                self.stat_b = RegressionAdjustedRatioStatistic(
+                    **{k: v for k, v in asdict(self.stat_b).items() if k != "theta"},
+                    theta=theta,
+                )
 
     def compute_moments_result(self) -> EffectMomentsResult:
         moments_config = EffectMomentsConfig(
@@ -342,7 +342,7 @@ class BaseABTest(ABC):
             ).compute_result()
         else:
             return EffectMoments(
-                self.stats,
+                [(self.stat_a, self.stat_b)],
                 moments_config,
             ).compute_result()
 
