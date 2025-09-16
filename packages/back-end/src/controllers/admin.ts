@@ -113,7 +113,7 @@ export async function putOrganization(
     updates.externalId = externalId;
     orig.externalId = org.externalId;
   }
-  if (licenseKey && licenseKey.trim() !== org.licenseKey) {
+  if (licenseKey !== undefined && licenseKey.trim() !== org.licenseKey) {
     updates.licenseKey = licenseKey.trim();
     orig.licenseKey = org.licenseKey;
     await setLicenseKey(org, updates.licenseKey);

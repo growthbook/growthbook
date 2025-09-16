@@ -1407,7 +1407,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
-        - dimensions
+        - segments
       summary: Update a single segment
       operationId: updateSegment
       x-codeSamples:

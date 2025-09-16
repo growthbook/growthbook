@@ -251,6 +251,15 @@ export function upgradeDatasourceObject(
     }
   }
 
+  // mode field was added later -- default to ephemeral if missing
+  if (
+    settings &&
+    settings.pipelineSettings &&
+    !settings.pipelineSettings.mode
+  ) {
+    settings.pipelineSettings.mode = "ephemeral";
+  }
+
   return datasource;
 }
 

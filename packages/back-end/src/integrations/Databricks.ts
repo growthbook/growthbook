@@ -3,7 +3,7 @@ import { FormatDialect } from "shared/src/types";
 import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
 import { runDatabricksQuery } from "back-end/src/services/databricks";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
-import { QueryResponse } from "back-end/src/types/Integration";
+import { QueryResponse, DataType } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Databricks extends SqlIntegration {
@@ -21,8 +21,11 @@ export default class Databricks extends SqlIntegration {
     return true;
   }
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return databricksCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {},
+      this.datasource.settings.pipelineSettings,
     );
   }
   getFormatDialect(): FormatDialect {
@@ -80,5 +83,25 @@ export default class Databricks extends SqlIntegration {
   }
   getDefaultDatabase(): string {
     return this.params.catalog;
+  }
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "STRING";
+      case "integer":
+        return "INT";
+      case "float":
+        return "DOUBLE";
+      case "boolean":
+        return "BOOLEAN";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
   }
 }

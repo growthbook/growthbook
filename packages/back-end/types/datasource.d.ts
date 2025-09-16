@@ -182,11 +182,35 @@ export type DataSourceEvents = {
   extraUserIdProperty?: string;
 };
 
+export type DataSourcePipelineMode = "ephemeral";
+
 export type DataSourcePipelineSettings = {
-  allowWriting?: boolean;
-  writeDatabase?: string; // the top level directory
-  writeDataset?: string; // the mid level name (aka schema)
-  unitsTableRetentionHours?: number;
+  /**
+   * Controls if we run Pipeline Mode at all or not.
+   */
+  allowWriting: boolean;
+  /**
+   * If allowWriting is true, this controls how the pipeline is run.
+   */
+  mode: DataSourcePipelineMode;
+  /**
+   * The top level directory.
+   * If undefined, we use the default.
+   */
+  writeDatabase?: string;
+  /**
+   * The mid level name (aka schema).
+   */
+  writeDataset: string;
+  /**
+   * The number of hours to keep the units table.
+   * Note: For some datasources we use this to automatically expire tables.
+   */
+  unitsTableRetentionHours: number;
+  /**
+   * Only used for ephemeral mode.
+   * Controls if we drop the units table when the analysis finishes.
+   */
   unitsTableDeletion?: boolean;
 };
 
@@ -257,6 +281,7 @@ interface DataSourceBase {
   projects?: string[];
   settings: DataSourceSettings;
   lockUntil?: Date | null;
+  type: DataSourceType;
 }
 
 export interface GrowthbookClickhouseDataSource extends DataSourceBase {

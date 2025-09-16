@@ -343,8 +343,8 @@ const ImportExperimentList: FC<{
                   the settings)
                 </li>
                 <li>
-                  Not enough traffic: experiments are not shown if they had less
-                  than 5 users per variation
+                  Not enough traffic: experiments are not shown if they had
+                  fewer than 5 units per variation
                 </li>
                 <li>
                   Incorrect query: the experiment exposure query runs but is not
@@ -389,7 +389,7 @@ const ImportExperimentList: FC<{
             </div>
             <div className="col-auto">
               <Field
-                label="# Users"
+                label="# Units"
                 labelClassName="small mb-0"
                 type="number"
                 min={0}
@@ -503,8 +503,8 @@ const ImportExperimentList: FC<{
                 <SortableTH field="endDate">Date Ended</SortableTH>
                 <SortableTH field="numVariations">Variations</SortableTH>
                 <SortableTH field="users">
-                  Approx Users{" "}
-                  <Tooltip body="This count does not de-duplicate users across days and is likely inflated. Once imported, the user counts will be accurate." />
+                  Approx Units{" "}
+                  <Tooltip body="This count is approximate and does not de-duplicate units across days; therefore it is likely inflated. Once imported, the unit counts will be accurate." />
                 </SortableTH>
                 <th>Traffic Split</th>
                 <th></th>

@@ -10,6 +10,7 @@ import {
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
+  DataType,
 } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
@@ -120,8 +121,11 @@ export default class BigQuery extends SqlIntegration {
   }
 
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return bigQueryCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {},
+      this.datasource.settings.pipelineSettings,
     );
   }
 
@@ -247,5 +251,26 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return formatInformationSchema(results as RawInformationSchema[]);
+  }
+
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "STRING";
+      case "integer":
+        return "INT64";
+      case "float":
+        return "FLOAT64";
+      case "boolean":
+        return "BOOL";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
   }
 }
