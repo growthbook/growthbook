@@ -226,7 +226,6 @@ export async function refreshDashboardData(
       triggeredBy: "manual",
       type: "exploratory",
     });
-
     newBlocks.forEach((block) => {
       if (blockIds.includes(block.id)) {
         block.snapshotId = snapshot.id;
