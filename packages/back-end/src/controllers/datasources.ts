@@ -628,7 +628,7 @@ export async function postValidatePipelineSettings(
   } catch (e) {
     results.create = {
       result: "failed",
-      resultMessage: e instanceof Error ? e.message : String(e),
+      resultMessage: "message" in e ? e.message : String(e),
     };
   }
 
@@ -653,7 +653,7 @@ export async function postValidatePipelineSettings(
       } catch (e) {
         results.drop = {
           result: "failed",
-          resultMessage: e instanceof Error ? e.message : String(e),
+          resultMessage: "message" in e ? e.message : String(e),
         };
       }
     }
