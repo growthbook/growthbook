@@ -1,13 +1,18 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { NextPage } from "next";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import ImportFromStatsig from "@/components/importing/ImportFromStatsig/ImportFromStatsig";
 import { AppFeatures } from "@/types/app-features";
 import Avatar from "@/ui/Avatar";
+import track from "@/services/track";
 
 const ImportFromStatsigPage: NextPage = () => {
   const growthbook = useGrowthBook<AppFeatures>();
   const isStatsigImportEnabled = growthbook?.isOn("import-from-s");
+
+  useEffect(() => {
+    track("Import from Statsig clicked", { service: "statsig" });
+  }, []);
 
   // Show painted door if feature is disabled
   if (!isStatsigImportEnabled) {

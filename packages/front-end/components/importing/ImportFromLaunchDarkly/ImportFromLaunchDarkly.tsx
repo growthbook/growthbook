@@ -35,6 +35,7 @@ import {
   transformLDFeatureFlag,
   transformLDProjectsToGBProject,
 } from "@/services/importing/launchdarkly/launchdarkly-importing";
+import track from "@/services/track";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -705,6 +706,11 @@ export default function ImportFromLaunchDarkly() {
               onClick={async () => {
                 if (!token) return;
 
+                track("LaunchDarkly import fetch started", {
+                  source: "launchdarkly",
+                  step: 1,
+                });
+
                 setData({
                   status: "fetching",
                 });
@@ -734,6 +740,11 @@ export default function ImportFromLaunchDarkly() {
               color={step === 2 ? "primary" : "outline-primary"}
               disabled={step < 2}
               onClick={async () => {
+                track("LaunchDarkly import started", {
+                  source: "launchdarkly",
+                  step: 2,
+                });
+
                 await runImport(data, apiCall, (d) => setData(d));
                 mutateDefinitions();
                 mutateFeatures();

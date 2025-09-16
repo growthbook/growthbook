@@ -27,6 +27,7 @@ import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import track from "@/services/track";
 import { EntityAccordion, EntityAccordionContent } from "./EntityAccordion";
 
 function ImportStatusDisplay({
@@ -430,6 +431,11 @@ export default function ImportFromStatsig() {
               onClick={async () => {
                 if (!token) return;
 
+                track("Statsig import fetch started", {
+                  source: "statsig",
+                  step: 1,
+                });
+
                 setData({
                   status: "fetching",
                 });
@@ -468,6 +474,12 @@ export default function ImportFromStatsig() {
                   console.error("featuresMap not available");
                   return;
                 }
+
+                track("Statsig import started", {
+                  source: "statsig",
+                  step: 2,
+                });
+
                 const projectId = await getOrCreateProject(projectName);
                 const runOptions: RunImportOptions = {
                   data,
