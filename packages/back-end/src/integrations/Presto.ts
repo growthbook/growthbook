@@ -186,14 +186,14 @@ export default class Presto extends SqlIntegration {
   hllAggregate(col: string): string {
     return `APPROX_SET(${col})`;
   }
+  castToHyperLogLog(col: string): string {
+    return `CAST(${col} AS HyperLogLog)`;
+  }
   hllReaggregate(col: string): string {
-    return `MERGE(${col})`;
+    return `MERGE(${this.castToHyperLogLog(col)})`;
   }
   hllCardinality(col: string): string {
     return `CARDINALITY(${col})`;
-  }
-  hllDataType(): string {
-    return "HyperLogLog";
   }
   getDefaultDatabase() {
     return this.params.catalog || "";

@@ -94,7 +94,7 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
     return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId} (quantile metrics)`
+      ? `${metric.numerator.factTableId}_qtile`
       : "";
   }
   return metric.numerator.factTableId || "";

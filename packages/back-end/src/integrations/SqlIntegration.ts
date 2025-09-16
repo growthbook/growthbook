@@ -311,6 +311,9 @@ export default abstract class SqlIntegration
   castToDate(col: string): string {
     return `CAST(${col} AS DATE)`;
   }
+  castToVarbinary(col: string): string {
+    return `CAST(${col} AS VARBINARY)`;
+  }
   ensureFloat(col: string): string {
     return col;
   }
@@ -954,18 +957,18 @@ export default abstract class SqlIntegration
         , __userMetricOverall AS (
           SELECT
             ${baseIdType}
-            , ${this.getReaggregateMetricColumn(
+            , ${this.getReaggregateMetricColumn({
               metric,
-              false,
-              "value",
-            )} AS value
+              useDenominator: false,
+              valueColumn: "value",
+            })} AS value
              ${
                metricData.ratioMetric
-                 ? `, ${this.getReaggregateMetricColumn(
+                 ? `, ${this.getReaggregateMetricColumn({
                      metric,
-                     true,
-                     "denominator",
-                   )} AS denominator`
+                     useDenominator: true,
+                     valueColumn: "denominator",
+                    })} AS denominator`
                  : ""
              }
           FROM
@@ -2821,21 +2824,25 @@ export default abstract class SqlIntegration
           ${metricData
             .map(
               (data) =>
-                `, ${this.addCaseWhenTimeFilter(
-                  `m.${data.alias}_value`,
-                  data.metric,
-                  data.overrideConversionWindows,
-                  settings.endDate,
-                  data.quantileMetric ? data.metricQuantileSettings : undefined,
-                )} as ${data.alias}_value
+                `, ${this.addCaseWhenTimeFilter({
+                  col: `m.${data.alias}_value`,
+                  metric: data.metric,
+                  overrideConversionWindows: data.overrideConversionWindows,
+                  endDate: settings.endDate,
+                  metricQuantileSettings: data.quantileMetric ? data.metricQuantileSettings : undefined,
+                  metricTimestampCol: "m.timestamp",
+                  exposureTimestampCol: "d.timestamp",
+                })} as ${data.alias}_value
                 ${
                   data.ratioMetric
-                    ? `, ${this.addCaseWhenTimeFilter(
-                        `m.${data.alias}_denominator`,
-                        data.metric,
-                        data.overrideConversionWindows,
-                        settings.endDate,
-                      )} as ${data.alias}_denominator`
+                    ? `, ${this.addCaseWhenTimeFilter({
+                        col: `m.${data.alias}_denominator`,
+                        metric: data.metric,
+                        overrideConversionWindows: data.overrideConversionWindows,
+                        endDate: settings.endDate,
+                        metricTimestampCol: "m.timestamp",
+                        exposureTimestampCol: "d.timestamp",
+                      })} as ${data.alias}_denominator`
                     : ""
                 }
                 `,
@@ -3471,13 +3478,15 @@ export default abstract class SqlIntegration
           ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
           ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
           , d.${baseIdType} AS ${baseIdType}
-          , ${this.addCaseWhenTimeFilter(
-            "m.value",
+          , ${this.addCaseWhenTimeFilter({
+            col: "m.value",
             metric,
             overrideConversionWindows,
-            settings.endDate,
-            quantileMetric ? metricQuantileSettings : undefined,
-          )} as value
+            endDate: settings.endDate,
+            metricQuantileSettings: quantileMetric ? metricQuantileSettings : undefined,
+            metricTimestampCol: "m.timestamp",
+            exposureTimestampCol: "d.timestamp",
+          })} as value
         FROM
           ${funnelMetric ? "__denominatorUsers" : "__distinctUsers"} d
         LEFT JOIN __metric m ON (
@@ -5250,17 +5259,27 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     `;
   }
 
-  private addCaseWhenTimeFilter(
+  private addCaseWhenTimeFilter({
+    col,
+    metric,
+    overrideConversionWindows,
+    endDate,
+    metricQuantileSettings,
+    metricTimestampCol = "m.timestamp",
+    exposureTimestampCol = "d.timestamp",
+  }: {
     col: string,
     metric: ExperimentMetricInterface,
     overrideConversionWindows: boolean,
     endDate: Date,
     metricQuantileSettings?: MetricQuantileSettings,
-  ): string {
+    metricTimestampCol?: string,
+    exposureTimestampCol?: string,
+  }): string {
     return `${this.ifElse(
       `${this.getConversionWindowClause(
-        "d.timestamp",
-        "m.timestamp",
+        exposureTimestampCol,
+        metricTimestampCol,
         metric,
         endDate,
         overrideConversionWindows,
@@ -5448,13 +5467,18 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
-  private getReaggregateMetricColumn(
+  private getReaggregateMetricColumn({
+    metric,
+    useDenominator,
+    valueColumn = "value",
+  }: {
     metric: ExperimentMetricInterface,
-    useDenominator?: boolean,
-    valueColumn: string = "value",
-  ) {
-    if (quantileMetricType(metric)) {
-      throw new Error("Quantile metrics are not supported for reaggregation");
+    useDenominator: boolean,
+    valueColumn?: string,
+  }) {
+    // TODO test unit quantiles
+    if (quantileMetricType(metric) === "event") {
+      throw new Error("Event quantile metrics are not supported for reaggregation");
     }
     // Fact Metrics
     if (isFactMetric(metric)) {
@@ -5701,7 +5725,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     switch (aggregationType) {
       case "countDistinctHLL":
-        return this.hllAggregate(valueColumn);
+        return this.castToVarbinary(this.hllAggregate(valueColumn));
       case "binomialAggregateFilter":
         return `SUM(COALESCE(${valueColumn}, 0))`;
       case "userCountAggregateFilter": // TODO what is the value column???
@@ -6136,8 +6160,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               : ""
           }
           WHERE 
-            timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
+            n.experiment_id = '${settings.experimentId}'
+            AND n.timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
             ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
+            -- ADD 'n' as prefix to clause
             ${partitionWhereClause ? `AND (${partitionWhereClause})` : ""}
         ),
         __jointExposures AS (
@@ -6270,7 +6296,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       case "integer":
         return "INTEGER";
       case "float":
-        return "FLOAT";
+        return "DOUBLE";
       case "boolean":
         return "BOOLEAN";
       case "date":
@@ -6371,6 +6397,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // does metric start need to be different?
     // does metric end need to be different?
+
+    const paramsMetricsSorted = {
+      ...params,
+      metrics: params.metrics.sort((a, b) => a.id.localeCompare(b.id)),
+    }
     const {
       metricData,
       percentileData,
@@ -6381,7 +6412,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       raMetricSettings,
       maxHoursToConvert,
       activationMetric,
-    } = this.parseExperimentFactMetricsParams(params);
+    } = this.parseExperimentFactMetricsParams(paramsMetricsSorted);
 
     // get the later of startDate or the incremental refresh date
     const hasBindingLastMaxTimestamp =
@@ -6398,6 +6429,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           "onOrAfter",
         )
       : "";
+
+    // Get date range for experiment and analysis
+    const endDate: Date = this.getExperimentEndDate(
+      params.settings,
+      maxHoursToConvert,
+    );
 
     // TODO: Quantiles not available in incremental refresh
     // TODO: maybe unit quantiles are?
@@ -6422,28 +6459,63 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           exclusiveStartDateFilter,
           castIdToString: true,
         })})
+        , __newMetricRows AS (
+          SELECT
+            m.${baseIdType} AS ${baseIdType}
+            , m.timestamp AS timestamp
+            ${metricData
+            .map(
+              (data) =>
+                `, ${this.addCaseWhenTimeFilter({
+                  col: `m.${data.alias}_value`,
+                  metric: data.metric,
+                  overrideConversionWindows: data.overrideConversionWindows,
+                  endDate: endDate,
+                  metricQuantileSettings: data.quantileMetric ? data.metricQuantileSettings : undefined,
+                  metricTimestampCol: "m.timestamp",
+                  exposureTimestampCol: "d.first_exposure_timestamp",
+                })} AS ${data.alias}_value
+                ${
+                  data.ratioMetric
+                    ? `, ${this.addCaseWhenTimeFilter({
+                        col: `m.${data.alias}_denominator`,
+                        metric: data.metric,
+                        overrideConversionWindows: data.overrideConversionWindows,
+                        endDate: endDate,
+                        metricTimestampCol: "m.timestamp",
+                        exposureTimestampCol: "d.first_exposure_timestamp",
+                      })} AS ${data.alias}_denominator`
+                    : ""
+                }
+                `,
+            )
+            .join("\n")}
+          FROM __factTable m
+          INNER JOIN ${params.unitsSourceTableFullName} d
+            ON (d.${baseIdType} = m.${baseIdType})
+        )
         , __newDailyValues AS (
           SELECT
-            ft.${baseIdType} AS ${baseIdType}
-            , ${this.castToDate("ft.timestamp")} AS metric_date
-            , MAX(ft.timestamp) AS max_timestamp
+            ${baseIdType}
+            , ${this.castToDate("timestamp")} AS metric_date
+            , MAX(timestamp) AS max_timestamp
             ${metricData
               .map((m) => {
                 const aggregationType = this.getFactMetricAggregationType({
                   metric: m.metric,
                 });
                 const denominatorAggregationType = m.metric.denominator
-                  ? this.getFactMetricAggregationType({ metric: m.metric })
+                  ? this.getFactMetricAggregationType({ metric: m.metric, useDenominator: true })
                   : null;
                 const intermediateAggregation =
                   this.getIntermediateAggregationFromFactMetricAggregationType(
                     aggregationType,
-                    `ft.${m.alias}_value`,
+                    `${m.alias}_value`,
                   );
                 const denominatorAggregation = denominatorAggregationType
                   ? this.getIntermediateAggregationFromFactMetricAggregationType(
                       denominatorAggregationType,
-                      `ft.${m.alias}_denominator`,
+                      `${m.alias}_denominator`,
                     )
                   : null;
                 return `
@@ -6452,12 +6524,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               `;
               })
               .join("\n")}
-          FROM __factTable ft
-          INNER JOIN ${params.unitsSourceTableFullName} us 
-            ON (us.${baseIdType} = ft.${baseIdType})
+          FROM __newMetricRows
           GROUP BY
-            ft.${baseIdType}
-            , ${this.castToDate("ft.timestamp")}
+            ${baseIdType}
+            , ${this.castToDate("timestamp")}
         )
        SELECT
           ${baseIdType}
@@ -6518,20 +6588,18 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             .map(
               (data) =>
                 // TODO getReaggregateMetricColumn?
-                `, ${this.getAggregateMetricColumn({
+                `, ${this.getReaggregateMetricColumn({
                   metric: data.metric,
                   useDenominator: false,
                   valueColumn: `umj.${data.metric.id}_value`,
-                  quantileColumn: `qm.${data.metric.id}_quantile`,
                 })} AS ${data.metric.id}_value
                 ${
                   data.ratioMetric
-                    ? `, ${this.getAggregateMetricColumn({
+                    ? `, ${this.getReaggregateMetricColumn({
                         metric: data.metric,
                         useDenominator: true,
                         valueColumn: `umj.${data.metric.id}_denominator_value`,
-                        quantileColumn: `qm.${data.metric.id}_quantile`,
-                      })} AS ${data.metric.id}_denominator`
+                      })} AS ${data.metric.id}_denominator_value`
                     : ""
                 }`,
             )
@@ -6558,7 +6626,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             -- TODO dimensions
             ${metricData // TODO coalesce????
               .map((data) => `, COALESCE(${data.metric.id}_value, 0) AS ${data.alias}_value ${
-                data.ratioMetric ? `, COALESCE(${data.metric.id}_denominator_value, 0) AS ${data.alias}_denominator_value` : ""
+                data.ratioMetric ? `, COALESCE(${data.metric.id}_denominator_value, 0) AS ${data.alias}_denominator` : ""
               }`)
               .join("\n")}
           FROM __experimentUnits u
