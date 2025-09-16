@@ -4136,12 +4136,12 @@
     teeny-request "^9.0.0"
     uuid "^8.0.0"
 
-"@growthbook/proxy-eval@^1.0.3":
-  version "1.0.3"
-  resolved "https://registry.npmjs.org/@growthbook/proxy-eval/-/proxy-eval-1.0.3.tgz"
-  integrity sha512-cZo8vXmixQITbEIQb1j+uLIAoFZROJ9MGgGHG6HgsrEXH0xiF90qcGHwrK6hzctf/Oj5f3uES3zUcUR36WsLpQ==
+"@growthbook/proxy-eval@^1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@growthbook/proxy-eval/-/proxy-eval-1.1.0.tgz#ef83ae4ff6f26f7d05a64d981bea5074ad705008"
+  integrity sha512-XYrvdyiCYke0oxUDLRh1BmulN+JZTgpnY2nmapHLao73oDPbVe8zepKTBlYuSgAwBABih0ok8LqUo2V7c58dAg==
   dependencies:
-    "@growthbook/growthbook" "^1.0.1"
+    "@growthbook/growthbook" "^1.6.1"
 
 "@grpc/grpc-js@^1.7.1":
   version "1.8.17"
