@@ -38,7 +38,8 @@ function SnapshotStatusSummary({
     : numFailed > 0
       ? "One or more queries failed"
       : snapshot.runStarted
-        ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
+        ? // TODO: using `snapshot` here is showing when the experiment updated which isn't accurate for dashboards without auto update
+          `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
         : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 

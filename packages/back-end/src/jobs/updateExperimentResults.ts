@@ -1,14 +1,5 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
-import { isEqual, uniqWith } from "lodash";
-import {
-  blockHasFieldOfType,
-  BlockSnapshotSettings,
-  getBlockAnalysisSettings,
-  getBlockSnapshotSettings,
-  snapshotSatisfiesBlock,
-} from "shared/enterprise";
-import { isString } from "shared/util";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -29,9 +20,6 @@ import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications"
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { ExperimentSnapshotAnalysisSettings } from "back-end/types/experiment-snapshot";
-import { findSnapshotsByIds } from "../models/ExperimentSnapshotModel";
-import { executeAndSaveQuery } from "../routers/saved-queries/saved-queries.controller";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -199,113 +187,6 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
-
-    // Also update dashboards associated with the experiment
-    const associatedDashboards =
-      await context.models.dashboards.findByExperiment(experiment.id, {
-        enableAutoUpdates: true,
-      });
-    for (const dashboard of associatedDashboards) {
-      // Note: this will break if any blocks in the dashboard are using results from a different experiment
-      const blocksWithSnapshots = dashboard.blocks.filter((block) =>
-        blockHasFieldOfType(block, "snapshotId", isString),
-      );
-      const blocksNeedingSnapshot = blocksWithSnapshots.filter(
-        (block) => !snapshotSatisfiesBlock(currentSnapshot, block),
-      );
-      const previousSnapshotIds = [
-        ...new Set(blocksNeedingSnapshot.map((block) => block.snapshotId)),
-      ];
-      const previousSnapshots = await findSnapshotsByIds(
-        context,
-        previousSnapshotIds,
-      );
-      const previousSnapshotMap = new Map(
-        previousSnapshots.map((snap) => [snap.id, snap]),
-      );
-
-      const snapshotAndAnalysisSettingPairs = blocksNeedingSnapshot.map<
-        [BlockSnapshotSettings, ExperimentSnapshotAnalysisSettings]
-      >((block) => {
-        const blockSnapshot = previousSnapshotMap.get(block.snapshotId);
-        if (!blockSnapshot || !blockSnapshot.analyses[0])
-          throw new Error(
-            "Error refreshing experiment, could not find snapshot",
-          );
-        return [
-          getBlockSnapshotSettings(block),
-          getBlockAnalysisSettings(block, blockSnapshot.analyses[0].settings),
-        ];
-      });
-
-      const uniqueSnapshotSettings = uniqWith<BlockSnapshotSettings>(
-        snapshotAndAnalysisSettingPairs.map(
-          ([snapshotSettings]) => snapshotSettings,
-        ),
-        isEqual,
-      );
-
-      for (const snapshotSettings of uniqueSnapshotSettings) {
-        const additionalAnalysisSettings =
-          uniqWith<ExperimentSnapshotAnalysisSettings>(
-            snapshotAndAnalysisSettingPairs
-              .filter(([targetSettings]) =>
-                isEqual(snapshotSettings, targetSettings),
-              )
-              .map(([_, analysisSettings]) => analysisSettings),
-            isEqual,
-          );
-
-        const analysisSettings = getDefaultExperimentAnalysisSettings(
-          experiment.statsEngine || scopedSettings.statsEngine.value,
-          experiment,
-          organization,
-          regressionAdjustmentEnabled,
-          snapshotSettings.dimensionId,
-        );
-
-        const queryRunner = await createSnapshot({
-          experiment,
-          context,
-          phaseIndex: experiment.phases.length - 1,
-          defaultAnalysisSettings: analysisSettings,
-          additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-            analysisSettings,
-          ).concat(additionalAnalysisSettings),
-          settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
-          metricMap,
-          factTableMap,
-          useCache: true,
-          type: "exploratory",
-          dashboardId: dashboard.id,
-          triggeredBy: "schedule",
-        });
-        await queryRunner.waitForResults();
-      }
-
-      const blocksWithSavedQueries = dashboard.blocks.filter((block) =>
-        blockHasFieldOfType(block, "savedQueryId", isString),
-      );
-
-      const savedQueries = await context.models.savedQueries.getByIds(
-        blocksWithSavedQueries.map(({ savedQueryId }) => savedQueryId),
-      );
-      await Promise.all(
-        savedQueries.map(async (savedQuery) => {
-          const savedQueryDataSource =
-            datasource.id === savedQuery.datasourceId
-              ? datasource
-              : await getDataSourceById(context, savedQuery.datasourceId);
-          if (savedQueryDataSource) {
-            await executeAndSaveQuery(
-              context,
-              savedQuery,
-              savedQueryDataSource,
-            );
-          }
-        }),
-      );
-    }
 
     logger.info(
       "Successfully Refreshed Results for experiment " + experimentId,

@@ -2758,7 +2758,6 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
-  dashboardId,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2769,7 +2768,6 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
-  dashboardId?: string;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentResultsQueryRunner;
@@ -2843,7 +2841,6 @@ export async function createExperimentSnapshot({
     metricMap,
     factTableMap,
     reweight,
-    dashboardId,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
   });

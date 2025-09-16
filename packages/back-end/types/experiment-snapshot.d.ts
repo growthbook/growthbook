@@ -137,7 +137,7 @@ export interface ExperimentSnapshotAnalysisSettings {
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
-export type SnapshotTriggeredBy = "schedule" | "manual";
+export type SnapshotTriggeredBy = "schedule" | "manual" | "dashboard";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
@@ -209,7 +209,6 @@ export interface ExperimentSnapshotInterface {
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
   report?: string;
-  dashboard?: string;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;

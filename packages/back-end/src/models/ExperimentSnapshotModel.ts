@@ -300,35 +300,38 @@ export async function updateSnapshot({
   }
 
   const updateDashboardWithSnapshot = async (dashboard: DashboardInterface) => {
+    let updatedBlock = false;
     const blocks = dashboard.blocks.map((block) => {
       if (
         !blockHasFieldOfType(block, "snapshotId", isString) ||
         !snapshotSatisfiesBlock(experimentSnapshotModel, block)
       )
         return block;
+      updatedBlock = true;
       return { ...block, snapshotId: experimentSnapshotModel.id };
     });
-    await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
-      blocks,
-    });
+    if (updatedBlock) {
+      await context.models.dashboards.dangerousUpdateBypassPermission(
+        dashboard,
+        {
+          blocks,
+        },
+      );
+    }
   };
 
-  if (experimentSnapshotModel.status === "success") {
-    if (experimentSnapshotModel.type === "standard") {
-      const dashboards = await context.models.dashboards.findByExperiment(
-        experimentSnapshotModel.experiment,
-        { enableAutoUpdates: true },
-      );
-      for (const dashboard of dashboards) {
-        await updateDashboardWithSnapshot(dashboard);
-      }
-    } else if (experimentSnapshotModel.dashboard) {
-      const dashboard = await context.models.dashboards.getById(
-        experimentSnapshotModel.dashboard!,
-      );
-      if (dashboard && dashboard.enableAutoUpdates) {
-        await updateDashboardWithSnapshot(dashboard);
-      }
+  if (
+    experimentSnapshotModel.status === "success" &&
+    // Only use main snapshots or those triggered specifically for dashboards
+    (experimentSnapshotModel.triggeredBy === "dashboard" ||
+      experimentSnapshotModel.type === "standard")
+  ) {
+    const dashboards = await context.models.dashboards.findByExperiment(
+      experimentSnapshotModel.experiment,
+      { enableAutoUpdates: true },
+    );
+    for (const dashboard of dashboards) {
+      await updateDashboardWithSnapshot(dashboard);
     }
   }
 }

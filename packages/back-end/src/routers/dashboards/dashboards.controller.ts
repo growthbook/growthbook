@@ -190,7 +190,6 @@ export async function refreshDashboardData(
     triggeredBy: "manual",
     // Should this be standard given that it's using standard settings? It would affect other dashboards and the main results tab if so
     type: "exploratory",
-    dashboardId: id,
   });
 
   // Copy the blocks of the dashboard to overwrite their snapshot IDs
@@ -226,7 +225,6 @@ export async function refreshDashboardData(
       useCache: false,
       triggeredBy: "manual",
       type: "exploratory",
-      dashboardId: id,
     });
 
     newBlocks.forEach((block) => {

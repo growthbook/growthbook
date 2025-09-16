@@ -265,6 +265,16 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       })}
       direction="column"
     >
+      {blockHasFieldOfType(block, "snapshotId", isString) && (
+        <>
+          <Text>
+            {block.snapshotId} : {snapshot?.runStarted?.toString()}
+          </Text>
+          <Text>
+            {snapshot?.type} / {snapshot?.triggeredBy}
+          </Text>
+        </>
+      )}
       {isEditing && !editingBlock && disableBlock === "none" && (
         <div
           style={{
