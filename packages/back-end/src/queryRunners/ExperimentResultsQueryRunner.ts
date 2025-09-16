@@ -232,6 +232,7 @@ export const startExperimentResultQueries = async (
   const useUnitsTable =
     (integration.getSourceProperties().supportsWritingTables &&
       settings.pipelineSettings?.allowWriting &&
+      settings.pipelineSettings?.mode === "ephemeral" &&
       !!settings.pipelineSettings?.writeDataset &&
       hasPipelineModeFeature) ??
     false;
