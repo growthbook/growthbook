@@ -170,6 +170,7 @@ export const EditDataSourcePipeline = ({
           <PipelineModeSelector
             value={form.watch("mode")}
             setValue={(value) => form.setValue("mode", value)}
+            dataSourceType={dataSource.type}
           />
         </Flex>
 
