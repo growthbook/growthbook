@@ -44,7 +44,6 @@ export type QueryType =
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshCreateMetricsSourceTable"
   | "experimentIncrementalRefreshInsertMetricsSourceData"
-  | "experimentIncrementalRefreshStatistics
   | "experimentIncrementalRefreshHealth";
 
 export interface QueryInterface {
