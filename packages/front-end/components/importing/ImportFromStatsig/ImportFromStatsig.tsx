@@ -223,6 +223,20 @@ export default function ImportFromStatsig() {
     return itemEnabled[category]?.[key] ?? true; // Default to enabled
   };
 
+  // Helper function to get the effective checkbox state (overridden by category state)
+  const getEffectiveCheckboxState = (
+    category: string,
+    index: number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    item: any,
+  ): boolean => {
+    const categoryKey = category as keyof typeof categoryEnabled;
+    if (!categoryEnabled[categoryKey]) {
+      return false; // Force unchecked when category is disabled
+    }
+    return isItemEnabled(category, index, item);
+  };
+
   // Helper function to toggle item enabled state
   const toggleItemEnabled = (
     category: string,
@@ -487,10 +501,7 @@ export default function ImportFromStatsig() {
               {data.status === "fetching" ? <LoadingSpinner /> : null}
             </h2>
             {data.environments ? (
-              <div
-                className="appbox mb-4"
-                style={{ opacity: !categoryEnabled.environments ? 0.75 : 1 }}
-              >
+              <div className="appbox mb-4">
                 <ImportHeader
                   name="Environments"
                   items={data.environments}
@@ -514,15 +525,11 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody
-                        style={{
-                          opacity: !categoryEnabled.environments ? 0.75 : 1,
-                        }}
-                      >
+                      <tbody>
                         {data.environments?.map((environment, i) => {
                           const entityId = `environment-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
-                          const itemEnabled = isItemEnabled(
+                          const effectiveEnabled = getEffectiveCheckboxState(
                             "environments",
                             i,
                             environment,
@@ -532,7 +539,7 @@ export default function ImportFromStatsig() {
                               <tr>
                                 <td>
                                   <Checkbox
-                                    value={itemEnabled}
+                                    value={effectiveEnabled}
                                     setValue={(enabled) =>
                                       toggleItemEnabled(
                                         "environments",
@@ -542,6 +549,8 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
+                                    disabled={!categoryEnabled.environments}
+                                    mt="2"
                                   />
                                 </td>
                                 <td>
@@ -575,10 +584,7 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.tags ? (
-              <div
-                className="appbox mb-4"
-                style={{ opacity: !categoryEnabled.tags ? 0.75 : 1 }}
-              >
+              <div className="appbox mb-4">
                 <ImportHeader
                   name="Tags"
                   items={data.tags}
@@ -599,23 +605,27 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody
-                        style={{ opacity: !categoryEnabled.tags ? 0.75 : 1 }}
-                      >
+                      <tbody>
                         {data.tags?.map((tag, i) => {
                           const entityId = `tag-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
-                          const itemEnabled = isItemEnabled("tags", i, tag);
+                          const effectiveEnabled = getEffectiveCheckboxState(
+                            "tags",
+                            i,
+                            tag,
+                          );
                           return (
                             <React.Fragment key={i}>
                               <tr>
                                 <td>
                                   <Checkbox
-                                    value={itemEnabled}
+                                    value={effectiveEnabled}
                                     setValue={(enabled) =>
                                       toggleItemEnabled("tags", i, tag, enabled)
                                     }
                                     size="sm"
+                                    disabled={!categoryEnabled.tags}
+                                    mt="2"
                                   />
                                 </td>
                                 <td>
@@ -645,10 +655,7 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.segments ? (
-              <div
-                className="appbox mb-4"
-                style={{ opacity: !categoryEnabled.segments ? 0.75 : 1 }}
-              >
+              <div className="appbox mb-4">
                 <ImportHeader
                   name="Segments → Saved Groups"
                   items={data.segments}
@@ -674,15 +681,11 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody
-                        style={{
-                          opacity: !categoryEnabled.segments ? 0.75 : 1,
-                        }}
-                      >
+                      <tbody>
                         {data.segments?.map((segment, i) => {
                           const entityId = `segment-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
-                          const itemEnabled = isItemEnabled(
+                          const effectiveEnabled = getEffectiveCheckboxState(
                             "segments",
                             i,
                             segment,
@@ -692,7 +695,7 @@ export default function ImportFromStatsig() {
                               <tr>
                                 <td>
                                   <Checkbox
-                                    value={itemEnabled}
+                                    value={effectiveEnabled}
                                     setValue={(enabled) =>
                                       toggleItemEnabled(
                                         "segments",
@@ -702,6 +705,8 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
+                                    disabled={!categoryEnabled.segments}
+                                    mt="2"
                                   />
                                 </td>
                                 <td>
@@ -739,10 +744,7 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.featureGates ? (
-              <div
-                className="appbox mb-4"
-                style={{ opacity: !categoryEnabled.featureGates ? 0.75 : 1 }}
-              >
+              <div className="appbox mb-4">
                 <ImportHeader
                   name="Feature Gates → Features"
                   items={data.featureGates}
@@ -767,15 +769,11 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody
-                        style={{
-                          opacity: !categoryEnabled.featureGates ? 0.75 : 1,
-                        }}
-                      >
+                      <tbody>
                         {data.featureGates?.map((gate, i) => {
                           const entityId = `featureGate-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
-                          const itemEnabled = isItemEnabled(
+                          const effectiveEnabled = getEffectiveCheckboxState(
                             "featureGates",
                             i,
                             gate,
@@ -785,7 +783,7 @@ export default function ImportFromStatsig() {
                               <tr>
                                 <td>
                                   <Checkbox
-                                    value={itemEnabled}
+                                    value={effectiveEnabled}
                                     setValue={(enabled) =>
                                       toggleItemEnabled(
                                         "featureGates",
@@ -795,6 +793,8 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
+                                    disabled={!categoryEnabled.featureGates}
+                                    mt="2"
                                   />
                                 </td>
                                 <td>
@@ -827,10 +827,7 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.dynamicConfigs ? (
-              <div
-                className="appbox mb-4"
-                style={{ opacity: !categoryEnabled.dynamicConfigs ? 0.75 : 1 }}
-              >
+              <div className="appbox mb-4">
                 <ImportHeader
                   name="Dynamic Configs → Features"
                   items={data.dynamicConfigs}
@@ -854,15 +851,11 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody
-                        style={{
-                          opacity: !categoryEnabled.dynamicConfigs ? 0.75 : 1,
-                        }}
-                      >
+                      <tbody>
                         {data.dynamicConfigs?.map((config, i) => {
                           const entityId = `dynamicConfig-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
-                          const itemEnabled = isItemEnabled(
+                          const effectiveEnabled = getEffectiveCheckboxState(
                             "dynamicConfigs",
                             i,
                             config,
@@ -872,7 +865,7 @@ export default function ImportFromStatsig() {
                               <tr>
                                 <td>
                                   <Checkbox
-                                    value={itemEnabled}
+                                    value={effectiveEnabled}
                                     setValue={(enabled) =>
                                       toggleItemEnabled(
                                         "dynamicConfigs",
@@ -882,6 +875,8 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
+                                    disabled={!categoryEnabled.dynamicConfigs}
+                                    mt="2"
                                   />
                                 </td>
                                 <td>
@@ -911,10 +906,7 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.experiments ? (
-              <div
-                className="appbox mb-4"
-                style={{ opacity: !categoryEnabled.experiments ? 0.75 : 1 }}
-              >
+              <div className="appbox mb-4">
                 <ImportHeader
                   name="Experiments"
                   items={data.experiments}
@@ -938,15 +930,11 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody
-                        style={{
-                          opacity: !categoryEnabled.experiments ? 0.75 : 1,
-                        }}
-                      >
+                      <tbody>
                         {data.experiments?.map((exp, i) => {
                           const entityId = `experiment-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
-                          const itemEnabled = isItemEnabled(
+                          const effectiveEnabled = getEffectiveCheckboxState(
                             "experiments",
                             i,
                             exp,
@@ -956,7 +944,7 @@ export default function ImportFromStatsig() {
                               <tr>
                                 <td>
                                   <Checkbox
-                                    value={itemEnabled}
+                                    value={effectiveEnabled}
                                     setValue={(enabled) =>
                                       toggleItemEnabled(
                                         "experiments",
@@ -966,6 +954,8 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
+                                    disabled={!categoryEnabled.experiments}
+                                    mt="2"
                                   />
                                 </td>
                                 <td>
@@ -995,10 +985,7 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.metrics ? (
-              <div
-                className="appbox mb-4"
-                style={{ opacity: !categoryEnabled.metrics ? 0.75 : 1 }}
-              >
+              <div className="appbox mb-4">
                 <ImportHeader
                   name="Metrics"
                   beta={true}
@@ -1024,13 +1011,11 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody
-                        style={{ opacity: !categoryEnabled.metrics ? 0.75 : 1 }}
-                      >
+                      <tbody>
                         {data.metrics?.map((metric, i) => {
                           const entityId = `metric-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
-                          const itemEnabled = isItemEnabled(
+                          const effectiveEnabled = getEffectiveCheckboxState(
                             "metrics",
                             i,
                             metric,
@@ -1040,7 +1025,7 @@ export default function ImportFromStatsig() {
                               <tr>
                                 <td>
                                   <Checkbox
-                                    value={itemEnabled}
+                                    value={effectiveEnabled}
                                     setValue={(enabled) =>
                                       toggleItemEnabled(
                                         "metrics",
@@ -1050,6 +1035,8 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
+                                    disabled={!categoryEnabled.metrics}
+                                    mt="2"
                                   />
                                 </td>
                                 <td>
