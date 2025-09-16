@@ -390,7 +390,7 @@ export default function DashboardsTab({
                                   onClick={() => setShowEditModal(true)}
                                 >
                                   <Text weight="regular">
-                                    Edit Dashboard Details
+                                    Edit Dashboard Settings
                                   </Text>
                                 </Button>
                               )}
