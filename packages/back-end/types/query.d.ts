@@ -19,6 +19,7 @@ export type QueryStatistics = {
   bytesBilled?: number;
   warehouseCachedResult?: boolean;
   partitionsUsed?: boolean;
+  physicalWrittenBytes?: number;
 };
 
 export type QueryType =
