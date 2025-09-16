@@ -323,7 +323,7 @@ export async function updateSnapshot({
   if (
     experimentSnapshotModel.status === "success" &&
     // Only use main snapshots or those triggered specifically for dashboards
-    (experimentSnapshotModel.triggeredBy === "dashboard" ||
+    (experimentSnapshotModel.triggeredBy === "update-dashboards" ||
       experimentSnapshotModel.type === "standard")
   ) {
     const dashboards = await context.models.dashboards.findByExperiment(
