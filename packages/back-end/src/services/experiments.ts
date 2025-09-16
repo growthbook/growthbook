@@ -3471,9 +3471,10 @@ export async function updateExperimentDashboards({
   const savedQueries = await context.models.savedQueries.getByIds(
     blocksWithSavedQueries.map(({ savedQueryId }) => savedQueryId),
   );
-  const datasources = await getDataSourcesByIds(context, [
+  const datasourceIds = [
     ...new Set(savedQueries.map(({ datasourceId }) => datasourceId)),
-  ]);
+  ];
+  const datasources = await getDataSourcesByIds(context, datasourceIds);
   const datasourceMap = new Map(datasources.map((ds) => [ds.id, ds]));
   await Promise.all(
     savedQueries.map(async (savedQuery) => {
