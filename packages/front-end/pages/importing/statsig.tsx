@@ -8,7 +8,7 @@ import track from "@/services/track";
 
 const ImportFromStatsigPage: NextPage = () => {
   const growthbook = useGrowthBook<AppFeatures>();
-  const isStatsigImportEnabled = growthbook?.isOn("import-from-s");
+  const isStatsigImportEnabled = growthbook?.isOn("import-from-statsig");
 
   useEffect(() => {
     track("Import from Statsig clicked", { service: "statsig" });
@@ -32,7 +32,13 @@ const ImportFromStatsigPage: NextPage = () => {
                   Our Statsig importer is in beta and we are providing white
                   glove support for this feature.
                 </p>
-                <p>Please contact support@growthbook.io learn more.</p>
+                <p>
+                  Please contact{" "}
+                  <a href="mailto:support@growthbook.io">
+                    support@growthbook.io
+                  </a>{" "}
+                  to learn more.
+                </p>
               </div>
             </div>
           </div>
