@@ -4,6 +4,7 @@ import {
   getAllMetricIdsFromExperiment,
   isFactMetric,
 } from "shared/experiments";
+import chunk from "lodash/chunk";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -15,9 +16,18 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { InsertMetricSourceDataQueryParams, SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { FactMetricInterface } from "back-end/types/fact-table";
+import { IncrementalRefreshInterface, IncrementalRefreshMetricSourceInterface } from "back-end/src/validators/incremental-refresh";
+import {
+  getFactMetricGroup,
+  getFactMetricGroups,
+  MAX_METRICS_PER_QUERY,
+  SnapshotResult,
+} from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,
   QueryMap,
@@ -25,11 +35,6 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { getFactMetricGroup, getFactMetricGroups, MAX_METRICS_PER_QUERY, SnapshotResult } from "./ExperimentResultsQueryRunner";
-import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
-import { FactMetricInterface } from "back-end/types/fact-table";
-import { IncrementalRefreshInterface } from "back-end/src/validators/incremental-refresh";
-import chunk from "lodash/chunk";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "growthbook_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "growthbook_metrics";
@@ -41,7 +46,7 @@ export type ExperimentIncrementalRefreshQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   queryParentId: string;
-  recreateUnitsTable: boolean;
+  fullRefresh: boolean;
 };
 
 // TODO: add metrics to existing metric source to force recreating the whole thing.
@@ -56,21 +61,26 @@ export interface MetricSourceGroups {
 }
 
 function getIncrementalRefreshMetricSources(
-  metrics: FactMetricInterface[], 
-  existingMetricSources: Pick<IncrementalRefreshInterface, "metricSources">
+  metrics: FactMetricInterface[],
+  existingMetricSources: IncrementalRefreshInterface["metricSources"],
 ): {
   metrics: FactMetricInterface[];
-  groupId: string
+  groupId: string;
 }[] {
   // TODO skip partial data gets ignored
   // TODO error if no efficient percentiles (shouldn't be possible)
-  const groups: Record<string, {
-    alreadyExists: boolean;
-    metrics: FactMetricInterface[];
-  }> = {};
+  const groups: Record<
+    string,
+    {
+      alreadyExists: boolean;
+      metrics: FactMetricInterface[];
+    }
+  > = {};
 
   metrics.forEach((metric) => {
-    const existingGroup = existingMetricSources.metricSources.find((group) => group.metricIds.includes(metric.id));
+    const existingGroup = existingMetricSources.find((group) =>
+      group.metricIds.includes(metric.id),
+    );
 
     if (existingGroup) {
       groups[existingGroup.groupId] = groups[existingGroup.groupId] || {
@@ -86,6 +96,7 @@ function getIncrementalRefreshMetricSources(
       alreadyExists: false,
       metrics: [],
     };
+    groups[group].metrics.push(metric);
   });
 
   const finalGroups: {
@@ -93,7 +104,6 @@ function getIncrementalRefreshMetricSources(
     metrics: FactMetricInterface[];
   }[] = [];
   Object.entries(groups).forEach(([groupId, group]) => {
-
     if (group.alreadyExists) {
       finalGroups.push({
         groupId,
@@ -107,12 +117,11 @@ function getIncrementalRefreshMetricSources(
     chunks.forEach((chunk, i) => {
       const randomId = Math.random().toString(36).substring(2, 15);
       finalGroups.push({
-        groupId: groupId + '_' + randomId + i,
+        groupId: groupId + "_" + randomId + i,
         metrics: chunk,
       });
     });
-
-  })
+  });
 
   return finalGroups;
 }
@@ -188,9 +197,12 @@ export const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
+  const randomId = Math.random().toString(36).substring(2, 10);
+  const unitsTempTableFullName = `${unitsTableFullName}_temp_${randomId}`;
+
   // queries to run
   let createUnitsTableQuery: QueryPointer | null = null;
-  if (params.recreateUnitsTable) {
+  if (params.fullRefresh) {
     const dropOldUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}_old`,
       query: integration.getDropOldIncrementalUnitsQuery({
@@ -216,9 +228,6 @@ export const startExperimentIncrementalRefreshQueries = async (
         partitionSettings: {
           type: "timestamp",
         },
-        // TODO fix this
-        segment: null,
-        factTableMap: new Map(),
       }),
       dependencies: [dropOldUnitsTableQuery.query],
       run: (query, setExternalId) =>
@@ -233,28 +242,30 @@ export const startExperimentIncrementalRefreshQueries = async (
     await context.models.incrementalRefresh.getByExperimentId(
       snapshotSettings.experimentId,
     );
-  const lastMaxTimestamp = params.recreateUnitsTable
+  const lastMaxTimestamp = params.fullRefresh
     ? snapshotSettings.startDate
     : (incrementalRefreshModel?.lastScannedTimestamp ??
       snapshotSettings.startDate);
 
-  const dropTempUnitsTableQuery = await startQuery({
-    name: `drop_temp_${queryParentId}`,
-    query: integration.getDropTempIncrementalUnitsQuery({
-      unitsTableFullName: unitsTableFullName,
-    }),
-    dependencies: [],
-    run: (query, setExternalId) =>
-      integration.runDropTableQuery(query, setExternalId),
-    process: (rows) => rows,
-    queryType: "experimentIncrementalRefreshDropTempUnitsTable",
-  });
-  queries.push(dropTempUnitsTableQuery);
+  // we can skip this if we have a unique temp table each time
+  // const dropTempUnitsTableQuery = await startQuery({
+  //   name: `drop_temp_${queryParentId}`,
+  //   query: integration.getDropTempIncrementalUnitsQuery({
+  //     unitsTableFullName: unitsTableFullName,
+  //   }),
+  //   dependencies: [],
+  //   run: (query, setExternalId) =>
+  //     integration.runDropTableQuery(query, setExternalId),
+  //   process: (rows) => rows,
+  //   queryType: "experimentIncrementalRefreshDropTempUnitsTable",
+  // });
+  // queries.push(dropTempUnitsTableQuery);
 
   const updateUnitsTableQuery = await startQuery({
     name: `update_${queryParentId}`,
     query: integration.getUpdateExperimentIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
+      unitsTempTableFullName: unitsTempTableFullName,
       settings: snapshotSettings,
       activationMetric: activationMetric,
       dimensions: [], // TODO experiment dimensions
@@ -263,12 +274,9 @@ export const startExperimentIncrementalRefreshQueries = async (
       lastMaxTimestamp: lastMaxTimestamp,
       partitionSettings:
         integration.datasource.settings.pipelineSettings?.partitionSettings,
-      // TODO: Fix this
-      segment: null,
-      factTableMap: new Map(),
     }),
     dependencies: [
-      dropTempUnitsTableQuery.query,
+      //dropTempUnitsTableQuery.query,
       ...(createUnitsTableQuery ? [createUnitsTableQuery.query] : []),
     ],
     run: (query, setExternalId) =>
@@ -295,6 +303,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     name: `alter_${queryParentId}`,
     query: integration.getAlterNewIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
+      unitsTempTableFullName: unitsTempTableFullName,
     }),
     dependencies: [dropUnitsTableQuery.query],
     run: (query, setExternalId) =>
@@ -331,28 +340,42 @@ export const startExperimentIncrementalRefreshQueries = async (
   queries.push(maxTimestampQuery);
 
   // Metric Queries
-  const existingSources = incrementalRefreshModel?.metricSources;
+  // pretend no existing sources if full refresh
+  let existingSources = incrementalRefreshModel?.metricSources;
+
+  if (params.fullRefresh) {
+    existingSources = [];
+  }
+
   const metricSourceGroups = getIncrementalRefreshMetricSources(
     selectedMetrics.filter((m) => isFactMetric(m)), // TODO cleaner way to only allow fact metrics
     existingSources ?? [],
   );
+  let runningSourceData = existingSources ?? [];
 
   for (const group of metricSourceGroups) {
     // TODO: figure out if we need to drop and recreate
-    const existingSource = existingSources?.find((s) => s.groupId === group.groupId);
+    const existingSource = existingSources?.find(
+      (s) => s.groupId === group.groupId,
+    );
 
-    const metricSourceTableFullName: string | undefined = existingSource?.tableFullName ?? (integration.generateTablePath &&
-    integration.generateTablePath(
-      `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}`,
-      settings.pipelineSettings?.writeDataset,
-      settings.pipelineSettings?.writeDatabase,
-      true,
-    ));
+    const metricSourceTableFullName: string | undefined =
+      existingSource?.tableFullName ??
+      (integration.generateTablePath &&
+        integration.generateTablePath(
+          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}`,
+          settings.pipelineSettings?.writeDataset,
+          settings.pipelineSettings?.writeDatabase,
+          true,
+        ));
+
     if (!metricSourceTableFullName) {
       // TODO: validate earlier
-      throw new Error("Unable to generate table; table path generator not specified.");
+      throw new Error(
+        "Unable to generate table; table path generator not specified.",
+      );
     }
-    
+
     let createMetricsSourceQuery: QueryPointer | null = null;
     if (!existingSource) {
       createMetricsSourceQuery = await startQuery({
@@ -375,9 +398,8 @@ export const startExperimentIncrementalRefreshQueries = async (
       queries.push(createMetricsSourceQuery);
     }
 
-    const insertMetricsSourceDataQuery = await startQuery({
-      name: `insert_metrics_source_data_${group.groupId}`,
-      query: integration.getInsertMetricSourceDataQuery({
+    const metricParams: InsertMetricSourceDataQueryParams = 
+      {
         settings: snapshotSettings,
         activationMetric: activationMetric,
         dimensions: [], // TODO experiment dimensions
@@ -388,9 +410,16 @@ export const startExperimentIncrementalRefreshQueries = async (
         partitionSettings: {
           type: "timestamp",
         },
-        lastMaxTimestamp: existingSource?.maxTimestamp,
-      }),
-      dependencies: createMetricsSourceQuery ? [createMetricsSourceQuery.query] : [alterUnitsTableQuery.query],
+        lastMaxTimestamp: existingSource?.maxTimestamp ?? undefined,
+      };
+    
+    // TODO get N of rows inserted for customer?
+    const insertMetricsSourceDataQuery = await startQuery({
+      name: `insert_metrics_source_data_${group.groupId}`,
+      query: integration.getInsertMetricSourceDataQuery(metricParams),
+      dependencies: createMetricsSourceQuery
+        ? [createMetricsSourceQuery.query]
+        : [alterUnitsTableQuery.query],
       run: (query, setExternalId) =>
         integration.runIncrementalWithNoOutputQuery(query, setExternalId),
       process: (rows) => rows,
@@ -400,6 +429,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
     // TODO Statistics Queries
 
+
     const maxTimestampMetricsSourceQuery = await startQuery({
       name: `max_timestamp_metrics_source_${group.groupId}`,
       query: integration.getMaxTimestampMetricSourceQuery({
@@ -408,16 +438,23 @@ export const startExperimentIncrementalRefreshQueries = async (
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
-      process: (rows) => {
+      process: async (rows) => {
         // TODO: is this the right place to do this
         // TODO can we type max_timestamp better?
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
         if (maxTimestamp) {
-          // TODO just update max timestamp for the one group
+          // Not a great way to manage the updating of the source data, could do this at different points
+          // as per in-person conversation
+          const updatedSource: IncrementalRefreshMetricSourceInterface = existingSource ? { ...existingSource, maxTimestamp } : {
+             groupId: group.groupId, maxTimestamp, metricIds: group.metrics.map((m) => m.id), tableFullName: metricSourceTableFullName };
+          if (!existingSource) {
+            runningSourceData = runningSourceData.concat(updatedSource);
+          } else {
+            runningSourceData = runningSourceData.map((s) => s.groupId === group.groupId ? updatedSource : s);
+          }
           context.models.incrementalRefresh
             .upsertByExperimentId(snapshotSettings.experimentId, {
-              metricSources: existingSources ?? [],
-              lastScannedTimestamp: maxTimestamp,
+              metricSources: runningSourceData,
             })
             .catch((e) => context.logger.error(e));
         }
@@ -426,6 +463,17 @@ export const startExperimentIncrementalRefreshQueries = async (
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
     });
     queries.push(maxTimestampMetricsSourceQuery);
+
+    const statisticsQuery = await startQuery({
+      name: `statistics_${group.groupId}`,
+      query: integration.getIncrementalRefreshStatisticsQuery(metricParams),
+      dependencies: [insertMetricsSourceDataQuery.query],
+      run: (query, setExternalId) =>
+        integration.runIncrementalRefreshStatisticsQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentIncrementalRefreshStatistics",
+    });
+    queries.push(statisticsQuery);
   }
 
   // TODO Health Queries

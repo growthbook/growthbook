@@ -50,7 +50,17 @@ export type DataType =
   | "hll";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
-export type FactMetricAggregationType = "sum" | "count" | "countDistinctHLL" | "max" | "eventQuantile" | "unitQuantileIgnoreZeros" | "unitQuantile" | "binomial" | "binomialAggregateFilter" | "userCountAggregateFilter";
+export type FactMetricAggregationType =
+  | "sum"
+  | "count"
+  | "countDistinctHLL"
+  | "max"
+  | "eventQuantile"
+  | "unitQuantileIgnoreZeros"
+  | "unitQuantile"
+  | "binomial"
+  | "binomialAggregateFilter"
+  | "userCountAggregateFilter";
 
 export type FactMetricData = {
   alias: string;
@@ -77,6 +87,20 @@ export type FactMetricData = {
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
+};
+
+export type FactMetricQuantileData = {
+  alias: string;
+  valueCol: string;
+  outputCol: string;
+  metricQuantileSettings: MetricQuantileSettings;
+}
+
+export type FactMetricPercentileData = {
+  valueCol: string;
+  outputCol: string;
+  percentile: number;
+  ignoreZeros: boolean;
 };
 
 export type BanditMetricData = Pick<
@@ -219,6 +243,7 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
 export interface UpdateExperimentIncrementalUnitsQueryParams
   extends CreateExperimentIncrementalUnitsQueryParams {
   lastMaxTimestamp: Date;
+  unitsTempTableFullName: string;
 }
 
 export interface DropOldIncrementalUnitsQueryParams {
@@ -231,6 +256,7 @@ export interface DropTempIncrementalUnitsQueryParams {
 
 export interface AlterNewIncrementalUnitsQueryParams {
   unitsTableFullName: string;
+  unitsTempTableFullName: string;
 }
 
 export interface MaxTimestampIncrementalUnitsQueryParams {
@@ -264,6 +290,8 @@ export interface InsertMetricSourceDataQueryParams {
 export interface DropMetricSourceTableQueryParams {
   metricSourceTableFullName: string;
 }
+
+export interface IncrementalRefreshStatisticsQueryParams extends InsertMetricSourceDataQueryParams {}
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
@@ -510,10 +538,6 @@ export type MaxTimestampQueryResponseRow = {
   max_timestamp: string;
 };
 
-export type IncrementalRefreshStatisticsQueryResponseRow = {
-  [key: string]: number | string;
-};
-
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
@@ -538,10 +562,9 @@ export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
 export type IncrementalWithNoOutputQueryResponse = QueryResponse;
-export type MaxTimestampQueryResponse =
-  QueryResponse<MaxTimestampQueryResponseRow[]>;
-export type IncrementalRefreshStatisticsQueryResponse =
-  QueryResponse<IncrementalRefreshStatisticsQueryResponseRow[]>;
+export type MaxTimestampQueryResponse = QueryResponse<
+  MaxTimestampQueryResponseRow[]
+>;
 
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
@@ -763,9 +786,9 @@ export interface SourceIntegrationInterface {
   getDropMetricSourceTableQuery(
     params: DropMetricSourceTableQueryParams,
   ): string;
-  // getIncrementalRefreshStatisticsQuery(
-  //   params: IncrementalRefreshStatisticsQueryParams,
-  // ): string;
+  getIncrementalRefreshStatisticsQuery(
+    params: IncrementalRefreshStatisticsQueryParams,
+  ): string;
   runIncrementalWithNoOutputQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -786,10 +809,10 @@ export interface SourceIntegrationInterface {
     query: string,
     setExternalId: ExternalIdCallback,
   ): Promise<IncrementalWithNoOutputQueryResponse>;
-  // runIncrementalRefreshStatisticsQuery(
-  //   query: string,
-  //   setExternalId: ExternalIdCallback,
-  // ): Promise<IncrementalRefreshStatisticsQueryResponse>;
+  runIncrementalRefreshStatisticsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentFactMetricsQueryResponse>;
   // Pipeline validation helpers
   getPipelineValidationCreateTableQuery?(params: {
     tableFullName: string;

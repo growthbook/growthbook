@@ -39,7 +39,13 @@ export type QueryType =
   | "experimentIncrementalRefreshCreateUnitsTable"
   | "experimentIncrementalRefreshUpdateUnitsTable"
   | "experimentIncrementalRefreshAlterUnitsTable"
-  | "experimentIncrementalRefreshMaxTimestampUnitsTable";
+  | "experimentIncrementalRefreshMaxTimestampUnitsTable"
+  | "experimentIncrementalRefreshMaxTimestampMetricsSource"
+  | "experimentIncrementalRefreshStatistics"
+  | "experimentIncrementalRefreshCreateMetricsSourceTable"
+  | "experimentIncrementalRefreshInsertMetricsSourceData"
+  | "experimentIncrementalRefreshStatistics
+  | "experimentIncrementalRefreshHealth";
 
 export interface QueryInterface {
   id: string;

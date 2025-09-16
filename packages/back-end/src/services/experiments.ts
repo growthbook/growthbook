@@ -1178,7 +1178,7 @@ export async function createSnapshot({
       // experiment ID used for table name
       queryParentId: experiment.id,
       factTableMap,
-      recreateUnitsTable: !useCache, // TODO have different upstream setting govern whether to refresh entire pipeline
+      fullRefresh: !useCache, // TODO have different upstream setting govern whether to refresh entire pipeline
     });
     return queryRunner;
   }

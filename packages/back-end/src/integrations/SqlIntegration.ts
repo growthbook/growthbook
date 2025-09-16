@@ -105,6 +105,10 @@ import {
   PartitionSettings,
   FactMetricAggregationType,
   MaxTimestampQueryResponse,
+  ExperimentFactMetricsQueryResponseRows,
+  IncrementalRefreshStatisticsQueryParams,
+  FactMetricQuantileData,
+  FactMetricPercentileData,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -1213,12 +1217,10 @@ export default abstract class SqlIntegration
   ): Promise<ExperimentFactMetricsQueryResponse> {
     return this.runExperimentFactMetricsQuery(query, setExternalId);
   }
-  async runExperimentFactMetricsQuery(
-    query: string,
-    setExternalId: ExternalIdCallback,
-  ): Promise<ExperimentFactMetricsQueryResponse> {
-    const { rows, statistics } = await this.runQuery(query, setExternalId);
 
+  processExperimentFactMetricsQueryRows(
+    rows: Record<string, any>[],
+  ): ExperimentFactMetricsQueryResponseRows {
     const floatCols = [
       "main_sum",
       "main_sum_squares",
@@ -1240,8 +1242,7 @@ export default abstract class SqlIntegration
       "denominator_post_denominator_pre_sum_product",
     ];
 
-    return {
-      rows: rows.map((row) => {
+    return rows.map((row) => {
         let metricData: {
           [key: string]: number | string;
         } = {};
@@ -1277,10 +1278,21 @@ export default abstract class SqlIntegration
           count: parseInt(row.users) || 0,
           ...metricData,
         };
-      }),
+      });
+  }
+
+  async runExperimentFactMetricsQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentFactMetricsQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query, setExternalId);
+
+    return {
+      rows: this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
     };
   }
+
   async runPopulationMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -2550,7 +2562,7 @@ export default abstract class SqlIntegration
   getFactMetricQuantileData(
     metricData: FactMetricData[],
     quantileType: MetricQuantileSettings["type"],
-  ) {
+  ): FactMetricQuantileData[] {
     const quantileData: {
       alias: string;
       valueCol: string;
@@ -2692,12 +2704,7 @@ export default abstract class SqlIntegration
       );
     }
 
-    const percentileData: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-    }[] = [];
+    const percentileData: FactMetricPercentileData[] = [];
     metricData
       .filter((m) => m.isPercentileCapped)
       .forEach((m) => {
@@ -2986,7 +2993,47 @@ export default abstract class SqlIntegration
             })
           : `
       -- One row per variation/dimension with aggregations
-      SELECT
+      ${this.getExperimentFactMetricStatisticsCTE({
+        dimensionCols,
+        metricData,
+        eventQuantileData,
+        regressionAdjustedMetrics,
+        percentileData,
+        baseIdType,
+        joinedMetricTableName: "__userMetricAgg",
+        eventQuantileTableName: "__eventQuantileMetric",
+        cupedMetricTableName: "__userCovariateMetric",
+        capValueTableName: "__capValue",
+  })}
+      `}`,
+      this.getFormatDialect(),
+    );
+  }
+
+  getExperimentFactMetricStatisticsCTE({
+    dimensionCols,
+    metricData,
+    eventQuantileData,
+    regressionAdjustedMetrics,
+    percentileData,
+    baseIdType,
+    joinedMetricTableName,
+    eventQuantileTableName,
+    cupedMetricTableName,
+    capValueTableName,
+  }: {
+    dimensionCols: DimensionColumnData[],
+    metricData: FactMetricData[],
+    eventQuantileData: FactMetricQuantileData[],
+    regressionAdjustedMetrics: FactMetricData[],
+    percentileData: FactMetricPercentileData[],
+    baseIdType: string,
+    joinedMetricTableName: string,
+    eventQuantileTableName: string,
+    cupedMetricTableName: string,
+    capValueTableName: string,
+  }): string {
+    return `SELECT
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
         , COUNT(*) AS users
@@ -3082,10 +3129,10 @@ export default abstract class SqlIntegration
           })
           .join("\n")}
       FROM
-        __userMetricAgg m
+        ${joinedMetricTableName} m
         ${
           eventQuantileData.length
-            ? `LEFT JOIN __eventQuantileMetric qm ON (
+            ? `LEFT JOIN ${eventQuantileTableName} qm ON (
           qm.variation = m.variation 
           ${dimensionCols
             .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
@@ -3096,19 +3143,16 @@ export default abstract class SqlIntegration
       ${
         regressionAdjustedMetrics.length > 0
           ? `
-          LEFT JOIN __userCovariateMetric c
+          LEFT JOIN ${cupedMetricTableName} c
           ON (c.${baseIdType} = m.${baseIdType})
           `
           : ""
       }
-      ${percentileData.length > 0 ? `CROSS JOIN __capValue cap` : ""}
+      ${percentileData.length > 0 ? `CROSS JOIN ${capValueTableName} cap` : ""}
       GROUP BY
         m.variation
         ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
-    `
-      }`,
-      this.getFormatDialect(),
-    );
+    `;
   }
 
   getDimensionCol(dimension: Dimension): DimensionColumnData {
@@ -4698,6 +4742,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     metrics,
     factTableMap,
     baseIdType,
+    castIdToString,
     idJoinMap,
     startDate,
     endDate,
@@ -4705,6 +4750,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     addFiltersToWhere,
     exclusiveStartDateFilter,
     additionalStartDateFilter,
+    
   }: {
     metrics: FactMetricInterface[];
     factTableMap: FactTableMap;
@@ -4721,6 +4767,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // new data from after the last seen max timestamp
     // and to hit the right set of date partitions
     additionalStartDateFilter?: string;
+    castIdToString?: boolean;
   }) {
     const factTable = factTableMap.get(
       metrics[0]?.numerator?.factTableId || "",
@@ -4849,7 +4896,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return compileSqlTemplate(
       `-- Fact Table (${factTable.name})
       SELECT
-        ${userIdCol} as ${baseIdType},
+        ${castIdToString ? this.castToString(userIdCol) : userIdCol} as ${baseIdType},
         ${timestampDateTimeColumn} as timestamp,
         ${metricCols.join(",\n")}
       FROM(
@@ -5247,7 +5294,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // if no user filter and either binomial or just counting distinct users
     // we only need to know if there was 1 value and max it
-    if (!hasAggregateFilter && (isBinomialMetric(metric) || column === "$$distinctUsers")) {
+    if (
+      !hasAggregateFilter &&
+      (isBinomialMetric(metric) || column === "$$distinctUsers")
+    ) {
       return "binomial";
     }
 
@@ -5266,36 +5316,42 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
 
     // For event quantiles, just count the number of rows that are less than or equal to the quantile
-    if (metric.metricType === "quantile" && metric.quantileSettings?.type === "event") {
+    if (
+      metric.metricType === "quantile" &&
+      metric.quantileSettings?.type === "event"
+    ) {
       return "eventQuantile";
     }
 
     // for unit quantiles, just sum the values, coalescing to 0 if ignore 0s is disabled
-    if (        metric.metricType === "quantile" &&
-      metric.quantileSettings?.type === "unit") {
-        if (metric.quantileSettings?.ignoreZeros) {
+    if (
+      metric.metricType === "quantile" &&
+      metric.quantileSettings?.type === "unit"
+    ) {
+      if (metric.quantileSettings?.ignoreZeros) {
         return "unitQuantileIgnoreZeros";
-        }
-        return "unitQuantile";
       }
-    
-      // if counting distinct but not a special count or distinct users
-      // we need to use the hll aggregation for approximating count distinct
-      if (
-        !columnRef?.column.startsWith("$$") &&
-        columnRef?.aggregation === "count distinct"
-      ) {
-        return "countDistinctHLL";
-        }
-    
-        if (!columnRef?.column.startsWith("$$") &&
-        columnRef?.aggregation === "max") {
-        return "max";
-        }
-        return "sum";
-    
+      return "unitQuantile";
+    }
+
+    // if counting distinct but not a special count or distinct users
+    // we need to use the hll aggregation for approximating count distinct
+    if (
+      !columnRef?.column.startsWith("$$") &&
+      columnRef?.aggregation === "count distinct"
+    ) {
+      return "countDistinctHLL";
+    }
+
+    if (
+      !columnRef?.column.startsWith("$$") &&
+      columnRef?.aggregation === "max"
+    ) {
+      return "max";
+    }
+    return "sum";
   }
-      
+
   private getAggregateMetricColumn({
     metric,
     useDenominator,
@@ -5321,16 +5377,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         metric.quantileSettings?.type === "unit";
 
       // TODO test all of these, specifically non-SUM aggregate filters
-      if (
-        aggregationType === "binomial"
-      ) {
+      if (aggregationType === "binomial") {
         return `COALESCE(MAX(${valueColumn}), 0)`;
       } else if (aggregationType === "count") {
         const aggColumn = `COUNT(${valueColumn})`;
         return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-      } else if (
-        aggregationType === "eventQuantile"
-      ) {
+      } else if (aggregationType === "eventQuantile") {
         return `SUM(${this.ifElse(
           `${valueColumn} <= ${quantileColumn}`,
           "1",
@@ -5340,17 +5392,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         aggregationType === "unitQuantileIgnoreZeros" // TODO: huh?
       ) {
         return `SUM(${valueColumn})`;
-      } else if (
-        aggregationType === "countDistinctHLL"
-      ) {
+      } else if (aggregationType === "countDistinctHLL") {
         if (willReaggregate) {
           return this.hllAggregate(valueColumn);
         }
         const aggColumn = this.hllCardinality(this.hllAggregate(valueColumn));
         return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-      } else if (
-        aggregationType === "max"
-      ) {
+      } else if (aggregationType === "max") {
         const aggColumn = `COALESCE(MAX(${valueColumn}), 0)`;
         return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
       } else {
@@ -5620,7 +5668,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   // TODO: customize per engine, or break it into `getStringDataType` methods to override just one
   // although I think the full mapping is file
 
-  getDataTypeFromFactMetricAggregationType(aggregationType: FactMetricAggregationType): DataType {
+  getDataTypeFromFactMetricAggregationType(
+    aggregationType: FactMetricAggregationType,
+  ): DataType {
     switch (aggregationType) {
       case "countDistinctHLL":
         return "hll";
@@ -5647,7 +5697,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
   getIntermediateAggregationFromFactMetricAggregationType(
     aggregationType: FactMetricAggregationType,
-    valueColumn: string
+    valueColumn: string,
   ): string {
     switch (aggregationType) {
       case "countDistinctHLL":
@@ -5661,7 +5711,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       case "unitQuantileIgnoreZeros":
         return `SUM(${valueColumn})`; // TODO: ??
       case "eventQuantile":
-        throw new Error("Event quantiles are not supported for intermediate aggregation");
+        throw new Error(
+          "Event quantiles are not supported for intermediate aggregation",
+        );
       case "binomial":
         return `MAX(COALESCE(${valueColumn}, 0))`;
       case "count":
@@ -5800,7 +5852,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     maxHoursToConvert: number;
     activationMetric: ExperimentMetricInterface | null;
   } {
-
     const { settings } = params;
     const metrics = cloneDeep(params.metrics);
     metrics.forEach((m) => {
@@ -5882,7 +5933,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       raMetricSettings,
       maxHoursToConvert,
       activationMetric,
-    }
+    };
   }
 
   getCreateExperimentIncrementalUnitsQuery(
@@ -6026,7 +6077,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // TODO: partitioning for quick max timestamp retrieval
     return format(
       `
-      CREATE TABLE ${params.unitsTableFullName}_tmp AS (
+      CREATE TABLE ${params.unitsTempTableFullName} AS (
         WITH ${idJoinSQL}
         __existingUnits AS (
           SELECT 
@@ -6165,7 +6216,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     return format(
       `
-      ALTER TABLE ${params.unitsTableFullName}_tmp RENAME TO ${params.unitsTableFullName}
+      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${params.unitsTableFullName}
       `,
       this.getFormatDialect(),
     );
@@ -6187,20 +6238,21 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     sql: string,
     setExternalId: ExternalIdCallback,
   ): Promise<MaxTimestampQueryResponse> {
-
     const { rows, statistics } = await this.runQuery(sql, setExternalId);
 
     const row = rows?.[0];
 
     if (!row) {
       // TODO?
-      throw new Error("No row returned from max timestamp incremental units query");
+      throw new Error(
+        "No row returned from max timestamp incremental units query",
+      );
     }
 
     return {
-      rows: [{max_timestamp: row.max_timestamp}],
+      rows: [{ max_timestamp: row.max_timestamp }],
       statistics,
-    }
+    };
   }
 
   async runIncrementalWithNoOutputQuery(
@@ -6258,27 +6310,40 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // TODO validate metrics match the metrics table and validate settings
 
-    const sortedMetrics = params.metrics.sort((a, b) => a.id.localeCompare(b.id)).map(
-      (m) => ({
+    const sortedMetrics = params.metrics
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((m) => ({
         id: m.id,
-        numeratorDataType: this.getDataTypeFromFactMetricAggregationType(this.getFactMetricAggregationType({ metric: m })),
-        ...(isRatioMetric(m) ? {
-          denominatorDataType: this.getDataTypeFromFactMetricAggregationType(this.getFactMetricAggregationType({ metric: m, useDenominator: true })),
-        } : {}),
-      })
-    );
+        numeratorDataType: this.getDataTypeFromFactMetricAggregationType(
+          this.getFactMetricAggregationType({ metric: m }),
+        ),
+        ...(isRatioMetric(m)
+          ? {
+              denominatorDataType:
+                this.getDataTypeFromFactMetricAggregationType(
+                  this.getFactMetricAggregationType({
+                    metric: m,
+                    useDenominator: true,
+                  }),
+                ),
+            }
+          : {}),
+      }));
 
+      // TODO: Actually maybe we want to save all of these columns in the metadata and compute them elsewhere
     return format(
       `
     CREATE TABLE ${params.metricSourceTableFullName}
     ${this.createUnitsTableOptions()}
     (
       ${baseIdType} ${this.getSQLDataType("string")}
-      ${sortedMetrics.map(
-        (m) => `, ${m.id}_value ${this.getSQLDataType(m.numeratorDataType)}
+      ${sortedMetrics
+        .map(
+          (m) => `, ${m.id}_value ${this.getSQLDataType(m.numeratorDataType)}
         ${m.denominatorDataType ? `, ${m.id}_denominator_value ${this.getSQLDataType(m.denominatorDataType)}` : ""}
         `,
-      ).join("\n")}
+        )
+        .join("\n")}
       , refresh_timestamp ${this.getSQLDataType("timestamp")}
       , max_timestamp ${this.getSQLDataType("timestamp")}
       , metric_date ${this.getSQLDataType("date")}
@@ -6292,11 +6357,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   getCurrentTimestamp(): string {
     return `current_timestamp`;
   }
-  
+
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
   ): string {
-
     const { metrics } = params;
     const exposureQuery = this.getExposureQuery(
       params.settings.exposureQueryId || "",
@@ -6312,7 +6376,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       percentileData,
       eventQuantileData,
       regressionAdjustedMetrics,
-      metricStart ,
+      metricStart,
       metricEnd,
       raMetricSettings,
       maxHoursToConvert,
@@ -6320,10 +6384,20 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     } = this.parseExperimentFactMetricsParams(params);
 
     // get the later of startDate or the incremental refresh date
-    const hasBindingLastMaxTimestamp = params.lastMaxTimestamp && params.lastMaxTimestamp > metricStart;
+    const hasBindingLastMaxTimestamp =
+      params.lastMaxTimestamp && params.lastMaxTimestamp > metricStart;
     const exclusiveStartDateFilter = hasBindingLastMaxTimestamp;
-    const startDate = params.lastMaxTimestamp && hasBindingLastMaxTimestamp ? params.lastMaxTimestamp : metricStart;
-    const additionalStartDateFilter = hasBindingLastMaxTimestamp ? this.getPartitionWhereClause(params.partitionSettings, startDate, "onOrAfter") : "";
+    const startDate =
+      params.lastMaxTimestamp && hasBindingLastMaxTimestamp
+        ? params.lastMaxTimestamp
+        : metricStart;
+    const additionalStartDateFilter = hasBindingLastMaxTimestamp
+      ? this.getPartitionWhereClause(
+          params.partitionSettings,
+          startDate,
+          "onOrAfter",
+        )
+      : "";
 
     // TODO: Quantiles not available in incremental refresh
     // TODO: maybe unit quantiles are?
@@ -6346,22 +6420,38 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           addFiltersToWhere: true,
           additionalStartDateFilter,
           exclusiveStartDateFilter,
+          castIdToString: true,
         })})
         , __newDailyValues AS (
           SELECT
-            ft.${baseIdType}
+            ft.${baseIdType} AS ${baseIdType}
             , ${this.castToDate("ft.timestamp")} AS metric_date
             , MAX(ft.timestamp) AS max_timestamp
-            , ${metricData.map((m) => {
-              const aggregationType = this.getFactMetricAggregationType({ metric: m.metric });
-              const denominatorAggregationType = m.metric.denominator ? this.getFactMetricAggregationType({ metric: m.metric }) : null;
-              const intermediateAggregation = this.getIntermediateAggregationFromFactMetricAggregationType(aggregationType, `ft.${m.alias}_value`);
-              const denominatorAggregation = denominatorAggregationType ? this.getIntermediateAggregationFromFactMetricAggregationType(denominatorAggregationType, `ft.${m.alias}_denominator`) : null;
-              return `
+            ${metricData
+              .map((m) => {
+                const aggregationType = this.getFactMetricAggregationType({
+                  metric: m.metric,
+                });
+                const denominatorAggregationType = m.metric.denominator
+                  ? this.getFactMetricAggregationType({ metric: m.metric })
+                  : null;
+                const intermediateAggregation =
+                  this.getIntermediateAggregationFromFactMetricAggregationType(
+                    aggregationType,
+                    `ft.${m.alias}_value`,
+                  );
+                const denominatorAggregation = denominatorAggregationType
+                  ? this.getIntermediateAggregationFromFactMetricAggregationType(
+                      denominatorAggregationType,
+                      `ft.${m.alias}_denominator`,
+                    )
+                  : null;
+                return `
                 , ${intermediateAggregation} AS ${m.id}_value
                 ${denominatorAggregation ? `, ${denominatorAggregation} AS ${m.id}_denominator_value` : ""}
               `;
-            }).join("\n")}
+              })
+              .join("\n")}
           FROM __factTable ft
           INNER JOIN ${params.unitsSourceTableFullName} us 
             ON (us.${baseIdType} = ft.${baseIdType})
@@ -6371,13 +6461,121 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         )
        SELECT
           ${baseIdType}
-          , ${metricData.map((m) =>
-            `, ${m.id}_value${m.metric.denominator ? `\n, ${m.id}_denominator_value` : ""}`).join("\n")}
+          ${metricData
+            .map(
+              (m) =>
+                `, ${m.id}_value${m.metric.denominator ? `\n, ${m.id}_denominator_value` : ""}`,
+            )
+            .join("\n")}
           , ${this.getCurrentTimestamp()} AS refresh_timestamp
           , MAX(max_timestamp) OVER () AS max_timestamp
           , metric_date
         FROM __newDailyValues
 )
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+
+  getIncrementalRefreshStatisticsQuery(
+    params: IncrementalRefreshStatisticsQueryParams,
+  ): string {
+    const exposureQuery = this.getExposureQuery(
+      params.settings.exposureQueryId || "",
+      undefined,
+    );
+    const baseIdType = exposureQuery.userIdType;
+
+    const {
+      metricData,
+      percentileData,
+      eventQuantileData,
+      regressionAdjustedMetrics,
+      metricStart,
+      metricEnd,
+      raMetricSettings,
+      maxHoursToConvert,
+      activationMetric,
+    } = this.parseExperimentFactMetricsParams(params);
+
+    // TODO: Validate with existing columns (by using metadata?)
+
+    // TODO quantiles
+    // TODO Cuped
+    return format(
+      `
+      WITH __experimentUnits AS (
+        SELECT * FROM ${params.unitsSourceTableFullName}
+      )
+      , __metricSourceData AS (
+        SELECT * FROM ${params.metricSourceTableFullName}
+      )
+      , __metricDataAggregated AS (
+        SELECT
+          ${baseIdType}
+          ${metricData
+            .map(
+              (data) =>
+                // TODO getReaggregateMetricColumn?
+                `, ${this.getAggregateMetricColumn({
+                  metric: data.metric,
+                  useDenominator: false,
+                  valueColumn: `umj.${data.metric.id}_value`,
+                  quantileColumn: `qm.${data.metric.id}_quantile`,
+                })} AS ${data.metric.id}_value
+                ${
+                  data.ratioMetric
+                    ? `, ${this.getAggregateMetricColumn({
+                        metric: data.metric,
+                        useDenominator: true,
+                        valueColumn: `umj.${data.metric.id}_denominator_value`,
+                        quantileColumn: `qm.${data.metric.id}_quantile`,
+                      })} AS ${data.metric.id}_denominator`
+                    : ""
+                }`,
+            )
+            .join("\n")}
+        FROM __metricSourceData umj
+        GROUP BY
+          ${baseIdType}
+      )
+      ${
+       // TODO capping
+        // percentileData.length > 0
+        //   ? `
+        // , __capValue AS (
+        //     ${this.percentileCapSelectClause(percentileData, "__userMetricAgg")}
+        // )
+        // `
+        //   : ""
+        ""
+      }
+      , __joinedData AS (
+          SELECT
+            u.${baseIdType}
+            , u.variation
+            -- TODO dimensions
+            ${metricData // TODO coalesce????
+              .map((data) => `, COALESCE(${data.metric.id}_value, 0) AS ${data.alias}_value ${
+                data.ratioMetric ? `, COALESCE(${data.metric.id}_denominator_value, 0) AS ${data.alias}_denominator_value` : ""
+              }`)
+              .join("\n")}
+          FROM __experimentUnits u
+          LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
+      )
+      ${this.getExperimentFactMetricStatisticsCTE({
+        dimensionCols: [], // TODO dimensions
+        metricData,
+        eventQuantileData : [], // TODO quantiles
+        regressionAdjustedMetrics: [], // TODO regression adjusted metrics
+        percentileData: [], // TODO percentiles
+        baseIdType,
+        joinedMetricTableName: "__joinedData",
+        eventQuantileTableName: "__eventQuantileMetric",
+        cupedMetricTableName: "__userCovariateMetric",
+        capValueTableName: "__capValue",
+      })}
       `,
       this.getFormatDialect(),
     );
@@ -6418,11 +6616,16 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return results;
   }
 
-  // async runIncrementalRefreshStatisticsQuery(
-  //   sql: string,
-  //   setExternalId: ExternalIdCallback,
-  // ): Promise<IncrementalRefreshStatisticsQueryResponse> {
-  //   const results = await this.runQuery(sql, setExternalId);
-  //   return results;
-  // }
+  async runIncrementalRefreshStatisticsQuery(
+    sql: string,
+    setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentFactMetricsQueryResponse> {
+    // TODO type safety that this query and the experiment fact metrics query
+    // return the same columns
+    const {rows, statistics} = await this.runQuery(sql, setExternalId);
+    return {
+      rows: this.processExperimentFactMetricsQueryRows(rows),
+      statistics: statistics,
+    };
+  }
 }

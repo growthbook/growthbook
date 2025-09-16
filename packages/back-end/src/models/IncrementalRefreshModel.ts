@@ -31,16 +31,20 @@ export class IncrementalRefreshModel extends BaseClass {
   }
   public async upsertByExperimentId(
     experimentId: string,
-    data: Pick<
-      IncrementalRefreshInterface,
-      "unitsTableFullName" | "lastScannedTimestamp" | "metricSources"
-    >,
+    // -- TODO better typing
+    data: Partial<IncrementalRefreshInterface>,
   ) {
     const existing = await this._findOne({ experimentId });
     if (existing) {
       return this.update(existing, data);
     }
-    return this.create({ experimentId, ...data });
+    return this.create({
+      experimentId,
+      unitsTableFullName: null,
+      lastScannedTimestamp: null,
+      metricSources: [],
+      ...data,
+    });
   }
   protected canRead(_doc: IncrementalRefreshInterface) {
     return true;
