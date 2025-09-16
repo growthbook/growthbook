@@ -1830,13 +1830,13 @@ export default abstract class SqlIntegration
   ): string {
     return format(
       `
-    CREATE OR REPLACE TABLE ${unitsTableFullName}
+    CREATE TABLE ${unitsTableFullName}
     ${this.createUnitsTableOptions()}
     AS (
       WITH
         ${cteSql}
       SELECT * FROM __experimentUnits
-    );
+    )
     `,
       this.getFormatDialect(),
     );

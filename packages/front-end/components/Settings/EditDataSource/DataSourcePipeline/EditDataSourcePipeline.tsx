@@ -87,7 +87,7 @@ export const EditDataSourcePipeline = ({
       partitionSettings: initialPipelineSettings?.partitionSettings,
       includedExperimentIds: initialPipelineSettings?.includedExperimentIds,
       applyToAllExperiments:
-        initialPipelineSettings?.includedExperimentIds !== undefined,
+        initialPipelineSettings?.includedExperimentIds === undefined,
     },
   });
 
