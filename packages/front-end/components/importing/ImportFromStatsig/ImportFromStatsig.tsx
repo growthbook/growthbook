@@ -7,11 +7,14 @@ import { ProjectInterface } from "back-end/types/project";
 import {
   buildImportedData,
   runImport,
+  BuildImportedDataOptions,
+  RunImportOptions,
 } from "@/services/importing/statsig/statsig-importing";
 import { ImportStatus, ImportData } from "@/services/importing/statsig/types";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/components/Button";
+import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -73,10 +76,14 @@ function ImportHeader({
   name,
   items,
   beta,
+  categoryEnabled,
+  onCategoryToggle,
 }: {
   name: string;
   items: { status: ImportStatus }[];
   beta?: boolean;
+  categoryEnabled: boolean;
+  onCategoryToggle: (enabled: boolean) => void;
 }) {
   const countsByStatus = items.reduce(
     (acc, item) => {
@@ -90,12 +97,18 @@ function ImportHeader({
     <div className="bg-light p-3 border-bottom">
       <div className="row">
         <div className="col-auto" style={{ minWidth: 300 }}>
-          <h3 className="mb-0">
-            {name}
+          <div className="d-flex align-items-center">
+            <Checkbox
+              value={categoryEnabled}
+              setValue={onCategoryToggle}
+              label={name}
+              size="sm"
+              containerClassName="mr-2"
+            />
             {beta ? (
               <span className="ml-1 badge badge-warning badge-pill">Beta</span>
             ) : null}
-          </h3>
+          </div>
         </div>
         <div className="col-auto mr-4">
           <strong>{items.length}</strong> total
@@ -135,6 +148,7 @@ export default function ImportFromStatsig() {
   const [data, setData] = useState<ImportData>({
     status: "init",
   });
+  const dataStr = JSON.stringify(data);
   const [featuresMap, setFeaturesMap] = useState<Map<
     string,
     FeatureInterface
@@ -147,6 +161,22 @@ export default function ImportFromStatsig() {
     "",
   );
 
+  // Category-level checkbox states
+  const [categoryEnabled, setCategoryEnabled] = useState({
+    environments: true,
+    tags: true,
+    segments: true,
+    featureGates: true,
+    dynamicConfigs: true,
+    experiments: true,
+    metrics: false,
+  });
+
+  // Item-level checkbox states (all enabled by default)
+  const [itemEnabled, setItemEnabled] = useState<{
+    [category: string]: { [key: string]: boolean };
+  }>({});
+
   const toggleAccordion = (id: string) => {
     setExpandedAccordions((prev) => {
       const newSet = new Set(prev);
@@ -158,6 +188,134 @@ export default function ImportFromStatsig() {
       return newSet;
     });
   };
+
+  // Helper function to get item key for checkbox state
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getItemKey = (category: string, index: number, item: any): string => {
+    switch (category) {
+      case "environments":
+        return `env-${item.environment?.name || index}`;
+      case "tags":
+        return `tag-${item.tag?.name || item.tag?.id || index}`;
+      case "segments":
+        return `segment-${item.segment?.name || item.segment?.id || index}`;
+      case "featureGates":
+        return `gate-${item.featureGate?.id || index}`;
+      case "dynamicConfigs":
+        return `config-${item.dynamicConfig?.id || index}`;
+      case "experiments":
+        return `exp-${item.experiment?.name || item.experiment?.id || index}`;
+      case "metrics":
+        return `metric-${item.metric?.name || item.metric?.id || index}`;
+      default:
+        return `${category}-${index}`;
+    }
+  };
+
+  // Helper function to check if an item is enabled
+  const isItemEnabled = (
+    category: string,
+    index: number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    item: any,
+  ): boolean => {
+    const key = getItemKey(category, index, item);
+    return itemEnabled[category]?.[key] ?? true; // Default to enabled
+  };
+
+  // Helper function to toggle item enabled state
+  const toggleItemEnabled = (
+    category: string,
+    index: number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    item: any,
+    enabled: boolean,
+  ) => {
+    const key = getItemKey(category, index, item);
+    console.log(`Toggling ${category}[${index}] (${key}) to ${enabled}`);
+    setItemEnabled((prev) => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [key]: enabled,
+      },
+    }));
+  };
+
+  // Initialize item checkbox states when data changes
+  React.useEffect(
+    () => {
+      if (data.status === "ready") {
+        const newItemEnabled: {
+          [category: string]: { [key: string]: boolean };
+        } = {};
+
+        if (data.environments) {
+          newItemEnabled.environments = {};
+          data.environments.forEach((item, index) => {
+            const key = getItemKey("environments", index, item);
+            newItemEnabled.environments[key] =
+              itemEnabled.environments?.[key] ?? true;
+          });
+        }
+
+        if (data.tags) {
+          newItemEnabled.tags = {};
+          data.tags.forEach((item, index) => {
+            const key = getItemKey("tags", index, item);
+            newItemEnabled.tags[key] = itemEnabled.tags?.[key] ?? true;
+          });
+        }
+
+        if (data.segments) {
+          newItemEnabled.segments = {};
+          data.segments.forEach((item, index) => {
+            const key = getItemKey("segments", index, item);
+            newItemEnabled.segments[key] = itemEnabled.segments?.[key] ?? true;
+          });
+        }
+
+        if (data.featureGates) {
+          newItemEnabled.featureGates = {};
+          data.featureGates.forEach((item, index) => {
+            const key = getItemKey("featureGates", index, item);
+            newItemEnabled.featureGates[key] =
+              itemEnabled.featureGates?.[key] ?? true;
+          });
+        }
+
+        if (data.dynamicConfigs) {
+          newItemEnabled.dynamicConfigs = {};
+          data.dynamicConfigs.forEach((item, index) => {
+            const key = getItemKey("dynamicConfigs", index, item);
+            newItemEnabled.dynamicConfigs[key] =
+              itemEnabled.dynamicConfigs?.[key] ?? true;
+          });
+        }
+
+        if (data.experiments) {
+          newItemEnabled.experiments = {};
+          data.experiments.forEach((item, index) => {
+            const key = getItemKey("experiments", index, item);
+            newItemEnabled.experiments[key] =
+              itemEnabled.experiments?.[key] ?? true;
+          });
+        }
+
+        if (data.metrics) {
+          newItemEnabled.metrics = {};
+          data.metrics.forEach((item, index) => {
+            const key = getItemKey("metrics", index, item);
+            newItemEnabled.metrics[key] = itemEnabled.metrics?.[key] ?? true;
+          });
+        }
+
+        setItemEnabled(newItemEnabled);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dataStr],
+  );
 
   const { refreshOrganization } = useUser();
   const { apiCall } = useAuth();
@@ -220,10 +378,6 @@ export default function ImportFromStatsig() {
   return (
     <div>
       <h1>Statsig Importer</h1>
-      <p>
-        Import your existing projects, environments, and feature flags from the
-        StatSig API.
-      </p>
       <div className="appbox p-3">
         <div className="row">
           <div className="col">
@@ -267,18 +421,17 @@ export default function ImportFromStatsig() {
                 });
 
                 try {
-                  const featuresMap = await buildImportedData(
-                    token,
+                  const buildOptions: BuildImportedDataOptions = {
+                    apiKey: token,
                     intervalCap,
                     features,
                     existingEnvironments,
                     existingSavedGroups,
                     existingTags,
                     existingExperiments,
-                    attributeSchema,
-                    apiCall,
-                    (d) => setData(d),
-                  );
+                    callback: (d) => setData(d),
+                  };
+                  const featuresMap = await buildImportedData(buildOptions);
                   // Store featuresMap for use in runImport
                   setFeaturesMap(featuresMap);
                 } catch (e) {
@@ -302,14 +455,17 @@ export default function ImportFromStatsig() {
                   return;
                 }
                 const projectId = await getOrCreateProject(projectName);
-                await runImport(
+                const runOptions: RunImportOptions = {
                   data,
-                  attributeSchema,
+                  existingAttributeSchema: attributeSchema,
                   apiCall,
-                  (d) => setData(d),
+                  callback: (d) => setData(d),
                   featuresMap,
-                  projectId,
-                );
+                  project: projectId,
+                  categoryEnabled,
+                  itemEnabled,
+                };
+                await runImport(runOptions);
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();
@@ -331,26 +487,63 @@ export default function ImportFromStatsig() {
               {data.status === "fetching" ? <LoadingSpinner /> : null}
             </h2>
             {data.environments ? (
-              <div className="appbox mb-4">
-                <ImportHeader name="Environments" items={data.environments} />
+              <div
+                className="appbox mb-4"
+                style={{ opacity: !categoryEnabled.environments ? 0.75 : 1 }}
+              >
+                <ImportHeader
+                  name="Environments"
+                  items={data.environments}
+                  categoryEnabled={categoryEnabled.environments}
+                  onCategoryToggle={(enabled) =>
+                    setCategoryEnabled((prev) => ({
+                      ...prev,
+                      environments: enabled,
+                    }))
+                  }
+                />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
+                          <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
                           <th>Name</th>
                           <th></th>
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody
+                        style={{
+                          opacity: !categoryEnabled.environments ? 0.75 : 1,
+                        }}
+                      >
                         {data.environments?.map((environment, i) => {
                           const entityId = `environment-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
+                          const itemEnabled = isItemEnabled(
+                            "environments",
+                            i,
+                            environment,
+                          );
                           return (
                             <React.Fragment key={i}>
                               <tr>
+                                <td>
+                                  <Checkbox
+                                    value={itemEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "environments",
+                                        i,
+                                        environment,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                  />
+                                </td>
                                 <td>
                                   <ImportStatusDisplay data={environment} />
                                 </td>
@@ -382,26 +575,49 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.tags ? (
-              <div className="appbox mb-4">
-                <ImportHeader name="Tags" items={data.tags} />
+              <div
+                className="appbox mb-4"
+                style={{ opacity: !categoryEnabled.tags ? 0.75 : 1 }}
+              >
+                <ImportHeader
+                  name="Tags"
+                  items={data.tags}
+                  categoryEnabled={categoryEnabled.tags}
+                  onCategoryToggle={(enabled) =>
+                    setCategoryEnabled((prev) => ({ ...prev, tags: enabled }))
+                  }
+                />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
+                          <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
                           <th>Tag</th>
                           <th>Description</th>
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody
+                        style={{ opacity: !categoryEnabled.tags ? 0.75 : 1 }}
+                      >
                         {data.tags?.map((tag, i) => {
                           const entityId = `tag-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
+                          const itemEnabled = isItemEnabled("tags", i, tag);
                           return (
                             <React.Fragment key={i}>
                               <tr>
+                                <td>
+                                  <Checkbox
+                                    value={itemEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled("tags", i, tag, enabled)
+                                    }
+                                    size="sm"
+                                  />
+                                </td>
                                 <td>
                                   <ImportStatusDisplay data={tag} />
                                 </td>
@@ -429,16 +645,27 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.segments ? (
-              <div className="appbox mb-4">
+              <div
+                className="appbox mb-4"
+                style={{ opacity: !categoryEnabled.segments ? 0.75 : 1 }}
+              >
                 <ImportHeader
                   name="Segments → Saved Groups"
                   items={data.segments}
+                  categoryEnabled={categoryEnabled.segments}
+                  onCategoryToggle={(enabled) =>
+                    setCategoryEnabled((prev) => ({
+                      ...prev,
+                      segments: enabled,
+                    }))
+                  }
                 />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
+                          <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
                           <th>Name</th>
                           <th>Type</th>
@@ -447,13 +674,36 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody
+                        style={{
+                          opacity: !categoryEnabled.segments ? 0.75 : 1,
+                        }}
+                      >
                         {data.segments?.map((segment, i) => {
                           const entityId = `segment-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
+                          const itemEnabled = isItemEnabled(
+                            "segments",
+                            i,
+                            segment,
+                          );
                           return (
                             <React.Fragment key={i}>
                               <tr>
+                                <td>
+                                  <Checkbox
+                                    value={itemEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "segments",
+                                        i,
+                                        segment,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                  />
+                                </td>
                                 <td>
                                   <ImportStatusDisplay data={segment} />
                                 </td>
@@ -489,16 +739,27 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.featureGates ? (
-              <div className="appbox mb-4">
+              <div
+                className="appbox mb-4"
+                style={{ opacity: !categoryEnabled.featureGates ? 0.75 : 1 }}
+              >
                 <ImportHeader
                   name="Feature Gates → Features"
                   items={data.featureGates}
+                  categoryEnabled={categoryEnabled.featureGates}
+                  onCategoryToggle={(enabled) =>
+                    setCategoryEnabled((prev) => ({
+                      ...prev,
+                      featureGates: enabled,
+                    }))
+                  }
                 />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
+                          <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
                           <th>ID</th>
                           <th>Description</th>
@@ -506,13 +767,36 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody
+                        style={{
+                          opacity: !categoryEnabled.featureGates ? 0.75 : 1,
+                        }}
+                      >
                         {data.featureGates?.map((gate, i) => {
                           const entityId = `featureGate-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
+                          const itemEnabled = isItemEnabled(
+                            "featureGates",
+                            i,
+                            gate,
+                          );
                           return (
                             <React.Fragment key={i}>
                               <tr>
+                                <td>
+                                  <Checkbox
+                                    value={itemEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "featureGates",
+                                        i,
+                                        gate,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                  />
+                                </td>
                                 <td>
                                   <ImportStatusDisplay data={gate} />
                                 </td>
@@ -543,29 +827,63 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.dynamicConfigs ? (
-              <div className="appbox mb-4">
+              <div
+                className="appbox mb-4"
+                style={{ opacity: !categoryEnabled.dynamicConfigs ? 0.75 : 1 }}
+              >
                 <ImportHeader
                   name="Dynamic Configs → Features"
                   items={data.dynamicConfigs}
+                  categoryEnabled={categoryEnabled.dynamicConfigs}
+                  onCategoryToggle={(enabled) =>
+                    setCategoryEnabled((prev) => ({
+                      ...prev,
+                      dynamicConfigs: enabled,
+                    }))
+                  }
                 />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
+                          <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
                           <th>ID</th>
                           <th>Description</th>
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody
+                        style={{
+                          opacity: !categoryEnabled.dynamicConfigs ? 0.75 : 1,
+                        }}
+                      >
                         {data.dynamicConfigs?.map((config, i) => {
                           const entityId = `dynamicConfig-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
+                          const itemEnabled = isItemEnabled(
+                            "dynamicConfigs",
+                            i,
+                            config,
+                          );
                           return (
                             <React.Fragment key={i}>
                               <tr>
+                                <td>
+                                  <Checkbox
+                                    value={itemEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "dynamicConfigs",
+                                        i,
+                                        config,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                  />
+                                </td>
                                 <td>
                                   <ImportStatusDisplay data={config} />
                                 </td>
@@ -593,26 +911,63 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.experiments ? (
-              <div className="appbox mb-4">
-                <ImportHeader name="Experiments" items={data.experiments} />
+              <div
+                className="appbox mb-4"
+                style={{ opacity: !categoryEnabled.experiments ? 0.75 : 1 }}
+              >
+                <ImportHeader
+                  name="Experiments"
+                  items={data.experiments}
+                  categoryEnabled={categoryEnabled.experiments}
+                  onCategoryToggle={(enabled) =>
+                    setCategoryEnabled((prev) => ({
+                      ...prev,
+                      experiments: enabled,
+                    }))
+                  }
+                />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
+                          <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
                           <th>Name</th>
                           <th>Experiment Status</th>
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody
+                        style={{
+                          opacity: !categoryEnabled.experiments ? 0.75 : 1,
+                        }}
+                      >
                         {data.experiments?.map((exp, i) => {
                           const entityId = `experiment-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
+                          const itemEnabled = isItemEnabled(
+                            "experiments",
+                            i,
+                            exp,
+                          );
                           return (
                             <React.Fragment key={i}>
                               <tr>
+                                <td>
+                                  <Checkbox
+                                    value={itemEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "experiments",
+                                        i,
+                                        exp,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                  />
+                                </td>
                                 <td>
                                   <ImportStatusDisplay data={exp} />
                                 </td>
@@ -640,13 +995,28 @@ export default function ImportFromStatsig() {
             ) : null}
 
             {data.metrics ? (
-              <div className="appbox mb-4">
-                <ImportHeader name="Metrics" beta={true} items={data.metrics} />
+              <div
+                className="appbox mb-4"
+                style={{ opacity: !categoryEnabled.metrics ? 0.75 : 1 }}
+              >
+                <ImportHeader
+                  name="Metrics"
+                  beta={true}
+                  items={data.metrics}
+                  categoryEnabled={categoryEnabled.metrics}
+                  onCategoryToggle={(enabled) =>
+                    setCategoryEnabled((prev) => ({
+                      ...prev,
+                      metrics: enabled,
+                    }))
+                  }
+                />
                 <div className="p-3">
                   <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">
                       <thead>
                         <tr>
+                          <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
                           <th>Name</th>
                           <th>Type</th>
@@ -654,13 +1024,34 @@ export default function ImportFromStatsig() {
                           <th style={{ width: 40 }}></th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody
+                        style={{ opacity: !categoryEnabled.metrics ? 0.75 : 1 }}
+                      >
                         {data.metrics?.map((metric, i) => {
                           const entityId = `metric-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
+                          const itemEnabled = isItemEnabled(
+                            "metrics",
+                            i,
+                            metric,
+                          );
                           return (
                             <React.Fragment key={i}>
                               <tr>
+                                <td>
+                                  <Checkbox
+                                    value={itemEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "metrics",
+                                        i,
+                                        metric,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                  />
+                                </td>
                                 <td>
                                   <ImportStatusDisplay data={metric} />
                                 </td>

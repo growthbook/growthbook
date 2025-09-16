@@ -21,6 +21,54 @@ import { transformStatsigFeatureGateToGB } from "./transformers/featureTransform
 import { transformStatsigExperimentToGB } from "./transformers/experimentTransformer";
 import { transformStatsigExperimentToFeature } from "./transformers/experimentRefFeatureTransformer";
 
+// Options interfaces for function parameters
+export interface BuildImportedDataOptions {
+  apiKey: string;
+  intervalCap: number;
+  features: FeatureInterface[];
+  existingEnvironments: Set<string>;
+  existingSavedGroups: Set<string>;
+  existingTags: Set<string>;
+  existingExperiments: Set<string>;
+  callback: (data: ImportData) => void;
+}
+
+export interface RunImportOptions {
+  data: ImportData;
+  existingAttributeSchema: Array<{
+    property: string;
+    datatype:
+      | "string"
+      | "number"
+      | "boolean"
+      | "enum"
+      | "secureString"
+      | "string[]"
+      | "number[]"
+      | "secureString[]";
+    archived?: boolean;
+  }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiCall: (path: string, options?: any) => Promise<any>;
+  callback: (data: ImportData) => void;
+  featuresMap: Map<string, FeatureInterface>;
+  project?: string;
+  datasource?: string;
+  exposureQueryId?: string;
+  categoryEnabled?: {
+    environments: boolean;
+    tags: boolean;
+    segments: boolean;
+    featureGates: boolean;
+    dynamicConfigs: boolean;
+    experiments: boolean;
+    metrics: boolean;
+  };
+  itemEnabled?: {
+    [category: string]: { [key: string]: boolean };
+  };
+}
+
 /**
  * Make a direct request to Statsig Console API
  */
@@ -296,29 +344,18 @@ async function processSegmentsWithIdLists(
  * Build imported data from Statsig entities
  */
 export async function buildImportedData(
-  apiKey: string,
-  intervalCap: number,
-  features: FeatureInterface[],
-  existingEnvironments: Set<string>,
-  existingSavedGroups: Set<string>,
-  existingTags: Set<string>,
-  existingExperiments: Set<string>,
-  existingAttributeSchema: Array<{
-    property: string;
-    datatype:
-      | "string"
-      | "number"
-      | "boolean"
-      | "enum"
-      | "secureString"
-      | "string[]"
-      | "number[]"
-      | "secureString[]";
-    archived?: boolean;
-  }>,
-  apiCall: (path: string, options?: unknown) => Promise<unknown>,
-  callback: (data: ImportData) => void,
+  options: BuildImportedDataOptions,
 ): Promise<Map<string, FeatureInterface>> {
+  const {
+    apiKey,
+    intervalCap,
+    features,
+    existingEnvironments,
+    existingSavedGroups,
+    existingTags,
+    existingExperiments,
+    callback,
+  } = options;
   const data: ImportData = {
     status: "fetching",
     environments: [],
@@ -468,31 +505,21 @@ export async function buildImportedData(
 /**
  * Run the import process
  */
-export async function runImport(
-  data: ImportData,
-  existingAttributeSchema: Array<{
-    property: string;
-    datatype:
-      | "string"
-      | "number"
-      | "boolean"
-      | "enum"
-      | "secureString"
-      | "string[]"
-      | "number[]"
-      | "secureString[]";
-    archived?: boolean;
-  }>,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall: (path: string, options?: any) => Promise<any>,
-  callback: (data: ImportData) => void,
-  featuresMap: Map<string, FeatureInterface>,
-  project?: string,
-  datasource?: string,
-  exposureQueryId?: string,
-) {
+export async function runImport(options: RunImportOptions) {
+  const {
+    data: originalData,
+    existingAttributeSchema,
+    apiCall,
+    callback,
+    featuresMap,
+    project,
+    datasource,
+    exposureQueryId,
+    categoryEnabled,
+    itemEnabled,
+  } = options;
   // We will mutate this shared object and sync it back to the component periodically
-  data = cloneDeep(data);
+  const data = cloneDeep(originalData);
 
   // Debounced updater
   let timer: number | null = null;
@@ -507,14 +534,69 @@ export async function runImport(
   data.status = "importing";
   update();
 
+  // Helper function to check if an item should be imported
+  const shouldImportItem = (
+    category: string,
+    index: number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    item: any,
+  ): boolean => {
+    // Check category-level checkbox first
+    if (
+      categoryEnabled &&
+      !categoryEnabled[category as keyof typeof categoryEnabled]
+    ) {
+      return false;
+    }
+
+    // Check item-level checkbox
+    if (itemEnabled && itemEnabled[category]) {
+      const key = getItemKey(category, index, item);
+      return itemEnabled[category][key] !== false; // Default to true if not explicitly set
+    }
+
+    return true; // Default to importing if no checkbox state
+  };
+
+  // Helper function to get item key (same logic as in component)
+  const getItemKey = (
+    category: string,
+    index: number,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    item: any,
+  ): string => {
+    switch (category) {
+      case "environments":
+        return `env-${item.environment?.name || index}`;
+      case "tags":
+        return `tag-${item.tag?.name || item.tag?.id || index}`;
+      case "segments":
+        return `segment-${item.segment?.name || item.segment?.id || index}`;
+      case "featureGates":
+        return `gate-${item.featureGate?.id || index}`;
+      case "dynamicConfigs":
+        return `config-${item.dynamicConfig?.id || index}`;
+      case "experiments":
+        return `exp-${item.experiment?.name || item.experiment?.id || index}`;
+      case "metrics":
+        return `metric-${item.metric?.name || item.metric?.id || index}`;
+      default:
+        return `${category}-${index}`;
+    }
+  };
+
   const PQueue = (await import("p-queue")).default;
   const queue = new PQueue({ concurrency: 6 });
 
   // Import Environments in a single API call
   queue.add(async () => {
     const envsToAdd: Environment[] = [];
-    data.environments?.forEach((e) => {
-      if (e.status === "pending" && e.environment) {
+    data.environments?.forEach((e, index) => {
+      if (
+        e.status === "pending" &&
+        e.environment &&
+        shouldImportItem("environments", index, e)
+      ) {
         envsToAdd.push({
           id: e.environment.name,
           description: e.environment.name,
@@ -549,8 +631,11 @@ export async function runImport(
   await queue.onIdle();
 
   // Import Saved Groups (Segments)
-  data.segments?.forEach((segment) => {
-    if (segment.status === "pending") {
+  data.segments?.forEach((segment, index) => {
+    if (
+      segment.status === "pending" &&
+      shouldImportItem("segments", index, segment)
+    ) {
       queue.add(async () => {
         try {
           const seg = segment.segment as StatsigSavedGroup;
@@ -584,8 +669,11 @@ export async function runImport(
   await queue.onIdle();
 
   // Import Feature Gates
-  data.featureGates?.forEach((featureGate) => {
-    if (featureGate.status === "pending") {
+  data.featureGates?.forEach((featureGate, index) => {
+    if (
+      featureGate.status === "pending" &&
+      shouldImportItem("featureGates", index, featureGate)
+    ) {
       queue.add(async () => {
         try {
           const fg = featureGate.featureGate as StatsigFeatureGate;
@@ -629,8 +717,11 @@ export async function runImport(
   await queue.onIdle();
 
   // Import Dynamic Configs
-  data.dynamicConfigs?.forEach((dynamicConfig) => {
-    if (dynamicConfig.status === "pending") {
+  data.dynamicConfigs?.forEach((dynamicConfig, index) => {
+    if (
+      dynamicConfig.status === "pending" &&
+      shouldImportItem("dynamicConfigs", index, dynamicConfig)
+    ) {
       queue.add(async () => {
         try {
           const dc = dynamicConfig.dynamicConfig as StatsigDynamicConfig;
@@ -674,8 +765,11 @@ export async function runImport(
   await queue.onIdle();
 
   // Import Experiments
-  data.experiments?.forEach((experiment) => {
-    if (experiment.status === "pending") {
+  data.experiments?.forEach((experiment, index) => {
+    if (
+      experiment.status === "pending" &&
+      shouldImportItem("experiments", index, experiment)
+    ) {
       queue.add(async () => {
         let featureId: string | null = null;
         try {
@@ -778,8 +872,11 @@ export async function runImport(
   await queue.onIdle();
 
   // Import Tags
-  data.tags?.forEach((tagImport) => {
-    if (tagImport.status === "pending") {
+  data.tags?.forEach((tagImport, index) => {
+    if (
+      tagImport.status === "pending" &&
+      shouldImportItem("tags", index, tagImport)
+    ) {
       queue.add(async () => {
         try {
           const tag = tagImport.tag as StatsigTag;
@@ -811,8 +908,11 @@ export async function runImport(
   });
   await queue.onIdle();
 
-  data.metrics?.forEach((metric) => {
-    if (metric.status === "pending") {
+  data.metrics?.forEach((metric, index) => {
+    if (
+      metric.status === "pending" &&
+      shouldImportItem("metrics", index, metric)
+    ) {
       metric.status = "failed";
       metric.error = "Not implemented yet";
     }
