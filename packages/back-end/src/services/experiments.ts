@@ -3459,7 +3459,7 @@ export async function updateExperimentDashboards({
       factTableMap,
       useCache: true,
       type: "exploratory",
-      triggeredBy: "dashboard",
+      triggeredBy: "update-dashboards",
     });
     await queryRunner.waitForResults();
   }
