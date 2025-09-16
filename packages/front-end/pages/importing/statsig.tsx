@@ -24,10 +24,10 @@ const ImportFromStatsigPage: NextPage = () => {
                   Import from Statsig
                 </h2>
                 <p className="mt-5 mb-3">
-                  Our Statsig importer is in closed beta. To unlock this
-                  feature, please contact our sales team.
+                  Our Statsig importer is in beta and we are providing white
+                  glove support for this feature.
                 </p>
-                <p>Please contact sales@growthbook.io learn more.</p>
+                <p>Please contact support@growthbook.io learn more.</p>
               </div>
             </div>
           </div>
