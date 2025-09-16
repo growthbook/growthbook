@@ -1,5 +1,5 @@
 import { ConditionInterface } from "@growthbook/growthbook-react";
-import { StatSigCondition } from "@/services/importing/statsig/types";
+import { StatsigCondition } from "@/services/importing/statsig/types";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 
 export type TransformedCondition = {
@@ -16,9 +16,9 @@ export type TransformedCondition = {
  * Transform Statsig conditions to GrowthBook format
  */
 export function transformStatsigConditionsToGB(
-  conditions: StatSigCondition[],
+  conditions: StatsigCondition[],
 ): TransformedCondition {
-  const targetingConditions: StatSigCondition[] = [];
+  const targetingConditions: StatsigCondition[] = [];
   const savedGroups: string[] = [];
   const prerequisites: string[] = [];
   let startTime: string | null = null;
@@ -99,8 +99,8 @@ export function transformStatsigConditionsToGB(
 /**
  * Transform targeting conditions to GrowthBook condition string
  */
-function transformTargetingConditions(conditions: StatSigCondition[]): string {
-  // Map StatSig operators to GrowthBook operators
+function transformTargetingConditions(conditions: StatsigCondition[]): string {
+  // Map Statsig operators to GrowthBook operators
   const operatorMap: Record<string, string> = {
     any: "$in",
     none: "$nin",
@@ -125,7 +125,7 @@ function transformTargetingConditions(conditions: StatSigCondition[]): string {
     const { type, operator, targetValue } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
 
-    // Map StatSig attribute name to GrowthBook attribute name
+    // Map Statsig attribute name to GrowthBook attribute name
     const gbAttributeName = mapStatsigAttributeToGB(type);
 
     if (operator === "str_contains_none") {

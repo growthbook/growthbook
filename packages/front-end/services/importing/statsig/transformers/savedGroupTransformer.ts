@@ -51,8 +51,8 @@ export async function transformStatsigSegmentToSavedGroup(
 
   if (segment.type === "id_list") {
     // ID List type - convert to GrowthBook "list" type
-    const statSigAttributeKey = segment.idType || "id";
-    const gbAttributeKey = mapStatsigAttributeToGB(statSigAttributeKey);
+    const statsigAttributeKey = segment.idType || "id";
+    const gbAttributeKey = mapStatsigAttributeToGB(statsigAttributeKey);
 
     // Ensure the attribute exists before using it
     await ensureAttributeExists(

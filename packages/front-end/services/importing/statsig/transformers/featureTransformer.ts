@@ -1,12 +1,12 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import { StatSigFeatureGate, StatSigDynamicConfig } from "../types";
+import { StatsigFeatureGate, StatsigDynamicConfig } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 
 /**
  * Transform Statsig feature gate or dynamic config to GrowthBook feature
  */
-export function transformStatSigFeatureGateToGB(
-  featureGate: StatSigFeatureGate | StatSigDynamicConfig,
+export function transformStatsigFeatureGateToGB(
+  featureGate: StatsigFeatureGate | StatsigDynamicConfig,
   availableEnvironments: string[],
   _existingAttributeSchema: Array<{
     property: string;
@@ -37,7 +37,7 @@ export function transformStatSigFeatureGateToGB(
     ? "json"
     : "boolean";
   const defaultValue = isDynamicConfig
-    ? JSON.stringify((featureGate as StatSigDynamicConfig).defaultValue)
+    ? JSON.stringify((featureGate as StatsigDynamicConfig).defaultValue)
     : "false";
 
   // Transform rules to GrowthBook format per environment
@@ -51,7 +51,7 @@ export function transformStatSigFeatureGateToGB(
     };
   });
 
-  // Process each StatSig rule and assign to appropriate environments
+  // Process each Statsig rule and assign to appropriate environments
   rules.forEach((rule, ruleIndex) => {
     try {
       const transformedCondition = transformStatsigConditionsToGB(

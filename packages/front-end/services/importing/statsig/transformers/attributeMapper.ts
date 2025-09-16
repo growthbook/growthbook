@@ -1,7 +1,7 @@
 /**
  * Map Statsig attribute names to GrowthBook attribute names
  */
-export function mapStatsigAttributeToGB(statSigAttribute: string): string {
+export function mapStatsigAttributeToGB(statsigAttribute: string): string {
   const attributeMap: Record<string, string> = {
     userID: "id",
     user_id: "id", // Alternative format
@@ -19,5 +19,5 @@ export function mapStatsigAttributeToGB(statSigAttribute: string): string {
     // TODO: Handle custom_field -> {field} mapping where field property becomes attribute name
   };
 
-  return attributeMap[statSigAttribute] || statSigAttribute;
+  return attributeMap[statsigAttribute] || statsigAttribute;
 }

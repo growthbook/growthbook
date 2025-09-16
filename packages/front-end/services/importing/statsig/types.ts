@@ -62,12 +62,12 @@ export type MetricImport = BaseImportStatus & {
 };
 
 export type TagImport = BaseImportStatus & {
-  tag?: StatSigTag;
+  tag?: StatsigTag;
   gbTag?: TagInterface;
   existingTag?: TagInterface;
 };
 
-export type StatSigTag = {
+export type StatsigTag = {
   id: string;
   name: string;
   description?: string;
@@ -88,13 +88,13 @@ export interface ImportData {
 
 // endregion Import Types
 
-export type StatSigFeatureGate = {
+export type StatsigFeatureGate = {
   id: string;
   name: string;
   description?: string;
   isEnabled: boolean;
   status: string;
-  rules: StatSigRule[];
+  rules: StatsigRule[];
   tags?: string[];
   owner?: {
     ownerID: string;
@@ -106,12 +106,12 @@ export type StatSigFeatureGate = {
   createdTime: number;
 };
 
-export type StatSigDynamicConfig = {
+export type StatsigDynamicConfig = {
   id: string;
   name: string;
   description?: string;
   isEnabled: boolean;
-  rules: StatSigRule[];
+  rules: StatsigRule[];
   defaultValue: unknown;
   tags?: string[];
   owner?: {
@@ -124,7 +124,7 @@ export type StatSigDynamicConfig = {
   createdTime: number;
 };
 
-export type StatSigExperiment = {
+export type StatsigExperiment = {
   id: string;
   name: string;
   description?: string;
@@ -177,19 +177,19 @@ export type StatSigExperiment = {
   tags?: string[];
 };
 
-export type StatSigVariant = {
-  name: string;
-  description?: string;
-  value: unknown;
-  weight: number;
-};
+// export type StatsigVariant = {
+//   name: string;
+//   description?: string;
+//   value: unknown;
+//   weight: number;
+// };
 
-export type StatSigTargeting = {
-  conditions?: StatSigCondition[];
-  user_segments?: string[];
-};
+// export type StatsigTargeting = {
+//   conditions?: StatsigCondition[];
+//   user_segments?: string[];
+// };
 
-export type StatSigCondition = {
+export type StatsigCondition = {
   type: string;
   operator: string;
   targetValue: unknown[] | unknown;
@@ -197,12 +197,12 @@ export type StatSigCondition = {
   customID?: string;
 };
 
-export type StatSigRule = {
+export type StatsigRule = {
   id: string;
   baseID: string;
   name: string;
   passPercentage: number;
-  conditions: StatSigCondition[];
+  conditions: StatsigCondition[];
   environments?: string[] | null; // null means all environments, array means specific environments
   returnValue?: unknown; // For dynamic configs - the JSON value to return
   variants?: Array<{
@@ -214,13 +214,14 @@ export type StatSigRule = {
   }>; // For dynamic configs - multiple variants for A/B/n splits
 };
 
-export type StatSigHoldout = {
-  enabled: boolean;
-  percentage: number;
-};
+// export type StatsigHoldout = {
+//   enabled: boolean;
+//   percentage: number;
+// };
 
-export type StatSigSavedGroup = {
+export type StatsigSavedGroup = {
   id: string;
+  name?: string;
   isEnabled: boolean;
   description: string;
   lastModifierName: string;
@@ -233,20 +234,14 @@ export type StatSigSavedGroup = {
     baseID: string;
     name: string;
     passPercentage: number;
-    conditions: StatSigCondition[];
+    conditions: StatsigCondition[];
     environments?: string[] | null;
   }[];
   tags: string[];
   ids?: string[]; // For id_list type segments (fetched separately)
 };
 
-export type StatSigAttribute = {
-  name: string;
-  type: "string" | "number" | "boolean" | "array";
-  description?: string;
-};
-
-export type StatSigEnvironment = {
+export type StatsigEnvironment = {
   id: string;
   name: string;
   isProduction: boolean;
@@ -255,18 +250,18 @@ export type StatSigEnvironment = {
 };
 
 // API Response types
-export type StatSigFeatureGatesResponse = {
-  gates: StatSigFeatureGate[];
+export type StatsigFeatureGatesResponse = {
+  gates: StatsigFeatureGate[];
 };
 
-export type StatSigDynamicConfigsResponse = {
-  configs: StatSigDynamicConfig[];
+export type StatsigDynamicConfigsResponse = {
+  configs: StatsigDynamicConfig[];
 };
 
-export type StatSigExperimentsResponse = {
-  experiments: StatSigExperiment[];
+export type StatsigExperimentsResponse = {
+  experiments: StatsigExperiment[];
 };
 
-export type StatSigSavedGroupsResponse = {
-  groups: StatSigSavedGroup[];
+export type StatsigSavedGroupsResponse = {
+  groups: StatsigSavedGroup[];
 };
