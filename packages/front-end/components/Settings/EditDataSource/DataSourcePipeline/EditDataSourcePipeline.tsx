@@ -13,10 +13,9 @@ import {
   TextField,
   SegmentedControl,
   Box,
+  Switch,
 } from "@radix-ui/themes";
 import Link from "next/link";
-import Collapsible from "react-collapsible";
-import { PiCaretRightFill } from "react-icons/pi";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import Toggle from "@/components/Forms/Toggle";
@@ -30,6 +29,8 @@ import Badge from "@/ui/Badge";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useExperiments } from "@/hooks/useExperiments";
 import { dataSourcePathNames } from "./DataSourcePipeline";
 
 type EditDataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
@@ -42,6 +43,7 @@ type FormValues = {
   unitsTableRetentionHours: number;
   unitsTableDeletion: boolean;
   partitionSettings?: DataSourcePipelineSettings["partitionSettings"];
+  targetOnlySpecificExperimentIds?: string[];
 };
 
 export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
@@ -88,6 +90,8 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         initialPipelineSettings?.unitsTableRetentionHours ?? 24,
       unitsTableDeletion: initialPipelineSettings?.unitsTableDeletion ?? true,
       partitionSettings: initialPipelineSettings?.partitionSettings,
+      targetOnlySpecificExperimentIds:
+        initialPipelineSettings?.targetOnlySpecificExperimentIds ?? undefined,
     },
   });
 
@@ -135,6 +139,35 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   const [editExposureState, setEditExposureState] = useState<null | {
     idx: number | null; // null => add
   }>(null);
+
+  // Manage experiment targeting toggle and selections
+  const initialTargetIds = useMemo(
+    () => initialPipelineSettings?.targetOnlySpecificExperimentIds,
+    [initialPipelineSettings?.targetOnlySpecificExperimentIds],
+  );
+  const [applyToAllExperiments, setApplyToAllExperiments] = useState<boolean>(
+    initialTargetIds === undefined,
+  );
+  const [targetExperimentIds, setTargetExperimentIds] = useState<string[]>(
+    initialTargetIds || [],
+  );
+
+  const { experiments: allExperiments } = useExperiments(
+    undefined,
+    false,
+    "standard",
+  );
+  const experimentOptions = useMemo(
+    () =>
+      (allExperiments || [])
+        .filter((e) => e.datasource === dataSource.id)
+        .map((e) => ({ value: e.id, label: e.name })),
+    [allExperiments, dataSource.id],
+  );
+
+  const selectionValid = useMemo(() => {
+    return applyToAllExperiments || targetExperimentIds.length > 0;
+  }, [applyToAllExperiments, targetExperimentIds.length]);
 
   const hasValidationFailures =
     !!validation &&
@@ -296,13 +329,14 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
 
   // Wizard helpers
   const watchMode = form.watch("mode");
-  const watchPartitionSettings = form.watch("partitionSettings");
-  const shouldShowStep2 = useMemo(() => {
-    return (
-      watchMode === "incremental" &&
-      watchPartitionSettings?.type === "yearMonthDay"
-    );
-  }, [watchMode, watchPartitionSettings]);
+  const _watchPartitionSettings = form.watch("partitionSettings");
+  const shouldShowStep2 = false;
+  // const shouldShowStep2 = useMemo(() => {
+  //   return (
+  //     watchMode === "incremental" &&
+  //     watchPartitionSettings?.type === "yearMonthDay"
+  //   );
+  // }, [watchMode, watchPartitionSettings]);
 
   const [stagedPipelineSettings, setStagedPipelineSettings] = useState<
     DataSourcePipelineSettings | undefined
@@ -313,39 +347,6 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
     if (step === 0 && shouldShowStep2) return "Validate";
     return "Validate & Save";
   }, [step, shouldShowStep2]);
-
-  const footerStatus = useMemo(() => {
-    if (step === 0) {
-      if (validating) return { label: "Validating…", color: "gray" as const };
-      if (validation) {
-        const ok =
-          validation.create.success &&
-          validation.insert.success &&
-          validation.drop.success;
-        return ok
-          ? { label: "Validated", color: "green" as const }
-          : { label: "Errors found", color: "red" as const };
-      }
-      return { label: "Not validated", color: "gray" as const };
-    }
-    // Step 1 (queries check)
-    const ready =
-      !checkingExposure &&
-      !checkingFactTables &&
-      allExposureValidated &&
-      allFactTablesValidated;
-    return ready
-      ? { label: "Ready to save", color: "green" as const }
-      : { label: "Fix queries", color: "amber" as const };
-  }, [
-    step,
-    validating,
-    validation,
-    checkingExposure,
-    checkingFactTables,
-    allExposureValidated,
-    allFactTablesValidated,
-  ]);
 
   const validateStepOne = form.handleSubmit(async (value) => {
     setValidation(null);
@@ -369,7 +370,24 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         : uiMode !== "incremental"
           ? { partitionSettings: undefined }
           : {}),
+      ...(uiMode === "incremental"
+        ? applyToAllExperiments
+          ? { targetOnlySpecificExperimentIds: undefined }
+          : { targetOnlySpecificExperimentIds: targetExperimentIds }
+        : {}),
     } as DataSourcePipelineSettings;
+
+    // Basic UI validation for experiment targeting
+    if (
+      uiMode === "incremental" &&
+      !applyToAllExperiments &&
+      targetExperimentIds.length === 0
+    ) {
+      const errorMsg =
+        "Select at least one experiment or apply to all experiments.";
+      setValidationError(errorMsg);
+      throw new Error(errorMsg);
+    }
 
     // If disabled, skip validation and stage directly
     if (uiMode === "disabled") {
@@ -454,7 +472,24 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
           : uiMode !== "incremental"
             ? { partitionSettings: undefined }
             : {}),
+        ...(uiMode === "incremental"
+          ? applyToAllExperiments
+            ? { targetOnlySpecificExperimentIds: undefined }
+            : { targetOnlySpecificExperimentIds: targetExperimentIds }
+          : {}),
       } as DataSourcePipelineSettings;
+    }
+    // Prevent submit if targeting specific experiments but none selected
+    if (
+      toSave.mode === "incremental" &&
+      toSave.allowWriting &&
+      toSave.targetOnlySpecificExperimentIds !== undefined &&
+      toSave.targetOnlySpecificExperimentIds.length === 0
+    ) {
+      setValidationError(
+        "Select at least one experiment or apply to all experiments.",
+      );
+      return;
     }
     copy.settings.pipelineSettings = toSave;
     // Save updated exposure queries
@@ -490,33 +525,18 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
           ? !checkingExposure &&
             !checkingFactTables &&
             allExposureValidated &&
-            allFactTablesValidated
+            allFactTablesValidated &&
+            (watchMode !== "incremental" || selectionValid)
           : true
       }
       disabledMessage={
         step === 1 && !(allExposureValidated && allFactTablesValidated)
           ? "Update all queries to include partition columns"
-          : undefined
+          : watchMode === "incremental" && !selectionValid
+            ? "Select at least one experiment or apply to all experiments"
+            : undefined
       }
       loading={validating || checkingExposure || checkingFactTables}
-      secondaryCTA={
-        <div className="d-flex align-items-center text-muted small">
-          <span
-            className={`badge mr-2 ${
-              footerStatus.color === "green"
-                ? "badge-success"
-                : footerStatus.color === "red"
-                  ? "badge-danger"
-                  : footerStatus.color === "amber"
-                    ? "badge-warning"
-                    : "badge-secondary"
-            }`}
-          >
-            ●
-          </span>
-          {footerStatus.label}
-        </div>
-      }
     >
       <Page
         display="Settings"
@@ -622,70 +642,86 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
                     </Box>
                   </Flex>
                 </Container>
-                <Collapsible
-                  trigger={
-                    <div className="link-purple font-weight-bold mt-2 mb-1">
-                      <PiCaretRightFill className="chevron mr-1" />
-                      Advanced
-                    </div>
-                  }
-                  transitionTime={100}
-                >
-                  {dataSource.type === "databricks" ? (
-                    <>
-                      <Container className="w-100" mt="2">
-                        <Flex align="center" gap="3">
-                          <Text as="label" size="3" weight="medium">
-                            Delete temporary units table (recommended)
-                          </Text>
-                          <Toggle
-                            id={"toggle-unitsTableDeletion"}
-                            value={!!form.watch("unitsTableDeletion")}
-                            setValue={(value) => {
-                              form.setValue("unitsTableDeletion", value);
-                            }}
-                          />
-                        </Flex>
-                      </Container>
-                      {!form.watch("unitsTableDeletion") ? (
-                        <Callout status="warning" size="sm">
-                          Disabling this will require you to periodically remove
-                          temporary tables from your Databricks Warehouse
-                        </Callout>
-                      ) : null}
-                    </>
-                  ) : form.watch("mode") === "temporary" ? (
-                    <>
-                      <Container className="w-100" mb="1">
+                {dataSource.type === "databricks" ? (
+                  <>
+                    <Container className="w-100" mt="2">
+                      <Flex align="center" gap="3">
                         <Text as="label" size="3" weight="medium">
-                          Retention of temporary units table (hours)
+                          Delete temporary units table (recommended)
                         </Text>
-                        <TextField.Root
-                          size="3"
-                          type="number"
-                          min={1}
-                          value={String(
-                            form.watch("unitsTableRetentionHours") ?? "",
-                          )}
-                          onChange={(e) =>
-                            form.setValue(
-                              "unitsTableRetentionHours",
-                              Number(e.target.value || 0),
-                            )
-                          }
+                        <Toggle
+                          id={"toggle-unitsTableDeletion"}
+                          value={!!form.watch("unitsTableDeletion")}
+                          setValue={(value) => {
+                            form.setValue("unitsTableDeletion", value);
+                          }}
                         />
-                      </Container>
-                      {dataSource.type === "snowflake" ? (
-                        <Callout status="info" size="sm">
-                          Rounded up to nearest day for Snowflake
-                        </Callout>
-                      ) : null}
-                    </>
-                  ) : null}
-                </Collapsible>
+                      </Flex>
+                    </Container>
+                    {!form.watch("unitsTableDeletion") ? (
+                      <Callout status="warning" size="sm">
+                        Disabling this will require you to periodically remove
+                        temporary tables from your Databricks Warehouse
+                      </Callout>
+                    ) : null}
+                  </>
+                ) : form.watch("mode") === "temporary" ? (
+                  <>
+                    <Container className="w-100" mb="1">
+                      <Text as="label" size="3" weight="medium">
+                        Retention of temporary units table (hours)
+                      </Text>
+                      <TextField.Root
+                        size="3"
+                        type="number"
+                        min={1}
+                        value={String(
+                          form.watch("unitsTableRetentionHours") ?? "",
+                        )}
+                        onChange={(e) =>
+                          form.setValue(
+                            "unitsTableRetentionHours",
+                            Number(e.target.value || 0),
+                          )
+                        }
+                      />
+                    </Container>
+                    {dataSource.type === "snowflake" ? (
+                      <Callout status="info" size="sm">
+                        Rounded up to nearest day for Snowflake
+                      </Callout>
+                    ) : null}
+                  </>
+                ) : null}
 
                 {form.watch("mode") === "incremental" ? (
                   <>
+                    <Container className="w-100" mt="2">
+                      <Flex align="center" gap="3">
+                        <Switch
+                          checked={applyToAllExperiments}
+                          onCheckedChange={(checked) => {
+                            setApplyToAllExperiments(!!checked);
+                          }}
+                        />
+                        Apply to all experiments
+                      </Flex>
+                    </Container>
+                    {!applyToAllExperiments ? (
+                      <Container className="w-100" mt="2">
+                        <Text as="label" size="3" weight="medium">
+                          Target experiments
+                        </Text>
+                        <Box mt="1">
+                          <MultiSelectField
+                            value={targetExperimentIds}
+                            onChange={setTargetExperimentIds}
+                            options={experimentOptions}
+                            placeholder="Select experiments..."
+                          />
+                        </Box>
+                      </Container>
+                    ) : null}
                     <Container className="w-100" mt="2" mb="2">
                       <Text as="label" size="3" weight="medium">
                         Partition Type (optional){" "}

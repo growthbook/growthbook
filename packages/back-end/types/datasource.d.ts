@@ -219,6 +219,11 @@ export type DataSourcePipelineSettings = {
    * TODO: Should this live in a Table setting? or what's the right level for it?
    */
   partitionSettings?: PartitionSettings;
+  /**
+   * If specified, we will use the configured pipeline mode only for these experiment IDs.
+   * If not specified, we will use the configured pipeline mode for all experiments.
+   */
+  targetOnlySpecificExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";
