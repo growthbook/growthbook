@@ -95,6 +95,10 @@ class TestPostStratification(TestCase):
         stat_a: List[TestStatistic],
         stat_b: List[TestStatistic],
         config: FrequentistConfig,
+        browsers=None,
+        regions=None,
+        dimension: str = "",
+        dimension_level: str = "",
     ) -> FrequentistTestResult:
         type_a = stat_a[0]
         statistic_type = None
@@ -116,7 +120,6 @@ class TestPostStratification(TestCase):
             statistic_type = "mean_ra"
             denominator_metric_type = None
             covariate_metric_type = "count"
-        main_metric_type = "count"
 
         metric = MetricSettingsForStatsEngine(
             id="fact__ab8nzw215xmcozhcmz",
@@ -139,7 +142,7 @@ class TestPostStratification(TestCase):
             var_ids=["0", "1"],
             weights=[0.5, 0.5],
             baseline_index=0,
-            dimension="",
+            dimension=dimension,
             stats_engine="frequentist",
             p_value_corrected=False,
             sequential_testing_enabled=False,
@@ -169,17 +172,52 @@ class TestPostStratification(TestCase):
             raise ValueError(f"Unsupported statistic type: {type(stat_a)}")
 
         num_cells = len(stat_a)
-        browsers = [f"browser_{i}" for i in range(num_cells)]
-        rows_a = [
-            CreateRow(s, dimension=b, variation="0").create_row()
-            for s, b in zip(stat_a, browsers)
-        ]
-        rows_b = [
-            CreateRow(s, dimension=b, variation="1").create_row()
-            for s, b in zip(stat_b, browsers)
-        ]
+        if browsers is None:
+            browsers = [f"browser_{i}" for i in range(num_cells)]
+        if regions is None:
+            rows_a = [
+                CreateRow(
+                    s,
+                    variation="0",
+                    dimension_name="dim_exp_browser",
+                    dimension_value=b,
+                ).create_row()
+                for s, b in zip(stat_a, browsers)
+            ]
+            rows_b = [
+                CreateRow(
+                    s,
+                    variation="1",
+                    dimension_name="dim_exp_browser",
+                    dimension_value=b,
+                ).create_row()
+                for s, b in zip(stat_b, browsers)
+            ]
+
+        else:
+            rows_a = [
+                CreateRow(
+                    s,
+                    variation="0",
+                    dimension_name="dim_exp_browser",
+                    dimension_value=b,
+                    dimension_two_name="dim_exp_region",
+                    dimension_two_value=r,
+                ).create_row()
+                for s, b, r in zip(stat_a, browsers, regions)
+            ]
+            rows_b = [
+                CreateRow(
+                    s,
+                    variation="1",
+                    dimension_name="dim_exp_browser",
+                    dimension_value=b,
+                    dimension_two_name="dim_exp_region",
+                    dimension_two_value=r,
+                ).create_row()
+                for s, b, r in zip(stat_b, browsers, regions)
+            ]
         rows = pd.DataFrame(rows_a + rows_b)
-        rows = rows.rename(columns={"dimension": "dim_exp_browser"})
         rows = rows.to_dict("records")
 
         results = process_single_metric(
@@ -187,7 +225,15 @@ class TestPostStratification(TestCase):
             metric=metric,
             analyses=[analysis],
         )
-        this_result = results.analyses[0].dimensions[0].variations[1]
+        num_dimensions = len(results.analyses[0].dimensions)
+        dim_index = 0
+        if num_dimensions > 1:
+            for i, dim in enumerate(results.analyses[0].dimensions):
+                if dim.dimension == dimension_level:
+                    dim_index = i
+                    break
+
+        this_result = results.analyses[0].dimensions[dim_index].variations[1]
         uplift = this_result.uplift  # type: ignore
         expected = uplift.mean
         ci = this_result.ci  # type: ignore
@@ -730,6 +776,47 @@ class TestPostStratification(TestCase):
         self.moments_config_abs = EffectMomentsConfig(difference_type="absolute")
         self.moments_config_rel = EffectMomentsConfig(difference_type="relative")
 
+        self.revenue_eu_chrome_a = SampleMeanStatistic(
+            n=175, sum=188.0319661707135, sum_squares=501.8913204449768
+        )
+        self.revenue_us_chrome_a = SampleMeanStatistic(
+            n=175, sum=1223.848778242483, sum_squares=8902.145582035047
+        )
+        self.revenue_eu_firefox_a = SampleMeanStatistic(
+            n=175, sum=506.41423076347513, sum_squares=1748.2322349152037
+        )
+        self.revenue_us_firefox_a = SampleMeanStatistic(
+            n=175, sum=1916.9226474898192, sum_squares=21236.13825459178
+        )
+
+        self.revenue_eu_chrome_b = SampleMeanStatistic(
+            n=175, sum=299.63429043852784, sum_squares=861.0349484333065
+        )
+        self.revenue_us_chrome_b = SampleMeanStatistic(
+            n=175, sum=1403.4670379247032, sum_squares=11598.22989980456
+        )
+        self.revenue_eu_firefox_b = SampleMeanStatistic(
+            n=175, sum=662.4820101138217, sum_squares=2854.4018208604734
+        )
+        self.revenue_us_firefox_b = SampleMeanStatistic(
+            n=175, sum=2089.9655982163963, sum_squares=25337.209946187293
+        )
+
+        self.stats_count_revenue = [
+            (self.revenue_eu_chrome_a, self.revenue_eu_chrome_b),
+            (self.revenue_us_chrome_a, self.revenue_us_chrome_b),
+            (self.revenue_eu_firefox_a, self.revenue_eu_firefox_b),
+            (self.revenue_us_firefox_a, self.revenue_us_firefox_b),
+        ]
+        self.stats_count_revenue_eu = [
+            (self.revenue_eu_chrome_a, self.revenue_eu_chrome_b),
+            (self.revenue_eu_firefox_a, self.revenue_eu_firefox_b),
+        ]
+        self.stats_count_revenue_us = [
+            (self.revenue_us_chrome_a, self.revenue_us_chrome_b),
+            (self.revenue_us_firefox_a, self.revenue_us_firefox_b),
+        ]
+
     def test_zero_negative_variance(self):
         stats_count_strata = [
             (
@@ -1144,6 +1231,59 @@ class TestPostStratification(TestCase):
         self.assertEqual(
             _round_result_dict(asdict(result_true_abs)),
             _round_result_dict(asdict(test_result_abs)),
+        )
+
+    def test_post_strat_dimension(self):
+        difference_type = "absolute"
+        # test that if we post-stratify by browser for EU users, and the same for US, we get the right result
+        stats_a, stats_b = zip(*self.stats_count_revenue)
+        stats_a_eu, stats_b_eu = zip(*self.stats_count_revenue_eu)
+        stats_a_us, stats_b_us = zip(*self.stats_count_revenue_us)
+        # we can use the data specific to the region as the ground truth, because these tests succeeded above
+        moments_result_eu_true = EffectMomentsPostStratification(self.stats_count_revenue_eu, EffectMomentsConfig(difference_type=difference_type)).compute_result()  # type: ignore
+        moments_result_us_true = EffectMomentsPostStratification(self.stats_count_revenue_us, EffectMomentsConfig(difference_type=difference_type)).compute_result()  # type: ignore
+        # #first we check the moments result against the test result
+        test_result_eu_true = self.run_post_strat_gbstats(stats_a_eu, stats_b_eu, FrequentistConfig(difference_type=difference_type))  # type: ignore
+        test_result_us_true = self.run_post_strat_gbstats(stats_a_us, stats_b_us, FrequentistConfig(difference_type=difference_type))  # type: ignore
+        pairwise_sample_size_eu = sum(
+            t[0].n + t[1].n for t in self.stats_count_revenue_eu
+        )
+        pairwise_sample_size_us = sum(
+            t[0].n + t[1].n for t in self.stats_count_revenue_us
+        )
+        moments_result_from_test_eu = EffectMomentsResult(
+            point_estimate=test_result_eu_true.expected,
+            standard_error=test_result_eu_true.uplift.stddev,
+            error_message=None,
+            pairwise_sample_size=pairwise_sample_size_eu,
+        )
+        moments_result_from_test_us = EffectMomentsResult(
+            point_estimate=test_result_us_true.expected,
+            standard_error=test_result_us_true.uplift.stddev,
+            error_message=None,
+            pairwise_sample_size=pairwise_sample_size_us,
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(moments_result_from_test_eu)),
+            _round_result_dict(asdict(moments_result_eu_true)),
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(moments_result_from_test_us)),
+            _round_result_dict(asdict(moments_result_us_true)),
+        )
+        # now that we have ground truth for test results, we can check if looping over regions works
+        regions = ["eu", "us"] * 4
+        browsers = ["chrome"] * 2 + ["firefox"] * 2
+        browsers = browsers * 2
+        test_result_eu = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type=difference_type), regions=regions, browsers=browsers, dimension="exp:region", dimension_level="eu")  # type: ignore
+        test_result_us = self.run_post_strat_gbstats(stats_a, stats_b, FrequentistConfig(difference_type=difference_type), regions=regions, browsers=browsers, dimension="exp:region", dimension_level="us")  # type: ignore
+        self.assertEqual(
+            _round_result_dict(asdict(test_result_eu)),
+            _round_result_dict(asdict(test_result_eu_true)),
+        )
+        self.assertEqual(
+            _round_result_dict(asdict(test_result_us)),
+            _round_result_dict(asdict(test_result_us_true)),
         )
 
 
