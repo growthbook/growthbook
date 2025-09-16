@@ -1166,9 +1166,9 @@ export async function createSnapshot({
 
   if (
     datasource.settings.pipelineSettings?.mode === "incremental" &&
-    (datasource.settings.pipelineSettings?.targetOnlySpecificExperimentIds ===
+    (datasource.settings.pipelineSettings?.includedExperimentIds ===
       undefined ||
-      datasource.settings.pipelineSettings?.targetOnlySpecificExperimentIds?.includes(
+      datasource.settings.pipelineSettings?.includedExperimentIds?.includes(
         experiment.id,
       ))
   ) {

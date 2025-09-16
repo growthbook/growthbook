@@ -223,7 +223,7 @@ export type DataSourcePipelineSettings = {
    * If specified, we will use the configured pipeline mode only for these experiment IDs.
    * If not specified, we will use the configured pipeline mode for all experiments.
    */
-  targetOnlySpecificExperimentIds?: string[];
+  includedExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";
