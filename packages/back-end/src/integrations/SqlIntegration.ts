@@ -109,6 +109,7 @@ import {
   IncrementalRefreshStatisticsQueryParams,
   FactMetricQuantileData,
   FactMetricPercentileData,
+  FactMetricAggregationMetadata,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -957,18 +958,18 @@ export default abstract class SqlIntegration
         , __userMetricOverall AS (
           SELECT
             ${baseIdType}
-            , ${this.getReaggregateMetricColumn({
+            , ${this.getReaggregateMetricColumn(
               metric,
-              useDenominator: false,
-              valueColumn: "value",
-            })} AS value
+              false,
+              "value",
+            )} AS value
              ${
                metricData.ratioMetric
-                 ? `, ${this.getReaggregateMetricColumn({
+                 ? `, ${this.getReaggregateMetricColumn(
                      metric,
-                     useDenominator: true,
-                     valueColumn: "denominator",
-                    })} AS denominator`
+                     true,
+                     "denominator",
+                    )} AS denominator`
                  : ""
              }
           FROM
@@ -2538,6 +2539,9 @@ export default abstract class SqlIntegration
       [metric],
       activationMetric,
     );
+
+    const incrementalRefreshNumeratorMetadata = this.getAggregationMetadata({ metric: metric });
+    const incrementalRefreshDenominatorMetadata = isRatioMetric(metric) ? this.getAggregationMetadata({ metric: metric, useDenominator: true }) : undefined;
     return {
       alias,
       id: metric.id,
@@ -2559,6 +2563,8 @@ export default abstract class SqlIntegration
       metricStart,
       metricEnd,
       maxHoursToConvert,
+      incrementalRefreshNumeratorMetadata,
+      incrementalRefreshDenominatorMetadata,
     };
   }
 
@@ -5291,86 +5297,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     )}`;
   }
 
-  private getFactMetricAggregationType({
-    metric,
-    useDenominator,
-  }: {
-    metric: FactMetricInterface;
-    useDenominator?: boolean;
-  }): FactMetricAggregationType {
-    const columnRef = useDenominator ? metric.denominator : metric.numerator;
-
-    const hasAggregateFilter =
-      getAggregateFilters({
-        columnRef: columnRef,
-        column: columnRef?.column || "",
-        ignoreInvalid: true,
-      }).length > 0;
-
-    const column = hasAggregateFilter
-      ? columnRef?.aggregateFilterColumn
-      : columnRef?.column;
-
-    // if no user filter and either binomial or just counting distinct users
-    // we only need to know if there was 1 value and max it
-    if (
-      !hasAggregateFilter &&
-      (isBinomialMetric(metric) || column === "$$distinctUsers")
-    ) {
-      return "binomial";
-    }
-
-    // if there is a user filter and binomial, we need to know if there was 1 value and max it
-    if (hasAggregateFilter && isBinomialMetric(metric)) {
-      return "binomialAggregateFilter";
-    }
-
-    if (hasAggregateFilter && column === "$$distinctUsers") {
-      return "userCountAggregateFilter";
-    }
-
-    // If we are just counting the number of rows, then we can use the count aggregation
-    if (column === "$$count") {
-      return "count";
-    }
-
-    // For event quantiles, just count the number of rows that are less than or equal to the quantile
-    if (
-      metric.metricType === "quantile" &&
-      metric.quantileSettings?.type === "event"
-    ) {
-      return "eventQuantile";
-    }
-
-    // for unit quantiles, just sum the values, coalescing to 0 if ignore 0s is disabled
-    if (
-      metric.metricType === "quantile" &&
-      metric.quantileSettings?.type === "unit"
-    ) {
-      if (metric.quantileSettings?.ignoreZeros) {
-        return "unitQuantileIgnoreZeros";
-      }
-      return "unitQuantile";
-    }
-
-    // if counting distinct but not a special count or distinct users
-    // we need to use the hll aggregation for approximating count distinct
-    if (
-      !columnRef?.column.startsWith("$$") &&
-      columnRef?.aggregation === "count distinct"
-    ) {
-      return "countDistinctHLL";
-    }
-
-    if (
-      !columnRef?.column.startsWith("$$") &&
-      columnRef?.aggregation === "max"
-    ) {
-      return "max";
-    }
-    return "sum";
-  }
-
   private getAggregateMetricColumn({
     metric,
     useDenominator,
@@ -5386,38 +5312,53 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   }) {
     // Fact Metrics
     if (isFactMetric(metric)) {
-      const aggregationType = this.getFactMetricAggregationType({
-        metric,
-        useDenominator,
-      });
+      const columnRef = useDenominator ? metric.denominator : metric.numerator;
+
+      const hasAggregateFilter =
+        getAggregateFilters({
+          columnRef: columnRef,
+          column: columnRef?.column || "",
+          ignoreInvalid: true,
+        }).length > 0;
+
+      const column = hasAggregateFilter
+        ? columnRef?.aggregateFilterColumn
+        : columnRef?.column;
 
       const nullIfZero =
         metric.quantileSettings?.ignoreZeros &&
         metric.quantileSettings?.type === "unit";
 
-      // TODO test all of these, specifically non-SUM aggregate filters
-      if (aggregationType === "binomial") {
+      if (
+        !hasAggregateFilter &&
+        (isBinomialMetric(metric) || column === "$$distinctUsers")
+      ) {
         return `COALESCE(MAX(${valueColumn}), 0)`;
-      } else if (aggregationType === "count") {
+      } else if (column === "$$count") {
         const aggColumn = `COUNT(${valueColumn})`;
         return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-      } else if (aggregationType === "eventQuantile") {
+      } else if (
+        metric.metricType === "quantile" &&
+        metric.quantileSettings?.type === "event"
+      ) {
         return `SUM(${this.ifElse(
           `${valueColumn} <= ${quantileColumn}`,
           "1",
           "0",
         )})`;
       } else if (
-        aggregationType === "unitQuantileIgnoreZeros" // TODO: huh?
+        !columnRef?.column.startsWith("$$") &&
+        columnRef?.aggregation === "count distinct"
       ) {
-        return `SUM(${valueColumn})`;
-      } else if (aggregationType === "countDistinctHLL") {
         if (willReaggregate) {
           return this.hllAggregate(valueColumn);
         }
         const aggColumn = this.hllCardinality(this.hllAggregate(valueColumn));
         return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
-      } else if (aggregationType === "max") {
+      } else if (
+        !columnRef?.column.startsWith("$$") &&
+        columnRef?.aggregation === "max"
+      ) {
         const aggColumn = `COALESCE(MAX(${valueColumn}), 0)`;
         return nullIfZero ? `NULLIF(${aggColumn}, 0)` : aggColumn;
       } else {
@@ -5467,18 +5408,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
-  private getReaggregateMetricColumn({
-    metric,
-    useDenominator,
-    valueColumn = "value",
-  }: {
+  private getReaggregateMetricColumn(
     metric: ExperimentMetricInterface,
-    useDenominator: boolean,
-    valueColumn?: string,
-  }) {
-    // TODO test unit quantiles
-    if (quantileMetricType(metric) === "event") {
-      throw new Error("Event quantile metrics are not supported for reaggregation");
+    useDenominator?: boolean,
+    valueColumn: string = "value",
+  ) {
+    if (quantileMetricType(metric)) {
+      throw new Error("Quantile metrics are not supported for reaggregation");
     }
     // Fact Metrics
     if (isFactMetric(metric)) {
@@ -5686,71 +5622,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   }
 
   // Incremental Refresh Queries
-
-  // Data Types used for table creation
-
-  // TODO: customize per engine, or break it into `getStringDataType` methods to override just one
-  // although I think the full mapping is file
-
-  getDataTypeFromFactMetricAggregationType(
-    aggregationType: FactMetricAggregationType,
-  ): DataType {
-    switch (aggregationType) {
-      case "countDistinctHLL":
-        return "hll";
-      case "binomialAggregateFilter":
-        return "integer";
-      case "userCountAggregateFilter":
-        return "integer";
-      case "unitQuantile":
-        return "float";
-      case "unitQuantileIgnoreZeros":
-        return "float";
-      case "eventQuantile":
-        return "integer";
-      case "binomial":
-        return "integer";
-      case "count":
-        return "integer";
-      case "max":
-        return "float";
-      case "sum":
-        return "float";
-    }
-  }
-
-  getIntermediateAggregationFromFactMetricAggregationType(
-    aggregationType: FactMetricAggregationType,
-    valueColumn: string,
-  ): string {
-    switch (aggregationType) {
-      case "countDistinctHLL":
-        return this.castToVarbinary(this.hllAggregate(valueColumn));
-      case "binomialAggregateFilter":
-        return `SUM(COALESCE(${valueColumn}, 0))`;
-      case "userCountAggregateFilter": // TODO what is the value column???
-        return `SUM(COALESCE(${valueColumn}, 0))`;
-      case "unitQuantile":
-        return `SUM(${valueColumn})`; // TODO: ??
-      case "unitQuantileIgnoreZeros":
-        return `SUM(${valueColumn})`; // TODO: ??
-      case "eventQuantile":
-        throw new Error(
-          "Event quantiles are not supported for intermediate aggregation",
-        );
-      case "binomial":
-        return `MAX(COALESCE(${valueColumn}, 0))`;
-      case "count":
-        return `COUNT(${valueColumn})`;
-      case "max":
-        return `MAX(COALESCE(${valueColumn}, 0))`;
-      case "sum":
-        return `SUM(COALESCE(${valueColumn}, 0))`;
-    }
-  }
-
   hllDataType(): string {
-    return "VARBINARY"; // TODO default
+    return "VARBINARY"; // TODO(incremental-refresh): check for all engines
   }
 
   // Pipeline validation queries (engine-aware)
@@ -5780,29 +5653,107 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return `DROP TABLE IF EXISTS ${tableFullName}`;
   }
 
-  // Incremental Units
-  // Separate "if use old table" vs "not"
-  // If restarting/no old table: getCreateExperimentIncrementalUnitsQuery
-  // Then: getUpdateExperimentIncrementalUnitsQuery
 
-  // Then housekeeping
-  // getDropOldIncrementalUnitsQuery
-  // getAlterNewIncrementalUnitsQuery
-  // getMaxTimestampIncrementalUnitsQuery
+  private getAggregationMetadata({
+    metric,
+    useDenominator,
+  }: {
+    metric: FactMetricInterface,
+    useDenominator?: boolean
+  }): FactMetricAggregationMetadata {
+    const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
-  // Incremental Metrics
-  // Per fact table...
-  // If restarting/no old table: getCreateExperimentIncrementalMetricsQuery
-  // Else: nothing
+    const hasAggregateFilter =
+    getAggregateFilters({
+      columnRef: columnRef,
+      column: columnRef?.column || "",
+      ignoreInvalid: true,
+    }).length > 0;
 
-  // getUpdateExperimentIncrementalMetricsQuery
-  // Then housekeeping
-  // getMaxTimestampIncrementalMetricsQuery
+    const column = hasAggregateFilter
+      ? columnRef?.aggregateFilterColumn
+      : columnRef?.column;
 
-  // TODO
-  // If restarting/no old table + CUPED: getCreateExperimentIncrementalMetricsCupedQuery
-  // Else: nothing
-  // Then: getUpdateExperimentIncrementalMetricsCupedQuery
+    const nullIfZero =
+      metric.quantileSettings?.ignoreZeros &&
+      metric.quantileSettings?.type === "unit";
+
+
+    // event quantiles cannot be counted and reaggregated, so they only have a single aggregation
+    if (metric.metricType === "quantile" && metric.quantileSettings?.type === "event") {
+      throw new Error("Event quantiles cannot be used with incremental refresh mode.");
+    }
+
+    // Binomial or distinct user count without an aggregate filter
+    // TODO: get mapping of when distinct users is possible for understanding
+    if (
+      !hasAggregateFilter &&
+      (isBinomialMetric(metric) || column === "$$distinctUsers")
+    ) {
+      return {
+        dataType: "integer",
+        aggregationFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
+        reAggregateFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
+      };
+    }
+
+    // Binomial with an aggregate filter requires counting rows
+    // TODO: what about aggregate filter with special column?
+    const binomialWithAggregateFilter = hasAggregateFilter && isBinomialMetric(metric);
+    const userCountWithAggregateFilter = hasAggregateFilter && column === "$$distinctUsers";
+    if (binomialWithAggregateFilter || userCountWithAggregateFilter) {
+      return {
+        dataType: "integer",
+        aggregationFunction: (column: string) => `SUM(COALESCE((${column}), 0))`,
+        reAggregateFunction: (column: string) => `SUM(COALESCE((${column}), 0))`,
+      };
+    }
+
+    // From now on need to check `nullIfZero` in case these aggregations
+    // are used as part of a unit quantile metric
+    if (column === "$$count") {
+      const reAggregateFunction = nullIfZero ? (column: string) => `NULLIF(COUNT(${column}), 0)` : (column: string) => `COUNT(${column})`;
+      return {
+        dataType: "integer",
+        aggregationFunction: (column: string) => `COUNT(${column})`,
+        reAggregateFunction,
+      };
+    }
+
+    // if counting distinct but not a special count or distinct users
+    // we need to use the hll aggregation for approximating count distinct
+    if (
+      !columnRef?.column.startsWith("$$") &&
+      columnRef?.aggregation === "count distinct"
+    ) {
+      const reAggregateFunction = nullIfZero ? (column: string) => `NULLIF(${this.hllCardinality(this.hllReaggregate(column))}, 0)` : (column: string) => this.hllCardinality(this.hllReaggregate(column));
+      return {
+        dataType: "hll",
+        aggregationFunction: (column: string) => this.castToVarbinary(this.hllAggregate(column)),
+        reAggregateFunction,
+      }
+    }
+
+    if (
+      !columnRef?.column.startsWith("$$") &&
+      columnRef?.aggregation === "max"
+    ) {
+
+      return {
+        dataType: "float",
+        aggregationFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
+        reAggregateFunction: (column: string) => `COALESCE(MAX(${column}), 0)`,
+      };
+    }
+
+    // otherwise, assume sum
+    const reAggregateFunction = nullIfZero ? (column: string) => `NULLIF(SUM(COALESCE(${column}, 0)), 0)` : (column: string) => `SUM(COALESCE(${column}, 0))`;
+    return {
+      dataType: "float",
+      aggregationFunction: (column: string) => `SUM(COALESCE(${column}, 0))`,
+      reAggregateFunction,
+    };
+  }
 
   // Finally, one per fact table for now:
   // getExperimentIncrementalStatisticsQuery
@@ -6335,26 +6286,18 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const baseIdType = exposureQuery.userIdType;
 
     // TODO validate metrics match the metrics table and validate settings
-
     const sortedMetrics = params.metrics
-      .sort((a, b) => a.id.localeCompare(b.id))
-      .map((m) => ({
-        id: m.id,
-        numeratorDataType: this.getDataTypeFromFactMetricAggregationType(
-          this.getFactMetricAggregationType({ metric: m }),
-        ),
-        ...(isRatioMetric(m)
-          ? {
-              denominatorDataType:
-                this.getDataTypeFromFactMetricAggregationType(
-                  this.getFactMetricAggregationType({
-                    metric: m,
-                    useDenominator: true,
-                  }),
-                ),
-            }
-          : {}),
-      }));
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((m) => ({
+      metric: m,
+      numeratorMetadata: this.getAggregationMetadata({ metric: m }),
+      ...(isRatioMetric(m)
+        ? {
+            denominatorMetadata: this.getAggregationMetadata({ metric: m, useDenominator: true }),
+          }
+        : {}),
+    }));
+
 
       // TODO: Actually maybe we want to save all of these columns in the metadata and compute them elsewhere
     return format(
@@ -6365,8 +6308,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       ${baseIdType} ${this.getSQLDataType("string")}
       ${sortedMetrics
         .map(
-          (m) => `, ${m.id}_value ${this.getSQLDataType(m.numeratorDataType)}
-        ${m.denominatorDataType ? `, ${m.id}_denominator_value ${this.getSQLDataType(m.denominatorDataType)}` : ""}
+          (m) => `, ${m.metric.id}_value ${this.getSQLDataType(m.numeratorMetadata.dataType)}
+        ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getSQLDataType(m.denominatorMetadata.dataType)}` : ""}
         `,
         )
         .join("\n")}
@@ -6379,7 +6322,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
-  // TODO current timestamp
+  // TODO(incremental-refresh): current timestamp for other engines
   getCurrentTimestamp(): string {
     return `current_timestamp`;
   }
@@ -6387,7 +6330,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   getInsertMetricSourceDataQuery(
     params: InsertMetricSourceDataQueryParams,
   ): string {
-    const { metrics } = params;
     const exposureQuery = this.getExposureQuery(
       params.settings.exposureQueryId || "",
       undefined,
@@ -6395,12 +6337,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     const baseIdType = exposureQuery.userIdType;
 
-    // does metric start need to be different?
-    // does metric end need to be different?
+    // TODO: does metric start need to be different?
+    // TODO: does metric end need to be different?
 
+    const sortedMetrics = params.metrics
+    .sort((a, b) => a.id.localeCompare(b.id))
     const paramsMetricsSorted = {
       ...params,
-      metrics: params.metrics.sort((a, b) => a.id.localeCompare(b.id)),
+      metrics: sortedMetrics,
     }
     const {
       metricData,
@@ -6436,11 +6380,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       maxHoursToConvert,
     );
 
-    // TODO: Quantiles not available in incremental refresh
-    // TODO: maybe unit quantiles are?
-
-    // TODO datatype and aggregation processing happens elsewhere
-    // TODO: order metrics by id
     // TODO: ID JOIN
     return format(
       `
@@ -6450,7 +6389,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         __factTable AS (${this.getFactMetricCTE({
           baseIdType,
           idJoinMap: {}, // TODO: ID JOIN
-          metrics,
+          metrics: sortedMetrics,
           endDate: metricEnd, // TODO: for coarse here should be fine, could also add timestamp
           startDate: startDate,
           factTableMap: params.factTableMap,
@@ -6501,26 +6440,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             , MAX(timestamp) AS max_timestamp
             ${metricData
               .map((m) => {
-                const aggregationType = this.getFactMetricAggregationType({
-                  metric: m.metric,
-                });
-                const denominatorAggregationType = m.metric.denominator
-                  ? this.getFactMetricAggregationType({ metric: m.metric, useDenominator: true })
-                  : null;
-                const intermediateAggregation =
-                  this.getIntermediateAggregationFromFactMetricAggregationType(
-                    aggregationType,
-                    `${m.alias}_value`,
-                  );
-                const denominatorAggregation = denominatorAggregationType
-                  ? this.getIntermediateAggregationFromFactMetricAggregationType(
-                      denominatorAggregationType,
-                      `${m.alias}_denominator`,
-                    )
-                  : null;
+                const aggfunction = m.incrementalRefreshNumeratorMetadata.aggregationFunction;
+                const denomAggFunction = m.incrementalRefreshDenominatorMetadata?.aggregationFunction;
                 return `
-                , ${intermediateAggregation} AS ${m.id}_value
-                ${denominatorAggregation ? `, ${denominatorAggregation} AS ${m.id}_denominator_value` : ""}
+                , ${aggfunction(`${m.alias}_value`)} AS ${m.id}_value
+                ${denomAggFunction ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${m.id}_denominator_value` : ""}
               `;
               })
               .join("\n")}
@@ -6534,7 +6458,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           ${metricData
             .map(
               (m) =>
-                `, ${m.id}_value${m.metric.denominator ? `\n, ${m.id}_denominator_value` : ""}`,
+                `, ${m.id}_value${m.ratioMetric ? `\n, ${m.id}_denominator_value` : ""}`,
             )
             .join("\n")}
           , ${this.getCurrentTimestamp()} AS refresh_timestamp
@@ -6569,10 +6493,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       activationMetric,
     } = this.parseExperimentFactMetricsParams(params);
 
-    // TODO: Validate with existing columns (by using metadata?)
+    // TODO(incremental-refresh): Validate with existing columns
 
-    // TODO quantiles
-    // TODO Cuped
     return format(
       `
       WITH __experimentUnits AS (
@@ -6585,45 +6507,24 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         SELECT
           ${baseIdType}
           ${metricData
-            .map(
-              (data) =>
-                // TODO getReaggregateMetricColumn?
-                `, ${this.getReaggregateMetricColumn({
-                  metric: data.metric,
-                  useDenominator: false,
-                  valueColumn: `umj.${data.metric.id}_value`,
-                })} AS ${data.metric.id}_value
+            .map((data) => {
+                const reAggFunction = data.incrementalRefreshNumeratorMetadata.reAggregateFunction;
+                const denomReAggFunction = data.incrementalRefreshDenominatorMetadata?.reAggregateFunction;
+                return `, ${reAggFunction(`umj.${data.metric.id}_value`)} AS ${data.metric.id}_value
                 ${
-                  data.ratioMetric
-                    ? `, ${this.getReaggregateMetricColumn({
-                        metric: data.metric,
-                        useDenominator: true,
-                        valueColumn: `umj.${data.metric.id}_denominator_value`,
-                      })} AS ${data.metric.id}_denominator_value`
+                  data.ratioMetric && denomReAggFunction
+                    ? `, ${denomReAggFunction(`umj.${data.metric.id}_denominator_value`)} AS ${data.metric.id}_denominator_value`
                     : ""
-                }`,
-            )
-            .join("\n")}
+                }`;
+              }).join("\n")}
         FROM __metricSourceData umj
         GROUP BY
           ${baseIdType}
       )
-      ${
-       // TODO capping
-        // percentileData.length > 0
-        //   ? `
-        // , __capValue AS (
-        //     ${this.percentileCapSelectClause(percentileData, "__userMetricAgg")}
-        // )
-        // `
-        //   : ""
-        ""
-      }
       , __joinedData AS (
           SELECT
             u.${baseIdType}
             , u.variation
-            -- TODO dimensions
             ${metricData // TODO coalesce????
               .map((data) => `, COALESCE(${data.metric.id}_value, 0) AS ${data.alias}_value ${
                 data.ratioMetric ? `, COALESCE(${data.metric.id}_denominator_value, 0) AS ${data.alias}_denominator` : ""
@@ -6632,12 +6533,24 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           FROM __experimentUnits u
           LEFT JOIN __metricDataAggregated m ON u.${baseIdType} = m.${baseIdType}
       )
+      ${
+        percentileData.length > 0
+          ? `
+        , __capValue AS (
+            ${this.percentileCapSelectClause(
+              percentileData,
+              "__joinedData",
+            )}
+        )
+        `
+          : ""
+      }
       ${this.getExperimentFactMetricStatisticsCTE({
         dimensionCols: [], // TODO dimensions
         metricData,
         eventQuantileData : [], // TODO quantiles
         regressionAdjustedMetrics: [], // TODO regression adjusted metrics
-        percentileData: [], // TODO percentiles
+        percentileData,
         baseIdType,
         joinedMetricTableName: "__joinedData",
         eventQuantileTableName: "__eventQuantileMetric",

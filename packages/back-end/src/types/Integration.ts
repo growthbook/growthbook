@@ -62,6 +62,16 @@ export type FactMetricAggregationType =
   | "binomialAggregateFilter"
   | "userCountAggregateFilter";
 
+export type FactMetricAggregationMetadata = {
+  dataType: DataType;
+  // takes the processed column from the fact table (e.g. 1 for binomial, or `column` for a selected column)
+  // and produces an aggregated value that can be stored at the user-date level
+  aggregationFunction: (column: string) => string;
+  // takes user-date aggregation and re-aggregates it to the user level for producing
+  // the final metric value in the`capCoalesceValue function
+  reAggregateFunction: (column: string, quantileColumn?: string) => string;
+};
+
 export type FactMetricData = {
   alias: string;
   id: string;
@@ -87,6 +97,9 @@ export type FactMetricData = {
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
+  // only used for incremental refresh for now
+  incrementalRefreshNumeratorMetadata: FactMetricAggregationMetadata;
+  incrementalRefreshDenominatorMetadata?: FactMetricAggregationMetadata;
 };
 
 export type FactMetricQuantileData = {
