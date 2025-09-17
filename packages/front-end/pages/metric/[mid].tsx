@@ -143,7 +143,7 @@ const MetricPage: FC = () => {
   const canEditMetric =
     metric.managedBy === "admin"
       ? permissionsUtil.canManageOfficialResources(metric)
-      : permissionsUtil.canUpdateMetric(metric, {});
+      : permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
   const canDeleteMetric =
     metric.managedBy === "admin"
       ? permissionsUtil.canManageOfficialResources(metric)
