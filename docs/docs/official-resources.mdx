@@ -5,9 +5,13 @@ sidebar_label: Official Resources
 slug: /official-resources
 ---
 
-# Official Resources
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
 
-Official Resources in GrowthBook are resources that have been marked as "Official" and cannot be modified via the GrowthBook UI by users without the appropriate permissions. This feature is useful for resources that are managed by external systems or need to be consistent across multiple projects.
+Official Resources are protected resources that **can only be modified by users with appropriate permissions**. These resources display an "Official" badge in the app to indicate their protected status. This feature is useful for resources that are externally managed or need to remain consistent ac
+
+<MaxWidthImage border>
+![Example of an official metric](/images/metrics/official-metric.png)
+</MaxWidthImage>
 
 ## Use Cases
 
@@ -18,9 +22,7 @@ Official Resources are particularly useful when:
 - **Governance**: Organizations want to prevent unauthorized changes to critical resources
 - **Compliance**: Resources must be managed through specific, auditable processes
 
-## What GrowthBook Resources can be marked as official?
-
-The following resource types can be marked as Official:
+## Official Resource Types
 
 - Fact Tables
 - Fact Metrics
@@ -29,42 +31,42 @@ The following resource types can be marked as Official:
 - Segments
 - Dimensions
 
-## How do I create an Official Resource?
+## 3 Ways to Create Official Resources
 
-GrowthBook provides three ways to create Official Resources:
+### 1. config.yml
 
-### Via config.yml
+When resources are created via the `config.yml` file, they are automatically marked as "Official" and are not editable in the app. To make changes to these resources, you must update the `config.yml` file.
 
-When resources are created via the `config.yml` file, they are automatically marked as "Official" by default and are not editable via the GrowthBook UI. To make changes to these resources, you must update the `config.yml` file.
+[Learn more about updating metrics with `config.yml`](/self-host/config)
 
-### Via REST API
+### 2. REST API
 
-When creating resources via the REST API, you can use the optional `managedBy` property:
+When creating resources via the REST API, use the optional `managedBy` property:
 
-- **`managedBy: "api"`** - The resource is not editable via the GrowthBook UI but can be modified via the REST API. This is ideal for resources managed by external repositories or systems.
-- **`managedBy: "admin"`** - The resource can be modified via the GrowthBook UI or REST API, but only by users with the `ManageOfficialResources` policy.
+- **`managedBy: "api"`**: The resource is not editable in the app but can be modified via the REST API. This is ideal for resources managed by external repositories or systems.
+- **`managedBy: "admin"`**: The resource can be modified in the app or via the REST API, but only by users with the `ManageOfficialResources` policy.
 
-### Via GrowthBook UI
+### 3. In-app
 
-Resources can be created via the GrowthBook UI and marked as "Official" at the time of creation. Only users with the `ManageOfficialResources` policy can mark resources as Official.
+Create Official Resources in-app by marking them as "Official" during creation. Only users with the `ManageOfficialResources` policy can apply this designation.
 
 ## Managing Official Resources
 
-### Marking existing resources as Official
+### Marking Existing Resources as Official
 
-Users with the `ManageOfficialResources` policy can mark existing resources as Official via the UI. This prevents other users from modifying these resources through the GrowthBook UI.
+Users with the `ManageOfficialResources` policy can mark existing resources as Official in the app, which prevents other users from modifying these resources. 
 
-### Unmarking resources as Official
+### Unmarking Resources as Official
 
-Removing the "Official" status from a resource is possible for users with the `ManageOfficialResources` policy, but the process is different depending on how the resource was created.
+Removing the "Official" status from a resource is possible for users with the `ManageOfficialResources` policy, but the process depends on how the resource was created.
 
-- If a resource was created via the `config.yml` file, it cannot be unmarked as "Official". Instead, you must remove the resource from the `config.yml` file, and then create a new version of the resource via the UI or the API.
-- If a resource was created via the REST API, and has `managedBy: "api"`, you will need to update the resource via the REST API and remove the `managedBy` property.
+- If a resource was created via the `config.yml` file, it cannot be unmarked as "Official". Instead, you must remove the resource from the `config.yml` file, and then create a new version of the resource in the app or via the API.
+- If a resource was created via the REST API and has `managedBy: "api"`, you will need to update the resource via the REST API and remove the `managedBy` property.
 - If a resource was created via the GrowthBook UI or the REST API, and has `managedBy: "admin"`, it can be unmarked as "Official" via the UI or the REST API.
 
 :::note
 
-At this time, only `Legacy Metrics` can be marked or unmarked as "Official" via the GrowthBook UI. We are actively working on adding this feature to other resource types.
+At this time, only `Legacy Metrics` can be marked or unmarked as "Official" in the app. We are actively working on adding this feature to other resource types.
 
 :::
 
