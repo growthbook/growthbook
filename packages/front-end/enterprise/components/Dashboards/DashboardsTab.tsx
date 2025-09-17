@@ -69,6 +69,8 @@ interface Props {
   initialDashboardId: string;
   isTabActive: boolean;
   showDashboardView?: boolean;
+  switchToExperimentView?: () => void;
+  mutateExperiment?: () => void;
 }
 
 export default function DashboardsTab({
@@ -76,6 +78,8 @@ export default function DashboardsTab({
   initialDashboardId,
   isTabActive,
   showDashboardView = false,
+  switchToExperimentView,
+  mutateExperiment,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
@@ -370,6 +374,34 @@ export default function DashboardsTab({
                                   setIsEditing(true);
                                 }}
                               />
+                              {mutateExperiment && (
+                                <Button
+                                  className="dropdown-item"
+                                  onClick={async () => {
+                                    await apiCall(
+                                      `/experiment/${experiment.id}`,
+                                      {
+                                        method: "POST",
+                                        body: JSON.stringify({
+                                          defaultDashboardId:
+                                            experiment.defaultDashboardId ===
+                                            dashboard.id
+                                              ? ""
+                                              : dashboard.id,
+                                        }),
+                                      },
+                                    );
+                                    mutateExperiment();
+                                  }}
+                                >
+                                  <Text weight="regular">
+                                    {experiment.defaultDashboardId ===
+                                    dashboard.id
+                                      ? "Remove as default view"
+                                      : "Set as default view"}
+                                  </Text>
+                                </Button>
+                              )}
                               <Container px="5">
                                 <DropdownMenuSeparator />
                               </Container>
@@ -536,6 +568,7 @@ export default function DashboardsTab({
                         deleteBlock={() => {}}
                         focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
+                        switchToExperimentView={switchToExperimentView}
                       />
                     )}
                   </>

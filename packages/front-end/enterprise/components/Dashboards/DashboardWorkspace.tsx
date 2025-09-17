@@ -41,6 +41,7 @@ interface Props {
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
   close: () => void;
+  switchToExperimentView?: () => void;
 }
 export default function DashboardWorkspace({
   isTabActive,
@@ -49,6 +50,7 @@ export default function DashboardWorkspace({
   mutate,
   submitDashboard,
   close,
+  switchToExperimentView,
 }: Props) {
   useEffect(() => {
     const bodyElements = window.document.getElementsByTagName("body");
@@ -341,6 +343,7 @@ export default function DashboardWorkspace({
             }}
             deleteBlock={deleteBlock}
             mutate={mutate}
+            switchToExperimentView={switchToExperimentView}
           />
         </div>
         <Flex

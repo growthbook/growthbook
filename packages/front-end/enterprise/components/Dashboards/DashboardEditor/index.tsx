@@ -151,6 +151,7 @@ interface Props {
   duplicateBlock: (index: number) => void;
   deleteBlock: (index: number) => void;
   mutate: () => void;
+  switchToExperimentView?: () => void;
 }
 
 function DashboardEditor({
@@ -172,6 +173,7 @@ function DashboardEditor({
   duplicateBlock,
   deleteBlock,
   mutate,
+  switchToExperimentView,
 }: Props) {
   const [editingTitle, setEditingTitle] = useState(false);
 
@@ -307,6 +309,13 @@ function DashboardEditor({
             }}
             containerClassName="flex-1"
           />
+        ) : switchToExperimentView ? (
+          <>
+            <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
+              View Regular Experiment View
+            </Button>
+            <div style={{ flexGrow: 1 }} />
+          </>
         ) : (
           <>
             <Text

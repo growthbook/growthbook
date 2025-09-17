@@ -1405,6 +1405,19 @@ export async function postExperiment(
     });
   }
 
+  if (data.defaultDashboardId) {
+    const dashboard = await context.models.dashboards.getById(
+      data.defaultDashboardId,
+    );
+    if (!dashboard) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid dashboard: " + data.defaultDashboardId,
+      });
+      return;
+    }
+  }
+
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
@@ -1460,6 +1473,7 @@ export async function postExperiment(
     "analysisSummary",
     "dismissedWarnings",
     "holdoutId",
+    "defaultDashboardId",
   ];
   let changes: Changeset = {};
 

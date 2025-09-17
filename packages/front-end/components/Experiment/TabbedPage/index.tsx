@@ -172,6 +172,13 @@ export default function TabbedPage({
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab, dashboardsEnabled]);
 
+  // If experiment now has a default dashboard, show the dashboard view
+  useEffect(() => {
+    if (experiment.defaultDashboardId) {
+      setShowDashboardView(true);
+    }
+  }, [experiment.defaultDashboardId]);
+
   const { phase, setPhase } = useSnapshot();
   const { metricGroups } = useDefinitions();
 
@@ -365,7 +372,12 @@ export default function TabbedPage({
         showDashboardView={showDashboardView}
       />
 
-      <div className="container-fluid pagecontents">
+      <div
+        className={clsx(
+          "container-fluid pagecontents",
+          showDashboardView && "pt-0",
+        )}
+      >
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
           <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
@@ -424,20 +436,14 @@ export default function TabbedPage({
               )}
             </div>
           )}
-        <div className="text-right">
-          <Button onClick={() => setShowDashboardView((prev) => !prev)}>
-            {showDashboardView
-              ? "View Regular Experiment View"
-              : "View Dashboard View"}
-          </Button>
-        </div>
 
         {showDashboardView && (
           <DashboardsTab
             experiment={experiment}
-            initialDashboardId={""}
+            initialDashboardId={experiment.defaultDashboardId ?? ""}
             isTabActive
             showDashboardView
+            switchToExperimentView={() => setShowDashboardView(false)}
           />
         )}
         <div
@@ -561,6 +567,7 @@ export default function TabbedPage({
           experiment={experiment}
           initialDashboardId={tabPath}
           isTabActive={tab === "dashboards"}
+          mutateExperiment={mutate}
         />
       </div>
       <div
