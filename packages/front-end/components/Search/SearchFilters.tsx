@@ -10,10 +10,7 @@ import React, {
 import { Box, Flex, Heading, IconButton } from "@radix-ui/themes";
 import { FaAngleDown, FaAngleUp, FaCheck } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { SearchTermFilterOperator, SyntaxFilter } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";

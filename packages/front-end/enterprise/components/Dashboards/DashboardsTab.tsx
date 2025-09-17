@@ -15,17 +15,17 @@ import {
 import { Container, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { dashboardCanAutoUpdate, getBlockData } from "shared/enterprise";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EditButton from "@/components/EditButton/EditButton";
-import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
+import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { DropdownMenuSeparator } from "@/components/Radix/DropdownMenu";
+import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import { useDashboards } from "@/hooks/useDashboards";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -107,6 +107,7 @@ export default function DashboardsTab({
   const [isEditing, setIsEditing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const { apiCall } = useAuth();
   const [blocks, setBlocks] = useState<
@@ -128,11 +129,9 @@ export default function DashboardsTab({
     : true;
   const isOwner = userId === dashboard?.userId || !dashboard?.userId;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
-  const canEdit =
-    isOwner ||
-    isAdmin ||
-    (dashboard.editLevel === "organization" && canUpdateDashboard);
   const canManage = isOwner || isAdmin;
+  const canEdit =
+    canManage || (dashboard.editLevel === "organization" && canUpdateDashboard);
 
   useEffect(() => {
     if (dashboard) {
@@ -220,6 +219,25 @@ export default function DashboardsTab({
               submit={async (data) => {
                 await submitDashboard({ method: "POST", data });
                 setIsEditing(true);
+              }}
+            />
+          )}
+          {dashboard && showEditModal && (
+            <DashboardModal
+              mode="edit"
+              close={() => setShowEditModal(false)}
+              initial={{
+                editLevel: dashboard.editLevel,
+                enableAutoUpdates: dashboard.enableAutoUpdates,
+                title: dashboard.title,
+              }}
+              disableAutoUpdate={autoUpdateDisabled}
+              submit={async (data) => {
+                await submitDashboard({
+                  method: "PUT",
+                  dashboardId: dashboard.id,
+                  data,
+                });
               }}
             />
           )}
@@ -366,6 +384,17 @@ export default function DashboardsTab({
                                   setIsEditing(true);
                                 }}
                               />
+                              {canManage && (
+                                <Button
+                                  className="dropdown-item"
+                                  onClick={() => setShowEditModal(true)}
+                                >
+                                  <Text weight="regular">
+                                    Edit Dashboard Settings
+                                  </Text>
+                                </Button>
+                              )}
+
                               <Container px="5">
                                 <DropdownMenuSeparator />
                               </Container>

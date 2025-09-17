@@ -7,19 +7,14 @@ import {
 import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { MetricDefaults } from "back-end/types/organization";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import Field from "@/components/Forms/Field";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import FrequentistTab from "./FrequentistTab";
 import BayesianTab from "./BayesianTab";
 

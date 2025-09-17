@@ -9,18 +9,13 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined } from "shared/util";
 import { PiDotsThreeVertical, PiPlusCircle } from "react-icons/pi";
 import { isPersistedDashboardBlock } from "shared/enterprise";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenu,
-} from "@/components/Radix/DropdownMenu";
-import Avatar from "@/components/Radix/Avatar";
+} from "@/ui/DropdownMenu";
+import Avatar from "@/ui/Avatar";
 import {
   DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING,
   DASHBOARD_WORKSPACE_NAV_HEIGHT,

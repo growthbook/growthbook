@@ -1,12 +1,20 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
+import { Box } from "@radix-ui/themes";
 import cloneDeep from "lodash/cloneDeep";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourcePipelineSettings,
+} from "back-end/types/datasource";
+import { UNITS_TABLE_RETENTION_HOURS_DEFAULT } from "shared/enterprise";
+import Checkbox from "@/ui/Checkbox";
 import Modal from "@/components/Modal";
 import Toggle from "@/components/Forms/Toggle";
 import Field from "@/components/Forms/Field";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/PipelineValidationResults";
+import { useDataSourcePipelineSettingsValidation } from "@/enterprise/components/DataPipeline/useDataSourcePipelineSettingsValidation";
 import { dataSourcePathNames } from "./DataSourcePipeline";
 
 type EditDataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;
@@ -25,13 +33,24 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
   }
   const pathNames = dataSourcePathNames(dataSource.type);
 
-  const form = useForm({
+  const [validateBeforeSaving, setValidateBeforeSaving] = useState(true);
+  const { validate, validationError, validationResults, validationTableName } =
+    useDataSourcePipelineSettingsValidation();
+  const allValidationsSucceeded =
+    validationResults &&
+    Object.values(validationResults).every(
+      (result) => result.result === "success",
+    );
+
+  const form = useForm<DataSourcePipelineSettings>({
     defaultValues: {
       allowWriting: dataSource.settings.pipelineSettings?.allowWriting ?? false,
+      mode: dataSource.settings.pipelineSettings?.mode ?? "ephemeral",
       writeDatabase: dataSource.settings.pipelineSettings?.writeDatabase ?? "",
       writeDataset: dataSource.settings.pipelineSettings?.writeDataset ?? "",
       unitsTableRetentionHours:
-        dataSource.settings.pipelineSettings?.unitsTableRetentionHours ?? 24,
+        dataSource.settings.pipelineSettings?.unitsTableRetentionHours ??
+        UNITS_TABLE_RETENTION_HOURS_DEFAULT,
       unitsTableDeletion:
         dataSource.settings.pipelineSettings?.unitsTableDeletion ?? true,
     },
@@ -43,14 +62,50 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
     await onSave(copy);
   });
 
+  const customValidation = async (): Promise<boolean> => {
+    const values = form.getValues();
+
+    // If not enabling pipeline mode or user disabled validation, skip it
+    if (!values.allowWriting || !validateBeforeSaving) {
+      return true;
+    }
+
+    const isValid = await validate({
+      datasourceId: dataSource.id,
+      pipelineSettings: values,
+    });
+
+    return isValid;
+  };
+
   return (
     <Modal
       trackingEventModalType=""
       open={true}
+      customValidation={customValidation}
       submit={handleSubmit}
       close={onCancel}
       header="Edit Data Source Pipeline Settings"
       cta="Save"
+      size="lg"
+      error={validationError}
+      secondaryCTA={
+        form.watch("allowWriting") ? (
+          <Tooltip
+            body={
+              "If checked, GrowthBook will simulate a pipeline run using a temporary table to verify permissions and settings before saving."
+            }
+            style={{ display: "flex" }}
+          >
+            <Checkbox
+              value={validateBeforeSaving}
+              setValue={(value) => setValidateBeforeSaving(value)}
+              label="Validate permissions before saving"
+              mb="0"
+            />
+          </Tooltip>
+        ) : null
+      }
     >
       <div>
         <label className="mr-2">
@@ -122,6 +177,14 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
               ) : null}
             </>
           )}
+          {validationResults !== undefined && !allValidationsSucceeded ? (
+            <Box mt="3" width="100%">
+              <PipelineValidationResultsView
+                results={validationResults}
+                tableName={validationTableName}
+              />
+            </Box>
+          ) : null}
         </div>
       ) : null}
     </Modal>
