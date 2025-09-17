@@ -366,7 +366,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
   const remoteEvalAlert = hasSDKWithRemoteEval ? (
     <Callout status="info" mb="4">
-      When using a Remote Evaluatied SDK Connection with Holdouts, you must use
+      When using a Remote Evaluated SDK Connection with Holdouts, you must use
       a compatible version of <strong>GrowthBook Proxy</strong> (1.2.8+) or the{" "}
       <strong>remote evaluation library</strong> (1.1.0+).
     </Callout>
