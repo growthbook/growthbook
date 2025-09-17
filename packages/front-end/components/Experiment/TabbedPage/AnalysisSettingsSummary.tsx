@@ -563,9 +563,11 @@ export default function AnalysisSettingsSummary({
                             );
                             mutateSnapshot();
                             mutate();
+                            setRefreshError("");
                           })
                           .catch((e) => {
                             console.error(e);
+                            setRefreshError(e.message);
                           });
                       }
                     : undefined
