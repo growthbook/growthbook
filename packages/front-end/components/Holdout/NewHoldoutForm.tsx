@@ -176,9 +176,9 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
     mustMatchAllConnections: true,
     project,
   }).includes("prerequisites");
-  const hasSDKWithRemoteEval =
-    (sdkConnectionsData?.connections || []).filter((c) => c.remoteEvalEnabled)
-      .length > 0;
+  const hasSDKWithRemoteEval = (sdkConnectionsData?.connections || []).some(
+    (c) => c.remoteEvalEnabled,
+  );
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -366,8 +366,8 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
 
   const remoteEvalAlert = hasSDKWithRemoteEval ? (
     <Callout status="info" mb="4">
-      When using a Remote Evaluated SDK Connection with Holdouts, you must use
-      a compatible version of <strong>GrowthBook Proxy</strong> (1.2.8+) or the{" "}
+      When using a Remote Evaluated SDK Connection with Holdouts, you must use a
+      compatible version of <strong>GrowthBook Proxy</strong> (1.2.8+) or the{" "}
       <strong>remote evaluation library</strong> (1.1.0+).
     </Callout>
   ) : null;
