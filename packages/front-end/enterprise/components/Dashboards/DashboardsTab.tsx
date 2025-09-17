@@ -115,6 +115,7 @@ export default function DashboardsTab({
   const [isEditing, setIsEditing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const { apiCall } = useAuth();
   const [blocks, setBlocks] = useState<
@@ -136,11 +137,9 @@ export default function DashboardsTab({
     : true;
   const isOwner = userId === dashboard?.userId || !dashboard?.userId;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
-  const canEdit =
-    isOwner ||
-    isAdmin ||
-    (dashboard.editLevel === "organization" && canUpdateDashboard);
   const canManage = isOwner || isAdmin;
+  const canEdit =
+    canManage || (dashboard.editLevel === "organization" && canUpdateDashboard);
 
   useEffect(() => {
     if (dashboard) {
@@ -228,6 +227,25 @@ export default function DashboardsTab({
               submit={async (data) => {
                 await submitDashboard({ method: "POST", data });
                 setIsEditing(true);
+              }}
+            />
+          )}
+          {dashboard && showEditModal && (
+            <DashboardModal
+              mode="edit"
+              close={() => setShowEditModal(false)}
+              initial={{
+                editLevel: dashboard.editLevel,
+                enableAutoUpdates: dashboard.enableAutoUpdates,
+                title: dashboard.title,
+              }}
+              disableAutoUpdate={autoUpdateDisabled}
+              submit={async (data) => {
+                await submitDashboard({
+                  method: "PUT",
+                  dashboardId: dashboard.id,
+                  data,
+                });
               }}
             />
           )}
@@ -374,6 +392,16 @@ export default function DashboardsTab({
                                   setIsEditing(true);
                                 }}
                               />
+                              {canManage && (
+                                <Button
+                                  className="dropdown-item"
+                                  onClick={() => setShowEditModal(true)}
+                                >
+                                  <Text weight="regular">
+                                    Edit Dashboard Settings
+                                  </Text>
+                                </Button>
+                              )}
                               {mutateExperiment && (
                                 <Button
                                   className="dropdown-item"
@@ -402,6 +430,7 @@ export default function DashboardsTab({
                                   </Text>
                                 </Button>
                               )}
+
                               <Container px="5">
                                 <DropdownMenuSeparator />
                               </Container>
