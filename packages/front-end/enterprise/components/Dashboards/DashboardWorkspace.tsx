@@ -1,11 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
@@ -107,22 +101,6 @@ export default function DashboardWorkspace({
       });
     };
   }, [setBlocks, submit, dashboard.id]);
-
-  const [title, setTitleState] = useState(dashboard.title);
-  const setTitle = useCallback(
-    async (title: string) => {
-      setTitleState(title);
-      setHasMadeChanges(true);
-      await submit({
-        method: "PUT",
-        dashboardId: dashboard.id,
-        data: {
-          title,
-        },
-      });
-    },
-    [dashboard.id, submit],
-  );
 
   const [editSidebarExpanded, setEditSidebarExpanded] = useState(true);
   const [editSidebarDirty, setEditSidebarDirty] = useState(false);
@@ -301,7 +279,7 @@ export default function DashboardWorkspace({
           <DashboardEditor
             isTabActive={isTabActive}
             experiment={experiment}
-            title={title}
+            title={dashboard.title}
             blocks={effectiveBlocks}
             isEditing={true}
             enableAutoUpdates={dashboard.enableAutoUpdates}
@@ -322,7 +300,6 @@ export default function DashboardWorkspace({
                 ]);
               }
             }}
-            setTitle={setTitle}
             moveBlock={(i, direction) => {
               if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
                 return;
