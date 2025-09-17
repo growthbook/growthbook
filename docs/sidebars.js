@@ -126,11 +126,6 @@ const sidebars = {
             },
             {
               type: "doc",
-              id: "warehouses/mixpanel",
-              label: "Mixpanel",
-            },
-            {
-              type: "doc",
               id: "warehouses/ms-sql-or-sql-server",
               label: "MS SQL or SQL server",
             },
