@@ -1828,6 +1828,10 @@ export default abstract class SqlIntegration
     return "";
   }
 
+  createUnitsTablePartitions(columns: string[]) {
+    return "";
+  }
+
   getExperimentUnitsTableQueryFromCte(
     unitsTableFullName: string,
     cteSql: string,
@@ -4193,7 +4197,6 @@ export default abstract class SqlIntegration
   getDefaultDatabase() {
     return "";
   }
-
   generateTablePath(
     tableName: string,
     schema?: string,
@@ -5936,6 +5939,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         .join("\n")}
       , max_timestamp ${this.getSQLDataType("timestamp")}
     )
+    ${this.createUnitsTablePartitions(['max_timestamp'])}
     `,
       this.getFormatDialect(),
     );
@@ -6052,7 +6056,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // TODO: partitioning for quick max timestamp retrieval
     return format(
       `
-      CREATE TABLE ${params.unitsTempTableFullName} AS (
+      CREATE TABLE ${params.unitsTempTableFullName} 
+      ${this.createUnitsTablePartitions(['max_timestamp'])}
+        AS (
         WITH ${idJoinSQL}
         __existingUnits AS (
           SELECT 
@@ -6205,7 +6211,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // TODO: partitioning for quick max timestamp retrieval
     return format(
       `
-      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTableFullName}
+      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTablePartitionsName}
       `,
       this.getFormatDialect(),
     );
@@ -6269,7 +6275,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // TODO: partitioning for quick max timestamp retrieval
     return format(
       `
-      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTableFullName}
+      SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTablePartitionsName}
       `,
       this.getFormatDialect(),
     );
@@ -6317,6 +6323,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       , max_timestamp ${this.getSQLDataType("timestamp")}
       , metric_date ${this.getSQLDataType("date")}
     )
+    ${this.createUnitsTablePartitions(['max_timestamp', 'metric_date'])}
     `,
       this.getFormatDialect(),
     );

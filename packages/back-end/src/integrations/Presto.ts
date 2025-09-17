@@ -6,6 +6,7 @@ import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
 import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
+import { trinoCreateTablePartitions } from "shared/enterprise";
 
 // eslint-disable-next-line
 type Row = any;
@@ -197,5 +198,8 @@ export default class Presto extends SqlIntegration {
   }
   getDefaultDatabase() {
     return this.params.catalog || "";
+  }
+  createUnitsTablePartitions(columns: string[]) {
+    return trinoCreateTablePartitions(columns);
   }
 }

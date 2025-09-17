@@ -273,11 +273,11 @@ export interface AlterNewIncrementalUnitsQueryParams {
 }
 
 export interface MaxTimestampIncrementalUnitsQueryParams {
-  unitsTableFullName: string;
+  unitsTablePartitionsName: string;
 }
 
 export interface MaxTimestampMetricSourceQueryParams {
-  metricSourceTableFullName: string;
+  metricSourceTablePartitionsName: string;
 }
 
 export interface CreateMetricSourceTableQueryParams {
@@ -889,6 +889,13 @@ export interface SourceIntegrationInterface {
     type: MetricType,
   ): string;
   generateTablePath?(
+    tableName: string,
+    schema?: string,
+    database?: string,
+    requireSchema?: boolean,
+    requireEscapingPath?: boolean,
+  ): string;
+  generatePartitionTablePath?(
     tableName: string,
     schema?: string,
     database?: string,

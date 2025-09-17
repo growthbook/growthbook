@@ -314,10 +314,19 @@ export const startExperimentIncrementalRefreshQueries = async (
   });
   queries.push(alterUnitsTableQuery);
 
+
+  const unitsTablePartitionsName =
+  integration.generateTablePath &&
+  integration.generateTablePath(
+    `"${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}$partitions"`,
+    settings.pipelineSettings?.writeDataset,
+    settings.pipelineSettings?.writeDatabase,
+    true,
+  );
   const maxTimestampQuery = await startQuery({
     name: `max_timestamp_${queryParentId}`,
     query: integration.getMaxTimestampIncrementalUnitsQuery({
-      unitsTableFullName: unitsTableFullName,
+      unitsTablePartitionsName: unitsTablePartitionsName ?? unitsTableFullName,
     }),
     dependencies: [alterUnitsTableQuery.query],
     run: (query, setExternalId) =>
@@ -428,13 +437,20 @@ export const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(insertMetricsSourceDataQuery);
 
-    // TODO Statistics Queries
-
+    const metricSourceTablePartitionsName: string | undefined =
+    existingSource?.tableFullName ??
+    (integration.generateTablePath &&
+      integration.generateTablePath(
+        `"${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}$partitions"`,
+        settings.pipelineSettings?.writeDataset,
+        settings.pipelineSettings?.writeDatabase,
+        true,
+      ));
 
     const maxTimestampMetricsSourceQuery = await startQuery({
       name: `max_timestamp_metrics_source_${group.groupId}`,
       query: integration.getMaxTimestampMetricSourceQuery({
-        metricSourceTableFullName,
+        metricSourceTablePartitionsName: metricSourceTablePartitionsName ?? metricSourceTableFullName,
       }),
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>

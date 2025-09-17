@@ -124,3 +124,13 @@ export function getRequiredColumnsForPipelineSettings(
       return (type satisfies never) ? [] : [];
   }
 }
+
+// Incremental Refresh
+export function trinoCreateTablePartitions(
+  columns: string[],
+) {
+  return `WITH (
+    format = 'ORC',
+    partitioned_by = ARRAY[${columns.map((column) => `'${column}'`).join(", ")}]
+  )`;
+}
