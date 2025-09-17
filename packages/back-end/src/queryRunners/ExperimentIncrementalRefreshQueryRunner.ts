@@ -17,15 +17,26 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { ExperimentAggregateUnitsQueryResponseRows, ExperimentDimension, ExperimentUnitsQueryParams, InsertMetricSourceDataQueryParams, SourceIntegrationInterface, UpdateExperimentIncrementalUnitsQueryParams } from "back-end/src/types/Integration";
+import {
+  ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentDimension,
+  InsertMetricSourceDataQueryParams,
+  SourceIntegrationInterface,
+  UpdateExperimentIncrementalUnitsQueryParams,
+} from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
 import { FactMetricInterface } from "back-end/types/fact-table";
-import { IncrementalRefreshInterface, IncrementalRefreshMetricSourceInterface } from "back-end/src/validators/incremental-refresh";
+import {
+  IncrementalRefreshInterface,
+  IncrementalRefreshMetricSourceInterface,
+} from "back-end/src/validators/incremental-refresh";
+import {
+  analyzeExperimentResults,
+  analyzeExperimentTraffic,
+} from "back-end/src/services/stats";
 import {
   getFactMetricGroup,
-  getFactMetricGroups,
   MAX_METRICS_PER_QUERY,
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -37,7 +48,6 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { analyzeExperimentResults, analyzeExperimentTraffic } from "back-end/src/services/stats";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "growthbook_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "growthbook_metrics";
@@ -251,7 +261,6 @@ export const startExperimentIncrementalRefreshQueries = async (
     : (incrementalRefreshModel?.lastScannedTimestamp ??
       snapshotSettings.startDate);
 
-  
   const exposureQuery = (settings?.queries?.exposure || []).find(
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
@@ -284,7 +293,8 @@ export const startExperimentIncrementalRefreshQueries = async (
   };
   const updateUnitsTableQuery = await startQuery({
     name: `update_${queryParentId}`,
-    query: integration.getUpdateExperimentIncrementalUnitsQuery(unitQueryParams),
+    query:
+      integration.getUpdateExperimentIncrementalUnitsQuery(unitQueryParams),
     dependencies: [
       //dropTempUnitsTableQuery.query,
       ...(createUnitsTableQuery ? [createUnitsTableQuery.query] : []),
@@ -323,15 +333,14 @@ export const startExperimentIncrementalRefreshQueries = async (
   });
   queries.push(alterUnitsTableQuery);
 
-
   const unitsTablePartitionsName =
-  integration.generateTablePath &&
-  integration.generateTablePath(
-    `"${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}$partitions"`,
-    settings.pipelineSettings?.writeDataset,
-    settings.pipelineSettings?.writeDatabase,
-    true,
-  );
+    integration.generateTablePath &&
+    integration.generateTablePath(
+      `"${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}$partitions"`,
+      settings.pipelineSettings?.writeDataset,
+      settings.pipelineSettings?.writeDatabase,
+      true,
+    );
   const maxTimestampQuery = await startQuery({
     name: `max_timestamp_${queryParentId}`,
     query: integration.getMaxTimestampIncrementalUnitsQuery({
@@ -417,21 +426,20 @@ export const startExperimentIncrementalRefreshQueries = async (
       queries.push(createMetricsSourceQuery);
     }
 
-    const metricParams: InsertMetricSourceDataQueryParams = 
-      {
-        settings: snapshotSettings,
-        activationMetric: activationMetric,
-        dimensions: [], // TODO experiment dimensions
-        factTableMap: params.factTableMap,
-        metricSourceTableFullName,
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: group.metrics,
-        partitionSettings: {
-          type: "timestamp",
-        },
-        lastMaxTimestamp: existingSource?.maxTimestamp ?? undefined,
-      };
-    
+    const metricParams: InsertMetricSourceDataQueryParams = {
+      settings: snapshotSettings,
+      activationMetric: activationMetric,
+      dimensions: [], // TODO experiment dimensions
+      factTableMap: params.factTableMap,
+      metricSourceTableFullName,
+      unitsSourceTableFullName: unitsTableFullName,
+      metrics: group.metrics,
+      partitionSettings: {
+        type: "timestamp",
+      },
+      lastMaxTimestamp: existingSource?.maxTimestamp ?? undefined,
+    };
+
     // TODO get N of rows inserted for customer?
     const insertMetricsSourceDataQuery = await startQuery({
       name: `insert_metrics_source_data_${group.groupId}`,
@@ -447,19 +455,20 @@ export const startExperimentIncrementalRefreshQueries = async (
     queries.push(insertMetricsSourceDataQuery);
 
     const metricSourceTablePartitionsName: string | undefined =
-    existingSource?.tableFullName ??
-    (integration.generateTablePath &&
-      integration.generateTablePath(
-        `"${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}$partitions"`,
-        settings.pipelineSettings?.writeDataset,
-        settings.pipelineSettings?.writeDatabase,
-        true,
-      ));
+      existingSource?.tableFullName ??
+      (integration.generateTablePath &&
+        integration.generateTablePath(
+          `"${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}$partitions"`,
+          settings.pipelineSettings?.writeDataset,
+          settings.pipelineSettings?.writeDatabase,
+          true,
+        ));
 
     const maxTimestampMetricsSourceQuery = await startQuery({
       name: `max_timestamp_metrics_source_${group.groupId}`,
       query: integration.getMaxTimestampMetricSourceQuery({
-        metricSourceTablePartitionsName: metricSourceTablePartitionsName ?? metricSourceTableFullName,
+        metricSourceTablePartitionsName:
+          metricSourceTablePartitionsName ?? metricSourceTableFullName,
       }),
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>
@@ -471,12 +480,21 @@ export const startExperimentIncrementalRefreshQueries = async (
         if (maxTimestamp) {
           // Not a great way to manage the updating of the source data, could do this at different points
           // as per in-person conversation
-          const updatedSource: IncrementalRefreshMetricSourceInterface = existingSource ? { ...existingSource, maxTimestamp } : {
-             groupId: group.groupId, maxTimestamp, metricIds: group.metrics.map((m) => m.id), tableFullName: metricSourceTableFullName };
+          const updatedSource: IncrementalRefreshMetricSourceInterface =
+            existingSource
+              ? { ...existingSource, maxTimestamp }
+              : {
+                  groupId: group.groupId,
+                  maxTimestamp,
+                  metricIds: group.metrics.map((m) => m.id),
+                  tableFullName: metricSourceTableFullName,
+                };
           if (!existingSource) {
             runningSourceData = runningSourceData.concat(updatedSource);
           } else {
-            runningSourceData = runningSourceData.map((s) => s.groupId === group.groupId ? updatedSource : s);
+            runningSourceData = runningSourceData.map((s) =>
+              s.groupId === group.groupId ? updatedSource : s,
+            );
           }
           context.models.incrementalRefresh
             .upsertByExperimentId(snapshotSettings.experimentId, {
@@ -512,7 +530,7 @@ export const startExperimentIncrementalRefreshQueries = async (
         id: dm.dimension,
         specifiedSlices: dm.specifiedSlices,
       }));
-}
+  }
   const trafficQuery = await startQuery({
     name: TRAFFIC_QUERY_NAME,
     query: integration.getExperimentAggregateUnitsQuery({
@@ -611,7 +629,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         traffic: trafficHealth,
       };
 
-      const relativeAnalysis = this.model.analyses.find(
+      const _relativeAnalysis = this.model.analyses.find(
         (a) => a.settings.differenceType === "relative",
       );
 

@@ -1,12 +1,12 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
 import { FormatDialect } from "shared/src/types";
+import { trinoCreateTablePartitions } from "shared/enterprise";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
 import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
-import { trinoCreateTablePartitions } from "shared/enterprise";
 
 // eslint-disable-next-line
 type Row = any;

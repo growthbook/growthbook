@@ -15,6 +15,26 @@ import {
   MetricAnalysisQueryResponse,
   DropTableQueryResponse,
   IncrementalWithNoOutputQueryResponse,
+  ExternalIdCallback,
+  MaxTimestampQueryResponse,
+  ExperimentMetricQueryParams,
+  ExperimentAggregateUnitsQueryParams,
+  ExperimentUnitsQueryParams,
+  CreateExperimentIncrementalUnitsQueryParams,
+  UpdateExperimentIncrementalUnitsQueryParams,
+  DropOldIncrementalUnitsQueryParams,
+  DropTempIncrementalUnitsQueryParams,
+  AlterNewIncrementalUnitsQueryParams,
+  MaxTimestampIncrementalUnitsQueryParams,
+  MaxTimestampMetricSourceQueryParams,
+  CreateMetricSourceTableQueryParams,
+  InsertMetricSourceDataQueryParams,
+  DropMetricSourceTableQueryParams,
+  IncrementalRefreshStatisticsQueryParams,
+  DimensionSlicesQueryParams,
+  PastExperimentParams,
+  MetricAnalysisParams,
+  ExperimentFactMetricsQueryResponse,
 } from "back-end/src/types/Integration";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -76,67 +96,156 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
       this.decryptionError = true;
     }
   }
-  getMetricAnalysisQuery(): string {
+  getMetricAnalysisQuery(_: MetricAnalysisParams): string {
     throw new Error("Method not implemented.");
   }
-  runMetricAnalysisQuery(): Promise<MetricAnalysisQueryResponse> {
+  runMetricAnalysisQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<MetricAnalysisQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getDropUnitsTableQuery(): string {
+  getDropUnitsTableQuery(_: { fullTablePath: string }): string {
     throw new Error("Method not implemented.");
   }
-  runDropTableQuery(): Promise<DropTableQueryResponse> {
+  runDropTableQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentMetricQuery(): string {
+  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
     throw new Error("Method not implemented.");
   }
-  getExperimentAggregateUnitsQuery(): string {
+  getExperimentAggregateUnitsQuery(
+    _: ExperimentAggregateUnitsQueryParams,
+  ): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentAggregateUnitsQuery(): Promise<ExperimentAggregateUnitsQueryResponse> {
+  runExperimentAggregateUnitsQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runExperimentMetricQuery(): Promise<ExperimentMetricQueryResponse> {
+  runExperimentMetricQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentMetricQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentUnitsTableQuery(): string {
+  getExperimentUnitsTableQuery(_: ExperimentUnitsQueryParams): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentUnitsQuery(): Promise<ExperimentUnitsQueryResponse> {
+  runExperimentUnitsQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getPastExperimentQuery(): string {
+  getPastExperimentQuery(_: PastExperimentParams): string {
     throw new Error("Method not implemented.");
   }
-  runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
+  runPastExperimentQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getDimensionSlicesQuery(): string {
+  getDimensionSlicesQuery(_: DimensionSlicesQueryParams): string {
     throw new Error("Method not implemented.");
   }
-  async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
+  async runDimensionSlicesQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<DimensionSlicesQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getCreateExperimentIncrementalUnitsQuery(): string {
+  getCreateExperimentIncrementalUnitsQuery(
+    _: CreateExperimentIncrementalUnitsQueryParams,
+  ): string {
     throw new Error("Method not implemented.");
   }
-  getUpdateExperimentIncrementalUnitsQuery(): string {
+  getUpdateExperimentIncrementalUnitsQuery(
+    _: UpdateExperimentIncrementalUnitsQueryParams,
+  ): string {
     throw new Error("Method not implemented.");
   }
-  getDropOldIncrementalUnitsQuery(): string {
+  getDropOldIncrementalUnitsQuery(
+    _: DropOldIncrementalUnitsQueryParams,
+  ): string {
     throw new Error("Method not implemented.");
   }
-  getDropTempIncrementalUnitsQuery(): string {
+  getDropTempIncrementalUnitsQuery(
+    _: DropTempIncrementalUnitsQueryParams,
+  ): string {
     throw new Error("Method not implemented.");
   }
-  getAlterNewIncrementalUnitsQuery(): string {
+  getAlterNewIncrementalUnitsQuery(
+    _: AlterNewIncrementalUnitsQueryParams,
+  ): string {
     throw new Error("Method not implemented.");
   }
-  getMaxTimestampIncrementalUnitsQuery(): string {
+  getMaxTimestampIncrementalUnitsQuery(
+    _: MaxTimestampIncrementalUnitsQueryParams,
+  ): string {
     throw new Error("Method not implemented.");
   }
-  runIncrementalWithNoOutputQuery(): Promise<IncrementalWithNoOutputQueryResponse> {
+  getMaxTimestampMetricSourceQuery(
+    _: MaxTimestampMetricSourceQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getCreateMetricSourceTableQuery(
+    _: CreateMetricSourceTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertMetricSourceDataQuery(_: InsertMetricSourceDataQueryParams): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropMetricSourceTableQuery(_: DropMetricSourceTableQueryParams): string {
+    throw new Error("Method not implemented.");
+  }
+  getIncrementalRefreshStatisticsQuery(
+    _: IncrementalRefreshStatisticsQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  runIncrementalWithNoOutputQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  runIncrementalRefreshStatisticsQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<ExperimentFactMetricsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  runMaxTimestampQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<MaxTimestampQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  runCreateMetricSourceTableQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  runInsertMetricSourceDataQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  runDropMetricSourceTableQuery(
+    _query: string,
+    _setExternalId: ExternalIdCallback,
+  ): Promise<IncrementalWithNoOutputQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
@@ -168,7 +277,10 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
       2,
     );
   }
-  async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
+  async runMetricValueQuery(
+    query: string,
+    _setExternalId?: ExternalIdCallback,
+  ): Promise<MetricValueQueryResponse> {
     const { rows, metrics } = await this.runQuery(query);
     const dates: MetricValueQueryResponseRows = [];
     if (rows) {

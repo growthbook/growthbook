@@ -126,9 +126,7 @@ export function getRequiredColumnsForPipelineSettings(
 }
 
 // Incremental Refresh
-export function trinoCreateTablePartitions(
-  columns: string[],
-) {
+export function trinoCreateTablePartitions(columns: string[]) {
   return `WITH (
     format = 'ORC',
     partitioned_by = ARRAY[${columns.map((column) => `'${column}'`).join(", ")}]

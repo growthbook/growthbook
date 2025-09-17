@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { DataSourceType } from "back-end/types/datasource";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
+import type { PartitionSettings } from "back-end/src/types/Integration";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
@@ -73,28 +74,9 @@ export default function DataSourcePipeline({
                   {pipelineSettings?.partitionSettings ? (
                     <Box mt="2">
                       {"Partition: "}
-                      {pipelineSettings.partitionSettings.type ===
-                      "timestamp" ? (
-                        <code>timestamp</code>
-                      ) : (
-                        <>
-                          <code>yearMonthDate</code>
-                          {" ["}
-                          <code>
-                            year={pipelineSettings.partitionSettings.yearColumn}
-                          </code>
-                          {", "}
-                          <code>
-                            month=
-                            {pipelineSettings.partitionSettings.monthColumn}
-                          </code>
-                          {", "}
-                          <code>
-                            day={pipelineSettings.partitionSettings.dayColumn}
-                          </code>
-                          {"]"}
-                        </>
-                      )}
+                      <PartitionSettingsSummary
+                        settings={pipelineSettings.partitionSettings}
+                      />
                     </Box>
                   ) : null}
                   <Box mt="2">
@@ -155,4 +137,45 @@ export default function DataSourcePipeline({
       ) : null}
     </Box>
   );
+}
+
+function PartitionSettingsSummary({
+  settings,
+}: {
+  settings: PartitionSettings;
+}) {
+  switch (settings.type) {
+    case "timestamp":
+      return (
+        <>
+          <code>timestamp</code>
+        </>
+      );
+    case "yearMonthDay":
+      return (
+        <>
+          <code>yearMonthDate</code>
+          {" ["}
+          <code>year={settings.yearColumn}</code>
+          {", "}
+          <code>month={settings.monthColumn}</code>
+          {", "}
+          <code>day={settings.dayColumn}</code>
+          {"]"}
+        </>
+      );
+    case "date":
+      return (
+        <>
+          <code>date</code>
+          {" ["}
+          <code>date={settings.dateColumn}</code>
+          {"]"}
+        </>
+      );
+    default: {
+      const _exhaustiveCheck: never = settings as never;
+      return _exhaustiveCheck;
+    }
+  }
 }

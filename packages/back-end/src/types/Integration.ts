@@ -107,7 +107,7 @@ export type FactMetricQuantileData = {
   valueCol: string;
   outputCol: string;
   metricQuantileSettings: MetricQuantileSettings;
-}
+};
 
 export type FactMetricPercentileData = {
   valueCol: string;
@@ -304,7 +304,8 @@ export interface DropMetricSourceTableQueryParams {
   metricSourceTableFullName: string;
 }
 
-export interface IncrementalRefreshStatisticsQueryParams extends InsertMetricSourceDataQueryParams {}
+export interface IncrementalRefreshStatisticsQueryParams
+  extends InsertMetricSourceDataQueryParams {}
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {

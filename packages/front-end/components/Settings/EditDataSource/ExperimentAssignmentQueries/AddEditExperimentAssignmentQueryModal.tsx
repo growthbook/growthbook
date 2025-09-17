@@ -90,6 +90,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     });
   });
 
+  const pipelineSettings = dataSource?.settings?.pipelineSettings;
+  const partitionSettings = pipelineSettings?.partitionSettings;
+
   const requiredColumns = useMemo(() => {
     const base = new Set<string>(
       [
@@ -99,7 +102,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
         userEnteredUserIdType,
         ...(userEnteredDimensions || []),
         ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
-      ].filter(Boolean) as string[],
+      ].filter(Boolean),
     );
 
     // Include extra required columns if provided (e.g., from a wizard flow)
@@ -107,20 +110,17 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
     // Fallback: if no extraRequiredColumns passed, include datasource pipeline partition columns when applicable
     if (!extraRequiredColumns.length) {
-      const ps = dataSource?.settings?.pipelineSettings?.partitionSettings as
-        | {
-            type: "yearMonthDate";
-            yearColumn?: string;
-            monthColumn?: string;
-            dateColumn?: string;
-          }
-        | { type: "timestamp" }
-        | undefined;
-      const mode = dataSource?.settings?.pipelineSettings?.mode;
-      if (mode === "incremental" && ps && ps.type === "yearMonthDate") {
-        [ps.yearColumn, ps.monthColumn, ps.dateColumn]
+      if (
+        pipelineSettings?.mode === "incremental" &&
+        partitionSettings?.type === "yearMonthDay"
+      ) {
+        [
+          partitionSettings.yearColumn,
+          partitionSettings.monthColumn,
+          partitionSettings.dayColumn,
+        ]
           .filter(Boolean)
-          .forEach((c) => base.add(c as string));
+          .forEach((c) => base.add(c));
       }
     }
 
@@ -129,12 +129,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     userEnteredUserIdType,
     userEnteredDimensions,
     userEnteredHasNameCol,
-    dataSource?.settings?.pipelineSettings?.mode,
-    // stringify to avoid deep deps; safe because we only read keys
-    JSON.stringify(
-      dataSource?.settings?.pipelineSettings?.partitionSettings || {},
-    ),
-    JSON.stringify(extraRequiredColumns || []),
+    pipelineSettings,
+    partitionSettings,
+    extraRequiredColumns,
   ]);
 
   const identityTypes = useMemo(

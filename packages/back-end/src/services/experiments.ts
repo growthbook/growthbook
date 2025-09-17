@@ -1186,6 +1186,7 @@ export async function createSnapshot({
       queryParentId: experiment.id,
       factTableMap,
       fullRefresh: !useCache, // TODO have different upstream setting govern whether to refresh entire pipeline
+      snapshotType: type,
     });
     return queryRunner;
   }
