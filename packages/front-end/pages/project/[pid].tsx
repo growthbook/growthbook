@@ -285,10 +285,7 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
-                <div
-                  className="bg-main-color position-sticky w-100 py-3"
-                  style={{ bottom: 0, height: 70 }}
-                >
+                <div className="w-100 py-3" style={{ bottom: 0, height: 70 }}>
                   <div className="container-fluid pagecontents d-flex">
                     <div className="flex-grow-1 mr-4">
                       {saveMsg && (
@@ -304,7 +301,6 @@ const ProjectPage: FC = () => {
                     </div>
                     <div>
                       <Button
-                        style={{ marginRight: "4rem" }}
                         color={"primary"}
                         disabled={!ctaEnabled}
                         onClick={async () => {
