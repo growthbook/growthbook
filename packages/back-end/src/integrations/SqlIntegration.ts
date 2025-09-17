@@ -5715,7 +5715,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // From now on need to check `nullIfZero` in case these aggregations
     // are used as part of a unit quantile metric
     if (column === "$$count") {
-      const reAggregateFunction = nullIfZero ? (column: string) => `NULLIF(COUNT(${column}), 0)` : (column: string) => `COUNT(${column})`;
+      const reAggregateFunction = nullIfZero ? (column: string) => `NULLIF(SUM(COALESCE(${column}, 0)), 0)` : (column: string) => `SUM(COALESCE(${column}, 0))`;
       return {
         dataType: "integer",
         aggregationFunction: (column: string) => `COUNT(${column})`,
@@ -6044,7 +6044,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       experimentId: settings.experimentId,
     });
 
-    // TODO: activation metric
+    // TODO(incremental-refresh): activation metric
     if (activationMetric) {
       throw new Error(
         "Activation metrics are not supported for incremental refresh",
@@ -6095,7 +6095,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             startDate: settings.startDate,
             endDate: settings.endDate,
             experimentId: settings.experimentId,
-            // TODO add incremental start data as template variable
+            // TODO(incremental-refresh): add incremental start data as template variable
           })}
         ),
         __filteredNewExposures AS (
@@ -6103,14 +6103,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${this.castToString(`n.${baseIdType}`)} AS ${baseIdType}
             , n.variation_id AS variation
             , ${this.castUserDateCol("n.timestamp")} AS timestamp
-            -- TODO activation metric timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map((d) => `, n.${d.id} AS dim_exp_${d.id}`)
               .join(",\n")}
           FROM __newExposures n
-          -- TODO: confirm this always works for all incremental refresh datasources
-          -- and their partitioning strategy
           ${
             segment
               ? `JOIN __segment s ON (s.${baseIdType} = n.${baseIdType})`
@@ -6128,7 +6125,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           UNION ALL
           SELECT * FROM __filteredNewExposures
         ),
-        -- TODO refactor this to a shared CTE
         __experimentUnits AS (
           SELECT
             e.${baseIdType} AS ${baseIdType}
@@ -6208,7 +6204,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   getMaxTimestampIncrementalUnitsQuery(
     params: MaxTimestampIncrementalUnitsQueryParams,
   ): string {
-    // TODO: partitioning for quick max timestamp retrieval
     return format(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.unitsTablePartitionsName}
@@ -6225,11 +6220,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     const row = rows?.[0];
 
+    // TODO test
     if (!row) {
-      // TODO?
-      throw new Error(
-        "No row returned from max timestamp incremental units query",
-      );
+      return {
+        rows: [],
+        statistics,
+      }
     }
 
     return {
@@ -6272,7 +6268,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
   ): string {
-    // TODO: partitioning for quick max timestamp retrieval
     return format(
       `
       SELECT MAX(max_timestamp) AS max_timestamp FROM ${params.metricSourceTablePartitionsName}
@@ -6342,8 +6337,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       undefined,
     );
 
-    const baseIdType = exposureQuery.userIdType;
-
+    const factTableMap = params.factTableMap;
+    const factTable = factTableMap.get(params.metrics[0].numerator?.factTableId);
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
+      objects: [
+        [exposureQuery.userIdType],
+        factTable?.userIdTypes || []
+      ],
+      // TODO: improve start and end date
+      from: params.settings.startDate,
+      to: params.settings.endDate,
+      forcedBaseIdType: exposureQuery.userIdType,
+      experimentId: params.settings.experimentId,
+    });
     // TODO: does metric start need to be different?
     // TODO: does metric end need to be different?
 
@@ -6387,15 +6393,15 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       maxHoursToConvert,
     );
 
-    // TODO: ID JOIN
     return format(
       `
     INSERT INTO ${params.metricSourceTableFullName}
     SELECT * FROM (
       WITH 
+        ${idJoinSQL}
         __factTable AS (${this.getFactMetricCTE({
           baseIdType,
-          idJoinMap: {}, // TODO: ID JOIN
+          idJoinMap,
           metrics: sortedMetrics,
           endDate: metricEnd, // TODO: for coarse here should be fine, could also add timestamp
           startDate: startDate,
