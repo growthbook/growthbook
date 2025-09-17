@@ -159,7 +159,7 @@ export default function NewExperimentChecklistItem({
               addNewTask(newTaskInput);
             }}
           >
-            Add Task
+            Add To Checklist
           </button>
           <button
             className="btn btn-link"
