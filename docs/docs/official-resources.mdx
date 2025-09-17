@@ -7,7 +7,7 @@ slug: /official-resources
 
 import MaxWidthImage from '@site/src/components/MaxWidthImage';
 
-Official Resources are protected resources that **can only be modified by users with appropriate permissions**. These resources display an "Official" badge in the app to indicate their protected status. This feature is useful for resources that are externally managed or need to remain consistent ac
+Official Resources are protected resources that **can only be modified by users with appropriate permissions**. These resources have a checkmark badge in the app to indicate their protected status. This feature is useful for resources that are externally managed or need to remain consistent across teams.
 
 <MaxWidthImage border>
 ![Example of an official metric](/images/metrics/official-metric.png)
@@ -15,7 +15,7 @@ Official Resources are protected resources that **can only be modified by users 
 
 ## Use Cases
 
-Official Resources are particularly useful when:
+Official Resources are particularly useful for:
 
 - **External System Management**: Resources are managed by external systems (like data warehouses or CI/CD pipelines)
 - **Cross-Project Consistency**: Resources need to be identical across multiple projects
@@ -60,9 +60,9 @@ Users with the `ManageOfficialResources` policy can mark existing resources as O
 
 Removing the "Official" status from a resource is possible for users with the `ManageOfficialResources` policy, but the process depends on how the resource was created.
 
-- If a resource was created via the `config.yml` file, it cannot be unmarked as "Official". Instead, you must remove the resource from the `config.yml` file, and then create a new version of the resource in the app or via the API.
+- If a resource was created via the `config.yml` file, it cannot be unmarked as "Official." Instead, you must remove the resource from the `config.yml` file, and then create a new version of the resource in the app or via the API.
 - If a resource was created via the REST API and has `managedBy: "api"`, you will need to update the resource via the REST API and remove the `managedBy` property.
-- If a resource was created via the GrowthBook UI or the REST API, and has `managedBy: "admin"`, it can be unmarked as "Official" via the UI or the REST API.
+- If a resource was created in the app or via the REST API (and has `managedBy: "admin"`), it can be unmarked as "Official" in the app or via the REST API.
 
 :::note
 
