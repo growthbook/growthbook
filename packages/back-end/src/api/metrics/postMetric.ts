@@ -35,6 +35,11 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(async (
   );
 
   if (req.body.managedBy === "admin") {
+    if (!req.context.hasPremiumFeature("manage-official-resources")) {
+      throw new Error(
+        "Your organiation's plan does not support creating official metrics.",
+      );
+    }
     if (!req.context.permissions.canManageOfficialResources({ projects })) {
       req.context.permissions.throwPermissionError();
     }

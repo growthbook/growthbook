@@ -465,11 +465,15 @@ export async function postMetrics(
     context.permissions.throwPermissionError();
   }
 
-  if (
-    managedBy === "admin" &&
-    !context.permissions.canManageOfficialResources({ projects })
-  ) {
-    context.permissions.throwPermissionError();
+  if (managedBy === "admin") {
+    if (!context.hasPremiumFeature("manage-official-resources")) {
+      throw new Error(
+        "Your organiation's plan does not support creating official metrics.",
+      );
+    }
+    if (!context.permissions.canManageOfficialResources({ projects })) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   if (datasource) {

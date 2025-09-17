@@ -81,7 +81,7 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
 
   const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
     useState(false);
@@ -476,7 +476,8 @@ const MetricPage: FC = () => {
             {!metric.managedBy &&
             permissionsUtil.canManageOfficialResources({
               projects: metric.projects,
-            }) ? (
+            }) &&
+            hasCommercialFeature("manage-official-resources") ? (
               <Button
                 className="btn dropdown-item py-2"
                 color=""

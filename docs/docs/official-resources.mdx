@@ -46,7 +46,13 @@ When creating resources via the REST API, use the optional `managedBy` property:
 - **`managedBy: "api"`**: The resource is not editable in the app but can be modified via the REST API. This is ideal for resources managed by external repositories or systems.
 - **`managedBy: "admin"`**: The resource can be modified in the app or via the REST API, but only by users with the `ManageOfficialResources` policy.
 
-### 3. In-app
+:::note
+
+Create Official Resources via the UI (or via the REST API while setting `managedBy: "admin"`) is only available to Enterprise organizations.
+
+:::
+
+### 3. Via GrowthBook UI
 
 Create Official Resources in-app by marking them as "Official" during creation. Only users with the `ManageOfficialResources` policy can apply this designation.
 
@@ -54,7 +60,7 @@ Create Official Resources in-app by marking them as "Official" during creation. 
 
 ### Marking Existing Resources as Official
 
-Users with the `ManageOfficialResources` policy can mark existing resources as Official in the app, which prevents other users from modifying these resources. 
+Users with the `ManageOfficialResources` policy can mark existing resources as Official in the app, which prevents other users from modifying these resources.
 
 ### Unmarking Resources as Official
 
