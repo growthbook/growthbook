@@ -26,7 +26,7 @@ import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/
 import { useDataSourcePipelineSettingsValidation } from "@/enterprise/components/DataPipeline/useDataSourcePipelineSettingsValidation";
 import Page from "@/components/Modal/Page";
 import PagedModal from "@/components/Modal/PagedModal";
-import ExposureQueriesValidationStep from "@/components/Settings/EditDataSource/DataSourcePipeline/ExposureQueriesValidationStep";
+import PipelineQueriesValidationStep from "@/components/Settings/EditDataSource/DataSourcePipeline/PipelineQueriesValidationStep";
 import PipelineModeSelector from "./PipelineModeSelector";
 import { dataSourcePathNames } from "./DataSourcePipeline";
 
@@ -149,6 +149,7 @@ export const EditDataSourcePipeline = ({
       close={onCancel}
       submit={handleSubmit}
       cta="Save"
+      forceCtaText={true}
       size="lg"
       step={step}
       setStep={setStep}
@@ -451,7 +452,10 @@ export const EditDataSourcePipeline = ({
       </Page>
 
       <Page enabled={shouldShowStep2} display="Update Queries">
-        <ExposureQueriesValidationStep dataSource={dataSource} />
+        <PipelineQueriesValidationStep
+          dataSource={dataSource}
+          onSaveDataSource={onSave}
+        />
       </Page>
     </PagedModal>
   );

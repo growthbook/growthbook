@@ -8,6 +8,7 @@ export interface Props {
     FactTableInterface,
     "datasource" | "sql" | "eventName" | "userIdTypes"
   >;
+  requiredColumns?: Set<string>;
   close: () => void;
   save: (data: {
     sql: string;
@@ -20,6 +21,7 @@ export default function EditFactTableSQLModal({
   factTable,
   close,
   save,
+  requiredColumns,
 }: Props) {
   const { getDatasourceById } = useDefinitions();
   const [eventName, setEventName] = useState(factTable.eventName);
@@ -35,7 +37,7 @@ export default function EditFactTableSQLModal({
       placeholder={
         "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
       }
-      requiredColumns={new Set(["timestamp"])}
+      requiredColumns={new Set(["timestamp", ...(requiredColumns || [])])}
       value={factTable.sql}
       save={async (sql) => {
         await save({

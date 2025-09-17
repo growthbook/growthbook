@@ -21,7 +21,7 @@ export const PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES: Record<
   DataSourceType[]
 > = {
   ephemeral: ["bigquery", "databricks", "snowflake"],
-  incremental: ["bigquery", "presto"],
+  incremental: ["presto"],
 };
 
 export const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;
@@ -97,4 +97,30 @@ export function getPipelineValidationDropTableQuery({
   return integration.getDropUnitsTableQuery({
     fullTablePath: tableFullName,
   });
+}
+
+export function getRequiredColumnsForPipelineSettings(
+  settings: DataSourcePipelineSettings,
+): string[] {
+  const partitionSettings = settings.partitionSettings;
+  const type = partitionSettings?.type;
+  if (!type) return [];
+
+  switch (type) {
+    case "yearMonthDay":
+      return [
+        partitionSettings.yearColumn,
+        partitionSettings.monthColumn,
+        partitionSettings.dayColumn,
+      ];
+
+    case "date":
+      return [partitionSettings.dateColumn];
+
+    case "timestamp":
+      return [];
+
+    default:
+      return (type satisfies never) ? [] : [];
+  }
 }
