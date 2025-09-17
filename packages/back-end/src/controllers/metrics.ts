@@ -120,7 +120,11 @@ export async function deleteMetric(
 
   // If this is an Official Metric, we need to check that the user has permission
   if (metric.managedBy === "admin") {
-    if (!context.permissions.canManageOfficialResources(metric)) {
+    if (
+      !context.permissions.canManageOfficialResources({
+        projects: metric.projects,
+      })
+    ) {
       throw new Error("Cannot delete an official metric");
     }
   } else {
@@ -468,7 +472,7 @@ export async function postMetrics(
   if (managedBy === "admin") {
     if (!context.hasPremiumFeature("manage-official-resources")) {
       throw new Error(
-        "Your organiation's plan does not support creating official metrics.",
+        "Your organization's plan does not support creating official metrics.",
       );
     }
     if (!context.permissions.canManageOfficialResources({ projects })) {
@@ -553,7 +557,11 @@ export async function putMetric(
   }
 
   if (metric.managedBy === "admin") {
-    if (!context.permissions.canManageOfficialResources(metric)) {
+    if (
+      !context.permissions.canManageOfficialResources({
+        projects: metric.projects,
+      })
+    ) {
       throw new Error(
         "You do not have permission to update an official metric",
       );

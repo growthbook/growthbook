@@ -22,7 +22,11 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
 
   // If the metric is official, only admins or those with the ManageOfficialResources policy can update it
   if (metric.managedBy === "admin") {
-    if (!req.context.permissions.canManageOfficialResources(metric)) {
+    if (
+      !req.context.permissions.canManageOfficialResources({
+        projects: metric.projects,
+      })
+    ) {
       req.context.permissions.throwPermissionError();
     }
     // Otherwise, if it's not already official and the user is trying to make it official, they need the ManageOfficialResources policy
