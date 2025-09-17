@@ -10,13 +10,14 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
 import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { InsertMetricSourceDataQueryParams, SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { ExperimentAggregateUnitsQueryResponseRows, ExperimentDimension, ExperimentUnitsQueryParams, InsertMetricSourceDataQueryParams, SourceIntegrationInterface, UpdateExperimentIncrementalUnitsQueryParams } from "back-end/src/types/Integration";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { updateReport } from "back-end/src/models/ReportModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
@@ -27,6 +28,7 @@ import {
   getFactMetricGroups,
   MAX_METRICS_PER_QUERY,
   SnapshotResult,
+  TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
 import {
   QueryRunner,
@@ -35,13 +37,14 @@ import {
   RowsType,
   StartQueryParams,
 } from "./QueryRunner";
-import { analyzeExperimentResults } from "back-end/src/services/stats";
+import { analyzeExperimentResults, analyzeExperimentTraffic } from "back-end/src/services/stats";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "growthbook_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "growthbook_metrics";
 export const INCREMENTAL_CUPED_TABLE_PREFIX = "growthbook_cuped";
 
 export type ExperimentIncrementalRefreshQueryParams = {
+  snapshotType: SnapshotType;
   snapshotSettings: ExperimentSnapshotSettings;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -248,6 +251,11 @@ export const startExperimentIncrementalRefreshQueries = async (
     : (incrementalRefreshModel?.lastScannedTimestamp ??
       snapshotSettings.startDate);
 
+  
+  const exposureQuery = (settings?.queries?.exposure || []).find(
+    (q) => q.id === snapshotSettings.exposureQueryId,
+  );
+
   // we can skip this if we have a unique temp table each time
   // const dropTempUnitsTableQuery = await startQuery({
   //   name: `drop_temp_${queryParentId}`,
@@ -262,20 +270,21 @@ export const startExperimentIncrementalRefreshQueries = async (
   // });
   // queries.push(dropTempUnitsTableQuery);
 
+  const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
+    unitsTableFullName: unitsTableFullName,
+    unitsTempTableFullName: unitsTempTableFullName,
+    settings: snapshotSettings,
+    activationMetric: activationMetric,
+    dimensions: [], // TODO experiment dimensions
+    segment: null, // TODO experiment segment
+    factTableMap: params.factTableMap,
+    lastMaxTimestamp: lastMaxTimestamp,
+    partitionSettings:
+      integration.datasource.settings.pipelineSettings?.partitionSettings,
+  };
   const updateUnitsTableQuery = await startQuery({
     name: `update_${queryParentId}`,
-    query: integration.getUpdateExperimentIncrementalUnitsQuery({
-      unitsTableFullName: unitsTableFullName,
-      unitsTempTableFullName: unitsTempTableFullName,
-      settings: snapshotSettings,
-      activationMetric: activationMetric,
-      dimensions: [], // TODO experiment dimensions
-      segment: null, // TODO experiment segment
-      factTableMap: params.factTableMap,
-      lastMaxTimestamp: lastMaxTimestamp,
-      partitionSettings:
-        integration.datasource.settings.pipelineSettings?.partitionSettings,
-    }),
+    query: integration.getUpdateExperimentIncrementalUnitsQuery(unitQueryParams),
     dependencies: [
       //dropTempUnitsTableQuery.query,
       ...(createUnitsTableQuery ? [createUnitsTableQuery.query] : []),
@@ -492,8 +501,32 @@ export const startExperimentIncrementalRefreshQueries = async (
     });
     queries.push(statisticsQuery);
   }
-
-  // TODO Health Queries
+  const runTrafficQuery =
+    params.snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
+  let dimensionsForTraffic: ExperimentDimension[] = [];
+  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
+    dimensionsForTraffic = exposureQuery.dimensionMetadata
+      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
+      .map((dm) => ({
+        type: "experiment",
+        id: dm.dimension,
+        specifiedSlices: dm.specifiedSlices,
+      }));
+}
+  const trafficQuery = await startQuery({
+    name: TRAFFIC_QUERY_NAME,
+    query: integration.getExperimentAggregateUnitsQuery({
+      ...unitQueryParams,
+      dimensions: dimensionsForTraffic, // TODO slice and dice
+      useUnitsTable: true,
+    }),
+    dependencies: [alterUnitsTableQuery.query],
+    run: (query, setExternalId) =>
+      integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+    process: (rows) => rows,
+    queryType: "experimentTraffic",
+  });
+  queries.push(trafficQuery);
 
   return queries;
 };
@@ -563,54 +596,54 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       result.multipleExposures = results.multipleExposures ?? 0;
     });
 
-    // Run health checks
-    // const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
-    // if (healthQuery) {
-    //   const rows =
-    //     healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
-    //   const trafficHealth = analyzeExperimentTraffic({
-    //     rows: rows,
-    //     error: healthQuery.error,
-    //     variations: this.model.settings.variations,
-    //   });
+    //Run health checks
+    const healthQuery = queryMap.get(TRAFFIC_QUERY_NAME);
+    if (healthQuery) {
+      const rows =
+        healthQuery.result as ExperimentAggregateUnitsQueryResponseRows;
+      const trafficHealth = analyzeExperimentTraffic({
+        rows: rows,
+        error: healthQuery.error,
+        variations: this.model.settings.variations,
+      });
 
-    //   result.health = {
-    //     traffic: trafficHealth,
-    //   };
+      result.health = {
+        traffic: trafficHealth,
+      };
 
-    //   const relativeAnalysis = this.model.analyses.find(
-    //     (a) => a.settings.differenceType === "relative",
-    //   );
+      const relativeAnalysis = this.model.analyses.find(
+        (a) => a.settings.differenceType === "relative",
+      );
 
-    //   const isEligibleForMidExperimentPowerAnalysis =
-    //     relativeAnalysis &&
-    //     this.model.settings.banditSettings === undefined &&
-    //     rows &&
-    //     rows.length;
+      // const isEligibleForMidExperimentPowerAnalysis =
+      //   relativeAnalysis &&
+      //   this.model.settings.banditSettings === undefined &&
+      //   rows &&
+      //   rows.length;
 
-    //   if (isEligibleForMidExperimentPowerAnalysis) {
-    //     const today = new Date();
-    //     const phaseStartDate = this.model.settings.startDate;
-    //     const experimentMaxLengthDays =
-    //       this.context.org.settings?.experimentMaxLengthDays;
+      // if (isEligibleForMidExperimentPowerAnalysis) {
+      //   const today = new Date();
+      //   const phaseStartDate = this.model.settings.startDate;
+      //   const experimentMaxLengthDays =
+      //     this.context.org.settings?.experimentMaxLengthDays;
 
-    //     const experimentTargetEndDate = addDays(
-    //       phaseStartDate,
-    //       experimentMaxLengthDays && experimentMaxLengthDays > 0
-    //         ? experimentMaxLengthDays
-    //         : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS,
-    //     );
-    //     const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
-    //     // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
-    //     result.health.power = analyzeExperimentPower({
-    //       trafficHealth,
-    //       targetDaysRemaining,
-    //       analysis: relativeAnalysis,
-    //       goalMetrics: this.model.settings.goalMetrics,
-    //       variationsSettings: this.model.settings.variations,
-    //     });
-    //   }
-    // }
+      //   const experimentTargetEndDate = addDays(
+      //     phaseStartDate,
+      //     experimentMaxLengthDays && experimentMaxLengthDays > 0
+      //       ? experimentMaxLengthDays
+      //       : FALLBACK_EXPERIMENT_MAX_LENGTH_DAYS,
+      //   );
+      //   const targetDaysRemaining = daysBetween(today, experimentTargetEndDate);
+      //   // NB: This does not run a SQL query, but it is a health check that depends on the trafficHealth
+      //   result.health.power = analyzeExperimentPower({
+      //     trafficHealth,
+      //     targetDaysRemaining,
+      //     analysis: relativeAnalysis,
+      //     goalMetrics: this.model.settings.goalMetrics,
+      //     variationsSettings: this.model.settings.variations,
+      //   });
+      // }
+    }
 
     return result;
   }
