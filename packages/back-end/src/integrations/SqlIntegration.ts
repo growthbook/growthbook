@@ -5695,7 +5695,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       metric.quantileSettings?.type === "event"
     ) {
       throw new Error(
-        "Event quantiles cannot be used with incremental refresh mode.",
+        "Event quantiles cannot be used with incremental refresh.",
       );
     }
 

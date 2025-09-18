@@ -395,7 +395,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   if (selectedMetrics.some((m) => !isFactMetric(m))) {
     throw new Error(
-      "Only fact metrics are supported for experiments analyzed with incremental refresh.",
+      "Only fact metrics are supported with incremental refresh.",
     );
   }
 
