@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
+import { FaChartLine, FaExternalLinkAlt, FaLayerGroup } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
@@ -15,7 +15,7 @@ import {
 } from "shared/constants";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { IconButton } from "@radix-ui/themes";
+import { IconButton, Switch } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -682,6 +682,167 @@ export default function FactMetricPage() {
                 <DataList data={denominatorData} header="Denominator" />
               </div>
             ) : null}
+
+            <div className="appbox p-3 mb-3">
+              <h4>Metric Dimensions</h4>
+              <div className="d-flex align-items-center mt-3">
+                <Switch
+                  mr="3"
+                  checked={factMetric.enableMetricDimensions || false}
+                  onCheckedChange={async (checked) => {
+                    await apiCall(`/fact-metrics/${factMetric.id}`, {
+                      method: "PUT",
+                      body: JSON.stringify({
+                        enableMetricDimensions: checked,
+                      }),
+                    });
+                    mutateDefinitions();
+                  }}
+                  disabled={!canEdit}
+                />
+                <div>
+                  <div className="font-weight-bold mb-1">
+                    Enable Dimension Analysis
+                  </div>
+                  <div className="text-muted">
+                    Analyze this metric across dimension values from the fact
+                    table&apos;s dimension columns.
+                  </div>
+                </div>
+              </div>
+
+              {factTable?.columns.some(
+                (col) => col.isDimension && !col.deleted,
+              ) ? (
+                <>
+                  {factMetric.enableMetricDimensions && (
+                    <div className="mt-3">
+                      <h5 className="mb-2">
+                        Dimension Columns{" "}
+                        <Link
+                          href={`/fact-tables/${factTable?.id}`}
+                          className="font-weight-bold ml-2"
+                        >
+                          {factTable?.name || "fact table"}{" "}
+                          <FaExternalLinkAlt />
+                        </Link>
+                      </h5>
+                      <table className="table table-tiny appbox gbtable mb-0">
+                        <thead>
+                          <tr>
+                            <th>Column</th>
+                            <th>Dimension Values</th>
+                            <th>Stable Values</th>
+                            <th>Max Values</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {factTable.columns
+                            .filter((col) => col.isDimension && !col.deleted)
+                            .map((col) => (
+                              <tr key={col.column}>
+                                <td>
+                                  <div className="d-flex align-items-center">
+                                    <span className="badge badge-purple mr-2">
+                                      <FaLayerGroup />
+                                    </span>
+                                    <div>
+                                      <div className="font-weight-bold">
+                                        {col.name || col.column}
+                                      </div>
+                                      <small className="text-muted">
+                                        {col.column}
+                                      </small>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td>
+                                  {col.dimensionValues &&
+                                  col.dimensionValues.length > 0 ? (
+                                    <div
+                                      className="d-flex flex-wrap"
+                                      style={{ gap: 4 }}
+                                    >
+                                      {col.dimensionValues.map(
+                                        (value, index) => (
+                                          <code
+                                            key={index}
+                                            style={{
+                                              fontSize: "0.8em",
+                                              padding: "2px 4px",
+                                              borderRadius: "3px",
+                                              backgroundColor: "#f8f9fa",
+                                              border: "1px solid #e9ecef",
+                                            }}
+                                          >
+                                            {value}
+                                          </code>
+                                        ),
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <em className="text-muted">No values</em>
+                                  )}
+                                </td>
+                                <td>
+                                  {col.stableDimensionValues &&
+                                  col.stableDimensionValues.length > 0 ? (
+                                    <div
+                                      className="d-flex flex-wrap"
+                                      style={{ gap: 4 }}
+                                    >
+                                      {col.stableDimensionValues.map(
+                                        (value, index) => (
+                                          <code
+                                            key={index}
+                                            style={{
+                                              fontSize: "0.8em",
+                                              padding: "2px 4px",
+                                              borderRadius: "3px",
+                                              backgroundColor: "#f8f9fa",
+                                              border: "1px solid #e9ecef",
+                                            }}
+                                          >
+                                            {value}
+                                          </code>
+                                        ),
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <em className="text-muted">
+                                      No stable values
+                                    </em>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className="font-weight-bold">
+                                    {col.maxDimensionValues || 10}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-muted">
+                  <div className="font-weight-bold mb-1">
+                    Dimension Analysis Not Available
+                  </div>
+                  <div>
+                    To enable dimension analysis for this metric, configure
+                    dimension columns in the{" "}
+                    <Link href={`/fact-tables/${factTable?.id}`}>
+                      {factTable?.name || "fact table"}
+                    </Link>
+                    . Dimension columns allow you to analyze metrics across
+                    different categorical values.
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="mb-4">

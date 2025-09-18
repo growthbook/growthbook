@@ -30,6 +30,18 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
 
+export interface FactMetricDimension extends FactMetricInterface {
+  id: string; // Format: `${parentId}#dim=${columnId}`
+  name: string; // Format: `${parentName} (${columnName})`
+  description: string; // Auto-generated description
+  parentMetricId: string;
+  dimensionColumn: string;
+  dimensionColumnName: string;
+  dimensionValues: string[];
+  stableDimensionValues: string[];
+  maxDimensionValues: number;
+}
+
 type Definitions = {
   metrics: MetricInterface[];
   _metricsIncludingArchived: MetricInterface[];
@@ -65,6 +77,7 @@ type DefinitionContextValue = Definitions & {
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
+  getFactMetricDimensions: (parentId: string) => FactMetricDimension[];
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
@@ -107,6 +120,7 @@ const defaultValue: DefinitionContextValue = {
   getTagById: () => null,
   getFactTableById: () => null,
   getFactMetricById: () => null,
+  getFactMetricDimensions: () => [],
   getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
   getDecisionCriteriaById: () => null,
@@ -277,6 +291,41 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
+
+  const getFactMetricDimensions = useCallback(
+    (parentId: string): FactMetricDimension[] => {
+      const parentMetric = data?.factMetrics?.find((m) => m.id === parentId);
+      if (!parentMetric) return [];
+
+      const factTable = data?.factTables?.find(
+        (f) => f.id === parentMetric.numerator.factTableId,
+      );
+      if (!factTable) return [];
+
+      // Only generate metric dimensions if the parent has dimension analysis enabled
+      if (!parentMetric.enableMetricDimensions) return [];
+
+      return factTable.columns
+        .filter((col) => col.isDimension && !col.deleted)
+        .map(
+          (col) =>
+            ({
+              ...parentMetric,
+              id: `${parentId}#dim=${col.column}`,
+              name: `${parentMetric.name} (${col.name || col.column})`,
+              description: `Dimension analysis of ${parentMetric.name} across ${col.name || col.column} values`,
+              parentMetricId: parentId,
+              dimensionColumn: col.column,
+              dimensionColumnName: col.name || col.column,
+              dimensionValues: col.dimensionValues || [],
+              stableDimensionValues: col.stableDimensionValues || [],
+              maxDimensionValues: col.maxDimensionValues || 10,
+            }) as FactMetricDimension,
+        );
+    },
+    [data?.factMetrics, data?.factTables],
+  );
+
   const getMetricGroupById = useGetById(data?.metricGroups);
   const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
 
@@ -329,6 +378,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getTagById,
       getFactTableById,
       getFactMetricById,
+      getFactMetricDimensions,
       getExperimentMetricById,
       getMetricGroupById,
       getDecisionCriteriaById,
