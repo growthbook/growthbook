@@ -3,7 +3,12 @@ import { baseSchema } from "back-end/src/models/BaseModel";
 
 export const incrementalRefreshMetricSourceValidator = z.object({
   groupId: z.string(),
-  metricIds: z.array(z.string()),
+  metrics: z.array(
+    z.object({
+      id: z.string(),
+      settingsHash: z.string(), // or object keyed on id
+    }),
+  ),
   maxTimestamp: z.date().nullable(),
   tableFullName: z.string(),
 });
@@ -16,6 +21,9 @@ const incrementalRefresh = z
     // Settings
     unitsTableFullName: z.string().nullable(),
     lastScannedTimestamp: z.date().nullable(),
+
+    // Experiment Settings hash
+    experimentSettingsHash: z.string().nullable(),
 
     // Metrics
     metricSources: z.array(incrementalRefreshMetricSourceValidator),

@@ -49,6 +49,8 @@ export type QueryType =
 
 export interface QueryInterface {
   id: string;
+  // user facing title for use in modal
+  title?: string;
   organization: string;
   datasource: string;
   language: QueryLanguage;

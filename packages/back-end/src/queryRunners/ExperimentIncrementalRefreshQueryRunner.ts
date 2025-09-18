@@ -93,7 +93,7 @@ function getIncrementalRefreshMetricSources(
 
   metrics.forEach((metric) => {
     const existingGroup = existingMetricSources.find((group) =>
-      group.metricIds.includes(metric.id),
+      group.metrics.some((m) => m.id === metric.id),
     );
 
     if (existingGroup) {
@@ -232,6 +232,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
     createUnitsTableQuery = await startQuery({
       name: `create_${queryParentId}`,
+      title: "Create Experiment Units Table",
       query: integration.getCreateExperimentIncrementalUnitsQuery({
         unitsTableFullName: unitsTableFullName,
         settings: snapshotSettings,
@@ -293,6 +294,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   };
   const updateUnitsTableQuery = await startQuery({
     name: `update_${queryParentId}`,
+    title: "Update Experiment Units Table",
     query:
       integration.getUpdateExperimentIncrementalUnitsQuery(unitQueryParams),
     dependencies: [
@@ -308,6 +310,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   const dropUnitsTableQuery = await startQuery({
     name: `drop_${queryParentId}`,
+    title: "Drop Old Experiment Units Table",
     query: integration.getDropOldIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
     }),
@@ -321,6 +324,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   const alterUnitsTableQuery = await startQuery({
     name: `alter_${queryParentId}`,
+    title: "Rename Experiment Units Table",
     query: integration.getAlterNewIncrementalUnitsQuery({
       unitsTableFullName: unitsTableFullName,
       unitsTempTableFullName: unitsTempTableFullName,
@@ -343,6 +347,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     );
   const maxTimestampQuery = await startQuery({
     name: `max_timestamp_${queryParentId}`,
+    title: "Find Latest Experiment Source Timestamp",
     query: integration.getMaxTimestampIncrementalUnitsQuery({
       unitsTablePartitionsName: unitsTablePartitionsName ?? unitsTableFullName,
     }),
@@ -404,10 +409,19 @@ export const startExperimentIncrementalRefreshQueries = async (
       );
     }
 
+    const factTable = params.factTableMap.get(
+      group.metrics[0].numerator?.factTableId,
+    );
+
+    // Add more data about not just the fact table name because sometimes multiple queries for same
+    // fact table
+    const sourceName = factTable ? `(${factTable.name})` : "";
+
     let createMetricsSourceQuery: QueryPointer | null = null;
     if (!existingSource) {
       createMetricsSourceQuery = await startQuery({
         name: `create_metrics_source_${group.groupId}`,
+        title: `Create Metrics Source ${sourceName}`,
         query: integration.getCreateMetricSourceTableQuery({
           settings: snapshotSettings,
           metrics: group.metrics,
@@ -443,6 +457,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     // TODO get N of rows inserted for customer?
     const insertMetricsSourceDataQuery = await startQuery({
       name: `insert_metrics_source_data_${group.groupId}`,
+      title: `Update Metrics Source ${sourceName}`,
       query: integration.getInsertMetricSourceDataQuery(metricParams),
       dependencies: createMetricsSourceQuery
         ? [createMetricsSourceQuery.query]
@@ -466,6 +481,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
     const maxTimestampMetricsSourceQuery = await startQuery({
       name: `max_timestamp_metrics_source_${group.groupId}`,
+      title: `Find Latest Metrics Source Timestamp ${sourceName}`,
       query: integration.getMaxTimestampMetricSourceQuery({
         metricSourceTablePartitionsName:
           metricSourceTablePartitionsName ?? metricSourceTableFullName,
@@ -486,7 +502,10 @@ export const startExperimentIncrementalRefreshQueries = async (
               : {
                   groupId: group.groupId,
                   maxTimestamp,
-                  metricIds: group.metrics.map((m) => m.id),
+                  metrics: group.metrics.map((m) => ({
+                    id: m.id,
+                    settingsHash: "", // TODO m.settingsHash
+                  })),
                   tableFullName: metricSourceTableFullName,
                 };
           if (!existingSource) {
@@ -510,6 +529,7 @@ export const startExperimentIncrementalRefreshQueries = async (
 
     const statisticsQuery = await startQuery({
       name: `statistics_${group.groupId}`,
+      title: `Compute Statistics ${sourceName}`,
       query: integration.getIncrementalRefreshStatisticsQuery(metricParams),
       dependencies: [insertMetricsSourceDataQuery.query],
       run: (query, setExternalId) =>

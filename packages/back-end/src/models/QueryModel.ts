@@ -22,6 +22,7 @@ const querySchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
+  name: String,
   organization: {
     type: String,
     index: true,
@@ -182,6 +183,7 @@ export async function createNewQuery({
   datasource,
   language,
   query,
+  title,
   dependencies = [],
   running = false,
   queryType = "",
@@ -191,6 +193,7 @@ export async function createNewQuery({
   datasource: string;
   language: QueryLanguage;
   query: string;
+  title?: string;
   dependencies: string[];
   running: boolean;
   queryType: QueryType;
@@ -204,6 +207,7 @@ export async function createNewQuery({
     language,
     organization,
     query,
+    title,
     startedAt: running ? new Date() : undefined,
     status: running ? "running" : "queued",
     dependencies: dependencies,
@@ -228,6 +232,7 @@ export async function createNewQueryFromCached({
     datasource: existing.datasource,
     heartbeat: new Date(),
     id: uniqid("qry_"),
+    title: existing.title,
     language: existing.language,
     organization: existing.organization,
     query: existing.query,

@@ -52,6 +52,7 @@ export type ProcessedRowsType = Record<string, any>;
 
 export type StartQueryParams<Rows, ProcessedRows> = {
   name: string;
+  title?: string;
   query: string;
   dependencies: string[];
   run: (
@@ -584,7 +585,7 @@ export abstract class QueryRunner<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType,
   >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
-    const { name, query, dependencies, runAtEnd, run, process, queryType } =
+    const { name, title, query, dependencies, runAtEnd, run, process, queryType } =
       params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
@@ -664,6 +665,7 @@ export abstract class QueryRunner<
     const doc = await createNewQuery({
       query,
       queryType,
+      title: title,
       datasource: this.integration.datasource.id,
       organization: this.integration.context.org.id,
       language: this.integration.getSourceProperties().queryLanguage,
