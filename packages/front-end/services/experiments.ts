@@ -66,6 +66,15 @@ export type ExperimentTableRow = {
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
+  numDimensions?: number;
+  // Dimension row properties
+  isDimensionRow?: boolean;
+  parentRowId?: string;
+  dimensionColumn?: string;
+  dimensionColumnName?: string;
+  dimensionValues?: string[];
+  stableDimensionValues?: string[];
+  maxDimensionValues?: number;
 };
 
 export function getRisk(

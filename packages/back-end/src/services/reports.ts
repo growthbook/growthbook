@@ -62,6 +62,8 @@ import {
   ConversionWindowUnit,
   MetricPriorSettings,
   MetricWindowSettings,
+  FactTableInterface,
+  ColumnInterface,
 } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
@@ -744,7 +746,7 @@ export async function generateExperimentReportSSRData({
   factTableIds = uniq(factTableIds);
 
   const factTables = await getFactTablesByIds(context, factTableIds);
-  const factTableMap = factTables.reduce(
+  const factTableMap: Record<string, FactTableInterface> = factTables.reduce(
     (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
     {},
   );
@@ -782,10 +784,53 @@ export async function generateExperimentReportSSRData({
     : undefined;
   const projectMap = _project?.id ? { [_project.id]: _project } : {};
 
+  // Generate fact metric dimensions for fact metrics with dimension analysis enabled
+  const factMetricDimensions: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      parentMetricId: string;
+      dimensionColumn: string;
+      dimensionColumnName: string;
+      dimensionValues: string[];
+      stableDimensionValues: string[];
+      maxDimensionValues: number;
+    }>
+  > = {};
+  for (const factMetric of factMetrics) {
+    if (factMetric.enableMetricDimensions) {
+      const factTableId = factMetric.numerator.factTableId;
+      const factTable = factTableId ? factTableMap[factTableId] : undefined;
+      if (factTable) {
+        const dimensionColumns = factTable.columns.filter(
+          (col: ColumnInterface) => col.isDimension && !col.deleted,
+        );
+        if (dimensionColumns.length > 0) {
+          factMetricDimensions[factMetric.id] = dimensionColumns.map(
+            (col: ColumnInterface) => ({
+              id: `${factMetric.id}#dim=${col.column}`,
+              name: `${factMetric.name} (${col.name || col.column})`,
+              description: `Dimension analysis of ${factMetric.name} across ${col.name || col.column} values`,
+              parentMetricId: factMetric.id,
+              dimensionColumn: col.column,
+              dimensionColumnName: col.name || col.column,
+              dimensionValues: col.dimensionValues || [],
+              stableDimensionValues: col.stableDimensionValues || [],
+              maxDimensionValues: col.maxDimensionValues || 10,
+            }),
+          );
+        }
+      }
+    }
+  }
+
   return {
     metrics: metricMap,
     metricGroups,
     factTables: factTableMap,
+    factMetricDimensions,
     settings: orgSettings,
     projects: projectMap,
     dimensions,

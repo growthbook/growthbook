@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
@@ -16,7 +16,7 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import Link from "next/link";
-import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
+import { FaAngleRight, FaTimes, FaUsers, FaLayerGroup } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
@@ -45,6 +45,7 @@ import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import HelperText from "@/ui/HelperText";
+import Button from "@/ui/Button";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -126,11 +127,27 @@ const CompactResults: FC<{
   hideDetails,
   disableTimeSeriesButton,
 }) => {
-  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
+  const {
+    getExperimentMetricById,
+    getFactMetricDimensions,
+    metricGroups,
+    ready,
+  } = useDefinitions();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+
+  const [visibleDimensionMetricIds, setVisibleDimensionMetricIds] = useState<
+    string[]
+  >([]);
+  const toggleVisibleDimensionMetricId = (metricId: string) => {
+    setVisibleDimensionMetricIds((prev) =>
+      prev.includes(metricId)
+        ? prev.filter((id) => id !== metricId)
+        : [...prev, metricId],
+    );
+  };
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -192,11 +209,11 @@ const CompactResults: FC<{
     function getRow(
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail",
-    ) {
+    ): ExperimentTableRow[] {
       const metric =
         ssrPolyfills?.getExperimentMetricById?.(metricId) ||
         getExperimentMetricById(metricId);
-      if (!metric) return null;
+      if (!metric) return [];
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
         metricOverrides,
@@ -207,7 +224,13 @@ const CompactResults: FC<{
           (s) => s.metric === metricId,
         );
       }
-      return {
+      // Get dimension count for this metric
+      const numDimensions =
+        ssrPolyfills?.getFactMetricDimensions?.(metricId)?.length ||
+        getFactMetricDimensions?.(metricId)?.length ||
+        0;
+
+      const parentRow: ExperimentTableRow = {
         label: newMetric?.name,
         metric: newMetric,
         metricOverrideFields: overrideFields,
@@ -224,7 +247,54 @@ const CompactResults: FC<{
         }),
         metricSnapshotSettings,
         resultGroup,
+        numDimensions,
       };
+
+      const rows: ExperimentTableRow[] = [parentRow];
+
+      // Add dimension rows if this metric has dimensions and is visible
+      if (numDimensions > 0 && visibleDimensionMetricIds.includes(metricId)) {
+        const dimensionData =
+          ssrPolyfills?.getFactMetricDimensions?.(metricId) ||
+          getFactMetricDimensions?.(metricId) ||
+          [];
+
+        dimensionData.forEach((dimension) => {
+          const dimensionRow: ExperimentTableRow = {
+            label: `  ${dimension.dimensionColumnName}`,
+            metric: {
+              ...newMetric,
+              name: dimension.dimensionColumnName, // Use dimension name instead of parent metric name
+            },
+            metricOverrideFields: overrideFields,
+            rowClass: `${newMetric?.inverse ? "inverse" : ""} dimension-row`,
+            variations: results.variations.map((v) => {
+              // For now, use the same data as parent - this will be updated later with actual dimension data
+              return (
+                v.metrics?.[metricId] || {
+                  users: 0,
+                  value: 0,
+                  cr: 0,
+                  errorMessage: "No data",
+                }
+              );
+            }),
+            metricSnapshotSettings,
+            resultGroup,
+            numDimensions: 0, // Dimension rows don't have their own dimensions
+            isDimensionRow: true,
+            parentRowId: metricId,
+            dimensionColumn: dimension.dimensionColumn,
+            dimensionColumnName: dimension.dimensionColumnName,
+            dimensionValues: dimension.dimensionValues,
+            stableDimensionValues: dimension.stableDimensionValues,
+            maxDimensionValues: dimension.maxDimensionValues,
+          };
+          rows.push(dimensionRow);
+        });
+      }
+
+      return rows;
     }
 
     if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
@@ -270,15 +340,15 @@ const CompactResults: FC<{
       metricFilter,
     );
 
-    const retMetrics = sortedFilteredMetrics
-      .map((metricId) => getRow(metricId, "goal"))
-      .filter(isDefined);
-    const retSecondary = sortedFilteredSecondary
-      .map((metricId) => getRow(metricId, "secondary"))
-      .filter(isDefined);
-    const retGuardrails = sortedFilteredGuardrails
-      .map((metricId) => getRow(metricId, "guardrail"))
-      .filter(isDefined);
+    const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
+      getRow(metricId, "goal"),
+    );
+    const retSecondary = sortedFilteredSecondary.flatMap((metricId) =>
+      getRow(metricId, "secondary"),
+    );
+    const retGuardrails = sortedFilteredGuardrails.flatMap((metricId) =>
+      getRow(metricId, "guardrail"),
+    );
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
@@ -294,6 +364,8 @@ const CompactResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
+    visibleDimensionMetricIds,
+    getFactMetricDimensions,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";
@@ -375,6 +447,8 @@ const CompactResults: FC<{
             statsEngine,
             hideDetails,
             experimentType,
+            visibleDimensionMetricIds,
+            toggleVisibleDimensionMetricId,
           )}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
@@ -422,6 +496,9 @@ const CompactResults: FC<{
               regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
+              undefined,
+              visibleDimensionMetricIds,
+              toggleVisibleDimensionMetricId,
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -463,6 +540,9 @@ const CompactResults: FC<{
               regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
+              undefined,
+              visibleDimensionMetricIds,
+              toggleVisibleDimensionMetricId,
             )}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -489,13 +569,19 @@ export function getRenderLabelColumn(
   statsEngine?: StatsEngine,
   hideDetails?: boolean,
   experimentType?: ExperimentType,
+  visibleDimensionMetricIds?: string[],
+  toggleVisibleDimensionMetricId?: (metricId: string) => void,
 ) {
   return function renderLabelColumn(
     label: string,
     metric: ExperimentMetricInterface,
     row?: ExperimentTableRow,
     maxRows?: number,
+    numDimensions?: number,
   ) {
+    // Check if this is a dimension row
+    const isDimensionRow = row?.isDimensionRow || false;
+
     const invalidHoldoutMetric =
       experimentType === "holdout" &&
       metric?.windowSettings?.type === "conversion";
@@ -521,7 +607,7 @@ export function getRenderLabelColumn(
           />
         }
         tipPosition="right"
-        className="d-inline-block font-weight-bold metric-label"
+        className={`d-inline-block font-weight-bold metric-label ${isDimensionRow ? "dimension-row-label" : ""}`}
         flipTheme={false}
         usePortal={true}
       >
@@ -538,16 +624,20 @@ export function getRenderLabelColumn(
                   lineHeight: "1.2em",
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
+                  color: isDimensionRow ? "var(--gray-11)" : undefined,
+                  fontStyle: isDimensionRow ? "italic" : undefined,
                 }
               : {
                   lineHeight: "1.2em",
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
+                  color: isDimensionRow ? "var(--gray-11)" : undefined,
+                  fontStyle: isDimensionRow ? "italic" : undefined,
                 }
           }
         >
           <ConditionalWrapper
-            condition={!hideDetails}
+            condition={!hideDetails && !isDimensionRow}
             wrapper={
               <Link
                 href={getMetricLink(metric.id)}
@@ -602,8 +692,46 @@ export function getRenderLabelColumn(
       </Tooltip>
     ) : null;
 
+    // Check if metric has dimensions available (only for parent rows)
+    const hasDimensions = !isDimensionRow && (numDimensions || 0) > 0;
+    const isDimensionVisible =
+      visibleDimensionMetricIds?.includes(metric.id) || false;
+
+    const dimensionToggleButton = hasDimensions ? (
+      <Tooltip
+        body={
+          isDimensionVisible
+            ? "Hide dimension analysis"
+            : "Show dimension analysis"
+        }
+        className="mr-1"
+      >
+        <Button
+          size="xs"
+          variant="ghost"
+          color="gray"
+          onClick={() => {
+            toggleVisibleDimensionMetricId?.(metric.id);
+          }}
+          style={{
+            padding: "2px 4px",
+            minWidth: "auto",
+            height: "auto",
+          }}
+        >
+          <FaLayerGroup
+            size={12}
+            style={{
+              color: isDimensionVisible ? "var(--purple-11)" : "var(--gray-11)",
+            }}
+          />
+        </Button>
+      </Tooltip>
+    ) : null;
+
     return (
       <span style={{ display: "inline-flex", alignItems: "center" }}>
+        {dimensionToggleButton}
         {metricLink}
         {metricInverseIconDisplay}
         {cupedIconDisplay}

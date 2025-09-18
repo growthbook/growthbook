@@ -86,6 +86,7 @@ export type ResultsTableProps = {
     metric: ExperimentMetricInterface,
     row: ExperimentTableRow,
     maxRows?: number,
+    numDimensions?: number,
   ) => string | ReactElement;
   dateCreated: Date;
   statsEngine: StatsEngine;
@@ -722,7 +723,13 @@ export default function ResultsTable({
                       label: columnsToDisplay.includes(
                         "Metric & Variation Names",
                       ) ? (
-                        renderLabelColumn(row.label, row.metric, row)
+                        renderLabelColumn(
+                          row.label,
+                          row.metric,
+                          row,
+                          undefined,
+                          row.numDimensions,
+                        )
                       ) : (
                         <></>
                       ),
@@ -770,6 +777,8 @@ export default function ResultsTable({
                                     row.label,
                                     row.metric,
                                     row,
+                                    undefined,
+                                    row.numDimensions,
                                   )}
                                 </div>
                               ) : null}
@@ -893,7 +902,13 @@ export default function ResultsTable({
                                 </span>
                               </div>
                             ) : (
-                              renderLabelColumn(row.label, row.metric, row, 3)
+                              renderLabelColumn(
+                                row.label,
+                                row.metric,
+                                row,
+                                3,
+                                row.numDimensions,
+                              )
                             )}
                           </td>
                         )}

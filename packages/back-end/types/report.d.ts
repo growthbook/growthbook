@@ -172,6 +172,20 @@ export type ExperimentReportSSRData = {
   metrics: Record<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
   factTables: Record<string, FactTableInterface>;
+  factMetricDimensions: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      parentMetricId: string;
+      dimensionColumn: string;
+      dimensionColumnName: string;
+      dimensionValues: string[];
+      stableDimensionValues: string[];
+      maxDimensionValues: number;
+    }>
+  >;
   settings: OrganizationSettings;
   projects: Record<string, ProjectInterface>;
   dimensions: DimensionInterface[];
