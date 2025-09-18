@@ -46,9 +46,9 @@ const factTableSchema = new mongoose.Schema({
       topValues: [String],
       topValuesDate: Date,
       isDimension: Boolean,
-      dimensionLevels: [String],
-      stableDimensionLevels: [String],
-      maxDimensionLevels: Number,
+      dimensionValues: [String],
+      stableDimensionValues: [String],
+      maxDimensionValues: Number,
     },
   ],
   columnsError: String,
@@ -293,10 +293,10 @@ export async function updateColumn(
     dateUpdated: new Date(),
   };
 
-  // If dimension settings changed, reset dimensionLevels to stable levels only
+  // If dimension settings changed, reset dimensionValues to stable values only
   if (updatedColumn.isDimension) {
-    updatedColumn.dimensionLevels = [
-      ...(updatedColumn.stableDimensionLevels || []),
+    updatedColumn.dimensionValues = [
+      ...(updatedColumn.stableDimensionValues || []),
     ];
   }
 

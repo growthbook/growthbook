@@ -30,6 +30,7 @@ export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
 
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
+export const MAX_METRIC_DIMENSION_LEVELS = 10;
 
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";

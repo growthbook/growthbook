@@ -4649,7 +4649,7 @@ WITH
       ${column.column} AS value,
       COUNT(*) AS count
     FROM __factTable
-    WHERE timestamp >= ${this.toTimestamp(start)}
+--     WHERE timestamp >= ${this.toTimestamp(start)}
     GROUP BY ${column.column}
   )
 ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}

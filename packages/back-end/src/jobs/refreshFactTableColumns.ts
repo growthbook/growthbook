@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
+import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -17,7 +18,6 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
-import { MAX_METRIC_DIMENSION_LEVELS } from "back-end/src/services/stats";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
@@ -86,23 +86,23 @@ export async function runColumnTopValuesQuery(
   return result.rows.map((r) => r.value);
 }
 
-export function populateDimensionLevels(
+export function populateDimensionValues(
   col: ColumnInterface,
   topValues: string[],
 ): string[] {
-  // Start with stable dimension levels
-  const dimensionLevels = [...(col.stableDimensionLevels || [])];
+  // Start with stable dimension values
+  const dimensionValues = [...(col.stableDimensionValues || [])];
 
-  // Add top values until we reach maxDimensionLevels (stable levels can exceed the max)
-  const maxLevels = col.maxDimensionLevels || MAX_METRIC_DIMENSION_LEVELS;
+  // Add top values until we reach maxDimensionValues (stable values can exceed the max)
+  const maxValues = col.maxDimensionValues || MAX_METRIC_DIMENSION_LEVELS;
   for (const value of topValues) {
-    if (dimensionLevels.length >= maxLevels) break;
-    if (!dimensionLevels.includes(value)) {
-      dimensionLevels.push(value);
+    if (dimensionValues.length >= maxValues) break;
+    if (!dimensionValues.includes(value)) {
+      dimensionValues.push(value);
     }
   }
 
-  return dimensionLevels;
+  return dimensionValues;
 }
 
 export async function runRefreshColumnsQuery(
@@ -221,7 +221,7 @@ export async function runRefreshColumnsQuery(
         col.topValuesDate = new Date();
 
         if (col.isDimension) {
-          col.dimensionLevels = populateDimensionLevels(col, topValues);
+          col.dimensionValues = populateDimensionValues(col, topValues);
         }
       } catch (e) {
         logger.error(e, "Error running top values query", {
