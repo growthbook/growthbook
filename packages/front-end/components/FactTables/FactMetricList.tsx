@@ -183,6 +183,7 @@ export default function FactMetricList({ factTable }: Props) {
               <tr className="cursor-pointer">
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="metricType">Type</SortableTH>
+                <th>Enable Dimension Analysis</th>
                 <SortableTH field="tags">Tags</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 <th style={{ width: 30 }} />
@@ -201,6 +202,23 @@ export default function FactMetricList({ factTable }: Props) {
                     </Link>
                   </td>
                   <td>{metric.metricType}</td>
+                  <td>
+                    <Toggle
+                      value={metric.enableMetricDimensions || false}
+                      setValue={async (checked) => {
+                        await apiCall(`/fact-metrics/${metric.id}`, {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            enableMetricDimensions: checked,
+                          }),
+                        });
+                        mutateDefinitions();
+                      }}
+                      id={`enable-metric-dimensions-${metric.id}`}
+                      label="Enable Metric Dimensions"
+                      disabled={!canEdit(metric)}
+                    />
+                  </td>
                   <td>
                     <SortedTags tags={metric.tags} useFlex={true} />
                   </td>
