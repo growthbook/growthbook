@@ -6,6 +6,7 @@ import {
   DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
+
 import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -136,6 +137,8 @@ export interface ExperimentDataForStatsEngine {
 }
 
 export const MAX_DIMENSIONS = 20;
+
+export const MAX_METRIC_DIMENSION_LEVELS = 10;
 
 export function getAnalysisSettingsForStatsEngine(
   settings: ExperimentSnapshotAnalysisSettings,

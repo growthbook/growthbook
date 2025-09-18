@@ -45,6 +45,10 @@ const factTableSchema = new mongoose.Schema({
       alwaysInlineFilter: Boolean,
       topValues: [String],
       topValuesDate: Date,
+      isDimension: Boolean,
+      dimensionLevels: [String],
+      stableDimensionLevels: [String],
+      maxDimensionLevels: Number,
     },
   ],
   columnsError: String,
@@ -282,12 +286,21 @@ export async function updateColumn(
     throw new Error("Only string columns are eligible for inline filtering");
   }
 
-  factTable.columns[columnIndex] = {
+  const updatedColumn = {
     ...factTable.columns[columnIndex],
     ...changes,
     ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
   };
+
+  // If dimension settings changed, reset dimensionLevels to stable levels only
+  if (updatedColumn.isDimension) {
+    updatedColumn.dimensionLevels = [
+      ...(updatedColumn.stableDimensionLevels || []),
+    ];
+  }
+
+  factTable.columns[columnIndex] = updatedColumn;
 
   await FactTableModel.updateOne(
     {

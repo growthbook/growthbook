@@ -43,6 +43,10 @@ export interface ColumnInterface {
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;
   deleted: boolean;
+  isDimension?: boolean;
+  dimensionLevels?: string[];
+  stableDimensionLevels?: string[];
+  maxDimensionLevels?: number;
 }
 
 export interface FactFilterInterface {

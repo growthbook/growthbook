@@ -17,6 +17,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
+import { MAX_METRIC_DIMENSION_LEVELS } from "back-end/src/services/stats";
 
 const JOB_NAME = "refreshFactTableColumns";
 type RefreshFactTableColumnsJob = Job<{
@@ -83,6 +84,25 @@ export async function runColumnTopValuesQuery(
   const result = await integration.runColumnTopValuesQuery(sql);
 
   return result.rows.map((r) => r.value);
+}
+
+export function populateDimensionLevels(
+  col: ColumnInterface,
+  topValues: string[],
+): string[] {
+  // Start with stable dimension levels
+  const dimensionLevels = [...(col.stableDimensionLevels || [])];
+
+  // Add top values until we reach maxDimensionLevels (stable levels can exceed the max)
+  const maxLevels = col.maxDimensionLevels || MAX_METRIC_DIMENSION_LEVELS;
+  for (const value of topValues) {
+    if (dimensionLevels.length >= maxLevels) break;
+    if (!dimensionLevels.includes(value)) {
+      dimensionLevels.push(value);
+    }
+  }
+
+  return dimensionLevels;
 }
 
 export async function runRefreshColumnsQuery(
@@ -186,19 +206,27 @@ export async function runRefreshColumnsQuery(
 
   for (const col of columns) {
     if (
-      col.alwaysInlineFilter &&
+      (col.alwaysInlineFilter || col.isDimension) &&
       canInlineFilterColumn(factTable, col.column)
     ) {
       try {
-        col.topValues = await runColumnTopValuesQuery(
+        const topValues = await runColumnTopValuesQuery(
           context,
           datasource,
           factTable,
           col,
         );
+
+        col.topValues = topValues;
         col.topValuesDate = new Date();
+
+        if (col.isDimension) {
+          col.dimensionLevels = populateDimensionLevels(col, topValues);
+        }
       } catch (e) {
-        logger.error(e, "Error running top values query");
+        logger.error(e, "Error running top values query", {
+          column: col.column,
+        });
       }
     }
   }
