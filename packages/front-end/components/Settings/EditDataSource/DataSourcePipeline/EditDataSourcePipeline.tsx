@@ -179,6 +179,7 @@ export const EditDataSourcePipeline = ({
         validate={async () => {
           const ok = await validatePipelinePermissions();
           if (!ok) throw new Error(validationError || "Validation failed");
+          await handleSubmit();
         }}
       >
         <Flex direction="column" gap="4">
