@@ -6462,10 +6462,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             , MAX(timestamp) AS max_timestamp
             ${metricData
               .map((m) => {
-                const aggfunction =
-                  m.incrementalRefreshNumeratorMetadata.aggregationFunction;
-                const denomAggFunction =
-                  m.incrementalRefreshDenominatorMetadata?.aggregationFunction;
+                const aggfunction = this.getAggregationMetadata({
+                  metric: m.metric,
+                }).aggregationFunction;
+                const denomAggFunction = this.getAggregationMetadata({
+                  metric: m.metric,
+                  useDenominator: true,
+                })?.aggregationFunction;
                 return `
                 , ${aggfunction(`${m.alias}_value`)} AS ${m.id}_value
                 ${denomAggFunction ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${m.id}_denominator_value` : ""}
@@ -6522,10 +6525,13 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           ${baseIdType}
           ${metricData
             .map((data) => {
-              const reAggFunction =
-                data.incrementalRefreshNumeratorMetadata.reAggregateFunction;
-              const denomReAggFunction =
-                data.incrementalRefreshDenominatorMetadata?.reAggregateFunction;
+              const reAggFunction = this.getAggregationMetadata({
+                metric: data.metric,
+              }).reAggregateFunction;
+              const denomReAggFunction = this.getAggregationMetadata({
+                metric: data.metric,
+                useDenominator: true,
+              })?.reAggregateFunction;
               return `, ${reAggFunction(`umj.${data.metric.id}_value`)} AS ${data.metric.id}_value
                 ${
                   data.ratioMetric && denomReAggFunction

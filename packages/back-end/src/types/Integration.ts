@@ -97,9 +97,6 @@ export type FactMetricData = {
   metricStart: Date;
   metricEnd: Date | null;
   maxHoursToConvert: number;
-  // only used for incremental refresh for now
-  incrementalRefreshNumeratorMetadata: FactMetricAggregationMetadata;
-  incrementalRefreshDenominatorMetadata?: FactMetricAggregationMetadata;
 };
 
 export type FactMetricQuantileData = {
