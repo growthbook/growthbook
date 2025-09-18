@@ -152,7 +152,11 @@ export const startExperimentIncrementalRefreshQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
 ): Promise<Queries> => {
-  const snapshotSettings = params.snapshotSettings;
+  const snapshotSettings: ExperimentSnapshotSettings = {
+    ...params.snapshotSettings,
+    // TODO(incremental-refresh): enable CUPED
+    regressionAdjustmentEnabled: false,
+  };
   const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
@@ -188,7 +192,6 @@ export const startExperimentIncrementalRefreshQueries = async (
   }
 
   // TODO Metric updates
-  // TODO health query
   // TODO validate that incremental refresh is enabled
 
   const canRunIncrementalRefreshQueries =
@@ -390,8 +393,14 @@ export const startExperimentIncrementalRefreshQueries = async (
     existingSources = [];
   }
 
+  if (selectedMetrics.some((m) => !isFactMetric(m))) {
+    throw new Error(
+      "Only fact metrics are supported for experiments analyzed with incremental refresh.",
+    );
+  }
+
   const metricSourceGroups = getIncrementalRefreshMetricSources(
-    selectedMetrics.filter((m) => isFactMetric(m)), // TODO cleaner way to only allow fact metrics
+    selectedMetrics.filter((m) => isFactMetric(m)),
     existingSources ?? [],
   );
   let runningSourceData = existingSources ?? [];
