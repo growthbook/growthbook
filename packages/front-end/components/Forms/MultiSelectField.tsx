@@ -142,7 +142,14 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       ),
     );
   };
-  const mergeStyles = customStyles ? { styles: customStyles } : {};
+  const mergeStyles = customStyles
+    ? {
+        styles: {
+          ...ReactSelectProps.styles,
+          ...customStyles,
+        },
+      }
+    : {};
   return (
     <Field
       {...fieldProps}
