@@ -6,7 +6,7 @@ export const incrementalRefreshMetricSourceValidator = z.object({
   metrics: z.array(
     z.object({
       id: z.string(),
-      settingsHash: z.string(), // or object keyed on id
+      settingsHash: z.string(),
     }),
   ),
   maxTimestamp: z.date().nullable(),

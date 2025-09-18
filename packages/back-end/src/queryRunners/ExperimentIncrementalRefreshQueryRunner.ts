@@ -36,6 +36,10 @@ import {
   analyzeExperimentTraffic,
 } from "back-end/src/services/stats";
 import {
+  getExperimentSettingsHashForIncrementalRefresh,
+  getMetricSettingsHashForIncrementalRefresh,
+} from "back-end/src/services/experimentTimeSeries";
+import {
   getFactMetricGroup,
   MAX_METRICS_PER_QUERY,
   SnapshotResult,
@@ -191,6 +195,12 @@ export const startExperimentIncrementalRefreshQueries = async (
     hasIncrementalRefreshFeature &&
     settings.pipelineSettings?.mode === "incremental";
 
+  // TODO set fallback
+  const partitionSettings = integration.datasource.settings.pipelineSettings
+    ?.partitionSettings ?? {
+    type: "timestamp",
+  };
+
   const queries: Queries = [];
 
   if (!canRunIncrementalRefreshQueries) {
@@ -240,9 +250,7 @@ export const startExperimentIncrementalRefreshQueries = async (
         dimensions: [], // TODO experiment dimensions
         segment: null, // TODO experiment segment
         factTableMap: params.factTableMap,
-        partitionSettings: {
-          type: "timestamp",
-        },
+        partitionSettings: partitionSettings,
       }),
       dependencies: [dropOldUnitsTableQuery.query],
       run: (query, setExternalId) =>
@@ -363,6 +371,8 @@ export const startExperimentIncrementalRefreshQueries = async (
           .upsertByExperimentId(snapshotSettings.experimentId, {
             unitsTableFullName: unitsTableFullName,
             lastScannedTimestamp: maxTimestamp,
+            experimentSettingsHash:
+              getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
           })
           .catch((e) => context.logger.error(e));
       }
@@ -426,9 +436,7 @@ export const startExperimentIncrementalRefreshQueries = async (
           settings: snapshotSettings,
           metrics: group.metrics,
           factTableMap: params.factTableMap,
-          partitionSettings: {
-            type: "timestamp",
-          },
+          partitionSettings: partitionSettings,
           metricSourceTableFullName,
         }),
         dependencies: [alterUnitsTableQuery.query],
@@ -448,9 +456,7 @@ export const startExperimentIncrementalRefreshQueries = async (
       metricSourceTableFullName,
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
-      partitionSettings: {
-        type: "timestamp",
-      },
+      partitionSettings: partitionSettings,
       lastMaxTimestamp: existingSource?.maxTimestamp ?? undefined,
     };
 
@@ -504,7 +510,14 @@ export const startExperimentIncrementalRefreshQueries = async (
                   maxTimestamp,
                   metrics: group.metrics.map((m) => ({
                     id: m.id,
-                    settingsHash: "", // TODO m.settingsHash
+                    // TODO set this elsewhere?
+                    settingsHash: getMetricSettingsHashForIncrementalRefresh({
+                      factMetric: m,
+                      factTableMap: params.factTableMap,
+                      metricSettings: metricParams.settings.metricSettings.find(
+                        (ms) => ms.id === m.id,
+                      ),
+                    }),
                   })),
                   tableFullName: metricSourceTableFullName,
                 };
@@ -649,9 +662,10 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         traffic: trafficHealth,
       };
 
-      const _relativeAnalysis = this.model.analyses.find(
-        (a) => a.settings.differenceType === "relative",
-      );
+      // TODO(incremental-refresh): ensure power calculations work
+      // const _relativeAnalysis = this.model.analyses.find(
+      //   (a) => a.settings.differenceType === "relative",
+      // );
 
       // const isEligibleForMidExperimentPowerAnalysis =
       //   relativeAnalysis &&
