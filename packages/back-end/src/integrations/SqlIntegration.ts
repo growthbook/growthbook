@@ -5943,7 +5943,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
-    // TODO : partition on `max_timestamp` for faster retrieval of the maximum timestamp for last scanned
     return format(
       `
     CREATE TABLE ${params.unitsTableFullName}
@@ -6095,8 +6094,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             }
             ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
           FROM ${params.unitsTableFullName}
-          -- Redundant where statement could be used for safety to prevent counting units twice
-          -- WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}
+          WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}
         ),
         ${
           segment

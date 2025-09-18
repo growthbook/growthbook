@@ -23,6 +23,7 @@ const querySchema = new mongoose.Schema({
     unique: true,
   },
   name: String,
+  title: String,
   organization: {
     type: String,
     index: true,
