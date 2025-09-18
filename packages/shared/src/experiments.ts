@@ -110,13 +110,46 @@ export function getColumnRefWhereClause(
   escapeStringLiteral: (s: string) => string,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   showSourceComment = false,
+  dimensionInfo?: DimensionMetricInfo,
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
   const filterIds = columnRef.filters || [];
 
   const where = new Set<string>();
 
-  // First add inline filters
+  // First add dimension filters if this is a dimension metric
+  if (dimensionInfo?.isDimensionMetric) {
+    const columnExpr = getColumnExpression(
+      dimensionInfo.dimensionColumn,
+      factTable,
+      jsonExtract,
+    );
+
+    if (dimensionInfo.isOther) {
+      // For "other", exclude all dimension values
+      const dimensionColumn = factTable.columns.find(
+        (col) => col.column === dimensionInfo.dimensionColumn,
+      );
+      if (
+        dimensionColumn?.dimensionValues &&
+        dimensionColumn.dimensionValues.length > 0
+      ) {
+        const escapedValues = dimensionColumn.dimensionValues.map(
+          (v) => "'" + escapeStringLiteral(v) + "'",
+        );
+        where.add(
+          `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`,
+        );
+      }
+    } else {
+      // For specific dimension values, filter to that value
+      where.add(
+        `(${columnExpr} = '${escapeStringLiteral(dimensionInfo.dimensionValue!)}')`,
+      );
+    }
+  }
+
+  // Then add inline filters
   Object.entries(inlineFilters).forEach(([column, values]) => {
     const escapedValues = new Set(
       values
@@ -139,7 +172,7 @@ export function getColumnRefWhereClause(
     }
   });
 
-  // Then add additional filters
+  // Finally add additional filters
   filterIds.forEach((filterId) => {
     const filter = factTable.filters.find((f) => f.id === filterId);
     if (filter) {
@@ -329,6 +362,39 @@ export function getUserIdTypes(
   }
 
   return metric.userIdTypes || [];
+}
+
+export interface DimensionMetricInfo {
+  isDimensionMetric: boolean;
+  parentMetricId: string;
+  dimensionColumn: string;
+  dimensionValue: string | null;
+  isOther: boolean;
+}
+
+export function parseDimensionMetricId(metricId: string): DimensionMetricInfo {
+  const match = metricId.match(/^(.+)\$dim:([^=]+)=(.*)$/);
+
+  if (!match) {
+    return {
+      isDimensionMetric: false,
+      parentMetricId: metricId,
+      dimensionColumn: "",
+      dimensionValue: null,
+      isOther: false,
+    };
+  }
+
+  const [, parentMetricId, dimensionColumn, dimensionValue] = match;
+  const isOther = dimensionValue === "";
+
+  return {
+    isDimensionMetric: true,
+    parentMetricId,
+    dimensionColumn,
+    dimensionValue: isOther ? null : dimensionValue,
+    isOther,
+  };
 }
 
 export function getMetricLink(id: string): string {
@@ -903,6 +969,58 @@ export function getAllMetricIdsFromExperiment(
       ),
     ),
   );
+}
+
+export function getAllExpandedMetricIdsFromExperiment(
+  exp: {
+    goalMetrics?: string[];
+    secondaryMetrics?: string[];
+    guardrailMetrics?: string[];
+    activationMetric?: string | null;
+  },
+  metricMap: Map<string, ExperimentMetricInterface>,
+  factTableMap: FactTableMap,
+  includeActivationMetric: boolean = true,
+  metricGroups: MetricGroupInterface[] = [],
+): string[] {
+  const baseMetricIds = getAllMetricIdsFromExperiment(
+    exp,
+    includeActivationMetric,
+    metricGroups,
+  );
+  const expandedMetricIds = new Set<string>(baseMetricIds);
+
+  // Add dimension metrics for fact metrics with enableMetricDimensions
+  baseMetricIds.forEach((metricId) => {
+    const metric = metricMap.get(metricId);
+    if (metric && isFactMetric(metric) && metric.enableMetricDimensions) {
+      const factTable = factTableMap.get(metric.numerator.factTableId);
+      if (factTable) {
+        const dimensionColumns = factTable.columns.filter(
+          (col) =>
+            col.isDimension &&
+            !col.deleted &&
+            (col.dimensionValues?.length || 0) > 0,
+        );
+
+        dimensionColumns.forEach((col) => {
+          const dimensionValues = col.dimensionValues || [];
+
+          // Add dimension metrics for each dimension value
+          dimensionValues.forEach((value) => {
+            expandedMetricIds.add(`${metricId}$dim:${col.column}=${value}`);
+          });
+
+          // Add "other" metric for values not in dimensionValues
+          if (dimensionValues.length > 0) {
+            expandedMetricIds.add(`${metricId}$dim:${col.column}=`);
+          }
+        });
+      }
+    }
+  });
+
+  return Array.from(expandedMetricIds);
 }
 
 // Returns n "equal" decimals rounded to 3 places that add up to 1

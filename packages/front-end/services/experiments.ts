@@ -72,6 +72,8 @@ export type ExperimentTableRow = {
   parentRowId?: string;
   dimensionColumn?: string;
   dimensionColumnName?: string;
+  dimensionValue?: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
+  isOther?: boolean; // True if this represents the "other" category
   dimensionValues?: string[];
   stableDimensionValues?: string[];
   maxDimensionValues?: number;

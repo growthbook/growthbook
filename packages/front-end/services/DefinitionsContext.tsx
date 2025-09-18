@@ -31,12 +31,14 @@ import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
 
 export interface FactMetricDimension extends FactMetricInterface {
-  id: string; // Format: `${parentId}#dim=${columnId}`
-  name: string; // Format: `${parentName} (${columnName})`
+  id: string; // Format: `${parentId}$dim:${columnId}=${value}` or `${parentId}$dim:${columnId}=` for "other"
+  name: string; // Format: `${parentName} (${columnName}: ${value})` or `${parentName} (${columnName}: other)`
   description: string; // Auto-generated description
   parentMetricId: string;
   dimensionColumn: string;
   dimensionColumnName: string;
+  dimensionValue: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
+  isOther: boolean; // True if this represents the "other" category
   dimensionValues: string[];
   stableDimensionValues: string[];
   maxDimensionValues: number;
@@ -305,23 +307,51 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       // Only generate metric dimensions if the parent has dimension analysis enabled
       if (!parentMetric.enableMetricDimensions) return [];
 
-      return factTable.columns
+      const dimensionMetrics: FactMetricDimension[] = [];
+
+      factTable.columns
         .filter((col) => col.isDimension && !col.deleted)
-        .map(
-          (col) =>
-            ({
+        .forEach((col) => {
+          const dimensionValues = col.dimensionValues || [];
+
+          // Create a metric for each dimension value
+          dimensionValues.forEach((value) => {
+            dimensionMetrics.push({
               ...parentMetric,
-              id: `${parentId}#dim=${col.column}`,
-              name: `${parentMetric.name} (${col.name || col.column})`,
-              description: `Dimension analysis of ${parentMetric.name} across ${col.name || col.column} values`,
+              id: `${parentId}$dim:${col.column}=${value}`,
+              name: `${parentMetric.name} (${col.name || col.column}: ${value})`,
+              description: `Dimension analysis of ${parentMetric.name} for ${col.name || col.column} = ${value}`,
               parentMetricId: parentId,
               dimensionColumn: col.column,
               dimensionColumnName: col.name || col.column,
+              dimensionValue: value,
+              isOther: false,
               dimensionValues: col.dimensionValues || [],
               stableDimensionValues: col.stableDimensionValues || [],
               maxDimensionValues: col.maxDimensionValues || 10,
-            }) as FactMetricDimension,
-        );
+            } as FactMetricDimension);
+          });
+
+          // Create an "other" metric for values not in dimensionValues
+          if (dimensionValues.length > 0) {
+            dimensionMetrics.push({
+              ...parentMetric,
+              id: `${parentId}$dim:${col.column}=`,
+              name: `${parentMetric.name} (${col.name || col.column}: other)`,
+              description: `Dimension analysis of ${parentMetric.name} for ${col.name || col.column} = other`,
+              parentMetricId: parentId,
+              dimensionColumn: col.column,
+              dimensionColumnName: col.name || col.column,
+              dimensionValue: null,
+              isOther: true,
+              dimensionValues: col.dimensionValues || [],
+              stableDimensionValues: col.stableDimensionValues || [],
+              maxDimensionValues: col.maxDimensionValues || 10,
+            } as FactMetricDimension);
+          }
+        });
+
+      return dimensionMetrics;
     },
     [data?.factMetrics, data?.factTables],
   );

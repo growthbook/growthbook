@@ -12,11 +12,16 @@ import {
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import {
+  expandDimensionMetricsInMap,
+  getMetricMap,
+} from "back-end/src/models/MetricModel";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
   AuthRequest,
@@ -91,7 +96,6 @@ import {
   ExperimentType,
   Variation,
 } from "back-end/types/experiment";
-import { getMetricMap } from "back-end/src/models/MetricModel";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { IdeaInterface } from "back-end/types/idea";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -2782,9 +2786,26 @@ export async function createExperimentSnapshot({
   const statsEngine = settings.statsEngine.value;
 
   const metricMap = await getMetricMap(context);
-  const metricIds = getAllMetricIdsFromExperiment(experiment, false);
+  const factTableMap = await getFactTableMap(context);
+
+  // First, expand dimension metrics and add them to the metricMap
+  const baseMetricIds = getAllMetricIdsFromExperiment(experiment, false);
+  const baseMetrics = baseMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined);
+
+  // Expand dimension metrics for fact metrics with enableMetricDimensions
+  expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
+
+  const metricIds = getAllExpandedMetricIdsFromExperiment(
+    experiment,
+    metricMap,
+    factTableMap,
+    false,
+  );
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
@@ -2812,8 +2833,6 @@ export async function createExperimentSnapshot({
     regressionAdjustmentEnabled,
     dimension,
   );
-
-  const factTableMap = await getFactTableMap(context);
 
   const queryRunner = await createSnapshot({
     experiment,

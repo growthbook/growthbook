@@ -29,6 +29,8 @@ export interface SSRPolyfills {
     parentMetricId: string;
     dimensionColumn: string;
     dimensionColumnName: string;
+    dimensionValue: string | null;
+    isOther: boolean;
     dimensionValues: string[];
     stableDimensionValues: string[];
     maxDimensionValues: number;

@@ -261,17 +261,17 @@ const CompactResults: FC<{
 
         dimensionData.forEach((dimension) => {
           const dimensionRow: ExperimentTableRow = {
-            label: `  ${dimension.dimensionColumnName}`,
+            label: `  ${dimension.dimensionColumnName}: ${dimension.isOther ? "other" : dimension.dimensionValue}`,
             metric: {
               ...newMetric,
-              name: dimension.dimensionColumnName, // Use dimension name instead of parent metric name
+              name: dimension.name, // Use the full dimension metric name
             },
             metricOverrideFields: overrideFields,
             rowClass: `${newMetric?.inverse ? "inverse" : ""} dimension-row`,
             variations: results.variations.map((v) => {
-              // For now, use the same data as parent - this will be updated later with actual dimension data
+              // Use the dimension metric's data instead of the parent metric's data
               return (
-                v.metrics?.[metricId] || {
+                v.metrics?.[dimension.id] || {
                   users: 0,
                   value: 0,
                   cr: 0,
@@ -286,6 +286,8 @@ const CompactResults: FC<{
             parentRowId: metricId,
             dimensionColumn: dimension.dimensionColumn,
             dimensionColumnName: dimension.dimensionColumnName,
+            dimensionValue: dimension.dimensionValue,
+            isOther: dimension.isOther,
             dimensionValues: dimension.dimensionValues,
             stableDimensionValues: dimension.stableDimensionValues,
             maxDimensionValues: dimension.maxDimensionValues,

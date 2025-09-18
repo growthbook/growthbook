@@ -30,6 +30,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
@@ -37,6 +38,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  parseDimensionMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -190,10 +192,16 @@ export async function getExperimentMetricById(
   context: Context,
   metricId: string,
 ): Promise<ExperimentMetricInterface | null> {
-  if (isFactMetricId(metricId)) {
-    return context.models.factMetrics.getById(metricId);
+  // Handle dimension metric IDs by extracting the parent metric ID
+  const dimensionInfo = parseDimensionMetricId(metricId);
+  const actualMetricId = dimensionInfo.isDimensionMetric
+    ? dimensionInfo.parentMetricId
+    : metricId;
+
+  if (isFactMetricId(actualMetricId)) {
+    return context.models.factMetrics.getById(actualMetricId);
   }
-  return getMetricById(context, metricId);
+  return getMetricById(context, actualMetricId);
 }
 
 export async function getExperimentMetricsByIds(
@@ -570,7 +578,13 @@ export function getSnapshotSettings({
   const currentDate = new Date();
 
   const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(experiment),
+    getAllExpandedMetricIdsFromExperiment(
+      experiment,
+      metricMap,
+      factTableMap,
+      true,
+      metricGroups,
+    ),
     metricGroups,
   )
     .map((m) =>
@@ -2802,6 +2816,7 @@ export async function getSettingsForSnapshotMetrics(
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
 
   const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
@@ -2811,14 +2826,64 @@ export async function getSettingsForSnapshotMetrics(
     .map((id) => metricMap.get(id))
     .filter(isDefined);
 
-  const denominatorMetrics = allExperimentMetrics
+  // Expand dimension metrics for fact metrics with enableMetricDimensions
+  const expandedMetrics: ExperimentMetricInterface[] = [];
+  for (const metric of allExperimentMetrics) {
+    if (!metric) continue;
+
+    // Add the original metric
+    expandedMetrics.push(metric);
+
+    // If this is a fact metric with dimension analysis enabled, expand it
+    if (isFactMetric(metric) && metric.enableMetricDimensions) {
+      const factTable = factTableMap.get(metric.numerator.factTableId);
+      if (factTable) {
+        const dimensionColumns = factTable.columns.filter(
+          (col) =>
+            col.isDimension &&
+            !col.deleted &&
+            (col.dimensionValues?.length || 0) > 0,
+        );
+
+        dimensionColumns.forEach((col) => {
+          const dimensionValues = col.dimensionValues || [];
+
+          // Create a metric for each dimension value
+          dimensionValues.forEach((value) => {
+            const dimensionMetric: ExperimentMetricInterface = {
+              ...metric,
+              id: `${metric.id}$dim:${col.column}=${value}`,
+              name: `${metric.name} (${col.name || col.column}: ${value})`,
+              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
+            };
+            expandedMetrics.push(dimensionMetric);
+            metricMap.set(dimensionMetric.id, dimensionMetric);
+          });
+
+          // Create an "other" metric for values not in dimensionValues
+          if (dimensionValues.length > 0) {
+            const otherMetric: ExperimentMetricInterface = {
+              ...metric,
+              id: `${metric.id}$dim:${col.column}=`,
+              name: `${metric.name} (${col.name || col.column}: other)`,
+              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = other`,
+            };
+            expandedMetrics.push(otherMetric);
+            metricMap.set(otherMetric.id, otherMetric);
+          }
+        });
+      }
+    }
+  }
+
+  const denominatorMetrics = expandedMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)
     .map((m: ExperimentMetricInterface) =>
       metricMap.get(m.denominator as string),
     )
     .filter(Boolean) as MetricInterface[];
 
-  for (const metric of allExperimentMetrics) {
+  for (const metric of expandedMetrics) {
     if (!metric) continue;
     const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,
