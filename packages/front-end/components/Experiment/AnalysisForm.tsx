@@ -224,7 +224,7 @@ const AnalysisForm: FC<{
     isPipelineIncrementalEnabledForDatasource &&
     (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
       experiment.id,
-    ) ||
+    ) ??
       true);
 
   if (upgradeModal) {
@@ -537,8 +537,13 @@ const AnalysisForm: FC<{
                 labelClassName="font-weight-bold"
                 label={
                   <>
-                    Activation Metric{" "}
-                    <MetricsSelectorTooltip onlyBinomial={true} />
+                    Activation Metric
+                    {!isExperimentIncludedInIncrementalRefresh ? (
+                      <>
+                        {" "}
+                        <MetricsSelectorTooltip onlyBinomial={true} />
+                      </>
+                    ) : null}
                   </>
                 }
                 initialOption="None"
