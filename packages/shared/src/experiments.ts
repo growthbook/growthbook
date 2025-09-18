@@ -131,11 +131,11 @@ export function getColumnRefWhereClause(
         (col) => col.column === dimensionInfo.dimensionColumn,
       );
       if (
-        dimensionColumn?.dimensionValues &&
-        dimensionColumn.dimensionValues.length > 0
+        dimensionColumn?.dimensionLevels &&
+        dimensionColumn.dimensionLevels.length > 0
       ) {
-        const escapedValues = dimensionColumn.dimensionValues.map(
-          (v) => "'" + escapeStringLiteral(v) + "'",
+        const escapedValues = dimensionColumn.dimensionLevels.map(
+          (v: string) => "'" + escapeStringLiteral(v) + "'",
         );
         where.add(
           `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`,
@@ -1000,19 +1000,19 @@ export function getAllExpandedMetricIdsFromExperiment(
           (col) =>
             col.isDimension &&
             !col.deleted &&
-            (col.dimensionValues?.length || 0) > 0,
+            (col.dimensionLevels?.length || 0) > 0,
         );
 
         dimensionColumns.forEach((col) => {
-          const dimensionValues = col.dimensionValues || [];
+          const dimensionLevels = col.dimensionLevels || [];
 
-          // Add dimension metrics for each dimension value
-          dimensionValues.forEach((value) => {
+          // Add dimension metrics for each dimension level
+          dimensionLevels.forEach((value: string) => {
             expandedMetricIds.add(`${metricId}$dim:${col.column}=${value}`);
           });
 
-          // Add "other" metric for values not in dimensionValues
-          if (dimensionValues.length > 0) {
+          // Add "other" metric for values not in dimensionLevels
+          if (dimensionLevels.length > 0) {
             expandedMetricIds.add(`${metricId}$dim:${col.column}=`);
           }
         });

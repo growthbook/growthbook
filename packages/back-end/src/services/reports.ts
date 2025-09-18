@@ -835,9 +835,7 @@ export async function generateExperimentReportSSRData({
       dimensionColumnName: string;
       dimensionValue: string | null;
       isOther: boolean;
-      dimensionValues: string[];
-      stableDimensionValues: string[];
-      maxDimensionValues: number;
+      dimensionLevels: string[];
     }>
   > = {};
   for (const factMetric of factMetrics) {
@@ -858,16 +856,14 @@ export async function generateExperimentReportSSRData({
             dimensionColumnName: string;
             dimensionValue: string | null;
             isOther: boolean;
-            dimensionValues: string[];
-            stableDimensionValues: string[];
-            maxDimensionValues: number;
+            dimensionLevels: string[];
           }> = [];
 
           dimensionColumns.forEach((col: ColumnInterface) => {
-            const dimensionValues = col.dimensionValues || [];
+             const dimensionLevels = col.dimensionLevels || [];
 
-            // Create a metric for each dimension value
-            dimensionValues.forEach((value) => {
+            // Create a metric for each dimension level
+            dimensionLevels.forEach((value: string) => {
               dimensionMetrics.push({
                 id: `${factMetric.id}$dim:${col.column}=${value}`,
                 name: `${factMetric.name} (${col.name || col.column}: ${value})`,
@@ -877,14 +873,12 @@ export async function generateExperimentReportSSRData({
                 dimensionColumnName: col.name || col.column,
                 dimensionValue: value,
                 isOther: false,
-                dimensionValues: col.dimensionValues || [],
-                stableDimensionValues: col.stableDimensionValues || [],
-                maxDimensionValues: col.maxDimensionValues || 10,
+                dimensionLevels: col.dimensionLevels || [],
               });
             });
 
-            // Create an "other" metric for values not in dimensionValues
-            if (dimensionValues.length > 0) {
+            // Create an "other" metric for values not in dimensionLevels
+            if (dimensionLevels.length > 0) {
               dimensionMetrics.push({
                 id: `${factMetric.id}$dim:${col.column}=`,
                 name: `${factMetric.name} (${col.name || col.column}: other)`,
@@ -894,9 +888,7 @@ export async function generateExperimentReportSSRData({
                 dimensionColumnName: col.name || col.column,
                 dimensionValue: null,
                 isOther: true,
-                dimensionValues: col.dimensionValues || [],
-                stableDimensionValues: col.stableDimensionValues || [],
-                maxDimensionValues: col.maxDimensionValues || 10,
+                dimensionLevels: col.dimensionLevels || [],
               });
             }
           });

@@ -44,9 +44,7 @@ export interface ColumnInterface {
   jsonFields?: JSONColumnFields;
   deleted: boolean;
   isDimension?: boolean;
-  dimensionValues?: string[];
-  stableDimensionValues?: string[];
-  maxDimensionValues?: number;
+  dimensionLevels?: string[];
 }
 
 export interface FactFilterInterface {

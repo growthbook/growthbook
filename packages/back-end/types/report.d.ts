@@ -183,9 +183,7 @@ export type ExperimentReportSSRData = {
       dimensionColumnName: string;
       dimensionValue: string | null;
       isOther: boolean;
-      dimensionValues: string[];
-      stableDimensionValues: string[];
-      maxDimensionValues: number;
+      dimensionLevels: string[];
     }>
   >;
   settings: OrganizationSettings;

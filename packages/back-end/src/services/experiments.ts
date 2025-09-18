@@ -2842,14 +2842,14 @@ export async function getSettingsForSnapshotMetrics(
           (col) =>
             col.isDimension &&
             !col.deleted &&
-            (col.dimensionValues?.length || 0) > 0,
+            (col.dimensionLevels?.length || 0) > 0,
         );
 
         dimensionColumns.forEach((col) => {
-          const dimensionValues = col.dimensionValues || [];
+          const dimensionLevels = col.dimensionLevels || [];
 
-          // Create a metric for each dimension value
-          dimensionValues.forEach((value) => {
+          // Create a metric for each dimension level
+          dimensionLevels.forEach((value) => {
             const dimensionMetric: ExperimentMetricInterface = {
               ...metric,
               id: `${metric.id}$dim:${col.column}=${value}`,
@@ -2860,8 +2860,8 @@ export async function getSettingsForSnapshotMetrics(
             metricMap.set(dimensionMetric.id, dimensionMetric);
           });
 
-          // Create an "other" metric for values not in dimensionValues
-          if (dimensionValues.length > 0) {
+          // Create an "other" metric for values not in dimensionLevels
+          if (dimensionLevels.length > 0) {
             const otherMetric: ExperimentMetricInterface = {
               ...metric,
               id: `${metric.id}$dim:${col.column}=`,

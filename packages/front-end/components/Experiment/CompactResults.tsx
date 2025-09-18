@@ -288,9 +288,7 @@ const CompactResults: FC<{
             dimensionColumnName: dimension.dimensionColumnName,
             dimensionValue: dimension.dimensionValue,
             isOther: dimension.isOther,
-            dimensionValues: dimension.dimensionValues,
-            stableDimensionValues: dimension.stableDimensionValues,
-            maxDimensionValues: dimension.maxDimensionValues,
+            dimensionLevels: dimension.dimensionLevels,
           };
           rows.push(dimensionRow);
         });

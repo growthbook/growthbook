@@ -86,23 +86,26 @@ export async function runColumnTopValuesQuery(
   return result.rows.map((r) => r.value);
 }
 
-export function populateDimensionValues(
+export function populateDimensionLevels(
   col: ColumnInterface,
   topValues: string[],
 ): string[] {
-  // Start with stable dimension values
-  const dimensionValues = [...(col.stableDimensionValues || [])];
+  // Use existing dimensionLevels if they exist, otherwise use topValues up to the max
+  if (col.dimensionLevels && col.dimensionLevels.length > 0) {
+    return col.dimensionLevels;
+  }
 
-  // Add top values until we reach maxDimensionValues (stable values can exceed the max)
-  const maxValues = col.maxDimensionValues || MAX_METRIC_DIMENSION_LEVELS;
+  // If no dimensionLevels set, use topValues up to the max
+  const maxValues = MAX_METRIC_DIMENSION_LEVELS;
+  const dimensionLevels: string[] = [];
   for (const value of topValues) {
-    if (dimensionValues.length >= maxValues) break;
-    if (!dimensionValues.includes(value)) {
-      dimensionValues.push(value);
+    if (dimensionLevels.length >= maxValues) break;
+    if (!dimensionLevels.includes(value)) {
+      dimensionLevels.push(value);
     }
   }
 
-  return dimensionValues;
+  return dimensionLevels;
 }
 
 export async function runRefreshColumnsQuery(
@@ -221,7 +224,7 @@ export async function runRefreshColumnsQuery(
         col.topValuesDate = new Date();
 
         if (col.isDimension) {
-          col.dimensionValues = populateDimensionValues(col, topValues);
+          col.dimensionLevels = populateDimensionLevels(col, topValues);
         }
       } catch (e) {
         logger.error(e, "Error running top values query", {

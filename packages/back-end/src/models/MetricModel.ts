@@ -599,14 +599,14 @@ export function expandDimensionMetricsInMap(
           (col) =>
             col.isDimension &&
             !col.deleted &&
-            (col.dimensionValues?.length || 0) > 0,
+            (col.dimensionLevels?.length || 0) > 0,
         );
 
         dimensionColumns.forEach((col) => {
-          const dimensionValues = col.dimensionValues || [];
+          const dimensionLevels = col.dimensionLevels || [];
 
-          // Create a metric for each dimension value
-          dimensionValues.forEach((value: string) => {
+          // Create a metric for each dimension level
+          dimensionLevels.forEach((value: string) => {
             const dimensionMetric: ExperimentMetricInterface = {
               ...metric,
               id: `${metric.id}$dim:${col.column}=${value}`,
@@ -616,8 +616,8 @@ export function expandDimensionMetricsInMap(
             metricMap.set(dimensionMetric.id, dimensionMetric);
           });
 
-          // Create an "other" metric for values not in dimensionValues
-          if (dimensionValues.length > 0) {
+          // Create an "other" metric for values not in dimensionLevels
+          if (dimensionLevels.length > 0) {
             const otherMetric: ExperimentMetricInterface = {
               ...metric,
               id: `${metric.id}$dim:${col.column}=`,

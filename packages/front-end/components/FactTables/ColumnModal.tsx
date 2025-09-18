@@ -7,12 +7,12 @@ import {
   FactTableColumnType,
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import React, { useState } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
 import { PiPlus, PiX } from "react-icons/pi";
-import { BsArrowRepeat } from "react-icons/bs";
 import { Flex } from "@radix-ui/themes";
 import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
+import { differenceInDays } from "date-fns";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -22,8 +22,6 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/components/Button";
-import RadixButton from "@/ui/Button";
-import HelperText from "@/ui/HelperText";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -46,10 +44,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
     setRefreshingTopValues(true);
     try {
-      await apiCall(`/fact-tables/${factTable.id}?forceColumnRefresh=1`, {
-        method: "PUT",
-        body: JSON.stringify({}),
-      });
+      await apiCall(
+        `/fact-tables/${factTable.id}?forceColumnRefresh=1&dim=${existing.column}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({}),
+        },
+      );
       mutateDefinitions();
     } catch (error) {
       console.error("Failed to refresh top values:", error);
@@ -68,12 +69,44 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       jsonFields: existing?.jsonFields || {},
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
       isDimension: existing?.isDimension || false,
-      dimensionValues: existing?.dimensionValues || [],
-      stableDimensionValues: existing?.stableDimensionValues || [],
-      maxDimensionValues:
-        existing?.maxDimensionValues || MAX_METRIC_DIMENSION_LEVELS,
+      dimensionLevels: existing?.dimensionLevels || [],
     },
   });
+
+  // Check if topValuesDate is stale (older than 7 days) or if topValues are empty
+  const isTopValuesStale =
+    !existing?.topValues?.length ||
+    (existing?.topValuesDate &&
+      differenceInDays(new Date(), new Date(existing.topValuesDate)) > 7);
+
+  // Auto-refresh top values when isDimension is checked (set to true) and topValues are stale
+  React.useEffect(
+    () => {
+      const isDimension = form.watch("isDimension");
+      const wasDimension = existing?.isDimension;
+
+      // Only trigger if isDimension is being set to true (not already true) and topValues are stale
+      if (
+        isDimension &&
+        !wasDimension &&
+        !refreshingTopValues &&
+        isTopValuesStale
+      ) {
+        refreshTopValues();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form.watch("isDimension")],
+  );
+
+  // Calculate dimension level options combining topValues with current dimensionLevels
+  const topValues = existing?.topValues || [];
+  const currentLevels = form.watch("dimensionLevels") || [];
+  const allValues = new Set([...topValues, ...currentLevels]);
+  const dimensionLevelOptions = Array.from(allValues).map((value) => ({
+    label: value,
+    value: value,
+  }));
 
   const [newJSONField, setNewJSONField] = useState<{
     adding: boolean;
@@ -111,9 +144,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     jsonFields: form.watch("jsonFields"),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
     isDimension: form.watch("isDimension"),
-    dimensionValues: form.watch("dimensionValues"),
-    stableDimensionValues: form.watch("stableDimensionValues"),
-    maxDimensionValues: form.watch("maxDimensionValues"),
+    dimensionLevels: form.watch("dimensionLevels"),
     deleted: false,
   };
 
@@ -135,9 +166,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
             isDimension: value.isDimension,
-            dimensionValues: value.dimensionValues,
-            stableDimensionValues: value.stableDimensionValues,
-            maxDimensionValues: value.maxDimensionValues,
+            dimensionLevels: value.dimensionLevels,
           };
 
           // If the column can no longer be inline filtered
@@ -425,16 +454,14 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
                 <MultiSelectField
                   label="Dimension Levels"
-                  value={form.watch("stableDimensionValues") || []}
+                  value={form.watch("dimensionLevels") || []}
                   onChange={(values) =>
-                    form.setValue("stableDimensionValues", values)
+                    form.setValue(
+                      "dimensionLevels",
+                      values.slice(0, MAX_METRIC_DIMENSION_LEVELS),
+                    )
                   }
-                  options={
-                    existing?.topValues?.map((value) => ({
-                      label: value,
-                      value: value,
-                    })) || []
-                  }
+                  options={dimensionLevelOptions}
                   creatable={true}
                 />
 
@@ -464,8 +491,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                       >
                         <div className="d-flex flex-wrap" style={{ gap: 6 }}>
                           {existing.topValues.map((value, index) => {
-                            const isInStableValues = (
-                              form.watch("stableDimensionValues") || []
+                            const isInDimensionLevels = (
+                              form.watch("dimensionLevels") || []
                             ).includes(value);
                             return (
                               <div key={index}>
@@ -473,38 +500,38 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                   style={{
                                     fontSize: "0.8em",
                                     cursor: "pointer",
-                                    backgroundColor: isInStableValues
+                                    backgroundColor: isInDimensionLevels
                                       ? "#e3f2fd"
                                       : "#f8f9fa",
                                     padding: "2px 4px",
                                     borderRadius: "3px",
-                                    border: isInStableValues
+                                    border: isInDimensionLevels
                                       ? "1px solid #2196f3"
                                       : "1px solid #e9ecef",
                                   }}
                                   onClick={() => {
-                                    const currentStableValues =
-                                      form.watch("stableDimensionValues") || [];
-                                    if (isInStableValues) {
-                                      // Remove from stable values
+                                    const currentDimensionLevels =
+                                      form.watch("dimensionLevels") || [];
+                                    if (isInDimensionLevels) {
+                                      // Remove from dimension levels
                                       form.setValue(
-                                        "stableDimensionValues",
-                                        currentStableValues.filter(
+                                        "dimensionLevels",
+                                        currentDimensionLevels.filter(
                                           (v) => v !== value,
                                         ),
                                       );
                                     } else {
-                                      // Add to stable values
-                                      form.setValue("stableDimensionValues", [
-                                        ...currentStableValues,
+                                      // Add to dimension levels
+                                      form.setValue("dimensionLevels", [
+                                        ...currentDimensionLevels,
                                         value,
                                       ]);
                                     }
                                   }}
                                   title={
-                                    isInStableValues
-                                      ? "Click to remove from stable values"
-                                      : "Click to add to stable values"
+                                    isInDimensionLevels
+                                      ? "Click to remove from dimension levels"
+                                      : "Click to add to dimension levels"
                                   }
                                 >
                                   {value}

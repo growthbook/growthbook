@@ -736,13 +736,13 @@ export default function FactMetricPage() {
                                     {col.name || col.column}
                                 </td>
                                 <td>
-                                  {col.dimensionValues &&
-                                  col.dimensionValues.length > 0 ? (
+                                  {col.dimensionLevels &&
+                                  col.dimensionLevels.length > 0 ? (
                                     <div
                                       className="d-flex flex-wrap"
                                       style={{ gap: 4 }}
                                     >
-                                      {col.dimensionValues.map(
+                                      {col.dimensionLevels.map(
                                         (value, index) => (
                                           <span
                                             key={index}

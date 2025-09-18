@@ -45,9 +45,7 @@ export const createColumnPropsValidator = z
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     isDimension: z.boolean().optional(),
-    dimensionValues: z.array(z.string()).optional(),
-    stableDimensionValues: z.array(z.string()).optional(),
-    maxDimensionValues: z.number().optional(),
+    dimensionLevels: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -60,11 +58,10 @@ export const updateColumnPropsValidator = z
     jsonFields: jsonColumnFieldsValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
+    topValuesDate: z.date().optional(),
     deleted: z.boolean().optional(),
     isDimension: z.boolean().optional(),
-    dimensionValues: z.array(z.string()).optional(),
-    stableDimensionValues: z.array(z.string()).optional(),
-    maxDimensionValues: z.number().optional(),
+    dimensionLevels: z.array(z.string()).optional(),
   })
   .strict();
 

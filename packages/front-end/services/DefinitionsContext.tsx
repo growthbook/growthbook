@@ -39,9 +39,7 @@ export interface FactMetricDimension extends FactMetricInterface {
   dimensionColumnName: string;
   dimensionValue: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
   isOther: boolean; // True if this represents the "other" category
-  dimensionValues: string[];
-  stableDimensionValues: string[];
-  maxDimensionValues: number;
+  dimensionLevels: string[];
 }
 
 type Definitions = {
@@ -312,10 +310,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       factTable.columns
         .filter((col) => col.isDimension && !col.deleted)
         .forEach((col) => {
-          const dimensionValues = col.dimensionValues || [];
+          const dimensionLevels = col.dimensionLevels || [];
 
-          // Create a metric for each dimension value
-          dimensionValues.forEach((value) => {
+          // Create a metric for each dimension level
+          dimensionLevels.forEach((value) => {
             dimensionMetrics.push({
               ...parentMetric,
               id: `${parentId}$dim:${col.column}=${value}`,
@@ -326,14 +324,12 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
               dimensionColumnName: col.name || col.column,
               dimensionValue: value,
               isOther: false,
-              dimensionValues: col.dimensionValues || [],
-              stableDimensionValues: col.stableDimensionValues || [],
-              maxDimensionValues: col.maxDimensionValues || 10,
+              dimensionLevels: col.dimensionLevels || [],
             } as FactMetricDimension);
           });
 
-          // Create an "other" metric for values not in dimensionValues
-          if (dimensionValues.length > 0) {
+          // Create an "other" metric for values not in dimensionLevels
+          if (dimensionLevels.length > 0) {
             dimensionMetrics.push({
               ...parentMetric,
               id: `${parentId}$dim:${col.column}=`,
@@ -344,9 +340,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
               dimensionColumnName: col.name || col.column,
               dimensionValue: null,
               isOther: true,
-              dimensionValues: col.dimensionValues || [],
-              stableDimensionValues: col.stableDimensionValues || [],
-              maxDimensionValues: col.maxDimensionValues || 10,
+              dimensionLevels: col.dimensionLevels || [],
             } as FactMetricDimension);
           }
         });

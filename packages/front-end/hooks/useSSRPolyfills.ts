@@ -31,9 +31,7 @@ export interface SSRPolyfills {
     dimensionColumnName: string;
     dimensionValue: string | null;
     isOther: boolean;
-    dimensionValues: string[];
-    stableDimensionValues: string[];
-    maxDimensionValues: number;
+    dimensionLevels: string[];
   }>;
   useOrgSettings: typeof useOrgSettings;
   getProjectById: (id: string) => null | ProjectInterface;
