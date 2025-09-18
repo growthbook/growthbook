@@ -6023,7 +6023,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           `;
       }
     }
-    // TODO: TIMESTAMP
+    // TODO(incremental-refresh): TIMESTAMP
     return "";
   }
 
@@ -6471,7 +6471,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 })?.aggregationFunction;
                 return `
                 , ${aggfunction(`${m.alias}_value`)} AS ${m.id}_value
-                ${denomAggFunction ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${m.id}_denominator_value` : ""}
+                ${!!denomAggFunction && isRatioMetric(m.metric) ? `, ${denomAggFunction(`${m.alias}_denominator`)} AS ${m.id}_denominator_value` : ""}
               `;
               })
               .join("\n")}
@@ -6511,7 +6511,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       this.parseExperimentFactMetricsParams(params);
 
     // TODO(incremental-refresh): Validate with existing columns
-
     return format(
       `
       WITH __experimentUnits AS (
