@@ -5,6 +5,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   isFactMetric,
+  isLegacyMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -102,7 +103,7 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
 
 export interface GroupedMetrics {
   groups: FactMetricInterface[][];
-  singles: ExperimentMetricInterface[];
+  singles: MetricInterface[];
 }
 
 export function getFactMetricGroups(
@@ -112,8 +113,8 @@ export function getFactMetricGroups(
   organization: OrganizationInterface,
 ): GroupedMetrics {
   const defaultReturn: GroupedMetrics = {
-    groups: [],
-    singles: metrics,
+    groups: metrics.filter(isFactMetric).map((m) => [m]),
+    singles: metrics.filter((m) => isLegacyMetric(m)),
   };
 
   // Metrics might have different conversion windows which makes the query super complicated
@@ -160,10 +161,14 @@ export function getFactMetricGroups(
   });
 
   // Add any metrics that aren't in groupArrays to the singles array
-  const singles: ExperimentMetricInterface[] = [];
+  const singles: MetricInterface[] = [];
   metrics.forEach((m) => {
     if (!isFactMetric(m) || !groupArrays.some((group) => group.includes(m))) {
-      singles.push(m);
+      if (isFactMetric(m)) {
+        groupArrays.push([m]);
+      } else {
+        singles.push(m);
+      }
     }
   });
 
