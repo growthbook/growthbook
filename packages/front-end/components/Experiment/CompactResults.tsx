@@ -290,7 +290,11 @@ const CompactResults: FC<{
             isOther: dimension.isOther,
             dimensionLevels: dimension.dimensionLevels,
           };
-          rows.push(dimensionRow);
+
+          // Skip dimension rows with no data
+          if (dimensionRow.variations.some((v) => v.value > 0)) {
+            rows.push(dimensionRow);
+          }
         });
       }
 

@@ -119,6 +119,18 @@ export function getColumnRefWhereClause(
 
   // First add dimension filters if this is a dimension metric
   if (dimensionInfo?.isDimensionMetric) {
+    // Check if the dimension column exists in this fact table
+    const dimensionColumn = factTable.columns.find(
+      (col) => col.column === dimensionInfo.dimensionColumn,
+    );
+
+    if (!dimensionColumn || dimensionColumn.deleted) {
+      // Dimension column doesn't exist in this fact table, skip dimension filtering
+      // This can happen when the dimension column is in a different fact table
+      // (e.g., experiment events) but the metric queries another fact table (e.g., orders)
+      return [...where];
+    }
+
     const columnExpr = getColumnExpression(
       dimensionInfo.dimensionColumn,
       factTable,
@@ -127,11 +139,8 @@ export function getColumnRefWhereClause(
 
     if (dimensionInfo.isOther) {
       // For "other", exclude all dimension values
-      const dimensionColumn = factTable.columns.find(
-        (col) => col.column === dimensionInfo.dimensionColumn,
-      );
       if (
-        dimensionColumn?.dimensionLevels &&
+        dimensionColumn.dimensionLevels &&
         dimensionColumn.dimensionLevels.length > 0
       ) {
         const escapedValues = dimensionColumn.dimensionLevels.map(
