@@ -96,6 +96,7 @@ export interface UserContextValue {
   email?: string;
   superAdmin?: boolean;
   license?: Partial<LicenseInterface> | null;
+  installationName?: string;
   subscription: SubscriptionInfo | null;
   user?: ExpandedMember;
   users: Map<string, ExpandedMember>;
@@ -509,6 +510,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         permissionsUtil,
         settings: currentOrg?.organization?.settings || {},
         license,
+        installationName: currentOrg?.installationName || undefined,
         subscription,
         enterpriseSSO: currentOrg?.enterpriseSSO || undefined,
         accountPlan: currentOrg?.accountPlan,
