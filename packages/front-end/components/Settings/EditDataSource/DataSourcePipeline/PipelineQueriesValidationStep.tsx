@@ -162,6 +162,35 @@ const PipelineQueriesValidationStep = ({
     });
   }, [validateByIds, queriesToValidate]);
 
+  const validateSingle = useCallback(
+    async (id: string) => {
+      setValidationById((prev) => {
+        return {
+          ...prev,
+          [id]: {
+            ...prev[id],
+            status: "pending",
+          },
+        };
+      });
+
+      const map = await validateByIds([id]);
+      setValidationById((prev) => {
+        return {
+          ...prev,
+          [id]: {
+            ...prev[id],
+            ...map[id],
+            status: "done",
+            missingColumns: map[id]?.missingColumns || [],
+            error: map[id]?.error,
+          },
+        };
+      });
+    },
+    [validateByIds],
+  );
+
   const mounted = useRef(false);
   useEffect(() => {
     if (mounted.current) return;
@@ -301,7 +330,9 @@ const PipelineQueriesValidationStep = ({
             copy.settings!.queries!.exposure![editExposureSqlIdx].query = sql;
             await onSaveDataSource(copy);
             setEditExposureSqlIdx(null);
-            await validateAll();
+            await validateSingle(
+              dataSourceExposureQueries[editExposureSqlIdx].id,
+            );
           }}
         />
       )}
@@ -318,7 +349,7 @@ const PipelineQueriesValidationStep = ({
             });
             await mutateDefinitions();
             setEditFactTable(undefined);
-            await validateAll();
+            await validateSingle(editFactTable.id);
           }}
         />
       )}
