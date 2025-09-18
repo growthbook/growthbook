@@ -407,7 +407,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
 
             {form.watch("isDimension") && (
               <>
-                <Field
+                {/* <Field
                   label="Max Dimension Levels"
                   type="number"
                   min="1"
@@ -421,10 +421,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                   }
                   placeholder="10"
                   helpText={`Up to ${form.watch("maxDimensionValues")} distinct values will be used as metric dimension levels. You may choose stable values below, and the system will automatically populate the rest using the top values.`}
-                />
+                /> */}
 
                 <MultiSelectField
-                  label="Stable Values"
+                  label="Dimension Levels"
                   value={form.watch("stableDimensionValues") || []}
                   onChange={(values) =>
                     form.setValue("stableDimensionValues", values)
@@ -436,11 +436,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     })) || []
                   }
                   creatable={true}
-                  placeholder="Add stable dimension values..."
-                  helpText="Will always be analyzed as dimension levels."
                 />
 
-                {existing && (
+                {/* {existing && (
                   <div className="mb-3">
                     <div className="d-flex align-items-center justify-content-between mb-1">
                       <label className="text-muted mb-0">
@@ -532,7 +530,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                       </HelperText>
                     )}
                   </div>
-                )}
+                )} */}
               </>
             )}
           </div>

@@ -718,22 +718,13 @@ export default function FactMetricPage() {
                   {factMetric.enableMetricDimensions && (
                     <div className="mt-3">
                       <h5 className="mb-2">
-                        Dimension Columns{" "}
-                        <Link
-                          href={`/fact-tables/${factTable?.id}`}
-                          className="font-weight-bold ml-2"
-                        >
-                          {factTable?.name || "fact table"}{" "}
-                          <FaExternalLinkAlt />
-                        </Link>
+                        Metric Dimensions
                       </h5>
-                      <table className="table table-tiny appbox gbtable mb-0">
+                      <table className="table appbox gbtable mb-0">
                         <thead>
                           <tr>
-                            <th>Column</th>
-                            <th>Dimension Values</th>
-                            <th>Stable Values</th>
-                            <th>Max Values</th>
+                            <th>Dimension</th>
+                            <th>Dimension Levels</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -742,19 +733,7 @@ export default function FactMetricPage() {
                             .map((col) => (
                               <tr key={col.column}>
                                 <td>
-                                  <div className="d-flex align-items-center">
-                                    <span className="badge badge-purple mr-2">
-                                      <FaLayerGroup />
-                                    </span>
-                                    <div>
-                                      <div className="font-weight-bold">
-                                        {col.name || col.column}
-                                      </div>
-                                      <small className="text-muted">
-                                        {col.column}
-                                      </small>
-                                    </div>
-                                  </div>
+                                    {col.name || col.column}
                                 </td>
                                 <td>
                                   {col.dimensionValues &&
@@ -765,59 +744,23 @@ export default function FactMetricPage() {
                                     >
                                       {col.dimensionValues.map(
                                         (value, index) => (
-                                          <code
+                                          <span
                                             key={index}
                                             style={{
                                               fontSize: "0.8em",
                                               padding: "2px 4px",
                                               borderRadius: "3px",
-                                              backgroundColor: "#f8f9fa",
                                               border: "1px solid #e9ecef",
                                             }}
                                           >
                                             {value}
-                                          </code>
+                                          </span>
                                         ),
                                       )}
                                     </div>
                                   ) : (
                                     <em className="text-muted">No values</em>
                                   )}
-                                </td>
-                                <td>
-                                  {col.stableDimensionValues &&
-                                  col.stableDimensionValues.length > 0 ? (
-                                    <div
-                                      className="d-flex flex-wrap"
-                                      style={{ gap: 4 }}
-                                    >
-                                      {col.stableDimensionValues.map(
-                                        (value, index) => (
-                                          <code
-                                            key={index}
-                                            style={{
-                                              fontSize: "0.8em",
-                                              padding: "2px 4px",
-                                              borderRadius: "3px",
-                                              backgroundColor: "#f8f9fa",
-                                              border: "1px solid #e9ecef",
-                                            }}
-                                          >
-                                            {value}
-                                          </code>
-                                        ),
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <em className="text-muted">
-                                      No stable values
-                                    </em>
-                                  )}
-                                </td>
-                                <td>
-                                  <span className="font-weight-bold">
-                                    {col.maxDimensionValues || 10}
-                                  </span>
                                 </td>
                               </tr>
                             ))}
