@@ -2544,12 +2544,6 @@ export default abstract class SqlIntegration
       activationMetric,
     );
 
-    const incrementalRefreshNumeratorMetadata = this.getAggregationMetadata({
-      metric: metric,
-    });
-    const incrementalRefreshDenominatorMetadata = isRatioMetric(metric)
-      ? this.getAggregationMetadata({ metric: metric, useDenominator: true })
-      : undefined;
     return {
       alias,
       id: metric.id,
@@ -2571,8 +2565,6 @@ export default abstract class SqlIntegration
       metricStart,
       metricEnd,
       maxHoursToConvert,
-      incrementalRefreshNumeratorMetadata,
-      incrementalRefreshDenominatorMetadata,
     };
   }
 
@@ -5695,7 +5687,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       metric.quantileSettings?.type === "event"
     ) {
       throw new Error(
-        "Event quantiles cannot be used with incremental refresh mode.",
+        "Event quantiles cannot be used with incremental refresh.",
       );
     }
 
@@ -5713,7 +5705,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
 
     // Binomial with an aggregate filter requires counting rows
-    // TODO: what about aggregate filter with special column?
+    //  : what about aggregate filter with special column?
     const binomialWithAggregateFilter =
       hasAggregateFilter && isBinomialMetric(metric);
     const userCountWithAggregateFilter =
@@ -6053,11 +6045,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       "onOrAfter",
     );
 
-    // TODO test joins, re-use this logic for create;
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
       objects: [
         [exposureQuery.userIdType],
-        activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
+        // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         segment ? [segment.userIdType || "user_id"] : [],
       ],
       from: settings.startDate,
@@ -6074,8 +6065,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
 
     // Segment and SQL only checks against new exposures
-    // TODO: test segment, SQL filter, and ID joins
-    // TODO: partitioning for quick max timestamp retrieval
+    // TODO: Test SQL filter
     return format(
       `
       CREATE TABLE ${params.unitsTempTableFullName} 
