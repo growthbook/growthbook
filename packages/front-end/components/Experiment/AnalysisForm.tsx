@@ -845,12 +845,23 @@ const AnalysisForm: FC<{
                   Override metric behaviors within this experiment. Leave any
                   fields empty that you do not want to override.
                 </small>
+
+                {isExperimentIncludedInIncrementalRefresh ? (
+                  <Callout size="sm" status="info" mb="2">
+                    Metric overrides are not supported with Incremental Refresh
+                    at the moment.
+                  </Callout>
+                ) : null}
+
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={
                     form as unknown as UseFormReturn<EditMetricsFormInterface>
                   }
-                  disabled={!hasOverrideMetricsFeature}
+                  disabled={
+                    !hasOverrideMetricsFeature ||
+                    isExperimentIncludedInIncrementalRefresh
+                  }
                   setHasMetricOverrideRiskError={(v: boolean) =>
                     setHasMetricOverrideRiskError(v)
                   }

@@ -21,6 +21,7 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Callout from "@/ui/Callout";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -277,10 +278,21 @@ const EditMetricsForm: FC<{
                 Leave any fields empty that you do not want to override.
               </p>
             </div>
+
+            {isExperimentIncludedInIncrementalRefresh ? (
+              <Callout size="sm" status="info" mb="2">
+                Metric overrides are not supported with Incremental Refresh at
+                the moment.
+              </Callout>
+            ) : null}
+
             <MetricsOverridesSelector
               experiment={experiment}
               form={form}
-              disabled={!hasOverrideMetricsFeature}
+              disabled={
+                !hasOverrideMetricsFeature ||
+                isExperimentIncludedInIncrementalRefresh
+              }
               setHasMetricOverrideRiskError={(v: boolean) =>
                 setHasMetricOverrideRiskError(v)
               }
