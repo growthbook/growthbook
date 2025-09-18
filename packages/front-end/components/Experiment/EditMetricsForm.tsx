@@ -139,7 +139,7 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { getExperimentMetricById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById } = useDefinitions();
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
@@ -149,6 +149,16 @@ const EditMetricsForm: FC<{
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+
+  const datasource = getDatasourceById(experiment.datasource);
+  const isPipelineIncrementalEnabledForDatasource =
+    datasource?.settings.pipelineSettings?.mode === "incremental";
+  const isExperimentIncludedInIncrementalRefresh =
+    isPipelineIncrementalEnabledForDatasource &&
+    (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
+      experiment.id,
+    ) ??
+      true);
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
@@ -195,6 +205,7 @@ const EditMetricsForm: FC<{
       cta="Save"
     >
       <ExperimentMetricsSelector
+        noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         project={experiment.project}

@@ -336,6 +336,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     ? getDatasourceById(form.watch("datasource") ?? "")
     : null;
 
+  const isPipelineIncrementalEnabledForDatasource =
+    datasource?.settings.pipelineSettings?.mode === "incremental";
+  const willExperimentBeIncludedInIncrementalRefresh =
+    isPipelineIncrementalEnabledForDatasource &&
+    datasource?.settings.pipelineSettings?.includedExperimentIds === undefined;
+
   const { apiCall } = useAuth();
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
@@ -1370,6 +1376,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
               <ExperimentMetricsSelector
                 datasource={datasource?.id}
+                noLegacyMetrics={willExperimentBeIncludedInIncrementalRefresh}
                 exposureQueryId={exposureQueryId}
                 project={project}
                 goalMetrics={form.watch("goalMetrics") ?? []}

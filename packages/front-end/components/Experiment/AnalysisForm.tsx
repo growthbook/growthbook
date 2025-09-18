@@ -557,14 +557,14 @@ const AnalysisForm: FC<{
             </Tooltip>
             {isExperimentIncludedInIncrementalRefresh &&
               form.watch("activationMetric") !== "" && (
-                <Callout status="warning">
+                <Callout status="warning" mb="2">
                   Activation metrics are not yet supported with Incremental
                   Refresh. Please{" "}
                   <Link
                     style={{ display: "inline" }}
                     onClick={() => form.setValue("activationMetric", "")}
                   >
-                    click here to remove it
+                    click to remove it
                   </Link>
                   .
                 </Callout>
@@ -808,6 +808,7 @@ const AnalysisForm: FC<{
         {editMetrics && (
           <>
             <ExperimentMetricsSelector
+              noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               project={experiment.project}

@@ -1165,6 +1165,8 @@ export async function createSnapshot({
   const integration = getSourceIntegrationObject(context, datasource, true);
 
   if (
+    (experiment.type === undefined || experiment.type === "standard") &&
+    snapshot.type === "standard" &&
     datasource.settings.pipelineSettings?.mode === "incremental" &&
     (datasource.settings.pipelineSettings?.includedExperimentIds ===
       undefined ||

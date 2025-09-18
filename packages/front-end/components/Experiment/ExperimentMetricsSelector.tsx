@@ -16,6 +16,7 @@ export interface Props {
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
   noQuantileGoalMetrics?: boolean;
+  noLegacyMetrics?: boolean;
   disabled?: boolean;
   goalDisabled?: boolean;
   collapseSecondary?: boolean;
@@ -37,6 +38,7 @@ export default function ExperimentMetricsSelector({
   autoFocus = false,
   forceSingleGoalMetric = false,
   noQuantileGoalMetrics = false,
+  noLegacyMetrics = false,
   disabled,
   goalDisabled,
   collapseSecondary,
@@ -81,6 +83,7 @@ export default function ExperimentMetricsSelector({
             includeGroups={!forceSingleGoalMetric}
             excludeQuantiles={noQuantileGoalMetrics}
             filterConversionWindowMetrics={filterConversionWindowMetrics}
+            noLegacyMetrics={noLegacyMetrics}
             disabled={disabled || goalDisabled}
           />
         </div>
@@ -118,6 +121,7 @@ export default function ExperimentMetricsSelector({
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
+                noLegacyMetrics={noLegacyMetrics}
                 disabled={disabled}
               />
             </>
@@ -156,6 +160,7 @@ export default function ExperimentMetricsSelector({
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
+                noLegacyMetrics={noLegacyMetrics}
                 disabled={disabled}
               />
             </>
