@@ -321,6 +321,7 @@ const PipelineQueriesValidationStep = ({
 
       {editExposureSqlIdx !== null && (
         <EditSqlModal
+          disableTestQueryBeforeSaving={true}
           close={() => setEditExposureSqlIdx(null)}
           datasourceId={dataSource.id}
           requiredColumns={new Set<string>(requiredColumns)}
@@ -339,6 +340,7 @@ const PipelineQueriesValidationStep = ({
 
       {editFactTable && (
         <EditFactTableSQLModal
+          disableTestQueryBeforeSaving={true}
           close={() => setEditFactTable(undefined)}
           factTable={editFactTable}
           requiredColumns={new Set<string>(requiredColumns)}

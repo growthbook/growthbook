@@ -15,6 +15,7 @@ export interface Props {
     eventName: string;
     userIdTypes: string[];
   }) => Promise<void>;
+  disableTestQueryBeforeSaving?: boolean;
 }
 
 export default function EditFactTableSQLModal({
@@ -22,6 +23,7 @@ export default function EditFactTableSQLModal({
   close,
   save,
   requiredColumns,
+  disableTestQueryBeforeSaving,
 }: Props) {
   const { getDatasourceById } = useDefinitions();
   const [eventName, setEventName] = useState(factTable.eventName);
@@ -32,6 +34,7 @@ export default function EditFactTableSQLModal({
 
   return (
     <EditSqlModal
+      disableTestQueryBeforeSaving={disableTestQueryBeforeSaving}
       close={close}
       datasourceId={factTable.datasource}
       placeholder={

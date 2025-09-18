@@ -148,7 +148,9 @@ export const EditDataSourcePipeline = ({
       header="Edit Data Source Pipeline Settings"
       close={onCancel}
       submit={handleSubmit}
-      cta="Save"
+      cta={
+        shouldShowStep2 ? (step === 0 ? "Save and advance" : "Save") : "Save"
+      }
       forceCtaText={true}
       size="lg"
       step={step}
@@ -156,7 +158,7 @@ export const EditDataSourcePipeline = ({
       backButton={true}
       hideNav={!shouldShowStep2}
       secondaryCTA={
-        form.watch("mode") !== "disabled" ? (
+        form.watch("mode") !== "disabled" && step === 0 ? (
           <Tooltip
             body={
               "If checked, GrowthBook will simulate a pipeline run using a temporary table to verify permissions and settings before saving."
