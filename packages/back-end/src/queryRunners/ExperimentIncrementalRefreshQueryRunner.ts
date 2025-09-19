@@ -230,7 +230,8 @@ export const startExperimentIncrementalRefreshQueries = async (
   // Begin Queries
   const incrementalRefreshModel =
     await context.models.incrementalRefresh.getByExperimentId(
-      snapshotSettings.experimentId,
+      // FIX-ME(incremental-refresh): This is the experimentId, and snapshotSettings.experimentId is the trackingKey
+      params.queryParentId,
     );
   const lastMaxTimestamp = params.fullRefresh
     ? snapshotSettings.startDate
