@@ -31,6 +31,8 @@ import {
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import LinkButton from "@/ui/LinkButton";
 
 export interface MetricTableItem {
   id: string;
@@ -225,9 +227,12 @@ const MetricsList = (): React.ReactElement => {
     getProjectById,
     metricGroups,
     project,
+    factTables,
+    metrics: legacyMetrics,
     ready,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
@@ -254,6 +259,20 @@ const MetricsList = (): React.ReactElement => {
   const filteredMetrics = project
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
     : metrics;
+
+  const hasLegacyMetrics = legacyMetrics.some(
+    (f) =>
+      isProjectListValidForProject(f.projects, project) &&
+      f.datasource !== demoDataSourceId,
+  ); // Don't factor in demo datasource metrics
+
+  const hasFactTables = factTables.some((f) =>
+    isProjectListValidForProject(f.projects, project),
+  );
+
+  // Show the create fact table button if there are no legacy metrics and no fact tables
+  // since NewMetricModal will default to fact if there are no fact tables and no legacy metrics
+  const showCreateFactTableButton = !hasLegacyMetrics && !hasFactTables;
 
   //searching:
   const filterResults = useCallback(
@@ -360,18 +379,21 @@ const MetricsList = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
         {permissionsUtil.canCreateMetric({ projects: [project] }) &&
-          envAllowsCreatingMetrics() && (
-            <div className="col-auto">
-              <AutoGenerateMetricsButton
-                setShowAutoGenerateMetricsModal={
-                  setShowAutoGenerateMetricsModal
-                }
-              />
-              <Button onClick={() => setModalData({ mode: "new" })}>
-                Add Metric
-              </Button>
-            </div>
-          )}
+        envAllowsCreatingMetrics() &&
+        !showCreateFactTableButton ? (
+          <div className="col-auto">
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+            />
+            <Button onClick={() => setModalData({ mode: "new" })}>
+              Add Metric
+            </Button>
+          </div>
+        ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
+          <div className="col-auto">
+            <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+          </div>
+        ) : null}
       </div>
       <div className="mt-4">
         <CustomMarkdown page={"metricList"} />
