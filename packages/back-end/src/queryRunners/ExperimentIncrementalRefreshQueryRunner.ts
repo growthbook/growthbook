@@ -227,42 +227,7 @@ export const startExperimentIncrementalRefreshQueries = async (
   const randomId = Math.random().toString(36).substring(2, 10);
   const unitsTempTableFullName = `${unitsTableFullName}_temp_${randomId}`;
 
-  // queries to run
-  let createUnitsTableQuery: QueryPointer | null = null;
-  if (params.fullRefresh) {
-    const dropOldUnitsTableQuery = await startQuery({
-      name: `drop_${queryParentId}_old`,
-      query: integration.getDropOldIncrementalUnitsQuery({
-        unitsTableFullName: unitsTableFullName,
-      }),
-      dependencies: [],
-      run: (query, setExternalId) =>
-        integration.runDropTableQuery(query, setExternalId),
-      process: (rows) => rows,
-      queryType: "experimentIncrementalRefreshDropUnitsTable",
-    });
-    queries.push(dropOldUnitsTableQuery);
-
-    createUnitsTableQuery = await startQuery({
-      name: `create_${queryParentId}`,
-      title: "Create Experiment Units Table",
-      query: integration.getCreateExperimentIncrementalUnitsQuery({
-        unitsTableFullName: unitsTableFullName,
-        settings: snapshotSettings,
-        activationMetric: null, // TODO(incremental-refresh): activation metric
-        dimensions: [], // TODO experiment dimensions
-        factTableMap: params.factTableMap,
-        partitionSettings: partitionSettings,
-      }),
-      dependencies: [dropOldUnitsTableQuery.query],
-      run: (query, setExternalId) =>
-        integration.runIncrementalWithNoOutputQuery(query, setExternalId),
-      process: (rows) => rows,
-      queryType: "experimentIncrementalRefreshCreateUnitsTable",
-    });
-    queries.push(createUnitsTableQuery);
-  }
-
+  // Begin Queries
   const incrementalRefreshModel =
     await context.models.incrementalRefresh.getByExperimentId(
       snapshotSettings.experimentId,
@@ -286,7 +251,6 @@ export const startExperimentIncrementalRefreshQueries = async (
         specifiedSlices: dm.specifiedSlices,
       }));
   }
-
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
@@ -299,6 +263,36 @@ export const startExperimentIncrementalRefreshQueries = async (
     partitionSettings:
       integration.datasource.settings.pipelineSettings?.partitionSettings,
   };
+
+  let createUnitsTableQuery: QueryPointer | null = null;
+  if (params.fullRefresh) {
+    const dropOldUnitsTableQuery = await startQuery({
+      name: `drop_${queryParentId}_old`,
+      query: integration.getDropOldIncrementalUnitsQuery({
+        unitsTableFullName: unitQueryParams.unitsTableFullName,
+      }),
+      dependencies: [],
+      run: (query, setExternalId) =>
+        integration.runDropTableQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentIncrementalRefreshDropUnitsTable",
+    });
+    queries.push(dropOldUnitsTableQuery);
+
+    createUnitsTableQuery = await startQuery({
+      name: `create_${queryParentId}`,
+      title: "Create Experiment Units Table",
+      query:
+        integration.getCreateExperimentIncrementalUnitsQuery(unitQueryParams),
+      dependencies: [dropOldUnitsTableQuery.query],
+      run: (query, setExternalId) =>
+        integration.runIncrementalWithNoOutputQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentIncrementalRefreshCreateUnitsTable",
+    });
+    queries.push(createUnitsTableQuery);
+  }
+
   const updateUnitsTableQuery = await startQuery({
     name: `update_${queryParentId}`,
     title: "Update Experiment Units Table",

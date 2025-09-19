@@ -6077,7 +6077,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                 ? `, first_activation_timestamp AS activation_timestamp`
                 : ""
             }
-            ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
+            ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           FROM ${params.unitsTableFullName}
           WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}
         )
@@ -6112,7 +6112,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
-              .join(",\n")}
+              .join("\n")}
           FROM __newExposures
           WHERE 
             experiment_id = '${settings.experimentId}'
@@ -6152,7 +6152,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           , variation
           , first_exposure_timestamp
           ${activationMetric ? `, first_activation_timestamp` : ""}
-          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
+          ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
           , MAX(first_exposure_timestamp) OVER () AS max_timestamp
         FROM __experimentUnits
       )
