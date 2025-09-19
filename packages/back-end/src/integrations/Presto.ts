@@ -94,6 +94,9 @@ export default class Presto extends SqlIntegration {
             statistics.executionDurationMs = Number(stats.wallTimeMillis);
             statistics.bytesProcessed = Number(stats.processedBytes);
             statistics.rowsProcessed = Number(stats.processedRows);
+            statistics.physicalWrittenBytes = Number(
+              stats.physicalWrittenBytes,
+            );
           }
         },
         success: () => {
