@@ -90,15 +90,18 @@ export class FactMetricModel extends BaseClass {
     return this.context.hasPermission("readData", doc.projects || []);
   }
   protected canCreate(doc: FactMetricInterface): boolean {
+    // Check the admin permission here?
     return this.context.permissions.canCreateFactMetric(doc);
   }
   protected canUpdate(
     existing: FactMetricInterface,
     updates: UpdateProps<FactMetricInterface>,
   ): boolean {
+    // Check the admin permission here?
     return this.context.permissions.canUpdateFactMetric(existing, updates);
   }
   protected canDelete(doc: FactMetricInterface): boolean {
+    // Check the admin permission here?
     return this.context.permissions.canDeleteFactMetric(doc);
   }
 
@@ -159,12 +162,14 @@ export class FactMetricModel extends BaseClass {
   }
 
   protected async beforeUpdate(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error("Cannot update fact metric managed by API");
     }
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error("Cannot delete fact metric managed by API");
     }
