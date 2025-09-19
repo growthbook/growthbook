@@ -83,12 +83,10 @@ export default function DashboardsTab({
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
-    if (experiment.defaultDashboardId && showDashboardView) {
-      setDashboardId(experiment.defaultDashboardId);
-    } else if (initialDashboardId) {
+    if (initialDashboardId) {
       setDashboardId(initialDashboardId);
     }
-  }, [initialDashboardId, experiment.defaultDashboardId, showDashboardView]);
+  }, [initialDashboardId]);
   const {
     dashboards,
     mutateDashboards,
@@ -135,6 +133,9 @@ export default function DashboardsTab({
   const canUpdateDashboard = experiment
     ? permissionsUtil.canViewReportModal(experiment.project)
     : true;
+  const canUpdateExperiment = permissionsUtil.canViewExperimentModal(
+    experiment.project,
+  );
   const isOwner = userId === dashboard?.userId || !dashboard?.userId;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
   const canManage = isOwner || isAdmin;
@@ -402,7 +403,7 @@ export default function DashboardsTab({
                                   </Text>
                                 </Button>
                               )}
-                              {mutateExperiment && (
+                              {mutateExperiment && canUpdateExperiment && (
                                 <Button
                                   className="dropdown-item"
                                   onClick={async () => {
