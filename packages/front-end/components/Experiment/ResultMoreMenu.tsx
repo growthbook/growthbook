@@ -21,7 +21,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ConfirmModal from "../ConfirmModal";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 
 export default function ResultMoreMenu({
   experiment,
@@ -208,7 +208,7 @@ export default function ResultMoreMenu({
         )}
       </MoreMenu>
       {showConfirmForceRefresh && forceRefresh && (
-        <ConfirmModal
+        <ConfirmDialog
           title="Full Refresh"
           subtitle="This experiment is updated with the incremental refresh pipeline. Fully refreshing the experiment will discard the previous data and results and re-scan the data source from the beginning of the experiment."
           yesText="Full Refresh"
