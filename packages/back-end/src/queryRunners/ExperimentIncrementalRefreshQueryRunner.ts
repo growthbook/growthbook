@@ -611,6 +611,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
 
+    if (params.snapshotSettings.skipPartialData) {
+      throw new Error(
+        "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
+      );
+    }
+
     if (!this.integration.getSourceProperties().hasIncrementalRefresh) {
       throw new Error(
         "Integration does not support incremental refresh queries",

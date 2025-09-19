@@ -592,23 +592,35 @@ const AnalysisForm: FC<{
         {datasourceProperties?.separateExperimentResultQueries &&
           !isBandit &&
           !isHoldout && (
-            <SelectField
-              label="Metric Conversion Windows"
-              labelClassName="font-weight-bold"
-              value={form.watch("skipPartialData")}
-              onChange={(value) => form.setValue("skipPartialData", value)}
-              options={[
-                {
-                  label: "Include In-Progress Conversions",
-                  value: "loose",
-                },
-                {
-                  label: "Exclude In-Progress Conversions",
-                  value: "strict",
-                },
-              ]}
-              helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-            />
+            <Tooltip
+              shouldDisplay={
+                isExperimentIncludedInIncrementalRefresh &&
+                form.watch("skipPartialData") === "loose"
+              }
+              body="Only 'Include In-Progress Conversions' is supported for incremental refresh queries while in beta."
+            >
+              <SelectField
+                label="Metric Conversion Windows"
+                labelClassName="font-weight-bold"
+                value={form.watch("skipPartialData")}
+                disabled={
+                  isExperimentIncludedInIncrementalRefresh &&
+                  form.watch("skipPartialData") === "loose"
+                }
+                onChange={(value) => form.setValue("skipPartialData", value)}
+                options={[
+                  {
+                    label: "Include In-Progress Conversions",
+                    value: "loose",
+                  },
+                  {
+                    label: "Exclude In-Progress Conversions",
+                    value: "strict",
+                  },
+                ]}
+                helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+              />
+            </Tooltip>
           )}
         {datasourceProperties?.separateExperimentResultQueries &&
           !isBandit &&

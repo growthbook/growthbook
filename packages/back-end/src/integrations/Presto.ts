@@ -27,64 +27,12 @@ export default class Presto extends SqlIntegration {
   dropUnitsTable(): boolean {
     return true;
   }
-  // getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
-  //   return format(
-  //     `
-  //   CREATE TABLE ${params.unitsTableFullName}
-  //   ${this.createUnitsTableOptions()}
-  //   AS (
-  //     WITH
-  //       ${this.getExperimentUnitsQuery(params)}
-  //     SELECT * FROM __experimentUnits
-  //   )
-  //   `,
-  //     this.getFormatDialect(),
-  //   );
-  // }
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
-  // async validateQueryColumns(
-  //   sql: string,
-  //   requiredColumns: string[],
-  // ): Promise<{ isValid: boolean; duration?: number; error?: string }> {
-  //   try {
-  //     const { columns, statistics } = await this.runQuery(
-  //       `SELECT * FROM (${sql}) AS subquery LIMIT 0`,
-  //     );
-
-  //     if (!columns) {
-  //       return {
-  //         isValid: false,
-  //         error: "No column information returned",
-  //       };
-  //     }
-
-  //     const missingColumns = requiredColumns.filter(
-  //       (col) =>
-  //         !columns?.some(
-  //           (actual) => actual.toLowerCase() === col.toLowerCase(),
-  //         ),
-  //     );
-
-  //     return {
-  //       isValid: missingColumns.length === 0,
-  //       duration: statistics?.executionDurationMs,
-  //       error:
-  //         missingColumns.length > 0
-  //           ? `Missing columns: ${missingColumns.join(", ")}`
-  //           : undefined,
-  //     };
-  //   } catch (e) {
-  //     return {
-  //       isValid: false,
-  //       error: e.message,
-  //     };
-  //   }
-  // }
   runQuery(sql: string): Promise<QueryResponse> {
     const configOptions: IPrestoClientOptions = {
       host: this.params.host,
@@ -146,9 +94,6 @@ export default class Presto extends SqlIntegration {
             statistics.executionDurationMs = Number(stats.wallTimeMillis);
             statistics.bytesProcessed = Number(stats.processedBytes);
             statistics.rowsProcessed = Number(stats.processedRows);
-            statistics.physicalWrittenBytes = Number(
-              stats.physicalWrittenBytes,
-            );
           }
         },
         success: () => {
