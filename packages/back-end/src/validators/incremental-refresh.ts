@@ -21,7 +21,6 @@ const incrementalRefresh = z
     // Unit Source Settings
     unitsTableFullName: z.string().nullable(),
     unitsMaxTimestamp: z.date().nullable(),
-    availableExperimentDimensions: z.array(z.string()),
 
     // Experiment Settings Hash
     experimentSettingsHash: z.string().nullable(),

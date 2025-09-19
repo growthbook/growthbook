@@ -276,12 +276,23 @@ export const startExperimentIncrementalRefreshQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
+  let experimentDimensions: ExperimentDimension[] = [];
+  if (exposureQuery?.dimensionMetadata) {
+    experimentDimensions = exposureQuery.dimensionMetadata
+      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
+      .map((dm) => ({
+        type: "experiment",
+        id: dm.dimension,
+        specifiedSlices: dm.specifiedSlices,
+      }));
+  }
+
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
     settings: snapshotSettings,
     activationMetric: null, // TODO(incremental-refresh): activation metric
-    dimensions: [], // TODO experiment dimensions
+    dimensions: experimentDimensions, // TODO(incremental-refresh): validate experiment dimensions are available
     segment: segmentObj,
     factTableMap: params.factTableMap,
     lastMaxTimestamp: lastMaxTimestamp,
@@ -541,31 +552,23 @@ export const startExperimentIncrementalRefreshQueries = async (
   }
   const runTrafficQuery =
     params.snapshotType === "standard" && org.settings?.runHealthTrafficQuery;
-  let dimensionsForTraffic: ExperimentDimension[] = [];
-  if (runTrafficQuery && exposureQuery?.dimensionMetadata) {
-    dimensionsForTraffic = exposureQuery.dimensionMetadata
-      .filter((dm) => exposureQuery.dimensions.includes(dm.dimension))
-      .map((dm) => ({
-        type: "experiment",
-        id: dm.dimension,
-        specifiedSlices: dm.specifiedSlices,
-      }));
-  }
-  const trafficQuery = await startQuery({
-    name: TRAFFIC_QUERY_NAME,
-    query: integration.getExperimentAggregateUnitsQuery({
-      ...unitQueryParams,
-      dimensions: dimensionsForTraffic, // TODO slice and dice
-      useUnitsTable: true,
-    }),
-    dependencies: [alterUnitsTableQuery.query],
-    run: (query, setExternalId) =>
-      integration.runExperimentAggregateUnitsQuery(query, setExternalId),
-    process: (rows) => rows,
-    queryType: "experimentTraffic",
-  });
-  queries.push(trafficQuery);
 
+  if (runTrafficQuery) {
+    const trafficQuery = await startQuery({
+      name: TRAFFIC_QUERY_NAME,
+      query: integration.getExperimentAggregateUnitsQuery({
+        ...unitQueryParams,
+        dimensions: experimentDimensions, // TODO(incremental-refresh): validate experiment dimensions are available
+        useUnitsTable: true,
+      }),
+      dependencies: [alterUnitsTableQuery.query],
+      run: (query, setExternalId) =>
+        integration.runExperimentAggregateUnitsQuery(query, setExternalId),
+      process: (rows) => rows,
+      queryType: "experimentTraffic",
+    });
+    queries.push(trafficQuery);
+  }
   return queries;
 };
 
