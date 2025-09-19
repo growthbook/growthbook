@@ -461,6 +461,14 @@ export const postFactMetric = async (
   const context = getContextFromReq(req);
   const data = context.models.factMetrics.createValidator.parse(req.body);
 
+  if (data.managedBy === "admin") {
+    if (!context.hasPremiumFeature("manage-official-resources")) {
+      throw new Error(
+        "Your organization's plan does not support creating official fact metrics.",
+      );
+    }
+  }
+
   const factMetric = await context.models.factMetrics.create(data);
 
   res.status(200).json({

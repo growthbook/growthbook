@@ -7825,6 +7825,7 @@ components:
           enum:
             - ''
             - api
+            - admin
         dateCreated:
           type: string
           format: date-time

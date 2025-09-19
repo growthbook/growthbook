@@ -90,16 +90,31 @@ export class FactMetricModel extends BaseClass {
     return this.context.hasPermission("readData", doc.projects || []);
   }
   protected canCreate(doc: FactMetricInterface): boolean {
-    return this.context.permissions.canCreateFactMetric(doc);
+    if (doc.managedBy === "admin") {
+      return this.context.permissions.canCreateOfficialResources(doc);
+    } else {
+      return this.context.permissions.canCreateFactMetric(doc);
+    }
   }
   protected canUpdate(
     existing: FactMetricInterface,
     updates: UpdateProps<FactMetricInterface>,
   ): boolean {
-    return this.context.permissions.canUpdateFactMetric(existing, updates);
+    if (existing.managedBy === "admin" || updates.managedBy === "admin") {
+      return this.context.permissions.canUpdateOfficialResources(
+        existing,
+        updates,
+      );
+    } else {
+      return this.context.permissions.canUpdateFactMetric(existing, updates);
+    }
   }
   protected canDelete(doc: FactMetricInterface): boolean {
-    return this.context.permissions.canDeleteFactMetric(doc);
+    if (doc.managedBy === "admin") {
+      return this.context.permissions.canDeleteOfficialResources(doc);
+    } else {
+      return this.context.permissions.canDeleteFactMetric(doc);
+    }
   }
 
   public static upgradeFactMetricDoc(
@@ -159,12 +174,14 @@ export class FactMetricModel extends BaseClass {
   }
 
   protected async beforeUpdate(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error("Cannot update fact metric managed by API");
     }
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error("Cannot delete fact metric managed by API");
     }
