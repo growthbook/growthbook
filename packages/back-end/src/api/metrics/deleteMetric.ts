@@ -16,7 +16,7 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
 
     if (metric.managedBy === "admin") {
       if (
-        !req.context.permissions.canManageOfficialResources({
+        !req.context.permissions.canDeleteOfficialResources({
           projects: metric.projects,
         })
       ) {

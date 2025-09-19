@@ -121,7 +121,7 @@ export async function deleteMetric(
   // If this is an Official Metric, we need to check that the user has permission
   if (metric.managedBy === "admin") {
     if (
-      !context.permissions.canManageOfficialResources({
+      !context.permissions.canDeleteOfficialResources({
         projects: metric.projects,
       })
     ) {
@@ -475,7 +475,7 @@ export async function postMetrics(
         "Your organization's plan does not support creating official metrics.",
       );
     }
-    if (!context.permissions.canManageOfficialResources({ projects })) {
+    if (!context.permissions.canCreateOfficialResources({ projects })) {
       context.permissions.throwPermissionError();
     }
   }
@@ -556,30 +556,6 @@ export async function putMetric(
     throw new Error("Could not find metric");
   }
 
-  if (metric.managedBy === "admin") {
-    if (
-      !context.permissions.canManageOfficialResources({
-        projects: metric.projects,
-      })
-    ) {
-      throw new Error(
-        "You do not have permission to update an official metric",
-      );
-    }
-  } else {
-    if (req.body.managedBy === "admin") {
-      if (
-        !context.permissions.canManageOfficialResources({
-          projects: req.body.projects || metric.projects,
-        })
-      ) {
-        throw new Error(
-          "You do not have permission to update an official metric",
-        );
-      }
-    }
-  }
-
   const updates: Partial<MetricInterface> = {};
 
   UPDATEABLE_FIELDS.forEach((k) => {
@@ -589,8 +565,14 @@ export async function putMetric(
     }
   });
 
-  if (!context.permissions.canUpdateMetric(metric, updates)) {
-    context.permissions.throwPermissionError();
+  if (metric.managedBy === "admin" || req.body.managedBy === "admin") {
+    if (!context.permissions.canUpdateOfficialResources(metric, updates)) {
+      context.permissions.throwPermissionError();
+    }
+  } else {
+    if (!context.permissions.canUpdateMetric(metric, updates)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   await updateMetric(context, metric, updates);

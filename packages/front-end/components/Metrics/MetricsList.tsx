@@ -73,9 +73,18 @@ export function useCombinedMetrics({
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
-      const canDuplicate = permissionsUtil.canCreateMetric(m);
-      const canEdit = permissionsUtil.canUpdateMetric(m, {});
-      const canDelete = permissionsUtil.canDeleteMetric(m);
+      const canDuplicate =
+        m.managedBy === "admin"
+          ? permissionsUtil.canCreateOfficialResources(m)
+          : permissionsUtil.canCreateMetric(m);
+      const canEdit =
+        m.managedBy === "admin"
+          ? permissionsUtil.canUpdateOfficialResources(m, {})
+          : permissionsUtil.canUpdateMetric(m, {});
+      const canDelete =
+        m.managedBy === "admin"
+          ? permissionsUtil.canUpdateOfficialResources(m, {})
+          : permissionsUtil.canDeleteMetric(m);
 
       const item: MetricTableItem = {
         id: m.id,

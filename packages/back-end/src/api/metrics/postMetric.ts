@@ -40,7 +40,7 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(async (
         "Your organization's plan does not support creating official metrics.",
       );
     }
-    if (!req.context.permissions.canManageOfficialResources({ projects })) {
+    if (!req.context.permissions.canCreateOfficialResources({ projects })) {
       req.context.permissions.throwPermissionError();
     }
   } else {

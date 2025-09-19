@@ -138,15 +138,15 @@ const MetricPage: FC = () => {
   const metric = data.metric;
   const canDuplicateMetric =
     metric.managedBy === "admin"
-      ? permissionsUtil.canManageOfficialResources(metric)
-      : permissionsUtil.canCreateMetric(metric);
+      ? permissionsUtil.canCreateOfficialResources(metric)
+      : permissionsUtil.canCreateMetric(metric) && !metric.managedBy;
   const canEditMetric =
     metric.managedBy === "admin"
-      ? permissionsUtil.canManageOfficialResources(metric)
+      ? permissionsUtil.canUpdateOfficialResources(metric, {})
       : permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
   const canDeleteMetric =
     metric.managedBy === "admin"
-      ? permissionsUtil.canManageOfficialResources(metric)
+      ? permissionsUtil.canDeleteOfficialResources(metric)
       : permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
@@ -474,9 +474,10 @@ const MetricPage: FC = () => {
               </Button>
             ) : null}
             {!metric.managedBy &&
-            permissionsUtil.canManageOfficialResources({
-              projects: metric.projects,
-            }) &&
+            permissionsUtil.canUpdateOfficialResources(
+              { projects: metric.projects },
+              {},
+            ) &&
             hasCommercialFeature("manage-official-resources") ? (
               <Button
                 className="btn dropdown-item py-2"
