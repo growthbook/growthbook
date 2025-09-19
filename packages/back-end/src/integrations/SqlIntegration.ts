@@ -98,10 +98,7 @@ import {
   CreateMetricSourceTableQueryParams,
   InsertMetricSourceDataQueryParams,
   DropMetricSourceTableQueryParams,
-  // IncrementalRefreshStatisticsQueryParams,
-  // IncrementalRefreshStatisticsQueryResponse,
   DimensionColumnData,
-  DropTempIncrementalUnitsQueryParams,
   PartitionSettings,
   MaxTimestampQueryResponse,
   ExperimentFactMetricsQueryResponseRows,
@@ -6023,7 +6020,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           `;
       }
     }
-    // TODO(incremental-refresh): TIMESTAMP
     return "";
   }
 
@@ -6064,8 +6060,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
     }
 
-    // Segment and SQL only checks against new exposures
-    // TODO: Test SQL filter
+    // Segment and SQL filter only check against new exposures
     return format(
       `
       CREATE TABLE ${params.unitsTempTableFullName} 
@@ -6085,7 +6080,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join(",\n")}
           FROM ${params.unitsTableFullName}
           WHERE max_timestamp <= ${this.toTimestamp(params.lastMaxTimestamp)}
-        ),
+        )
         ${
           segment
             ? `, __segment as (${this.getSegmentCTE(
@@ -6101,42 +6096,39 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
               )})`
             : ""
         }
-        __newExposures AS (
+        , __newExposures AS (
           ${compileSqlTemplate(exposureQuery.query, {
             startDate: settings.startDate,
             endDate: settings.endDate,
             experimentId: settings.experimentId,
             // TODO(incremental-refresh): add incremental start data as template variable
           })}
-        ),
-        __filteredNewExposures AS (
+        )
+        , __filteredNewExposures AS (
           SELECT 
-            ${this.castToString(`n.${baseIdType}`)} AS ${baseIdType}
-            , n.variation_id AS variation
-            , ${this.castUserDateCol("n.timestamp")} AS timestamp
+            ${this.castToString(`${baseIdType}`)} AS ${baseIdType}
+            , variation_id AS variation
+            , ${this.castUserDateCol("timestamp")} AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
-              .map((d) => `, n.${d.id} AS dim_exp_${d.id}`)
+              .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
               .join(",\n")}
-          FROM __newExposures n
-          ${
-            segment
-              ? `JOIN __segment s ON (s.${baseIdType} = n.${baseIdType})`
-              : ""
-          }
+          FROM __newExposures
           WHERE 
-            n.experiment_id = '${settings.experimentId}'
-            AND n.timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
-            ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
-            -- ADD 'n' as prefix to clause
+            experiment_id = '${settings.experimentId}'
+            AND timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
             ${partitionWhereClause ? `AND (${partitionWhereClause})` : ""}
-        ),
-        __jointExposures AS (
+        )
+        , __jointExposures AS (
           SELECT * FROM __existingUnits
           UNION ALL
-          SELECT * FROM __filteredNewExposures
-        ),
-        __experimentUnits AS (
+          (
+            SELECT n.* 
+            FROM __filteredNewExposures n
+            ${segment ? `JOIN __segment s ON (${this.castToString(`s.${baseIdType}`)} = n.${baseIdType})` : ""}
+          )
+        )
+        , __experimentUnits AS (
           SELECT
             e.${baseIdType} AS ${baseIdType}
             , ${this.ifElse(
@@ -6180,22 +6172,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return format(
       `
       DROP TABLE IF EXISTS ${params.unitsTableFullName}
-      `,
-      this.getFormatDialect(),
-    );
-  }
-
-  getDropTempIncrementalUnitsQuery(
-    params: DropTempIncrementalUnitsQueryParams,
-  ): string {
-    if (!params.unitsTableFullName.includes(INCREMENTAL_UNITS_TABLE_PREFIX)) {
-      throw new Error(
-        "Unable to drop table that is not an incremental refresh units table.",
-      );
-    }
-    return format(
-      `
-      DROP TABLE IF EXISTS ${params.unitsTableFullName}_tmp
       `,
       this.getFormatDialect(),
     );
@@ -6297,7 +6273,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     const baseIdType = exposureQuery.userIdType;
 
-    // TODO validate metrics match the metrics table and validate settings
     const sortedMetrics = params.metrics
       .sort((a, b) => a.id.localeCompare(b.id))
       .map((m) => ({
@@ -6313,7 +6288,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           : {}),
       }));
 
-    // TODO: Actually maybe we want to save all of these columns in the metadata and compute them elsewhere
+    // TODO(incremental-refresh)
+    // Compute data types and columns elsewhere and store in metadata to govern this query
+    // and for validating queries match going forward
     return format(
       `
     CREATE TABLE ${params.metricSourceTableFullName}
@@ -6409,7 +6386,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           baseIdType,
           idJoinMap,
           metrics: sortedMetrics,
-          endDate: metricEnd, // TODO: for coarse here should be fine, could also add timestamp
+          endDate: metricEnd, // TODO(incremental-refresh): for coarse here should be fine, could also add timestamp
           startDate: startDate,
           factTableMap: params.factTableMap,
           addFiltersToWhere: true,
@@ -6570,10 +6547,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           : ""
       }
       ${this.getExperimentFactMetricStatisticsCTE({
-        dimensionCols: [], // TODO dimensions
+        dimensionCols: [], // TODO(incremental-refresh): dimensions
         metricData,
-        eventQuantileData: [], // TODO quantiles
-        regressionAdjustedMetrics: [], // TODO regression adjusted metrics
+        eventQuantileData: [], // TODO(incremental-refresh): quantiles
+        regressionAdjustedMetrics: [], // TODO(incremental-refresh): regression adjusted metrics
         percentileData,
         baseIdType,
         joinedMetricTableName: "__joinedData",
@@ -6625,8 +6602,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     sql: string,
     setExternalId: ExternalIdCallback,
   ): Promise<ExperimentFactMetricsQueryResponse> {
-    // TODO type safety that this query and the experiment fact metrics query
-    // return the same columns
     const { rows, statistics } = await this.runQuery(sql, setExternalId);
     return {
       rows: this.processExperimentFactMetricsQueryRows(rows),

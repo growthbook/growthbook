@@ -86,6 +86,10 @@ export default function ResultMoreMenu({
 
   const [showConfirmForceRefresh, setShowConfirmForceRefresh] = useState(false);
 
+  const rerunAllQueriesText = isExperimentIncludedInIncrementalRefresh
+    ? "Full Refresh"
+    : "Re-run All Queries";
+
   return (
     <>
       <MoreMenu autoCloseOnClick={false}>
@@ -111,7 +115,7 @@ export default function ResultMoreMenu({
                 }
               }}
             >
-              <BsArrowRepeat className="mr-2" /> Re-run All Queries
+              <BsArrowRepeat className="mr-2" /> {rerunAllQueriesText}
             </button>
           )}
         {snapshotId &&
@@ -204,9 +208,9 @@ export default function ResultMoreMenu({
       </MoreMenu>
       {showConfirmForceRefresh && forceRefresh && (
         <ConfirmModal
-          title="Re-run All Queries"
-          subtitle="This experiment is included in incremental refresh. Re-running all queries will cause the previous results to be discarded and the data will be rescanned for the whole duration of the experiment."
-          yesText="Re-run"
+          title="Full Refresh"
+          subtitle="This experiment is updated with the incremental refresh pipeline. Fully refreshing the experiment will discard the previous data and results and re-scan the data source from the beginning of the experiment."
+          yesText="Full Refresh"
           noText="Cancel"
           modalState={showConfirmForceRefresh}
           setModalState={(state) => setShowConfirmForceRefresh(state)}

@@ -242,7 +242,6 @@ export type PartitionSettings =
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: ExperimentSnapshotSettings;
-  segment: SegmentInterface | null;
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
   factTableMap: FactTableMap;
@@ -252,6 +251,7 @@ export interface CreateExperimentIncrementalUnitsQueryParams {
 
 export interface UpdateExperimentIncrementalUnitsQueryParams
   extends CreateExperimentIncrementalUnitsQueryParams {
+  segment: SegmentInterface | null;
   lastMaxTimestamp: Date;
   unitsTempTableFullName: string;
 }
@@ -775,9 +775,6 @@ export interface SourceIntegrationInterface {
   ): string;
   getDropOldIncrementalUnitsQuery(
     params: DropOldIncrementalUnitsQueryParams,
-  ): string;
-  getDropTempIncrementalUnitsQuery(
-    params: DropTempIncrementalUnitsQueryParams,
   ): string;
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams,

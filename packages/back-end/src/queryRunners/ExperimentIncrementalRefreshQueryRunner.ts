@@ -39,6 +39,7 @@ import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
 } from "back-end/src/services/experimentTimeSeries";
+import { SegmentInterface } from "back-end/types/segment";
 import {
   getFactMetricGroup,
   MAX_METRICS_PER_QUERY,
@@ -170,12 +171,12 @@ export const startExperimentIncrementalRefreshQueries = async (
     ? (metricMap.get(snapshotSettings.activationMetric) ?? null)
     : null;
 
-  // let segmentObj: SegmentInterface | null = null;
-  // if (snapshotSettings.segment) {
-  //   segmentObj = await context.models.segments.getById(
-  //     snapshotSettings.segment
-  //   );
-  // }
+  let segmentObj: SegmentInterface | null = null;
+  if (snapshotSettings.segment) {
+    segmentObj = await context.models.segments.getById(
+      snapshotSettings.segment,
+    );
+  }
 
   const settings = integration.datasource.settings;
 
@@ -193,12 +194,11 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   // TODO Metric updates
   // TODO validate that incremental refresh is enabled
-
   const canRunIncrementalRefreshQueries =
     hasIncrementalRefreshFeature &&
     settings.pipelineSettings?.mode === "incremental";
 
-  // TODO set fallback
+  // TODO(incremental-refresh): error instead of fall back?
   const partitionSettings = integration.datasource.settings.pipelineSettings
     ?.partitionSettings ?? {
     type: "timestamp",
@@ -249,9 +249,9 @@ export const startExperimentIncrementalRefreshQueries = async (
       query: integration.getCreateExperimentIncrementalUnitsQuery({
         unitsTableFullName: unitsTableFullName,
         settings: snapshotSettings,
-        activationMetric: activationMetric,
+        activationMetric: null, // TODO(incremental-refresh): activation metric
         dimensions: [], // TODO experiment dimensions
-        segment: null, // TODO experiment segment
+        segment: segmentObj,
         factTableMap: params.factTableMap,
         partitionSettings: partitionSettings,
       }),
@@ -277,27 +277,13 @@ export const startExperimentIncrementalRefreshQueries = async (
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
 
-  // we can skip this if we have a unique temp table each time
-  // const dropTempUnitsTableQuery = await startQuery({
-  //   name: `drop_temp_${queryParentId}`,
-  //   query: integration.getDropTempIncrementalUnitsQuery({
-  //     unitsTableFullName: unitsTableFullName,
-  //   }),
-  //   dependencies: [],
-  //   run: (query, setExternalId) =>
-  //     integration.runDropTableQuery(query, setExternalId),
-  //   process: (rows) => rows,
-  //   queryType: "experimentIncrementalRefreshDropTempUnitsTable",
-  // });
-  // queries.push(dropTempUnitsTableQuery);
-
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
     settings: snapshotSettings,
-    activationMetric: activationMetric,
+    activationMetric: null, // TODO(incremental-refresh): activation metric
     dimensions: [], // TODO experiment dimensions
-    segment: null, // TODO experiment segment
+    segment: segmentObj,
     factTableMap: params.factTableMap,
     lastMaxTimestamp: lastMaxTimestamp,
     partitionSettings:
@@ -309,7 +295,6 @@ export const startExperimentIncrementalRefreshQueries = async (
     query:
       integration.getUpdateExperimentIncrementalUnitsQuery(unitQueryParams),
     dependencies: [
-      //dropTempUnitsTableQuery.query,
       ...(createUnitsTableQuery ? [createUnitsTableQuery.query] : []),
     ],
     run: (query, setExternalId) =>
@@ -366,8 +351,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     run: (query, setExternalId) =>
       integration.runIncrementalWithNoOutputQuery(query, setExternalId),
     process: (rows) => {
-      // TODO: is this the right place to do this
-      // TODO can we type max_timestamp better?
+      // TODO(incremental-refresh): Clean up metadata handling in query runner
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
       if (maxTimestamp) {
         context.models.incrementalRefresh
@@ -386,9 +370,10 @@ export const startExperimentIncrementalRefreshQueries = async (
   queries.push(maxTimestampQuery);
 
   // Metric Queries
-  // pretend no existing sources if full refresh
   let existingSources = incrementalRefreshModel?.metricSources;
 
+  // Full refresh, pretend no existing sources
+  // Will recreate sources with new random id for metric sources
   if (params.fullRefresh) {
     existingSources = [];
   }
@@ -406,7 +391,6 @@ export const startExperimentIncrementalRefreshQueries = async (
   let runningSourceData = existingSources ?? [];
 
   for (const group of metricSourceGroups) {
-    // TODO: figure out if we need to drop and recreate
     const existingSource = existingSources?.find(
       (s) => s.groupId === group.groupId,
     );
@@ -422,7 +406,6 @@ export const startExperimentIncrementalRefreshQueries = async (
         ));
 
     if (!metricSourceTableFullName) {
-      // TODO: validate earlier
       throw new Error(
         "Unable to generate table; table path generator not specified.",
       );
@@ -432,8 +415,8 @@ export const startExperimentIncrementalRefreshQueries = async (
       group.metrics[0].numerator?.factTableId,
     );
 
-    // Add more data about not just the fact table name because sometimes multiple queries for same
-    // fact table
+    // TODO(incremental-refresh): add metadata about source
+    // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
 
     let createMetricsSourceQuery: QueryPointer | null = null;
@@ -469,7 +452,6 @@ export const startExperimentIncrementalRefreshQueries = async (
       lastMaxTimestamp: existingSource?.maxTimestamp ?? undefined,
     };
 
-    // TODO get N of rows inserted for customer?
     const insertMetricsSourceDataQuery = await startQuery({
       name: `insert_metrics_source_data_${group.groupId}`,
       title: `Update Metrics Source ${sourceName}`,
@@ -505,12 +487,9 @@ export const startExperimentIncrementalRefreshQueries = async (
       run: (query, setExternalId) =>
         integration.runMaxTimestampQuery(query, setExternalId),
       process: async (rows) => {
-        // TODO: is this the right place to do this
-        // TODO can we type max_timestamp better?
         const maxTimestamp = new Date(rows[0].max_timestamp as string);
         if (maxTimestamp) {
-          // Not a great way to manage the updating of the source data, could do this at different points
-          // as per in-person conversation
+          // TODO(incremental-refresh): Clean up metadata handling in query runner
           const updatedSource: IncrementalRefreshMetricSourceInterface =
             existingSource
               ? { ...existingSource, maxTimestamp }
