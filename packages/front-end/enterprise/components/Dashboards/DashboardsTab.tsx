@@ -426,8 +426,8 @@ export default function DashboardsTab({
                                   <Text weight="regular">
                                     {experiment.defaultDashboardId ===
                                     dashboard.id
-                                      ? "Remove as default view"
-                                      : "Set as default view"}
+                                      ? "Remove as Default View"
+                                      : "Set as Default View"}
                                   </Text>
                                 </Button>
                               )}
