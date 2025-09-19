@@ -4766,7 +4766,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     experimentId,
     addFiltersToWhere,
     exclusiveStartDateFilter,
-    additionalStartDateFilter,
+    additionalPartitionFilters,
   }: {
     metrics: FactMetricInterface[];
     factTableMap: FactTableMap;
@@ -4779,10 +4779,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // Additional filter to ensure we only get
     // new data from AFTER the last seen max timestamp
     exclusiveStartDateFilter?: boolean;
-    // Additional filter to ensure we only get
-    // new data from after the last seen max timestamp
-    // and to hit the right set of date partitions
-    additionalStartDateFilter?: string;
+    // Additional filter to ensure we only get the right
+    // set of partitions (e.g. on or after last max timestamp)
+    // and on or before end date, if end date exists
+    additionalPartitionFilters?: string;
     castIdToString?: boolean;
   }) {
     const factTable = factTableMap.get(
@@ -4820,8 +4820,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     if (startDate) {
       const operator = exclusiveStartDateFilter ? ">" : ">=";
       where.push(`m.timestamp ${operator} ${this.toTimestamp(startDate)}`);
-      if (additionalStartDateFilter) {
-        where.push(additionalStartDateFilter);
+      if (additionalPartitionFilters) {
+        where.push(additionalPartitionFilters);
       }
     }
     if (endDate) {
@@ -5961,8 +5961,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     date: Date,
     type: "onOrAfter" | "onOrBefore",
   ): string {
-    // TODO do we need to know if zero padded?
-    // TODO do we need to know if the column is a string or number?
+    // TODO(incremental-refresh): put behind a feature flag
+    // as year month day has particular needs (string datatype, 0 padded)
     if (partitionSettings.type === "yearMonthDay") {
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
@@ -6020,6 +6020,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           `;
       }
     }
+    // TODO(incremental-refresh): this works for "timestamp" type
+    // because we always pair the result of this partition clause
+    // with a timestamp filter; but we should probably combine the logic to
+    // get both filters at once, the timestmap (which we always need for data accuracy)
+    // and the partition filter (for data efficiency).
     return "";
   }
 
@@ -6059,6 +6064,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         "Activation metrics are not supported for incremental refresh",
       );
     }
+
+    // TODO(incremental-refresh): What if "skip partial data" is true?
+    // Does the conversionWindowsHour need to be set different?
+    const endDate = this.getExperimentEndDate(settings, 0);
+
+    const endDatePartitionFilter = endDate
+      ? this.getPartitionWhereClause(partitionSettings, endDate, "onOrBefore")
+      : "";
 
     // Segment and SQL filter only check against new exposures
     return format(
@@ -6118,6 +6131,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             experiment_id = '${settings.experimentId}'
             AND timestamp > ${this.toTimestamp(params.lastMaxTimestamp)}
             ${partitionWhereClause ? `AND (${partitionWhereClause})` : ""}
+            ${endDate ? `AND timestamp <= ${this.toTimestamp(endDate)}` : ""}
+            ${endDate && endDatePartitionFilter ? `AND (${endDatePartitionFilter})` : ""}
+            
         )
         , __jointExposures AS (
           SELECT * FROM __existingUnits
@@ -6334,7 +6350,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
       objects: [[exposureQuery.userIdType], factTable?.userIdTypes || []],
-      // TODO: improve start and end date
+      // TODO(incremental-refresh): this gets all identities from history
+      // of experiment, which we think is right, but could be improved
       from: params.settings.startDate,
       to: params.settings.endDate,
       forcedBaseIdType: exposureQuery.userIdType,
@@ -6357,11 +6374,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const hasBindingLastMaxTimestamp =
       params.lastMaxTimestamp && params.lastMaxTimestamp > metricStart;
     const exclusiveStartDateFilter = hasBindingLastMaxTimestamp;
+
+    // Get date range for new metric data that is needed
     const startDate =
       params.lastMaxTimestamp && hasBindingLastMaxTimestamp
         ? params.lastMaxTimestamp
         : metricStart;
-    const additionalStartDateFilter = hasBindingLastMaxTimestamp
+
+    const endDate: Date = this.getExperimentEndDate(
+      params.settings,
+      maxHoursToConvert,
+    );
+
+    let additionalPartitionFilters = hasBindingLastMaxTimestamp
       ? this.getPartitionWhereClause(
           params.partitionSettings,
           startDate,
@@ -6369,11 +6394,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         )
       : "";
 
-    // Get date range for experiment and analysis
-    const endDate: Date = this.getExperimentEndDate(
-      params.settings,
-      maxHoursToConvert,
-    );
+    if (endDate) {
+      const endDatePartitionFilter = this.getPartitionWhereClause(
+        params.partitionSettings,
+        endDate,
+        "onOrBefore",
+      );
+      additionalPartitionFilters = `(${additionalPartitionFilters}) AND (${endDatePartitionFilter})`;
+    }
 
     return format(
       `
@@ -6389,7 +6417,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           startDate: startDate,
           factTableMap: params.factTableMap,
           addFiltersToWhere: true,
-          additionalStartDateFilter,
+          additionalPartitionFilters,
           exclusiveStartDateFilter,
           castIdToString: true,
         })})
