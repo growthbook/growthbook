@@ -360,7 +360,7 @@ export const startExperimentIncrementalRefreshQueries = async (
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
       if (maxTimestamp) {
         context.models.incrementalRefresh
-          .upsertByExperimentId(snapshotSettings.experimentId, {
+          .upsertByExperimentId(params.queryParentId, {
             unitsTableFullName: unitsTableFullName,
             unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
@@ -522,7 +522,7 @@ export const startExperimentIncrementalRefreshQueries = async (
             );
           }
           context.models.incrementalRefresh
-            .upsertByExperimentId(snapshotSettings.experimentId, {
+            .upsertByExperimentId(params.queryParentId, {
               metricSources: runningSourceData,
             })
             .catch((e) => context.logger.error(e));
