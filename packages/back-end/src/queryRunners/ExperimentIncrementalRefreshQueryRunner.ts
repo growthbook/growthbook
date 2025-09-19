@@ -68,12 +68,8 @@ export type ExperimentIncrementalRefreshQueryParams = {
   fullRefresh: boolean;
 };
 
-// TODO: add metrics to existing metric source to force recreating the whole thing.
+// TODO(incremental-refresh): add metrics to existing metric source to force recreating the whole thing.
 // UI side to let the user know a refresh will trigger restating the whole metric source.
-
-// TODO: follow-up slice and dice
-
-// TODO: allow pipeline for an individual experiment.
 export interface MetricSourceGroups {
   groupId: string;
   metrics: FactMetricInterface[];
@@ -86,8 +82,10 @@ function getIncrementalRefreshMetricSources(
   metrics: FactMetricInterface[];
   groupId: string;
 }[] {
-  // TODO skip partial data gets ignored
-  // TODO error if no efficient percentiles (shouldn't be possible)
+  // TODO(incremental-refresh): skip partial data is currently ignored
+  // TODO(incremental-refresh): error if no efficient percentiles
+  // (shouldn't be possible since we are unlikely to build incremental
+  // refresh for mySQL
   const groups: Record<
     string,
     {
@@ -192,8 +190,6 @@ export const startExperimentIncrementalRefreshQueries = async (
     throw new Error("Experiment must have at least 1 metric selected.");
   }
 
-  // TODO Metric updates
-  // TODO validate that incremental refresh is enabled
   const canRunIncrementalRefreshQueries =
     hasIncrementalRefreshFeature &&
     settings.pipelineSettings?.mode === "incremental";
@@ -448,7 +444,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     const metricParams: InsertMetricSourceDataQueryParams = {
       settings: snapshotSettings,
       activationMetric: activationMetric,
-      dimensions: [], // TODO experiment dimensions
+      dimensions: [], // TODO(incremental-refresh): experiment dimensions
       factTableMap: params.factTableMap,
       metricSourceTableFullName,
       unitsSourceTableFullName: unitsTableFullName,
@@ -503,7 +499,7 @@ export const startExperimentIncrementalRefreshQueries = async (
                   maxTimestamp,
                   metrics: group.metrics.map((m) => ({
                     id: m.id,
-                    // TODO set this elsewhere?
+                    // TODO(incremental-refresh): set this elsewhere?
                     settingsHash: getMetricSettingsHashForIncrementalRefresh({
                       factMetric: m,
                       factTableMap: params.factTableMap,

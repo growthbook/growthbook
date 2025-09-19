@@ -6562,7 +6562,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           SELECT
             u.${baseIdType}
             , u.variation
-            ${metricData // TODO coalesce????
+            ${metricData
+              // TODO(incremental-refresh): here is where we need to nullif 0 for
+              // quantiles with ignore zeros. Otherwise the coalesce seems fine.
               .map(
                 (data) =>
                   `, COALESCE(${data.metric.id}_value, 0) AS ${data.alias}_value ${
