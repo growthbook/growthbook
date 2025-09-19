@@ -252,6 +252,36 @@ export const startExperimentIncrementalRefreshQueries = async (
         });
       });
 
+      const storedMetricIds = new Set<string>(
+        Array.from(existingMetricHashMap.keys()),
+      );
+      const selectedFactMetrics = selectedMetrics.filter((m) =>
+        isFactMetric(m),
+      );
+      const selectedFactMetricIds = new Set<string>(
+        selectedFactMetrics.map((m) => m.id),
+      );
+
+      // Error if a selected metric is not present in incremental refresh sources
+      for (const m of selectedFactMetrics) {
+        if (!storedMetricIds.has(m.id)) {
+          const metricName = m.name ?? m.id;
+          throw new Error(
+            `The metric "${metricName}" was added. Please run a Full Refresh.`,
+          );
+        }
+      }
+
+      // Error if incremental refresh has a metric that is no longer in settings
+      for (const storedId of storedMetricIds) {
+        if (!selectedFactMetricIds.has(storedId)) {
+          const metricName = metricMap.get(storedId)?.name ?? storedId;
+          throw new Error(
+            `The metric "${metricName}" has been removed. Please run a Full Refresh.`,
+          );
+        }
+      }
+
       selectedMetrics
         .filter((m) => isFactMetric(m))
         .forEach((m) => {
