@@ -1,6 +1,7 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
 import { FormatDialect } from "shared/src/types";
+import { trinoCreateTablePartitions } from "shared/enterprise";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
@@ -19,6 +20,12 @@ export default class Presto extends SqlIntegration {
   }
   getFormatDialect(): FormatDialect {
     return "trino";
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
+  dropUnitsTable(): boolean {
+    return true;
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
@@ -87,6 +94,9 @@ export default class Presto extends SqlIntegration {
             statistics.executionDurationMs = Number(stats.wallTimeMillis);
             statistics.bytesProcessed = Number(stats.processedBytes);
             statistics.rowsProcessed = Number(stats.processedRows);
+            statistics.physicalWrittenBytes = Number(
+              stats.physicalWrittenBytes,
+            );
           }
         },
         success: () => {
@@ -125,13 +135,19 @@ export default class Presto extends SqlIntegration {
   hllAggregate(col: string): string {
     return `APPROX_SET(${col})`;
   }
+  castToHyperLogLog(col: string): string {
+    return `CAST(${col} AS HyperLogLog)`;
+  }
   hllReaggregate(col: string): string {
-    return `MERGE(${col})`;
+    return `MERGE(${this.castToHyperLogLog(col)})`;
   }
   hllCardinality(col: string): string {
     return `CARDINALITY(${col})`;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";
+  }
+  createUnitsTablePartitions(columns: string[]) {
+    return trinoCreateTablePartitions(columns);
   }
 }

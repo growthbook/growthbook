@@ -22,11 +22,19 @@ type EditExperimentAssignmentQueryProps = {
   mode: "add" | "edit";
   onSave: (exposureQuery: ExposureQuery) => void;
   onCancel: () => void;
+  extraRequiredColumns?: string[]; // optional additional required columns to append (e.g., pipeline partition columns)
 };
 
 export const AddEditExperimentAssignmentQueryModal: FC<
   EditExperimentAssignmentQueryProps
-> = ({ exposureQuery, dataSource, mode, onSave, onCancel }) => {
+> = ({
+  exposureQuery,
+  dataSource,
+  mode,
+  onSave,
+  onCancel,
+  extraRequiredColumns = [],
+}) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -82,16 +90,49 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     });
   });
 
+  const pipelineSettings = dataSource?.settings?.pipelineSettings;
+  const partitionSettings = pipelineSettings?.partitionSettings;
+
   const requiredColumns = useMemo(() => {
-    return new Set([
-      "experiment_id",
-      "variation_id",
-      "timestamp",
-      userEnteredUserIdType,
-      ...(userEnteredDimensions || []),
-      ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
-    ]);
-  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
+    const base = new Set<string>(
+      [
+        "experiment_id",
+        "variation_id",
+        "timestamp",
+        userEnteredUserIdType,
+        ...(userEnteredDimensions || []),
+        ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
+      ].filter(Boolean),
+    );
+
+    // Include extra required columns if provided (e.g., from a wizard flow)
+    for (const col of extraRequiredColumns.filter(Boolean)) base.add(col);
+
+    // Fallback: if no extraRequiredColumns passed, include datasource pipeline partition columns when applicable
+    if (!extraRequiredColumns.length) {
+      if (
+        pipelineSettings?.mode === "incremental" &&
+        partitionSettings?.type === "yearMonthDay"
+      ) {
+        [
+          partitionSettings.yearColumn,
+          partitionSettings.monthColumn,
+          partitionSettings.dayColumn,
+        ]
+          .filter(Boolean)
+          .forEach((c) => base.add(c));
+      }
+    }
+
+    return base;
+  }, [
+    userEnteredUserIdType,
+    userEnteredDimensions,
+    userEnteredHasNameCol,
+    pipelineSettings,
+    partitionSettings,
+    extraRequiredColumns,
+  ]);
 
   const identityTypes = useMemo(
     () => dataSource.settings.userIdTypes || [],
