@@ -43,6 +43,7 @@ export type {
   Polyfills,
   PrefetchOptions,
   RefreshFeaturesOptions,
+  DestroyOptions,
   RenderFunction,
   StickyAssignments,
   StickyAssignmentsDocument,

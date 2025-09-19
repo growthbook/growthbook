@@ -830,6 +830,12 @@ export class Permissions {
     return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
+  public canRunPipelineValidationQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
+  };
+
   public canViewSqlExplorerQueries = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
