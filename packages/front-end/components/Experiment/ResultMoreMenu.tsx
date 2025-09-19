@@ -44,7 +44,7 @@ export default function ResultMoreMenu({
   project,
   differenceType,
 }: {
-  experiment: ExperimentInterfaceStringDates;
+  experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
   queries?: Queries;
   queryError?: string;
@@ -79,6 +79,7 @@ export default function ResultMoreMenu({
     datasource?.settings.pipelineSettings?.mode === "incremental";
   const isExperimentIncludedInIncrementalRefresh =
     isPipelineIncrementalEnabledForDatasource &&
+    experiment &&
     (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
       experiment.id,
     ) ??
