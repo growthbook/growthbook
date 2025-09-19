@@ -585,8 +585,16 @@ export abstract class QueryRunner<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType,
   >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
-    const { name, title, query, dependencies, runAtEnd, run, process, queryType } =
-      params;
+    const {
+      name,
+      title,
+      query,
+      dependencies,
+      runAtEnd,
+      run,
+      process,
+      queryType,
+    } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query for " + name);

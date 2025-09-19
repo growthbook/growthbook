@@ -3,6 +3,7 @@ import {
   getAllMetricIdsFromExperiment,
   isFactMetricId,
 } from "shared/experiments";
+import cloneDeep from "lodash/cloneDeep";
 import { ReqContext } from "back-end/types/organization";
 import {
   ExperimentAnalysisSummary,
@@ -28,7 +29,6 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import cloneDeep from "lodash/cloneDeep";
 
 export async function updateExperimentTimeSeries({
   context,
@@ -286,7 +286,6 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   });
 }
 
-
 export function getMetricSettingsHashForIncrementalRefresh({
   factMetric,
   factTableMap,
@@ -296,7 +295,6 @@ export function getMetricSettingsHashForIncrementalRefresh({
   factTableMap: Map<string, FactTableInterface>;
   metricSettings?: MetricForSnapshot;
 }): string {
-
   const numeratorFactTableId = factMetric.numerator.factTableId;
   const numeratorFactTable = numeratorFactTableId
     ? factTableMap?.get(numeratorFactTableId)
@@ -316,7 +314,9 @@ export function getMetricSettingsHashForIncrementalRefresh({
   );
 
   if (metricSettings) {
-    const trimmedMetricComputedSettings: Partial<MetricForSnapshot["computedSettings"]> = cloneDeep(metricSettings.computedSettings);
+    const trimmedMetricComputedSettings: Partial<
+      MetricForSnapshot["computedSettings"]
+    > = cloneDeep(metricSettings.computedSettings);
     // strip fields we don't need for incremental refresh
     if (trimmedMetricComputedSettings) {
       delete trimmedMetricComputedSettings.properPrior;
@@ -327,14 +327,18 @@ export function getMetricSettingsHashForIncrementalRefresh({
     }
   }
 
-
   return hashObject({
-    ...(metricSettings?.computedSettings ? { 
-      regressionAdjustmentEnabled: metricSettings.computedSettings.regressionAdjustmentEnabled,
-      regressionAdjustmentDays: metricSettings.computedSettings.regressionAdjustmentDays,
-      regressionAdjustmentReason: metricSettings.computedSettings.regressionAdjustmentReason,
-      // this drops unneeded analysis settings that don't affect the data
-    } : {}),
+    ...(metricSettings?.computedSettings
+      ? {
+          regressionAdjustmentEnabled:
+            metricSettings.computedSettings.regressionAdjustmentEnabled,
+          regressionAdjustmentDays:
+            metricSettings.computedSettings.regressionAdjustmentDays,
+          regressionAdjustmentReason:
+            metricSettings.computedSettings.regressionAdjustmentReason,
+          // this drops unneeded analysis settings that don't affect the data
+        }
+      : {}),
     metricType: factMetric.metricType,
     numerator: factMetric.numerator,
     denominator: factMetric.denominator,
@@ -362,7 +366,6 @@ export function getMetricSettingsHashForIncrementalRefresh({
     },
   });
 }
-
 
 function getHasSignificantDifference(
   previousAnalysisSummary: ExperimentAnalysisSummary | undefined,
