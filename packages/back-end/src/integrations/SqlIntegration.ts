@@ -6357,8 +6357,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       forcedBaseIdType: exposureQuery.userIdType,
       experimentId: params.settings.experimentId,
     });
-    // TODO: does metric start need to be different?
-    // TODO: does metric end need to be different?
 
     const sortedMetrics = params.metrics.sort((a, b) =>
       a.id.localeCompare(b.id),
@@ -6367,7 +6365,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       ...params,
       metrics: sortedMetrics,
     };
-    const { metricStart, metricEnd, maxHoursToConvert, metricData } =
+
+    // TODO(incremental-refresh): use max hours to convert from here
+    // for eventual "skipPartialData" feature
+    const { metricStart, metricEnd, metricData } =
       this.parseExperimentFactMetricsParams(paramsMetricsSorted);
 
     // Get date range for new metric data that is needed
@@ -6379,11 +6380,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ? params.lastMaxTimestamp
         : metricStart;
 
-    const endDate: Date = this.getExperimentEndDate(
-      params.settings,
-      maxHoursToConvert,
-    );
-
     const metricStartDatePartitionFilter = this.getPartitionWhereClause(
       params.partitionSettings,
       startDate,
@@ -6391,10 +6387,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
 
     let metricEndDatePartitionFilter: string | undefined;
-    if (endDate) {
+    if (metricEnd) {
       metricEndDatePartitionFilter = this.getPartitionWhereClause(
         params.partitionSettings,
-        endDate,
+        metricEnd,
         "onOrBefore",
       );
     }
@@ -6417,7 +6413,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           baseIdType,
           idJoinMap,
           metrics: sortedMetrics,
-          endDate: metricEnd, // TODO(incremental-refresh): for coarse here should be fine, could also add timestamp
+          // Here we always want to go as far out as the data wants us to.
+          // Even if the experiment is over, sometimes we go beyond it with
+          // a conversion window.
+          endDate: metricEnd,
+          // Only get metric data that goes back to the earliest `metricStart`
+          // or the last max timestamp, whichever is later
           startDate: startDate,
           factTableMap: params.factTableMap,
           addFiltersToWhere: true,
@@ -6439,7 +6440,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                     col: `m.${data.alias}_value`,
                     metric: data.metric,
                     overrideConversionWindows: data.overrideConversionWindows,
-                    endDate: endDate,
+                    // The experiment end date, because this is used
+                    // to filter metrics that only capture data during
+                    // the experiment
+                    endDate: params.settings.endDate,
                     metricQuantileSettings: data.quantileMetric
                       ? data.metricQuantileSettings
                       : undefined,
@@ -6453,7 +6457,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                         metric: data.metric,
                         overrideConversionWindows:
                           data.overrideConversionWindows,
-                        endDate: endDate,
+                        endDate: params.settings.endDate,
                         metricTimestampCol: "m.timestamp",
                         exposureTimestampCol: "d.first_exposure_timestamp",
                       })} AS ${data.alias}_denominator`
