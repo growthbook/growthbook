@@ -94,7 +94,10 @@ export const EditDataSourcePipeline = ({
   });
 
   const [step, setStep] = useState(
-    initialPipelineSettings?.partitionSettings ? 1 : 0,
+    initialPipelineSettings?.allowWriting &&
+      initialPipelineSettings?.partitionSettings
+      ? 1
+      : 0,
   );
 
   const handleSubmit = form.handleSubmit(async (formValues) => {

@@ -223,12 +223,60 @@ export const startExperimentIncrementalRefreshQueries = async (
   const randomId = Math.random().toString(36).substring(2, 10);
   const unitsTempTableFullName = `${unitsTableFullName}_temp_${randomId}`;
 
-  // Begin Queries
   const incrementalRefreshModel =
     await context.models.incrementalRefresh.getByExperimentId(
       // FIX-ME(incremental-refresh): This is the experimentId, and snapshotSettings.experimentId is the trackingKey
       params.queryParentId,
     );
+
+  // If not forcing a full refresh and we have a previous run, ensure the
+  // current configuration matches what the incremental pipeline was built with.
+  if (!params.fullRefresh && incrementalRefreshModel) {
+    const currentSettingsHash =
+      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+    if (
+      incrementalRefreshModel.experimentSettingsHash &&
+      currentSettingsHash !== incrementalRefreshModel.experimentSettingsHash
+    ) {
+      throw new Error(
+        "The experiment configuration is outdated. Please run a Full Refresh.",
+      );
+    }
+
+    // Validate metric settings hashes for existing metric sources
+    if (incrementalRefreshModel.metricSources?.length) {
+      const existingMetricHashMap = new Map<string, string>();
+      incrementalRefreshModel.metricSources.forEach((source) => {
+        source.metrics.forEach((metric) => {
+          existingMetricHashMap.set(metric.id, metric.settingsHash);
+        });
+      });
+
+      selectedMetrics
+        .filter((m) => isFactMetric(m))
+        .forEach((m) => {
+          const storedHash = existingMetricHashMap.get(m.id);
+          if (!storedHash) return;
+
+          const currentHash = getMetricSettingsHashForIncrementalRefresh({
+            factMetric: m,
+            factTableMap: params.factTableMap,
+            metricSettings: snapshotSettings.metricSettings.find(
+              (ms) => ms.id === m.id,
+            ),
+          });
+
+          if (currentHash !== storedHash) {
+            const metricName = m.name ?? m.id;
+            throw new Error(
+              `The metric "${metricName}" configuration is outdated. Please run a Full Refresh.`,
+            );
+          }
+        });
+    }
+  }
+
+  // Begin Queries
   const lastMaxTimestamp = params.fullRefresh
     ? snapshotSettings.startDate
     : (incrementalRefreshModel?.unitsMaxTimestamp ??
@@ -354,6 +402,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     process: (rows) => {
       // TODO(incremental-refresh): Clean up metadata handling in query runner
       const maxTimestamp = new Date(rows[0].max_timestamp as string);
+
       if (maxTimestamp) {
         context.models.incrementalRefresh
           .upsertByExperimentId(params.queryParentId, {
