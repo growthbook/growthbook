@@ -6370,14 +6370,12 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const { metricStart, metricEnd, maxHoursToConvert, metricData } =
       this.parseExperimentFactMetricsParams(paramsMetricsSorted);
 
-    // get the later of startDate or the incremental refresh date
-    const hasBindingLastMaxTimestamp =
-      params.lastMaxTimestamp && params.lastMaxTimestamp > metricStart;
-    const exclusiveStartDateFilter = hasBindingLastMaxTimestamp;
-
     // Get date range for new metric data that is needed
+    // Later of metric start or the last max timestamp
+    const bindingLastMaxTimestamp =
+      params.lastMaxTimestamp && params.lastMaxTimestamp > metricStart;
     const startDate =
-      params.lastMaxTimestamp && hasBindingLastMaxTimestamp
+      params.lastMaxTimestamp && bindingLastMaxTimestamp
         ? params.lastMaxTimestamp
         : metricStart;
 
@@ -6386,22 +6384,28 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       maxHoursToConvert,
     );
 
-    let additionalPartitionFilters = hasBindingLastMaxTimestamp
-      ? this.getPartitionWhereClause(
-          params.partitionSettings,
-          startDate,
-          "onOrAfter",
-        )
-      : "";
+    const metricStartDatePartitionFilter = this.getPartitionWhereClause(
+      params.partitionSettings,
+      startDate,
+      "onOrAfter",
+    );
 
+    let metricEndDatePartitionFilter: string | undefined;
     if (endDate) {
-      const endDatePartitionFilter = this.getPartitionWhereClause(
+      metricEndDatePartitionFilter = this.getPartitionWhereClause(
         params.partitionSettings,
         endDate,
         "onOrBefore",
       );
-      additionalPartitionFilters = `(${additionalPartitionFilters}) AND (${endDatePartitionFilter})`;
     }
+
+    const additionalPartitionFilters = [
+      metricStartDatePartitionFilter,
+      metricEndDatePartitionFilter,
+    ]
+      .filter(Boolean)
+      .map((filter) => `(${filter})`)
+      .join(" AND ");
 
     return format(
       `
@@ -6418,7 +6422,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           factTableMap: params.factTableMap,
           addFiltersToWhere: true,
           additionalPartitionFilters,
-          exclusiveStartDateFilter,
+          // if last max timestamp is later than metric start and thus the start
+          // date, we need to get data strictly greater than, not just greater than
+          // or equal to the start date
+          exclusiveStartDateFilter: bindingLastMaxTimestamp,
           castIdToString: true,
         })})
         , __newMetricRows AS (
