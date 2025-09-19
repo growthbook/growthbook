@@ -3471,7 +3471,7 @@ export async function updateExperimentDashboards({
   const savedQueries = await context.models.savedQueries.getByIds(
     blocksWithSavedQueries.map(({ savedQueryId }) => savedQueryId),
   );
-  const datasourceIds = [
+  const datasourceIds: string[] = [
     ...new Set(savedQueries.map(({ datasourceId }) => datasourceId)),
   ];
   const datasources = await getDataSourcesByIds(context, datasourceIds);
