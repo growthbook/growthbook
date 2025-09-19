@@ -251,7 +251,6 @@ export const startExperimentIncrementalRefreshQueries = async (
         settings: snapshotSettings,
         activationMetric: null, // TODO(incremental-refresh): activation metric
         dimensions: [], // TODO experiment dimensions
-        segment: segmentObj,
         factTableMap: params.factTableMap,
         partitionSettings: partitionSettings,
       }),
@@ -270,7 +269,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     );
   const lastMaxTimestamp = params.fullRefresh
     ? snapshotSettings.startDate
-    : (incrementalRefreshModel?.lastScannedTimestamp ??
+    : (incrementalRefreshModel?.unitsMaxTimestamp ??
       snapshotSettings.startDate);
 
   const exposureQuery = (settings?.queries?.exposure || []).find(
@@ -357,7 +356,7 @@ export const startExperimentIncrementalRefreshQueries = async (
         context.models.incrementalRefresh
           .upsertByExperimentId(snapshotSettings.experimentId, {
             unitsTableFullName: unitsTableFullName,
-            lastScannedTimestamp: maxTimestamp,
+            unitsMaxTimestamp: maxTimestamp,
             experimentSettingsHash:
               getExperimentSettingsHashForIncrementalRefresh(snapshotSettings),
           })

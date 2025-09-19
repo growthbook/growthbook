@@ -18,11 +18,12 @@ const incrementalRefresh = z
     // Refs
     experimentId: z.string(),
 
-    // Settings
+    // Unit Source Settings
     unitsTableFullName: z.string().nullable(),
-    lastScannedTimestamp: z.date().nullable(),
+    unitsMaxTimestamp: z.date().nullable(),
+    availableExperimentDimensions: z.array(z.string()),
 
-    // Experiment Settings hash
+    // Experiment Settings Hash
     experimentSettingsHash: z.string().nullable(),
 
     // Metrics

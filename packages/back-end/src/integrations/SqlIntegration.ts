@@ -6207,7 +6207,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     const row = rows?.[0];
 
-    // TODO test
     if (!row) {
       return {
         rows: [],

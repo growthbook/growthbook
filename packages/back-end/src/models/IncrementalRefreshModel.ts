@@ -41,7 +41,7 @@ export class IncrementalRefreshModel extends BaseClass {
     return this.create({
       experimentId,
       unitsTableFullName: null,
-      lastScannedTimestamp: null,
+      unitsMaxTimestamp: null,
       metricSources: [],
       experimentSettingsHash: null,
       ...data,
