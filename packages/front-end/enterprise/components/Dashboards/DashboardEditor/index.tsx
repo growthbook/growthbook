@@ -148,6 +148,7 @@ interface Props {
   duplicateBlock: (index: number) => void;
   deleteBlock: (index: number) => void;
   mutate: () => void;
+  switchToExperimentView?: () => void;
 }
 
 function DashboardEditor({
@@ -168,6 +169,7 @@ function DashboardEditor({
   duplicateBlock,
   deleteBlock,
   mutate,
+  switchToExperimentView,
 }: Props) {
   const renderSingleBlock = ({
     i,
@@ -275,18 +277,24 @@ function DashboardEditor({
         className="mb-3"
         gap="1"
       >
-        <Text
-          weight="medium"
-          size="5"
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flexShrink: 1,
-          }}
-        >
-          {title}
-        </Text>
+        {switchToExperimentView ? (
+          <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
+            View Regular Experiment View
+          </Button>
+        ) : (
+          <Text
+            weight="medium"
+            size="5"
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flexShrink: 1,
+            }}
+          >
+            {title}
+          </Text>
+        )}
         <div style={{ flexGrow: 1 }} />
         <DashboardUpdateDisplay
           blocks={blocks}
