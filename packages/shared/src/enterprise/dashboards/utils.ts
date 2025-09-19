@@ -120,7 +120,7 @@ export function snapshotSatisfiesBlock(
   if (!blockSettings.dimensionId) return true;
   // If snapshot doesn't have a dimension, check whether the requested dimension is precomputed
   return snapshot.settings.dimensions.some(
-    ({ id }) => `precomputed:${blockSettings.dimensionId}` === id,
+    ({ id }) => blockSettings.dimensionId === id,
   );
 }
 
