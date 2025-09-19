@@ -68,12 +68,18 @@ interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
   isTabActive: boolean;
+  showDashboardView?: boolean;
+  switchToExperimentView?: () => void;
+  mutateExperiment?: () => void;
 }
 
 export default function DashboardsTab({
   experiment,
   initialDashboardId,
   isTabActive,
+  showDashboardView = false,
+  switchToExperimentView,
+  mutateExperiment,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
@@ -127,6 +133,9 @@ export default function DashboardsTab({
   const canUpdateDashboard = experiment
     ? permissionsUtil.canViewReportModal(experiment.project)
     : true;
+  const canUpdateExperiment = permissionsUtil.canViewExperimentModal(
+    experiment.project,
+  );
   const isOwner = userId === dashboard?.userId || !dashboard?.userId;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
   const canManage = isOwner || isAdmin;
@@ -306,7 +315,7 @@ export default function DashboardsTab({
               <>
                 <Flex align="center" justify="between" mb="1">
                   <Flex gap="1" align="center">
-                    {dashboards.length > 0 ? (
+                    {dashboards.length > 0 && !showDashboardView ? (
                       <Flex gap="4" align="center">
                         <Select
                           style={{
@@ -364,7 +373,7 @@ export default function DashboardsTab({
                       <></>
                     )}
                   </Flex>
-                  {dashboard ? (
+                  {dashboard && !showDashboardView ? (
                     <Flex gap="4" align="center">
                       <Tooltip
                         state={copySuccess}
@@ -393,6 +402,43 @@ export default function DashboardsTab({
                                     Edit Dashboard Settings
                                   </Text>
                                 </Button>
+                              )}
+                              {mutateExperiment && canUpdateExperiment && (
+                                <Tooltip
+                                  body={
+                                    experiment.defaultDashboardId ===
+                                    dashboard.id
+                                      ? "Remove this dashboard as the default view for the experiment"
+                                      : "Set this dashboard as the default view for the experiment"
+                                  }
+                                >
+                                  <Button
+                                    className="dropdown-item"
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/experiment/${experiment.id}`,
+                                        {
+                                          method: "POST",
+                                          body: JSON.stringify({
+                                            defaultDashboardId:
+                                              experiment.defaultDashboardId ===
+                                              dashboard.id
+                                                ? ""
+                                                : dashboard.id,
+                                          }),
+                                        },
+                                      );
+                                      mutateExperiment();
+                                    }}
+                                  >
+                                    <Text weight="regular">
+                                      {experiment.defaultDashboardId ===
+                                      dashboard.id
+                                        ? "Remove as Default View"
+                                        : "Set as Default View"}
+                                    </Text>
+                                  </Button>
+                                </Tooltip>
                               )}
 
                               <Container px="5">
@@ -561,6 +607,7 @@ export default function DashboardsTab({
                         deleteBlock={() => {}}
                         focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
+                        switchToExperimentView={switchToExperimentView}
                       />
                     )}
                   </>
