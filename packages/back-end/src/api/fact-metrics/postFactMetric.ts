@@ -209,6 +209,14 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
       lookupFactTable,
     );
 
+    if (data.managedBy === "admin") {
+      if (!req.context.hasPremiumFeature("manage-official-resources")) {
+        throw new Error(
+          "Your organization's plan does not support creating official fact metrics.",
+        );
+      }
+    }
+
     const factMetric = await req.context.models.factMetrics.create(data);
 
     return {

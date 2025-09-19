@@ -209,14 +209,17 @@ export default function FactMetricPage() {
 
   const canEdit =
     factMetric.managedBy === "admin"
-      ? permissionsUtil.canManageOfficialResources({
-          projects: factMetric.projects,
-        })
+      ? permissionsUtil.canUpdateOfficialResources(
+          {
+            projects: factMetric.projects,
+          },
+          {},
+        )
       : permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
         !factMetric.managedBy;
   const canDelete =
     factMetric.managedBy === "admin"
-      ? permissionsUtil.canManageOfficialResources({
+      ? permissionsUtil.canDeleteOfficialResources({
           projects: factMetric.projects,
         })
       : permissionsUtil.canDeleteFactMetric(factMetric) &&
@@ -448,7 +451,12 @@ export default function FactMetricPage() {
           }
           value={factMetric.projects}
           permissionRequired={(project) =>
-            permissionsUtil.canUpdateFactMetric({ projects: [project] }, {})
+            factMetric.managedBy === "admin"
+              ? permissionsUtil.canUpdateOfficialResources(
+                  { projects: [project] },
+                  {},
+                )
+              : permissionsUtil.canUpdateFactMetric({ projects: [project] }, {})
           }
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {

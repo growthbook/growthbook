@@ -150,9 +150,18 @@ export function useCombinedMetrics({
       return item;
     }),
     ...factMetrics.map((m) => {
-      const canDuplicate = permissionsUtil.canCreateFactMetric(m);
-      const canEdit = permissionsUtil.canUpdateFactMetric(m, {});
-      const canDelete = permissionsUtil.canDeleteFactMetric(m);
+      const canDuplicate =
+        m.managedBy === "admin"
+          ? permissionsUtil.canCreateOfficialResources(m)
+          : permissionsUtil.canCreateFactMetric(m);
+      const canEdit =
+        m.managedBy === "admin"
+          ? permissionsUtil.canUpdateOfficialResources(m, {})
+          : permissionsUtil.canUpdateFactMetric(m, {});
+      const canDelete =
+        m.managedBy === "admin"
+          ? permissionsUtil.canDeleteOfficialResources(m)
+          : permissionsUtil.canDeleteFactMetric(m);
 
       const item: MetricTableItem = {
         id: m.id,

@@ -90,19 +90,31 @@ export class FactMetricModel extends BaseClass {
     return this.context.hasPermission("readData", doc.projects || []);
   }
   protected canCreate(doc: FactMetricInterface): boolean {
-    // Check the admin permission here?
-    return this.context.permissions.canCreateFactMetric(doc);
+    if (doc.managedBy === "admin") {
+      return this.context.permissions.canCreateOfficialResources(doc);
+    } else {
+      return this.context.permissions.canCreateFactMetric(doc);
+    }
   }
   protected canUpdate(
     existing: FactMetricInterface,
     updates: UpdateProps<FactMetricInterface>,
   ): boolean {
-    // Check the admin permission here?
-    return this.context.permissions.canUpdateFactMetric(existing, updates);
+    if (existing.managedBy === "admin" || updates.managedBy === "admin") {
+      return this.context.permissions.canUpdateOfficialResources(
+        existing,
+        updates,
+      );
+    } else {
+      return this.context.permissions.canUpdateFactMetric(existing, updates);
+    }
   }
   protected canDelete(doc: FactMetricInterface): boolean {
-    // Check the admin permission here?
-    return this.context.permissions.canDeleteFactMetric(doc);
+    if (doc.managedBy === "admin") {
+      return this.context.permissions.canDeleteOfficialResources(doc);
+    } else {
+      return this.context.permissions.canDeleteFactMetric(doc);
+    }
   }
 
   public static upgradeFactMetricDoc(
