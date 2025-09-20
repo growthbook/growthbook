@@ -4,7 +4,7 @@ import { datetime } from "shared/dates";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import EventUser from "@/components/Avatar/EventUser";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import LoadingOverlay from "@/components/LoadingOverlay";
 
 export interface Props {

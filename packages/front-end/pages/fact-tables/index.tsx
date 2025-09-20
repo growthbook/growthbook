@@ -20,11 +20,11 @@ import ProjectBadges from "@/components/ProjectBadges";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Switch from "@/components/Radix/Switch";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Switch from "@/ui/Switch";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import {
   createInitialResources,
   getInitialDatasourceResources,

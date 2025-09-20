@@ -18,7 +18,7 @@ import MetricSelector from "@/components/Experiment/MetricSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/components/Radix/Switch";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 
 interface ExperimentSummaryType {

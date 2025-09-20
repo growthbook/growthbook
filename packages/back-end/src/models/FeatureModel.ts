@@ -47,6 +47,10 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import {
+  DiffResult,
+  getObjectDiff,
+} from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import {
   createEvent,
   hasPreviousObject,
   CreateEventData,
@@ -465,20 +469,31 @@ export const createFeatureEvent = async <
       safeRolloutMap,
     });
 
+    let changes: DiffResult | undefined;
+    try {
+      changes = getObjectDiff(previousApiFeature, currentApiFeature, {
+        ignoredKeys: ["dateUpdated", "date"],
+        nestedObjectConfigs: [
+          {
+            key: "environments",
+            idField: "id",
+            ignoredKeys: ["definition", "savedGroups"],
+            arrayField: "rules",
+          },
+        ],
+      });
+    } catch (e) {
+      logger.error(e, "error creating change patch");
+    }
+
     return {
       ...eventData,
       object: "feature",
       objectId: eventData.data.object.id,
       data: {
         object: currentApiFeature,
-        previous_object: getApiFeatureObj({
-          feature: eventData.data.previous_object,
-          organization: eventData.context.org,
-          groupMap,
-          experimentMap,
-          revision: previousRevision,
-          safeRolloutMap,
-        }),
+        previous_object: previousApiFeature,
+        changes,
       },
       projects: Array.from(
         new Set([previousApiFeature.project, currentApiFeature.project]),

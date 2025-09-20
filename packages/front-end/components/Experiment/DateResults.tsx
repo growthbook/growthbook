@@ -27,7 +27,7 @@ import Switch from "@/components/Radix/Switch";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";

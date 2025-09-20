@@ -18,7 +18,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioGroup from "@/ui/RadioGroup";
 
 export interface Props {
   valueType?: FeatureValueType;

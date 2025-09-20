@@ -30,12 +30,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { getMetricFormatter } from "@/services/metrics";
 import MetricForm, { usesValueColumn } from "@/components/Metrics/MetricForm";
-import {
-  TabsList,
-  Tabs,
-  TabsContent,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { TabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import HistoryTable from "@/components/HistoryTable";
 import DateGraph from "@/components/Metrics/DateGraph";
 import RunQueriesButton, {

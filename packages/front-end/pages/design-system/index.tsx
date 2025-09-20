@@ -12,15 +12,15 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
-import HelperText from "@/components/Radix/HelperText";
-import Checkbox from "@/components/Radix/Checkbox";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Badge from "@/components/Radix/Badge";
-import Button, { Size } from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import HelperText from "@/ui/HelperText";
+import Checkbox from "@/ui/Checkbox";
+import RadioGroup from "@/ui/RadioGroup";
+import Badge from "@/ui/Badge";
+import Button, { Size } from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
-import LinkButton from "@/components/Radix/LinkButton";
-import Avatar from "@/components/Radix/Avatar";
+import LinkButton from "@/ui/LinkButton";
+import Avatar from "@/ui/Avatar";
 import Field from "@/components/Forms/Field";
 import {
   DropdownMenu,
@@ -28,29 +28,24 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/DropdownMenu";
-import RadioCards from "@/components/Radix/RadioCards";
+} from "@/ui/DropdownMenu";
+import RadioCards from "@/ui/RadioCards";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import DataList from "@/components/Radix/DataList";
+import DataList from "@/ui/DataList";
 import Stepper from "@/components/Stepper/Stepper";
-import Link from "@/components/Radix/Link";
-import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
-import Metadata from "@/components/Radix/Metadata";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import Link from "@/ui/Link";
+import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
+import Metadata from "@/ui/Metadata";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import DatePicker from "@/components/DatePicker";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
-import SplitButton from "@/components/Radix/SplitButton";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
+import SplitButton from "@/ui/SplitButton";
+import PremiumCallout from "@/ui/PremiumCallout";
 import { UserContext } from "@/services/UserContext";
 import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
-import Frame from "@/components/Radix/Frame";
-import Switch from "@/components/Radix/Switch";
+import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
 
 export default function DesignSystemPage() {
   const [switchState, setSwitchState] = useState<

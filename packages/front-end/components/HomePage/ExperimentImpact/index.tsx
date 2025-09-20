@@ -16,13 +16,8 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Switch from "@/components/Radix/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Avatar from "@/components/Radix/Avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Avatar from "@/ui/Avatar";
 import DatePicker from "@/components/DatePicker";
 import { GBInfo } from "@/components/Icons";
 import { jamesSteinAdjustment } from "./JamesSteinAdjustment";

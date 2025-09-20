@@ -29,12 +29,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "@/services/auth";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Modal from "@/components/Modal";
 import Switch from "@/components/Radix/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";

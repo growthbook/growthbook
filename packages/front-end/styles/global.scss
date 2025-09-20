@@ -1404,6 +1404,11 @@ main.main {
   opacity: 0.5;
 }
 
+// Required for the collapsible component to work correctly with lazyRender={true} - https://github.com/glennflanagan/react-collapsible/issues/36
+.Collapsible__contentInner {
+  border: 1px solid transparent;
+  }
+
 .Collapsible__trigger {
   &:hover {
     cursor: pointer;

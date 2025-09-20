@@ -43,7 +43,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import { useCurrency } from "@/hooks/useCurrency";
 

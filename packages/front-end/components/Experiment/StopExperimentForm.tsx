@@ -19,7 +19,7 @@ import Switch from "@/components/Radix/Switch";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { AppFeatures } from "@/types/app-features";
 import { Results } from "./ResultsIndicator";
 

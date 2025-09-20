@@ -10,7 +10,7 @@ import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 
 const imageCache = {};
