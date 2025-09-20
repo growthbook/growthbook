@@ -5,9 +5,8 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import styles from "./Switch.module.scss";
 
 type UncontrolledSwitchProps = {
-  defaultChecked?: true | false;
+  defaultChecked?: boolean;
   checked?: never;
-  onCheckedChange?: never;
 };
 
 type ControlledSwitchProps = {
@@ -17,12 +16,13 @@ type ControlledSwitchProps = {
 };
 
 type BaseProps = {
+  id?: string;
+  onCheckedChange?: (checked: boolean) => void;
   label?: string;
   description?: string;
   state?: "default" | "warning" | "error";
   // stateLabel is only rendered if state is not default
   stateLabel?: string;
-  id?: string;
   name?: string;
   required?: boolean;
   disabled?: boolean;
@@ -33,17 +33,17 @@ export type Props = (UncontrolledSwitchProps | ControlledSwitchProps) &
   MarginProps;
 
 export default function Switch({
+  id,
+  defaultChecked,
+  checked,
+  onCheckedChange,
   label,
   description,
   state = "default",
   stateLabel,
-  id,
   name,
   required,
   disabled,
-  defaultChecked,
-  checked,
-  onCheckedChange,
 }: Props) {
   const generatedId = useId();
   const switchId = id ?? generatedId;
