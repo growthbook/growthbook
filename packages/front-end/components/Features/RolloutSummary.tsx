@@ -1,7 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {

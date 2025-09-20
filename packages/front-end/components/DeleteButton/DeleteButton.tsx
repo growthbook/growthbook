@@ -9,7 +9,7 @@ import {
 import clsx from "clsx";
 import { PiTrashFill } from "react-icons/pi";
 import Modal from "@/components/Modal";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const DeleteButton: FC<{
   onClick: () => void | Promise<void>;

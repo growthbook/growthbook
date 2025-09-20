@@ -40,6 +40,14 @@ export class DataSourceNotSupportedError extends Error {
   }
 }
 
+export type DataType =
+  | "string"
+  | "integer"
+  | "float"
+  | "boolean"
+  | "date"
+  | "timestamp";
+
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
 export type FactMetricData = {
@@ -425,6 +433,7 @@ export type DimensionSlicesQueryResponseRows = {
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
+  columns?: string[];
   statistics?: QueryStatistics;
 };
 
@@ -521,6 +530,27 @@ export interface InformationSchemaTablesInterface {
   dateCreated: Date;
   dateUpdated: Date;
   informationSchemaId: string;
+}
+
+// Extended types that include path properties
+export interface TableWithPath extends Table {
+  path: string;
+}
+
+export interface SchemaWithPath extends Omit<Schema, "tables"> {
+  path: string;
+  tables: TableWithPath[];
+}
+
+export interface InformationSchemaWithPath
+  extends Omit<InformationSchema, "schemas"> {
+  path: string;
+  schemas: SchemaWithPath[];
+}
+
+export interface InformationSchemaInterfaceWithPaths
+  extends Omit<InformationSchemaInterface, "databases"> {
+  databases: InformationSchemaWithPath[];
 }
 
 export interface InsertTrackEventProps {
