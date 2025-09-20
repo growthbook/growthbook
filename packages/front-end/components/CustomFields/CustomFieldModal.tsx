@@ -230,7 +230,7 @@ export default function CustomFieldModal({
             id={"defaultValue"}
             label="Default value"
             value={!!form.watch("defaultValue")}
-            setValue={(value) => {
+            onChange={(value) => {
               form.setValue("defaultValue", value);
             }}
           />
@@ -258,7 +258,7 @@ export default function CustomFieldModal({
           id={"required"}
           label="Required"
           value={!!form.watch("required")}
-          setValue={(value) => {
+          onChange={(value) => {
             form.setValue("required", value);
           }}
         />{" "}
@@ -277,7 +277,7 @@ export default function CustomFieldModal({
             id={"index"}
             label="Index"
             value={!!form.watch("index")}
-            setValue={(value) => {
+            onChange={(value) => {
               form.setValue("index", value);
             }}
           />{" "}

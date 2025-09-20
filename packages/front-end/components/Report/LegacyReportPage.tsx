@@ -208,7 +208,7 @@ export default function LegacyReportPage({
               id="toggle-status"
               value={form.watch("status") === "published"}
               label="published"
-              setValue={(value) => {
+              onChange={(value) => {
                 const newStatus = value ? "published" : "private";
                 form.setValue("status", newStatus);
               }}

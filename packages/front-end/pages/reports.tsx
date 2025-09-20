@@ -144,7 +144,7 @@ const ReportsPage = (): React.ReactElement => {
             id={"onlymine"}
             value={onlyMyReports}
             label={"onlymine"}
-            setValue={setOnlyMyReports}
+            onChange={setOnlyMyReports}
           />
           Show only my reports
         </div>

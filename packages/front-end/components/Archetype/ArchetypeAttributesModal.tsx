@@ -131,7 +131,7 @@ const ArchetypeAttributesModal: FC<{
             <Switch
               id="public"
               value={form.watch("isPublic")}
-              setValue={(v) => form.setValue("isPublic", v)}
+              onChange={(v) => form.setValue("isPublic", v)}
               label="Public"
             />
           </div>

@@ -777,7 +777,7 @@ const MetricPage: FC = () => {
                                   </label>
                                   <Switch
                                     value={smoothByAvg === "week"}
-                                    setValue={() =>
+                                    onChange={() =>
                                       setSmoothByAvg(
                                         smoothByAvg === "week" ? "day" : "week",
                                       )
@@ -852,7 +852,7 @@ const MetricPage: FC = () => {
                               </label>
                               <Switch
                                 value={smoothBySum === "week"}
-                                setValue={() =>
+                                onChange={() =>
                                   setSmoothBySum(
                                     smoothBySum === "week" ? "day" : "week",
                                   )

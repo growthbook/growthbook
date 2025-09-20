@@ -3,7 +3,7 @@ import { FeatureInterface, FeatureTestResult } from "back-end/types/feature";
 import { FaChevronRight } from "react-icons/fa";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { FiAlertTriangle } from "react-icons/fi";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { MinimalFeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -21,6 +21,7 @@ import DatePicker from "@/components/DatePicker";
 import Button from "@/ui/Button";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
 import styles from "./AssignmentTester.module.scss";
 
 export interface Props {
@@ -327,8 +328,8 @@ export default function AssignmentTester({
                     <Switch
                       ml="3"
                       id="skipRulesWithPrerequisites"
-                      checked={skipRulesWithPrerequisites}
-                      onCheckedChange={(c) => setSkipRulesWithPrerequisites(c)}
+                      value={skipRulesWithPrerequisites}
+                      onChange={(c) => setSkipRulesWithPrerequisites(c)}
                     />
                   </label>
                 </>

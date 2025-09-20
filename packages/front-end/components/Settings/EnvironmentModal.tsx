@@ -220,7 +220,7 @@ export default function EnvironmentModal({
           id={"defaultToggle"}
           label="Identifier"
           value={!!form.watch("defaultState")}
-          setValue={(value) => {
+          onChange={(value) => {
             form.setValue("defaultState", value);
           }}
         />{" "}
@@ -230,7 +230,7 @@ export default function EnvironmentModal({
         id={"toggle"}
         label="Identifier"
         value={!!form.watch("toggleOnList")}
-        setValue={(value) => {
+        onChange={(value) => {
           form.setValue("toggleOnList", value);
         }}
       />{" "}

@@ -534,7 +534,7 @@ export default function ExperimentImpact({
               disabledMessage={
                 "Disabled as there are not enough experiments to shrink estimates"
               }
-              setValue={(v) => form.setValue("adjusted", v)}
+              onChange={(v) => form.setValue("adjusted", v)}
               value={adjusted && nExpsUsedForAdjustment >= 5}
             />
           </div>

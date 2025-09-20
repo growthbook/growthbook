@@ -1465,7 +1465,7 @@ export default function DesignSystemPage() {
               <Flex direction="column" gap="4">
                 <Switch state={switchState} disabled={switchDisabled} />
                 <Switch
-                  defaultChecked={true}
+                  defaultValue={true}
                   state={switchState}
                   disabled={switchDisabled}
                 />
@@ -1480,7 +1480,7 @@ export default function DesignSystemPage() {
                   label="Label"
                 />
                 <Switch
-                  defaultChecked={true}
+                  defaultValue={true}
                   state={switchState}
                   disabled={switchDisabled}
                   label="Label"
@@ -1497,7 +1497,7 @@ export default function DesignSystemPage() {
                   description="Description"
                 />
                 <Switch
-                  defaultChecked={true}
+                  defaultValue={true}
                   state={switchState}
                   disabled={switchDisabled}
                   label="Label"
@@ -1516,7 +1516,7 @@ export default function DesignSystemPage() {
                   stateLabel="The status label goes here"
                 />
                 <Switch
-                  defaultChecked={true}
+                  defaultValue={true}
                   state={switchState}
                   disabled={switchDisabled}
                   label="Label"

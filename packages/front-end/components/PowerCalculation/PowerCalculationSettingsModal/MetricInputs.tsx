@@ -136,7 +136,7 @@ export const InputField = ({
               <Switch
                 id={`input-value-${metricId}-${entry}`}
                 value={entryValue}
-                setValue={(v) => {
+                onChange={(v) => {
                   form.setValue(`metrics.${metricId}.${entry}`, v);
                 }}
                 disabled={disabled}

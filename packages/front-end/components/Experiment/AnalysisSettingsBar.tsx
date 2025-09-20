@@ -254,7 +254,7 @@ export default function AnalysisSettingsBar({
                     <Switch
                       id="toggle-experiment-regression-adjustment"
                       value={!!regressionAdjustmentEnabled}
-                      setValue={(value) => {
+                      onChange={(value) => {
                         if (
                           onRegressionAdjustmentChange &&
                           hasRegressionAdjustmentFeature

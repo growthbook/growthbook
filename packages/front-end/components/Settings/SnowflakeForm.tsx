@@ -180,7 +180,7 @@ const SnowflakeForm: FC<{
             id="access-url"
             label="Use Access URL (Optional)"
             value={useAccessUrl}
-            setValue={(v) => {
+            onChange={(v) => {
               setUseAccessUrl(v);
               if (!v) {
                 onManualParamChange("accessUrl", "");

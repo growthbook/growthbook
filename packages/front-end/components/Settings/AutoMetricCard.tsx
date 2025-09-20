@@ -75,7 +75,7 @@ export default function AutoMetricCard({
                     : {}
                 }
                 id={`${event}-${event.metricsToCreate[binomialIndex].name}`}
-                setValue={(value) => {
+                onChange={(value) => {
                   const updates = cloneDeep(trackedEvents);
                   updates[i].metricsToCreate[binomialIndex].shouldCreate =
                     value;
@@ -112,7 +112,7 @@ export default function AutoMetricCard({
                     ? { opacity: 0.5 }
                     : {}
                 }
-                setValue={(value) => {
+                onChange={(value) => {
                   const updates = cloneDeep(trackedEvents);
                   updates[i].metricsToCreate[countIndex].shouldCreate = value;
                   setTrackedEvents(updates);

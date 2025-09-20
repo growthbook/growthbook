@@ -114,7 +114,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         <Switch
           id={"toggle-allowWriting"}
           value={!!form.watch("allowWriting")}
-          setValue={(value) => {
+          onChange={(value) => {
             form.setValue("allowWriting", value);
           }}
         />
@@ -148,7 +148,7 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
                 <Switch
                   id={"toggle-unitsTableDeletion"}
                   value={!!form.watch("unitsTableDeletion")}
-                  setValue={(value) => {
+                  onChange={(value) => {
                     form.setValue("unitsTableDeletion", value);
                   }}
                 />

@@ -127,7 +127,7 @@ const NorthStar: FC<{
                   </label>
                   <Switch
                     value={smoothBy === "week"}
-                    setValue={() =>
+                    onChange={() =>
                       setSmoothBy(smoothBy === "week" ? "day" : "week")
                     }
                     id="toggle-group-smooth-by"

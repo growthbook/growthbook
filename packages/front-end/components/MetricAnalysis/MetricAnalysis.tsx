@@ -652,7 +652,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                     </label>
                                     <Switch
                                       value={smoothByAvg === "week"}
-                                      setValue={() =>
+                                      onChange={() =>
                                         setSmoothByAvg(
                                           smoothByAvg === "week"
                                             ? "day"
@@ -741,7 +741,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                     </label>
                                     <Switch
                                       value={smoothBySum === "week"}
-                                      setValue={() =>
+                                      onChange={() =>
                                         setSmoothBySum(
                                           smoothBySum === "week"
                                             ? "day"

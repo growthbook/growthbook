@@ -570,7 +570,7 @@ export default function ConfigureLegacyReport({
           <Switch
             id="useLatestPriorSettings"
             value={form.watch("useLatestPriorSettings")}
-            setValue={(v) => form.setValue("useLatestPriorSettings", v)}
+            onChange={(v) => form.setValue("useLatestPriorSettings", v)}
           />
         </div>
       )}

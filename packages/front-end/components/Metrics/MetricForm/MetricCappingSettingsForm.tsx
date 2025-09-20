@@ -76,7 +76,7 @@ export function MetricCappingSettingsForm({
                 </label>
                 <Switch
                   value={form.watch("cappingSettings.ignoreZeros")}
-                  setValue={(ignoreZeros) => {
+                  onChange={(ignoreZeros) => {
                     form.setValue("cappingSettings.ignoreZeros", ignoreZeros);
                   }}
                   id={"ignoreZeros"}

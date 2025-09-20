@@ -25,7 +25,7 @@ import {
   PiInfo,
 } from "react-icons/pi";
 import { FeatureUsageLookback } from "back-end/src/types/Integration";
-import { Box, Flex, Heading, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { RxListBullet } from "react-icons/rx";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
@@ -72,6 +72,7 @@ import Callout from "@/ui/Callout";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
+import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import JSONValidation from "@/components/Features/JSONValidation";
 import PrerequisiteStatusRow, {
@@ -1055,8 +1056,8 @@ export default function FeaturesOverview({
                     <Switch
                       mr="1"
                       disabled={!hasInactiveRules}
-                      checked={!hideInactive}
-                      onCheckedChange={(state) => setHideInactive(!state)}
+                      value={!hideInactive}
+                      onChange={(state) => setHideInactive(!state)}
                     />{" "}
                     Show inactive
                   </label>

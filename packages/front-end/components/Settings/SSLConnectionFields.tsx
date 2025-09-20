@@ -32,7 +32,7 @@ export default function SSLConnectionFields({
             id="require-ssl"
             label="Require SSL"
             value={value.ssl}
-            setValue={(ssl) => {
+            onChange={(ssl) => {
               setSSL(ssl);
             }}
           />

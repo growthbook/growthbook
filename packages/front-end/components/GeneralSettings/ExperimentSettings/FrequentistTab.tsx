@@ -101,7 +101,7 @@ export default function FrequentistTab({
             <Switch
               id={"toggle-sequentialTestingEnabled"}
               value={form.watch("sequentialTestingEnabled")}
-              setValue={(value) => {
+              onChange={(value) => {
                 form.setValue("sequentialTestingEnabled", value);
               }}
               disabled={

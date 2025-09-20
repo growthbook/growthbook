@@ -5,19 +5,19 @@ import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import styles from "./Switch.module.scss";
 
 type UncontrolledSwitchProps = {
-  defaultChecked?: boolean;
-  checked?: never;
+  defaultValue?: boolean;
+  value?: never;
+  onChange?: (checked: boolean) => void;
 };
 
 type ControlledSwitchProps = {
-  defaultChecked?: never;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
+  defaultValue?: never;
+  value: boolean;
+  onChange: (checked: boolean) => void;
 };
 
 type BaseProps = {
   id?: string;
-  onCheckedChange?: (checked: boolean) => void;
   label?: string;
   description?: string;
   state?: "default" | "warning" | "error";
@@ -26,6 +26,7 @@ type BaseProps = {
   name?: string;
   required?: boolean;
   disabled?: boolean;
+  tooltipMessage?: string;
 };
 
 export type Props = (UncontrolledSwitchProps | ControlledSwitchProps) &
@@ -34,9 +35,9 @@ export type Props = (UncontrolledSwitchProps | ControlledSwitchProps) &
 
 export default function Switch({
   id,
-  defaultChecked,
-  checked,
-  onCheckedChange,
+  defaultValue,
+  value,
+  onChange,
   label,
   description,
   state = "default",
@@ -76,9 +77,9 @@ export default function Switch({
         id={switchId}
         size="1"
         disabled={disabled}
-        defaultChecked={defaultChecked}
-        checked={checked}
-        onCheckedChange={onCheckedChange}
+        defaultChecked={defaultValue}
+        checked={value}
+        onCheckedChange={onChange}
         name={name}
         required={required}
         mt="2px"

@@ -463,7 +463,7 @@ const ImportExperimentList: FC<{
               <Switch
                 id="hide-imported"
                 value={alreadyImportedFilter}
-                setValue={setAlreadyImportedFilter}
+                onChange={setAlreadyImportedFilter}
               />{" "}
               Hide Imported
             </div>
@@ -471,7 +471,7 @@ const ImportExperimentList: FC<{
               <Switch
                 id="dedupe-experiments"
                 value={dedupeFilter}
-                setValue={setDedupeFilter}
+                onChange={setDedupeFilter}
               />{" "}
               Group by Experiment Id{" "}
               <Tooltip body="How to handle experiments that appear in multiple Assignment Queries. If toggled ON, collapse them into a single row. If OFF, show each one in a separate row." />

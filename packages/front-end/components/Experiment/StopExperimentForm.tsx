@@ -324,7 +324,7 @@ const StopExperimentForm: FC<{
                   <Switch
                     id="excludeFromPayload"
                     value={!form.watch("excludeFromPayload")}
-                    setValue={(includeInPayload) => {
+                    onChange={(includeInPayload) => {
                       form.setValue("excludeFromPayload", !includeInPayload);
                     }}
                   />

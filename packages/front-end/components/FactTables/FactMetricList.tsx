@@ -147,7 +147,7 @@ export default function FactMetricList({ factTable }: Props) {
           <div className="col-auto text-muted">
             <Switch
               value={showArchived}
-              setValue={setShowArchived}
+              onChange={setShowArchived}
               id="show-archived"
               label="show archived"
             />

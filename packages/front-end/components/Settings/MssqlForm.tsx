@@ -117,7 +117,7 @@ const MssqlForm: FC<{
               id="trust-server-cert"
               label="Trust server certificate"
               value={params.options?.trustServerCertificate === true}
-              setValue={(value) => {
+              onChange={(value) => {
                 const opt = {
                   ...params.options,
                   trustServerCertificate: value,
@@ -136,7 +136,7 @@ const MssqlForm: FC<{
               id="encryption"
               label="Enable encryption"
               value={params.options?.encrypt === true}
-              setValue={(value) => {
+              onChange={(value) => {
                 const opt = { ...params.options, encrypt: value };
                 setParams({
                   options: opt,

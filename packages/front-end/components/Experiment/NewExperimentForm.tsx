@@ -1393,7 +1393,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                   id="auto_refresh_results"
                   label="Auto Refresh Results"
                   value={autoRefreshResults}
-                  setValue={setAutoRefreshResults}
+                  onChange={setAutoRefreshResults}
                 />
                 <label>Populate Results on Save</label>
               </div>

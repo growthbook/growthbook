@@ -2064,7 +2064,7 @@ export default function FactMetricModal({
                         !canUseEventQuantile ||
                         quantileSettings.type !== "event"
                       }
-                      setValue={(unit) => {
+                      onChange={(unit) => {
                         // Event-level quantiles must select a numeric column
                         if (!unit && numerator?.column?.startsWith("$$")) {
                           const column =
@@ -2128,7 +2128,7 @@ export default function FactMetricModal({
                                 <Switch
                                   id="quantileIgnoreZeros"
                                   value={quantileSettings.ignoreZeros}
-                                  setValue={(ignoreZeros) =>
+                                  onChange={(ignoreZeros) =>
                                     form.setValue("quantileSettings", {
                                       ...quantileSettings,
                                       ignoreZeros,
@@ -2349,7 +2349,7 @@ export default function FactMetricModal({
                                   value={
                                     !!form.watch("regressionAdjustmentEnabled")
                                   }
-                                  setValue={(value) => {
+                                  onChange={(value) => {
                                     form.setValue(
                                       "regressionAdjustmentEnabled",
                                       value,

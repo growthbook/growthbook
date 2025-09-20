@@ -175,10 +175,10 @@ const EditOrganization: FC<{
         <div className="mt-3">
           Auto approve members with email domain
           <Switch
-            className="ml-2"
+            ml="2"
             id="autoApproveMembers"
             value={autoApproveMembers}
-            setValue={setAutoApproveMembers}
+            onChange={setAutoApproveMembers}
           />
         </div>
         {isCloud() ? (
@@ -212,10 +212,10 @@ const EditOrganization: FC<{
               <div className="mt-3">
                 Enable Enterprise
                 <Switch
-                  className="ml-2"
+                  ml="2"
                   id="legacyEnterpriseToggle"
                   value={legacyEnterprise}
-                  setValue={setLegacyEnterprise}
+                  onChange={setLegacyEnterprise}
                 />
                 <div>
                   <span className="text-muted small">

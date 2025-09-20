@@ -56,7 +56,7 @@ export function MetricPriorSettingsForm({
             <Switch
               id={"toggle-properPrior"}
               value={!!priorSettings.proper}
-              setValue={(value) => {
+              onChange={(value) => {
                 setPriorSettings({ ...priorSettings, proper: value });
               }}
             />

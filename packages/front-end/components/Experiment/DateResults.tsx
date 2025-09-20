@@ -332,7 +332,7 @@ const DateResults: FC<{
                 label="Cumulative"
                 id="cumulative"
                 value={cumulative}
-                setValue={setCumulative}
+                onChange={setCumulative}
                 disabled={differenceType === "scaled"}
               />
             </Tooltip>

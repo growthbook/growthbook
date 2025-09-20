@@ -153,7 +153,7 @@ export default function SingleRoleSelector({
                   disabled={!hasFeature}
                   id={`role-modal--${id}`}
                   value={value.limitAccessByEnvironment}
-                  setValue={(limitAccessByEnvironment) => {
+                  onChange={(limitAccessByEnvironment) => {
                     setValue({
                       ...value,
                       limitAccessByEnvironment,

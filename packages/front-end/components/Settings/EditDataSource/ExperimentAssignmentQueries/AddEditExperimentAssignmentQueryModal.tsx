@@ -304,7 +304,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                         <Switch
                           id="userEnteredNameCol"
                           value={form.watch("hasNameCol") || false}
-                          setValue={(value) => {
+                          onChange={(value) => {
                             form.setValue("hasNameCol", value);
                           }}
                         />

@@ -573,7 +573,7 @@ export default function MetricsOverridesSelector({
                               `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
                             )
                           }
-                          setValue={(v) =>
+                          onChange={(v) =>
                             form.setValue(
                               `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
                               v,
@@ -700,7 +700,7 @@ export default function MetricsOverridesSelector({
                                   `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
                                 )
                               }
-                              setValue={(value) => {
+                              onChange={(value) => {
                                 form.setValue(
                                   `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
                                   value,

@@ -309,7 +309,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     id="my-experiments-toggle"
                     type="toggle"
                     value={showMineOnly}
-                    setValue={(value) => {
+                    onChange={(value) => {
                       setShowMineOnly(value);
                     }}
                   />{" "}

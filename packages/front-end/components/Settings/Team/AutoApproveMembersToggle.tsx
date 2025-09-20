@@ -38,7 +38,7 @@ export default function AutoApproveMembersToggle({
         value={!owner?.verified ? false : !!organization?.autoApproveMembers}
         // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'verified' does not exist on type 'never'... Remove this comment to see the full error message
         disabled={!permissions.manageTeam || !owner?.verified}
-        setValue={async (on) => {
+        onChange={async (on) => {
           if (togglingAutoApprove) return;
           if (on && organization?.autoApproveMembers) return;
           if (!on && !organization?.autoApproveMembers) return;

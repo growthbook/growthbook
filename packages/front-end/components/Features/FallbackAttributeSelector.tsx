@@ -160,7 +160,7 @@ export default function FallbackAttributeSelector({
                         <Switch
                           id="orgStickyBucketingToggle"
                           value={!!orgStickyBucketing}
-                          setValue={setOrgStickyBucketingToggle}
+                          onChange={setOrgStickyBucketingToggle}
                           disabled={
                             !hasStickyBucketFeature ||
                             !hasSDKWithStickyBucketing

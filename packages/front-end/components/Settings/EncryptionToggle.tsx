@@ -58,7 +58,7 @@ export default function EncryptionToggle({
             <Switch
               id={"encryptSDK"}
               value={!!value}
-              setValue={setValue}
+              onChange={setValue}
               disabled={!hasFeature}
             />
           </div>

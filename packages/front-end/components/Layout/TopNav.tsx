@@ -425,7 +425,7 @@ const TopNav: FC<{
             id="allowCelebration"
             label="Allow celebration"
             value={form.watch("enableCelebrations")}
-            setValue={(v) => form.setValue("enableCelebrations", v)}
+            onChange={(v) => form.setValue("enableCelebrations", v)}
           />
         </Modal>
       )}

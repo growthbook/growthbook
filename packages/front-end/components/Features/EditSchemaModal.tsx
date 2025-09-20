@@ -101,7 +101,7 @@ function EditSchemaField({
           <Switch
             id={`schema_required_${i}`}
             value={value.required}
-            setValue={(v) => onChange({ ...value, required: v })}
+            onChange={(v) => onChange({ ...value, required: v })}
             type="toggle"
           />{" "}
           <label htmlFor={`schema_required_${i}`}>Required</label>
@@ -515,7 +515,7 @@ export default function EditSchemaModal({
         <Switch
           id={"schemaEnabled"}
           value={form.watch("enabled")}
-          setValue={(v) => form.setValue("enabled", v)}
+          onChange={(v) => form.setValue("enabled", v)}
         />{" "}
         <div className="ml-3">
           <label

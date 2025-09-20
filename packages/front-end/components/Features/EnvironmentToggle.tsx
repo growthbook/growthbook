@@ -69,8 +69,8 @@ export default function EnvironmentToggle({
     <Switch
       id={id}
       disabled={isDisabled}
-      checked={env?.enabled ?? false}
-      onCheckedChange={async (on) => {
+      value={env?.enabled ?? false}
+      onChange={async (on) => {
         if (toggling) return;
         if (on && env?.enabled) return;
         if (!on && !env?.enabled) return;

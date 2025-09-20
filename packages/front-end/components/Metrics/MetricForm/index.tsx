@@ -1386,7 +1386,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         <Switch
                           id={"toggle-regressionAdjustmentEnabled"}
                           value={!!form.watch("regressionAdjustmentEnabled")}
-                          setValue={(value) => {
+                          onChange={(value) => {
                             form.setValue("regressionAdjustmentEnabled", value);
                           }}
                           disabled={!hasRegressionAdjustmentFeature}
