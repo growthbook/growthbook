@@ -170,6 +170,14 @@ export async function deleteMetricById(
   if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error("Cannot delete a metric managed by the API");
   }
+  if (
+    metric.managedBy === "admin" &&
+    !context.permissions.canDeleteOfficialResources({
+      projects: metric.projects,
+    })
+  ) {
+    throw new Error("Cannot delete an official metric");
+  }
 
   // delete references:
   // ideas (impact estimate)
@@ -502,6 +510,11 @@ export async function updateMetric(
     }
     if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
       throw new Error("Cannot update. Metric managed by the API");
+    }
+    if (metric.managedBy === "admin" || updates.managedBy === "admin") {
+      if (!context.permissions.canUpdateOfficialResources(metric, updates)) {
+        throw new Error("Cannot update an official metric");
+      }
     }
   }
 

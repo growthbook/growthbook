@@ -28,8 +28,14 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
 
   const updated = putMetricApiPayloadToMetricInterface(req.body);
 
-  if (!req.context.permissions.canUpdateMetric(metric, updated)) {
-    req.context.permissions.throwPermissionError();
+  if (metric.managedBy === "admin" || req.body.managedBy === "admin") {
+    if (!req.context.permissions.canUpdateOfficialResources(metric, updated)) {
+      req.context.permissions.throwPermissionError();
+    }
+  } else {
+    if (!req.context.permissions.canUpdateMetric(metric, updated)) {
+      req.context.permissions.throwPermissionError();
+    }
   }
 
   await updateMetric(req.context, metric, updated);

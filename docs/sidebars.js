@@ -300,6 +300,11 @@ const sidebars = {
           label: "Managed Warehouse",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "official-resources",
+          label: "Official Resources",
+        },
       ],
     },
     {

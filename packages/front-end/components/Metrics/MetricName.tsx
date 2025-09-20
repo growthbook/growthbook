@@ -40,7 +40,7 @@ export function OfficialBadge({
   showOfficialLabel,
 }: {
   type: string;
-  managedBy?: "" | "config" | "api";
+  managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
 }) {
@@ -76,6 +76,11 @@ export function OfficialBadge({
               {managedBy === "config" ? (
                 <>
                   a <code>config.yml</code> file
+                </>
+              ) : managedBy === "admin" ? (
+                <>
+                  an Admin or someone with the{" "}
+                  <code>ManageOfficialResources</code> policy
                 </>
               ) : (
                 <>the API</>

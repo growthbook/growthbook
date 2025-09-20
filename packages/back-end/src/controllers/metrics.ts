@@ -98,6 +98,7 @@ export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "userIdTypes",
   "timestampColumn",
   "templateVariables",
+  "managedBy",
 ];
 
 export async function deleteMetric(
@@ -117,8 +118,19 @@ export async function deleteMetric(
     return;
   }
 
-  if (!context.permissions.canDeleteMetric(metric)) {
-    context.permissions.throwPermissionError();
+  // If this is an Official Metric, we need to check that the user has permission
+  if (metric.managedBy === "admin") {
+    if (
+      !context.permissions.canDeleteOfficialResources({
+        projects: metric.projects,
+      })
+    ) {
+      throw new Error("Cannot delete an official metric");
+    }
+  } else {
+    if (!context.permissions.canDeleteMetric(metric)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   // now remove the metric itself:
@@ -450,10 +462,22 @@ export async function postMetrics(
     userIdColumns,
     userIdTypes,
     templateVariables,
+    managedBy,
   } = req.body;
 
   if (!context.permissions.canCreateMetric({ projects })) {
     context.permissions.throwPermissionError();
+  }
+
+  if (managedBy === "admin") {
+    if (!context.hasPremiumFeature("manage-official-resources")) {
+      throw new Error(
+        "Your organization's plan does not support creating official metrics.",
+      );
+    }
+    if (!context.permissions.canCreateOfficialResources({ projects })) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   if (datasource) {
@@ -503,6 +527,7 @@ export async function postMetrics(
     regressionAdjustmentEnabled,
     regressionAdjustmentDays,
     templateVariables,
+    managedBy,
   });
 
   res.status(200).json({
@@ -540,8 +565,14 @@ export async function putMetric(
     }
   });
 
-  if (!context.permissions.canUpdateMetric(metric, updates)) {
-    context.permissions.throwPermissionError();
+  if (metric.managedBy === "admin" || req.body.managedBy === "admin") {
+    if (!context.permissions.canUpdateOfficialResources(metric, updates)) {
+      context.permissions.throwPermissionError();
+    }
+  } else {
+    if (!context.permissions.canUpdateMetric(metric, updates)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   await updateMetric(context, metric, updates);
