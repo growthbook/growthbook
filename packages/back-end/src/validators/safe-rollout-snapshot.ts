@@ -158,6 +158,8 @@ const safeRolloutSnapshotSettings = z.object({
   endDate: z.date(),
   variations: z.array(snapshotSettingsVariationValidator),
   coverage: z.number().optional(),
+  phase: z.string().optional(),
+  customFields: z.record(z.unknown()).optional(),
 });
 
 export type SafeRolloutSnapshotSettings = z.infer<
