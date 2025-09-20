@@ -188,6 +188,8 @@ export async function refreshDashboardData(
     phase: experiment.phases.length - 1,
     useCache: false,
     triggeredBy: "manual",
+    // Should this be standard given that it's using standard settings? It would affect other dashboards and the main results tab if so
+    type: "exploratory",
   });
 
   // Copy the blocks of the dashboard to overwrite their snapshot IDs
@@ -222,6 +224,7 @@ export async function refreshDashboardData(
       phase: experiment.phases.length - 1,
       useCache: false,
       triggeredBy: "manual",
+      type: "exploratory",
     });
     newBlocks.forEach((block) => {
       if (blockIds.includes(block.id)) {
@@ -243,7 +246,13 @@ export async function refreshDashboardData(
   ]);
 
   for (const savedQuery of savedQueries) {
-    executeAndSaveQuery(context, savedQuery, datasource);
+    const datasource = await getDataSourceById(
+      context,
+      savedQuery.datasourceId,
+    );
+    if (datasource) {
+      executeAndSaveQuery(context, savedQuery, datasource);
+    }
   }
 
   return res.status(200).json({ status: 200 });
