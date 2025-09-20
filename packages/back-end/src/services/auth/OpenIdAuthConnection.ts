@@ -21,7 +21,16 @@ import {
   AuthChecksCookie,
   SSOConnectionIdCookie,
 } from "back-end/src/util/cookie";
-import { APP_ORIGIN, IS_CLOUD, USE_PROXY } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  IS_CLOUD,
+  OPENID_CACHE,
+  OPENID_CACHE_MAX_AGE,
+  OPENID_CACHE_MAX_ENTRIES,
+  OPENID_JWKS_REQUESTS_PER_MINUTE,
+  OPENID_RATE_LIMIT,
+  USE_PROXY,
+} from "back-end/src/util/secrets";
 import { getSSOConnectionById } from "back-end/src/models/SSOConnectionModel";
 import {
   getUserLoginPropertiesFromRequest,
@@ -183,11 +192,11 @@ export class OpenIdAuthConnection implements AuthConnection {
       if (!middleware) {
         middleware = jwtExpress({
           secret: jwks.expressJwtSecret({
-            cache: true,
-            cacheMaxEntries: 200,
-            cacheMaxAge: 10 * 60 * 60 * 1000,
-            rateLimit: false,
-            jwksRequestsPerMinute: 10,
+            cache: OPENID_CACHE,
+            cacheMaxEntries: OPENID_CACHE_MAX_ENTRIES,
+            cacheMaxAge: OPENID_CACHE_MAX_AGE,
+            rateLimit: OPENID_RATE_LIMIT,
+            jwksRequestsPerMinute: OPENID_JWKS_REQUESTS_PER_MINUTE,
             jwksUri,
           }),
           audience: connection.clientId,
