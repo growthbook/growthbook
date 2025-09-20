@@ -1,6 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { MssqlConnectionParams } from "back-end/types/integrations/mssql";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import HostWarning from "./HostWarning";
 

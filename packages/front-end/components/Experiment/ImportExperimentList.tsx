@@ -16,7 +16,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";

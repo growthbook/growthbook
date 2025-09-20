@@ -9,7 +9,7 @@ import {
 import { UNITS_TABLE_RETENTION_HOURS_DEFAULT } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
 import Modal from "@/components/Modal";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Tooltip from "@/components/Tooltip/Tooltip";

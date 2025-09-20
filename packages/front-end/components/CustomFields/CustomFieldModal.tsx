@@ -13,7 +13,7 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import SelectField, {
   GroupedValue,
   SingleValue,

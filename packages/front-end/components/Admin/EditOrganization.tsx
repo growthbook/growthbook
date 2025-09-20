@@ -3,7 +3,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 
 const EditOrganization: FC<{
   onEdit: () => void;

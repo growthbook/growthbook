@@ -1,6 +1,6 @@
 import { FaQuestionCircle } from "react-icons/fa";
 import { useEffect, useState } from "react";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";

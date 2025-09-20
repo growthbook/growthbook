@@ -11,7 +11,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import { DocLink } from "../DocLink";
 

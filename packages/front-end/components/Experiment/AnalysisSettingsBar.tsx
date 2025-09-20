@@ -25,7 +25,7 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import { GBCuped } from "@/components/Icons";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";

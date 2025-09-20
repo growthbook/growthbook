@@ -2,7 +2,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { PValueCorrection } from "back-end/types/stats";
 import Field from "@/components/Forms/Field";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import SelectField from "@/components/Forms/SelectField";
 import { GBSequential } from "@/components/Icons";
 import { hasFileConfig } from "@/services/env";

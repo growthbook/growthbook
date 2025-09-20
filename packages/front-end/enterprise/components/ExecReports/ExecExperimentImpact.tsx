@@ -16,7 +16,7 @@ import {
 } from "@/components/HomePage/ExperimentImpact";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import { ExperimentDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";

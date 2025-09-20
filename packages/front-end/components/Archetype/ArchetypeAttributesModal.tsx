@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";

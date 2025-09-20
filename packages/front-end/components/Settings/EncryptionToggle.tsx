@@ -2,7 +2,7 @@ import React from "react";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import { DocLink } from "@/components/DocLink";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 

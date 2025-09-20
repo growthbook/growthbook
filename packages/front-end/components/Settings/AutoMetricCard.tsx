@@ -3,7 +3,7 @@ import { cloneDeep } from "lodash";
 import { useState } from "react";
 import { AutoMetricTrackedEvent } from "back-end/src/types/Integration";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import Button from "@/components/Button";
 import SQLInputField from "@/components/SQLInputField";
 

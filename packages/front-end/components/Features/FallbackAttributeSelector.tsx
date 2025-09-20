@@ -16,7 +16,7 @@ import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MinSDKVersionsList from "@/components/Features/MinSDKVersionsList";
 

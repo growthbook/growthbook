@@ -21,7 +21,7 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import useApi from "@/hooks/useApi";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import DateGraph from "@/components/Metrics/DateGraph";
 import HistogramGraph from "@/components/MetricAnalysis/HistogramGraph";
 import IdentifierChooser from "@/components/MetricAnalysis/IdentifierChooser";

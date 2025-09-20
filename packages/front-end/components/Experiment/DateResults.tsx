@@ -23,7 +23,7 @@ import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";

@@ -1,7 +1,7 @@
 import { CappingType } from "back-end/types/fact-table";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 
 export function MetricCappingSettingsForm({
   form,

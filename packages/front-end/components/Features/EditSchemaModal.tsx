@@ -16,7 +16,7 @@ import {
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";

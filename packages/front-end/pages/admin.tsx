@@ -31,7 +31,7 @@ import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Modal from "@/components/Modal";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 

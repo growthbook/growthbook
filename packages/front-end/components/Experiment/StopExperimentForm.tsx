@@ -15,7 +15,7 @@ import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
 import Modal from "@/components/Modal";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";

@@ -5,7 +5,7 @@ import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {

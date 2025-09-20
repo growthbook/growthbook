@@ -3,7 +3,7 @@ import { MetricDefaults } from "back-end/types/organization";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 

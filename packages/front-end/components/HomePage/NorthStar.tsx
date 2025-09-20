@@ -6,7 +6,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import Modal from "@/components/Modal";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Field from "@/components/Forms/Field";

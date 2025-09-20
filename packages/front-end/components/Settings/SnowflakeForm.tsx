@@ -1,7 +1,7 @@
 import { FC, ChangeEventHandler, useState } from "react";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import { GBInfo } from "@/components/Icons";
 import FileInput from "@/components/FileInput";
 

@@ -8,7 +8,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import useApi from "@/hooks/useApi";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";

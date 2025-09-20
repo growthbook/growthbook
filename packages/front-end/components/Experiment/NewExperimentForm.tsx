@@ -65,7 +65,7 @@ import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import Switch from "@/components/Radix/Switch";
+import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import ExperimentRefNewFields from "@/components/Features/RuleModal/ExperimentRefNewFields";
