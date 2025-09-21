@@ -75,15 +75,25 @@ export async function runColumnTopValuesQuery(
     throw new Error("Top values not supported on this data source");
   }
 
-  const sql = integration.getColumnTopValuesQuery({
-    factTable,
-    column,
-    limit: 100,
-  });
+  // Try progressive lookback periods
+  const lookbackPeriods = [7, 90, 365];
 
-  const result = await integration.runColumnTopValuesQuery(sql);
+  for (const lookbackDays of lookbackPeriods) {
+    const sql = integration.getColumnTopValuesQuery({
+      factTable,
+      column,
+      limit: 100,
+      lookbackDays,
+    });
 
-  return result.rows.map((r) => r.value);
+    const result = await integration.runColumnTopValuesQuery(sql);
+
+    if (result.rows.length > 0) {
+      return result.rows.map((r) => r.value);
+    }
+  }
+
+  return [];
 }
 
 export function populateDimensionLevels(

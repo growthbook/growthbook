@@ -16,7 +16,12 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import Link from "next/link";
-import { FaAngleRight, FaTimes, FaUsers, FaLayerGroup } from "react-icons/fa";
+import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
+import {
+  PiCaretCircleRight,
+  PiCaretCircleDown,
+  PiWarningFill,
+} from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
@@ -26,7 +31,6 @@ import {
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { PiWarningFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -45,7 +49,6 @@ import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
 import HelperText from "@/ui/HelperText";
-import Button from "@/ui/Button";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -141,11 +144,13 @@ const CompactResults: FC<{
   const [visibleDimensionMetricIds, setVisibleDimensionMetricIds] = useState<
     string[]
   >([]);
-  const toggleVisibleDimensionMetricId = (metricId: string) => {
+  const toggleVisibleDimensionMetricId = (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => {
+    const key = `${metricId}:${resultGroup}`;
     setVisibleDimensionMetricIds((prev) =>
-      prev.includes(metricId)
-        ? prev.filter((id) => id !== metricId)
-        : [...prev, metricId],
+      prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key],
     );
   };
 
@@ -253,7 +258,10 @@ const CompactResults: FC<{
       const rows: ExperimentTableRow[] = [parentRow];
 
       // Add dimension rows if this metric has dimensions and is visible
-      if (numDimensions > 0 && visibleDimensionMetricIds.includes(metricId)) {
+      if (
+        numDimensions > 0 &&
+        visibleDimensionMetricIds.includes(`${metricId}:${resultGroup}`)
+      ) {
         const dimensionData =
           ssrPolyfills?.getFactMetricDimensions?.(metricId) ||
           getFactMetricDimensions?.(metricId) ||
@@ -261,7 +269,7 @@ const CompactResults: FC<{
 
         dimensionData.forEach((dimension) => {
           const dimensionRow: ExperimentTableRow = {
-            label: `  ${dimension.dimensionColumnName}: ${dimension.isOther ? "other" : dimension.dimensionValue}`,
+            label: dimension.isOther ? "other" : dimension.dimensionValue || "",
             metric: {
               ...newMetric,
               name: dimension.name, // Use the full dimension metric name
@@ -433,6 +441,7 @@ const CompactResults: FC<{
           baselineRow={baselineRow}
           rows={rows.filter((r) => r.resultGroup === "goal")}
           id={id}
+          resultGroup="goal"
           tableRowAxis="metric"
           labelHeader={
             experimentType !== "multi-armed-bandit"
@@ -446,14 +455,14 @@ const CompactResults: FC<{
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
           differenceType={differenceType}
-          renderLabelColumn={getRenderLabelColumn(
+          renderLabelColumn={getRenderLabelColumn({
             regressionAdjustmentEnabled,
             statsEngine,
             hideDetails,
             experimentType,
             visibleDimensionMetricIds,
             toggleVisibleDimensionMetricId,
-          )}
+          })}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
           }
@@ -489,6 +498,7 @@ const CompactResults: FC<{
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.resultGroup === "secondary")}
             id={id}
+            resultGroup="secondary"
             tableRowAxis="metric"
             labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
@@ -496,14 +506,14 @@ const CompactResults: FC<{
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
-            renderLabelColumn={getRenderLabelColumn(
+            renderLabelColumn={getRenderLabelColumn({
               regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
-              undefined,
+              experimentType: undefined,
               visibleDimensionMetricIds,
               toggleVisibleDimensionMetricId,
-            )}
+            })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -533,6 +543,7 @@ const CompactResults: FC<{
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.resultGroup === "guardrail")}
             id={id}
+            resultGroup="guardrail"
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
@@ -540,14 +551,14 @@ const CompactResults: FC<{
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
-            renderLabelColumn={getRenderLabelColumn(
+            renderLabelColumn={getRenderLabelColumn({
               regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
-              undefined,
+              experimentType: undefined,
               visibleDimensionMetricIds,
               toggleVisibleDimensionMetricId,
-            )}
+            })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -568,28 +579,89 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(
-  regressionAdjustmentEnabled?: boolean,
-  statsEngine?: StatsEngine,
-  hideDetails?: boolean,
-  experimentType?: ExperimentType,
-  visibleDimensionMetricIds?: string[],
-  toggleVisibleDimensionMetricId?: (metricId: string) => void,
-) {
-  return function renderLabelColumn(
-    label: string,
-    metric: ExperimentMetricInterface,
-    row?: ExperimentTableRow,
-    maxRows?: number,
-    numDimensions?: number,
-  ) {
+export function getRenderLabelColumn({
+  regressionAdjustmentEnabled,
+  statsEngine,
+  hideDetails,
+  experimentType,
+  visibleDimensionMetricIds,
+  toggleVisibleDimensionMetricId,
+}: {
+  regressionAdjustmentEnabled?: boolean;
+  statsEngine?: StatsEngine;
+  hideDetails?: boolean;
+  experimentType?: ExperimentType;
+  visibleDimensionMetricIds?: string[];
+  toggleVisibleDimensionMetricId?: (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => void;
+}) {
+  return function renderLabelColumn({
+    label,
+    metric,
+    row,
+    maxRows,
+    numDimensions,
+    isDimensionHeader,
+    resultGroup,
+  }: {
+    label: string;
+    metric: ExperimentMetricInterface;
+    row?: ExperimentTableRow;
+    maxRows?: number;
+    numDimensions?: number;
+    isDimensionHeader?: boolean;
+    resultGroup?: "goal" | "secondary" | "guardrail";
+  }) {
     // Check if this is a dimension row
     const isDimensionRow = row?.isDimensionRow || false;
+
+    // Handle dimension header rendering
+    if (isDimensionHeader) {
+      return (
+        <span
+          className="uppercase-title"
+          style={{
+            lineHeight: "1.2em",
+            wordBreak: "break-word",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {row?.dimensionColumnName || ""}
+        </span>
+      );
+    }
 
     const invalidHoldoutMetric =
       experimentType === "holdout" &&
       metric?.windowSettings?.type === "conversion";
-    const metricLink = (
+
+    const metricLink = isDimensionRow ? (
+      <span
+        className={isDimensionRow ? "ml-4" : undefined}
+        style={
+          maxRows
+            ? {
+                display: "-webkit-box",
+                WebkitLineClamp: maxRows,
+                WebkitBoxOrient: "vertical",
+                textOverflow: "ellipsis",
+                overflow: "hidden",
+                lineHeight: "1.2em",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+              }
+            : {
+                lineHeight: "1.2em",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+              }
+        }
+      >
+        {label}
+      </span>
+    ) : (
       <Tooltip
         body={
           <MetricTooltipBody
@@ -611,11 +683,10 @@ export function getRenderLabelColumn(
           />
         }
         tipPosition="right"
-        className={`d-inline-block font-weight-bold metric-label ${isDimensionRow ? "dimension-row-label" : ""}`}
+        className="d-inline-block font-weight-bold metric-label"
         flipTheme={false}
         usePortal={true}
       >
-        {" "}
         <span
           style={
             maxRows
@@ -628,20 +699,16 @@ export function getRenderLabelColumn(
                   lineHeight: "1.2em",
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
-                  color: isDimensionRow ? "var(--gray-11)" : undefined,
-                  fontStyle: isDimensionRow ? "italic" : undefined,
                 }
               : {
                   lineHeight: "1.2em",
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
-                  color: isDimensionRow ? "var(--gray-11)" : undefined,
-                  fontStyle: isDimensionRow ? "italic" : undefined,
                 }
           }
         >
           <ConditionalWrapper
-            condition={!hideDetails && !isDimensionRow}
+            condition={!hideDetails}
             wrapper={
               <Link
                 href={getMetricLink(metric.id)}
@@ -699,7 +766,9 @@ export function getRenderLabelColumn(
     // Check if metric has dimensions available (only for parent rows)
     const hasDimensions = !isDimensionRow && (numDimensions || 0) > 0;
     const isDimensionVisible =
-      visibleDimensionMetricIds?.includes(metric.id) || false;
+      (resultGroup &&
+        visibleDimensionMetricIds?.includes(`${metric.id}:${resultGroup}`)) ||
+      false;
 
     const dimensionToggleButton = hasDimensions ? (
       <Tooltip
@@ -710,26 +779,20 @@ export function getRenderLabelColumn(
         }
         className="mr-1"
       >
-        <Button
-          size="xs"
-          variant="ghost"
-          color="gray"
+        <a
+          role="button"
           onClick={() => {
-            toggleVisibleDimensionMetricId?.(metric.id);
-          }}
-          style={{
-            padding: "2px 4px",
-            minWidth: "auto",
-            height: "auto",
+            if (resultGroup) {
+              toggleVisibleDimensionMetricId?.(metric.id, resultGroup);
+            }
           }}
         >
-          <FaLayerGroup
-            size={12}
-            style={{
-              color: isDimensionVisible ? "var(--purple-11)" : "var(--gray-11)",
-            }}
-          />
-        </Button>
+          {isDimensionVisible ? (
+            <PiCaretCircleDown size={16} />
+          ) : (
+            <PiCaretCircleRight size={16} />
+          )}
+        </a>
       </Tooltip>
     ) : null;
 

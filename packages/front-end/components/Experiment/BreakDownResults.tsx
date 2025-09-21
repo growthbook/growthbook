@@ -414,12 +414,16 @@ const BreakDownResults: FC<{
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
-                    {getRenderLabelColumn(
-                      !!regressionAdjustmentEnabled,
+                    {getRenderLabelColumn({
+                      regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
                       statsEngine,
                       hideDetails,
                       experimentType,
-                    )(table.metric.name, table.metric, table.rows[0])}
+                    })({
+                      label: table.metric.name,
+                      metric: table.metric,
+                      row: table.rows[0],
+                    })}
                   </div>
                 )
               }
@@ -428,7 +432,7 @@ const BreakDownResults: FC<{
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
-              renderLabelColumn={(label) => (
+              renderLabelColumn={({ label }) => (
                 <>
                   {label ? (
                     label === "__NULL_DIMENSION" ? (

@@ -81,13 +81,24 @@ export type ResultsTableProps = {
   tableRowAxis: "metric" | "dimension";
   labelHeader: ReactElement | string;
   editMetrics?: () => void;
-  renderLabelColumn: (
-    label: string,
-    metric: ExperimentMetricInterface,
-    row: ExperimentTableRow,
-    maxRows?: number,
-    numDimensions?: number,
-  ) => string | ReactElement;
+  resultGroup?: "goal" | "secondary" | "guardrail";
+  renderLabelColumn: ({
+    label,
+    metric,
+    row,
+    maxRows,
+    numDimensions,
+    isDimensionHeader,
+    resultGroup,
+  }: {
+    label: string;
+    metric: ExperimentMetricInterface;
+    row: ExperimentTableRow;
+    maxRows?: number;
+    numDimensions?: number;
+    isDimensionHeader?: boolean;
+    resultGroup?: "goal" | "secondary" | "guardrail";
+  }) => string | ReactElement;
   dateCreated: Date;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -109,6 +120,7 @@ export type ResultsTableProps = {
 
 const ROW_HEIGHT = 56;
 const METRIC_LABEL_ROW_HEIGHT = 44;
+const METRIC_DIMENSION_LABEL_ROW_HEIGHT = 32;
 const SPACER_ROW_HEIGHT = 6;
 
 export const RESULTS_TABLE_COLUMNS = [
@@ -146,6 +158,7 @@ export default function ResultsTable({
   startDate,
   endDate,
   renderLabelColumn,
+  resultGroup,
   dateCreated,
   statsEngine,
   pValueCorrection,
@@ -210,20 +223,20 @@ export default function ResultsTable({
     showTimeSeriesButton = false;
   }
 
-  const [visibleTimeSeriesMetricIds, setVisibleTimeSeriesMetricIds] = useState<
+  const [visibleTimeSeriesRowIds, setVisibleTimeSeriesRowIds] = useState<
     string[]
   >([]);
-  const toggleVisibleTimeSeriesMetricId = (metricId: string) => {
-    setVisibleTimeSeriesMetricIds((prev) =>
-      prev.includes(metricId)
-        ? prev.filter((id) => id !== metricId)
-        : [...prev, metricId],
+  const toggleVisibleTimeSeriesRowId = (rowId: string) => {
+    setVisibleTimeSeriesRowIds((prev) =>
+      prev.includes(rowId)
+        ? prev.filter((id) => id !== rowId)
+        : [...prev, rowId],
     );
   };
 
   // Ensure we close all of them if dimension changes
   useEffect(() => {
-    setVisibleTimeSeriesMetricIds([]);
+    setVisibleTimeSeriesRowIds([]);
   }, [tableRowAxis]);
 
   function onResize() {
@@ -695,10 +708,19 @@ export default function ResultsTable({
               let alreadyShownQueryError = false;
               let alreadyShownQuantileError = false;
 
+              // Create a unique row ID that includes both metric ID and row index
+              // This ensures dimension rows have independent state from their parent metric
+              const rowId = `${row.metric.id}-${i}`;
+
+              // Check if we need to render a dimension header row
+              const shouldRenderDimensionHeader =
+                row.isDimensionRow &&
+                rows[i - 1].dimensionColumn !== row.dimensionColumn;
+
               const timeSeriesButton = showTimeSeriesButton ? (
                 <TimeSeriesButton
-                  onClick={() => toggleVisibleTimeSeriesMetricId(row.metric.id)}
-                  isActive={visibleTimeSeriesMetricIds.includes(row.metric.id)}
+                  onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
+                  isActive={visibleTimeSeriesRowIds.includes(rowId)}
                 />
               ) : null;
 
@@ -713,6 +735,38 @@ export default function ResultsTable({
 
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
+                  {/* Render dimension header row if needed */}
+                  {shouldRenderDimensionHeader &&
+                    drawEmptyRow({
+                      className: "dimension-header-row no-border",
+                      labelColSpan: includedLabelColumns.length,
+                      renderLabel: includedLabelColumns.length > 0,
+                      renderGraph: columnsToDisplay.includes("CI Graph"),
+                      renderLastColumn: columnsToDisplay.includes("Lift"),
+                      label: columnsToDisplay.includes(
+                        "Metric & Variation Names",
+                      ) ? (
+                        renderLabelColumn({
+                          label: row.dimensionColumnName || "",
+                          metric: row.metric,
+                          row,
+                          maxRows: 3,
+                          numDimensions: row.numDimensions,
+                          isDimensionHeader: true,
+                          resultGroup,
+                        })
+                      ) : (
+                        <></>
+                      ),
+                      graphCellWidth: columnsToDisplay.includes("CI Graph")
+                        ? graphCellWidth
+                        : 0,
+                      rowHeight: METRIC_DIMENSION_LABEL_ROW_HEIGHT,
+                      id,
+                      domain,
+                      ssrPolyfills,
+                    })}
+
                   {!compactResults &&
                     drawEmptyRow({
                       className: "results-label-row",
@@ -723,13 +777,15 @@ export default function ResultsTable({
                       label: columnsToDisplay.includes(
                         "Metric & Variation Names",
                       ) ? (
-                        renderLabelColumn(
-                          row.label,
-                          row.metric,
+                        renderLabelColumn({
+                          label: row.label,
+                          metric: row.metric,
                           row,
-                          undefined,
-                          row.numDimensions,
-                        )
+                          maxRows: undefined,
+                          numDimensions: row.numDimensions,
+                          isDimensionHeader: false,
+                          resultGroup,
+                        })
                       ) : (
                         <></>
                       ),
@@ -773,13 +829,15 @@ export default function ResultsTable({
                             <>
                               {compactResults ? (
                                 <div className="mb-1">
-                                  {renderLabelColumn(
-                                    row.label,
-                                    row.metric,
+                                  {renderLabelColumn({
+                                    label: row.label,
+                                    metric: row.metric,
                                     row,
-                                    undefined,
-                                    row.numDimensions,
-                                  )}
+                                    maxRows: undefined,
+                                    numDimensions: row.numDimensions,
+                                    isDimensionHeader: false,
+                                    resultGroup,
+                                  })}
                                 </div>
                               ) : null}
                               <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
@@ -902,13 +960,15 @@ export default function ResultsTable({
                                 </span>
                               </div>
                             ) : (
-                              renderLabelColumn(
-                                row.label,
-                                row.metric,
-                                row,
-                                3,
-                                row.numDimensions,
-                              )
+                        renderLabelColumn({
+                          label: row.label,
+                          metric: row.metric,
+                          row,
+                          maxRows: 3,
+                          numDimensions: row.numDimensions,
+                          isDimensionHeader: false,
+                          resultGroup,
+                        })
                             )}
                           </td>
                         )}
@@ -1121,7 +1181,7 @@ export default function ResultsTable({
                     );
                   })}
 
-                  {visibleTimeSeriesMetricIds.includes(row.metric.id) ? (
+                  {visibleTimeSeriesRowIds.includes(rowId) ? (
                     <tr>
                       <td
                         colSpan={columnsToDisplay.length}
@@ -1207,7 +1267,8 @@ function drawEmptyRow({
     <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
       {renderLabel && (
         <td colSpan={labelColSpan}>
-          <div style={{ marginTop: "var(--space-3)" }}>{label}</div>
+          {label}
+          {/*<div style={{ marginTop: "var(--space-3)" }}>{label}</div>*/}
         </td>
       )}
 

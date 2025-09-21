@@ -4626,13 +4626,14 @@ export default abstract class SqlIntegration
     factTable,
     column,
     limit = 50,
+    lookbackDays = 7,
   }: ColumnTopValuesParams) {
     if (column.datatype !== "string") {
       throw new Error(`Column ${column.column} is not a string column`);
     }
 
     const start = new Date();
-    start.setDate(start.getDate() - 7);
+    start.setDate(start.getDate() - lookbackDays);
 
     return format(
       `
@@ -4650,7 +4651,7 @@ WITH
       ${column.column} AS value,
       COUNT(*) AS count
     FROM __factTable
---     WHERE timestamp >= ${this.toTimestamp(start)}
+    WHERE timestamp >= ${this.toTimestamp(start)}
     GROUP BY ${column.column}
   )
 ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}

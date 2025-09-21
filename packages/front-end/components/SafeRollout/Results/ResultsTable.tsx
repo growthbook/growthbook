@@ -64,12 +64,17 @@ export type ResultsTableProps = {
   rows: ExperimentTableRow[];
   dimension?: string;
   editMetrics?: () => void;
-  renderLabelColumn: (
-    label: string,
-    metric: ExperimentMetricInterface,
-    row: ExperimentTableRow,
-    maxRows?: number,
-  ) => string | ReactElement;
+  renderLabelColumn: ({
+    label,
+    metric,
+    row,
+    maxRows,
+  }: {
+    label: string;
+    metric: ExperimentMetricInterface;
+    row: ExperimentTableRow;
+    maxRows?: number;
+  }) => string | ReactElement;
   dateCreated: Date;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -457,7 +462,7 @@ export default function ResultsTable({
                   {!compactResults &&
                     drawEmptyRow({
                       className: "results-label-row",
-                      label: renderLabelColumn(row.label, row.metric, row),
+                      label: renderLabelColumn({ label: row.label, metric: row.metric, row }),
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -481,11 +486,11 @@ export default function ResultsTable({
                             <>
                               {compactResults ? (
                                 <div className="mb-1">
-                                  {renderLabelColumn(
-                                    row.label,
-                                    row.metric,
+                                  {renderLabelColumn({
+                                    label: row.label,
+                                    metric: row.metric,
                                     row,
-                                  )}
+                                  })}
                                 </div>
                               ) : null}
                               <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
@@ -567,7 +572,7 @@ export default function ResultsTable({
                                 </span>
                               </div>
                             ) : (
-                              renderLabelColumn(row.label, row.metric, row, 3)
+                              renderLabelColumn({ label: row.label, metric: row.metric, row, maxRows: 3 })
                             )}
                           </td>
                           {j > 0 &&

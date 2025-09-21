@@ -666,14 +666,16 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    tr:not(.noborder) {
-      box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+    tr {
+      &:not(.no-border) {
+        box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+      }
 
       &:last-of-type {
         box-shadow: rgba(102, 102, 102, 0.125) 0 -2px inset;
       }
 
-      &:not(.results-label-row) {
+      &:not(.results-label-row):not(.dimension-header-row) {
         td:not(.graph-cell):not(:last-child) {
           box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
         }
@@ -1407,7 +1409,7 @@ main.main {
 // Required for the collapsible component to work correctly with lazyRender={true} - https://github.com/glennflanagan/react-collapsible/issues/36
 .Collapsible__contentInner {
   border: 1px solid transparent;
-  }
+}
 
 .Collapsible__trigger {
   &:hover {
