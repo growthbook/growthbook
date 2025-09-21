@@ -16,7 +16,7 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import Link from "next/link";
-import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
+import { FaAngleRight, FaAngleDown, FaTimes, FaUsers } from "react-icons/fa";
 import {
   PiCaretCircleRight,
   PiCaretCircleDown,
@@ -150,6 +150,20 @@ const CompactResults: FC<{
   ) => {
     const key = `${metricId}:${resultGroup}`;
     setVisibleDimensionMetricIds((prev) =>
+      prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key],
+    );
+  };
+
+  const [visibleDimensionHeaderIds, setVisibleDimensionHeaderIds] = useState<
+    string[]
+  >([]);
+  const toggleVisibleDimensionHeaderId = (
+    metricId: string,
+    dimensionColumn: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => {
+    const key = `${metricId}:${dimensionColumn}:${resultGroup}`;
+    setVisibleDimensionHeaderIds((prev) =>
       prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key],
     );
   };
@@ -462,7 +476,10 @@ const CompactResults: FC<{
             experimentType,
             visibleDimensionMetricIds,
             toggleVisibleDimensionMetricId,
+            visibleDimensionHeaderIds,
+            toggleVisibleDimensionHeaderId,
           })}
+          visibleDimensionHeaderIds={visibleDimensionHeaderIds}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
           }
@@ -513,7 +530,10 @@ const CompactResults: FC<{
               experimentType: undefined,
               visibleDimensionMetricIds,
               toggleVisibleDimensionMetricId,
+              visibleDimensionHeaderIds,
+              toggleVisibleDimensionHeaderId,
             })}
+            visibleDimensionHeaderIds={visibleDimensionHeaderIds}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -558,7 +578,10 @@ const CompactResults: FC<{
               experimentType: undefined,
               visibleDimensionMetricIds,
               toggleVisibleDimensionMetricId,
+              visibleDimensionHeaderIds,
+              toggleVisibleDimensionHeaderId,
             })}
+            visibleDimensionHeaderIds={visibleDimensionHeaderIds}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -586,6 +609,8 @@ export function getRenderLabelColumn({
   experimentType,
   visibleDimensionMetricIds,
   toggleVisibleDimensionMetricId,
+  visibleDimensionHeaderIds,
+  toggleVisibleDimensionHeaderId,
 }: {
   regressionAdjustmentEnabled?: boolean;
   statsEngine?: StatsEngine;
@@ -594,6 +619,12 @@ export function getRenderLabelColumn({
   visibleDimensionMetricIds?: string[];
   toggleVisibleDimensionMetricId?: (
     metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => void;
+  visibleDimensionHeaderIds?: string[];
+  toggleVisibleDimensionHeaderId?: (
+    metricId: string,
+    dimensionColumn: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
 }) {
@@ -619,17 +650,52 @@ export function getRenderLabelColumn({
 
     // Handle dimension header rendering
     if (isDimensionHeader) {
+      const headerKey = `${metric.id}:${row?.dimensionColumn}:${resultGroup}`;
+      const isHeaderVisible =
+        visibleDimensionHeaderIds?.includes(headerKey) || false;
+
       return (
-        <span
-          className="uppercase-title"
-          style={{
-            lineHeight: "1.2em",
-            wordBreak: "break-word",
-            overflowWrap: "anywhere",
-          }}
+        <Tooltip
+          body={
+            isHeaderVisible ? "Hide dimension levels" : "Show dimension levels"
+          }
         >
-          {row?.dimensionColumnName || ""}
-        </span>
+          <a
+            role="button"
+            onClick={() => {
+              if (resultGroup && row?.dimensionColumn) {
+                toggleVisibleDimensionHeaderId?.(
+                  metric.id,
+                  row.dimensionColumn,
+                  resultGroup,
+                );
+              }
+            }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              textDecoration: "none",
+              color: "inherit",
+              cursor: "pointer",
+            }}
+          >
+            {isHeaderVisible ? (
+              <FaAngleDown size={14} className="mr-1" />
+            ) : (
+              <FaAngleRight size={14} className="mr-1" />
+            )}
+            <span
+              className="uppercase-title"
+              style={{
+                lineHeight: "1.2em",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
+              }}
+            >
+              {row?.dimensionColumnName || ""}
+            </span>
+          </a>
+        </Tooltip>
       );
     }
 
@@ -639,7 +705,7 @@ export function getRenderLabelColumn({
 
     const metricLink = isDimensionRow ? (
       <span
-        className={isDimensionRow ? "ml-4" : undefined}
+        className={isDimensionRow ? "ml-2" : undefined}
         style={
           maxRows
             ? {

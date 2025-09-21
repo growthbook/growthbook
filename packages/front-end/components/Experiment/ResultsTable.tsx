@@ -99,6 +99,7 @@ export type ResultsTableProps = {
     isDimensionHeader?: boolean;
     resultGroup?: "goal" | "secondary" | "guardrail";
   }) => string | ReactElement;
+  visibleDimensionHeaderIds?: string[];
   dateCreated: Date;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -159,6 +160,7 @@ export default function ResultsTable({
   endDate,
   renderLabelColumn,
   resultGroup,
+  visibleDimensionHeaderIds,
   dateCreated,
   statsEngine,
   pValueCorrection,
@@ -717,6 +719,17 @@ export default function ResultsTable({
                 row.isDimensionRow &&
                 rows[i - 1].dimensionColumn !== row.dimensionColumn;
 
+              // Check if dimension level rows should be visible based on header toggle
+              const shouldShowDimensionLevels = row.isDimensionRow
+                ? (() => {
+                    // Find the corresponding dimension header for this row
+                    const headerKey = `${row.metric.id}:${row.dimensionColumn}:${resultGroup}`;
+                    return (
+                      visibleDimensionHeaderIds?.includes(headerKey) || false
+                    );
+                  })()
+                : true;
+
               const timeSeriesButton = showTimeSeriesButton ? (
                 <TimeSeriesButton
                   onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
@@ -734,252 +747,299 @@ export default function ResultsTable({
               );
 
               return (
-                <tbody className={clsx("results-group-row")} key={i}>
-                  {/* Render dimension header row if needed */}
-                  {shouldRenderDimensionHeader &&
-                    drawEmptyRow({
-                      className: "dimension-header-row no-border",
-                      labelColSpan: includedLabelColumns.length,
-                      renderLabel: includedLabelColumns.length > 0,
-                      renderGraph: columnsToDisplay.includes("CI Graph"),
-                      renderLastColumn: columnsToDisplay.includes("Lift"),
-                      label: columnsToDisplay.includes(
-                        "Metric & Variation Names",
-                      ) ? (
-                        renderLabelColumn({
-                          label: row.dimensionColumnName || "",
-                          metric: row.metric,
-                          row,
-                          maxRows: 3,
-                          numDimensions: row.numDimensions,
-                          isDimensionHeader: true,
-                          resultGroup,
-                        })
-                      ) : (
-                        <></>
-                      ),
-                      graphCellWidth: columnsToDisplay.includes("CI Graph")
-                        ? graphCellWidth
-                        : 0,
-                      rowHeight: METRIC_DIMENSION_LABEL_ROW_HEIGHT,
-                      id,
-                      domain,
-                      ssrPolyfills,
-                    })}
+                <>
+                  {/* Render dimension header row in its own tbody if needed */}
+                  {shouldRenderDimensionHeader && (
+                    <tbody
+                      className="dimension-header-tbody"
+                      key={`header-${i}`}
+                    >
+                      {drawEmptyRow({
+                        className: "dimension-header-row no-border",
+                        labelColSpan: includedLabelColumns.length,
+                        renderLabel: includedLabelColumns.length > 0,
+                        renderGraph: columnsToDisplay.includes("CI Graph"),
+                        renderLastColumn: columnsToDisplay.includes("Lift"),
+                        label: columnsToDisplay.includes(
+                          "Metric & Variation Names",
+                        ) ? (
+                          renderLabelColumn({
+                            label: row.dimensionColumnName || "",
+                            metric: row.metric,
+                            row,
+                            maxRows: 3,
+                            numDimensions: row.numDimensions,
+                            isDimensionHeader: true,
+                            resultGroup,
+                          })
+                        ) : (
+                          <></>
+                        ),
+                        graphCellWidth: columnsToDisplay.includes("CI Graph")
+                          ? graphCellWidth
+                          : 0,
+                        rowHeight: METRIC_DIMENSION_LABEL_ROW_HEIGHT,
+                        id,
+                        domain,
+                        ssrPolyfills,
+                      })}
+                    </tbody>
+                  )}
 
-                  {!compactResults &&
-                    drawEmptyRow({
-                      className: "results-label-row",
-                      labelColSpan: includedLabelColumns.length,
-                      renderLabel: includedLabelColumns.length > 0,
-                      renderGraph: columnsToDisplay.includes("CI Graph"),
-                      renderLastColumn: columnsToDisplay.includes("Lift"),
-                      label: columnsToDisplay.includes(
-                        "Metric & Variation Names",
-                      ) ? (
-                        renderLabelColumn({
-                          label: row.label,
-                          metric: row.metric,
-                          row,
-                          maxRows: undefined,
-                          numDimensions: row.numDimensions,
-                          isDimensionHeader: false,
-                          resultGroup,
-                        })
-                      ) : (
-                        <></>
-                      ),
-                      graphCellWidth: columnsToDisplay.includes("CI Graph")
-                        ? graphCellWidth
-                        : 0,
-                      rowHeight: METRIC_LABEL_ROW_HEIGHT,
-                      id,
-                      domain,
-                      ssrPolyfills,
-                      lastColumnContent:
-                        !compactResults && timeSeriesButton !== null ? (
-                          <Flex justify="end" mr="-1">
-                            {timeSeriesButton}
-                          </Flex>
-                        ) : undefined,
-                    })}
+                  {/* Render the main results tbody */}
+                  <tbody className={clsx("results-group-row")} key={i}>
+                    {!compactResults &&
+                      shouldShowDimensionLevels &&
+                      drawEmptyRow({
+                        className: "results-label-row",
+                        labelColSpan: includedLabelColumns.length,
+                        renderLabel: includedLabelColumns.length > 0,
+                        renderGraph: columnsToDisplay.includes("CI Graph"),
+                        renderLastColumn: columnsToDisplay.includes("Lift"),
+                        label: columnsToDisplay.includes(
+                          "Metric & Variation Names",
+                        ) ? (
+                          renderLabelColumn({
+                            label: row.label,
+                            metric: row.metric,
+                            row,
+                            maxRows: undefined,
+                            numDimensions: row.numDimensions,
+                            isDimensionHeader: false,
+                            resultGroup,
+                          })
+                        ) : (
+                          <></>
+                        ),
+                        graphCellWidth: columnsToDisplay.includes("CI Graph")
+                          ? graphCellWidth
+                          : 0,
+                        rowHeight: METRIC_LABEL_ROW_HEIGHT,
+                        id,
+                        domain,
+                        ssrPolyfills,
+                        lastColumnContent:
+                          !compactResults && timeSeriesButton !== null ? (
+                            <Flex justify="end" mr="-1">
+                              {timeSeriesButton}
+                            </Flex>
+                          ) : undefined,
+                      })}
 
-                  {orderedVariations.map((v, j) => {
-                    const stats = row.variations[v.index] || {
-                      value: 0,
-                      cr: 0,
-                      users: 0,
-                    };
-                    const rowResults = rowsResults?.[i]?.[j];
-                    if (!rowResults) {
-                      return null;
-                    }
-                    if (rowResults === "query error") {
-                      if (!alreadyShownQueryError) {
-                        alreadyShownQueryError = true;
-                        return drawEmptyRow({
-                          key: j,
-                          className:
-                            "results-variation-row align-items-center error-row",
-                          labelColSpan: includedLabelColumns.length,
-                          renderLabel: includedLabelColumns.length > 0,
-                          renderGraph: columnsToDisplay.includes("CI Graph"),
-                          renderLastColumn: columnsToDisplay.includes("Lift"),
-                          label: (
-                            <>
-                              {compactResults ? (
-                                <div className="mb-1">
-                                  {renderLabelColumn({
+                    {shouldShowDimensionLevels &&
+                      orderedVariations.map((v, j) => {
+                        const stats = row.variations[v.index] || {
+                          value: 0,
+                          cr: 0,
+                          users: 0,
+                        };
+                        const rowResults = rowsResults?.[i]?.[j];
+                        if (!rowResults) {
+                          return null;
+                        }
+                        if (rowResults === "query error") {
+                          if (!alreadyShownQueryError) {
+                            alreadyShownQueryError = true;
+                            return drawEmptyRow({
+                              key: j,
+                              className:
+                                "results-variation-row align-items-center error-row",
+                              labelColSpan: includedLabelColumns.length,
+                              renderLabel: includedLabelColumns.length > 0,
+                              renderGraph:
+                                columnsToDisplay.includes("CI Graph"),
+                              renderLastColumn:
+                                columnsToDisplay.includes("Lift"),
+                              label: (
+                                <>
+                                  {compactResults ? (
+                                    <div className="mb-1">
+                                      {renderLabelColumn({
+                                        label: row.label,
+                                        metric: row.metric,
+                                        row,
+                                        maxRows: undefined,
+                                        numDimensions: row.numDimensions,
+                                        isDimensionHeader: false,
+                                        resultGroup,
+                                      })}
+                                    </div>
+                                  ) : null}
+                                  <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+                                    <FaExclamationTriangle className="mr-1" />
+                                    Query error
+                                  </div>
+                                </>
+                              ),
+                              graphCellWidth: columnsToDisplay.includes(
+                                "CI Graph",
+                              )
+                                ? graphCellWidth
+                                : 0,
+                              rowHeight: compactResults
+                                ? ROW_HEIGHT + 20
+                                : ROW_HEIGHT,
+                              id,
+                              domain,
+                              ssrPolyfills,
+                            });
+                          } else {
+                            return null;
+                          }
+                        }
+                        if (
+                          rowResults === RowError.QUANTILE_AGGREGATION_ERROR
+                        ) {
+                          if (!alreadyShownQuantileError) {
+                            alreadyShownQuantileError = true;
+                            return drawEmptyRow({
+                              key: j,
+                              className:
+                                "results-variation-row align-items-center error-row",
+                              labelColSpan: includedLabelColumns.length,
+                              renderLabel: includedLabelColumns.length > 0,
+                              renderGraph:
+                                columnsToDisplay.includes("CI Graph"),
+                              renderLastColumn:
+                                columnsToDisplay.includes("Lift"),
+                              label: (
+                                <div className="alert alert-danger px-2 py-1">
+                                  <FaExclamationTriangle className="mr-1" />
+                                  Quantile metrics not available for
+                                  pre-computed dimensions. Use a custom report
+                                  instead.
+                                </div>
+                              ),
+                              graphCellWidth,
+                              rowHeight: compactResults
+                                ? ROW_HEIGHT + 20
+                                : ROW_HEIGHT,
+                              id,
+                              domain,
+                              ssrPolyfills,
+                            });
+                          } else {
+                            return null;
+                          }
+                        }
+
+                        const hideScaledImpact =
+                          !rowResults.hasScaledImpact &&
+                          differenceType === "scaled";
+                        const isHovered =
+                          hoveredMetricRow === i && hoveredVariationRow === j;
+
+                        const resultsHighlightClassname = clsx(
+                          rowResults.resultsStatus,
+                          {
+                            "non-significant": !rowResults.significant,
+                            hover: isHovered,
+                          },
+                        );
+
+                        const onPointerMove = (
+                          e,
+                          settings?: TooltipHoverSettings,
+                        ) => {
+                          // No hover tooltip if the screen is too narrow. Clicks still work.
+                          if (
+                            e?.type === "mousemove" &&
+                            (globalThis.window?.innerWidth ?? 900) < 900
+                          ) {
+                            return;
+                          }
+                          if (!rowResults.hasData) return;
+                          hoverRow(i, j, e, settings);
+                        };
+                        const onPointerLeave = () => {
+                          if (!rowResults.hasData) return;
+                          leaveRow();
+                        };
+
+                        return (
+                          <tr
+                            className="results-variation-row align-items-center"
+                            key={j}
+                            style={{
+                              height: compactResults
+                                ? ROW_HEIGHT + 10
+                                : ROW_HEIGHT,
+                            }}
+                          >
+                            {columnsToDisplay.includes(
+                              "Metric & Variation Names",
+                            ) && (
+                              <td
+                                className={`variation with-variation-label variation${v.index}`}
+                                style={{
+                                  width: 220 * tableCellScale,
+                                }}
+                              >
+                                {!compactResults ? (
+                                  <div className="d-flex align-items-center">
+                                    <span
+                                      className="label ml-1"
+                                      style={{ width: 20, height: 20 }}
+                                    >
+                                      {v.index}
+                                    </span>
+                                    <span
+                                      className="d-inline-block text-ellipsis"
+                                      title={v.name}
+                                      style={{
+                                        width: 165 * tableCellScale,
+                                      }}
+                                    >
+                                      {v.name}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  renderLabelColumn({
                                     label: row.label,
                                     metric: row.metric,
                                     row,
-                                    maxRows: undefined,
+                                    maxRows: 3,
                                     numDimensions: row.numDimensions,
                                     isDimensionHeader: false,
                                     resultGroup,
-                                  })}
-                                </div>
-                              ) : null}
-                              <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-                                <FaExclamationTriangle className="mr-1" />
-                                Query error
-                              </div>
-                            </>
-                          ),
-                          graphCellWidth: columnsToDisplay.includes("CI Graph")
-                            ? graphCellWidth
-                            : 0,
-                          rowHeight: compactResults
-                            ? ROW_HEIGHT + 20
-                            : ROW_HEIGHT,
-                          id,
-                          domain,
-                          ssrPolyfills,
-                        });
-                      } else {
-                        return null;
-                      }
-                    }
-                    if (rowResults === RowError.QUANTILE_AGGREGATION_ERROR) {
-                      if (!alreadyShownQuantileError) {
-                        alreadyShownQuantileError = true;
-                        return drawEmptyRow({
-                          key: j,
-                          className:
-                            "results-variation-row align-items-center error-row",
-                          labelColSpan: includedLabelColumns.length,
-                          renderLabel: includedLabelColumns.length > 0,
-                          renderGraph: columnsToDisplay.includes("CI Graph"),
-                          renderLastColumn: columnsToDisplay.includes("Lift"),
-                          label: (
-                            <div className="alert alert-danger px-2 py-1">
-                              <FaExclamationTriangle className="mr-1" />
-                              Quantile metrics not available for pre-computed
-                              dimensions. Use a custom report instead.
-                            </div>
-                          ),
-                          graphCellWidth,
-                          rowHeight: compactResults
-                            ? ROW_HEIGHT + 20
-                            : ROW_HEIGHT,
-                          id,
-                          domain,
-                          ssrPolyfills,
-                        });
-                      } else {
-                        return null;
-                      }
-                    }
-
-                    const hideScaledImpact =
-                      !rowResults.hasScaledImpact &&
-                      differenceType === "scaled";
-                    const isHovered =
-                      hoveredMetricRow === i && hoveredVariationRow === j;
-
-                    const resultsHighlightClassname = clsx(
-                      rowResults.resultsStatus,
-                      {
-                        "non-significant": !rowResults.significant,
-                        hover: isHovered,
-                      },
-                    );
-
-                    const onPointerMove = (
-                      e,
-                      settings?: TooltipHoverSettings,
-                    ) => {
-                      // No hover tooltip if the screen is too narrow. Clicks still work.
-                      if (
-                        e?.type === "mousemove" &&
-                        (globalThis.window?.innerWidth ?? 900) < 900
-                      ) {
-                        return;
-                      }
-                      if (!rowResults.hasData) return;
-                      hoverRow(i, j, e, settings);
-                    };
-                    const onPointerLeave = () => {
-                      if (!rowResults.hasData) return;
-                      leaveRow();
-                    };
-
-                    return (
-                      <tr
-                        className="results-variation-row align-items-center"
-                        key={j}
-                        style={{
-                          height: compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT,
-                        }}
-                      >
-                        {columnsToDisplay.includes(
-                          "Metric & Variation Names",
-                        ) && (
-                          <td
-                            className={`variation with-variation-label variation${v.index}`}
-                            style={{
-                              width: 220 * tableCellScale,
-                            }}
-                          >
-                            {!compactResults ? (
-                              <div className="d-flex align-items-center">
-                                <span
-                                  className="label ml-1"
-                                  style={{ width: 20, height: 20 }}
-                                >
-                                  {v.index}
-                                </span>
-                                <span
-                                  className="d-inline-block text-ellipsis"
-                                  title={v.name}
-                                  style={{
-                                    width: 165 * tableCellScale,
-                                  }}
-                                >
-                                  {v.name}
-                                </span>
-                              </div>
-                            ) : (
-                        renderLabelColumn({
-                          label: row.label,
-                          metric: row.metric,
-                          row,
-                          maxRows: 3,
-                          numDimensions: row.numDimensions,
-                          isDimensionHeader: false,
-                          resultGroup,
-                        })
+                                  })
+                                )}
+                              </td>
                             )}
-                          </td>
-                        )}
-                        {columnsToDisplay.includes("Baseline Average") && (
-                          <>
-                            {j > 0 ? (
+                            {columnsToDisplay.includes("Baseline Average") && (
+                              <>
+                                {j > 0 ? (
+                                  <MetricValueColumn
+                                    metric={row.metric}
+                                    stats={baseline}
+                                    users={baseline?.users || 0}
+                                    className={clsx("value baseline", {
+                                      hover: isHovered,
+                                    })}
+                                    showRatio={!isBandit}
+                                    displayCurrency={displayCurrency}
+                                    getExperimentMetricById={
+                                      ssrPolyfills?.getExperimentMetricById ||
+                                      getExperimentMetricById
+                                    }
+                                    getFactTableById={
+                                      ssrPolyfills?.getFactTableById ||
+                                      getFactTableById
+                                    }
+                                  />
+                                ) : (
+                                  <td />
+                                )}
+                              </>
+                            )}
+                            {columnsToDisplay.includes(
+                              "Variation Averages",
+                            ) && (
                               <MetricValueColumn
                                 metric={row.metric}
-                                stats={baseline}
-                                users={baseline?.users || 0}
-                                className={clsx("value baseline", {
+                                stats={stats}
+                                users={stats?.users || 0}
+                                className={clsx("value", {
                                   hover: isHovered,
                                 })}
                                 showRatio={!isBandit}
@@ -993,224 +1053,207 @@ export default function ResultsTable({
                                   getFactTableById
                                 }
                               />
-                            ) : (
-                              <td />
                             )}
-                          </>
-                        )}
-                        {columnsToDisplay.includes("Variation Averages") && (
-                          <MetricValueColumn
-                            metric={row.metric}
-                            stats={stats}
-                            users={stats?.users || 0}
-                            className={clsx("value", {
-                              hover: isHovered,
-                            })}
-                            showRatio={!isBandit}
-                            displayCurrency={displayCurrency}
-                            getExperimentMetricById={
-                              ssrPolyfills?.getExperimentMetricById ||
-                              getExperimentMetricById
-                            }
-                            getFactTableById={
-                              ssrPolyfills?.getFactTableById || getFactTableById
-                            }
-                          />
-                        )}
-                        {columnsToDisplay.includes("Chance to Win") && (
-                          <>
-                            {j > 0 ? (
-                              statsEngine === "bayesian" ? (
-                                <ChanceToWinColumn
-                                  stats={stats}
-                                  baseline={baseline}
-                                  rowResults={rowResults}
-                                  showRisk={true}
-                                  showSuspicious={true}
-                                  showPercentComplete={false}
-                                  showTimeRemaining={true}
-                                  showGuardrailWarning={
-                                    row.resultGroup === "guardrail"
-                                  }
-                                  hideScaledImpact={hideScaledImpact}
-                                  className={clsx(
-                                    "results-ctw",
-                                    resultsHighlightClassname,
-                                  )}
-                                  onMouseMove={onPointerMove}
-                                  onMouseLeave={onPointerLeave}
-                                  onClick={onPointerMove}
-                                />
-                              ) : (
-                                <PValueColumn
-                                  stats={stats}
-                                  baseline={baseline}
-                                  rowResults={rowResults}
-                                  pValueCorrection={
-                                    row.resultGroup === "goal"
-                                      ? pValueCorrection
-                                      : undefined
-                                  }
-                                  showRisk={true}
-                                  showSuspicious={true}
-                                  showPercentComplete={false}
-                                  showTimeRemaining={true}
-                                  showUnadjustedPValue={false}
-                                  showGuardrailWarning={
-                                    row.resultGroup === "guardrail"
-                                  }
-                                  hideScaledImpact={hideScaledImpact}
-                                  className={clsx(
-                                    "results-pval",
-                                    resultsHighlightClassname,
-                                  )}
-                                  onMouseMove={onPointerMove}
-                                  onMouseLeave={onPointerLeave}
-                                  onClick={onPointerMove}
-                                />
-                              )
-                            ) : (
-                              <td></td>
-                            )}
-                          </>
-                        )}
-                        {columnsToDisplay.includes("CI Graph") && (
-                          <td className="graph-cell">
-                            {j > 0 ? (
-                              <PercentGraph
-                                barType={
-                                  statsEngine === "frequentist"
-                                    ? "pill"
-                                    : undefined
-                                }
-                                barFillType={
-                                  statsEngine === "frequentist"
-                                    ? "significant"
-                                    : "gradient"
-                                }
-                                disabled={hideScaledImpact}
-                                significant={rowResults.significant}
-                                baseline={baseline}
-                                domain={domain}
-                                metric={row.metric}
-                                stats={stats}
-                                id={`${id}_violin_row${i}_var${j}_${
-                                  row.resultGroup
-                                }_${encodeURIComponent(dimension ?? "d-none")}`}
-                                graphWidth={graphCellWidth}
-                                height={
-                                  compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
-                                }
-                                isHovered={isHovered}
-                                percent={differenceType === "relative"}
-                                className={clsx(
-                                  resultsHighlightClassname,
-                                  "overflow-hidden",
+                            {columnsToDisplay.includes("Chance to Win") && (
+                              <>
+                                {j > 0 ? (
+                                  statsEngine === "bayesian" ? (
+                                    <ChanceToWinColumn
+                                      stats={stats}
+                                      baseline={baseline}
+                                      rowResults={rowResults}
+                                      showRisk={true}
+                                      showSuspicious={true}
+                                      showPercentComplete={false}
+                                      showTimeRemaining={true}
+                                      showGuardrailWarning={
+                                        row.resultGroup === "guardrail"
+                                      }
+                                      hideScaledImpact={hideScaledImpact}
+                                      className={clsx(
+                                        "results-ctw",
+                                        resultsHighlightClassname,
+                                      )}
+                                      onMouseMove={onPointerMove}
+                                      onMouseLeave={onPointerLeave}
+                                      onClick={onPointerMove}
+                                    />
+                                  ) : (
+                                    <PValueColumn
+                                      stats={stats}
+                                      baseline={baseline}
+                                      rowResults={rowResults}
+                                      pValueCorrection={
+                                        row.resultGroup === "goal"
+                                          ? pValueCorrection
+                                          : undefined
+                                      }
+                                      showRisk={true}
+                                      showSuspicious={true}
+                                      showPercentComplete={false}
+                                      showTimeRemaining={true}
+                                      showUnadjustedPValue={false}
+                                      showGuardrailWarning={
+                                        row.resultGroup === "guardrail"
+                                      }
+                                      hideScaledImpact={hideScaledImpact}
+                                      className={clsx(
+                                        "results-pval",
+                                        resultsHighlightClassname,
+                                      )}
+                                      onMouseMove={onPointerMove}
+                                      onMouseLeave={onPointerLeave}
+                                      onClick={onPointerMove}
+                                    />
+                                  )
+                                ) : (
+                                  <td></td>
                                 )}
-                                rowStatus={
-                                  statsEngine === "frequentist"
-                                    ? rowResults.resultsStatus
-                                    : undefined
-                                }
-                                ssrPolyfills={ssrPolyfills}
-                                onMouseMove={(e) =>
-                                  onPointerMove(e, {
-                                    x: "element-center",
-                                    targetClassName: "hover-target",
-                                    offsetY: -8,
-                                  })
-                                }
-                                onMouseLeave={onPointerLeave}
-                                onClick={(e) =>
-                                  onPointerMove(e, {
-                                    x: "element-center",
-                                    offsetY: -8,
-                                  })
-                                }
-                              />
-                            ) : (
-                              <AlignedGraph
-                                id={`${id}_axis`}
-                                domain={domain}
-                                significant={true}
-                                showAxis={false}
-                                percent={differenceType === "relative"}
-                                axisOnly={true}
-                                graphWidth={graphCellWidth}
-                                height={32}
-                                ssrPolyfills={ssrPolyfills}
-                              />
+                              </>
                             )}
-                          </td>
-                        )}
-                        {columnsToDisplay.includes("Lift") && (
-                          <>
-                            {j > 0 ? (
-                              <ChangeColumn
-                                metric={row.metric}
-                                stats={stats}
-                                rowResults={rowResults}
-                                differenceType={differenceType}
-                                statsEngine={statsEngine}
-                                className={resultsHighlightClassname}
-                                ssrPolyfills={ssrPolyfills}
-                                additionalButton={
-                                  compactResults ? timeSeriesButton : undefined
-                                }
-                                onMouseMove={(e) =>
-                                  onPointerMove(e, {
-                                    x: "element-left",
-                                    targetClassName: "hover-target",
-                                    offsetY: -8,
-                                  })
-                                }
-                                onMouseLeave={onPointerLeave}
-                                onClick={(e) =>
-                                  onPointerMove(e, {
-                                    x: "element-left",
-                                    offsetY: -8,
-                                  })
-                                }
-                              />
-                            ) : (
-                              <td></td>
+                            {columnsToDisplay.includes("CI Graph") && (
+                              <td className="graph-cell">
+                                {j > 0 ? (
+                                  <PercentGraph
+                                    barType={
+                                      statsEngine === "frequentist"
+                                        ? "pill"
+                                        : undefined
+                                    }
+                                    barFillType={
+                                      statsEngine === "frequentist"
+                                        ? "significant"
+                                        : "gradient"
+                                    }
+                                    disabled={hideScaledImpact}
+                                    significant={rowResults.significant}
+                                    baseline={baseline}
+                                    domain={domain}
+                                    metric={row.metric}
+                                    stats={stats}
+                                    id={`${id}_violin_row${i}_var${j}_${
+                                      row.resultGroup
+                                    }_${encodeURIComponent(dimension ?? "d-none")}`}
+                                    graphWidth={graphCellWidth}
+                                    height={
+                                      compactResults
+                                        ? ROW_HEIGHT + 10
+                                        : ROW_HEIGHT
+                                    }
+                                    isHovered={isHovered}
+                                    percent={differenceType === "relative"}
+                                    className={clsx(
+                                      resultsHighlightClassname,
+                                      "overflow-hidden",
+                                    )}
+                                    rowStatus={
+                                      statsEngine === "frequentist"
+                                        ? rowResults.resultsStatus
+                                        : undefined
+                                    }
+                                    ssrPolyfills={ssrPolyfills}
+                                    onMouseMove={(e) =>
+                                      onPointerMove(e, {
+                                        x: "element-center",
+                                        targetClassName: "hover-target",
+                                        offsetY: -8,
+                                      })
+                                    }
+                                    onMouseLeave={onPointerLeave}
+                                    onClick={(e) =>
+                                      onPointerMove(e, {
+                                        x: "element-center",
+                                        offsetY: -8,
+                                      })
+                                    }
+                                  />
+                                ) : (
+                                  <AlignedGraph
+                                    id={`${id}_axis`}
+                                    domain={domain}
+                                    significant={true}
+                                    showAxis={false}
+                                    percent={differenceType === "relative"}
+                                    axisOnly={true}
+                                    graphWidth={graphCellWidth}
+                                    height={32}
+                                    ssrPolyfills={ssrPolyfills}
+                                  />
+                                )}
+                              </td>
                             )}
-                          </>
-                        )}
-                      </tr>
-                    );
-                  })}
+                            {columnsToDisplay.includes("Lift") && (
+                              <>
+                                {j > 0 ? (
+                                  <ChangeColumn
+                                    metric={row.metric}
+                                    stats={stats}
+                                    rowResults={rowResults}
+                                    differenceType={differenceType}
+                                    statsEngine={statsEngine}
+                                    className={resultsHighlightClassname}
+                                    ssrPolyfills={ssrPolyfills}
+                                    additionalButton={
+                                      compactResults
+                                        ? timeSeriesButton
+                                        : undefined
+                                    }
+                                    onMouseMove={(e) =>
+                                      onPointerMove(e, {
+                                        x: "element-left",
+                                        targetClassName: "hover-target",
+                                        offsetY: -8,
+                                      })
+                                    }
+                                    onMouseLeave={onPointerLeave}
+                                    onClick={(e) =>
+                                      onPointerMove(e, {
+                                        x: "element-left",
+                                        offsetY: -8,
+                                      })
+                                    }
+                                  />
+                                ) : (
+                                  <td></td>
+                                )}
+                              </>
+                            )}
+                          </tr>
+                        );
+                      })}
 
-                  {visibleTimeSeriesRowIds.includes(rowId) ? (
-                    <tr>
-                      <td
-                        colSpan={columnsToDisplay.length}
-                        style={{ padding: 0 }}
-                      >
-                        <div className={styles.expandAnimation}>
-                          <div className={styles.timeSeriesCell}>
-                            <ExperimentMetricTimeSeriesGraphWrapper
-                              experimentId={id}
-                              phase={phase}
-                              experimentStatus={status}
-                              metric={row.metric}
-                              differenceType={differenceType}
-                              variationNames={orderedVariations.map(
-                                (v) => v.name,
-                              )}
-                              showVariations={showVariations}
-                              statsEngine={statsEngine}
-                              pValueAdjustmentEnabled={
-                                !!appliedPValueCorrection && rows.length > 1
-                              }
-                              firstDateToRender={getValidDate(startDate)}
-                            />
+                    {shouldShowDimensionLevels &&
+                    visibleTimeSeriesRowIds.includes(rowId) ? (
+                      <tr>
+                        <td
+                          colSpan={columnsToDisplay.length}
+                          style={{ padding: 0 }}
+                        >
+                          <div className={styles.expandAnimation}>
+                            <div className={styles.timeSeriesCell}>
+                              <ExperimentMetricTimeSeriesGraphWrapper
+                                experimentId={id}
+                                phase={phase}
+                                experimentStatus={status}
+                                metric={row.metric}
+                                differenceType={differenceType}
+                                variationNames={orderedVariations.map(
+                                  (v) => v.name,
+                                )}
+                                showVariations={showVariations}
+                                statsEngine={statsEngine}
+                                pValueAdjustmentEnabled={
+                                  !!appliedPValueCorrection && rows.length > 1
+                                }
+                                firstDateToRender={getValidDate(startDate)}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </>
               );
             })}
           </table>
