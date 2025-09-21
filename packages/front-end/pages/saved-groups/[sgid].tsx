@@ -35,9 +35,9 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import { DocLink } from "@/components/DocLink";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useExperiments } from "@/hooks/useExperiments";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const NUM_PER_PAGE = 10;
 

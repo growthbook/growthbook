@@ -26,7 +26,7 @@ import Table, {
   TableColumnHeader,
   TableBody,
   TableCell,
-} from "@/components/Radix/Table";
+} from "@/ui/Table";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getVariationColor } from "@/services/features";
 import { getEffectLabel, RowResults } from "@/services/experiments";
@@ -44,7 +44,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import FlagCard from "@/components/FlagCard/FlagCard";
 import { PercentileLabel } from "@/components/Metrics/MetricName";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 
 interface AnalysisResultPopoverProps {
   data?: {

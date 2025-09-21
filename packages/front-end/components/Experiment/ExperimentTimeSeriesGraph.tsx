@@ -16,7 +16,7 @@ import { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import { RadixTheme } from "@/services/RadixTheme";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import Table, {
   TableRow,
   TableHeader,
@@ -24,7 +24,7 @@ import Table, {
   TableColumnHeader,
   TableRowHeaderCell,
   TableCell,
-} from "@/components/Radix/Table";
+} from "@/ui/Table";
 import styles from "./ExperimentDateGraph.module.scss";
 import timeSeriesStyles from "./ExperimentTimeSeriesGraph.module.scss";
 

@@ -16,4 +16,5 @@ export interface TeamInterface {
   members?: string[];
   managedByIdp: boolean;
   managedBy?: ManagedBy;
+  defaultProject?: string;
 }

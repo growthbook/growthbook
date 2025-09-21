@@ -1,0 +1,22 @@
+.link {
+  // Ensures consistent underline color between button and link
+  // Can be removed when bootstrap is removed.
+  text-decoration-color: inherit;
+
+  &:hover {
+    color: var(--accent-10);
+  }
+
+  // Override needed because of bootstrap
+  &:global(.rt-underline-none):hover {
+    text-decoration: none;
+  }
+}
+
+.darkLink {
+  color: var(--color-text-high);
+
+  &:hover {
+    color: var(--color-text-mid);
+  }
+}

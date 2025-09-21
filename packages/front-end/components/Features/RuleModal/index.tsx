@@ -51,8 +51,8 @@ import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewE
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { AppFeatures } from "@/types/app-features";
 import { useUser } from "@/services/UserContext";
-import RadioCards from "@/components/Radix/RadioCards";
-import RadioGroup from "@/components/Radix/RadioGroup";
+import RadioCards from "@/ui/RadioCards";
+import RadioGroup from "@/ui/RadioGroup";
 import PagedModal from "@/components/Modal/PagedModal";
 import ForceValueFields from "@/components/Features/RuleModal/ForceValueFields";
 import RolloutFields from "@/components/Features/RuleModal/RolloutFields";
@@ -62,7 +62,7 @@ import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 
