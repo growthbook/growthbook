@@ -176,7 +176,7 @@ export async function deleteMetricById(
       projects: metric.projects,
     })
   ) {
-    throw new Error("Cannot delete an official metric");
+    context.permissions.throwPermissionError();
   }
 
   // delete references:
@@ -513,7 +513,7 @@ export async function updateMetric(
     }
     if (metric.managedBy === "admin" || updates.managedBy === "admin") {
       if (!context.permissions.canUpdateOfficialResources(metric, updates)) {
-        throw new Error("Cannot update an official metric");
+        context.permissions.throwPermissionError();
       }
     }
   }

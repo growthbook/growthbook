@@ -78,10 +78,7 @@ export function OfficialBadge({
                   a <code>config.yml</code> file
                 </>
               ) : managedBy === "admin" ? (
-                <>
-                  an Admin or someone with the{" "}
-                  <code>ManageOfficialResources</code> policy
-                </>
+                <>admins</>
               ) : (
                 <>the API</>
               )}
