@@ -661,7 +661,9 @@ export class Permissions {
     metric: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
     if (metric.managedBy === "admin") {
-      return this.canCreateOfficialResources(metric);
+      if (!this.canCreateOfficialResources(metric)) {
+        return false;
+      }
     }
 
     return this.checkProjectFilterPermission(metric, "createMetrics");
@@ -672,7 +674,9 @@ export class Permissions {
     updates: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
     if (existing.managedBy === "admin" || updates.managedBy === "admin") {
-      return this.canUpdateOfficialResources(existing, updates);
+      if (!this.canUpdateOfficialResources(existing, updates)) {
+        return false;
+      }
     }
 
     return this.checkProjectFilterUpdatePermission(
@@ -686,7 +690,9 @@ export class Permissions {
     metric: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
     if (metric.managedBy === "admin") {
-      return this.canDeleteOfficialResources(metric);
+      if (!this.canDeleteOfficialResources(metric)) {
+        return false;
+      }
     }
 
     return this.checkProjectFilterPermission(metric, "createMetrics");

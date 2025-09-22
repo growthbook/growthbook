@@ -463,7 +463,7 @@ export async function postMetrics(
     );
   }
 
-  if (!context.permissions.canCreateMetric({ projects })) {
+  if (!context.permissions.canCreateMetric(req.body)) {
     context.permissions.throwPermissionError();
   }
 
