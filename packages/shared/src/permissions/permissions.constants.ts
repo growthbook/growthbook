@@ -128,7 +128,11 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   TemplatesFullAccess: ["readData", "manageTemplates"],
   SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
   HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
-  ManageOfficialResources: ["readData", "manageOfficialResources"],
+  ManageOfficialResources: [
+    "readData",
+    "manageOfficialResources",
+    "runQueries",
+  ],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
