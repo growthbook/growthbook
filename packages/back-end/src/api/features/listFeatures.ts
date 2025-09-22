@@ -17,9 +17,14 @@ import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
 
 export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
+    // Include archived features by default unless explicitly excluded
+    const includeArchived =
+      typeof req.query.includeArchived === "boolean"
+        ? req.query.includeArchived
+        : true;
     const features = await getAllFeatures(req.context, {
       project: req.query.projectId,
-      includeArchived: true,
+      includeArchived,
     });
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getAllPayloadExperiments(
