@@ -19,7 +19,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
   async (req): Promise<ListFeaturesResponse> => {
     const features = await getAllFeatures(req.context, {
       project: req.query.projectId,
-      includeArchived: req.query.includeArchived || true,
+      includeArchived: true,
     });
     const groupMap = await getSavedGroupMap(req.organization);
     const experimentMap = await getAllPayloadExperiments(
