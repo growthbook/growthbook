@@ -22,11 +22,14 @@ const eventUserApiKey = z
   })
   .strict();
 
+const eventUserSystem = z.object({ type: z.literal("system") }).strict();
+
 export type EventUserApiKey = z.infer<typeof eventUserApiKey>;
 
 export const eventUser = z.union([
   eventUserLoggedIn,
   eventUserApiKey,
+  eventUserSystem,
   z.null(),
 ]);
 

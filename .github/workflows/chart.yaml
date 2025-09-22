@@ -1,9 +1,10 @@
+name: Helm Chart
 on:
   push:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish chart to OCI registry"
+        description: "Build and maybe publish Helm Chart to OCI registry"
         required: false
         default: false
         type: boolean
