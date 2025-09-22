@@ -343,7 +343,9 @@ const MetricsSelector: FC<{
             isGroup={isGroup}
             metrics={metricsWithJoinableStatus}
             filterConversionWindowMetrics={filterConversionWindowMetrics}
-            badgeColor={context !== "value" ? "var(--blue-11)" : undefined}
+            badgeColor={
+              context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
+            }
           />
         ) : (
           label
@@ -472,7 +474,9 @@ const MetricsSelector: FC<{
           <MetricName
             id={value}
             showDescription={context !== "value"}
-            badgeColor={context !== "value" ? "var(--blue-11)" : undefined}
+            badgeColor={
+              context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
+            }
           />
         ) : (
           label

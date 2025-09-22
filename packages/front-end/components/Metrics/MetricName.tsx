@@ -56,14 +56,14 @@ export function OfficialBadge({
             ""
           ) : (
             <>
-              <h4>
+              <h4 className="pb-1">
                 <HiBadgeCheck
                   style={{
                     fontSize: "1.2em",
                     lineHeight: "1em",
                     marginTop: "-2px",
+                    color: color || "var(--blue-11)",
                   }}
-                  className="text-purple"
                 />{" "}
                 Official{" "}
                 <span
@@ -92,7 +92,7 @@ export function OfficialBadge({
             fontSize: "1.2em",
             lineHeight: "1em",
             marginTop: "-2px",
-            color: color || "var(--violet-11)",
+            color: color || "var(--blue-11)",
           }}
         />
         {showOfficialLabel ? (
