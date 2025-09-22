@@ -3670,6 +3670,8 @@ export interface components {
     globalRole: string;
     /** @description Filter by a SDK connection's client key */
     clientKey: string;
+    /** @description Whether to include archived features or not (true by default) */
+    includeArchived: boolean;
   };
   requestBodies: never;
   headers: never;
@@ -3687,11 +3689,13 @@ export interface operations {
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by project id */
         /** @description Filter by a SDK connection's client key */
+        /** @description Whether to include archived features or not (true by default) */
       query: {
         limit?: number;
         offset?: number;
         projectId?: string;
         clientKey?: string;
+        includeArchived?: boolean;
       };
     };
     responses: {
