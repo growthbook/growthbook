@@ -399,6 +399,9 @@ export default abstract class SqlIntegration
       ${experimentQueries
         .map((q, i) => {
           const hasNameCol = q.hasNameCol || false;
+          const userCountColumn = this.hasCountDistinctHLL()
+            ? this.hllCardinality(this.hllAggregate(q.userIdType))
+            : `COUNT(distinct ${q.userIdType})`;
           return `
         __exposures${i} as (
           SELECT 
@@ -414,7 +417,7 @@ export default abstract class SqlIntegration
                 : this.castToString("variation_id")
             } as variation_name,
             ${this.dateTrunc(this.castUserDateCol("timestamp"))} as date,
-            count(distinct ${q.userIdType}) as users,
+            ${userCountColumn} as users,
             MAX(${this.castUserDateCol("timestamp")}) as latest_data
           FROM
             (
@@ -426,6 +429,8 @@ export default abstract class SqlIntegration
             AND SUBSTRING(experiment_id, 1, ${
               SAFE_ROLLOUT_TRACKING_KEY_PREFIX.length
             }) != '${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}'
+            AND experiment_id IS NOT NULL
+            AND variation_id IS NOT NULL
           GROUP BY
             experiment_id,
             variation_id,

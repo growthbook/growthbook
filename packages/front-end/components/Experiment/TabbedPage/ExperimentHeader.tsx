@@ -90,6 +90,7 @@ export interface Props {
   linkedFeatures: LinkedFeatureInfo[];
   holdout?: HoldoutInterface;
   stop?: (() => void) | null;
+  showDashboardView: boolean;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -143,6 +144,7 @@ export default function ExperimentHeader({
   linkedFeatures,
   holdout,
   stop,
+  showDashboardView,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
@@ -269,7 +271,8 @@ export default function ExperimentHeader({
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
   const shouldHideTabs =
-    experiment.status === "draft" && !hasResults && phases.length === 1;
+    (experiment.status === "draft" && !hasResults && phases.length === 1) ||
+    showDashboardView;
 
   useEffect(() => {
     if (shouldHideTabs) {
@@ -691,7 +694,12 @@ export default function ExperimentHeader({
         />
       ) : null}
 
-      <div className="container-fluid pagecontents position-relative px-3 pt-3">
+      <div
+        className={clsx(
+          "container-fluid pagecontents position-relative px-3 pt-3",
+          { "pb-0": showDashboardView },
+        )}
+      >
         <Flex direction="row" align="start" justify="between" gap="5">
           <Box>
             <h1
