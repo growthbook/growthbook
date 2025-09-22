@@ -26,7 +26,8 @@ export const DataSourceInlineEditIdentifierTypes: FC<
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
 
   const userIdTypes = useMemo(
-    () => dataSource.settings?.userIdTypes || [],
+    () =>
+      (dataSource.settings?.userIdTypes || []).filter((type) => type != null),
     [dataSource.settings?.userIdTypes],
   );
 
