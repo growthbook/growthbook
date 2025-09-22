@@ -106,9 +106,14 @@ export function transformStatsigExperimentToGB(
         condition: JSON.stringify({ value: true }),
       })) || [];
   }
-
+  const toGbStatusMap = {
+    setup: "draft",
+    active: "running",
+    decision_made: "stopped",
+    abandoned: "stopped",
+  };
   // Map status
-  const gbStatus = status === "setup" ? "draft" : status;
+  const gbStatus = toGbStatusMap[status] || "draft";
 
   // Map stats engine
   const statsEngine = analyticsType === "bayesian" ? "bayesian" : "frequentist";
