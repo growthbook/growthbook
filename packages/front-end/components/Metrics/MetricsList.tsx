@@ -73,18 +73,18 @@ export function useCombinedMetrics({
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
-      const canDuplicate =
-        m.managedBy === "admin"
-          ? permissionsUtil.canCreateOfficialResources(m)
-          : permissionsUtil.canCreateMetric(m);
-      const canEdit =
-        m.managedBy === "admin"
-          ? permissionsUtil.canUpdateOfficialResources(m, {})
-          : permissionsUtil.canUpdateMetric(m, {});
-      const canDelete =
-        m.managedBy === "admin"
-          ? permissionsUtil.canUpdateOfficialResources(m, {})
-          : permissionsUtil.canDeleteMetric(m);
+      const canDuplicate = permissionsUtil.canCreateMetric({
+        // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+        projects: m.projects,
+      });
+      let canEdit = permissionsUtil.canUpdateMetric(m, {});
+      let canDelete = permissionsUtil.canDeleteMetric(m);
+
+      // Additional check if managed by admins
+      if (m.managedBy && ["api", "config"].includes(m.managedBy)) {
+        canEdit = false;
+        canDelete = false;
+      }
 
       const item: MetricTableItem = {
         id: m.id,
@@ -126,6 +126,8 @@ export function useCombinedMetrics({
                   currentMetric: {
                     ...m,
                     name: m.name + " (copy)",
+                    // Ensure managedBy is an empty string as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+                    managedBy: "",
                   },
                 })
             : undefined,
