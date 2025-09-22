@@ -1,8 +1,8 @@
 import { useContext } from "react";
 import { Flex, Text, TextProps } from "@radix-ui/themes";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Badge from "@/components/Radix/Badge";
-import Button, { Props as ButtonProps } from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button, { Props as ButtonProps } from "@/ui/Button";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 
 interface Props {

@@ -12,7 +12,7 @@ import { useEnvironments } from "@/services/features";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 const TeamsList: FC = () => {

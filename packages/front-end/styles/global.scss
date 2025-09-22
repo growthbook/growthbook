@@ -1407,7 +1407,7 @@ main.main {
 // Required for the collapsible component to work correctly with lazyRender={true} - https://github.com/glennflanagan/react-collapsible/issues/36
 .Collapsible__contentInner {
   border: 1px solid transparent;
-  }
+}
 
 .Collapsible__trigger {
   &:hover {
@@ -3713,7 +3713,13 @@ input:disabled {
     font-weight: 400;
   }
 }
-
+.rounded-table {
+  border-radius: 0.33rem;
+  overflow: hidden;
+  border-spacing: 0;
+  border-collapse: separate;
+  border: 1px solid var(--slate-a6);
+}
 .border-violet {
   border-color: var(--violet-a7);
 }

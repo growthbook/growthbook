@@ -22,9 +22,9 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { Box } from "spectacle";
 import Link from "next/link";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import RadioCards from "@/components/Radix/RadioCards";
-import Avatar from "@/components/Radix/Avatar";
-import Pagination from "@/components/Radix/Pagination";
+import RadioCards from "@/ui/RadioCards";
+import Avatar from "@/ui/Avatar";
+import Pagination from "@/ui/Pagination";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useExperimentSearch } from "@/services/experiments";
@@ -32,13 +32,13 @@ import { useFeaturesList } from "@/services/features";
 import useApi from "@/hooks/useApi";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 import { useUser } from "@/services/UserContext";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import {
   ExperimentDot,
   ExperimentStatusDetailsWithDot,
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 type FeaturesAndRevisions = FeatureRevisionInterface & {
   feature: FeatureInterface;
   safeRollout: SafeRolloutInterface | undefined;
@@ -369,7 +369,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
-          <table className="table gbtable needs-attentions-table mt-3">
+          <table className="table gbtable needs-attentions-table mt-3 rounded-table">
             <thead>
               <tr>
                 <SortableTHExperiments field="name">Name</SortableTHExperiments>
@@ -493,7 +493,7 @@ const NeedingAttention = (): React.ReactElement | null => {
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (
           <table
-            className={`table gbtable mt-3 ${styles.needsAttentionsTable}`}
+            className={`table gbtable mt-3 needs-attentions-table rounded-table`}
           >
             <thead>
               <tr>

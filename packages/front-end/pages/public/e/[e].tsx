@@ -14,7 +14,7 @@ import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExperimentMetaInfo";
-import {Tabs, TabsList, TabsTrigger} from "@/components/Radix/Tabs";
+import {Tabs, TabsList, TabsTrigger} from "@/ui/Tabs";
 import {useScrollPosition} from "@/hooks/useScrollPosition";
 import {useLocalStorage} from "@/hooks/useLocalStorage";
 import {ExperimentTab} from "@/components/Experiment/TabbedPage";

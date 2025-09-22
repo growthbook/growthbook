@@ -15,17 +15,17 @@ import {
 import { Container, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { dashboardCanAutoUpdate, getBlockData } from "shared/enterprise";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import EditButton from "@/components/EditButton/EditButton";
-import { Select, SelectItem, SelectSeparator } from "@/components/Radix/Select";
+import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
-import { DropdownMenuSeparator } from "@/components/Radix/DropdownMenu";
+import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import { useDashboards } from "@/hooks/useDashboards";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -68,12 +68,18 @@ interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
   isTabActive: boolean;
+  showDashboardView?: boolean;
+  switchToExperimentView?: () => void;
+  mutateExperiment?: () => void;
 }
 
 export default function DashboardsTab({
   experiment,
   initialDashboardId,
   isTabActive,
+  showDashboardView = false,
+  switchToExperimentView,
+  mutateExperiment,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
@@ -107,6 +113,7 @@ export default function DashboardsTab({
   const [isEditing, setIsEditing] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const { apiCall } = useAuth();
   const [blocks, setBlocks] = useState<
@@ -126,13 +133,14 @@ export default function DashboardsTab({
   const canUpdateDashboard = experiment
     ? permissionsUtil.canViewReportModal(experiment.project)
     : true;
+  const canUpdateExperiment = permissionsUtil.canViewExperimentModal(
+    experiment.project,
+  );
   const isOwner = userId === dashboard?.userId || !dashboard?.userId;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
-  const canEdit =
-    isOwner ||
-    isAdmin ||
-    (dashboard.editLevel === "organization" && canUpdateDashboard);
   const canManage = isOwner || isAdmin;
+  const canEdit =
+    canManage || (dashboard.editLevel === "organization" && canUpdateDashboard);
 
   useEffect(() => {
     if (dashboard) {
@@ -223,6 +231,25 @@ export default function DashboardsTab({
               }}
             />
           )}
+          {dashboard && showEditModal && (
+            <DashboardModal
+              mode="edit"
+              close={() => setShowEditModal(false)}
+              initial={{
+                editLevel: dashboard.editLevel,
+                enableAutoUpdates: dashboard.enableAutoUpdates,
+                title: dashboard.title,
+              }}
+              disableAutoUpdate={autoUpdateDisabled}
+              submit={async (data) => {
+                await submitDashboard({
+                  method: "PUT",
+                  dashboardId: dashboard.id,
+                  data,
+                });
+              }}
+            />
+          )}
           {dashboard && showDuplicateModal && (
             <DashboardModal
               mode="duplicate"
@@ -288,7 +315,7 @@ export default function DashboardsTab({
               <>
                 <Flex align="center" justify="between" mb="1">
                   <Flex gap="1" align="center">
-                    {dashboards.length > 0 ? (
+                    {dashboards.length > 0 && !showDashboardView ? (
                       <Flex gap="4" align="center">
                         <Select
                           style={{
@@ -346,7 +373,7 @@ export default function DashboardsTab({
                       <></>
                     )}
                   </Flex>
-                  {dashboard ? (
+                  {dashboard && !showDashboardView ? (
                     <Flex gap="4" align="center">
                       <Tooltip
                         state={copySuccess}
@@ -366,6 +393,54 @@ export default function DashboardsTab({
                                   setIsEditing(true);
                                 }}
                               />
+                              {canManage && (
+                                <Button
+                                  className="dropdown-item"
+                                  onClick={() => setShowEditModal(true)}
+                                >
+                                  <Text weight="regular">
+                                    Edit Dashboard Settings
+                                  </Text>
+                                </Button>
+                              )}
+                              {mutateExperiment && canUpdateExperiment && (
+                                <Tooltip
+                                  body={
+                                    experiment.defaultDashboardId ===
+                                    dashboard.id
+                                      ? "Remove this dashboard as the default view for the experiment"
+                                      : "Set this dashboard as the default view for the experiment"
+                                  }
+                                >
+                                  <Button
+                                    className="dropdown-item"
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/experiment/${experiment.id}`,
+                                        {
+                                          method: "POST",
+                                          body: JSON.stringify({
+                                            defaultDashboardId:
+                                              experiment.defaultDashboardId ===
+                                              dashboard.id
+                                                ? ""
+                                                : dashboard.id,
+                                          }),
+                                        },
+                                      );
+                                      mutateExperiment();
+                                    }}
+                                  >
+                                    <Text weight="regular">
+                                      {experiment.defaultDashboardId ===
+                                      dashboard.id
+                                        ? "Remove as Default View"
+                                        : "Set as Default View"}
+                                    </Text>
+                                  </Button>
+                                </Tooltip>
+                              )}
+
                               <Container px="5">
                                 <DropdownMenuSeparator />
                               </Container>
@@ -532,6 +607,7 @@ export default function DashboardsTab({
                         deleteBlock={() => {}}
                         focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
+                        switchToExperimentView={switchToExperimentView}
                       />
                     )}
                   </>

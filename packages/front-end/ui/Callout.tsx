@@ -5,7 +5,7 @@ import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
 import { PiX } from "react-icons/pi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RadixStatusIcon, Status, getRadixColor, Size } from "./HelperText";
-import styles from "./RadixOverrides.module.scss";
+import styles from "./Callout.module.scss";
 
 type DismissibleProps = {
   dismissible: true;
@@ -36,6 +36,7 @@ export default forwardRef<
     size?: "sm" | "md";
     icon?: ReactNode | null;
     contentsAs?: "text" | "div";
+    variant?: "soft" | "surface" | "outline";
   } & (DismissibleProps | UndismissibleProps) &
     MarginProps
 >(function Callout(
@@ -48,6 +49,7 @@ export default forwardRef<
     dismissible = false,
     id,
     renderWhenDismissed,
+    variant = "soft",
     ...containerProps
   },
   ref,
@@ -82,13 +84,14 @@ export default forwardRef<
       style={{
         position: "relative",
       }}
+      variant={variant}
     >
       {renderedIcon ? (
         <RadixCallout.Icon>{renderedIcon}</RadixCallout.Icon>
       ) : null}
       {contentsAs === "div" ? (
         <Box>
-          <div className={styles.calloutContent}>{children}</div>
+          <div>{children}</div>
         </Box>
       ) : (
         <>

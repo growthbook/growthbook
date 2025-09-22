@@ -17,7 +17,7 @@ import Modal from "@/components/Modal";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
-import RadixButton from "@/components/Radix/Button";
+import RadixButton from "@/ui/Button";
 import {
   usesEventName,
   usesValueColumn,
@@ -32,12 +32,9 @@ import {
   PanelResizeHandle,
 } from "@/components/ResizablePanels";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-} from "@/components/Radix/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Checkbox from "../Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
 import { AreaWithHeader } from "./SqlExplorerModal";
 import styles from "./EditSqlModal.module.scss";

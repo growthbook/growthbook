@@ -4,7 +4,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
 import Modal from "@/components/Modal";
 import { useExperiments } from "@/hooks/useExperiments";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
 import { parseDefaultValue } from "@/services/features";

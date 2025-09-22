@@ -27,14 +27,9 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Badge from "@/components/Radix/Badge";
-import Frame from "@/components/Radix/Frame";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
 
 export default function FactTablePage() {
   const router = useRouter();

@@ -1408,7 +1408,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
       tags:
-        - dimensions
+        - segments
       summary: Update a single segment
       operationId: updateSegment
       x-codeSamples:
@@ -4119,6 +4119,8 @@ paths:
                             type: array
                             items:
                               type: string
+                          limitAccessByEnvironment:
+                            type: boolean
       responses:
         '200':
           content:
