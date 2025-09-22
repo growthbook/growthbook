@@ -17,9 +17,9 @@ Official Resources are protected resources that **can only be modified by users 
 
 Official Resources are particularly useful for:
 
+- **Governance**: Organizations want to prevent unauthorized changes to critical resources
 - **External System Management**: Resources are managed by external systems (like a version control system)
 - **Cross-Project Consistency**: Resources need to be identical across multiple projects
-- **Governance**: Organizations want to prevent unauthorized changes to critical resources
 - **Compliance**: Resources must be managed through specific, auditable processes
 
 ## Official Resource Types
@@ -33,11 +33,9 @@ Official Resources are particularly useful for:
 
 ## 3 Ways to Create Official Resources
 
-### 1. config.yml
+### 1. GrowthBook UI
 
-When resources are created via the `config.yml` file, they are automatically marked as "Official" and are not editable in the app. To make changes to these resources, you must update the `config.yml` file.
-
-[Learn more about updating metrics with `config.yml`](/self-host/config)
+Create Official Resources in-app by marking them as "Official" during creation. Only users with the `ManageOfficialResources` policy can apply this designation.
 
 ### 2. REST API
 
@@ -52,9 +50,17 @@ Create Official Resources via the UI (or via the REST API while setting `managed
 
 :::
 
-### 3. Via GrowthBook UI
+###3. config.yml
 
-Create Official Resources in-app by marking them as "Official" during creation. Only users with the `ManageOfficialResources` policy can apply this designation.
+When resources are created via the `config.yml` file, they are automatically marked as "Official" and are not editable in the app. To make changes to these resources, you must update the `config.yml` file.
+
+:::note
+
+Currently only Legacy Metrics, Segments, and Dimensions can be created via the `config.yml` file, Fact Tables, Fact Metrics, and Fact Filters can only be created via the UI or REST API.
+
+:::
+
+[Learn more about updating metrics with `config.yml`](/self-host/config)
 
 ## Managing Official Resources
 
