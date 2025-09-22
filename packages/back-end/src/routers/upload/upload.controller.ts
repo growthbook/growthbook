@@ -37,10 +37,9 @@ export async function putUpload(
 ) {
   // Only handle direct uploads for local storage
   if (UPLOAD_METHOD !== "local") {
-    return res.status(400).json({
-      error:
-        "Direct uploads are only supported for local storage. Use /upload/signed-url-for-upload for cloud storage.",
-    });
+    throw new Error(
+      "Direct uploads are only supported for local storage. Use /upload/signed-url-for-upload for cloud storage.",
+    );
   }
 
   const contentType = req.headers["content-type"] as string;
