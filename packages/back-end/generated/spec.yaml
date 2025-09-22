@@ -8003,7 +8003,6 @@ components:
       properties:
         confidenceLevel:
           type: number
-          nullable: true
         northStar:
           type: object
           nullable: true
@@ -8016,7 +8015,6 @@ components:
                 type: string
         metricDefaults:
           type: object
-          nullable: true
           properties:
             priorSettings:
               type: object
@@ -8044,7 +8042,6 @@ components:
               type: number
         pastExperimentsMinLength:
           type: number
-          nullable: true
         metricAnalysisDays:
           type: number
         updateSchedule:
@@ -8078,7 +8075,6 @@ components:
                 type: string
         statsEngine:
           type: string
-          nullable: true
         pValueThreshold:
           type: number
         regressionAdjustmentEnabled:
@@ -8096,22 +8092,16 @@ components:
             - experimentDuration
         targetMDE:
           type: number
-          nullable: true
         delayHours:
           type: number
-          nullable: true
         windowType:
           type: string
-          nullable: true
         windowHours:
           type: number
-          nullable: true
         winRisk:
           type: number
-          nullable: true
         loseRisk:
           type: number
-          nullable: true
         secureAttributeSalt:
           type: string
         killswitchConfirmation:
