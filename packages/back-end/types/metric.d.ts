@@ -126,4 +126,6 @@ export type InsertMetricProps = Pick<
   | "dateCreated"
   | "dateUpdated"
   | "userIdTypes"
+  | "managedBy"
+  | "projects"
 >;
