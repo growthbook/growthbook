@@ -12,7 +12,7 @@ import { getIntegrationFromDatasourceId } from "./datasource";
 export async function createMetricAnalysis(
   context: Context,
   metric: FactMetricInterface,
-  metricAnalysisSettings: Partial<MetricAnalysisSettings>,
+  metricAnalysisSettings: MetricAnalysisSettings,
   source: MetricAnalysisSource,
   useCache: boolean = true,
 ): Promise<MetricAnalysisQueryRunner> {
@@ -20,36 +20,14 @@ export async function createMetricAnalysis(
     throw new Error("Cannot analyze manual metrics");
   }
 
-  // Get fact table to determine default user ID types
-  const factTableMap = await getFactTableMap(context);
-  const factTable = factTableMap.get(metric.numerator.factTableId);
-  if (!factTable) {
-    throw new Error("Fact table not found");
-  }
-
-  // Create default settings based on frontend defaults (getAnalysisSettingsForm)
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
-
-  const startDate = new Date(endOfToday);
-  startDate.setDate(
-    startDate.getDate() - (metricAnalysisSettings.lookbackDays ?? 30),
-  );
-  startDate.setHours(0, 0, 0, 0);
-
-  const fullSettings: MetricAnalysisSettings = {
-    userIdType:
-      metricAnalysisSettings.userIdType ?? factTable.userIdTypes?.[0] ?? "",
-    startDate,
-    endDate: endOfToday,
-    lookbackDays: metricAnalysisSettings.lookbackDays ?? 30,
-    populationType: metricAnalysisSettings.populationType ?? "factTable",
-    populationId: metricAnalysisSettings.populationId ?? null,
-  };
-
   let segment: SegmentInterface | null = null;
-  if (fullSettings.populationType === "segment" && fullSettings.populationId) {
-    segment = await context.models.segments.getById(fullSettings.populationId);
+  if (
+    metricAnalysisSettings.populationType === "segment" &&
+    metricAnalysisSettings.populationId
+  ) {
+    segment = await context.models.segments.getById(
+      metricAnalysisSettings.populationId,
+    );
     if (!segment) {
       throw new Error("Segment not found");
     }
@@ -61,13 +39,15 @@ export async function createMetricAnalysis(
     true,
   );
 
+  const factTableMap = await getFactTableMap(context);
+
   const model = await context.models.metricAnalysis.create({
     metric: metric.id,
     runStarted: null,
     status: "running",
     source: source,
 
-    settings: fullSettings,
+    settings: metricAnalysisSettings,
     queries: [],
   });
 
@@ -80,7 +60,7 @@ export async function createMetricAnalysis(
 
   await queryRunner
     .startAnalysis({
-      settings: fullSettings,
+      settings: metricAnalysisSettings,
       metric: metric,
       factTableMap: factTableMap,
       segment: segment,

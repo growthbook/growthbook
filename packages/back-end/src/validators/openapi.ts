@@ -600,12 +600,6 @@ export const postFactMetricValidator = {
   paramsSchema: z.never(),
 };
 
-export const postFactMetricAnalysisValidator = {
-  bodySchema: z.object({ "userIdType": z.string().optional(), "lookbackDays": z.coerce.number().min(1).max(999999).optional(), "populationType": z.enum(["factTable","segment"]).optional(), "populationId": z.string().nullable().optional(), "source": z.enum(["metric","northstar"]).optional(), "force": z.boolean().optional() }).strict(),
-  querySchema: z.never(),
-  paramsSchema: z.object({ "id": z.string() }).strict(),
-};
-
 export const getFactMetricValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),
@@ -620,6 +614,12 @@ export const updateFactMetricValidator = {
 
 export const deleteFactMetricValidator = {
   bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
+export const postFactMetricAnalysisValidator = {
+  bodySchema: z.object({ "userIdType": z.string().describe("The identifier type to use for the analysis. If not provided, defaults to the first available identifier type in the fact table.").optional(), "lookbackDays": z.number().gte(1).lte(999999).describe("Number of days to look back for the analysis. Defaults to 30.").optional(), "populationType": z.enum(["factTable","segment"]).describe("The type of population to analyze. Defaults to 'factTable', meaning the analysis will return the metric value for all units found in the fact table.").optional(), "populationId": z.string().nullable().describe("The ID of the population (e.g., segment ID) when populationType is not 'factTable'. Defaults to null.").optional(), "useCache": z.boolean().describe("Whether to use a cached query if one exists. Defaults to true.").optional() }).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({ "id": z.string() }).strict(),
 };

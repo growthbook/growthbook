@@ -337,6 +337,8 @@ paths:
       $ref: "./paths/updateFactMetric.yaml"
     delete:
       $ref: "./paths/deleteFactMetric.yaml"
+  /fact-metrics/{id}/analysis:
+    $ref: "./paths/postFactMetricAnalysis.yaml"
   /bulk-import/facts:
     post:
       $ref: "./paths/postBulkImportFacts.yaml"

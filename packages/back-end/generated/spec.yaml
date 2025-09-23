@@ -201,6 +201,9 @@ tags:
   - name: Metric_model
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: MetricAnalysis_model
+    x-displayName: MetricAnalysis
+    description: <SchemaDefinition schemaRef="#/components/schemas/MetricAnalysis" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -5303,6 +5306,76 @@ paths:
                     type: string
                     description: The ID of the deleted fact metric
                     example: fact__123abc
+  '/fact-metrics/{id}/analysis':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The fact metric id to analyze
+        schema:
+          type: string
+    post:
+      tags:
+        - fact-metrics
+      summary: Create Fact Metric Analysis
+      operationId: postFactMetricAnalysis
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact_1234/analysis \
+              -d '{"lookbackDays":90}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIdType:
+                  type: string
+                  description: 'The identifier type to use for the analysis. If not provided, defaults to the first available identifier type in the fact table.'
+                lookbackDays:
+                  type: number
+                  description: Number of days to look back for the analysis. Defaults to 30.
+                  minimum: 1
+                  maximum: 999999
+                populationType:
+                  type: string
+                  enum:
+                    - factTable
+                    - segment
+                  description: 'The type of population to analyze. Defaults to ''factTable'', meaning the analysis will return the metric value for all units found in the fact table.'
+                populationId:
+                  type: string
+                  nullable: true
+                  description: 'The ID of the population (e.g., segment ID) when populationType is not ''factTable''. Defaults to null.'
+                useCache:
+                  type: boolean
+                  description: Whether to use a cached query if one exists. Defaults to true.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricAnalysis
+                properties:
+                  metricAnalysis:
+                    type: object
+                    required:
+                      - id
+                      - status
+                    properties:
+                      id:
+                        type: string
+                        description: The ID of the created metric analysis
+                      status:
+                        type: string
+                        description: 'The status of the analysis (e.g., "running", "completed", "error")'
+                      settings:
+                        type: object
   /bulk-import/facts:
     post:
       parameters: []
@@ -8287,6 +8360,7 @@ x-tagGroups:
       - FeatureWithRevisions_model
       - Member_model
       - Metric_model
+      - MetricAnalysis_model
       - Organization_model
       - PaginationFields_model
       - Project_model
