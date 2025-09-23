@@ -706,13 +706,12 @@ export default function ResultsTable({
 
               const rowId = `${row.metric.id}-${i}`;
 
-              const timeSeriesButton =
-                showTimeSeriesButton ? (
-                  <TimeSeriesButton
-                    onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
-                    isActive={visibleTimeSeriesRowIds.includes(rowId)}
-                  />
-                ) : null;
+              const timeSeriesButton = showTimeSeriesButton ? (
+                <TimeSeriesButton
+                  onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
+                  isActive={visibleTimeSeriesRowIds.includes(rowId)}
+                />
+              ) : null;
 
               const includedLabelColumns = columnsToDisplay.filter((col) =>
                 [
@@ -1168,20 +1167,6 @@ export default function ResultsTable({
                                           ? timeSeriesButton
                                           : undefined
                                       }
-                                      onMouseMove={(e) =>
-                                        onPointerMove(e, {
-                                          x: "element-left",
-                                          targetClassName: "hover-target",
-                                          offsetY: -8,
-                                        })
-                                      }
-                                      onMouseLeave={onPointerLeave}
-                                      onClick={(e) =>
-                                        onPointerMove(e, {
-                                          x: "element-left",
-                                          offsetY: -8,
-                                        })
-                                      }
                                     />
                                   ) : (
                                     <td></td>
@@ -1193,7 +1178,13 @@ export default function ResultsTable({
                         })}
 
                         {visibleTimeSeriesRowIds.includes(rowId) ? (
-                          <tr style={!row.isDimensionRow ? { backgroundColor: "var(--slate-a2)" } : undefined}>
+                          <tr
+                            style={
+                              !row.isDimensionRow
+                                ? { backgroundColor: "var(--slate-a2)" }
+                                : undefined
+                            }
+                          >
                             <td
                               colSpan={columnsToDisplay.length}
                               style={{ padding: 0 }}
