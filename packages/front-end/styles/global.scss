@@ -316,6 +316,10 @@ pre {
   }
 }
 
+.opacity50 {
+  opacity: 0.5;
+}
+
 .experiment-row-tooltip-wrapper {
   z-index: 820;
   &.tooltip-animate-appear .experiment-row-tooltip {
@@ -340,10 +344,6 @@ pre {
   color: var(--text-color-table);
   pointer-events: all;
   transition: 250ms all;
-
-  .opacity50 {
-    opacity: 0.5;
-  }
 
   .arrow {
     position: absolute;

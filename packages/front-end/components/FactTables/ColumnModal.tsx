@@ -13,6 +13,7 @@ import { PiPlus, PiX } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
 import { differenceInDays } from "date-fns";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -21,9 +22,9 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
+import RadixButton from "@/ui/Button";
 import Button from "@/components/Button";
 import { useUser } from "@/services/UserContext";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
@@ -39,7 +40,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
 
   // Feature flag and commercial feature checks for dimension analysis
-  const isMetricDimensionsFeatureEnabled = growthbook?.isOn("metric-dimensions");
+  const isMetricDimensionsFeatureEnabled =
+    growthbook?.isOn("metric-dimensions");
   const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
 
   const [showDescription, setShowDescription] = useState(
@@ -460,18 +462,30 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             </div>
 
             {form.watch("isDimension") && hasMetricDimensionsFeature && (
-              <MultiSelectField
-                label="Dimension Levels"
-                value={form.watch("dimensionLevels") || []}
-                onChange={(values) =>
-                  form.setValue(
-                    "dimensionLevels",
-                    values.slice(0, MAX_METRIC_DIMENSION_LEVELS),
-                  )
-                }
-                options={dimensionLevelOptions}
-                creatable={true}
-              />
+              <div>
+                <div className="d-flex justify-content-between mb-1">
+                  <label className="form-label mb-0">Dimension Levels</label>
+                  <RadixButton
+                    size="xs"
+                    variant="ghost"
+                    onClick={refreshTopValues}
+                    disabled={refreshingTopValues}
+                  >
+                    Refresh
+                  </RadixButton>
+                </div>
+                <MultiSelectField
+                  value={form.watch("dimensionLevels") || []}
+                  onChange={(values) =>
+                    form.setValue(
+                      "dimensionLevels",
+                      values.slice(0, MAX_METRIC_DIMENSION_LEVELS),
+                    )
+                  }
+                  options={dimensionLevelOptions}
+                  creatable={true}
+                />
+              </div>
             )}
           </div>
         )}

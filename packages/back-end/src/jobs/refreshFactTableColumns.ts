@@ -76,7 +76,7 @@ export async function runColumnTopValuesQuery(
   }
 
   // Try progressive lookback periods
-  const lookbackPeriods = [7, 90, 365];
+  const lookbackPeriods = [14, 365, 1234];
 
   for (const lookbackDays of lookbackPeriods) {
     const sql = integration.getColumnTopValuesQuery({

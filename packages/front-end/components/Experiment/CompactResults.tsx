@@ -15,7 +15,11 @@ import {
   StatsEngine,
 } from "back-end/types/stats";
 import { FaAngleRight, FaUsers } from "react-icons/fa";
-import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
+import {
+  PiCaretCircleRight,
+  PiCaretCircleDown,
+  PiPushPinFill,
+} from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
@@ -24,7 +28,6 @@ import {
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { Checkbox } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -688,19 +691,24 @@ export function getRenderLabelColumn({
         <div className="pl-3" style={{ position: "relative" }}>
           {isExpanded && (
             <Tooltip
-              body="Always show this dimension"
+              body={
+                isPinned
+                  ? "Pinned: will be visible when the metric is collapsed"
+                  : "Not pinned: will be hidden when the metric is collapsed"
+              }
               tipPosition="top"
               tipMinWidth="50px"
             >
-              <Checkbox
+              <PiPushPinFill
                 style={{
                   position: "absolute",
-                  left: 2,
+                  left: 4,
                   top: 3,
+                  cursor: "pointer",
                 }}
-                size="1"
-                checked={isPinned}
-                onCheckedChange={() => {
+                size={14}
+                className={isPinned ? "link-purple" : "text-muted opacity50"}
+                onClick={() => {
                   if (
                     togglePinnedMetricDimensionLevel &&
                     row?.dimensionColumn &&
@@ -718,7 +726,7 @@ export function getRenderLabelColumn({
             </Tooltip>
           )}
           <div
-            className="ml-1 font-weight-bold"
+            className="ml-2 font-weight-bold"
             style={{
               display: "-webkit-box",
               WebkitLineClamp: 1,
@@ -729,7 +737,7 @@ export function getRenderLabelColumn({
           >
             {label}
           </div>
-          <div className="ml-1 text-muted small">
+          <div className="ml-2 text-muted small">
             {row?.dimensionColumnName}
           </div>
         </div>
@@ -747,7 +755,7 @@ export function getRenderLabelColumn({
     return (
       <div className="pl-3" style={{ position: "relative" }}>
         <span
-          className="ml-1"
+          className="ml-2"
           style={
             maxRows
               ? {
@@ -759,53 +767,82 @@ export function getRenderLabelColumn({
               : undefined
           }
         >
-          <Tooltip
-            body={
-              <MetricTooltipBody
-                metric={metric}
-                row={row}
-                statsEngine={statsEngine}
-                reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                hideDetails={hideDetails}
-              />
-            }
-            tipPosition="right"
-            className="d-inline-block font-weight-bold metric-label"
-            flipTheme={false}
-            usePortal={true}
-          >
-            {hasDimensions ? (
-              <a
-                className="link-purple"
-                role="button"
-                onClick={() => {
-                  if (toggleExpandedMetric) {
-                    toggleExpandedMetric(metric.id, resultGroup || "goal");
+          {hasDimensions ? (
+            <a
+              className="link-purple"
+              role="button"
+              onClick={() => {
+                if (toggleExpandedMetric) {
+                  toggleExpandedMetric(metric.id, resultGroup || "goal");
+                }
+              }}
+              style={{
+                textDecoration: "none",
+              }}
+            >
+              <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
+                <Tooltip
+                  body={
+                    isExpanded
+                      ? "Collapse metric dimensions"
+                      : "Expand metric dimensions"
                   }
-                }}
-                style={{
-                  textDecoration: "none",
-                }}
-              >
-                <div style={{ position: "absolute", left: 2, marginTop: -1 }}>
+                  tipPosition="top"
+                >
                   {isExpanded ? (
                     <PiCaretCircleDown size={15} />
                   ) : (
                     <PiCaretCircleRight size={15} />
                   )}
-                </div>
-                <span
-                  style={{
-                    lineHeight: "1.2em",
-                    wordBreak: "break-word",
-                    overflowWrap: "anywhere",
-                    color: "var(--color-text-high)",
-                  }}
+                </Tooltip>
+              </div>
+              <span
+                style={{
+                  lineHeight: "1.2em",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                  color: "var(--color-text-high)",
+                }}
+              >
+                <Tooltip
+                  body={
+                    <MetricTooltipBody
+                      metric={metric}
+                      row={row}
+                      statsEngine={statsEngine}
+                      reportRegressionAdjustmentEnabled={
+                        regressionAdjustmentEnabled
+                      }
+                      hideDetails={hideDetails}
+                    />
+                  }
+                  tipPosition="right"
+                  className="d-inline-block font-weight-bold metric-label"
+                  flipTheme={false}
+                  usePortal={true}
                 >
                   {label}
-                </span>
-              </a>
-            ) : (
+                </Tooltip>
+              </span>
+            </a>
+          ) : (
+            <Tooltip
+              body={
+                <MetricTooltipBody
+                  metric={metric}
+                  row={row}
+                  statsEngine={statsEngine}
+                  reportRegressionAdjustmentEnabled={
+                    regressionAdjustmentEnabled
+                  }
+                  hideDetails={hideDetails}
+                />
+              }
+              tipPosition="right"
+              className="d-inline-block font-weight-bold metric-label"
+              flipTheme={false}
+              usePortal={true}
+            >
               <span
                 style={{
                   lineHeight: "1.2em",
@@ -816,8 +853,8 @@ export function getRenderLabelColumn({
               >
                 {label}
               </span>
-            )}
-          </Tooltip>
+            </Tooltip>
+          )}
         </span>
       </div>
     );

@@ -4626,7 +4626,7 @@ export default abstract class SqlIntegration
     factTable,
     column,
     limit = 50,
-    lookbackDays = 7,
+    lookbackDays = 14,
   }: ColumnTopValuesParams) {
     if (column.datatype !== "string") {
       throw new Error(`Column ${column.column} is not a string column`);
@@ -5471,11 +5471,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     to: Date | undefined,
     experimentId?: string,
   ) {
-    console.log(
-      "identifyJoins",
-      settings?.queries?.identityJoins,
-      settings?.queries,
-    );
     if (settings?.queries?.identityJoins) {
       for (let i = 0; i < settings.queries.identityJoins.length; i++) {
         const join = settings?.queries?.identityJoins[i];
