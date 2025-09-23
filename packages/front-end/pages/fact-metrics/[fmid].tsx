@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { FaChartLine, FaExternalLinkAlt, FaLayerGroup } from "react-icons/fa";
+import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   getAggregateFilters,
@@ -717,9 +717,7 @@ export default function FactMetricPage() {
                 <>
                   {factMetric.enableMetricDimensions && (
                     <div className="mt-3">
-                      <h5 className="mb-2">
-                        Metric Dimensions
-                      </h5>
+                      <h5 className="mb-2">Metric Dimensions</h5>
                       <table className="table appbox gbtable mb-0">
                         <thead>
                           <tr>
@@ -732,9 +730,7 @@ export default function FactMetricPage() {
                             .filter((col) => col.isDimension && !col.deleted)
                             .map((col) => (
                               <tr key={col.column}>
-                                <td>
-                                    {col.name || col.column}
-                                </td>
+                                <td>{col.name || col.column}</td>
                                 <td>
                                   {col.dimensionLevels &&
                                   col.dimensionLevels.length > 0 ? (

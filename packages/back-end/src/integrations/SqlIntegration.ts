@@ -5471,6 +5471,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     to: Date | undefined,
     experimentId?: string,
   ) {
+    console.log(
+      "identifyJoins",
+      settings?.queries?.identityJoins,
+      settings?.queries,
+    );
     if (settings?.queries?.identityJoins) {
       for (let i = 0; i < settings.queries.identityJoins.length; i++) {
         const join = settings?.queries?.identityJoins[i];

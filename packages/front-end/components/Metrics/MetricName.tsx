@@ -7,7 +7,7 @@ import {
 import React from "react";
 import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
-import { PiFolderDuotone } from "react-icons/pi";
+import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -105,6 +105,7 @@ export default function MetricName({
   filterConversionWindowMetrics,
   isGroup,
   metrics,
+  showLink,
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -114,6 +115,7 @@ export default function MetricName({
   filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
+  showLink?: boolean;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -214,7 +216,27 @@ export default function MetricName({
 
   return (
     <>
-      {metric.name}
+      {showLink ? (
+        <a
+          href={`/metric/${metric.id}`}
+          target="_blank"
+          style={{
+            color: "var(--color-text-high)",
+          }}
+          rel="noreferrer"
+        >
+          {metric.name}
+          <PiArrowSquareOut className="ml-1" />
+        </a>
+      ) : (
+        <span
+          style={{
+            color: "var(--color-text-high)",
+          }}
+        >
+          {metric.name}
+        </span>
+      )}
       {showDescription && metric.description ? (
         <span className="text-muted">
           {" "}

@@ -462,7 +462,11 @@ export default function ResultsTable({
                   {!compactResults &&
                     drawEmptyRow({
                       className: "results-label-row",
-                      label: renderLabelColumn({ label: row.label, metric: row.metric, row }),
+                      label: renderLabelColumn({
+                        label: row.label,
+                        metric: row.metric,
+                        row,
+                      }),
                     })}
 
                   {orderedVariations.map((v, j) => {
@@ -572,7 +576,12 @@ export default function ResultsTable({
                                 </span>
                               </div>
                             ) : (
-                              renderLabelColumn({ label: row.label, metric: row.metric, row, maxRows: 3 })
+                              renderLabelColumn({
+                                label: row.label,
+                                metric: row.metric,
+                                row,
+                                maxRows: 3,
+                              })
                             )}
                           </td>
                           {j > 0 &&

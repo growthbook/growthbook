@@ -666,19 +666,40 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
+    &.dimension-row {
+      background-color: var(--black-a1);
+    }
     tr {
-      &:not(.no-border) {
-        box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+      &:not(.dimension-header-row) {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
       }
 
-      &:last-of-type {
-        box-shadow: rgba(102, 102, 102, 0.125) 0 -2px inset;
+      &.dimension-collapsed {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.last-dimension-header {
+          box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        }
+      }
+      &.dimension-expanded {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+      }
+
+      &:last-of-type:not(.dimension-collapsed):not(.dimension-expanded) {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+      }
+
+      &.last-before-dimension-header {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
       }
 
       &:not(.results-label-row):not(.dimension-header-row) {
         td:not(.graph-cell):not(:last-child) {
-          box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
+          box-shadow: rgba(102, 102, 102, 0.05) -1px 0 inset;
         }
+      }
+
+      td:first-of-type {
+        padding-left: var(--space-1);
       }
     }
   }
@@ -745,10 +766,9 @@ pre {
     font-size: 14px;
   }
   .result-number-sub {
-    font-size: 12px;
-    //font-style: italic;
-    line-height: 14px;
-    margin-top: 3px;
+    font-size: 11px;
+    line-height: 13px;
+    margin-top: 2px;
   }
   .plusminus {
     font-size: 12px;
@@ -3751,4 +3771,19 @@ input:disabled {
   .sidebarLeftClosed {
     left: 0 !important;
   }
+}
+
+// Dimension checkbox hover behavior
+.dimension-checkbox {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  
+  &.checked {
+    opacity: 1;
+  }
+}
+
+// Show checkbox on hover over the table cell containing dimension rows
+tr:hover .dimension-checkbox.unchecked {
+  opacity: 1;
 }

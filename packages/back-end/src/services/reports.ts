@@ -860,7 +860,7 @@ export async function generateExperimentReportSSRData({
           }> = [];
 
           dimensionColumns.forEach((col: ColumnInterface) => {
-             const dimensionLevels = col.dimensionLevels || [];
+            const dimensionLevels = col.dimensionLevels || [];
 
             // Create a metric for each dimension level
             dimensionLevels.forEach((value: string) => {

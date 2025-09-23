@@ -1,5 +1,4 @@
 import { FC, useMemo, useState } from "react";
-import { MdSwapCalls } from "react-icons/md";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -15,28 +14,22 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import Link from "next/link";
-import { FaAngleRight, FaAngleDown, FaTimes, FaUsers } from "react-icons/fa";
-import {
-  PiCaretCircleRight,
-  PiCaretCircleDown,
-  PiWarningFill,
-} from "react-icons/pi";
+import { FaAngleRight, FaUsers } from "react-icons/fa";
+import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
-  getMetricLink,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
+import { Checkbox } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
 } from "@/services/experiments";
-import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import {
   ResultsMetricFilters,
@@ -45,10 +38,7 @@ import {
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
-import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import ConditionalWrapper from "@/components/ConditionalWrapper";
-import HelperText from "@/ui/HelperText";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -141,31 +131,32 @@ const CompactResults: FC<{
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
-  const [visibleDimensionMetricIds, setVisibleDimensionMetricIds] = useState<
-    string[]
-  >([]);
-  const toggleVisibleDimensionMetricId = (
+  const [pinnedMetricDimensionLevels, setPinnedMetricDimensionLevels] =
+    useState<string[]>([]);
+  const togglePinnedMetricDimensionLevel = (
     metricId: string,
+    dimensionColumn: string,
+    dimensionValue: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => {
-    const key = `${metricId}:${resultGroup}`;
-    setVisibleDimensionMetricIds((prev) =>
+    const key = `${metricId}:${dimensionColumn}:${dimensionValue}:${resultGroup}`;
+    setPinnedMetricDimensionLevels((prev) =>
       prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key],
     );
   };
 
-  const [visibleDimensionHeaderIds, setVisibleDimensionHeaderIds] = useState<
-    string[]
-  >([]);
-  const toggleVisibleDimensionHeaderId = (
+  const [expandedMetrics, setExpandedMetrics] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleExpandedMetric = (
     metricId: string,
-    dimensionColumn: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => {
-    const key = `${metricId}:${dimensionColumn}:${resultGroup}`;
-    setVisibleDimensionHeaderIds((prev) =>
-      prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key],
-    );
+    const key = `${metricId}:${resultGroup}`;
+    setExpandedMetrics((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
   };
 
   const [totalUsers, variationUsers] = useMemo(() => {
@@ -272,18 +263,26 @@ const CompactResults: FC<{
       const rows: ExperimentTableRow[] = [parentRow];
 
       // Add dimension rows if this metric has dimensions and is visible
-      if (
-        numDimensions > 0 &&
-        visibleDimensionMetricIds.includes(`${metricId}:${resultGroup}`)
-      ) {
+      if (numDimensions > 0) {
         const dimensionData =
           ssrPolyfills?.getFactMetricDimensions?.(metricId) ||
           getFactMetricDimensions?.(metricId) ||
           [];
 
         dimensionData.forEach((dimension) => {
+          const dimensionValue = dimension.isOther
+            ? "other"
+            : dimension.dimensionValue || "";
+          const expandedKey = `${metricId}:${resultGroup}`;
+          const isExpanded = expandedMetrics[expandedKey] || false;
+          const pinnedKey = `${metricId}:${dimension.dimensionColumn}:${dimensionValue}:${resultGroup}`;
+          const isPinned = pinnedMetricDimensionLevels.includes(pinnedKey);
+
+          // Show level if metric is expanded OR if it's pinned
+          const shouldShowLevel = isExpanded || isPinned;
+
           const dimensionRow: ExperimentTableRow = {
-            label: dimension.isOther ? "other" : dimension.dimensionValue || "",
+            label: dimensionValue,
             metric: {
               ...newMetric,
               name: dimension.name, // Use the full dimension metric name
@@ -311,8 +310,11 @@ const CompactResults: FC<{
             dimensionValue: dimension.dimensionValue,
             isOther: dimension.isOther,
             dimensionLevels: dimension.dimensionLevels,
+            isHiddenByFilter: !shouldShowLevel, // Add this property to indicate if row should be hidden
+            isPinned: isPinned,
           };
 
+          // Always add dimension rows to the array, even if hidden by filter
           // Skip dimension rows with no data
           if (dimensionRow.variations.some((v) => v.value > 0)) {
             rows.push(dimensionRow);
@@ -390,7 +392,8 @@ const CompactResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
-    visibleDimensionMetricIds,
+    pinnedMetricDimensionLevels,
+    expandedMetrics,
     getFactMetricDimensions,
   ]);
 
@@ -474,12 +477,13 @@ const CompactResults: FC<{
             statsEngine,
             hideDetails,
             experimentType,
-            visibleDimensionMetricIds,
-            toggleVisibleDimensionMetricId,
-            visibleDimensionHeaderIds,
-            toggleVisibleDimensionHeaderId,
+            pinnedMetricDimensionLevels,
+            togglePinnedMetricDimensionLevel,
+            expandedMetrics,
+            toggleExpandedMetric,
+            getFactMetricDimensions,
+            ssrPolyfills,
           })}
-          visibleDimensionHeaderIds={visibleDimensionHeaderIds}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
           }
@@ -528,12 +532,13 @@ const CompactResults: FC<{
               statsEngine,
               hideDetails,
               experimentType: undefined,
-              visibleDimensionMetricIds,
-              toggleVisibleDimensionMetricId,
-              visibleDimensionHeaderIds,
-              toggleVisibleDimensionHeaderId,
+              pinnedMetricDimensionLevels,
+              togglePinnedMetricDimensionLevel,
+              expandedMetrics,
+              toggleExpandedMetric,
+              getFactMetricDimensions,
+              ssrPolyfills,
             })}
-            visibleDimensionHeaderIds={visibleDimensionHeaderIds}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -576,12 +581,13 @@ const CompactResults: FC<{
               statsEngine,
               hideDetails,
               experimentType: undefined,
-              visibleDimensionMetricIds,
-              toggleVisibleDimensionMetricId,
-              visibleDimensionHeaderIds,
-              toggleVisibleDimensionHeaderId,
+              pinnedMetricDimensionLevels,
+              togglePinnedMetricDimensionLevel,
+              expandedMetrics,
+              toggleExpandedMetric,
+              getFactMetricDimensions,
+              ssrPolyfills,
             })}
-            visibleDimensionHeaderIds={visibleDimensionHeaderIds}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -606,269 +612,192 @@ export function getRenderLabelColumn({
   regressionAdjustmentEnabled,
   statsEngine,
   hideDetails,
-  experimentType,
-  visibleDimensionMetricIds,
-  toggleVisibleDimensionMetricId,
-  visibleDimensionHeaderIds,
-  toggleVisibleDimensionHeaderId,
+  experimentType: _experimentType,
+  pinnedMetricDimensionLevels,
+  togglePinnedMetricDimensionLevel,
+  expandedMetrics,
+  toggleExpandedMetric,
+  getFactMetricDimensions,
+  ssrPolyfills,
 }: {
   regressionAdjustmentEnabled?: boolean;
   statsEngine?: StatsEngine;
   hideDetails?: boolean;
   experimentType?: ExperimentType;
-  visibleDimensionMetricIds?: string[];
-  toggleVisibleDimensionMetricId?: (
-    metricId: string,
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => void;
-  visibleDimensionHeaderIds?: string[];
-  toggleVisibleDimensionHeaderId?: (
+  pinnedMetricDimensionLevels?: string[];
+  togglePinnedMetricDimensionLevel?: (
     metricId: string,
     dimensionColumn: string,
+    dimensionValue: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
+  expandedMetrics?: Record<string, boolean>;
+  toggleExpandedMetric?: (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => void;
+  getFactMetricDimensions?: (metricId: string) => unknown[];
+  ssrPolyfills?: SSRPolyfills;
 }) {
   return function renderLabelColumn({
     label,
     metric,
     row,
     maxRows,
-    numDimensions,
-    isDimensionHeader,
     resultGroup,
   }: {
     label: string;
     metric: ExperimentMetricInterface;
     row?: ExperimentTableRow;
     maxRows?: number;
-    numDimensions?: number;
-    isDimensionHeader?: boolean;
     resultGroup?: "goal" | "secondary" | "guardrail";
   }) {
-    // Check if this is a dimension row
-    const isDimensionRow = row?.isDimensionRow || false;
+    const expandedKey = `${metric.id}:${resultGroup}`;
+    const isExpanded = !!expandedMetrics?.[expandedKey];
 
-    // Handle dimension header rendering
-    if (isDimensionHeader) {
-      const headerKey = `${metric.id}:${row?.dimensionColumn}:${resultGroup}`;
-      const isHeaderVisible =
-        visibleDimensionHeaderIds?.includes(headerKey) || false;
+    const isDimensionRow = !!row?.isDimensionRow;
+
+    // Dimension row
+    if (isDimensionRow) {
+      const pinnedKey = `${metric.id}:${row?.dimensionColumn}:${row?.dimensionValue}:${resultGroup}`;
+      const isPinned =
+        pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
 
       return (
-        <Tooltip
-          body={
-            isHeaderVisible ? "Hide dimension levels" : "Show dimension levels"
-          }
-        >
-          <a
-            role="button"
-            onClick={() => {
-              if (resultGroup && row?.dimensionColumn) {
-                toggleVisibleDimensionHeaderId?.(
-                  metric.id,
-                  row.dimensionColumn,
-                  resultGroup,
-                );
-              }
-            }}
+        <div className="pl-3" style={{ position: "relative" }}>
+          {isExpanded && (
+            <Tooltip
+              body="Pin to results table"
+              tipPosition="top"
+              tipMinWidth="50px"
+            >
+              <Checkbox
+                className={`dimension-checkbox ${isPinned ? "checked" : "unchecked"}`}
+                style={{
+                  position: "absolute",
+                  left: 2,
+                  top: 3,
+                }}
+                size="1"
+                checked={isPinned}
+                onCheckedChange={() => {
+                  if (
+                    togglePinnedMetricDimensionLevel &&
+                    row?.dimensionColumn &&
+                    row?.dimensionValue
+                  ) {
+                    togglePinnedMetricDimensionLevel(
+                      metric.id,
+                      row.dimensionColumn,
+                      row.dimensionValue,
+                      resultGroup || "goal",
+                    );
+                  }
+                }}
+              />
+            </Tooltip>
+          )}
+          <div
+            className="ml-1 font-weight-bold"
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              textDecoration: "none",
-              color: "inherit",
-              cursor: "pointer",
+              display: "-webkit-box",
+              WebkitLineClamp: 1,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              color: "var(--color-text-mid)",
             }}
           >
-            {isHeaderVisible ? (
-              <FaAngleDown size={14} className="mr-1" />
-            ) : (
-              <FaAngleRight size={14} className="mr-1" />
-            )}
-            <span
-              className="uppercase-title"
-              style={{
-                lineHeight: "1.2em",
-                wordBreak: "break-word",
-                overflowWrap: "anywhere",
-              }}
-            >
-              {row?.dimensionColumnName || ""}
-            </span>
-          </a>
-        </Tooltip>
+            {label}
+          </div>
+          <div className="ml-1 text-muted small">
+            {row?.dimensionColumnName}
+          </div>
+        </div>
       );
     }
 
-    const invalidHoldoutMetric =
-      experimentType === "holdout" &&
-      metric?.windowSettings?.type === "conversion";
+    const hasDimensions = !!(
+      ssrPolyfills?.getFactMetricDimensions?.(metric.id)?.length ||
+      getFactMetricDimensions?.(metric.id)?.length
+    );
 
-    const metricLink = isDimensionRow ? (
-      <span
-        className={isDimensionRow ? "ml-2" : undefined}
-        style={
-          maxRows
-            ? {
-                display: "-webkit-box",
-                WebkitLineClamp: maxRows,
-                WebkitBoxOrient: "vertical",
-                textOverflow: "ellipsis",
-                overflow: "hidden",
-                lineHeight: "1.2em",
-                wordBreak: "break-word",
-                overflowWrap: "anywhere",
-              }
-            : {
-                lineHeight: "1.2em",
-                wordBreak: "break-word",
-                overflowWrap: "anywhere",
-              }
-        }
-      >
-        {label}
-      </span>
-    ) : (
-      <Tooltip
-        body={
-          <MetricTooltipBody
-            metric={metric}
-            row={row}
-            statsEngine={statsEngine}
-            reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
-            hideDetails={hideDetails}
-            extraInfo={
-              invalidHoldoutMetric ? (
-                <div className="mb-2">
-                  <HelperText status="warning">
-                    Metrics with conversion windows are not supported in
-                    holdouts
-                  </HelperText>
-                </div>
-              ) : undefined
-            }
-          />
-        }
-        tipPosition="right"
-        className="d-inline-block font-weight-bold metric-label"
-        flipTheme={false}
-        usePortal={true}
-      >
+    // Render non-dimension metric
+    return (
+      <div className="pl-3" style={{ position: "relative" }}>
         <span
+          className="ml-1"
           style={
             maxRows
               ? {
                   display: "-webkit-box",
                   WebkitLineClamp: maxRows,
                   WebkitBoxOrient: "vertical",
-                  textOverflow: "ellipsis",
                   overflow: "hidden",
-                  lineHeight: "1.2em",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
                 }
-              : {
-                  lineHeight: "1.2em",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
-                }
+              : undefined
           }
         >
-          <ConditionalWrapper
-            condition={!hideDetails}
-            wrapper={
-              <Link
-                href={getMetricLink(metric.id)}
-                className="metriclabel text-dark"
+          <Tooltip
+            body={
+              <MetricTooltipBody
+                metric={metric}
+                row={row}
+                statsEngine={statsEngine}
+                reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                hideDetails={hideDetails}
               />
             }
+            tipPosition="right"
+            className="d-inline-block font-weight-bold metric-label"
+            flipTheme={false}
+            usePortal={true}
           >
-            {invalidHoldoutMetric ? (
-              <PiWarningFill
-                style={{ color: "var(--amber-11)" }}
-                className="mr-1"
-              />
-            ) : null}
-            <MetricName metric={metric} disableTooltip />
-            <PercentileLabel metric={metric} />
-          </ConditionalWrapper>
+            {hasDimensions ? (
+              <a
+                className="link-purple"
+                role="button"
+                onClick={() => {
+                  if (toggleExpandedMetric) {
+                    toggleExpandedMetric(metric.id, resultGroup || "goal");
+                  }
+                }}
+                style={{
+                  textDecoration: "none",
+                }}
+              >
+                <div style={{ position: "absolute", left: 2, marginTop: -1 }}>
+                  {isExpanded ? (
+                    <PiCaretCircleDown size={15} />
+                  ) : (
+                    <PiCaretCircleRight size={15} />
+                  )}
+                </div>
+                <span
+                  style={{
+                    lineHeight: "1.2em",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    color: "var(--color-text-high)",
+                  }}
+                >
+                  {label}
+                </span>
+              </a>
+            ) : (
+              <span
+                style={{
+                  lineHeight: "1.2em",
+                  wordBreak: "break-word",
+                  overflowWrap: "anywhere",
+                  color: "var(--color-text-high)",
+                }}
+              >
+                {label}
+              </span>
+            )}
+          </Tooltip>
         </span>
-      </Tooltip>
-    );
-
-    const cupedIconDisplay =
-      regressionAdjustmentEnabled &&
-      !row?.metricSnapshotSettings?.regressionAdjustmentEnabled ? (
-        <Tooltip
-          className="ml-1"
-          body={
-            row?.metricSnapshotSettings?.regressionAdjustmentReason
-              ? `CUPED disabled: ${row?.metricSnapshotSettings?.regressionAdjustmentReason}`
-              : `CUPED disabled`
-          }
-        >
-          <div
-            className="d-inline-block mr-1 position-relative"
-            style={{ width: 12, height: 12 }}
-          >
-            <GBCuped className="position-absolute" size={12} />
-            <FaTimes
-              className="position-absolute"
-              color="#ff0000"
-              style={{ transform: "scale(0.7)", top: -4, right: -8 }}
-            />
-          </div>
-        </Tooltip>
-      ) : null;
-
-    const metricInverseIconDisplay = metric.inverse ? (
-      <Tooltip
-        body="metric is inverse, lower is better"
-        className="inverse-indicator ml-1"
-      >
-        <MdSwapCalls />
-      </Tooltip>
-    ) : null;
-
-    // Check if metric has dimensions available (only for parent rows)
-    const hasDimensions = !isDimensionRow && (numDimensions || 0) > 0;
-    const isDimensionVisible =
-      (resultGroup &&
-        visibleDimensionMetricIds?.includes(`${metric.id}:${resultGroup}`)) ||
-      false;
-
-    const dimensionToggleButton = hasDimensions ? (
-      <Tooltip
-        body={
-          isDimensionVisible
-            ? "Hide dimension analysis"
-            : "Show dimension analysis"
-        }
-        className="mr-1"
-      >
-        <a
-          role="button"
-          onClick={() => {
-            if (resultGroup) {
-              toggleVisibleDimensionMetricId?.(metric.id, resultGroup);
-            }
-          }}
-        >
-          {isDimensionVisible ? (
-            <PiCaretCircleDown size={16} />
-          ) : (
-            <PiCaretCircleRight size={16} />
-          )}
-        </a>
-      </Tooltip>
-    ) : null;
-
-    return (
-      <span style={{ display: "inline-flex", alignItems: "center" }}>
-        {dimensionToggleButton}
-        {metricLink}
-        {metricInverseIconDisplay}
-        {cupedIconDisplay}
-      </span>
+      </div>
     );
   };
 }

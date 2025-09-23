@@ -415,7 +415,8 @@ const BreakDownResults: FC<{
                 ) : (
                   <div style={{ marginBottom: 2 }}>
                     {getRenderLabelColumn({
-                      regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
+                      regressionAdjustmentEnabled:
+                        !!regressionAdjustmentEnabled,
                       statsEngine,
                       hideDetails,
                       experimentType,
