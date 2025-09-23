@@ -3503,6 +3503,13 @@ export interface components {
       dateUpdated: string;
       archived?: boolean;
     };
+    MetricAnalysis: {
+      /** @description The ID of the created metric analysis */
+      id: string;
+      /** @description The status of the analysis (e.g., "running", "completed", "error") */
+      status: string;
+      settings?: any;
+    };
     Member: {
       id: string;
       name?: string;
@@ -13418,6 +13425,7 @@ export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationVa
 export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
+export type ApiMetricAnalysis = z.infer<typeof openApiValidators.apiMetricAnalysisValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;

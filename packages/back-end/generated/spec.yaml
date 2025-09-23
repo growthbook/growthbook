@@ -5363,19 +5363,7 @@ paths:
                   - metricAnalysis
                 properties:
                   metricAnalysis:
-                    type: object
-                    required:
-                      - id
-                      - status
-                    properties:
-                      id:
-                        type: string
-                        description: The ID of the created metric analysis
-                      status:
-                        type: string
-                        description: 'The status of the analysis (e.g., "running", "completed", "error")'
-                      settings:
-                        type: object
+                    $ref: '#/components/schemas/MetricAnalysis'
   /bulk-import/facts:
     post:
       parameters: []
@@ -7903,6 +7891,20 @@ components:
           format: date-time
         archived:
           type: boolean
+    MetricAnalysis:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          description: The ID of the created metric analysis
+        status:
+          type: string
+          description: 'The status of the analysis (e.g., "running", "completed", "error")'
+        settings:
+          type: object
     Member:
       type: object
       required:
