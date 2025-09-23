@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   blockHasFieldOfType,
   isPersistedDashboardBlock,
+  snapshotSatisfiesBlock,
 } from "shared/enterprise";
 import { isDefined, isString } from "shared/util";
 import { groupBy } from "lodash";
@@ -188,8 +189,9 @@ export async function refreshDashboardData(
     phase: experiment.phases.length - 1,
     useCache: false,
     triggeredBy: "manual",
-    // Should this be standard given that it's using standard settings? It would affect other dashboards and the main results tab if so
+    // This snapshot uses standard settings but isn't type "standard" to prevent affecting other dashboards and the main results tab
     type: "exploratory",
+    precomputeDimensionsNonStandard: true,
   });
 
   // Copy the blocks of the dashboard to overwrite their snapshot IDs
@@ -200,9 +202,15 @@ export async function refreshDashboardData(
   );
 
   const dimensionBlockPairs = dashboard.blocks
-    .map<
-      [string, string] | undefined
-    >((block) => (blockHasFieldOfType(block, "dimensionId", isString) ? [block.dimensionId, block.id] : undefined))
+    .map<[string, string] | undefined>((block) => {
+      if (
+        blockHasFieldOfType(block, "dimensionId", isString) &&
+        !snapshotSatisfiesBlock(mainSnapshot, block)
+      ) {
+        return [block.dimensionId, block.id];
+      }
+      return undefined;
+    })
     .filter(isDefined);
 
   // Create a map from dimension -> list of block IDs that use that dimension

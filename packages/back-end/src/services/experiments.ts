@@ -470,6 +470,7 @@ export function getSnapshotSettings({
   metricGroups,
   reweight,
   datasource,
+  precomputeDimensionsNonStandard,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -484,6 +485,7 @@ export function getSnapshotSettings({
   metricGroups: MetricGroupInterface[];
   reweight?: boolean;
   datasource?: DataSourceInterface;
+  precomputeDimensionsNonStandard?: boolean;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -506,7 +508,7 @@ export function getSnapshotSettings({
   // TODO(dimensions): customize which dimensions to use at experiment level
 
   const precomputeDimensions =
-    snapshotType === "standard" &&
+    (snapshotType === "standard" || precomputeDimensionsNonStandard) &&
     experiment.type !== "multi-armed-bandit" &&
     !dimension &&
     !!datasource &&
@@ -1070,6 +1072,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  precomputeDimensionsNonStandard,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1083,6 +1086,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
+  precomputeDimensionsNonStandard?: boolean;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1108,6 +1112,7 @@ export async function createSnapshot({
     metricGroups,
     reweight,
     datasource,
+    precomputeDimensionsNonStandard,
   });
 
   const data: ExperimentSnapshotInterface = {

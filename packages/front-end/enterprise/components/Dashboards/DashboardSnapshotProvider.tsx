@@ -268,6 +268,7 @@ export function useDashboardSnapshot(
       !blockAnalysisSettings ||
       !snapshotSettingsMatch ||
       analysis ||
+      snapshot.status === "running" ||
       snapshotsLoading
     )
       return;

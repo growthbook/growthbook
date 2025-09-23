@@ -2758,6 +2758,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  precomputeDimensionsNonStandard,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2768,6 +2769,7 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  precomputeDimensionsNonStandard?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentResultsQueryRunner;
@@ -2843,6 +2845,7 @@ export async function createExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
+    precomputeDimensionsNonStandard,
   });
   const snapshot = queryRunner.model;
 
