@@ -137,7 +137,7 @@ export function getColumnRefWhereClause(
       jsonExtract,
     );
 
-    if (dimensionInfo.isOther) {
+    if (!dimensionInfo.dimensionValue) {
       // For "other", exclude all dimension values
       if (
         dimensionColumn.dimensionLevels &&
@@ -153,7 +153,7 @@ export function getColumnRefWhereClause(
     } else {
       // For specific dimension values, filter to that value
       where.add(
-        `(${columnExpr} = '${escapeStringLiteral(dimensionInfo.dimensionValue!)}')`,
+        `(${columnExpr} = '${escapeStringLiteral(dimensionInfo.dimensionValue)}')`,
       );
     }
   }
@@ -378,7 +378,6 @@ export interface DimensionMetricInfo {
   parentMetricId: string;
   dimensionColumn: string;
   dimensionValue: string | null;
-  isOther: boolean;
 }
 
 export function parseDimensionMetricId(metricId: string): DimensionMetricInfo {
@@ -390,19 +389,16 @@ export function parseDimensionMetricId(metricId: string): DimensionMetricInfo {
       parentMetricId: metricId,
       dimensionColumn: "",
       dimensionValue: null,
-      isOther: false,
     };
   }
 
   const [, parentMetricId, dimensionColumn, dimensionValue] = match;
-  const isOther = dimensionValue === "";
 
   return {
     isDimensionMetric: true,
     parentMetricId,
     dimensionColumn,
-    dimensionValue: isOther ? null : dimensionValue,
-    isOther,
+    dimensionValue: dimensionValue === "" ? null : dimensionValue,
   };
 }
 

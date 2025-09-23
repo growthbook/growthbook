@@ -271,9 +271,7 @@ const CompactResults: FC<{
           [];
 
         dimensionData.forEach((dimension) => {
-          const dimensionValue = dimension.isOther
-            ? "other"
-            : dimension.dimensionValue || "";
+          const dimensionValue = dimension.dimensionValue || "other";
           const expandedKey = `${metricId}:${resultGroup}`;
           const isExpanded = expandedMetrics[expandedKey] || false;
           const pinnedKey = `${metricId}:${dimension.dimensionColumn}:${dimensionValue}:${resultGroup}`;
@@ -309,7 +307,6 @@ const CompactResults: FC<{
             dimensionColumn: dimension.dimensionColumn,
             dimensionColumnName: dimension.dimensionColumnName,
             dimensionValue: dimension.dimensionValue,
-            isOther: dimension.isOther,
             dimensionLevels: dimension.dimensionLevels,
             isHiddenByFilter: !shouldShowLevel, // Add this property to indicate if row should be hidden
             isPinned: isPinned,

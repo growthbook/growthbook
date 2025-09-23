@@ -30,7 +30,6 @@ export interface SSRPolyfills {
     dimensionColumn: string;
     dimensionColumnName: string;
     dimensionValue: string | null;
-    isOther: boolean;
     dimensionLevels: string[];
   }>;
   useOrgSettings: typeof useOrgSettings;

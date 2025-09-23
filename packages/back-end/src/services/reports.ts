@@ -834,7 +834,6 @@ export async function generateExperimentReportSSRData({
       dimensionColumn: string;
       dimensionColumnName: string;
       dimensionValue: string | null;
-      isOther: boolean;
       dimensionLevels: string[];
     }>
   > = {};
@@ -855,7 +854,6 @@ export async function generateExperimentReportSSRData({
             dimensionColumn: string;
             dimensionColumnName: string;
             dimensionValue: string | null;
-            isOther: boolean;
             dimensionLevels: string[];
           }> = [];
 
@@ -872,7 +870,6 @@ export async function generateExperimentReportSSRData({
                 dimensionColumn: col.column,
                 dimensionColumnName: col.name || col.column,
                 dimensionValue: value,
-                isOther: false,
                 dimensionLevels: col.dimensionLevels || [],
               });
             });
@@ -887,7 +884,6 @@ export async function generateExperimentReportSSRData({
                 dimensionColumn: col.column,
                 dimensionColumnName: col.name || col.column,
                 dimensionValue: null,
-                isOther: true,
                 dimensionLevels: col.dimensionLevels || [],
               });
             }

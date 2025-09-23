@@ -73,7 +73,6 @@ export type ExperimentTableRow = {
   dimensionColumn?: string;
   dimensionColumnName?: string;
   dimensionValue?: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
-  isOther?: boolean; // True if this represents the "other" category
   dimensionLevels?: string[];
   isHiddenByFilter?: boolean; // True if this row should be hidden due to dimension level filtering
   isPinned?: boolean; // True if this dimension level row is pinned

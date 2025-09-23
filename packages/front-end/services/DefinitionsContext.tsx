@@ -38,7 +38,6 @@ export interface FactMetricDimension extends FactMetricInterface {
   dimensionColumn: string;
   dimensionColumnName: string;
   dimensionValue: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
-  isOther: boolean; // True if this represents the "other" category
   dimensionLevels: string[];
 }
 
@@ -323,7 +322,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
               dimensionColumn: col.column,
               dimensionColumnName: col.name || col.column,
               dimensionValue: value,
-              isOther: false,
               dimensionLevels: col.dimensionLevels || [],
             } as FactMetricDimension);
           });
@@ -339,7 +337,6 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
               dimensionColumn: col.column,
               dimensionColumnName: col.name || col.column,
               dimensionValue: null,
-              isOther: true,
               dimensionLevels: col.dimensionLevels || [],
             } as FactMetricDimension);
           }

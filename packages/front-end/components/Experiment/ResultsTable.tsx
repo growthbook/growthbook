@@ -707,7 +707,7 @@ export default function ResultsTable({
               const rowId = `${row.metric.id}-${i}`;
 
               const timeSeriesButton =
-                showTimeSeriesButton && !row.isDimensionRow ? (
+                showTimeSeriesButton ? (
                   <TimeSeriesButton
                     onClick={() => toggleVisibleTimeSeriesRowId(rowId)}
                     isActive={visibleTimeSeriesRowIds.includes(rowId)}
@@ -1193,7 +1193,7 @@ export default function ResultsTable({
                         })}
 
                         {visibleTimeSeriesRowIds.includes(rowId) ? (
-                          <tr>
+                          <tr style={!row.isDimensionRow ? { backgroundColor: "var(--slate-a2)" } : undefined}>
                             <td
                               colSpan={columnsToDisplay.length}
                               style={{ padding: 0 }}
@@ -1216,6 +1216,9 @@ export default function ResultsTable({
                                       rows.length > 1
                                     }
                                     firstDateToRender={getValidDate(startDate)}
+                                    isDimensionRow={row.isDimensionRow}
+                                    dimensionColumn={row.dimensionColumn}
+                                    dimensionValue={row.dimensionValue}
                                   />
                                 </div>
                               </div>
