@@ -162,7 +162,6 @@ export default function ImportFromStatsig() {
     "",
   );
 
-
   // Item-level checkbox states (all enabled by default)
   const [itemEnabled, setItemEnabled] = useState<{
     [category: string]: { [key: string]: boolean };
@@ -181,29 +180,42 @@ export default function ImportFromStatsig() {
   };
 
   // Helper function to get item key for checkbox state
-  const getItemKey = (category: string, index: number, item: unknown): string => {
+  const getItemKey = (
+    category: string,
+    index: number,
+    item: unknown,
+  ): string => {
     switch (category) {
-      case "environments":
+      case "environments": {
         const envItem = item as { environment?: { name?: string } };
         return `env-${envItem.environment?.name || index}`;
-      case "tags":
+      }
+      case "tags": {
         const tagItem = item as { tag?: { name?: string; id?: string } };
         return `tag-${tagItem.tag?.name || tagItem.tag?.id || index}`;
-      case "segments":
-        const segmentItem = item as { segment?: { name?: string; id?: string } };
+      }
+      case "segments": {
+        const segmentItem = item as {
+          segment?: { name?: string; id?: string };
+        };
         return `segment-${segmentItem.segment?.name || segmentItem.segment?.id || index}`;
-      case "featureGates":
+      }
+      case "featureGates": {
         const gateItem = item as { featureGate?: { id?: string } };
         return `gate-${gateItem.featureGate?.id || index}`;
-      case "dynamicConfigs":
+      }
+      case "dynamicConfigs": {
         const configItem = item as { dynamicConfig?: { id?: string } };
         return `config-${configItem.dynamicConfig?.id || index}`;
-      case "experiments":
+      }
+      case "experiments": {
         const expItem = item as { experiment?: { name?: string; id?: string } };
         return `exp-${expItem.experiment?.name || expItem.experiment?.id || index}`;
-      case "metrics":
+      }
+      case "metrics": {
         const metricItem = item as { metric?: { name?: string; id?: string } };
         return `metric-${metricItem.metric?.name || metricItem.metric?.id || index}`;
+      }
       default:
         return `${category}-${index}`;
     }
@@ -247,13 +259,16 @@ export default function ImportFromStatsig() {
   };
 
   // Helper function to get category checkbox state (boolean or "indeterminate")
-  const getCategoryCheckboxState = (category: string, items: unknown[]): boolean | "indeterminate" => {
+  const getCategoryCheckboxState = (
+    category: string,
+    items: unknown[],
+  ): boolean | "indeterminate" => {
     if (!items || items.length === 0) {
       return false;
     }
 
-    const enabledCount = items.filter((item, index) => 
-      getEffectiveCheckboxState(category, index, item)
+    const enabledCount = items.filter((item, index) =>
+      getEffectiveCheckboxState(category, index, item),
     ).length;
 
     if (enabledCount === 0) {
@@ -266,9 +281,13 @@ export default function ImportFromStatsig() {
   };
 
   // Helper function to toggle all items in a category
-  const toggleCategoryItems = (category: string, items: unknown[] | undefined, enabled: boolean) => {
+  const toggleCategoryItems = (
+    category: string,
+    items: unknown[] | undefined,
+    enabled: boolean,
+  ) => {
     if (!items) return;
-    
+
     const updates: { [key: string]: boolean } = {};
     items.forEach((item, index) => {
       const key = getItemKey(category, index, item);
@@ -543,9 +562,16 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Environments"
                   items={data.environments}
-                  checkboxState={getCategoryCheckboxState("environments", data.environments)}
+                  checkboxState={getCategoryCheckboxState(
+                    "environments",
+                    data.environments,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    toggleCategoryItems("environments", data.environments, enabled)
+                    toggleCategoryItems(
+                      "environments",
+                      data.environments,
+                      enabled,
+                    )
                   }
                 />
                 <div className="p-3">
@@ -573,36 +599,36 @@ export default function ImportFromStatsig() {
                             <React.Fragment key={i}>
                               <tr>
                                 <td>
-                                   <Checkbox
-                                     value={effectiveEnabled}
-                                     setValue={(enabled) =>
-                                       toggleItemEnabled(
-                                         "environments",
-                                         i,
-                                         environment,
-                                         enabled,
-                                       )
-                                     }
-                                     size="sm"
-                                     mt="2"
-                                   />
-                            </td>
-                            <td>
+                                  <Checkbox
+                                    value={effectiveEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "environments",
+                                        i,
+                                        environment,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                    mt="2"
+                                  />
+                                </td>
+                                <td>
                                   <ImportStatusDisplay data={environment} />
-                            </td>
+                                </td>
                                 <td>{environment.environment?.name}</td>
-                            <td>
+                                <td>
                                   {environment.error ? (
                                     <em>{environment.error}</em>
                                   ) : null}
-                            </td>
+                                </td>
                                 <EntityAccordion
                                   entity={environment.environment}
                                   entityId={entityId}
                                   isExpanded={isExpanded}
                                   onToggle={toggleAccordion}
                                 />
-                          </tr>
+                              </tr>
                               <EntityAccordionContent
                                 entity={environment.environment}
                                 isExpanded={isExpanded}
@@ -628,10 +654,10 @@ export default function ImportFromStatsig() {
                   }
                 />
                 <div className="p-3">
-                <div style={{ maxHeight: 400, overflowY: "auto" }}>
+                  <div style={{ maxHeight: 400, overflowY: "auto" }}>
                     <table className="gbtable table w-100">
-                    <thead>
-                      <tr>
+                      <thead>
+                        <tr>
                           <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
                           <th>Tag</th>
@@ -652,14 +678,14 @@ export default function ImportFromStatsig() {
                             <React.Fragment key={i}>
                               <tr>
                                 <td>
-                                   <Checkbox
-                                     value={effectiveEnabled}
-                                     setValue={(enabled) =>
-                                       toggleItemEnabled("tags", i, tag, enabled)
-                                     }
-                                     size="sm"
-                                     mt="2"
-                                   />
+                                  <Checkbox
+                                    value={effectiveEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled("tags", i, tag, enabled)
+                                    }
+                                    size="sm"
+                                    mt="2"
+                                  />
                                 </td>
                                 <td>
                                   <ImportStatusDisplay data={tag} />
@@ -692,7 +718,10 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Segments → Saved Groups"
                   items={data.segments}
-                  checkboxState={getCategoryCheckboxState("segments", data.segments)}
+                  checkboxState={getCategoryCheckboxState(
+                    "segments",
+                    data.segments,
+                  )}
                   onCategoryToggle={(enabled) =>
                     toggleCategoryItems("segments", data.segments, enabled)
                   }
@@ -704,14 +733,14 @@ export default function ImportFromStatsig() {
                         <tr>
                           <th style={{ width: 50 }}></th>
                           <th style={{ width: 150 }}>Status</th>
-                        <th>Name</th>
+                          <th>Name</th>
                           <th>Type</th>
                           <th>Description</th>
-                        <th></th>
+                          <th></th>
                           <th style={{ width: 40 }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                        </tr>
+                      </thead>
+                      <tbody>
                         {data.segments?.map((segment, i) => {
                           const entityId = `segment-${i}`;
                           const isExpanded = expandedAccordions.has(entityId);
@@ -724,26 +753,26 @@ export default function ImportFromStatsig() {
                             <React.Fragment key={i}>
                               <tr>
                                 <td>
-                                   <Checkbox
-                                     value={effectiveEnabled}
-                                     setValue={(enabled) =>
-                                       toggleItemEnabled(
-                                         "segments",
-                                         i,
-                                         segment,
-                                         enabled,
-                                       )
-                                     }
-                                     size="sm"
-                                     mt="2"
-                                   />
-                          </td>
+                                  <Checkbox
+                                    value={effectiveEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "segments",
+                                        i,
+                                        segment,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                    mt="2"
+                                  />
+                                </td>
                                 <td>
                                   <ImportStatusDisplay data={segment} />
-                          </td>
-                          <td>
+                                </td>
+                                <td>
                                   {segment.segment?.name ?? segment.segment?.id}
-                          </td>
+                                </td>
                                 <td>{segment.segment?.type}</td>
                                 <td>{segment.segment?.description}</td>
                                 <td>
@@ -757,7 +786,7 @@ export default function ImportFromStatsig() {
                                   isExpanded={isExpanded}
                                   onToggle={toggleAccordion}
                                 />
-                        </tr>
+                              </tr>
                               <EntityAccordionContent
                                 entity={segment.segment}
                                 isExpanded={isExpanded}
@@ -765,8 +794,8 @@ export default function ImportFromStatsig() {
                             </React.Fragment>
                           );
                         })}
-                    </tbody>
-                  </table>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -777,9 +806,16 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Feature Gates → Features"
                   items={data.featureGates}
-                  checkboxState={getCategoryCheckboxState("featureGates", data.featureGates)}
+                  checkboxState={getCategoryCheckboxState(
+                    "featureGates",
+                    data.featureGates,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    toggleCategoryItems("featureGates", data.featureGates, enabled)
+                    toggleCategoryItems(
+                      "featureGates",
+                      data.featureGates,
+                      enabled,
+                    )
                   }
                 />
                 <div className="p-3">
@@ -808,19 +844,19 @@ export default function ImportFromStatsig() {
                             <React.Fragment key={i}>
                               <tr>
                                 <td>
-                                   <Checkbox
-                                     value={effectiveEnabled}
-                                     setValue={(enabled) =>
-                                       toggleItemEnabled(
-                                         "featureGates",
-                                         i,
-                                         gate,
-                                         enabled,
-                                       )
-                                     }
-                                     size="sm"
-                                     mt="2"
-                                   />
+                                  <Checkbox
+                                    value={effectiveEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "featureGates",
+                                        i,
+                                        gate,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                    mt="2"
+                                  />
                                 </td>
                                 <td>
                                   <ImportStatusDisplay data={gate} />
@@ -856,9 +892,16 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Dynamic Configs → Features"
                   items={data.dynamicConfigs}
-                  checkboxState={getCategoryCheckboxState("dynamicConfigs", data.dynamicConfigs)}
+                  checkboxState={getCategoryCheckboxState(
+                    "dynamicConfigs",
+                    data.dynamicConfigs,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    toggleCategoryItems("dynamicConfigs", data.dynamicConfigs, enabled)
+                    toggleCategoryItems(
+                      "dynamicConfigs",
+                      data.dynamicConfigs,
+                      enabled,
+                    )
                   }
                 />
                 <div className="p-3">
@@ -886,19 +929,19 @@ export default function ImportFromStatsig() {
                             <React.Fragment key={i}>
                               <tr>
                                 <td>
-                                   <Checkbox
-                                     value={effectiveEnabled}
-                                     setValue={(enabled) =>
-                                       toggleItemEnabled(
-                                         "dynamicConfigs",
-                                         i,
-                                         config,
-                                         enabled,
-                                       )
-                                     }
-                                     size="sm"
-                                     mt="2"
-                                   />
+                                  <Checkbox
+                                    value={effectiveEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "dynamicConfigs",
+                                        i,
+                                        config,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                    mt="2"
+                                  />
                                 </td>
                                 <td>
                                   <ImportStatusDisplay data={config} />
@@ -931,9 +974,16 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Experiments"
                   items={data.experiments}
-                  checkboxState={getCategoryCheckboxState("experiments", data.experiments)}
+                  checkboxState={getCategoryCheckboxState(
+                    "experiments",
+                    data.experiments,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    toggleCategoryItems("experiments", data.experiments, enabled)
+                    toggleCategoryItems(
+                      "experiments",
+                      data.experiments,
+                      enabled,
+                    )
                   }
                 />
                 <div className="p-3">
@@ -961,19 +1011,19 @@ export default function ImportFromStatsig() {
                             <React.Fragment key={i}>
                               <tr>
                                 <td>
-                                   <Checkbox
-                                     value={effectiveEnabled}
-                                     setValue={(enabled) =>
-                                       toggleItemEnabled(
-                                         "experiments",
-                                         i,
-                                         exp,
-                                         enabled,
-                                       )
-                                     }
-                                     size="sm"
-                                     mt="2"
-                                   />
+                                  <Checkbox
+                                    value={effectiveEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "experiments",
+                                        i,
+                                        exp,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                    mt="2"
+                                  />
                                 </td>
                                 <td>
                                   <ImportStatusDisplay data={exp} />
@@ -1007,7 +1057,10 @@ export default function ImportFromStatsig() {
                   name="Metrics"
                   beta={true}
                   items={data.metrics}
-                  checkboxState={getCategoryCheckboxState("metrics", data.metrics)}
+                  checkboxState={getCategoryCheckboxState(
+                    "metrics",
+                    data.metrics,
+                  )}
                   onCategoryToggle={(enabled) =>
                     toggleCategoryItems("metrics", data.metrics, enabled)
                   }
@@ -1038,19 +1091,19 @@ export default function ImportFromStatsig() {
                             <React.Fragment key={i}>
                               <tr>
                                 <td>
-                                   <Checkbox
-                                     value={effectiveEnabled}
-                                     setValue={(enabled) =>
-                                       toggleItemEnabled(
-                                         "metrics",
-                                         i,
-                                         metric,
-                                         enabled,
-                                       )
-                                     }
-                                     size="sm"
-                                     mt="2"
-                                   />
+                                  <Checkbox
+                                    value={effectiveEnabled}
+                                    setValue={(enabled) =>
+                                      toggleItemEnabled(
+                                        "metrics",
+                                        i,
+                                        metric,
+                                        enabled,
+                                      )
+                                    }
+                                    size="sm"
+                                    mt="2"
+                                  />
                                 </td>
                                 <td>
                                   <ImportStatusDisplay data={metric} />
