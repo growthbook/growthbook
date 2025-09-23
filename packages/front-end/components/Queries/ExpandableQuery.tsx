@@ -22,8 +22,8 @@ const ExpandableQuery: FC<{
   i: number;
   total: number;
 }> = ({ query, i, total }) => {
-  let title = "";
-  if (query.language === "sql") {
+  let title = query.title || "";
+  if (query.language === "sql" && !title) {
     const comments = query.query.match(/(\n|^)\s*-- ([^\n]+)/);
     if (comments && comments[2]) {
       title = comments[2];

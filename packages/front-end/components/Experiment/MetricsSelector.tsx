@@ -91,6 +91,7 @@ const MetricsSelector: FC<{
   excludeQuantiles?: boolean;
   forceSingleMetric?: boolean;
   noManual?: boolean;
+  noLegacyMetrics?: boolean;
   filterConversionWindowMetrics?: boolean;
   disabled?: boolean;
   helpText?: ReactNode;
@@ -107,6 +108,7 @@ const MetricsSelector: FC<{
   excludeQuantiles,
   forceSingleMetric = false,
   noManual = false,
+  noLegacyMetrics = false,
   filterConversionWindowMetrics,
   disabled,
   helpText,
@@ -129,7 +131,7 @@ const MetricsSelector: FC<{
   );
 
   const options: MetricOption[] = [
-    ...metrics
+    ...(noLegacyMetrics ? [] : metrics)
       .filter((m) => {
         if (filterConversionWindowMetrics) {
           return m?.windowSettings?.type !== "conversion";

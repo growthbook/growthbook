@@ -849,6 +849,11 @@ app.post(
   datasourcesController.postValidatePipelineSettings,
 );
 
+app.post(
+  "/datasource/:id/pipeline/validate-queries",
+  datasourcesController.postValidatePipelineQueries,
+);
+
 // Information Schemas
 app.get(
   "/datasource/:datasourceId/schema/table/:tableId",
