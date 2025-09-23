@@ -143,7 +143,7 @@ const MetricPage: FC = () => {
   let canEditMetric = permissionsUtil.canUpdateMetric(metric, {});
   let canDeleteMetric = permissionsUtil.canDeleteMetric(metric);
 
-  // Additional check if managed by admins
+  // Additional check if managed by api or config
   if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
     canEditMetric = false;
     canDeleteMetric = false;
@@ -321,6 +321,12 @@ const MetricPage: FC = () => {
           currentMetric={{
             ...metric,
             name: metric.name + " (copy)",
+            // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+            managedBy:
+              metric.managedBy === "admin" &&
+              permissionsUtil.canCreateOfficialResources(metric)
+                ? "admin"
+                : "",
           }}
           close={() => setDuplicateModalOpen(false)}
           source="metrics-detail"
