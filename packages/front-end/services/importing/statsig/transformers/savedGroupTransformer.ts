@@ -1,9 +1,6 @@
 import { SavedGroupInterface } from "shared/src/types";
 import { SDKAttribute } from "back-end/types/organization";
-import {
-  StatsigSavedGroup,
-  StatsigCondition,
-} from "@/services/importing/statsig/types";
+import { StatsigSavedGroup } from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 import { ensureAttributeExists } from "./attributeCreator";
@@ -32,21 +29,32 @@ export async function transformStatsigSegmentToSavedGroup(
       return "{}";
     }
 
-    // Collect all conditions from all rules
-    const allConditions: StatsigCondition[] = [];
+    // Transform each rule's conditions separately
+    const ruleConditions: string[] = [];
+
     rules.forEach((rule) => {
       if (rule.conditions && rule.conditions.length > 0) {
-        allConditions.push(...rule.conditions);
+        // Transform this rule's conditions to GrowthBook format
+        const transformed = transformStatsigConditionsToGB(rule.conditions);
+        if (transformed.condition && transformed.condition !== "{}") {
+          ruleConditions.push(transformed.condition);
+        }
       }
     });
 
-    if (allConditions.length === 0) {
+    if (ruleConditions.length === 0) {
       return "{}";
     }
 
-    // Transform all conditions to GrowthBook format
-    const transformed = transformStatsigConditionsToGB(allConditions);
-    return transformed.condition;
+    // If only one rule, return its condition directly
+    if (ruleConditions.length === 1) {
+      return ruleConditions[0];
+    }
+
+    // Multiple rules - OR them together
+    return JSON.stringify({
+      $or: ruleConditions.map((cond) => JSON.parse(cond)),
+    });
   }
 
   if (segment.type === "id_list") {
