@@ -600,6 +600,12 @@ export const postFactMetricValidator = {
   paramsSchema: z.never(),
 };
 
+export const postFactMetricAnalysisValidator = {
+  bodySchema: z.object({ "userIdType": z.string().optional(), "lookbackDays": z.coerce.number().min(1).max(999999).optional(), "populationType": z.enum(["factTable","segment"]).optional(), "populationId": z.string().nullable().optional(), "source": z.enum(["metric","northstar"]).optional(), "force": z.boolean().optional() }).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({ "id": z.string() }).strict(),
+};
+
 export const getFactMetricValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

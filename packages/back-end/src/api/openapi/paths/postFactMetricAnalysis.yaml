@@ -1,0 +1,46 @@
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: The fact metric id to analyze
+    schema:
+      type: string
+post:
+  tags:
+    - fact-metrics
+    - metric-analysis
+  summary: Create Fact Metric Analysis
+  operationId: postFactMetricAnalysis
+  x-codeSamples:
+    - lang: "cURL"
+      source: |
+        curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact_1234/analysis \
+          -d '{"lookbackDays":30,"populationType":"factTable"}' \
+          -u secret_abc123DEF456:
+  requestBody:
+    required: false
+    content:
+      application/json:
+        schema:
+          $ref: "../payload-schemas/PostFactMetricAnalysisPayload.yaml"
+  responses:
+    "200":
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - metricAnalysis
+            properties:
+              metricAnalysis:
+                type: object
+                required:
+                  - id
+                  - status
+                properties:
+                  id:
+                    type: string
+                    description: The ID of the created metric analysis
+                  status:
+                    type: string
+                    description: The status of the analysis (e.g., "running", "completed", "error")
