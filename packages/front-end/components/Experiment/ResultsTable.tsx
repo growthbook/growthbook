@@ -1274,12 +1274,7 @@ function drawEmptyRow({
 }) {
   return (
     <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
-      {renderLabel && (
-        <td colSpan={labelColSpan}>
-          {label}
-          {/*<div style={{ marginTop: "var(--space-3)" }}>{label}</div>*/}
-        </td>
-      )}
+      {renderLabel && <td colSpan={labelColSpan}>{label}</td>}
 
       {renderGraph && (
         <td className="graph-cell">

@@ -5,6 +5,8 @@ import {
 import { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
+import { Switch } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,16 +18,14 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import { Switch } from "@radix-ui/themes";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
-import FactMetricModal from "./FactMetricModal";
 import { useUser } from "@/services/UserContext";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Toggle from "@/components/Forms/Toggle";
+import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -59,8 +59,8 @@ export default function FactMetricList({ factTable }: Props) {
   const metrics = getMetricsForFactTable(factMetrics, factTable.id);
   const hasArchivedMetrics = factMetrics.some((m) => m.archived);
 
-
-  const isMetricDimensionsFeatureEnabled = growthbook?.isOn("metric-dimensions");
+  const isMetricDimensionsFeatureEnabled =
+    growthbook?.isOn("metric-dimensions");
   const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
   const shouldShowDimensionAnalysisColumn = isMetricDimensionsFeatureEnabled;
 
@@ -228,19 +228,21 @@ export default function FactMetricList({ factTable }: Props) {
                   <td>{metric.metricType}</td>
                   {shouldShowDimensionAnalysisColumn && (
                     <td>
-                       <Switch
-                         checked={metric.enableMetricDimensions || false}
-                         onCheckedChange={async (checked) => {
-                           await apiCall(`/fact-metrics/${metric.id}`, {
-                             method: "PUT",
-                             body: JSON.stringify({
-                               enableMetricDimensions: checked,
-                             }),
-                           });
-                           mutateDefinitions();
-                         }}
-                         disabled={!canEdit(metric) || !hasMetricDimensionsFeature}
-                       />
+                      <Switch
+                        checked={metric.enableMetricDimensions || false}
+                        onCheckedChange={async (checked) => {
+                          await apiCall(`/fact-metrics/${metric.id}`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              enableMetricDimensions: checked,
+                            }),
+                          });
+                          mutateDefinitions();
+                        }}
+                        disabled={
+                          !canEdit(metric) || !hasMetricDimensionsFeature
+                        }
+                      />
                     </td>
                   )}
                   <td>

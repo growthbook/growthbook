@@ -195,7 +195,8 @@ export default function FactMetricPage() {
   const { hasCommercialFeature } = useUser();
 
   // Feature flag and commercial feature checks for dimension analysis
-  const isMetricDimensionsFeatureEnabled = growthbook?.isOn("metric-dimensions") || false;
+  const isMetricDimensionsFeatureEnabled =
+    growthbook?.isOn("metric-dimensions") || false;
   const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
 
   if (!ready) return <LoadingOverlay />;
@@ -725,8 +726,8 @@ export default function FactMetricPage() {
                           Enable Dimension Analysis
                         </div>
                         <div className="text-muted">
-                          Analyze this metric across dimension values from the fact
-                          table&apos;s dimension columns.
+                          Analyze this metric across dimension values from the
+                          fact table&apos;s dimension columns.
                         </div>
                       </div>
                     </>
@@ -736,83 +737,83 @@ export default function FactMetricPage() {
                         Enable Dimension Analysis
                       </div>
                       <div className="text-muted">
-                        Analyze this metric across dimension values from the fact
-                        table&apos;s dimension columns.
+                        Analyze this metric across dimension values from the
+                        fact table&apos;s dimension columns.
                       </div>
                     </div>
                   )}
                 </div>
 
-              {factTable?.columns.some(
-                (col) => col.isDimension && !col.deleted,
-              ) ? (
-                <>
-                  {factMetric.enableMetricDimensions && (
-                    <div className="mt-3">
-                      <h5 className="mb-2">Metric Dimensions</h5>
-                      <table className="table appbox gbtable mb-0">
-                        <thead>
-                          <tr>
-                            <th>Dimension</th>
-                            <th>Dimension Levels</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {factTable.columns
-                            .filter((col) => col.isDimension && !col.deleted)
-                            .map((col) => (
-                              <tr key={col.column}>
-                                <td>{col.name || col.column}</td>
-                                <td>
-                                  {col.dimensionLevels &&
-                                  col.dimensionLevels.length > 0 ? (
-                                    <div
-                                      className="d-flex flex-wrap"
-                                      style={{ gap: 4 }}
-                                    >
-                                      {col.dimensionLevels.map(
-                                        (value, index) => (
-                                          <span
-                                            key={index}
-                                            style={{
-                                              fontSize: "0.8em",
-                                              padding: "2px 4px",
-                                              borderRadius: "3px",
-                                              border: "1px solid #e9ecef",
-                                            }}
-                                          >
-                                            {value}
-                                          </span>
-                                        ),
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <em className="text-muted">No values</em>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
+                {factTable?.columns.some(
+                  (col) => col.isDimension && !col.deleted,
+                ) ? (
+                  <>
+                    {factMetric.enableMetricDimensions && (
+                      <div className="mt-3">
+                        <h5 className="mb-2">Metric Dimensions</h5>
+                        <table className="table appbox gbtable mb-0">
+                          <thead>
+                            <tr>
+                              <th>Dimension</th>
+                              <th>Dimension Levels</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {factTable.columns
+                              .filter((col) => col.isDimension && !col.deleted)
+                              .map((col) => (
+                                <tr key={col.column}>
+                                  <td>{col.name || col.column}</td>
+                                  <td>
+                                    {col.dimensionLevels &&
+                                    col.dimensionLevels.length > 0 ? (
+                                      <div
+                                        className="d-flex flex-wrap"
+                                        style={{ gap: 4 }}
+                                      >
+                                        {col.dimensionLevels.map(
+                                          (value, index) => (
+                                            <span
+                                              key={index}
+                                              style={{
+                                                fontSize: "0.8em",
+                                                padding: "2px 4px",
+                                                borderRadius: "3px",
+                                                border: "1px solid #e9ecef",
+                                              }}
+                                            >
+                                              {value}
+                                            </span>
+                                          ),
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <em className="text-muted">No values</em>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-muted">
+                    <div className="font-weight-bold mb-1">
+                      Dimension Analysis Not Available
                     </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-muted">
-                  <div className="font-weight-bold mb-1">
-                    Dimension Analysis Not Available
+                    <div>
+                      To enable dimension analysis for this metric, configure
+                      dimension columns in the{" "}
+                      <Link href={`/fact-tables/${factTable?.id}`}>
+                        {factTable?.name || "fact table"}
+                      </Link>
+                      . Dimension columns allow you to analyze metrics across
+                      different categorical values.
+                    </div>
                   </div>
-                  <div>
-                    To enable dimension analysis for this metric, configure
-                    dimension columns in the{" "}
-                    <Link href={`/fact-tables/${factTable?.id}`}>
-                      {factTable?.name || "fact table"}
-                    </Link>
-                    . Dimension columns allow you to analyze metrics across
-                    different categorical values.
-                  </div>
-                </div>
-              )}
+                )}
               </div>
             )}
           </div>

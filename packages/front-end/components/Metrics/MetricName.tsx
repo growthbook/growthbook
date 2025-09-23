@@ -49,9 +49,8 @@ export function OfficialBadge({
   leftGap?: boolean;
 }) {
   if (!managedBy) {
-    if (leftGap) return (
-      <div className="d-inline-block ml-1" style={{ width: 17 }} />
-    );
+    if (leftGap)
+      return <div className="d-inline-block ml-1" style={{ width: 17 }} />;
     return null;
   }
 
