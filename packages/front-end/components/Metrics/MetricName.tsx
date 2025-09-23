@@ -38,11 +38,13 @@ export function OfficialBadge({
   managedBy,
   disableTooltip,
   showOfficialLabel,
+  color,
 }: {
   type: string;
-  managedBy?: "" | "config" | "api";
+  managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
+  color?: string;
 }) {
   if (!managedBy) return null;
 
@@ -54,14 +56,14 @@ export function OfficialBadge({
             ""
           ) : (
             <>
-              <h4>
+              <h4 className="pb-1">
                 <HiBadgeCheck
                   style={{
                     fontSize: "1.2em",
                     lineHeight: "1em",
                     marginTop: "-2px",
+                    color: color || "var(--blue-11)",
                   }}
-                  className="text-purple"
                 />{" "}
                 Official{" "}
                 <span
@@ -86,7 +88,12 @@ export function OfficialBadge({
         }
       >
         <HiBadgeCheck
-          style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
+          style={{
+            fontSize: "1.2em",
+            lineHeight: "1em",
+            marginTop: "-2px",
+            color: color || "var(--blue-11)",
+          }}
         />
         {showOfficialLabel ? (
           <span className="ml-1 badge badge-purple">Official</span>
@@ -106,6 +113,7 @@ export default function MetricName({
   isGroup,
   metrics,
   showLink,
+  badgeColor,
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -116,6 +124,7 @@ export default function MetricName({
   isGroup?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
   showLink?: boolean;
+  badgeColor?: string;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -132,8 +141,11 @@ export default function MetricName({
     );
 
     return (
-      <Flex align="center">
-        <PiFolderDuotone size={16} className="mr-1" />
+      <Flex align="center" className="ml-1">
+        <PiFolderDuotone
+          className="mr-1"
+          style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
+        />
         {metricGroup.name}
         <Tooltip
           className={clsx("px-1", {
@@ -221,6 +233,15 @@ export default function MetricName({
           color: "var(--color-text-high)",
         }}
       >
+        {metric.managedBy ? (
+          <OfficialBadge
+            type="metric"
+            managedBy={metric.managedBy || ""}
+            disableTooltip={disableTooltip}
+            showOfficialLabel={showOfficialLabel}
+            color={badgeColor}
+          />
+        ) : null}
         {metric.name}
       </span>
       {showLink ? (
@@ -229,6 +250,7 @@ export default function MetricName({
             href={`/metric/${metric.id}`}
             target="_blank"
             className="link-purple"
+            rel="noreferrer"
           >
             View details
             <PiArrowSquareOut className="ml-1" />
@@ -246,12 +268,6 @@ export default function MetricName({
       ) : (
         ""
       )}
-      <OfficialBadge
-        type="metric"
-        managedBy={metric.managedBy}
-        disableTooltip={disableTooltip}
-        showOfficialLabel={showOfficialLabel}
-      />
     </>
   );
 }

@@ -3735,7 +3735,13 @@ input:disabled {
     font-weight: 400;
   }
 }
-
+.rounded-table {
+  border-radius: 0.33rem;
+  overflow: hidden;
+  border-spacing: 0;
+  border-collapse: separate;
+  border: 1px solid var(--slate-a6);
+}
 .border-violet {
   border-color: var(--violet-a7);
 }
