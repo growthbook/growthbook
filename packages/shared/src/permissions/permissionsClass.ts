@@ -660,7 +660,7 @@ export class Permissions {
   public canCreateMetric = (
     metric: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (metric.managedBy === "admin") {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
       if (!this.canCreateOfficialResources(metric)) {
         return false;
       }
@@ -673,7 +673,10 @@ export class Permissions {
     existing: Pick<MetricInterface, "projects" | "managedBy">,
     updates: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (existing.managedBy === "admin" || updates.managedBy === "admin") {
+    if (
+      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
+      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
+    ) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
         return false;
       }
@@ -689,7 +692,7 @@ export class Permissions {
   public canDeleteMetric = (
     metric: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (metric.managedBy === "admin") {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
       if (!this.canDeleteOfficialResources(metric)) {
         return false;
       }
