@@ -25,6 +25,7 @@ import {
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { Checkbox } from "@radix-ui/themes";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -132,7 +133,7 @@ const CompactResults: FC<{
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
 
   const [pinnedMetricDimensionLevels, setPinnedMetricDimensionLevels] =
-    useState<string[]>([]);
+    useLocalStorage<string[]>(`pinned-dimension-levels-${id}`, []);
   const togglePinnedMetricDimensionLevel = (
     metricId: string,
     dimensionColumn: string,
@@ -667,12 +668,11 @@ export function getRenderLabelColumn({
         <div className="pl-3" style={{ position: "relative" }}>
           {isExpanded && (
             <Tooltip
-              body="Pin to results table"
+              body="Always show this dimension"
               tipPosition="top"
               tipMinWidth="50px"
             >
               <Checkbox
-                className={`dimension-checkbox ${isPinned ? "checked" : "unchecked"}`}
                 style={{
                   position: "absolute",
                   left: 2,

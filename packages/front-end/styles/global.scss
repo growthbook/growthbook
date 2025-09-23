@@ -667,7 +667,7 @@ pre {
 .bandit-summary-results {
   tbody {
     &.dimension-row {
-      background-color: var(--black-a1);
+      background-color: var(--slate-a2);
     }
     tr {
       &:not(.dimension-header-row) {
@@ -3771,19 +3771,4 @@ input:disabled {
   .sidebarLeftClosed {
     left: 0 !important;
   }
-}
-
-// Dimension checkbox hover behavior
-.dimension-checkbox {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  
-  &.checked {
-    opacity: 1;
-  }
-}
-
-// Show checkbox on hover over the table cell containing dimension rows
-tr:hover .dimension-checkbox.unchecked {
-  opacity: 1;
 }
