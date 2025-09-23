@@ -7,12 +7,6 @@ const router = express.Router();
 
 const uploadController = wrapController(uploadControllerRaw);
 
-router.get("/signed-url/:path*", uploadController.getSignedImageToken);
-router.post(
-  "/signed-url-for-upload",
-  bodyParser.json(),
-  uploadController.getSignedUploadToken,
-);
 router.get("/:path*", uploadController.getImage);
 router.put(
   "/",

@@ -95,6 +95,9 @@ backend:
     # Possible values: local, s3, google-cloud
     - name: UPLOAD_METHOD
       value: local
+    # set this to true for access to uploads to proxy through your self hosted server allowing you to keep the bucket private
+    - name: USE_FILE_PROXY
+      value: "true"
 
     # ===== S3 uploads configuration =====
     # - name: S3_BUCKET

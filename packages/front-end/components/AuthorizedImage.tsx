@@ -1,20 +1,23 @@
 import React, { useEffect, useState, FC } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { SignedImageUrlResponse } from "back-end/types/upload";
 import { useAuth } from "@/services/auth";
-import { getApiHost, getGcsDomain, getS3Domain } from "@/services/env";
+import {
+  getApiHost,
+  getGcsDomain,
+  getS3Domain,
+  usingFileProxy,
+} from "@/services/env";
 import LoadingSpinner from "./LoadingSpinner";
 
 interface AuthorizedImageProps extends React.HTMLProps<HTMLImageElement> {
-  imageCache?: Record<string, { url: string; expiresAt: string }>;
+  imageCache?: Record<string, string>;
   onErrorMsg?: (msg: string) => JSX.Element | null;
 }
 
 /**
- * This component is used to display images that may be stored in private buckets.
- * For S3 and GCS, it fetches signed URLs from the backend for direct access.
- * For local storage it fetches it from api server and external images, it uses them directly.
- * It caches signed and local URLs to avoid repeated API calls.
+ * This component is used to display images that are stored in a private bucket.
+ * It will fetch the image from the backend and convert it to a blob url that can be displayed.
+ * It will also cache the image if imageCache is set so that it does not need to be fetched again.
  * */
 const AuthorizedImage: FC<AuthorizedImageProps> = ({
   imageCache = {},
@@ -28,69 +31,53 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
   const { apiCall } = useAuth();
 
   useEffect(() => {
-    const fetchData = async (src) => {
+    const fetchData = async (src, apiUrl) => {
       try {
-        const imageData: Blob = await apiCall(new URL(src).pathname);
+        const imageData: Blob = await apiCall(new URL(apiUrl).pathname);
         const imageUrl = URL.createObjectURL(imageData);
-        imageCache[src] = { url: imageUrl, expiresAt: "never" }; // Local files never expire
+        imageCache[src] = imageUrl;
         setImageSrc(imageUrl);
       } catch (e) {
         setErrorMsg(e.message);
       }
     };
 
-    const fetchSignedUrl = async (originalSrc: string, path: string) => {
-      try {
-        const response = await apiCall<SignedImageUrlResponse>(
-          `/upload/signed-url/${path}`,
-        );
-        const { signedUrl, expiresAt } = response;
-
-        imageCache[originalSrc] = { url: signedUrl, expiresAt };
-        setImageSrc(signedUrl);
-      } catch (e) {
-        console.error("Error fetching signed URL:", e);
-        setErrorMsg(e.message);
-      }
-    };
-
-    const isExpired = (expiresAt: string): boolean => {
-      if (expiresAt === "never") return false;
-      return new Date(expiresAt) <= new Date();
-    };
-
     navigator.locks.request(src, async () => {
-      if (imageCache[src] && !isExpired(imageCache[src].expiresAt)) {
-        // Use cached URL if not expired
-        setImageSrc(imageCache[src].url);
-      } else if (getGcsDomain() && src.startsWith(getGcsDomain())) {
-        // Extract path for GCS images and get signed URL
+      if (imageCache[src]) {
+        // Images in the cache do not need to be fetched again
+        setImageSrc(imageCache[src]);
+      } else if (
+        usingFileProxy() &&
+        getGcsDomain() &&
+        src.startsWith(getGcsDomain())
+      ) {
+        // We convert GCS images to the GB url that acts as a proxy using the correct credentials
+        // This way they can lock their bucket down to only allow access from the proxy.
         const withoutDomain = src.replace(
           "https://storage.googleapis.com/",
           "",
         );
         const parts = withoutDomain.split("/");
         parts.shift(); // remove bucket name
-        const path = parts.join("/");
-        await fetchSignedUrl(src, path);
-      } else if (getS3Domain() && src.startsWith(getS3Domain())) {
-        // Extract path for S3 images and get signed URL
-        const s3Domain = getS3Domain();
-
-        // Handle both with and without trailing slash in domain
-        const domainToRemove = s3Domain.endsWith("/")
-          ? s3Domain
-          : s3Domain + "/";
-        const path = src.substring(domainToRemove.length);
-
-        await fetchSignedUrl(src, path);
-      } else if (src.startsWith(getApiHost() + "/upload/")) {
-        // This is a local upload - serve directly (no signed URL needed for local files)
-        await fetchData(src);
-      } else {
-        // External images or already public URLs - use directly (never expire)
-        imageCache[src] = { url: src, expiresAt: "never" };
+        const apiUrl = getApiHost() + "/upload/" + parts.join("/");
+        await fetchData(src, apiUrl);
+      } else if (
+        usingFileProxy() &&
+        getS3Domain() &&
+        src.startsWith(getS3Domain())
+      ) {
+        // We convert s3 images to the GB url that acts as a proxy using the correct credentials
+        // This way they can lock their bucket down to only allow access from the proxy.
+        const apiUrl =
+          getApiHost() + "/upload/" + src.substring(getS3Domain().length);
+        await fetchData(src, apiUrl);
+      } else if (!src.startsWith(getApiHost())) {
+        // Images in markdown that are not from our host we will treat as a normal image
         setImageSrc(src);
+      } else {
+        // Images to the proxy we will fetch from the backend
+        const apiUrl = src;
+        await fetchData(src, apiUrl);
       }
     });
   }, [src, imageCache, apiCall]);
