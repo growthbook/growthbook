@@ -158,6 +158,7 @@ export default function ExperimentMetricBlock({
           noStickyHeader
           key={resultGroup}
           id={blockId}
+          experimentId={experiment.id}
           phase={experiment.phases.length - 1}
           variations={variations}
           variationFilter={variationFilter}

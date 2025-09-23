@@ -281,6 +281,7 @@ const Presentation = ({
             }}
           >
             <CompactResults
+              experimentId={experiment.id}
               variations={experiment.variations.map((v, i) => {
                 return {
                   id: v.key || i + "",

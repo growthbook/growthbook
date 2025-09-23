@@ -132,6 +132,7 @@ export default function PublicExperimentResults({
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
+                experimentId={experiment.id}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -160,6 +161,7 @@ export default function PublicExperimentResults({
               />
             ) : showCompactResults ? (
               <CompactResults
+                experimentId={experiment.id}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
