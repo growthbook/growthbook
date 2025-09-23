@@ -336,7 +336,7 @@ export interface paths {
     delete: operations["deleteFactMetric"];
   };
   "/fact-metrics/{id}/analysis": {
-    /** Create Fact Metric Analysis */
+    /** Create a fact metric analysis */
     post: operations["postFactMetricAnalysis"];
     parameters: {
         /** @description The fact metric id to analyze */
@@ -12910,7 +12910,7 @@ export interface operations {
     };
   };
   postFactMetricAnalysis: {
-    /** Create Fact Metric Analysis */
+    /** Create a fact metric analysis */
     requestBody?: {
       content: {
         "application/json": {

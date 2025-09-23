@@ -5317,7 +5317,7 @@ paths:
     post:
       tags:
         - fact-metrics
-      summary: Create Fact Metric Analysis
+      summary: Create a fact metric analysis
       operationId: postFactMetricAnalysis
       x-codeSamples:
         - lang: cURL
