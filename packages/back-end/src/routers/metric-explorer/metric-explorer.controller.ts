@@ -114,6 +114,27 @@ export const postGetCachedResult = async (
   });
 };
 
+export async function postRunQuery(
+  req: AuthRequest<{ config: MetricExplorerConfig }>,
+  res: Response<{ status: 200; result: MetricExplorerCachedResult }>,
+) {
+  const context = getContextFromReq(req);
+
+  const cachedResult = await context.models.metricExplorerCache.create({
+    config: req.body.config,
+    aggregationType: req.body.config.aggregationType,
+    datasource: req.body.config.datasource,
+    metricIds: req.body.config.metrics.map((m) => m.id),
+    queries: [],
+    runStarted: null,
+    status: "queued",
+  });
+
+  // TODO: Start query runner and wait for results
+
+  res.status(200).json({ status: 200, result: cachedResult });
+}
+
 function getDateRangeRelevanceScore(
   requested: { start: Date; end: Date } | null,
   actual: { start: Date; end: Date } | null,

@@ -17,4 +17,12 @@ router.post(
   metricExplorerController.postGetCachedResult,
 );
 
+router.post(
+  "/metric-explorer/run-query",
+  validateRequestMiddleware({
+    body: z.object({ config: metricExplorerConfigValidator }),
+  }),
+  metricExplorerController.postRunQuery,
+);
+
 export { router as metricExplorerRouter };

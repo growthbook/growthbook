@@ -62,6 +62,7 @@ export class MetricExplorerCacheModel extends BaseClass {
       {
         datasource: config.datasource,
         metricIds: { $all: config.metrics.map((m) => m.id) },
+        aggregationType: config.aggregationType,
         dateCreated: { $gte: oldestDate },
       },
       {

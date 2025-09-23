@@ -42,6 +42,7 @@ export const metricExplorerConfigValidator = z
     dateRange: z.enum(["last30d", "last7d", "last24h", "custom"]),
     dateGranularity: z.enum(["1hour", "6hours", "1day"]),
     customDateRange: z.object({ start: z.date(), end: z.date() }).nullable(),
+    aggregationType: z.enum(["date", "dimension"]),
     visualizationType: z.enum(["timeseries", "bar"]),
   })
   .strict();
@@ -54,10 +55,12 @@ export const metricExplorerCachedResult = z
     id: z.string(),
     datasource: z.string(),
     metricIds: z.array(z.string()),
+    aggregationType: z.enum(["date", "dimension"]),
     config: metricExplorerConfigValidator,
     runStarted: z.date().nullable(),
     status: queryStatusValidator,
     error: z.string().optional(),
     queries: z.array(queryPointerValidator),
+    result: z.array(z.record(z.unknown())).optional(),
   })
   .strict();
