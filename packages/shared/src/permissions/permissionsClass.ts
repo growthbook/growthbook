@@ -635,15 +635,29 @@ export class Permissions {
   };
 
   public canCreateFactMetric = (
-    metric: Pick<FactMetricInterface, "projects">,
+    metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+      if (!this.canCreateOfficialResources(metric)) {
+        return false;
+      }
+    }
     return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 
   public canUpdateFactMetric = (
-    existing: Pick<FactMetricInterface, "projects">,
+    existing: Pick<FactMetricInterface, "projects" | "managedBy">,
     updates: UpdateProps<FactMetricInterface>,
   ): boolean => {
+    if (
+      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
+      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
+    ) {
+      if (!this.canUpdateOfficialResources(existing, updates)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
@@ -652,8 +666,14 @@ export class Permissions {
   };
 
   public canDeleteFactMetric = (
-    metric: Pick<FactMetricInterface, "projects">,
+    metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+      if (!this.canCreateOfficialResources(metric)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(metric, "manageFactMetrics");
   };
 

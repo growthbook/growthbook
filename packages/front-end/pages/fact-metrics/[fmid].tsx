@@ -207,23 +207,16 @@ export default function FactMetricPage() {
     );
   }
 
-  const canEdit =
-    factMetric.managedBy === "admin"
-      ? permissionsUtil.canUpdateOfficialResources(
-          {
-            projects: factMetric.projects,
-          },
-          {},
-        )
-      : permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-        !factMetric.managedBy;
-  const canDelete =
-    factMetric.managedBy === "admin"
-      ? permissionsUtil.canDeleteOfficialResources({
-          projects: factMetric.projects,
-        })
-      : permissionsUtil.canDeleteFactMetric(factMetric) &&
-        !factMetric.managedBy;
+  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
+  let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
+
+  if (
+    factMetric.managedBy &&
+    ["api", "config"].includes(factMetric.managedBy)
+  ) {
+    canEdit = false;
+    canDelete = false;
+  }
 
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   const denominatorFactTable = getFactTableById(
@@ -545,6 +538,16 @@ export default function FactMetricPage() {
                 Edit Metric
               </DropdownMenuItem>
             )}
+            {canEdit && !factMetric.managedBy ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setShowConvertToOfficialModal(true);
+                }}
+              >
+                Convert to Official Metric
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem
               onClick={() => {
                 setOpenDropdown(false);
