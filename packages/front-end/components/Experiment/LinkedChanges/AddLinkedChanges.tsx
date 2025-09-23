@@ -214,7 +214,7 @@ export default function AddLinkedChanges({
           <Callout status="info" mb="3">
             <Text>
               URL Redirects and Visual Editor Changes are not supported in
-              holdouts.
+              Holdouts.
             </Text>
           </Callout>
         )}
