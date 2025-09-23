@@ -56,6 +56,7 @@ import { ExperimentTab } from "./TabbedPage";
 const numberFormatter = Intl.NumberFormat();
 
 const CompactResults: FC<{
+  experimentId: string;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -92,6 +93,7 @@ const CompactResults: FC<{
   hideDetails?: boolean;
   disableTimeSeriesButton?: boolean;
 }> = ({
+  experimentId,
   editMetrics,
   variations,
   variationFilter,
@@ -466,6 +468,7 @@ const CompactResults: FC<{
 
       {expandedGoals.length ? (
         <ResultsTable
+          experimentId={experimentId}
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
           phase={phase}
@@ -528,6 +531,7 @@ const CompactResults: FC<{
       {!mainTableOnly && expandedSecondaries.length ? (
         <div className="mt-4">
           <ResultsTable
+            experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             phase={phase}
@@ -578,6 +582,7 @@ const CompactResults: FC<{
       {!mainTableOnly && expandedGuardrails.length ? (
         <div className="mt-4">
           <ResultsTable
+            experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             phase={phase}

@@ -76,6 +76,7 @@ type TableDef = {
 };
 
 const BreakDownResults: FC<{
+  experimentId: string;
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
@@ -113,6 +114,7 @@ const BreakDownResults: FC<{
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
 }> = ({
+  experimentId,
   dimensionId,
   dimensionValuesFilter,
   results,
@@ -394,6 +396,7 @@ const BreakDownResults: FC<{
             </h5>
             <ResultsTable
               key={i}
+              experimentId={experimentId}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               phase={phase}

@@ -67,6 +67,7 @@ import styles from "./ResultsTable.module.scss";
 
 export type ResultsTableProps = {
   id: string;
+  experimentId: string;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
   baselineRow?: number;
@@ -139,6 +140,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export default function ResultsTable({
   id,
+  experimentId,
   isLatestPhase,
   phase,
   status,
@@ -1192,7 +1194,7 @@ export default function ResultsTable({
                               <div className={styles.expandAnimation}>
                                 <div className={styles.timeSeriesCell}>
                                   <ExperimentMetricTimeSeriesGraphWrapper
-                                    experimentId={id}
+                                    experimentId={experimentId}
                                     phase={phase}
                                     experimentStatus={status}
                                     metric={row.metric}
