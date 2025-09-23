@@ -66,15 +66,7 @@ export const experimentPhase = z
     variationWeights: z.array(z.number()),
     banditEvents: z.array(banditEvent).optional(),
     lookbackStartDate: z.date().optional(),
-    metadata: z.object({
-      seedChanged: z.boolean(),
-      namespaceChanged: z.boolean(),
-      variationWeightsChanged: z.boolean(),
-      prerequisitesChanged: z.boolean(),
-      savedGroupsChanged: z.boolean(),
-      conditionChanged: z.boolean(),
-      coverageChanged: z.boolean(),
-    }),
+    disableStickyBucketing: z.boolean().optional(),
   })
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;

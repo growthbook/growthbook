@@ -70,6 +70,9 @@ export default function PhaseSelector({
             currentPhase.savedGroups,
             previousPhase.savedGroups,
           ),
+          disableStickyBucketing:
+            currentPhase.disableStickyBucketing !==
+            previousPhase.disableStickyBucketing,
           conditionChanged: currentPhase.condition !== previousPhase.condition,
           coverageChanged: currentPhase.coverage !== previousPhase.coverage,
         };
@@ -93,9 +96,9 @@ export default function PhaseSelector({
                 <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
               )}
               <span className="phase-selector-select-option-metadata">
-                <div className="text-muted">Changes:</div>
+                <div>Changes</div>
                 {phaseChanges() === null && (
-                  <div className="text-muted">none</div>
+                  <div className="text-muted">None</div>
                 )}
                 {phaseChanges()?.seedChanged && (
                   <div className="text-muted">Seed</div>
@@ -117,6 +120,9 @@ export default function PhaseSelector({
                 )}
                 {phaseChanges()?.coverageChanged && (
                   <div className="text-muted">Coverage</div>
+                )}
+                {phaseChanges()?.disableStickyBucketing && (
+                  <div className="text-muted">Sticky Bucketing</div>
                 )}
               </span>
             </>

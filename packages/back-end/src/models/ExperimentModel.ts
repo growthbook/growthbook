@@ -246,15 +246,7 @@ const experimentSchema = new mongoose.Schema({
         },
       ],
       lookbackStartDate: Date,
-      metadata: {
-        seedChanged: Boolean,
-        namespaceChanged: Boolean,
-        variationWeightsChanged: Boolean,
-        prerequisitesChanged: Boolean,
-        savedGroupsChanged: Boolean,
-        conditionChanged: Boolean,
-        coverageChanged: Boolean,
-      },
+      disableStickyBucketing: Boolean,
     },
   ],
   data: String,
@@ -537,6 +529,7 @@ export async function createExperiment({
     autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
+    disableStickyBucketing: data.disableStickyBucketing,
   });
 
   const experiment = toInterface(exp);
