@@ -381,7 +381,7 @@ export interface DimensionMetricInfo {
 }
 
 export function parseDimensionMetricId(metricId: string): DimensionMetricInfo {
-  const match = metricId.match(/^(.+)\$dim:([^=]+)=(.*)$/);
+  const match = metricId.match(/^(.+)\?dim:([^=]+)=(.*)$/);
 
   if (!match) {
     return {
@@ -1013,12 +1013,12 @@ export function getAllExpandedMetricIdsFromExperiment(
 
           // Add dimension metrics for each dimension level
           dimensionLevels.forEach((value: string) => {
-            expandedMetricIds.add(`${metricId}$dim:${col.column}=${value}`);
+            expandedMetricIds.add(`${metricId}?dim:${col.column}=${value}`);
           });
 
           // Add "other" metric for values not in dimensionLevels
           if (dimensionLevels.length > 0) {
-            expandedMetricIds.add(`${metricId}$dim:${col.column}=`);
+            expandedMetricIds.add(`${metricId}?dim:${col.column}=`);
           }
         });
       }

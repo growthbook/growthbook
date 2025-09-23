@@ -863,7 +863,7 @@ export async function generateExperimentReportSSRData({
             // Create a metric for each dimension level
             dimensionLevels.forEach((value: string) => {
               dimensionMetrics.push({
-                id: `${factMetric.id}$dim:${col.column}=${value}`,
+                id: `${factMetric.id}?dim:${col.column}=${value}`,
                 name: `${factMetric.name} (${col.name || col.column}: ${value})`,
                 description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = ${value}`,
                 parentMetricId: factMetric.id,
@@ -877,7 +877,7 @@ export async function generateExperimentReportSSRData({
             // Create an "other" metric for values not in dimensionLevels
             if (dimensionLevels.length > 0) {
               dimensionMetrics.push({
-                id: `${factMetric.id}$dim:${col.column}=`,
+                id: `${factMetric.id}?dim:${col.column}=`,
                 name: `${factMetric.name} (${col.name || col.column}: other)`,
                 description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = other`,
                 parentMetricId: factMetric.id,

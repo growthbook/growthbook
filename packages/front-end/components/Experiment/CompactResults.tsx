@@ -25,6 +25,7 @@ import {
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { Checkbox } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -40,14 +41,13 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import { useUser } from "@/services/UserContext";
+import { AppFeatures } from "@/types/app-features";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { ExperimentTab } from "./TabbedPage";
-import { useUser } from "@/services/UserContext";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "@/types/app-features";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -134,9 +134,11 @@ const CompactResults: FC<{
   const growthbook = useGrowthBook<AppFeatures>();
 
   // Feature flag and commercial feature checks for dimension analysis
-  const isMetricDimensionsFeatureEnabled = growthbook?.isOn("metric-dimensions");
+  const isMetricDimensionsFeatureEnabled =
+    growthbook?.isOn("metric-dimensions");
   const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
-  const shouldShowMetricDimensions = isMetricDimensionsFeatureEnabled && hasMetricDimensionsFeature;
+  const shouldShowMetricDimensions =
+    isMetricDimensionsFeatureEnabled && hasMetricDimensionsFeature;
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -282,7 +284,7 @@ const CompactResults: FC<{
           [];
 
         dimensionData.forEach((dimension) => {
-          const dimensionValue = dimension.dimensionValue || "other";
+          const dimensionValue = dimension.dimensionValue;
           const expandedKey = `${metricId}:${resultGroup}`;
           const isExpanded = expandedMetrics[expandedKey] || false;
           const pinnedKey = `${metricId}:${dimension.dimensionColumn}:${dimensionValue}:${resultGroup}`;
@@ -292,7 +294,7 @@ const CompactResults: FC<{
           const shouldShowLevel = isExpanded || isPinned;
 
           const dimensionRow: ExperimentTableRow = {
-            label: dimensionValue,
+            label: dimensionValue || "other",
             metric: {
               ...newMetric,
               name: dimension.name, // Use the full dimension metric name
@@ -324,10 +326,14 @@ const CompactResults: FC<{
           };
 
           // Always add dimension rows to the array, even if hidden by filter
-          // Skip dimension rows with no data
-          if (dimensionRow.variations.some((v) => v.value > 0)) {
-            rows.push(dimensionRow);
+          // Skip "other" dimension rows with no data
+          if (
+            dimensionValue === null &&
+            dimensionRow.variations.every((v) => v.value === 0)
+          ) {
+            return;
           }
+          rows.push(dimensionRow);
         });
       }
 
@@ -730,10 +736,12 @@ export function getRenderLabelColumn({
       );
     }
 
-    const hasDimensions = shouldShowMetricDimensions && !!(
-      ssrPolyfills?.getFactMetricDimensions?.(metric.id)?.length ||
-      getFactMetricDimensions?.(metric.id)?.length
-    );
+    const hasDimensions =
+      shouldShowMetricDimensions &&
+      !!(
+        ssrPolyfills?.getFactMetricDimensions?.(metric.id)?.length ||
+        getFactMetricDimensions?.(metric.id)?.length
+      );
 
     // Render non-dimension metric
     return (

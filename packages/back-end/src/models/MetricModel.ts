@@ -609,7 +609,7 @@ export function expandDimensionMetricsInMap(
           dimensionLevels.forEach((value: string) => {
             const dimensionMetric: ExperimentMetricInterface = {
               ...metric,
-              id: `${metric.id}$dim:${col.column}=${value}`,
+              id: `${metric.id}?dim:${col.column}=${value}`,
               name: `${metric.name} (${col.name || col.column}: ${value})`,
               description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
             };
@@ -620,7 +620,7 @@ export function expandDimensionMetricsInMap(
           if (dimensionLevels.length > 0) {
             const otherMetric: ExperimentMetricInterface = {
               ...metric,
-              id: `${metric.id}$dim:${col.column}=`,
+              id: `${metric.id}?dim:${col.column}=`,
               name: `${metric.name} (${col.name || col.column}: other)`,
               description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = other`,
             };

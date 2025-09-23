@@ -31,13 +31,13 @@ import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
 
 export interface FactMetricDimension extends FactMetricInterface {
-  id: string; // Format: `${parentId}$dim:${columnId}=${value}` or `${parentId}$dim:${columnId}=` for "other"
+  id: string; // Format: `${parentId}?dim:${columnId}=${value}` or `${parentId}?dim:${columnId}=` for "other"
   name: string; // Format: `${parentName} (${columnName}: ${value})` or `${parentName} (${columnName}: other)`
-  description: string; // Auto-generated description
+  description: string;
   parentMetricId: string;
   dimensionColumn: string;
   dimensionColumnName: string;
-  dimensionValue: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
+  dimensionValue: string | null;
   dimensionLevels: string[];
 }
 
@@ -315,7 +315,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
           dimensionLevels.forEach((value) => {
             dimensionMetrics.push({
               ...parentMetric,
-              id: `${parentId}$dim:${col.column}=${value}`,
+              id: `${parentId}?dim:${col.column}=${value}`,
               name: `${parentMetric.name} (${col.name || col.column}: ${value})`,
               description: `Dimension analysis of ${parentMetric.name} for ${col.name || col.column} = ${value}`,
               parentMetricId: parentId,
@@ -330,7 +330,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
           if (dimensionLevels.length > 0) {
             dimensionMetrics.push({
               ...parentMetric,
-              id: `${parentId}$dim:${col.column}=`,
+              id: `${parentId}?dim:${col.column}=`,
               name: `${parentMetric.name} (${col.name || col.column}: other)`,
               description: `Dimension analysis of ${parentMetric.name} for ${col.name || col.column} = other`,
               parentMetricId: parentId,
