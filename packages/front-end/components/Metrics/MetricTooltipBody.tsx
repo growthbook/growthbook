@@ -222,7 +222,7 @@ const MetricTooltipBody = ({
   return (
     <div>
       <h4>
-        <MetricName id={metric.id} showOfficialLabel disableTooltip showLink />
+        <MetricName id={metric.id} showOfficialLabel disableTooltip showLink officialBadgePosition="right" />
       </h4>
       {extraInfo}
       <table className="table gbtable mb-0">

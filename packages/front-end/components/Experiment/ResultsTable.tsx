@@ -947,7 +947,7 @@ export default function ResultsTable({
                                   {!compactResults ? (
                                     <div className="d-flex align-items-center pl-3">
                                       <span
-                                        className="label ml-1"
+                                        className="label ml-2"
                                         style={{ width: 20, height: 20 }}
                                       >
                                         {v.index}
@@ -956,7 +956,7 @@ export default function ResultsTable({
                                         className="d-inline-block text-ellipsis"
                                         title={v.name}
                                         style={{
-                                          width: 165 * tableCellScale,
+                                          width: 200 * tableCellScale,
                                         }}
                                       >
                                         {v.name}

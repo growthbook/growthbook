@@ -253,17 +253,6 @@ const MetricsSelector: FC<{
                   : "none",
             })
           : undefined,
-        option: (base, state) => {
-          const option = filteredOptions.find(
-            (o) => o.id === state.data?.value,
-          );
-          const needsPadding = option && !option.isGroup && !option.managedBy;
-          return {
-            ...base,
-            // 32px is a magic number to indent metric name for non-official/non group metrics
-            paddingLeft: needsPadding ? "32px" : base.paddingLeft,
-          };
-        },
       }}
       options={
         groupOptions
@@ -346,6 +335,8 @@ const MetricsSelector: FC<{
             badgeColor={
               context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
             }
+            officialBadgePosition="left"
+            officialBadgeLeftGap={context !== "value"}
           />
         ) : (
           label

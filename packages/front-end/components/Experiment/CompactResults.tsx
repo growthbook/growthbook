@@ -29,6 +29,7 @@ import {
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { HiBadgeCheck } from "react-icons/hi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -822,6 +823,15 @@ export function getRenderLabelColumn({
                   usePortal={true}
                 >
                   {label}
+                  {metric.managedBy ? (
+                    <HiBadgeCheck
+                      style={{
+                        marginTop: "-2px",
+                        marginLeft: "2px",
+                        color: "var(--blue-11)",
+                      }}
+                    />
+                  ) : null}
                 </Tooltip>
               </span>
             </a>

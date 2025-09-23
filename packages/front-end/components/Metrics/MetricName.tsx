@@ -39,17 +39,24 @@ export function OfficialBadge({
   disableTooltip,
   showOfficialLabel,
   color,
+  leftGap,
 }: {
   type: string;
   managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   color?: string;
+  leftGap?: boolean;
 }) {
-  if (!managedBy) return null;
+  if (!managedBy) {
+    if (leftGap) return (
+      <div className="d-inline-block ml-1" style={{ width: 17 }} />
+    );
+    return null;
+  }
 
   return (
-    <span className="ml-1 text-purple">
+    <span className="text-purple mr-1">
       <Tooltip
         body={
           disableTooltip ? (
@@ -114,6 +121,8 @@ export default function MetricName({
   metrics,
   showLink,
   badgeColor,
+  officialBadgePosition,
+  officialBadgeLeftGap,
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -125,6 +134,8 @@ export default function MetricName({
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
   showLink?: boolean;
   badgeColor?: string;
+  officialBadgePosition?: "left" | "right";
+  officialBadgeLeftGap?: boolean;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -141,7 +152,7 @@ export default function MetricName({
     );
 
     return (
-      <Flex align="center" className="ml-1">
+      <Flex align="center">
         <PiFolderDuotone
           className="mr-1"
           style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
@@ -233,16 +244,28 @@ export default function MetricName({
           color: "var(--color-text-high)",
         }}
       >
-        {metric.managedBy ? (
+        {officialBadgePosition === "left" ? (
           <OfficialBadge
             type="metric"
             managedBy={metric.managedBy || ""}
             disableTooltip={disableTooltip}
             showOfficialLabel={showOfficialLabel}
             color={badgeColor}
+            leftGap={officialBadgeLeftGap}
           />
         ) : null}
         {metric.name}
+        {officialBadgePosition === "right" && metric.managedBy ? (
+          <HiBadgeCheck
+            style={{
+              fontSize: "1em",
+              lineHeight: "1em",
+              marginTop: "-2px",
+              marginLeft: "4px",
+              color: "var(--blue-11)",
+            }}
+          />
+        ) : null}
       </span>
       {showLink ? (
         <div className="mt-1 mb-2 small">
