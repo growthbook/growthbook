@@ -49,6 +49,7 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { MetricExplorerCacheModel } from "back-end/src/models/MetricExplorerCacheModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -82,6 +83,7 @@ export class ReqContextClass {
     webhookSecrets: WebhookSecretDataModel;
     holdout: HoldoutModel;
     dashboards: DashboardModel;
+    metricExplorerCache: MetricExplorerCacheModel;
   };
   private initModels() {
     this.models = {
@@ -106,6 +108,7 @@ export class ReqContextClass {
       webhookSecrets: new WebhookSecretDataModel(this),
       holdout: new HoldoutModel(this),
       dashboards: new DashboardModel(this),
+      metricExplorerCache: new MetricExplorerCacheModel(this),
     };
   }
 
