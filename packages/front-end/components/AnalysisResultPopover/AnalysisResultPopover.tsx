@@ -276,7 +276,9 @@ export default function AnalysisResultPopover({
 
       <Table size="1">
         <TableHeader>
-          <TableRow style={{ color: "var(--color-text-mid)" }}>
+          <TableRow
+            style={{ color: "var(--color-text-mid)", fontSize: "12px" }}
+          >
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
             <TableColumnHeader justify="end">
               {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}
