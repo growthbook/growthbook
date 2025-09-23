@@ -4,11 +4,13 @@ import {
   SDKCapability,
   getConnectionsSDKCapabilities,
 } from "shared/sdk-versioning";
+import { Text } from "@radix-ui/themes";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "@/components/Experiment/LinkedChanges/AddLinkedChanges.module.scss";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 const LINKED_CHANGES: Record<
@@ -174,17 +176,19 @@ export default function AddLinkedChanges({
   // Already has linked changes
   if (numLinkedChanges && numLinkedChanges > 0) return null;
 
+  const experimentIsInHoldout = !!experiment.holdoutId;
+
   const sections = {
     "feature-flag": {
       render: !hasLinkedFeatures,
       setModal: setFeatureModal,
     },
     "visual-editor": {
-      render: !experiment.hasVisualChangesets,
+      render: !experiment.hasVisualChangesets && !experimentIsInHoldout,
       setModal: setVisualEditorModal,
     },
     redirects: {
-      render: !experiment.hasURLRedirects,
+      render: !experiment.hasURLRedirects && !experimentIsInHoldout,
       setModal: setUrlRedirectModal,
     },
   };
@@ -206,6 +210,14 @@ export default function AddLinkedChanges({
       )}
       <hr />
       <>
+        {experimentIsInHoldout && (
+          <Callout status="info" mb="3">
+            <Text>
+              URL Redirects and Visual Editor Changes are not supported in
+              holdouts.
+            </Text>
+          </Callout>
+        )}
         {sectionsToRender.map((s, i) => {
           return (
             <div key={s}>

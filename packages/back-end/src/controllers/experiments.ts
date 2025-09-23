@@ -3571,6 +3571,11 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
+  // TODO: Remove this once holdouts support visual editor changes
+  if (experiment.holdoutId) {
+    throw new Error("Visual Editor Changes are not supported in holdouts");
+  }
+
   const linkedFeatureIds = experiment.linkedFeatures || [];
 
   const linkedFeatures = await getFeaturesByIds(context, linkedFeatureIds);

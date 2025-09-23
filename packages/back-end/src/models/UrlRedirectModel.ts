@@ -74,6 +74,10 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     if (!experiment) {
       throw new Error("Could not find experiment");
     }
+    // TODO: Remove this once holdouts support url redirects
+    if (experiment.holdoutId) {
+      throw new Error("URL Redirects are not supported in holdouts");
+    }
     const variationIds = experiment.variations.map((v) => v.id);
     const reqVariationIds = doc.destinationURLs.map((r) => r.variation);
 
