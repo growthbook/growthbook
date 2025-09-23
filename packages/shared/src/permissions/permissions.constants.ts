@@ -130,14 +130,8 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
   ManageOfficialResources: [
     "readData",
-    "createSegments",
-    "createMetrics",
-    "runQueries",
-    "manageFactTables",
-    "manageFactMetrics",
-    "manageFactFilters",
-    "createDimensions",
     "manageOfficialResources",
+    "runQueries",
   ],
 };
 

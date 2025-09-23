@@ -136,18 +136,18 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canDuplicateMetric =
-    metric.managedBy === "admin"
-      ? permissionsUtil.canCreateOfficialResources(metric)
-      : permissionsUtil.canCreateMetric(metric) && !metric.managedBy;
-  const canEditMetric =
-    metric.managedBy === "admin"
-      ? permissionsUtil.canUpdateOfficialResources(metric, {})
-      : permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
-  const canDeleteMetric =
-    metric.managedBy === "admin"
-      ? permissionsUtil.canDeleteOfficialResources(metric)
-      : permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
+  const canDuplicateMetric = permissionsUtil.canCreateMetric({
+    // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+    projects: metric.projects,
+  });
+  let canEditMetric = permissionsUtil.canUpdateMetric(metric, {});
+  let canDeleteMetric = permissionsUtil.canDeleteMetric(metric);
+
+  // Additional check if managed by api or config
+  if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+    canEditMetric = false;
+    canDeleteMetric = false;
+  }
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -321,6 +321,12 @@ const MetricPage: FC = () => {
           currentMetric={{
             ...metric,
             name: metric.name + " (copy)",
+            // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+            managedBy:
+              metric.managedBy === "admin" &&
+              permissionsUtil.canCreateOfficialResources(metric)
+                ? "admin"
+                : "",
           }}
           close={() => setDuplicateModalOpen(false)}
           source="metrics-detail"
@@ -474,10 +480,7 @@ const MetricPage: FC = () => {
               </Button>
             ) : null}
             {!metric.managedBy &&
-            permissionsUtil.canUpdateOfficialResources(
-              { projects: metric.projects },
-              {},
-            ) &&
+            canEditMetric &&
             hasCommercialFeature("manage-official-resources") ? (
               <Button
                 className="btn dropdown-item py-2"

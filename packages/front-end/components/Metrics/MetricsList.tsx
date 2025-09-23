@@ -48,6 +48,7 @@ export interface MetricTableItem {
   archived: boolean;
   canEdit: boolean;
   canDuplicate: boolean;
+  canDelete: boolean;
   onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
@@ -73,18 +74,18 @@ export function useCombinedMetrics({
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
-      const canDuplicate =
-        m.managedBy === "admin"
-          ? permissionsUtil.canCreateOfficialResources(m)
-          : permissionsUtil.canCreateMetric(m);
-      const canEdit =
-        m.managedBy === "admin"
-          ? permissionsUtil.canUpdateOfficialResources(m, {})
-          : permissionsUtil.canUpdateMetric(m, {});
-      const canDelete =
-        m.managedBy === "admin"
-          ? permissionsUtil.canUpdateOfficialResources(m, {})
-          : permissionsUtil.canDeleteMetric(m);
+      const canDuplicate = permissionsUtil.canCreateMetric({
+        // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+        projects: m.projects,
+      });
+      let canEdit = permissionsUtil.canUpdateMetric(m, {});
+      let canDelete = permissionsUtil.canDeleteMetric(m);
+
+      // Additional check if managed by api or config
+      if (m.managedBy && ["api", "config"].includes(m.managedBy)) {
+        canEdit = false;
+        canDelete = false;
+      }
 
       const item: MetricTableItem = {
         id: m.id,
@@ -101,6 +102,7 @@ export function useCombinedMetrics({
         isRatio: !!m.denominator,
         canDuplicate,
         canEdit,
+        canDelete,
         onArchive: canEdit
           ? async (desiredState) => {
               const newStatus = desiredState ? "archived" : "active";
@@ -126,6 +128,12 @@ export function useCombinedMetrics({
                   currentMetric: {
                     ...m,
                     name: m.name + " (copy)",
+                    // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+                    managedBy:
+                      m.managedBy === "admin" &&
+                      permissionsUtil.canCreateOfficialResources(m)
+                        ? "admin"
+                        : "",
                   },
                 })
             : undefined,
@@ -179,6 +187,7 @@ export function useCombinedMetrics({
         type: m.metricType,
         canDuplicate,
         canEdit,
+        canDelete,
         onArchive: canEdit
           ? async (archivedState) => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -463,7 +472,7 @@ const MetricsList = (): React.ReactElement => {
               );
             }
 
-            if (!metric.managedBy && !metric.archived && metric.onEdit) {
+            if (metric.canEdit && !metric.archived && metric.onEdit) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
@@ -477,7 +486,7 @@ const MetricsList = (): React.ReactElement => {
               );
             }
 
-            if (!metric.managedBy && metric.onArchive) {
+            if (metric.canEdit && metric.onArchive) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
@@ -491,7 +500,7 @@ const MetricsList = (): React.ReactElement => {
               );
             }
 
-            if (!metric.managedBy && metric.onDelete) {
+            if (metric.canDelete && metric.onDelete) {
               moreMenuLinks.push(
                 <DeleteButton
                   className="dropdown-item text-danger"

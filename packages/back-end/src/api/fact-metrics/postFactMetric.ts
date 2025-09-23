@@ -121,15 +121,13 @@ export async function getCreateMetricPropsFromBody(
     inverse: false,
     quantileSettings: quantileSettings ?? null,
     windowSettings: {
-      type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
+      type: DEFAULT_FACT_METRIC_WINDOW,
       delayValue:
         windowSettings?.delayValue ??
         windowSettings?.delayHours ??
-        scopedSettings.delayHours.value ??
         DEFAULT_METRIC_WINDOW_DELAY_HOURS,
       delayUnit: windowSettings?.delayUnit ?? "hours",
-      windowValue:
-        scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
+      windowValue: DEFAULT_METRIC_WINDOW_HOURS,
       windowUnit: "hours",
     },
     cappingSettings: {
