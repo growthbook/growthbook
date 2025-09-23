@@ -84,7 +84,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   const metricId = useMemo(() => {
     if (isDimensionRow && dimensionColumn) {
       const dimensionValueStr = dimensionValue || "";
-      return `${metric.id}$dim:${dimensionColumn}=${dimensionValueStr}`;
+      return `${metric.id}?dim:${dimensionColumn}=${dimensionValueStr}`;
     }
     return metric.id;
   }, [isDimensionRow, dimensionColumn, dimensionValue, metric.id]);
