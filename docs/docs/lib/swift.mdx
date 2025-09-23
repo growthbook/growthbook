@@ -193,6 +193,7 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 ```
 
 ### Caching
+
 The SDK persists downloaded feature payloads and related metadata to disk. By default, it will:
 
 - Use a platform-specific system directory
@@ -307,7 +308,7 @@ If you use remote evaluation mode, you can trigger a re-fetch of evaluated paylo
 
 ```swift
 // When user attributes change significantly, trigger a remote eval refresh
-gb.setAttributes(["id": "user_123", "plan": "pro"]) 
+gb.setAttributes(["id": "user_123", "plan": "pro"])
 gb.refreshForRemoteEval()
 ```
 
@@ -366,12 +367,14 @@ gb.setAttributes([
 ```
 
 #### Custom Sticky Bucket Service with custom storage
+
 Use this to control how and where sticky assignments are persisted. Provide a prefix to namespace data (e.g., by app or environment) and a storage backend that implements simple key/value get-set-delete semantics (e.g., `UserDefaults`, Keychain, SQLite, or your own cache layer). If not provided, the SDK uses its built-in persistent storage to remember sticky assignments.
+
 ```swift
 // Custom Sticky Bucket Service with custom storage
 let customStorage = MyCachingManager()
 let stickyService = StickyBucketService(
-  prefix: "myapp_sticky_", 
+  prefix: "myapp_sticky_",
   localStorage: customStorage
 )
 
@@ -446,6 +449,7 @@ let gbFirebase = GrowthBookBuilder(
 ```
 
 #### Experiment Result subscriptions
+
 Subscribe to the experiments to receive callbacks for every experiment run.
 
 ```swift
