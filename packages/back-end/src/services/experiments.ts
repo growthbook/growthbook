@@ -1073,6 +1073,7 @@ export async function createSnapshot({
   factTableMap,
   reweight,
   precomputeDimensionsNonStandard,
+  startAnalysis,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1087,6 +1088,7 @@ export async function createSnapshot({
   factTableMap: FactTableMap;
   reweight?: boolean;
   precomputeDimensionsNonStandard?: boolean;
+  startAnalysis?: boolean;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1185,14 +1187,16 @@ export async function createSnapshot({
     integration,
     useCache,
   );
-  await queryRunner.startAnalysis({
-    snapshotType: type,
-    snapshotSettings: data.settings,
-    variationNames: experiment.variations.map((v) => v.name),
-    metricMap,
-    queryParentId: snapshot.id,
-    factTableMap,
-  });
+  if (startAnalysis ?? true) {
+    await queryRunner.startAnalysis({
+      snapshotType: type,
+      snapshotSettings: data.settings,
+      variationNames: experiment.variations.map((v) => v.name),
+      metricMap,
+      queryParentId: snapshot.id,
+      factTableMap,
+    });
+  }
 
   const runningSnapshot = queryRunner.model;
   // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
@@ -3477,7 +3481,7 @@ export async function updateExperimentDashboards({
     blocksWithSavedQueries.map(({ savedQueryId }) => savedQueryId),
   );
   const datasourceIds: string[] = [
-    ...new Set(savedQueries.map(({ datasourceId }) => datasourceId)),
+    ...new Set<string>(savedQueries.map(({ datasourceId }) => datasourceId)),
   ];
   const datasources = await getDataSourcesByIds(context, datasourceIds);
   const datasourceMap = new Map(datasources.map((ds) => [ds.id, ds]));

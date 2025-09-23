@@ -22,9 +22,14 @@ import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
-import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  deleteSnapshotById,
+  findSnapshotsByIds,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -181,25 +186,41 @@ export async function refreshDashboardData(
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) throw new Error("Failed to find connected datasource");
 
-  const { snapshot: mainSnapshot } = await createExperimentSnapshot({
-    context,
-    experiment,
-    dimension: undefined,
-    datasource,
-    phase: experiment.phases.length - 1,
-    useCache: false,
-    triggeredBy: "manual",
-    // This snapshot uses standard settings but isn't type "standard" to prevent affecting other dashboards and the main results tab
-    type: "exploratory",
-    precomputeDimensionsNonStandard: true,
-  });
+  const { snapshot: mainSnapshot, queryRunner } =
+    await createExperimentSnapshot({
+      context,
+      experiment,
+      dimension: undefined,
+      datasource,
+      phase: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual",
+      // This snapshot uses standard settings but isn't type "standard" to prevent affecting other dashboards
+      type: "exploratory",
+      precomputeDimensionsNonStandard: true,
+      startAnalysis: false,
+    });
 
+  let mainSnapshotUsed = false;
   // Copy the blocks of the dashboard to overwrite their snapshot IDs
-  const newBlocks = dashboard.blocks.map((block) =>
-    blockHasFieldOfType(block, "snapshotId", isString)
-      ? { ...block, snapshotId: mainSnapshot.id }
-      : { ...block },
-  );
+  const newBlocks = dashboard.blocks.map((block) => {
+    if (!blockHasFieldOfType(block, "snapshotId", isString)) return block;
+    if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
+    mainSnapshotUsed = true;
+    return { ...block, snapshotId: mainSnapshot.id };
+  });
+  if (mainSnapshotUsed) {
+    await queryRunner.startAnalysis({
+      snapshotType: "exploratory",
+      snapshotSettings: mainSnapshot.settings,
+      variationNames: experiment.variations.map((v) => v.name),
+      metricMap: await getMetricMap(context),
+      queryParentId: mainSnapshot.id,
+      factTableMap: await getFactTableMap(context),
+    });
+  } else {
+    await deleteSnapshotById(context.org.id, mainSnapshot.id);
+  }
 
   const dimensionBlockPairs = dashboard.blocks
     .map<[string, string] | undefined>((block) => {
