@@ -45,6 +45,9 @@ import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
 import { ExperimentTab } from "./TabbedPage";
+import { useUser } from "@/services/UserContext";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -127,6 +130,13 @@ const CompactResults: FC<{
     metricGroups,
     ready,
   } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  // Feature flag and commercial feature checks for dimension analysis
+  const isMetricDimensionsFeatureEnabled = growthbook?.isOn("metric-dimensions");
+  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
+  const shouldShowMetricDimensions = isMetricDimensionsFeatureEnabled && hasMetricDimensionsFeature;
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -235,11 +245,12 @@ const CompactResults: FC<{
           (s) => s.metric === metricId,
         );
       }
-      // Get dimension count for this metric
-      const numDimensions =
-        ssrPolyfills?.getFactMetricDimensions?.(metricId)?.length ||
-        getFactMetricDimensions?.(metricId)?.length ||
-        0;
+      // Get dimension count for this metric (only if feature is enabled)
+      const numDimensions = shouldShowMetricDimensions
+        ? ssrPolyfills?.getFactMetricDimensions?.(metricId)?.length ||
+          getFactMetricDimensions?.(metricId)?.length ||
+          0
+        : 0;
 
       const parentRow: ExperimentTableRow = {
         label: newMetric?.name,
@@ -263,8 +274,8 @@ const CompactResults: FC<{
 
       const rows: ExperimentTableRow[] = [parentRow];
 
-      // Add dimension rows if this metric has dimensions and is visible
-      if (numDimensions > 0) {
+      // Add dimension rows if this metric has dimensions and feature is enabled
+      if (numDimensions > 0 && shouldShowMetricDimensions) {
         const dimensionData =
           ssrPolyfills?.getFactMetricDimensions?.(metricId) ||
           getFactMetricDimensions?.(metricId) ||
@@ -393,6 +404,7 @@ const CompactResults: FC<{
     pinnedMetricDimensionLevels,
     expandedMetrics,
     getFactMetricDimensions,
+    shouldShowMetricDimensions,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";
@@ -481,6 +493,7 @@ const CompactResults: FC<{
             toggleExpandedMetric,
             getFactMetricDimensions,
             ssrPolyfills,
+            shouldShowMetricDimensions,
           })}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
@@ -536,6 +549,7 @@ const CompactResults: FC<{
               toggleExpandedMetric,
               getFactMetricDimensions,
               ssrPolyfills,
+              shouldShowMetricDimensions,
             })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -585,6 +599,7 @@ const CompactResults: FC<{
               toggleExpandedMetric,
               getFactMetricDimensions,
               ssrPolyfills,
+              shouldShowMetricDimensions,
             })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -617,6 +632,7 @@ export function getRenderLabelColumn({
   toggleExpandedMetric,
   getFactMetricDimensions,
   ssrPolyfills,
+  shouldShowMetricDimensions,
 }: {
   regressionAdjustmentEnabled?: boolean;
   statsEngine?: StatsEngine;
@@ -636,6 +652,7 @@ export function getRenderLabelColumn({
   ) => void;
   getFactMetricDimensions?: (metricId: string) => unknown[];
   ssrPolyfills?: SSRPolyfills;
+  shouldShowMetricDimensions?: boolean;
 }) {
   return function renderLabelColumn({
     label,
@@ -713,7 +730,7 @@ export function getRenderLabelColumn({
       );
     }
 
-    const hasDimensions = !!(
+    const hasDimensions = shouldShowMetricDimensions && !!(
       ssrPolyfills?.getFactMetricDimensions?.(metric.id)?.length ||
       getFactMetricDimensions?.(metric.id)?.length
     );

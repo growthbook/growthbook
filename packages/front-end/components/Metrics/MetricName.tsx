@@ -216,27 +216,25 @@ export default function MetricName({
 
   return (
     <>
+      <span
+        style={{
+          color: "var(--color-text-high)",
+        }}
+      >
+        {metric.name}
+      </span>
       {showLink ? (
-        <a
-          href={`/metric/${metric.id}`}
-          target="_blank"
-          style={{
-            color: "var(--color-text-high)",
-          }}
-          rel="noreferrer"
-        >
-          {metric.name}
-          <PiArrowSquareOut className="ml-1" />
-        </a>
-      ) : (
-        <span
-          style={{
-            color: "var(--color-text-high)",
-          }}
-        >
-          {metric.name}
-        </span>
-      )}
+        <div className="mt-1 mb-2 small">
+          <a
+            href={`/metric/${metric.id}`}
+            target="_blank"
+            className="link-purple"
+          >
+            View details
+            <PiArrowSquareOut className="ml-1" />
+          </a>
+        </div>
+      ) : null}
       {showDescription && metric.description ? (
         <span className="text-muted">
           {" "}

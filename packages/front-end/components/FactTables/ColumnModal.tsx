@@ -22,6 +22,10 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/components/Button";
+import { useUser } from "@/services/UserContext";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -31,6 +35,12 @@ export interface Props {
 
 export default function ColumnModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  // Feature flag and commercial feature checks for dimension analysis
+  const isMetricDimensionsFeatureEnabled = growthbook?.isOn("metric-dimensions");
+  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
 
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length,
@@ -422,143 +432,46 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         placeholder={form.watch("column")}
       />
 
-      {form.watch("datatype") === "string" &&
+      {isMetricDimensionsFeatureEnabled &&
+        form.watch("datatype") === "string" &&
         !factTable.userIdTypes.includes(form.watch("column")) &&
         form.watch("column") !== "timestamp" && (
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
-            <Checkbox
-              value={form.watch("isDimension") ?? false}
-              setValue={(v) => form.setValue("isDimension", v === true)}
-              label="Is Dimension"
-              description="Column represents a dimension that can be applied to metrics"
-              mb="3"
-            />
+            <div className="d-flex align-items-center mb-3">
+              <Checkbox
+                value={form.watch("isDimension") ?? false}
+                setValue={(v) => form.setValue("isDimension", v === true)}
+                label="Is Dimension"
+                disabled={!hasMetricDimensionsFeature}
+              />
+              {!hasMetricDimensionsFeature && (
+                <div style={{ marginTop: -10 }}>
+                  <PaidFeatureBadge
+                    commercialFeature="metric-dimensions"
+                    premiumText="This is an Enterprise feature"
+                    variant="outline"
+                    ml="2"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="text-muted mb-3">
+              Column represents a dimension that can be applied to metrics
+            </div>
 
-            {form.watch("isDimension") && (
-              <>
-                {/* <Field
-                  label="Max Dimension Levels"
-                  type="number"
-                  min="1"
-                  max="50"
-                  value={form.watch("maxDimensionValues") || ""}
-                  onChange={(e) =>
-                    form.setValue(
-                      "maxDimensionValues",
-                      e.target.value ? parseInt(e.target.value) : undefined,
-                    )
-                  }
-                  placeholder="10"
-                  helpText={`Up to ${form.watch("maxDimensionValues")} distinct values will be used as metric dimension levels. You may choose stable values below, and the system will automatically populate the rest using the top values.`}
-                /> */}
-
-                <MultiSelectField
-                  label="Dimension Levels"
-                  value={form.watch("dimensionLevels") || []}
-                  onChange={(values) =>
-                    form.setValue(
-                      "dimensionLevels",
-                      values.slice(0, MAX_METRIC_DIMENSION_LEVELS),
-                    )
-                  }
-                  options={dimensionLevelOptions}
-                  creatable={true}
-                />
-
-                {/* {existing && (
-                  <div className="mb-3">
-                    <div className="d-flex align-items-center justify-content-between mb-1">
-                      <label className="text-muted mb-0">
-                        Top Values (past 7 days)
-                      </label>
-                      {existing.isDimension && (
-                        <RadixButton
-                          size="xs"
-                          variant="ghost"
-                          onClick={refreshTopValues}
-                          loading={refreshingTopValues}
-                          style={{ width: 70 }}
-                        >
-                          <BsArrowRepeat style={{ marginTop: -1 }} /> Refresh
-                        </RadixButton>
-                      )}
-                    </div>
-
-                    {existing.topValues && existing.topValues.length > 0 ? (
-                      <div
-                        className="border rounded px-2 py-1"
-                        style={{ fontSize: "0.9em" }}
-                      >
-                        <div className="d-flex flex-wrap" style={{ gap: 6 }}>
-                          {existing.topValues.map((value, index) => {
-                            const isInDimensionLevels = (
-                              form.watch("dimensionLevels") || []
-                            ).includes(value);
-                            return (
-                              <div key={index}>
-                                <code
-                                  style={{
-                                    fontSize: "0.8em",
-                                    cursor: "pointer",
-                                    backgroundColor: isInDimensionLevels
-                                      ? "#e3f2fd"
-                                      : "#f8f9fa",
-                                    padding: "2px 4px",
-                                    borderRadius: "3px",
-                                    border: isInDimensionLevels
-                                      ? "1px solid #2196f3"
-                                      : "1px solid #e9ecef",
-                                  }}
-                                  onClick={() => {
-                                    const currentDimensionLevels =
-                                      form.watch("dimensionLevels") || [];
-                                    if (isInDimensionLevels) {
-                                      // Remove from dimension levels
-                                      form.setValue(
-                                        "dimensionLevels",
-                                        currentDimensionLevels.filter(
-                                          (v) => v !== value,
-                                        ),
-                                      );
-                                    } else {
-                                      // Add to dimension levels
-                                      form.setValue("dimensionLevels", [
-                                        ...currentDimensionLevels,
-                                        value,
-                                      ]);
-                                    }
-                                  }}
-                                  title={
-                                    isInDimensionLevels
-                                      ? "Click to remove from dimension levels"
-                                      : "Click to add to dimension levels"
-                                  }
-                                >
-                                  {value}
-                                </code>
-                                {index <
-                                  (existing?.topValues?.length || 0) - 1 && (
-                                  <span>, </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                        {existing.topValuesDate && (
-                          <small className="d-block text-muted text-right mt-1">
-                            Last updated:{" "}
-                            {new Date(existing.topValuesDate).toLocaleString()}
-                          </small>
-                        )}
-                      </div>
-                    ) : (
-                      <HelperText status="info" size="sm">
-                        Top values were not found for this column.
-                      </HelperText>
-                    )}
-                  </div>
-                )} */}
-              </>
+            {form.watch("isDimension") && hasMetricDimensionsFeature && (
+              <MultiSelectField
+                label="Dimension Levels"
+                value={form.watch("dimensionLevels") || []}
+                onChange={(values) =>
+                  form.setValue(
+                    "dimensionLevels",
+                    values.slice(0, MAX_METRIC_DIMENSION_LEVELS),
+                  )
+                }
+                options={dimensionLevelOptions}
+                creatable={true}
+              />
             )}
           </div>
         )}

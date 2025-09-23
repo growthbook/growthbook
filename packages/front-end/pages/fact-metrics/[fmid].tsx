@@ -56,6 +56,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import { useUser } from "@/services/UserContext";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -190,6 +192,11 @@ export default function FactMetricPage() {
     getDatasourceById,
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
+  const { hasCommercialFeature } = useUser();
+
+  // Feature flag and commercial feature checks for dimension analysis
+  const isMetricDimensionsFeatureEnabled = growthbook?.isOn("metric-dimensions") || false;
+  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
 
   if (!ready) return <LoadingOverlay />;
 
@@ -683,33 +690,58 @@ export default function FactMetricPage() {
               </div>
             ) : null}
 
-            <div className="appbox p-3 mb-3">
-              <h4>Metric Dimensions</h4>
-              <div className="d-flex align-items-center mt-3">
-                <Switch
-                  mr="3"
-                  checked={factMetric.enableMetricDimensions || false}
-                  onCheckedChange={async (checked) => {
-                    await apiCall(`/fact-metrics/${factMetric.id}`, {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        enableMetricDimensions: checked,
-                      }),
-                    });
-                    mutateDefinitions();
-                  }}
-                  disabled={!canEdit}
-                />
-                <div>
-                  <div className="font-weight-bold mb-1">
-                    Enable Dimension Analysis
-                  </div>
-                  <div className="text-muted">
-                    Analyze this metric across dimension values from the fact
-                    table&apos;s dimension columns.
-                  </div>
+            {isMetricDimensionsFeatureEnabled && (
+              <div className="appbox p-3 mb-3">
+                <h4>
+                  Metric Dimensions
+                  {!hasMetricDimensionsFeature && (
+                    <PaidFeatureBadge
+                      commercialFeature="metric-dimensions"
+                      premiumText="This is an Enterprise feature"
+                      variant="outline"
+                      ml="2"
+                    />
+                  )}
+                </h4>
+                <div className="d-flex align-items-center mt-3">
+                  {hasMetricDimensionsFeature ? (
+                    <>
+                      <Switch
+                        mr="3"
+                        checked={factMetric.enableMetricDimensions || false}
+                        onCheckedChange={async (checked) => {
+                          await apiCall(`/fact-metrics/${factMetric.id}`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              enableMetricDimensions: checked,
+                            }),
+                          });
+                          mutateDefinitions();
+                        }}
+                        disabled={!canEdit}
+                      />
+                      <div>
+                        <div className="font-weight-bold mb-1">
+                          Enable Dimension Analysis
+                        </div>
+                        <div className="text-muted">
+                          Analyze this metric across dimension values from the fact
+                          table&apos;s dimension columns.
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div>
+                      <div className="font-weight-bold mb-1">
+                        Enable Dimension Analysis
+                      </div>
+                      <div className="text-muted">
+                        Analyze this metric across dimension values from the fact
+                        table&apos;s dimension columns.
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
 
               {factTable?.columns.some(
                 (col) => col.isDimension && !col.deleted,
@@ -781,7 +813,8 @@ export default function FactMetricPage() {
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="mb-4">
