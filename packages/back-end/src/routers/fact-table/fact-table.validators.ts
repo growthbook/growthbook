@@ -171,7 +171,7 @@ export const factMetricValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    managedBy: z.enum(["", "api", "config", "admin"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     owner: z.string().default(""),
     datasource: z.string(),
     dateCreated: z.date(),
