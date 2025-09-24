@@ -33,6 +33,7 @@ import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export interface MetricTableItem {
   id: string;
@@ -236,6 +237,8 @@ const MetricsList = (): React.ReactElement => {
 
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
+  const { disableLegacyMetricCreation } = settings;
 
   const [showArchived, setShowArchived] = useState(false);
   const combinedMetrics = useCombinedMetrics({
@@ -271,8 +274,10 @@ const MetricsList = (): React.ReactElement => {
   );
 
   // Show the create fact table button if there are no legacy metrics and no fact tables
-  // since NewMetricModal will default to fact if there are no fact tables and no legacy metrics
-  const showCreateFactTableButton = !hasLegacyMetrics && !hasFactTables;
+  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
+  const showCreateFactTableButton = disableLegacyMetricCreation
+    ? !hasFactTables
+    : !hasLegacyMetrics && !hasFactTables;
 
   //searching:
   const filterResults = useCallback(

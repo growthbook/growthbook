@@ -1457,6 +1457,8 @@ export default function FactMetricModal({
 
   const settings = useOrgSettings();
 
+  const { disableLegacyMetricCreation } = settings;
+
   const { hasCommercialFeature } = useUser();
 
   // TODO: We may want to hide this from non-technical users in the future
@@ -1487,7 +1489,8 @@ export default function FactMetricModal({
     .filter((f) => isProjectListValidForProject(f.projects, project))
     .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
 
-  const showSwitchToLegacy = filteredMetrics.length > 0;
+  const showSwitchToLegacy =
+    filteredMetrics.length > 0 && !disableLegacyMetricCreation;
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,
