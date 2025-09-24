@@ -20,6 +20,7 @@ type UserExposureQueryResults = {
   statistics?: QueryStatistics;
   error?: string;
   sql?: string;
+  truncated?: boolean;
 };
 
 const ExposureDebuggerPage = () => {
@@ -211,6 +212,12 @@ const ExposureDebuggerPage = () => {
                         Query executed in{" "}
                         {results.statistics.executionDurationMs}ms
                       </div>
+                    )}
+                    {results.truncated && (
+                      <Callout status="warning">
+                        Row limit reached. Only showing the most recent
+                        exposures.
+                      </Callout>
                     )}
                   </div>
 

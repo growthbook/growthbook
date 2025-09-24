@@ -2431,35 +2431,39 @@ export default abstract class SqlIntegration
     const startDate = subDays(new Date(), params.lookbackDays);
 
     return format(
-      `-- Union together all exposure queries
-      -- Use null for any missing dimension columns
-    ${allExposureQueries
-      .map((exposureQuery, i) => {
-        // Get all available dimensions for this exposure query
-        const availableDimensions = exposureQuery.dimensions || [];
-        const tableAlias = `t${i}`;
+      `-- User Exposures Query
+      WITH __userExposures AS (
+        ${allExposureQueries
+          .map((exposureQuery, i) => {
+            // Get all available dimensions for this exposure query
+            const availableDimensions = exposureQuery.dimensions || [];
+            const tableAlias = `t${i}`;
 
-        // Create dimension columns for ALL possible dimensions
-        const dimensionSelects = allDimensionNames.map((dim) => {
-          if (availableDimensions.includes(dim)) {
-            return `${tableAlias}.${dim} AS ${dim}`;
-          } else {
-            return `null AS ${dim}`;
-          }
-        });
+            // Create dimension columns for ALL possible dimensions
+            const dimensionSelects = allDimensionNames.map((dim) => {
+              if (availableDimensions.includes(dim)) {
+                return `${tableAlias}.${dim} AS ${dim}`;
+              } else {
+                return `null AS ${dim}`;
+              }
+            });
 
-        const dimensionSelectString = dimensionSelects.join(", ");
+            const dimensionSelectString = dimensionSelects.join(", ");
 
-        return `
-          SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
-            ${compileSqlTemplate(exposureQuery.query, {
-              startDate: startDate,
-            })}
-          ) ${tableAlias}
-          WHERE ${this.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${this.toTimestamp(startDate)}
-        `;
-      })
-      .join("\nUNION ALL\n")}
+            return `
+              SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
+                ${compileSqlTemplate(exposureQuery.query, {
+                  startDate: startDate,
+                })}
+              ) ${tableAlias}
+              WHERE ${this.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${this.toTimestamp(startDate)}
+            `;
+          })
+          .join("\nUNION ALL\n")}
+      )
+      SELECT * FROM __userExposures 
+      ORDER BY timestamp DESC 
+      LIMIT ${SQL_ROW_LIMIT}
       `,
       this.getFormatDialect(),
     );
@@ -2469,6 +2473,10 @@ export default abstract class SqlIntegration
     query: string,
   ): Promise<UserExperimentExposuresQueryResponse> {
     const { rows, statistics } = await this.runQuery(query);
+
+    // Check if SQL_ROW_LIMIT was reached
+    const truncated = rows.length === SQL_ROW_LIMIT;
+
     return {
       rows: rows.map((row) => {
         return {
@@ -2479,6 +2487,7 @@ export default abstract class SqlIntegration
         };
       }),
       statistics,
+      truncated,
     };
   }
 

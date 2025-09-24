@@ -470,7 +470,9 @@ export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
 >;
 export type UserExperimentExposuresQueryResponse =
-  QueryResponse<UserExperimentExposuresQueryResponseRows>;
+  QueryResponse<UserExperimentExposuresQueryResponseRows> & {
+    truncated?: boolean;
+  };
 
 export interface TestQueryRow {
   [key: string]: unknown;
