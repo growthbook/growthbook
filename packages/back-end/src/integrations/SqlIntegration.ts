@@ -2456,7 +2456,7 @@ export default abstract class SqlIntegration
               startDate: startDate,
             })}
           ) ${tableAlias}
-          WHERE ${exposureQuery.userIdType} = '${params.unitId}' AND timestamp >= ${this.toTimestamp(startDate)}
+          WHERE ${this.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${this.toTimestamp(startDate)}
         `;
       })
       .join("\nUNION ALL\n")}
