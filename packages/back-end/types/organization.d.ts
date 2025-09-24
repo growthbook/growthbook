@@ -254,6 +254,7 @@ export interface OrganizationSettings {
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
   disableLegacyMetricCreation?: boolean;
+  blockFileUploads?: boolean;
 }
 
 export interface OrganizationConnections {

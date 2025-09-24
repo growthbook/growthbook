@@ -369,7 +369,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           />
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
-          <table className="table gbtable needs-attentions-table mt-3">
+          <table className="table gbtable needs-attentions-table mt-3 rounded-table">
             <thead>
               <tr>
                 <SortableTHExperiments field="name">Name</SortableTHExperiments>
@@ -493,7 +493,7 @@ const NeedingAttention = (): React.ReactElement | null => {
         </Flex>
         {featureFlagsNeedingAttention.length > 0 ? (
           <table
-            className={`table gbtable mt-3 ${styles.needsAttentionsTable}`}
+            className={`table gbtable mt-3 needs-attentions-table rounded-table`}
           >
             <thead>
               <tr>

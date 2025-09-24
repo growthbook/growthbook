@@ -846,7 +846,7 @@ export async function importConfig(
 
             await updateMetric(context, existing, updates);
           } else {
-            await createMetric({
+            await createMetric(context, {
               ...m,
               name: m.name || k,
               id: k,

@@ -162,6 +162,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      blockFileUploads: settings.blockFileUploads ?? false,
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,

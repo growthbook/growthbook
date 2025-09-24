@@ -49,6 +49,7 @@ export async function getUpdateFactMetricPropsFromBody(
   if (numerator) {
     updates.numerator = {
       filters: [],
+      inlineFilters: {},
       ...numerator,
       column:
         metricType === "proportion" || metricType === "retention"
@@ -77,6 +78,7 @@ export async function getUpdateFactMetricPropsFromBody(
   if (denominator) {
     updates.denominator = {
       filters: [],
+      inlineFilters: {},
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     };
