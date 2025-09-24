@@ -83,7 +83,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-async function getDataSourcesWithExposureQueriesToUpdate(): Promise<
+export async function getDataSourcesWithExposureQueriesToUpdate(): Promise<
   UpdateSingleJobParams[]
 > {
   try {
@@ -154,7 +154,7 @@ async function getDataSourcesWithExposureQueriesToUpdate(): Promise<
   }
 }
 
-const updateSingleDatasourceExposureQueriesDimensionSlices = async (
+export const updateSingleDatasourceExposureQueriesDimensionSlices = async (
   job: Job<{
     organizationId: string;
     dataSourceId: string;
