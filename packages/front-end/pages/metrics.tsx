@@ -12,7 +12,8 @@ import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTe
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 const MetricsPage = (): React.ReactElement => {
-  const { metrics, factMetrics, datasources, project } = useDefinitions();
+  const { metrics, factMetrics, factTables, datasources, project } =
+    useDefinitions();
 
   const hasDatasource = datasources.some((d) =>
     isProjectListValidForProject(d.projects, project),
@@ -20,6 +21,10 @@ const MetricsPage = (): React.ReactElement => {
   const hasMetrics =
     metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||
     factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
+
+  const hasFactTables = factTables.some((f) =>
+    isProjectListValidForProject(f.projects, project),
+  );
 
   const [showNewModal, setShowNewModal] = React.useState(false);
 
@@ -43,6 +48,8 @@ const MetricsPage = (): React.ReactElement => {
           <div className="mt-3">
             {!hasDatasource ? (
               <LinkButton href="/datasources">Connect Data Source</LinkButton>
+            ) : !hasFactTables ? (
+              <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
             ) : (
               <Button onClick={() => setShowNewModal(true)}>Add Metric</Button>
             )}
