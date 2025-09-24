@@ -253,6 +253,7 @@ export interface OrganizationSettings {
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
+  blockFileUploads?: boolean;
 }
 
 export interface OrganizationConnections {

@@ -182,6 +182,7 @@ export default function ReportResults({
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
+                experimentId={snapshot.experiment}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -226,6 +227,7 @@ export default function ReportResults({
               />
             ) : showCompactResults ? (
               <CompactResults
+                experimentId={snapshot.experiment}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
