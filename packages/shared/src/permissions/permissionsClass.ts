@@ -637,7 +637,7 @@ export class Permissions {
   public canCreateFactMetric = (
     metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
       if (!this.canCreateOfficialResources(metric)) {
         return false;
       }
@@ -668,7 +668,7 @@ export class Permissions {
   public canDeleteFactMetric = (
     metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
       if (!this.canCreateOfficialResources(metric)) {
         return false;
       }
