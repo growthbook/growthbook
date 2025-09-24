@@ -20,17 +20,20 @@ function SnapshotStatusSummary({
   const {
     settings: { updateSchedule },
   } = useUser();
-  const {
-    defaultSnapshot: snapshot,
-    refreshError,
-    allQueries,
-  } = useContext(DashboardSnapshotContext);
+  const { defaultSnapshot, snapshotsMap, refreshError, allQueries } =
+    useContext(DashboardSnapshotContext);
   const numFailed = useMemo(
     () => allQueries.filter((q) => q.status === "failed").length,
     [allQueries],
   );
 
-  if (!snapshot) return null;
+  if (!defaultSnapshot) return null;
+  // Find any snapshot actively in use by the dashboard (if one exists)
+  const snapshotEntry = snapshotsMap
+    .entries()
+    .find(([snapshotId]) => snapshotId !== defaultSnapshot.id);
+
+  const snapshot = snapshotEntry ? snapshotEntry[1] : defaultSnapshot;
 
   const textColor = refreshError || numFailed > 0 ? "red" : undefined;
   const content = refreshError
@@ -38,8 +41,7 @@ function SnapshotStatusSummary({
     : numFailed > 0
       ? "One or more queries failed"
       : snapshot.runStarted
-        ? // TODO: using `snapshot` here is showing when the experiment updated which isn't accurate for dashboards without auto update
-          `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
+        ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
         : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
