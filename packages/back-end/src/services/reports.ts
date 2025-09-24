@@ -652,14 +652,11 @@ export function getReportSnapshotSettings({
     }),
   );
 
-  const metricSettings = expandMetricGroups(
-    getAllExpandedMetricIdsFromExperiment(
-      report.experimentAnalysisSettings,
-      metricMap,
-      factTableMap,
-      true,
-      metricGroups,
-    ),
+  const metricSettings = getAllExpandedMetricIdsFromExperiment(
+    report.experimentAnalysisSettings,
+    metricMap,
+    factTableMap,
+    true,
     metricGroups,
   )
     .map((m) =>

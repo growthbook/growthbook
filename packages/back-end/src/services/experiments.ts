@@ -71,6 +71,7 @@ import {
   DimensionForSnapshot,
 } from "back-end/types/experiment-snapshot";
 import {
+  expandDimensionMetricsInMap,
   getMetricById,
   getMetricMap,
   getMetricsByIds,
@@ -577,14 +578,22 @@ export function getSnapshotSettings({
   // Set currentDate in a const to use the same date for all metric settings
   const currentDate = new Date();
 
-  const metricSettings = expandMetricGroups(
-    getAllExpandedMetricIdsFromExperiment(
-      experiment,
-      metricMap,
-      factTableMap,
-      true,
-      metricGroups,
-    ),
+  // Expand dimension metrics for fact metrics with enableMetricDimensions
+  const baseMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+  const baseMetrics = baseMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined);
+  expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
+
+  const metricSettings = getAllExpandedMetricIdsFromExperiment(
+    experiment,
+    metricMap,
+    factTableMap,
+    true,
     metricGroups,
   )
     .map((m) =>

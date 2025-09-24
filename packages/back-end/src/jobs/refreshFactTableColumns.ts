@@ -75,25 +75,14 @@ export async function runColumnTopValuesQuery(
     throw new Error("Top values not supported on this data source");
   }
 
-  // Try progressive lookback periods
-  const lookbackPeriods = [14, 365, 1234];
+  const sql = integration.getColumnTopValuesQuery({
+    factTable,
+    column,
+    limit: Math.max(100, MAX_METRIC_DIMENSION_LEVELS),
+  });
+  const result = await integration.runColumnTopValuesQuery(sql);
 
-  for (const lookbackDays of lookbackPeriods) {
-    const sql = integration.getColumnTopValuesQuery({
-      factTable,
-      column,
-      limit: 100,
-      lookbackDays,
-    });
-
-    const result = await integration.runColumnTopValuesQuery(sql);
-
-    if (result.rows.length > 0) {
-      return result.rows.map((r) => r.value);
-    }
-  }
-
-  return [];
+  return result.rows.map((r) => r.value);
 }
 
 export function populateDimensionLevels(

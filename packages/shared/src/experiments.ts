@@ -124,37 +124,32 @@ export function getColumnRefWhereClause(
       (col) => col.column === dimensionInfo.dimensionColumn,
     );
 
-    if (!dimensionColumn || dimensionColumn.deleted) {
-      // Dimension column doesn't exist in this fact table, skip dimension filtering
-      // This can happen when the dimension column is in a different fact table
-      // (e.g., experiment events) but the metric queries another fact table (e.g., orders)
-      return [...where];
-    }
+    if (dimensionColumn && !dimensionColumn.deleted) {
+      const columnExpr = getColumnExpression(
+        dimensionInfo.dimensionColumn,
+        factTable,
+        jsonExtract,
+      );
 
-    const columnExpr = getColumnExpression(
-      dimensionInfo.dimensionColumn,
-      factTable,
-      jsonExtract,
-    );
-
-    if (!dimensionInfo.dimensionValue) {
-      // For "other", exclude all dimension values
-      if (
-        dimensionColumn.dimensionLevels &&
-        dimensionColumn.dimensionLevels.length > 0
-      ) {
-        const escapedValues = dimensionColumn.dimensionLevels.map(
-          (v: string) => "'" + escapeStringLiteral(v) + "'",
-        );
+      if (!dimensionInfo.dimensionValue) {
+        // For "other", exclude all dimension values
+        if (
+          dimensionColumn.dimensionLevels &&
+          dimensionColumn.dimensionLevels.length > 0
+        ) {
+          const escapedValues = dimensionColumn.dimensionLevels.map(
+            (v: string) => "'" + escapeStringLiteral(v) + "'",
+          );
+          where.add(
+            `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`,
+          );
+        }
+      } else {
+        // For specific dimension values, filter to that value
         where.add(
-          `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`,
+          `(${columnExpr} = '${escapeStringLiteral(dimensionInfo.dimensionValue)}')`,
         );
       }
-    } else {
-      // For specific dimension values, filter to that value
-      where.add(
-        `(${columnExpr} = '${escapeStringLiteral(dimensionInfo.dimensionValue)}')`,
-      );
     }
   }
 
