@@ -147,16 +147,60 @@ const toInterface: ToInterface<MetricInterface> = (doc) => {
   return upgradeMetricDoc(removeMongooseFields(doc));
 };
 
-export async function insertMetric(metric: Partial<MetricInterface>) {
+export async function insertMetric(
+  context: ReqContext | ApiReqContext,
+  metric: Partial<MetricInterface>,
+) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add new metrics. Metrics managed by config.yml");
   }
+
+  if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+    throw new Error(
+      "Cannot mark a metric as managed by the API outside of the API.",
+    );
+  }
+
+  if (
+    metric.managedBy === "admin" &&
+    !context.hasPremiumFeature("manage-official-resources")
+  ) {
+    throw new Error(
+      "Your organization's plan does not support creating official metrics.",
+    );
+  }
+
+  if (!context.permissions.canCreateMetric(metric)) {
+    context.permissions.throwPermissionError();
+  }
+
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function insertMetrics(metrics: InsertMetricProps[]) {
+export async function insertMetrics(
+  context: ReqContext | ApiReqContext,
+  metrics: InsertMetricProps[],
+) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add metrics. Metrics managed by config.yml");
+  }
+  for (const metric of metrics) {
+    if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+      throw new Error(
+        "Cannot mark a metric as managed by the API outside of the API.",
+      );
+    }
+    if (
+      metric.managedBy === "admin" &&
+      !context.hasPremiumFeature("manage-official-resources")
+    ) {
+      throw new Error(
+        "Your organization's plan does not support creating official metrics.",
+      );
+    }
+    if (!context.permissions.canCreateMetric(metric)) {
+      context.permissions.throwPermissionError();
+    }
   }
   return (await MetricModel.insertMany(metrics)).map(toInterface);
 }
@@ -170,6 +214,9 @@ export async function deleteMetricById(
   }
   if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error("Cannot delete a metric managed by the API");
+  }
+  if (!context.permissions.canDeleteMetric(metric)) {
+    context.permissions.throwPermissionError();
   }
 
   // delete references:
@@ -503,6 +550,9 @@ export async function updateMetric(
     }
     if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
       throw new Error("Cannot update. Metric managed by the API");
+    }
+    if (!context.permissions.canUpdateMetric(metric, updates)) {
+      context.permissions.throwPermissionError();
     }
   }
 

@@ -175,8 +175,11 @@ import {
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
-export async function createMetric(data: Partial<MetricInterface>) {
-  const metric = insertMetric({
+export async function createMetric(
+  context: Context,
+  data: Partial<MetricInterface>,
+) {
+  const metric = insertMetric(context, {
     id: uniqid("met_"),
     ...data,
     dateCreated: new Date(),

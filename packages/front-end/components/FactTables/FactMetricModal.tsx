@@ -67,6 +67,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 export interface Props {
   close?: () => void;
@@ -1456,6 +1457,8 @@ export default function FactMetricModal({
 
   const settings = useOrgSettings();
 
+  const { disableLegacyMetricCreation } = settings;
+
   const { hasCommercialFeature } = useUser();
 
   // TODO: We may want to hide this from non-technical users in the future
@@ -1469,7 +1472,10 @@ export default function FactMetricModal({
     project,
     getFactTableById,
     mutateDefinitions,
+    metrics,
   } = useDefinitions();
+
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -1477,6 +1483,14 @@ export default function FactMetricModal({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
+
+  const filteredMetrics = metrics
+    .filter((f) => !datasource || f.datasource === datasource)
+    .filter((f) => isProjectListValidForProject(f.projects, project))
+    .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
+
+  const showSwitchToLegacy =
+    filteredMetrics.length > 0 && !disableLegacyMetricCreation;
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,
@@ -1775,7 +1789,7 @@ export default function FactMetricModal({
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
           {showSQLPreview ? <h3>Enter Details</h3> : null}
-          {switchToLegacy && (
+          {showSwitchToLegacy && switchToLegacy && (
             <Callout status="info" mb="3">
               You are creating a Fact Table Metric.{" "}
               <a

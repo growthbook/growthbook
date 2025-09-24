@@ -77,6 +77,7 @@ export async function getCreateMetricPropsFromBody(
 
   const cleanedNumerator = {
     filters: [],
+    inlineFilters: {},
     ...numerator,
     column:
       body.metricType === "proportion" || body.metricType === "retention"
@@ -153,6 +154,7 @@ export async function getCreateMetricPropsFromBody(
   if (denominator) {
     data.denominator = {
       filters: [],
+      inlineFilters: {},
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     };
