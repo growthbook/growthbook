@@ -64,7 +64,7 @@ export function getDefaultFactMetricProps({
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
-  managedBy?: ManagedBy;
+  managedBy?: "" | "api" | "admin";
 }): CreateFactMetricProps {
   return {
     name: existing?.name || "",
@@ -95,7 +95,7 @@ export function getDefaultFactMetricProps({
       type: "",
       value: 0,
     },
-    managedBy: managedBy ? managedBy : "",
+    managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,
