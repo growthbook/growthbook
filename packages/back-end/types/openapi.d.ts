@@ -3502,6 +3502,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       archived?: boolean;
+      /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
+      enableMetricDimensions?: boolean;
     };
     MetricAnalysis: {
       /** @description The ID of the created metric analysis */
@@ -12315,6 +12317,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 archived?: boolean;
+                /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
+                enableMetricDimensions?: boolean;
               })[];
           }) & {
             limit: number;
@@ -12453,6 +12457,8 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api";
+          /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
+          enableMetricDimensions?: boolean;
         };
       };
     };
@@ -12550,6 +12556,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
+              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
+              enableMetricDimensions?: boolean;
             };
           };
         };
@@ -12658,6 +12666,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
+              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
+              enableMetricDimensions?: boolean;
             };
           };
         };
@@ -12784,6 +12794,8 @@ export interface operations {
            */
           managedBy?: "" | "api";
           archived?: boolean;
+          /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
+          enableMetricDimensions?: boolean;
         };
       };
     };
@@ -12881,6 +12893,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
+              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
+              enableMetricDimensions?: boolean;
             };
           };
         };
@@ -13118,6 +13132,8 @@ export interface operations {
                  * @enum {string}
                  */
                 managedBy?: "" | "api";
+                /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
+                enableMetricDimensions?: boolean;
               };
             })[];
         };

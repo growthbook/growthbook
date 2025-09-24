@@ -451,7 +451,9 @@ const BreakDownResults: FC<{
                   {label ? (
                     label === "__NULL_DIMENSION" ? (
                       <em>NULL (unset)</em>
-                    ) : label
+                    ) : (
+                      label
+                    )
                   ) : (
                     <em>unknown</em>
                   )}

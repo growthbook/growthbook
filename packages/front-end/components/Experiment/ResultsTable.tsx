@@ -1162,7 +1162,10 @@ export default function ResultsTable({
                                       rowResults={rowResults}
                                       differenceType={differenceType}
                                       statsEngine={statsEngine}
-                                      className={clsx(resultsHighlightClassname, "pr-3")}
+                                      className={clsx(
+                                        resultsHighlightClassname,
+                                        "pr-3",
+                                      )}
                                       ssrPolyfills={ssrPolyfills}
                                       additionalButton={
                                         compactResults

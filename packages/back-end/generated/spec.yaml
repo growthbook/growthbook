@@ -4989,6 +4989,9 @@ paths:
                   enum:
                     - ''
                     - api
+                enableMetricDimensions:
+                  type: boolean
+                  description: Whether this metric supports dimension analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -5270,6 +5273,9 @@ paths:
                     - api
                 archived:
                   type: boolean
+                enableMetricDimensions:
+                  type: boolean
+                  description: Whether this metric supports dimension analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -7891,6 +7897,9 @@ components:
           format: date-time
         archived:
           type: boolean
+        enableMetricDimensions:
+          type: boolean
+          description: Whether this metric supports dimension analysis. This is an enterprise feature.
     MetricAnalysis:
       type: object
       required:

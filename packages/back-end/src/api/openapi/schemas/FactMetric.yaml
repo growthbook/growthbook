@@ -234,3 +234,6 @@ properties:
     format: date-time
   archived:
     type: boolean
+  enableMetricDimensions:
+    type: boolean
+    description: Whether this metric supports dimension analysis. This is an enterprise feature.

@@ -140,6 +140,15 @@ export const updateFactMetric = createApiRequestHandler(
   if (!factMetric) {
     throw new Error("Could not find factMetric with that id");
   }
+
+  // Check if enableMetricDimensions is being set and if user has access to the feature
+  if (
+    req.body.enableMetricDimensions &&
+    !req.context.hasPremiumFeature("metric-dimensions")
+  ) {
+    throw new Error("Metric dimensions require an enterprise license");
+  }
+
   const lookupFactTable = async (id: string) => getFactTable(req.context, id);
   const updates = await getUpdateFactMetricPropsFromBody(
     req.body,
