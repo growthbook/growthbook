@@ -18,7 +18,11 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
-import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetricId,
+  createDimensionMetrics,
+} from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
@@ -304,45 +308,26 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       // Only generate metric dimensions if the parent has dimension analysis enabled
       if (!parentMetric.enableMetricDimensions) return [];
 
-      const dimensionMetrics: FactMetricDimension[] = [];
+      const dimensionMetrics = createDimensionMetrics({
+        parentMetric,
+        factTable,
+        includeOther: true,
+      });
 
-      factTable.columns
-        .filter((col) => col.isDimension && !col.deleted)
-        .forEach((col) => {
-          const dimensionLevels = col.dimensionLevels || [];
-
-          // Create a metric for each dimension level
-          dimensionLevels.forEach((value) => {
-            dimensionMetrics.push({
-              ...parentMetric,
-              id: `${parentId}?dim:${col.column}=${value}`,
-              name: `${parentMetric.name} (${col.name || col.column}: ${value})`,
-              description: `Dimension analysis of ${parentMetric.name} for ${col.name || col.column} = ${value}`,
-              parentMetricId: parentId,
-              dimensionColumn: col.column,
-              dimensionColumnName: col.name || col.column,
-              dimensionValue: value,
-              dimensionLevels: col.dimensionLevels || [],
-            } as FactMetricDimension);
-          });
-
-          // Create an "other" metric for values not in dimensionLevels
-          if (dimensionLevels.length > 0) {
-            dimensionMetrics.push({
-              ...parentMetric,
-              id: `${parentId}?dim:${col.column}=`,
-              name: `${parentMetric.name} (${col.name || col.column}: other)`,
-              description: `Dimension analysis of ${parentMetric.name} for ${col.name || col.column} = other`,
-              parentMetricId: parentId,
-              dimensionColumn: col.column,
-              dimensionColumnName: col.name || col.column,
-              dimensionValue: null,
-              dimensionLevels: col.dimensionLevels || [],
-            } as FactMetricDimension);
-          }
-        });
-
-      return dimensionMetrics;
+      return dimensionMetrics.map(
+        (dimensionMetric) =>
+          ({
+            ...parentMetric,
+            id: dimensionMetric.id,
+            name: dimensionMetric.name,
+            description: dimensionMetric.description,
+            parentMetricId: parentId,
+            dimensionColumn: dimensionMetric.dimensionColumn,
+            dimensionColumnName: dimensionMetric.dimensionColumnName,
+            dimensionValue: dimensionMetric.dimensionValue,
+            dimensionLevels: dimensionMetric.dimensionLevels,
+          }) as FactMetricDimension,
+      );
     },
     [data?.factMetrics, data?.factTables],
   );

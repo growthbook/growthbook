@@ -1023,6 +1023,79 @@ export function getAllExpandedMetricIdsFromExperiment(
   return Array.from(expandedMetricIds);
 }
 
+/**
+ * Creates ephemeral dimension metrics for a fact metric with enableMetricDimensions enabled.
+ */
+export function createDimensionMetrics({
+  parentMetric,
+  factTable,
+  includeOther = true,
+}: {
+  parentMetric: FactMetricInterface;
+  factTable: FactTableInterface;
+  includeOther?: boolean;
+}): Array<{
+  id: string;
+  name: string;
+  description: string;
+  dimensionColumn: string;
+  dimensionColumnName: string;
+  dimensionValue: string | null;
+  dimensionLevels: string[];
+}> {
+  if (!parentMetric.enableMetricDimensions) {
+    return [];
+  }
+
+  const dimensionMetrics: Array<{
+    id: string;
+    name: string;
+    description: string;
+    dimensionColumn: string;
+    dimensionColumnName: string;
+    dimensionValue: string | null;
+    dimensionLevels: string[];
+  }> = [];
+
+  const dimensionColumns = factTable.columns.filter(
+    (col) =>
+      col.isDimension && !col.deleted && (col.dimensionLevels?.length || 0) > 0,
+  );
+
+  dimensionColumns.forEach((col) => {
+    const dimensionLevels = col.dimensionLevels || [];
+    const columnName = col.name || col.column;
+
+    // Create a metric for each dimension level
+    dimensionLevels.forEach((value) => {
+      dimensionMetrics.push({
+        id: `${parentMetric.id}?dim:${col.column}=${value}`,
+        name: `${parentMetric.name} (${columnName}: ${value})`,
+        description: `Dimension analysis of ${parentMetric.name} for ${columnName} = ${value}`,
+        dimensionColumn: col.column,
+        dimensionColumnName: columnName,
+        dimensionValue: value,
+        dimensionLevels,
+      });
+    });
+
+    // Create an "other" metric for values not in dimensionLevels
+    if (includeOther && dimensionLevels.length > 0) {
+      dimensionMetrics.push({
+        id: `${parentMetric.id}?dim:${col.column}=`,
+        name: `${parentMetric.name} (${columnName}: other)`,
+        description: `Dimension analysis of ${parentMetric.name} for ${columnName} = other`,
+        dimensionColumn: col.column,
+        dimensionColumnName: columnName,
+        dimensionValue: null,
+        dimensionLevels,
+      });
+    }
+  });
+
+  return dimensionMetrics;
+}
+
 // Returns n "equal" decimals rounded to 3 places that add up to 1
 // The sum always adds to 1. In some cases the values are not equal.
 // For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]

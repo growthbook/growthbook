@@ -31,6 +31,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
+  createDimensionMetrics,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
@@ -2847,39 +2848,21 @@ export async function getSettingsForSnapshotMetrics(
     if (isFactMetric(metric) && metric.enableMetricDimensions) {
       const factTable = factTableMap.get(metric.numerator.factTableId);
       if (factTable) {
-        const dimensionColumns = factTable.columns.filter(
-          (col) =>
-            col.isDimension &&
-            !col.deleted &&
-            (col.dimensionLevels?.length || 0) > 0,
-        );
+        const dimensionMetrics = createDimensionMetrics({
+          parentMetric: metric,
+          factTable,
+          includeOther: true,
+        });
 
-        dimensionColumns.forEach((col) => {
-          const dimensionLevels = col.dimensionLevels || [];
-
-          // Create a metric for each dimension level
-          dimensionLevels.forEach((value) => {
-            const dimensionMetric: ExperimentMetricInterface = {
-              ...metric,
-              id: `${metric.id}?dim:${col.column}=${value}`,
-              name: `${metric.name} (${col.name || col.column}: ${value})`,
-              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
-            };
-            expandedMetrics.push(dimensionMetric);
-            metricMap.set(dimensionMetric.id, dimensionMetric);
-          });
-
-          // Create an "other" metric for values not in dimensionLevels
-          if (dimensionLevels.length > 0) {
-            const otherMetric: ExperimentMetricInterface = {
-              ...metric,
-              id: `${metric.id}?dim:${col.column}=`,
-              name: `${metric.name} (${col.name || col.column}: other)`,
-              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = other`,
-            };
-            expandedMetrics.push(otherMetric);
-            metricMap.set(otherMetric.id, otherMetric);
-          }
+        dimensionMetrics.forEach((dimensionMetric) => {
+          const expandedMetric: ExperimentMetricInterface = {
+            ...metric,
+            id: dimensionMetric.id,
+            name: dimensionMetric.name,
+            description: dimensionMetric.description,
+          };
+          expandedMetrics.push(expandedMetric);
+          metricMap.set(expandedMetric.id, expandedMetric);
         });
       }
     }
