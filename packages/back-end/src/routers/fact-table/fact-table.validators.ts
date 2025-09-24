@@ -73,7 +73,7 @@ export const createFactTablePropsValidator = z
     sql: z.string(),
     eventName: z.string(),
     columns: z.array(createColumnPropsValidator),
-    managedBy: z.enum(["", "api", "admin", "config"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
   })
   .strict();
 
@@ -88,7 +88,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api", "admin", "config"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
   })

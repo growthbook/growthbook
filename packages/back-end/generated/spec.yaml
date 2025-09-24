@@ -7653,7 +7653,6 @@ components:
             - ''
             - api
             - admin
-            - config
         dateCreated:
           type: string
           format: date-time

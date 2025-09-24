@@ -58,7 +58,7 @@ export interface FactFilterInterface {
 export interface FactTableInterface {
   organization: string;
   id: string;
-  managedBy?: "" | "api" | "admin" | "config";
+  managedBy?: "" | "api" | "admin";
   dateCreated: Date | null;
   dateUpdated: Date | null;
   name: string;
