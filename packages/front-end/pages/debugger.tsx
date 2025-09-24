@@ -1,7 +1,7 @@
 import { useForm } from "react-hook-form";
 import { UserExperimentExposuresQueryResponseRows } from "back-end/src/types/Integration";
 import { QueryStatistics } from "back-end/types/query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -24,7 +24,7 @@ type UserExposureQueryResults = {
 
 const ExposureDebuggerPage = () => {
   const { defaultDataSource } = useOrgSettings();
-  const { datasources } = useDefinitions();
+  const { datasources, getDatasourceById } = useDefinitions();
   const form = useForm({
     defaultValues: {
       datasourceId: defaultDataSource ?? "",
@@ -37,6 +37,22 @@ const ExposureDebuggerPage = () => {
   const [results, setResults] = useState<UserExposureQueryResults | null>(null);
   const [loading, setLoading] = useState(false);
   const { experimentsMap } = useExperiments();
+  const datasourceId = form.watch("datasourceId");
+  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
+
+  // If the userIdType is no longer valid, reset it to the first valid one
+  useEffect(() => {
+    if (
+      !datasource?.settings?.userIdTypes?.find(
+        (t) => t.userIdType === form.watch("userIdType"),
+      )
+    ) {
+      form.setValue(
+        "userIdType",
+        datasource?.settings?.userIdTypes?.[0]?.userIdType ?? "",
+      );
+    }
+  }, [form, datasource]);
 
   const onSubmit = form.handleSubmit(async (value) => {
     setLoading(true);
@@ -52,7 +68,7 @@ const ExposureDebuggerPage = () => {
         },
       );
       if (results.rows) {
-        // add an id to each row based on the experiment_id
+        // add an id to each row based on the experiment_id (which is really the experiment tracking key)
         results.rows = results.rows.map((row) => ({
           ...row,
           id: results.experimentMap?.[row.experiment_id] ?? "",
@@ -77,7 +93,6 @@ const ExposureDebuggerPage = () => {
   };
 
   const dynamicColumns = getDynamicColumns();
-  const datasourceId = form.watch("datasourceId");
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -100,7 +115,6 @@ const ExposureDebuggerPage = () => {
                 value={datasourceId ?? ""}
                 onChange={(newDatasource) => {
                   form.setValue("datasourceId", newDatasource);
-                  form.resetField("userIdType");
                 }}
                 options={datasources.map((d) => {
                   const isDefaultDataSource = d.id === defaultDataSource;
@@ -118,7 +132,7 @@ const ExposureDebuggerPage = () => {
 
           {datasourceId && (
             <>
-              <hr className="my-4" />
+              <hr className="mt-2 mb-4" />
 
               <div className="row align-items-center">
                 <div className="col-sm-2">
