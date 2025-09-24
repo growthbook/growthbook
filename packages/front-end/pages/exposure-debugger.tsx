@@ -98,7 +98,7 @@ const ExposureDebuggerPage = () => {
     <div className="contents container-fluid pagecontents">
       <div className="row">
         <div className="col-12">
-          <h1>Exposure Debugger</h1>
+          <h1>Exposures Debugger</h1>
           <p className="text-muted">
             Query experiment exposures for a specific id within a window.
           </p>
