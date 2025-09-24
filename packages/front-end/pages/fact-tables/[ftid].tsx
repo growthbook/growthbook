@@ -76,11 +76,11 @@ export default function FactTablePage() {
       </div>
     );
   }
+  const canDuplicate = permissionsUtil.canCreateFactTable({
+    projects: factTable.projects,
+  });
 
-  let canEdit = permissionsUtil.canUpdateFactTable(
-    { projects: factTable.projects },
-    {},
-  );
+  let canEdit = permissionsUtil.canUpdateFactTable(factTable, {});
   let canDelete = permissionsUtil.canDeleteFactTable(factTable);
 
   if (factTable.managedBy && ["api", "config"].includes(factTable.managedBy)) {
@@ -207,9 +207,10 @@ export default function FactTablePage() {
             <OfficialBadge type="Fact Table" managedBy={factTable.managedBy} />
           </h1>
         </div>
-        {canEdit && (
-          <div className="ml-auto">
-            <MoreMenu>
+        {/* {canEdit && ( */}
+        <div className="ml-auto">
+          <MoreMenu>
+            {canEdit && (
               <button
                 className="dropdown-item"
                 onClick={(e) => {
@@ -219,20 +220,22 @@ export default function FactTablePage() {
               >
                 Edit Fact Table
               </button>
-              {!factTable.managedBy &&
-              canEdit &&
-              permissionsUtil.canCreateOfficialResources(factTable) &&
-              hasCommercialFeature("manage-official-resources") ? (
-                <button
-                  className="dropdown-item"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowConvertToOfficialModal(true);
-                  }}
-                >
-                  Convert to Official Fact Table
-                </button>
-              ) : null}
+            )}
+            {!factTable.managedBy &&
+            canEdit &&
+            permissionsUtil.canCreateOfficialResources(factTable) &&
+            hasCommercialFeature("manage-official-resources") ? (
+              <button
+                className="dropdown-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowConvertToOfficialModal(true);
+                }}
+              >
+                Convert to Official Fact Table
+              </button>
+            ) : null}
+            {canDuplicate && (
               <button
                 className="dropdown-item"
                 onClick={(e) => {
@@ -250,6 +253,8 @@ export default function FactTablePage() {
               >
                 Duplicate Fact Table
               </button>
+            )}
+            {canEdit && (
               <button
                 className="dropdown-item"
                 onClick={async () => {
@@ -266,6 +271,8 @@ export default function FactTablePage() {
               >
                 {factTable.archived ? "Unarchive" : "Archive"} Fact Table
               </button>
+            )}
+            {canDelete && (
               <DeleteButton
                 className="dropdown-item"
                 displayName="Fact Table"
@@ -279,9 +286,10 @@ export default function FactTablePage() {
                   router.push("/fact-tables");
                 }}
               />
-            </MoreMenu>
-          </div>
-        )}
+            )}
+          </MoreMenu>
+        </div>
+        {/* )} */}
       </div>
       <div className="row mb-3">
         {projects.length > 0 ? (

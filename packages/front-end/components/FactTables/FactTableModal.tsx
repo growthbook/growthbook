@@ -276,16 +276,18 @@ export default function FactTableModal({
         {permissionsUtil.canCreateOfficialResources({
           projects: form.watch("projects") || [],
         }) && hasCommercialFeature("manage-official-resources") ? (
-          <Checkbox
-            label="Mark as Official Fact Table"
-            disabled={form.watch("managedBy") === "api"}
-            disabledMessage="This Fact Table is managed by the API, so it can not be edited in the UI."
-            description="Official Fact Tables can only be modified by Admins or users with the ManageOfficialResources policy."
-            value={form.watch("managedBy") === "admin"}
-            setValue={(value) => {
-              form.setValue("managedBy", value ? "admin" : "");
-            }}
-          />
+          <div className="mt-2">
+            <Checkbox
+              label="Mark as Official Fact Table"
+              disabled={form.watch("managedBy") === "api"}
+              disabledMessage="This Fact Table is managed by the API, so it can not be edited in the UI."
+              description="Official Fact Tables can only be modified by Admins or users with the ManageOfficialResources policy."
+              value={form.watch("managedBy") === "admin"}
+              setValue={(value) => {
+                form.setValue("managedBy", value ? "admin" : "");
+              }}
+            />
+          </div>
         ) : null}
       </Modal>
     </>
