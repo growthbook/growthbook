@@ -3504,7 +3504,7 @@ export interface components {
        * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api" | "admin" | "config";
+      managedBy: "" | "api" | "admin";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -12325,7 +12325,7 @@ export interface operations {
                  * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api" | "admin" | "config";
+                managedBy: "" | "api" | "admin";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -12576,7 +12576,7 @@ export interface operations {
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "admin" | "config";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -12692,7 +12692,7 @@ export interface operations {
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "admin" | "config";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -12931,7 +12931,7 @@ export interface operations {
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "admin" | "config";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
