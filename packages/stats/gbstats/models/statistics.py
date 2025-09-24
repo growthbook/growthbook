@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import asdict
+from dataclasses import replace
 from typing import Optional, Union, List
 
 import numpy as np
@@ -510,14 +510,8 @@ def compute_theta_regression_adjusted_ratio(
     a: RegressionAdjustedRatioStatistic, b: RegressionAdjustedRatioStatistic
 ) -> float:
     # set theta equal to 1, so the partial derivatives are unaffected by theta
-    a_one = RegressionAdjustedRatioStatistic(
-        **{k: v for k, v in asdict(a).items() if k != "theta"},
-        theta=1,
-    )
-    b_one = RegressionAdjustedRatioStatistic(
-        **{k: v for k, v in asdict(b).items() if k != "theta"},
-        theta=1,
-    )
+    a_one = replace(a, theta=1)
+    b_one = replace(b, theta=1)
     if a_one.var_pre + b_one.var_pre == 0:
         return 0
     return -(a_one.covariance + b_one.covariance) / (a_one.var_pre + b_one.var_pre)

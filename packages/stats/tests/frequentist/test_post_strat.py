@@ -156,8 +156,6 @@ class TestPostStratification(TestCase):
             one_sided_intervals=False,
             post_stratification_eligible=True,
         )
-        var_names = ["Control", "Treatment1"]
-        var_id_map = {"0": 0, "1": 1}
         if isinstance(stat_a[0], SampleMeanStatistic) or isinstance(
             stat_a[0], ProportionStatistic
         ):
@@ -974,6 +972,179 @@ class TestPostStratification(TestCase):
             _round_result_dict(expected_rounded_dict_abs),
         )
 
+    # test that the effect moments post stratification falls back from regression to unadjusted when the regression adjusted stats have 0 for baseline values
+    def test_post_strat_count_effect_moments_fallback(self):
+        fallback_reg_stats = [
+            (
+                RegressionAdjustedStatistic(
+                    n=stat_pair[0].n,
+                    post_statistic=SampleMeanStatistic(
+                        n=stat_pair[0].n,
+                        sum=stat_pair[0].sum,
+                        sum_squares=stat_pair[0].sum_squares,
+                    ),
+                    pre_statistic=SampleMeanStatistic(
+                        n=stat_pair[0].n, sum=0, sum_squares=0
+                    ),
+                    post_pre_sum_of_products=0,
+                    theta=None,
+                ),
+                RegressionAdjustedStatistic(
+                    n=stat_pair[1].n,
+                    post_statistic=SampleMeanStatistic(
+                        n=stat_pair[1].n,
+                        sum=stat_pair[1].sum,
+                        sum_squares=stat_pair[1].sum_squares,
+                    ),
+                    pre_statistic=SampleMeanStatistic(
+                        n=stat_pair[1].n,
+                        sum=0,
+                        sum_squares=0,
+                    ),
+                    post_pre_sum_of_products=0,
+                    theta=None,
+                ),
+            )
+            for stat_pair in self.stats_count_strata
+        ]
+
+        result_dict_rel = asdict(
+            EffectMomentsPostStratification(
+                fallback_reg_stats, self.moments_config_rel  # type: ignore
+            ).compute_result()
+        )
+        result_dict_abs = asdict(
+            EffectMomentsPostStratification(
+                fallback_reg_stats, self.moments_config_abs  # type: ignore
+            ).compute_result()
+        )
+        expected_rounded_dict_rel = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_count_rel,
+                standard_error=self.standard_error_count_rel,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+        expected_rounded_dict_abs = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_count_abs,
+                standard_error=self.standard_error_count_abs,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict_rel),
+            _round_result_dict(expected_rounded_dict_rel),
+        )
+
+        self.assertDictEqual(
+            _round_result_dict(result_dict_abs),
+            _round_result_dict(expected_rounded_dict_abs),
+        )
+
+    # if an individual cell has 0 baseline variance, the return the StrataResult with unadjusted data
+    def test_post_strat_mean_reg_gbstats_single_cell_fallback(self):
+        stats_a, stats_b = zip(*self.stats_count_strata)
+        stats_a_reg = [
+            RegressionAdjustedStatistic(
+                n=stat_a.n,
+                post_statistic=stat_a,
+                pre_statistic=SampleMeanStatistic(n=stat_a.n, sum=0, sum_squares=0),
+                post_pre_sum_of_products=0,
+                theta=None,
+            )
+            for stat_a in stats_a
+        ]
+
+        stats_b_reg = [
+            RegressionAdjustedStatistic(
+                n=stat_b.n,
+                post_statistic=stat_b,
+                pre_statistic=SampleMeanStatistic(n=stat_b.n, sum=0, sum_squares=0),
+                post_pre_sum_of_products=0,
+                theta=None,
+            )
+            for stat_b in stats_b
+        ]
+        class_unadjusted = EffectMomentsPostStratification(
+            list(zip(stats_a, stats_b)), self.moments_config_rel  # type: ignore
+        )
+        class_reg = EffectMomentsPostStratification(
+            list(zip(stats_a_reg, stats_b_reg)), self.moments_config_rel  # type: ignore
+        )
+        results_unadjusted = [
+            class_unadjusted.compute_strata_result(stat_pair)
+            for stat_pair in zip(stats_a, stats_b)
+        ]
+        results_reg = [
+            class_reg.compute_strata_result(stat_pair)
+            for stat_pair in zip(stats_a_reg, stats_b_reg)
+        ]
+
+        # ensure the fallback works cell by cell
+        for r_un, r_reg in zip(results_unadjusted, results_reg):
+            self.assertEqual(r_un, r_reg)
+
+    # if an individual cell has 0 baseline variance, the return the StrataResult with unadjusted data
+    def test_post_strat_ratio_reg_gbstats_single_cell_fallback(self):
+        stats_a, stats_b = zip(*self.stats_ratio_strata)
+        stats_a_reg = [
+            RegressionAdjustedRatioStatistic(
+                n=stat_a.n,
+                m_statistic_post=stat_a.m_statistic,
+                d_statistic_post=stat_a.d_statistic,
+                m_statistic_pre=SampleMeanStatistic(n=stat_a.n, sum=0, sum_squares=0),
+                d_statistic_pre=SampleMeanStatistic(n=stat_a.n, sum=0, sum_squares=0),
+                m_post_m_pre_sum_of_products=0,
+                d_post_d_pre_sum_of_products=0,
+                m_pre_d_pre_sum_of_products=0,
+                m_post_d_post_sum_of_products=stat_a.m_d_sum_of_products,
+                m_post_d_pre_sum_of_products=0,
+                m_pre_d_post_sum_of_products=0,
+                theta=None,
+            )
+            for stat_a in stats_a
+        ]
+
+        stats_b_reg = [
+            RegressionAdjustedRatioStatistic(
+                n=stat_b.n,
+                m_statistic_post=stat_b.m_statistic,
+                d_statistic_post=stat_b.d_statistic,
+                m_statistic_pre=SampleMeanStatistic(n=stat_b.n, sum=0, sum_squares=0),
+                d_statistic_pre=SampleMeanStatistic(n=stat_b.n, sum=0, sum_squares=0),
+                m_post_m_pre_sum_of_products=0,
+                d_post_d_pre_sum_of_products=0,
+                m_pre_d_pre_sum_of_products=0,
+                m_post_d_post_sum_of_products=stat_b.m_d_sum_of_products,
+                m_post_d_pre_sum_of_products=0,
+                m_pre_d_post_sum_of_products=0,
+                theta=None,
+            )
+            for stat_b in stats_b
+        ]
+
+        class_unadjusted = EffectMomentsPostStratification(
+            list(zip(stats_a, stats_b)), self.moments_config_rel  # type: ignore
+        )
+        class_reg = EffectMomentsPostStratification(
+            list(zip(stats_a_reg, stats_b_reg)), self.moments_config_rel  # type: ignore
+        )
+        results_unadjusted = [
+            class_unadjusted.compute_strata_result(stat_pair)
+            for stat_pair in zip(stats_a, stats_b)
+        ]
+        results_reg = [
+            class_reg.compute_strata_result(stat_pair)
+            for stat_pair in zip(stats_a_reg, stats_b_reg)
+        ]
+
+        # ensure the fallback works cell by cell
+        for r_un, r_reg in zip(results_unadjusted, results_reg):
+            self.assertEqual(r_un, r_reg)
+
     def test_post_strat_count_reg_effect_moments(self):
         result_dict_rel = asdict(
             EffectMomentsPostStratification(
@@ -1022,6 +1193,100 @@ class TestPostStratification(TestCase):
         result_dict_abs = asdict(
             EffectMomentsPostStratification(
                 self.stats_ratio_strata, self.moments_config_abs  # type: ignore
+            ).compute_result()
+        )
+        expected_rounded_dict_rel = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_ratio_rel,
+                standard_error=self.standard_error_ratio_rel,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+        expected_rounded_dict_abs = asdict(
+            EffectMomentsResult(
+                point_estimate=self.point_estimate_ratio_abs,
+                standard_error=self.standard_error_ratio_abs,
+                pairwise_sample_size=1000,
+                error_message=None,
+            )
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict_rel),
+            _round_result_dict(expected_rounded_dict_rel),
+        )
+        self.assertDictEqual(
+            _round_result_dict(result_dict_abs),
+            _round_result_dict(expected_rounded_dict_abs),
+        )
+
+    # test that the effect moments post stratification falls back from regression to unadjusted when the regression adjusted stats have 0 for baseline values
+    def test_post_strat_ratio_effect_moments_fallback(self):
+        fallback_reg_stats = [
+            (
+                RegressionAdjustedRatioStatistic(
+                    n=stat_pair[0].n,
+                    m_statistic_post=SampleMeanStatistic(
+                        n=stat_pair[0].n,
+                        sum=stat_pair[0].m_statistic.sum,
+                        sum_squares=stat_pair[0].m_statistic.sum_squares,
+                    ),
+                    d_statistic_post=SampleMeanStatistic(
+                        n=stat_pair[0].n,
+                        sum=stat_pair[0].d_statistic.sum,
+                        sum_squares=stat_pair[0].d_statistic.sum_squares,
+                    ),
+                    m_statistic_pre=SampleMeanStatistic(
+                        n=stat_pair[0].n, sum=0, sum_squares=0
+                    ),
+                    d_statistic_pre=SampleMeanStatistic(
+                        n=stat_pair[0].n, sum=0, sum_squares=0
+                    ),
+                    m_post_m_pre_sum_of_products=0,
+                    d_post_d_pre_sum_of_products=0,
+                    m_pre_d_pre_sum_of_products=0,
+                    m_post_d_post_sum_of_products=stat_pair[0].m_d_sum_of_products,
+                    m_post_d_pre_sum_of_products=0,
+                    m_pre_d_post_sum_of_products=0,
+                    theta=None,
+                ),
+                RegressionAdjustedRatioStatistic(
+                    n=stat_pair[1].n,
+                    m_statistic_post=SampleMeanStatistic(
+                        n=stat_pair[1].n,
+                        sum=stat_pair[1].m_statistic.sum,
+                        sum_squares=stat_pair[1].m_statistic.sum_squares,
+                    ),
+                    d_statistic_post=SampleMeanStatistic(
+                        n=stat_pair[1].n,
+                        sum=stat_pair[1].d_statistic.sum,
+                        sum_squares=stat_pair[1].d_statistic.sum_squares,
+                    ),
+                    m_statistic_pre=SampleMeanStatistic(
+                        n=stat_pair[1].n, sum=0, sum_squares=0
+                    ),
+                    d_statistic_pre=SampleMeanStatistic(
+                        n=stat_pair[1].n, sum=0, sum_squares=0
+                    ),
+                    m_post_m_pre_sum_of_products=0,
+                    d_post_d_pre_sum_of_products=0,
+                    m_pre_d_pre_sum_of_products=0,
+                    m_post_d_post_sum_of_products=stat_pair[1].m_d_sum_of_products,
+                    m_post_d_pre_sum_of_products=0,
+                    m_pre_d_post_sum_of_products=0,
+                    theta=None,
+                ),
+            )
+            for stat_pair in self.stats_ratio_strata
+        ]
+        result_dict_rel = asdict(
+            EffectMomentsPostStratification(
+                fallback_reg_stats, self.moments_config_rel  # type: ignore
+            ).compute_result()
+        )
+        result_dict_abs = asdict(
+            EffectMomentsPostStratification(
+                fallback_reg_stats, self.moments_config_abs  # type: ignore
             ).compute_result()
         )
         expected_rounded_dict_rel = asdict(

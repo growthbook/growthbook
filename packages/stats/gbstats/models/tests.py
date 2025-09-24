@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import asdict
+from dataclasses import replace
 from typing import List, Optional, Tuple, Literal, Union, cast
 from pydantic.dataclasses import dataclass
 
@@ -284,14 +284,8 @@ class BaseABTest(ABC):
                 self.stat_b = self.stat_b.post_statistic
             else:
                 # override statistic with theta initialized
-                self.stat_a = RegressionAdjustedStatistic(
-                    **{k: v for k, v in asdict(self.stat_a).items() if k != "theta"},
-                    theta=theta,
-                )
-                self.stat_b = RegressionAdjustedStatistic(
-                    **{k: v for k, v in asdict(self.stat_b).items() if k != "theta"},
-                    theta=theta,
-                )
+                self.stat_a = replace(self.stat_a, theta=theta)
+                self.stat_b = replace(self.stat_b, theta=theta)
         if (
             isinstance(self.stat_b, RegressionAdjustedRatioStatistic)
             and isinstance(self.stat_a, RegressionAdjustedRatioStatistic)
@@ -313,32 +307,32 @@ class BaseABTest(ABC):
                     m_d_sum_of_products=self.stat_b.m_post_d_post_sum_of_products,
                 )
             else:
-                self.stat_a = RegressionAdjustedRatioStatistic(
-                    **{k: v for k, v in asdict(self.stat_a).items() if k != "theta"},
-                    theta=theta,
-                )
-                self.stat_b = RegressionAdjustedRatioStatistic(
-                    **{k: v for k, v in asdict(self.stat_b).items() if k != "theta"},
-                    theta=theta,
-                )
+                self.stat_a = replace(self.stat_a, theta=theta)
+                self.stat_b = replace(self.stat_b, theta=theta)
 
     def compute_moments_result(self) -> EffectMomentsResult:
         moments_config = EffectMomentsConfig(
             difference_type="relative" if self.relative else "absolute"
         )
         if self.config.post_stratify:
-            is_summable_list = all(
-                isinstance(stat_a, SummableStatistic)
-                and isinstance(stat_b, SummableStatistic)
-                for stat_a, stat_b in self.stats
-            )
-            if not is_summable_list:
-                raise ValueError("Post-stratification requires summable statistics.")
-            summable_stats = cast(
-                List[Tuple[SummableStatistic, SummableStatistic]], self.stats
-            )
-            return EffectMomentsPostStratification(
+            summable_stats: List[Tuple[SummableStatistic, SummableStatistic]] = []
+            for stat_a, stat_b in self.stats:
+                if isinstance(stat_a, SummableStatistic) and isinstance(
+                    stat_b, SummableStatistic
+                ):
+                    summable_stats.append((stat_a, stat_b))
+                else:
+                    raise ValueError(
+                        "Post-stratification requires summable statistics."
+                    )
+            result = EffectMomentsPostStratification(
                 summable_stats, moments_config
+            ).compute_result()
+            if result.error_message is None:
+                return result
+            return EffectMoments(
+                [(self.stat_a, self.stat_b)],
+                moments_config,
             ).compute_result()
         else:
             return EffectMoments(
@@ -512,7 +506,7 @@ class CreateStrataResult(CreateStrataResultBase):
                 self.len_alpha, self.n, self.n_a, self.n_b, self.lambda_a, self.lambda_b
             )
         )
-        mean = CreateStrataResult.mean(self.contrast_matrix, regression_coefs)
+        mean = self.mean(self.contrast_matrix, regression_coefs)
         covariance = self.covariance_unadjusted(
             self.contrast_matrix, regression_coefs_covariance
         )
@@ -533,15 +527,9 @@ class CreateStrataResultRegressionAdjusted(CreateStrataResultBase):
         self,
         stat_a: RegressionAdjustedStatistic,
         stat_b: RegressionAdjustedStatistic,
-        theta: Optional[float] = None,
     ):
         self.stat_a = stat_a
         self.stat_b = stat_b
-        self.theta = theta
-
-    @property
-    def n(self) -> int:
-        return self.n_a + self.n_b
 
     @property
     def len_alpha(self) -> int:
@@ -660,7 +648,8 @@ class CreateStrataResultRegressionAdjusted(CreateStrataResultBase):
 
     def _baseline_covariance_zero(self) -> bool:
         return (
-            self.stat_a.pre_statistic.variance + self.stat_b.pre_statistic.variance <= 0
+            self.stat_a.pre_statistic.variance <= 0
+            or self.stat_b.pre_statistic.variance <= 0
         )
 
     def compute_result(self) -> StrataResultCount:
@@ -668,6 +657,19 @@ class CreateStrataResultRegressionAdjusted(CreateStrataResultBase):
             return CreateStrataResult._default_output(
                 error_message=ZERO_NEGATIVE_VARIANCE_MESSAGE
             )
+        if self._baseline_covariance_zero():
+            stat_a = SampleMeanStatistic(
+                n=self.stat_a.n,
+                sum=self.stat_a.post_statistic.sum,
+                sum_squares=self.stat_a.post_statistic.sum_squares,
+            )
+            stat_b = SampleMeanStatistic(
+                n=self.stat_b.n,
+                sum=self.stat_b.post_statistic.sum,
+                sum_squares=self.stat_b.post_statistic.sum_squares,
+            )
+            return CreateStrataResult(stat_a, stat_b).compute_result()
+
         xtx_inv_result = invert_symmetric_matrix(self.xtx)
         if xtx_inv_result.success and xtx_inv_result.inverse is not None:
             xtx_inv = xtx_inv_result.inverse
@@ -693,7 +695,7 @@ class CreateStrataResultRegressionAdjusted(CreateStrataResultBase):
         resids_part_2 = -xty.T.dot(xtx_inv).dot(xty)
         sigma = np.array((resids_part_1 + resids_part_2) / (self.n - 3))
         coef_covariance = self.create_coef_covariance(sigma, xtx_inv)
-        mean = CreateStrataResult.mean(self.contrast_matrix, regression_coefs)
+        mean = self.mean(self.contrast_matrix, regression_coefs)
         covariance = self.covariance_adjusted(
             self.n,
             coef_covariance,
@@ -795,7 +797,7 @@ class CreateStrataResultRatio(CreateStrataResultBase):
                 self.len_alpha, self.n, self.n_a, self.n_b, self.lambda_a, self.lambda_b
             )
         )
-        mean = CreateStrataResult.mean(self.contrast_matrix, regression_coefs)
+        mean = self.mean(self.contrast_matrix, regression_coefs)
         covariance = CreateStrataResult.covariance_unadjusted(
             self.contrast_matrix, regression_coefs_covariance
         )
@@ -825,11 +827,9 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultBase):
         self,
         stat_a: RegressionAdjustedRatioStatistic,
         stat_b: RegressionAdjustedRatioStatistic,
-        theta: Optional[float] = None,
     ):
         self.stat_a = stat_a
         self.stat_b = stat_b
-        self.theta = theta
 
     @property
     def len_alpha(self) -> int:
@@ -1010,12 +1010,12 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultBase):
 
     def _baseline_covariance_zero(self) -> bool:
         m_check = (
-            self.stat_a.m_statistic_pre.variance + self.stat_b.m_statistic_pre.variance
-            <= 0
+            self.stat_a.m_statistic_pre.variance <= 0
+            or self.stat_b.m_statistic_pre.variance <= 0
         )
         d_check = (
-            self.stat_a.d_statistic_pre.variance + self.stat_b.d_statistic_pre.variance
-            <= 0
+            self.stat_a.d_statistic_pre.variance <= 0
+            or self.stat_b.d_statistic_pre.variance <= 0
         )
         return m_check or d_check
 
@@ -1097,7 +1097,7 @@ class CreateStrataResultRegressionAdjustedRatio(CreateStrataResultBase):
                     sigma, xtx_inv
                 )
             )
-            mean = CreateStrataResult.mean(self.contrast_matrix, regression_coefs)
+            mean = self.mean(self.contrast_matrix, regression_coefs)
             covariance = self.covariance(regression_coefs, coef_covariance)
             return StrataResultRatio(
                 n=self.n,
@@ -1471,14 +1471,73 @@ class PostStratificationSummaryRatio(PostStratificationSummary):
             return self.mean[0] / self.mean[2]
 
 
+def simplify_stats_if_baseline_variance_zero(
+    stats_init: List[Tuple[SummableStatistic, SummableStatistic]]
+) -> List[Tuple[SummableStatistic, SummableStatistic]]:
+    stat_a, stat_b = sum_stats(list(stats_init))
+    if isinstance(stat_a, RegressionAdjustedStatistic) and isinstance(
+        stat_b, RegressionAdjustedStatistic
+    ):
+        if stat_a.pre_statistic.variance <= 0 or stat_b.pre_statistic.variance <= 0:
+            stat_a = stat_a.post_statistic
+            stat_b = stat_b.post_statistic
+            fallback_reg_stats = []
+            for stat_a, stat_b in stats_init:
+                if isinstance(stat_a, RegressionAdjustedStatistic) and isinstance(
+                    stat_b, RegressionAdjustedStatistic
+                ):
+                    fallback_reg_stats.append(
+                        (stat_a.post_statistic, stat_b.post_statistic)
+                    )
+                else:
+                    raise ValueError(
+                        "A summed RegressionAdjustedStatistic must come from RegressionAdjustedStatistic instances."
+                    )
+            return fallback_reg_stats
+    if isinstance(stat_a, RegressionAdjustedRatioStatistic) and isinstance(
+        stat_b, RegressionAdjustedRatioStatistic
+    ):
+        if (
+            stat_a.m_statistic_pre.variance <= 0
+            or stat_b.m_statistic_pre.variance <= 0
+            or stat_a.d_statistic_pre.variance <= 0
+            or stat_b.d_statistic_pre.variance <= 0
+        ):
+            stat_a = stat_a.m_statistic_post
+            stat_b = stat_b.m_statistic_post
+            fallback_reg_stats = []
+            for stat_a, stat_b in stats_init:
+                if isinstance(stat_a, RegressionAdjustedRatioStatistic) and isinstance(
+                    stat_b, RegressionAdjustedRatioStatistic
+                ):
+                    stat_a_unadjusted = RatioStatistic(
+                        n=stat_a.n,
+                        m_statistic=stat_a.m_statistic_post,
+                        d_statistic=stat_a.d_statistic_post,
+                        m_d_sum_of_products=stat_a.m_post_d_post_sum_of_products,
+                    )
+                    stat_b_unadjusted = RatioStatistic(
+                        n=stat_b.n,
+                        m_statistic=stat_b.m_statistic_post,
+                        d_statistic=stat_b.d_statistic_post,
+                        m_d_sum_of_products=stat_b.m_post_d_post_sum_of_products,
+                    )
+                    fallback_reg_stats.append((stat_a_unadjusted, stat_b_unadjusted))
+                else:
+                    raise ValueError(
+                        "A summed RegressionAdjustedRatioStatistic must come from RegressionAdjustedRatioStatistic instances."
+                    )
+            return fallback_reg_stats
+    return stats_init
+
+
 class EffectMomentsPostStratification:
     def __init__(
         self,
         stats: List[Tuple[SummableStatistic, SummableStatistic]],
         config: EffectMomentsConfig = EffectMomentsConfig(),
     ):
-        self.stats = stats
-        self.stat_a, self.stat_b = sum_stats(list(self.stats))
+        self.stats = simplify_stats_if_baseline_variance_zero(stats)
         self.relative = config.difference_type == "relative"
 
     def _default_output(
@@ -1492,9 +1551,9 @@ class EffectMomentsPostStratification:
             error_message=error_message,
         )
 
-    def _has_zero_variance(self) -> bool:
+    def _has_zero_variance(self, stat_a: TestStatistic, stat_b: TestStatistic) -> bool:
         """Check if any variance is 0 or negative"""
-        return self.stat_a._has_zero_variance or self.stat_b._has_zero_variance
+        return stat_a._has_zero_variance or stat_b._has_zero_variance
 
     @staticmethod
     def create_cells_for_analysis(
@@ -1518,11 +1577,12 @@ class EffectMomentsPostStratification:
         return cells_for_analysis
 
     def compute_result(self) -> EffectMomentsResult:
-        if self._has_zero_variance():
+        stat_a, stat_b = sum_stats(list(self.stats))
+        if self._has_zero_variance(stat_a, stat_b):
             return self._default_output(ZERO_NEGATIVE_VARIANCE_MESSAGE)
-        if self.stat_a.mean == 0:
+        if stat_a.mean == 0:
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
-        if self.stat_a.unadjusted_mean == 0:
+        if stat_a.unadjusted_mean == 0:
             return self._default_output(BASELINE_VARIATION_ZERO_MESSAGE)
 
         # if any cells have 0 users in a variation, add that cell to the cell with the largest number of users
@@ -1531,7 +1591,7 @@ class EffectMomentsPostStratification:
         if len(cells_for_analysis) == 1:
             return EffectMoments(cells_for_analysis, EffectMomentsConfig(difference_type="relative" if self.relative else "absolute")).compute_result()  # type: ignore
         strata_results = []
-        for _, cell in enumerate(cells_for_analysis):
+        for cell in cells_for_analysis:
             cell_result = self.compute_strata_result(cell)
             if cell_result.error_message is not None:
                 return self._default_output(cell_result.error_message)
