@@ -3391,7 +3391,7 @@ export interface components {
        * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api";
+      managedBy: "" | "api" | "admin" | "config";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -11807,7 +11807,7 @@ export interface operations {
                  * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api";
+                managedBy: "" | "api" | "admin" | "config";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -11849,7 +11849,7 @@ export interface operations {
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
         };
       };
     };
@@ -11872,7 +11872,7 @@ export interface operations {
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin" | "config";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -11910,7 +11910,7 @@ export interface operations {
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin" | "config";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -11949,7 +11949,7 @@ export interface operations {
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           archived?: boolean;
         };
       };
@@ -11973,7 +11973,7 @@ export interface operations {
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin" | "config";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -13029,7 +13029,7 @@ export interface operations {
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
                  */
-                managedBy?: "" | "api";
+                managedBy?: "" | "api" | "admin";
               };
             })[];
           factTableFilters?: ({

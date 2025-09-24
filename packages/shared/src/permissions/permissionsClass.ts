@@ -600,15 +600,29 @@ export class Permissions {
   };
 
   public canCreateFactTable = (
-    factTable: Pick<FactTableInterface, "projects">,
+    factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+      if (!this.canCreateOfficialResources(factTable)) {
+        return false;
+      }
+    }
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
   public canUpdateFactTable = (
-    existing: Pick<FactTableInterface, "projects">,
+    existing: Pick<FactTableInterface, "projects" | "managedBy">,
     updates: UpdateFactTableProps,
   ): boolean => {
+    if (
+      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
+      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
+    ) {
+      if (!this.canUpdateOfficialResources(existing, updates)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
@@ -617,8 +631,14 @@ export class Permissions {
   };
 
   public canDeleteFactTable = (
-    factTable: Pick<FactTableInterface, "projects">,
+    factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+      if (!this.canDeleteOfficialResources(factTable)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(factTable, "manageFactTables");
   };
 
