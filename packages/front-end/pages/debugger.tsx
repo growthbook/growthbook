@@ -196,7 +196,7 @@ const ExposureDebuggerPage = () => {
               <LoadingSpinner className="mr-2" /> Loading...
             </div>
           )}
-          {results && (
+          {results && !loading && (
             <div>
               {results.error ? (
                 <Callout status="error">
