@@ -206,7 +206,7 @@ export async function runUserExposureQuery(
 
   const integration = getSourceIntegrationObject(context, datasource);
 
-  // The Mixpanel integration does not support test queries
+  // The Mixpanel and GA integrations do not support user exposures queries
   if (
     !integration.getUserExperimentExposuresQuery ||
     !integration.runUserExperimentExposuresQuery
