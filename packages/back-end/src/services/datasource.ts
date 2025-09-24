@@ -226,6 +226,7 @@ export async function runUserExposureQuery(
     return {
       rows,
       statistics,
+      sql,
     };
   } catch (e) {
     return {
