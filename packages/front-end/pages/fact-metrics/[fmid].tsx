@@ -57,6 +57,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import OfficialResourceModal from "@/components/OfficialResourceModal";
+import { useUser } from "@/services/UserContext";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -168,6 +169,8 @@ export default function FactMetricPage() {
     "analysis",
   );
   const { apiCall } = useAuth();
+
+  const { hasCommercialFeature } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -538,7 +541,10 @@ export default function FactMetricPage() {
                 Edit Metric
               </DropdownMenuItem>
             )}
-            {canEdit && !factMetric.managedBy ? (
+            {canEdit &&
+            !factMetric.managedBy &&
+            permissionsUtil.canCreateOfficialResources(factMetric) &&
+            hasCommercialFeature("manage-official-resources") ? (
               <DropdownMenuItem
                 onClick={() => {
                   setOpenDropdown(false);

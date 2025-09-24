@@ -12476,7 +12476,7 @@ export interface operations {
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
         };
       };
     };
@@ -12830,7 +12830,7 @@ export interface operations {
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           archived?: boolean;
         };
       };
@@ -13181,7 +13181,7 @@ export interface operations {
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
                  */
-                managedBy?: "" | "api";
+                managedBy?: "" | "api" | "admin";
               };
             })[];
         };

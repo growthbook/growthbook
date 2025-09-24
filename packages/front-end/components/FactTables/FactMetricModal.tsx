@@ -2442,10 +2442,10 @@ export default function FactMetricModal({
                         {},
                       ) && hasCommercialFeature("manage-official-resources") ? (
                         <Checkbox
-                          label="Mark as Official Fact Metric"
+                          label="Mark as Official Metric"
                           disabled={form.watch("managedBy") === "api"}
-                          disabledMessage="This Fact Metric is managed by the API, so it can not be edited in the UI."
-                          description="Official FactMetrics can only be modified by Admins or users
+                          disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
+                          description="Official Metrics can only be modified by Admins or users
                       with the ManageOfficialResources policy."
                           value={form.watch("managedBy") === MANAGED_BY_ADMIN}
                           setValue={(value) => {
