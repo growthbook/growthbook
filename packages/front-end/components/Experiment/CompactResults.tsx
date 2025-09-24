@@ -648,6 +648,7 @@ export function getRenderLabelColumn({
   getFactMetricDimensions,
   ssrPolyfills,
   shouldShowMetricDimensions,
+  className = "pl-3",
 }: {
   regressionAdjustmentEnabled?: boolean;
   statsEngine?: StatsEngine;
@@ -668,6 +669,7 @@ export function getRenderLabelColumn({
   getFactMetricDimensions?: (metricId: string) => unknown[];
   ssrPolyfills?: SSRPolyfills;
   shouldShowMetricDimensions?: boolean;
+  className?: string;
 }) {
   return function renderLabelColumn({
     label,
@@ -694,7 +696,7 @@ export function getRenderLabelColumn({
         pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
 
       return (
-        <div className="pl-3" style={{ position: "relative" }}>
+        <div className={className} style={{ position: "relative" }}>
           {isExpanded && (
             <Tooltip
               body={
@@ -759,7 +761,7 @@ export function getRenderLabelColumn({
 
     // Render non-dimension metric
     return (
-      <div className="pl-3" style={{ position: "relative" }}>
+      <div className={className} style={{ position: "relative" }}>
         <span
           className="ml-2"
           style={
@@ -791,14 +793,14 @@ export function getRenderLabelColumn({
                   body={
                     isExpanded
                       ? "Collapse metric dimensions"
-                      : "Expand metric dimensions"
+                      : "Explore metric dimensions"
                   }
                   tipPosition="top"
                 >
                   {isExpanded ? (
-                    <PiCaretCircleDown size={15} />
+                    <PiCaretCircleDown size={16} />
                   ) : (
-                    <PiCaretCircleRight size={15} />
+                    <PiCaretCircleRight size={16} />
                   )}
                 </Tooltip>
               </div>

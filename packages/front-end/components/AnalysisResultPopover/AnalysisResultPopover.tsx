@@ -18,7 +18,6 @@ import {
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { MdSwapCalls } from "react-icons/md";
-import { BsArrowReturnRight } from "react-icons/bs";
 import { PiInfo } from "react-icons/pi";
 import Table, {
   TableHeader,
@@ -223,16 +222,13 @@ export default function AnalysisResultPopover({
           {metricInverseIconDisplay}
         </Flex>
         {data.dimensionName ? (
-          <Flex ml="1" gap="1" mt="-2" align="center">
-            <BsArrowReturnRight size={12} />
+          <Flex gap="1" mt="-1" align="center">
+            <span className="uppercase-title">Unit dimension:</span>{" "}
             <Flex gap="1">
               <span className="text-ellipsis" style={{ maxWidth: 150 }}>
                 {data.dimensionName}:
               </span>
-              <span
-                className="font-weight-bold text-ellipsis"
-                style={{ maxWidth: 250 }}
-              >
+              <span className="text-ellipsis" style={{ maxWidth: 250 }}>
                 {data.dimensionValue}
               </span>
             </Flex>

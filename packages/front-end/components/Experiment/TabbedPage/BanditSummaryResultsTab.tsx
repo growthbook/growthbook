@@ -158,8 +158,9 @@ export default function BanditSummaryResultsTab({
                       regressionAdjustmentEnabled: false,
                       statsEngine: "bayesian",
                       hideDetails: isPublic,
+                      className: "",
                     })({
-                      label: "",
+                      label: metric.name,
                       metric,
                     })
                   : null}

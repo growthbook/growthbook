@@ -452,7 +452,7 @@ export default function FactTablesPage() {
 
               {!items.length && isFiltered && (
                 <tr>
-                  <td colSpan={9} align={"center"}>
+                  <td colSpan={10} align={"center"}>
                     No matching fact tables.{" "}
                     <a
                       href="#"

@@ -766,7 +766,7 @@ export default function ResultsTable({
                             ssrPolyfills,
                             lastColumnContent:
                               !compactResults && timeSeriesButton !== null ? (
-                                <Flex justify="end" mr="-1">
+                                <Flex justify="end" mr="1">
                                   {timeSeriesButton}
                                 </Flex>
                               ) : undefined,
@@ -1162,7 +1162,7 @@ export default function ResultsTable({
                                       rowResults={rowResults}
                                       differenceType={differenceType}
                                       statsEngine={statsEngine}
-                                      className={resultsHighlightClassname}
+                                      className={clsx(resultsHighlightClassname, "pr-3")}
                                       ssrPolyfills={ssrPolyfills}
                                       additionalButton={
                                         compactResults

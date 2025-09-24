@@ -423,6 +423,7 @@ const BreakDownResults: FC<{
                       statsEngine,
                       hideDetails,
                       experimentType,
+                      className: "",
                     })({
                       label: table.metric.name,
                       metric: table.metric,
@@ -437,25 +438,24 @@ const BreakDownResults: FC<{
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
               renderLabelColumn={({ label }) => (
-                <>
+                <div
+                  className="pl-3 font-weight-bold"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 1,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    color: "var(--color-text-mid)",
+                  }}
+                >
                   {label ? (
                     label === "__NULL_DIMENSION" ? (
                       <em>NULL (unset)</em>
-                    ) : (
-                      <span
-                        style={{
-                          lineHeight: "1.2em",
-                          wordBreak: "break-word",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {label}
-                      </span>
-                    )
+                    ) : label
                   ) : (
                     <em>unknown</em>
                   )}
-                </>
+                </div>
               )}
               metricFilter={metricFilter}
               isTabActive={true}
