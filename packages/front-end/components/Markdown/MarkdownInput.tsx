@@ -213,28 +213,30 @@ const MarkdownInput: FC<{
               />
 
               {uploading && <LoadingOverlay />}
-              {!blockFileUploads && <input {...getInputProps()} />}
-              <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
-                <a
-                  href="https://guides.github.com/features/mastering-markdown/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-dark float-right"
-                  style={{
-                    fontSize: "1.2em",
-                    lineHeight: "1em",
-                  }}
-                  title="Github-flavored Markdown is supported"
-                >
-                  <FaMarkdown />
-                </a>
-                {!blockFileUploads && (
-                  <div className="small text-muted" onClick={open}>
-                    Upload images by dragging &amp; dropping or clicking
-                    here{" "}
+              {!blockFileUploads && (
+                <>
+                  <input {...getInputProps()} />
+                  <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
+                    <a
+                      href="https://guides.github.com/features/mastering-markdown/"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-dark float-right"
+                      style={{
+                        fontSize: "1.2em",
+                        lineHeight: "1em",
+                      }}
+                      title="Github-flavored Markdown is supported"
+                    >
+                      <FaMarkdown />
+                    </a>
+                    <div className="small text-muted" onClick={open}>
+                      Upload images by dragging &amp; dropping or clicking
+                      here{" "}
+                    </div>
                   </div>
-                )}
-              </div>
+                </>
+              )}
             </div>
             {showButtons && (
               <div className="row">
