@@ -39,23 +39,27 @@ The GrowthBook Swift SDK provides comprehensive support for all Apple platforms:
 ### Implementation Details
 
 #### Architecture
+
 - **Native Swift**: Built entirely in Swift for optimal performance
 - **Protocol-Oriented**: Uses Swift protocols for extensibility and testability
 - **Memory Safe**: Leverages Swift's memory safety features
 - **Concurrent**: Thread-safe implementation with proper synchronization
 
 #### Dependencies
+
 - **No External Dependencies**: Zero third-party dependencies for maximum reliability
 - **Foundation Framework**: Uses only Apple's Foundation framework
 - **CryptoKit**: Leverages Apple's CryptoKit for encryption operations
 - **Network Framework**: Uses modern URLSession for networking
 
 #### Data Formats
+
 - **JSON**: Native JSON parsing and serialization
 - **Base64**: Standard Base64 encoding for encrypted payloads
 - **UTF-8**: Full Unicode support for international applications
 
 #### Network Protocol
+
 - **HTTPS**: Secure communication with GrowthBook servers
 - **REST API**: Standard HTTP/HTTPS for feature fetching
 - **SSE**: Server-Sent Events for real-time updates
@@ -248,7 +252,6 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 
 Monitor the SSE lifecycle using your app logs/telemetry. On transient network errors, the SDK will attempt automatic reconnects with backoff.
 
-
 #### SSE resume support (Last-Event-Id)
 
 When using `backgroundSync: true`, the SDK connects via SSE. To resume after interruptions without duplicating events, you can provide the last received event id so the server continues from that point.
@@ -272,6 +275,7 @@ var gb: GrowthBookSDK = GrowthBookBuilder(
 ```
 
 ## Caching
+
 The SDK persists downloaded feature payloads and related metadata to disk. By default, it will:
 
 - Use a platform-specific system directory
@@ -305,10 +309,11 @@ gb.clearCache()
 ```
 
 :::note
+
 - The cache directory will be created automatically if it does not exist.
 - Cache file keys are SHA256-hashed with a 5-character prefix for human-friendly diagnostics while avoiding path-length and special-character issues.
 - Multiple environments/apps can safely share the same parent directory; per-`clientKey` subfolders prevent collisions.
-:::
+  :::
 
 #### Cache Key Hashing
 
@@ -375,7 +380,7 @@ If you use remote evaluation mode, you can trigger a re-fetch of evaluated paylo
 
 ```swift
 // When user attributes change significantly, trigger a remote eval refresh
-gb.setAttributes(["id": "user_123", "plan": "pro"]) 
+gb.setAttributes(["id": "user_123", "plan": "pro"])
 gb.refreshForRemoteEval()
 ```
 
@@ -417,15 +422,15 @@ let gbEncrypted = GrowthBookBuilder(
 ).initializer()
 ```
 
-Decrypted features are cached **securely** on the device. If decryption fails, the SDK gracefully falls back to default feature values. 
-
+Decrypted features are cached **securely** on the device. If decryption fails, the SDK gracefully falls back to default feature values.
 
 :::warning Security Considerations
 While encryption adds a layer of security, remember that:
+
 - The decryption key is accessible within the client-side application
 - For highly sensitive information, consider using [Remote Evaluation](#remote-evaluation-vs-local-evaluation) instead
 - Encryption keys should be managed securely and rotated regularly
-:::
+  :::
 
 ## Sticky bucketing
 
@@ -451,12 +456,14 @@ gb.setAttributes([
 ```
 
 ### Custom Sticky Bucket Service with custom storage
+
 Use this to control how and where sticky assignments are persisted. Provide a prefix to namespace data (e.g., by app or environment) and a storage backend that implements simple key/value get-set-delete semantics (e.g., `UserDefaults`, Keychain, SQLite, or your own cache layer). If not provided, the SDK uses its built-in persistent storage to remember sticky assignments.
+
 ```swift
 // Custom Sticky Bucket Service with custom storage
 let customStorage = MyCachingManager()
 let stickyService = StickyBucketService(
-  prefix: "myapp_sticky_", 
+  prefix: "myapp_sticky_",
   localStorage: customStorage
 )
 
@@ -520,10 +527,11 @@ return (n % 10000) / 10000
 
 :::note
 **V2 Hashing is:**
+
 - **Unbiased**: Eliminates parallel experiment bias.
 - **Higher Precision**: Uses 10,000 buckets instead of 1,000
 - **Consistent**: Identical behavior across all GrowthBook SDKs
-:::
+  :::
 
 ## Experimentation and tracking
 
@@ -561,6 +569,7 @@ let gbFirebase = GrowthBookBuilder(
 ```
 
 ### Experiment Result subscriptions
+
 Subscribe to the experiments to receive callbacks for every experiment run.
 
 ```swift
