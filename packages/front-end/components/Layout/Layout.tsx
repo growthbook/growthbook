@@ -228,6 +228,11 @@ const navlinks: SidebarLinkProps[] = [
         href: "/archetypes",
         path: /^archetypes/,
       },
+      {
+        name: "Debugger",
+        href: "/debugger",
+        path: /^debugger/,
+      },
     ],
   },
   {

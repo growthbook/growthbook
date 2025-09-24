@@ -88,6 +88,8 @@ import {
   VariationPeriodWeight,
   DimensionColumnData,
   DataType,
+  UserExperimentExposuresQueryParams,
+  UserExperimentExposuresQueryResponse,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -2408,6 +2410,75 @@ export default abstract class SqlIntegration
         };
       }),
       statistics: statistics,
+    };
+  }
+
+  getUserExperimentExposuresQuery(
+    params: UserExperimentExposuresQueryParams,
+  ): string {
+    const { userIdType } = params;
+    // Get all exposure queries that match the specified userIdType
+    const allExposureQueries = (
+      this.datasource.settings.queries?.exposure || []
+    )
+      .map(({ id }) => this.getExposureQuery(id))
+      .filter((query) => query.userIdType === userIdType); // Filter by userIdType
+
+    // Collect all unique dimension names across all exposure queries
+    const allDimensionNames = Array.from(
+      new Set(allExposureQueries.flatMap((query) => query.dimensions || [])),
+    );
+    const startDate = subDays(new Date(), params.lookbackDays);
+
+    return format(
+      `-- Union together all exposure queries
+      -- Use null for any missing dimension columns
+    ${allExposureQueries
+      .map((exposureQuery, i) => {
+        // Get all available dimensions for this exposure query
+        const availableDimensions = exposureQuery.dimensions || [];
+        const tableAlias = `t${i}`;
+
+        // Create dimension columns for ALL possible dimensions
+        const dimensionSelects = allDimensionNames.map((dim) => {
+          if (availableDimensions.includes(dim)) {
+            return `${tableAlias}.${dim} AS ${dim}`;
+          } else {
+            return `null AS ${dim}`;
+          }
+        });
+
+        const dimensionSelectString = dimensionSelects.join(", ");
+
+        return `
+          SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
+            ${compileSqlTemplate(exposureQuery.query, {
+              startDate: startDate,
+            })}
+          ) ${tableAlias}
+          WHERE ${exposureQuery.userIdType} = '${params.unitId}' AND timestamp >= ${this.toTimestamp(startDate)}
+        `;
+      })
+      .join("\nUNION ALL\n")}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  public async runUserExperimentExposuresQuery(
+    query: string,
+  ): Promise<UserExperimentExposuresQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
+    return {
+      rows: rows.map((row) => {
+        return {
+          timestamp: row.timestamp,
+          experiment_id: row.experiment_id,
+          variation_id: row.variation_id,
+          ...row,
+        };
+      }),
+      statistics,
     };
   }
 
