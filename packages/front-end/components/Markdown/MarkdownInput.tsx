@@ -17,7 +17,7 @@ import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
-import { useAISettings } from "@/hooks/useOrgSettings";
+import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import OptInModal from "@/components/License/OptInModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
@@ -74,6 +74,7 @@ const MarkdownInput: FC<{
   const [revertValue, setRevertValue] = useState<string | null>(null);
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const { blockFileUploads } = useOrgSettings();
 
   const [aiAgreementModal, setAiAgreementModal] = useState(false);
   useEffect(() => {
@@ -83,6 +84,8 @@ const MarkdownInput: FC<{
   }, [autofocus, textareaRef.current]);
 
   const onDrop = (files: File[]) => {
+    if (blockFileUploads) return;
+
     setUploading(true);
     const toAdd: string[] = [];
     const promises = Promise.all(
@@ -208,8 +211,9 @@ const MarkdownInput: FC<{
                   },
                 }}
               />
+
               {uploading && <LoadingOverlay />}
-              <input {...getInputProps()} />
+              {!blockFileUploads && <input {...getInputProps()} />}
               <div className="cursor-pointer py-1 px-2 border rounded-bottom mb-2 bg-light">
                 <a
                   href="https://guides.github.com/features/mastering-markdown/"
@@ -224,9 +228,12 @@ const MarkdownInput: FC<{
                 >
                   <FaMarkdown />
                 </a>
-                <div className="small text-muted" onClick={open}>
-                  Upload images by dragging &amp; dropping or clicking here{" "}
-                </div>
+                {!blockFileUploads && (
+                  <div className="small text-muted" onClick={open}>
+                    Upload images by dragging &amp; dropping or clicking
+                    here{" "}
+                  </div>
+                )}
               </div>
             </div>
             {showButtons && (
