@@ -317,13 +317,27 @@ export async function updateColumn(
 }
 
 export async function createFactFilter(
+  context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   data: CreateFactFilterProps,
 ) {
-  if (!factTable.managedBy && data.managedBy) {
+  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error(
-      "Cannot create a filter managed by API unless the Fact Table is also managed by API",
+      "Cannot create a filter managed by API if the request isn't from the API.",
     );
+  }
+
+  if (
+    factTable.managedBy === "admin" &&
+    !context.hasPremiumFeature("manage-official-resources")
+  ) {
+    throw new Error(
+      "Your organization's plan does not support creating official fact table filters.",
+    );
+  }
+
+  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
+    context.permissions.throwPermissionError();
   }
 
   const id = data.id || uniqid("flt_");
@@ -382,6 +396,19 @@ export async function updateFactFilter(
     context.auditUser?.type !== "api_key"
   ) {
     throw new Error("This fact filter is managed by the API");
+  }
+
+  if (
+    filters[filterIndex]?.managedBy === "admin" &&
+    !context.hasPremiumFeature("manage-official-resources")
+  ) {
+    throw new Error(
+      "Your organization's plan does not support updating official fact table filters.",
+    );
+  }
+
+  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
+    context.permissions.throwPermissionError();
   }
 
   filters[filterIndex] = {

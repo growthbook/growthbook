@@ -643,14 +643,24 @@ export class Permissions {
   };
 
   public canCreateAndUpdateFactFilter = (
-    factTable: Pick<FactTableInterface, "projects">,
+    factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+      if (!this.canCreateOfficialResources(factTable)) {
+        return false;
+      }
+    }
     return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 
   public canDeleteFactFilter = (
-    factTable: Pick<FactTableInterface, "projects">,
+    factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+      if (!this.canCreateOfficialResources(factTable)) {
+        return false;
+      }
+    }
     return this.checkProjectFilterPermission(factTable, "manageFactFilters");
   };
 

@@ -3406,7 +3406,7 @@ export interface components {
        * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api";
+      managedBy: "" | "api" | "admin";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -12033,7 +12033,7 @@ export interface operations {
                  * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api";
+                managedBy: "" | "api" | "admin";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -12074,7 +12074,7 @@ export interface operations {
            * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
         };
       };
     };
@@ -12091,7 +12091,7 @@ export interface operations {
                * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -12125,7 +12125,7 @@ export interface operations {
                * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -12161,7 +12161,7 @@ export interface operations {
            * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
         };
       };
     };
@@ -12178,7 +12178,7 @@ export interface operations {
                * @description Where this fact table filter must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -13048,7 +13048,7 @@ export interface operations {
                  * @description Set this to "api" to disable editing in the GrowthBook UI. Before you do this, the Fact Table itself must also be marked as "api" 
                  * @enum {string}
                  */
-                managedBy?: "" | "api";
+                managedBy?: "" | "api" | "admin";
               };
             })[];
           factMetrics?: ({

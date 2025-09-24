@@ -36,8 +36,13 @@ export default function FactFilterList({ factTable }: Props) {
       pageSize: 10,
     });
 
-  const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
-  const canDelete = permissionsUtil.canDeleteFactFilter(factTable);
+  let canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
+  let canDelete = permissionsUtil.canDeleteFactFilter(factTable);
+
+  if (factTable.managedBy && ["config", "api"].includes(factTable.managedBy)) {
+    canAddAndEdit = false;
+    canDelete = false;
+  }
 
   return (
     <>
@@ -111,7 +116,7 @@ export default function FactFilterList({ factTable }: Props) {
                   </td>
                   <td style={{ verticalAlign: "top" }}>
                     <MoreMenu>
-                      {canAddAndEdit && !filter.managedBy ? (
+                      {canAddAndEdit ? (
                         <button
                           className="dropdown-item"
                           onClick={(e) => {
@@ -122,7 +127,7 @@ export default function FactFilterList({ factTable }: Props) {
                           Edit
                         </button>
                       ) : null}
-                      {canDelete && !filter.managedBy ? (
+                      {canDelete ? (
                         <DeleteButton
                           displayName="Filter"
                           className="dropdown-item"

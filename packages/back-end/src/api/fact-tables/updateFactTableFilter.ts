@@ -15,10 +15,6 @@ export const updateFactTableFilter = createApiRequestHandler(
     throw new Error("Could not find factTable with that id");
   }
 
-  if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {
-    req.context.permissions.throwPermissionError();
-  }
-
   if (req.body.managedBy === "api" && !factTable.managedBy) {
     throw new Error(
       "Cannot set filter to be managed by api unless Fact Table is also managed by api",
