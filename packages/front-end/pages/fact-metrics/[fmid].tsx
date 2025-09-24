@@ -447,12 +447,7 @@ export default function FactMetricPage() {
           }
           value={factMetric.projects}
           permissionRequired={(project) =>
-            factMetric.managedBy === "admin"
-              ? permissionsUtil.canUpdateOfficialResources(
-                  { projects: [project] },
-                  {},
-                )
-              : permissionsUtil.canUpdateFactMetric({ projects: [project] }, {})
+            permissionsUtil.canUpdateFactMetric({ projects: [project] }, {})
           }
           cancel={() => setEditProjectsOpen(false)}
           save={async (projects) => {
