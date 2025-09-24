@@ -182,7 +182,7 @@ const ExposureDebuggerPage = () => {
 
                 <div className="col-sm-2">
                   <Button onClick={onSubmit} disabled={loading}>
-                    Lookup
+                    Query
                   </Button>
                 </div>
               </div>
