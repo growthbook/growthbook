@@ -118,10 +118,6 @@ export async function deleteMetric(
     return;
   }
 
-  if (!context.permissions.canDeleteMetric(metric)) {
-    context.permissions.throwPermissionError();
-  }
-
   // now remove the metric itself:
   await deleteMetricById(context, metric);
 
@@ -463,10 +459,6 @@ export async function postMetrics(
     );
   }
 
-  if (!context.permissions.canCreateMetric(req.body)) {
-    context.permissions.throwPermissionError();
-  }
-
   if (datasource) {
     const datasourceObj = await getDataSourceById(context, datasource);
     if (!datasourceObj) {
@@ -551,10 +543,6 @@ export async function putMetric(
       (updates as any)[k] = req.body[k];
     }
   });
-
-  if (!context.permissions.canUpdateMetric(metric, updates)) {
-    context.permissions.throwPermissionError();
-  }
 
   await updateMetric(context, metric, updates);
 
