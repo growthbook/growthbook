@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import Stepper from "@/components/Stepper/Stepper";
 
 export default function StepperStories() {
   const [stepperStep, setStepperStep] = useState(0);
 
   return (
-    <Flex gap="3">
+    <Box>
       <Stepper
         step={stepperStep}
         setStep={setStepperStep}
@@ -17,6 +17,6 @@ export default function StepperStories() {
           { label: "Step 3", enabled: true },
         ]}
       />
-    </Flex>
+    </Box>
   );
 }
