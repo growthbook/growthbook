@@ -195,20 +195,6 @@ export default function FactSegmentForm({
           textarea
           disabled={isReadOnly}
         />
-        {permissionsUtil.canCreateOfficialResources({ projects: [] }) &&
-        hasCommercialFeature("manage-official-resources") ? (
-          <Checkbox
-            label="Mark as Official Segment"
-            value={form.watch("managedBy") === MANAGED_BY_ADMIN}
-            description="Official Segments can only be modified by Admins or users with the ManageOfficialResources policy."
-            setValue={(value) => {
-              form.setValue(
-                "managedBy",
-                value ? MANAGED_BY_ADMIN : MANAGED_BY_EMPTY,
-              );
-            }}
-          />
-        ) : null}
         <SelectField
           label="Data Source"
           required
@@ -341,6 +327,20 @@ export default function FactSegmentForm({
           }
         />
       </>
+      {permissionsUtil.canCreateOfficialResources({ projects: [] }) &&
+      hasCommercialFeature("manage-official-resources") ? (
+        <Checkbox
+          label="Mark as Official Segment"
+          value={form.watch("managedBy") === MANAGED_BY_ADMIN}
+          description="Official Segments can only be modified by Admins or users with the ManageOfficialResources policy."
+          setValue={(value) => {
+            form.setValue(
+              "managedBy",
+              value ? MANAGED_BY_ADMIN : MANAGED_BY_EMPTY,
+            );
+          }}
+        />
+      ) : null}
     </Modal>
   );
 }
