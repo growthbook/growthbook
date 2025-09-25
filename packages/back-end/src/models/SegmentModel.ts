@@ -41,7 +41,17 @@ export class SegmentModel extends BaseClass {
 
   protected async beforeCreate(doc: SegmentInterface) {
     if (doc.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot create segment managed by API");
+      throw new Error(
+        "Cannot create segment managed by API if the request is not made via the API.",
+      );
+    }
+
+    if (doc.managedBy === "admin") {
+      if (!this.context.hasPremiumFeature("manage-official-resources")) {
+        throw new Error(
+          "Your organization's plan does not support creating official fact metrics.",
+        );
+      }
     }
   }
 
@@ -51,7 +61,9 @@ export class SegmentModel extends BaseClass {
     }
 
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot update segment managed by API");
+      throw new Error(
+        "Cannot update segment managed by API if the request is not made via the API.",
+      );
     }
   }
 
@@ -61,7 +73,9 @@ export class SegmentModel extends BaseClass {
     }
 
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot delete segment managed by API");
+      throw new Error(
+        "Cannot delete segment managed by API if the request is not made via the API.",
+      );
     }
   }
 

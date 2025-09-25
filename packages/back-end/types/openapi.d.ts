@@ -544,10 +544,10 @@ export interface components {
       dateCreated: string;
       dateUpdated: string;
       /**
-       * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. 
        * @enum {string}
        */
-      managedBy?: "" | "api" | "config";
+      managedBy?: "" | "api" | "config" | "admin";
       /** @enum {unknown} */
       type?: "SQL" | "FACT";
       factTableId?: string;
@@ -8234,10 +8234,10 @@ export interface operations {
                 dateCreated: string;
                 dateUpdated: string;
                 /**
-                 * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. 
                  * @enum {string}
                  */
-                managedBy?: "" | "api" | "config";
+                managedBy?: "" | "api" | "config" | "admin";
                 /** @enum {unknown} */
                 type?: "SQL" | "FACT";
                 factTableId?: string;
@@ -8274,10 +8274,10 @@ export interface operations {
           /** @description List of project IDs for projects that can access this segment */
           projects?: (string)[];
           /**
-           * @description Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           /**
            * @description GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters. 
            * @enum {string}
@@ -8307,10 +8307,10 @@ export interface operations {
               dateCreated: string;
               dateUpdated: string;
               /**
-               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. 
                * @enum {string}
                */
-              managedBy?: "" | "api" | "config";
+              managedBy?: "" | "api" | "config" | "admin";
               /** @enum {unknown} */
               type?: "SQL" | "FACT";
               factTableId?: string;
@@ -8345,10 +8345,10 @@ export interface operations {
               dateCreated: string;
               dateUpdated: string;
               /**
-               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. 
                * @enum {string}
                */
-              managedBy?: "" | "api" | "config";
+              managedBy?: "" | "api" | "config" | "admin";
               /** @enum {unknown} */
               type?: "SQL" | "FACT";
               factTableId?: string;
@@ -8384,10 +8384,10 @@ export interface operations {
           /** @description List of project IDs for projects that can access this segment */
           projects?: (string)[];
           /**
-           * @description Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           /**
            * @description GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters. 
            * @enum {string}
@@ -8417,10 +8417,10 @@ export interface operations {
               dateCreated: string;
               dateUpdated: string;
               /**
-               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. 
                * @enum {string}
                */
-              managedBy?: "" | "api" | "config";
+              managedBy?: "" | "api" | "config" | "admin";
               /** @enum {unknown} */
               type?: "SQL" | "FACT";
               factTableId?: string;
