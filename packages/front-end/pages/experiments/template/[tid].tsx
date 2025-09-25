@@ -5,13 +5,13 @@ import { date } from "shared/dates";
 import { ExperimentTemplateInterface } from "back-end/types/experiment";
 import { useTemplates } from "@/hooks/useTemplates";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import PageHead from "@/components/Layout/PageHead";
 import { useSearch } from "@/services/search";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import { useUser } from "@/services/UserContext";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 
@@ -145,7 +145,6 @@ const TemplatePage: FC = () => {
               <UpgradeModal
                 close={() => setShowUpgradeModal(false)}
                 source="templates"
-                reason="Create experiments from templates"
                 commercialFeature="templates"
               />
             )}

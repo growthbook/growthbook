@@ -13,19 +13,15 @@ import Modal from "@/components/Modal";
 import CopyToClipboard from "@/components/CopyToClipboard";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const PresentationPage = (): React.ReactElement => {
-  const [openNewPresentationModal, setOpenNewPresentationModal] = useState(
-    false
-  );
-  const [
-    specificPresentation,
-    setSpecificPresentation,
-  ] = useState<PresentationInterface | null>(null);
-  const [openEditPresentationModal, setOpenEditPresentationModal] = useState(
-    false
-  );
+  const [openNewPresentationModal, setOpenNewPresentationModal] =
+    useState(false);
+  const [specificPresentation, setSpecificPresentation] =
+    useState<PresentationInterface | null>(null);
+  const [openEditPresentationModal, setOpenEditPresentationModal] =
+    useState(false);
   const [sharableLinkModal, setSharableLinkModal] = useState(false);
   const [sharableLink, setSharableLink] = useState("");
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<boolean>(false);
@@ -40,7 +36,11 @@ const PresentationPage = (): React.ReactElement => {
   const canDeletePresentation = permissionsUtil.canDeletePresentation();
   const canEditPresentation = permissionsUtil.canUpdatePresentation();
 
-  const { data: p, error: error, mutate } = useApi<{
+  const {
+    data: p,
+    error: error,
+    mutate,
+  } = useApi<{
     presentations: PresentationInterface[];
     numExperiments: number;
   }>("/presentations");
@@ -90,15 +90,12 @@ const PresentationPage = (): React.ReactElement => {
   }
 
   const deleteConfirm = (id: string) => {
-    //console.log(id);
     setDeleteId(id);
     setDeleteConfirmModal(true);
   };
 
   const confirmDelete = async () => {
     if (deleteLoading) return;
-    //console.log("lets delete ", deleteId);
-
     setDeleteLoading(true);
     setDeleteError(null);
 
@@ -108,7 +105,7 @@ const PresentationPage = (): React.ReactElement => {
         {
           method: "DELETE",
           body: JSON.stringify({ id: deleteId }),
-        }
+        },
       );
       if (res.status === 200) {
         setDeleteLoading(false);
@@ -118,7 +115,7 @@ const PresentationPage = (): React.ReactElement => {
         console.error(res);
         setDeleteError(
           res.message ||
-            "There was an error submitting the form. Please try again."
+            "There was an error submitting the form. Please try again.",
         );
         setDeleteLoading(false);
         setDeleteConfirmModal(false);
@@ -140,7 +137,7 @@ const PresentationPage = (): React.ReactElement => {
     presList = [];
     p.presentations.map((pres, i) => {
       presList.push(
-        <Card className="card" key={`pres-exp-${i}`} mb="3">
+        <Card key={`pres-exp-${i}`} mb="3">
           <Flex p="2" gap="2">
             <div className="col flex-grow-1">
               <h4 className="mb-0">{pres.title}</h4>
@@ -234,7 +231,7 @@ const PresentationPage = (): React.ReactElement => {
               </a>
             </div>
           </Flex>
-        </Card>
+        </Card>,
       );
     });
   }

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import uniqid from "uniqid";
 import {
   customFieldsPropsValidator,
   customFieldsValidator,
@@ -51,12 +50,13 @@ export class CustomFieldModel extends BaseClass {
     if (!customFields) {
       return null;
     }
-    customFields.fields.forEach((field) => {
-      if (field.id === customFieldId) {
-        return field;
-      }
-    });
-    return null;
+    return (
+      customFields.fields.find((field) => {
+        if (field.id === customFieldId) {
+          return field;
+        }
+      }) || null
+    );
   }
 
   /**
@@ -69,14 +69,12 @@ export class CustomFieldModel extends BaseClass {
   public async addCustomField(
     customField: Omit<
       CustomField,
-      "id" | "dateCreated" | "dateUpdated" | "creator" | "active"
-    >
+      "dateCreated" | "dateUpdated" | "creator" | "active"
+    >,
   ) {
-    const customFieldId = uniqid("cfl_");
     const newCustomField = {
       active: true,
       ...customField,
-      id: customFieldId,
       creator: this.context.userId,
       dateCreated: new Date(),
       dateUpdated: new Date(),
@@ -100,7 +98,7 @@ export class CustomFieldModel extends BaseClass {
 
   public async updateCustomField(
     customFieldId: string,
-    customFieldUpdates: Partial<CustomField>
+    customFieldUpdates: Partial<CustomField>,
   ) {
     const existing = await this.getCustomFields();
     if (!existing) {
@@ -127,7 +125,7 @@ export class CustomFieldModel extends BaseClass {
       return null;
     }
     const newFields = existing.fields.filter(
-      (field) => field.id !== customFieldId
+      (field) => field.id !== customFieldId,
     );
     return await this.update(existing, { fields: newFields });
   }

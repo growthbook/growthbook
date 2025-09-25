@@ -12,7 +12,9 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -21,7 +23,7 @@ const ProjectsPage: FC = () => {
   const { apiCall } = useAuth();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
-    null
+    null,
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -78,7 +80,9 @@ const ProjectsPage: FC = () => {
           <tbody>
             {projects.map((p) => {
               const canEdit = permissionsUtil.canUpdateProject(p.id);
-              const canDelete = permissionsUtil.canDeleteProject(p.id);
+              const canDelete =
+                // If the project has the `managedBy` property, we block deletion.
+                permissionsUtil.canDeleteProject(p.id) && !p.managedBy?.type;
               return (
                 <tr
                   key={p.id}
@@ -102,6 +106,15 @@ const ProjectsPage: FC = () => {
                     ) : (
                       <span className="font-weight-bold">{p.name}</span>
                     )}
+                    {p.managedBy?.type ? (
+                      <div>
+                        <Badge
+                          label={`Managed by ${capitalizeFirstLetter(
+                            p.managedBy.type,
+                          )}`}
+                        />
+                      </div>
+                    ) : null}
                   </td>
                   <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
                     {p.description}
@@ -140,7 +153,7 @@ const ProjectsPage: FC = () => {
                           }}
                           additionalMessage={
                             sdkConnectionsData?.connections?.find((c) =>
-                              c.projects.includes(p.id)
+                              c.projects.includes(p.id),
                             ) ? (
                               <div className="alert alert-danger px-2 py-1">
                                 <FaExclamationTriangle /> This project is in use

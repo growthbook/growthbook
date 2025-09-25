@@ -19,7 +19,6 @@ export interface Props {
 
 export default function ColumnList({ factTable }: Props) {
   const [editOpen, setEditOpen] = useState("");
-  const [newOpen, setNewOpen] = useState(false);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -41,35 +40,30 @@ export default function ColumnList({ factTable }: Props) {
         : column.datatype,
   }));
 
-  const {
-    items,
-    searchInputProps,
-    isFiltered,
-    SortableTH,
-    clear,
-    pagination,
-  } = useSearch({
-    items: columns,
-    defaultSortField: "dateCreated",
-    localStorageKey: "factColumns",
-    searchFields: ["name^3", "description", "column^2"],
-    pageSize: 5,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
+    useSearch({
+      items: columns,
+      defaultSortField: "dateCreated",
+      localStorageKey: "factColumns",
+      searchFields: ["name^3", "description", "column^2"],
+      pageSize: 5,
+    });
 
   const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
+  const existing = editOpen
+    ? factTable.columns.find((c) => c.column === editOpen)
+    : null;
+
   return (
     <>
-      {newOpen && (
-        <ColumnModal close={() => setNewOpen(false)} factTable={factTable} />
-      )}
-      {editOpen && (
+      {existing ? (
         <ColumnModal
           close={() => setEditOpen("")}
           factTable={factTable}
-          existing={factTable.columns.find((c) => c.column === editOpen)}
+          existing={existing}
         />
-      )}
+      ) : null}
 
       {factTable.columnsError && (
         <div className="alert alert-danger">
@@ -99,7 +93,7 @@ export default function ColumnList({ factTable }: Props) {
                 {
                   method: "PUT",
                   body: JSON.stringify({}),
-                }
+                },
               );
               mutateDefinitions();
             }}

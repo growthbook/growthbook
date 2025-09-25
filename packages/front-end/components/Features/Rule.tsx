@@ -1,7 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement } from "react";
+import React, { forwardRef, ReactElement, useState } from "react";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature } from "shared/util";
@@ -10,6 +10,8 @@ import { RiAlertLine, RiDraggable } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import { PiArrowBendRightDown } from "react-icons/pi";
 import { format as formatTimeZone } from "date-fns-tz";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, isRuleInactive, useEnvironments } from "@/services/features";
@@ -19,15 +21,21 @@ import Button from "@/components/Button";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import HelperText from "@/components/Radix/HelperText";
-import Badge from "@/components/Radix/Badge";
+import HelperText from "@/ui/HelperText";
+import Badge from "@/ui/Badge";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
+import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
+import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
+import SafeRolloutDetails from "@/components/SafeRollout/SafeRolloutDetails";
+import SafeRolloutStatusModal from "@/components/Features/SafeRollout/SafeRolloutStatusModal";
+import SafeRolloutStatusBadge from "@/components/SafeRollout/SafeRolloutStatusBadge";
+import DecisionCTA from "@/components/SafeRollout/DecisionCTA";
+import DecisionHelpText from "@/components/SafeRollout/DecisionHelpText";
 import ConditionDisplay from "./ConditionDisplay";
 import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
-import FeatureUsageGraph, { useFeatureUsage } from "./FeatureUsageGraph";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
@@ -53,8 +61,10 @@ interface SortableProps {
   setVersion: (version: number) => void;
   locked: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
   hideInactive?: boolean;
   isDraft: boolean;
+  holdout: HoldoutInterface | undefined;
 }
 
 type RuleProps = SortableProps &
@@ -112,21 +122,25 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       setVersion,
       locked,
       experimentsMap,
+      safeRolloutsMap,
       hideInactive,
       isDraft,
+      holdout,
       ...props
     },
-    ref
+    ref,
   ) => {
     const { apiCall } = useAuth();
 
     const allEnvironments = useEnvironments();
     const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-    const { featureUsage } = useFeatureUsage();
-
+    const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
+      useState(false);
     let title: string | ReactElement =
-      rule.description ||
-      rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+      rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
+    if (rule.type !== "rollout") {
+      title += " Rule";
+    }
     if (rule.type === "experiment") {
       title = (
         <div className="d-flex align-items-center">
@@ -160,6 +174,12 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !!rule.savedGroups?.length ||
       !!rule.prerequisites?.length;
 
+    let safeRollout: SafeRolloutInterface | undefined;
+
+    if (rule.type === "safe-rollout") {
+      safeRollout = safeRolloutsMap.get(rule.safeRolloutId);
+    }
+
     const info = getRuleMetaInfo({
       rule,
       experimentsMap,
@@ -171,7 +191,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       return null;
     }
 
-    return (
+    const contents = (
       <Box {...props} ref={ref}>
         <Box mt="3">
           <Card>
@@ -186,10 +206,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   info.sideColor === "disabled"
                     ? "var(--gray-5)"
                     : info.sideColor === "unreachable"
-                    ? "var(--orange-7)"
-                    : info.sideColor === "skipped"
-                    ? "var(--amber-7)"
-                    : "var(--green-9)",
+                      ? "var(--orange-7)"
+                      : info.sideColor === "skipped"
+                        ? "var(--amber-7)"
+                        : "var(--green-9)",
               }}
             ></div>
             <Flex align="start" justify="between" gap="3" p="1" px="2">
@@ -205,38 +225,71 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 )}
               </Box>
               <Box>
-                <Badge label={<>{i + 1}</>} radius="full" color="gray" />
+                {/* If there is a holdout, we need to add 1 to the index since the holdout rule is added above the other rules */}
+                <Badge
+                  label={<>{holdout ? i + 2 : i + 1}</>}
+                  radius="full"
+                  color="gray"
+                />
               </Box>
               <Box flexGrow="1" flexShrink="5" overflowX="auto">
-                <Flex align="center" justify="between" mb="3">
-                  <Heading as="h4" size="3" weight="medium" mb="0">
-                    {linkedExperiment ? (
-                      <Flex gap="3" align="center">
-                        {linkedExperiment.type === "multi-armed-bandit"
-                          ? "Bandit"
-                          : "Experiment"}
-                        :{" "}
-                        <Link
-                          href={`/${
-                            linkedExperiment.type === "multi-armed-bandit"
-                              ? "bandit"
-                              : "experiment"
-                          }/${linkedExperiment.id}`}
-                        >
-                          {linkedExperiment.name}
-                        </Link>
-                        <ExperimentStatusIndicator
-                          experimentData={linkedExperiment}
-                        />
-                      </Flex>
-                    ) : (
-                      title
-                    )}
-                  </Heading>
+                <Flex align="center" mb="3" flexGrow="1">
+                  <Box flexGrow="1">
+                    <Heading as="h4" size="3" weight="medium" mb="0">
+                      {linkedExperiment ? (
+                        <Flex gap="3" align="center">
+                          {linkedExperiment.type === "multi-armed-bandit"
+                            ? "Bandit"
+                            : "Experiment"}
+                          :{" "}
+                          <Link
+                            href={`/${
+                              linkedExperiment.type === "multi-armed-bandit"
+                                ? "bandit"
+                                : "experiment"
+                            }/${linkedExperiment.id}`}
+                          >
+                            {linkedExperiment.name}
+                          </Link>
+                          <ExperimentStatusIndicator
+                            experimentData={linkedExperiment}
+                          />
+                        </Flex>
+                      ) : rule.type === "safe-rollout" ? (
+                        <Flex gap="3">
+                          <div>Safe Rollout</div>
+                          <SafeRolloutStatusBadge rule={rule} />
+                          {!locked && rule.enabled !== false && (
+                            <div
+                              className="ml-auto"
+                              style={{ marginBottom: -10 }}
+                            >
+                              <DecisionCTA
+                                rule={rule}
+                                openStatusModal={() => {
+                                  setSafeRolloutStatusModalOpen(true);
+                                }}
+                              />
+                            </div>
+                          )}
+                        </Flex>
+                      ) : (
+                        title
+                      )}
+                    </Heading>
+                  </Box>
                   {info.pill}
                 </Flex>
                 <Box>{info.callout}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
+                  {rule.type === "safe-rollout" && safeRollout ? (
+                    <>
+                      <DecisionHelpText rule={rule} />
+                      {rule.description ? (
+                        <Box pb="3">{rule.description}</Box>
+                      ) : null}
+                    </>
+                  ) : null}
                   {hasCondition && rule.type !== "experiment-ref" && (
                     <Flex align="center" justify="start" gap="3">
                       <Box pb="3">
@@ -268,12 +321,52 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       hashAttribute={rule.hashAttribute || ""}
                     />
                   )}
+                  {rule.type === "safe-rollout" &&
+                    (safeRollout ? (
+                      <Box>
+                        <SafeRolloutSummary
+                          safeRollout={safeRollout}
+                          rule={rule}
+                          feature={feature}
+                        />
+                        {safeRollout?.startedAt && (
+                          <SafeRolloutStatusModal
+                            safeRollout={safeRollout}
+                            rule={rule}
+                            feature={feature}
+                            environment={environment}
+                            i={i}
+                            setVersion={setVersion}
+                            mutate={mutate}
+                            open={safeRolloutStatusModalOpen}
+                            setStatusModalOpen={setSafeRolloutStatusModalOpen}
+                            valueType={feature.valueType}
+                          />
+                        )}
+                        {safeRollout?.startedAt && (
+                          <Flex direction="column" mt="4" gap="4">
+                            <SafeRolloutDetails safeRollout={safeRollout} />
+                          </Flex>
+                        )}
+                        {!safeRollout?.startedAt && (
+                          <Callout status="info" mt="4">
+                            This Safe Rollout rule is in a draft state and will
+                            start when this feature revision is published.
+                          </Callout>
+                        )}
+                      </Box>
+                    ) : (
+                      <div>
+                        {/* Better error state if safe rollout is not found */}
+                        <p>Safe Rollout not found</p>
+                      </div>
+                    ))}
                   {rule.type === "experiment" && (
                     <ExperimentSummary
                       feature={feature}
                       experiment={Array.from(experimentsMap.values()).find(
                         (exp) =>
-                          exp.trackingKey === (rule.trackingKey || feature.id)
+                          exp.trackingKey === (rule.trackingKey || feature.id),
                       )}
                       rule={rule}
                     />
@@ -289,17 +382,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 </Box>
               </Box>
               <Flex>
-                {featureUsage && (
-                  <div className="ml-auto">
-                    <FeatureUsageGraph
-                      data={
-                        featureUsage?.environments?.[environment]?.rules?.[
-                          rule.id
-                        ]
-                      }
-                    />
-                  </div>
-                )}
                 {canEdit && (
                   <MoreMenu useRadix={true} size={14}>
                     <a
@@ -324,7 +406,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             ruleIndex: i,
                             environment,
                             type: rule.type,
-                          }
+                          },
                         );
                         const res = await apiCall<{ version: number }>(
                           `/feature/${feature.id}/${version}/rule`,
@@ -338,7 +420,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               },
                               i,
                             }),
-                          }
+                          },
                         );
                         await mutate();
                         res.version && setVersion(res.version);
@@ -387,7 +469,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                               environment,
                               i,
                             }),
-                          }
+                          },
                         );
                         await mutate();
                         res.version && setVersion(res.version);
@@ -401,18 +483,23 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         </Box>
       </Box>
     );
-  }
+    return safeRollout ? (
+      <SafeRolloutSnapshotProvider
+        safeRollout={safeRollout}
+        feature={feature}
+        mutateSafeRollout={mutate}
+      >
+        {contents}
+      </SafeRolloutSnapshotProvider>
+    ) : (
+      contents
+    );
+  },
 );
 
 export function SortableRule(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    active,
-  } = useSortable({ id: props.rule.id });
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
+    useSortable({ id: props.rule.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

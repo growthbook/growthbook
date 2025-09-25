@@ -18,18 +18,13 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 
 export const getSavedGroupMessage = (
   featuresUsingSavedGroups?: FeatureInterface[],
   experimentsUsingSavedGroups?: Array<
     ExperimentInterface | ExperimentInterfaceStringDates
-  >
+  >,
 ) => {
   return async () => {
     if (
@@ -116,7 +111,7 @@ export default function SavedGroupsPage() {
     // Not using $groups attribute in a any saved groups
     if (
       !savedGroups?.some(
-        (g) => g.type === "condition" && g.condition?.includes("$groups")
+        (g) => g.type === "condition" && g.condition?.includes("$groups"),
       )
     ) {
       return;

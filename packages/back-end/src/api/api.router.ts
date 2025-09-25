@@ -3,9 +3,11 @@ import path from "path";
 import { Router, Request } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
+import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
-import { getBuild } from "back-end/src/util/handler";
+import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
+import { SENTRY_DSN } from "../util/secrets";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import snapshotsRouter from "./snapshots/snapshots.router";
@@ -30,6 +32,9 @@ import { postCopyTransform } from "./openai/postCopyTransform";
 import { getFeatureKeys } from "./features/getFeatureKeys";
 import ingestionRouter from "./ingestion/ingestion.router";
 import archetypesRouter from "./archetypes/archetypes.router";
+import { getExperimentNames } from "./experiments/getExperimentNames";
+import queryRouter from "./queries/queries.router";
+import settingsRouter from "./settings/settings.router";
 
 const router = Router();
 let openapiSpec: string;
@@ -56,6 +61,23 @@ router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
 
 router.use(authenticateApiRequestMiddleware);
 
+// Add API user to Sentry if configured
+if (SENTRY_DSN) {
+  router.use((req: Request & ApiRequestLocals, res, next) => {
+    if (req.user) {
+      Sentry.setUser({
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+      });
+    }
+    if (req.context.org) {
+      Sentry.setTag("organization", req.context.org.id);
+    }
+    next();
+  });
+}
+
 const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
 // Rate limit API keys to 60 requests per minute
 router.use(
@@ -68,7 +90,7 @@ router.use(
     message: {
       message: `Too many requests, limit to ${API_RATE_LIMIT_MAX} per minute`,
     },
-  })
+  }),
 );
 
 // Index health check route
@@ -84,6 +106,7 @@ router.get("/", (req, res) => {
 router.use("/features", featuresRouter);
 router.get("/feature-keys", getFeatureKeys);
 router.use("/experiments", experimentsRouter);
+router.get("/experiment-names", getExperimentNames);
 router.use("/snapshots", snapshotsRouter);
 router.use("/metrics", metricsRouter);
 router.use("/segments", segmentsRouter);
@@ -104,7 +127,8 @@ router.use("/code-refs", codeRefsRouter);
 router.use("/members", membersRouter);
 router.use("/ingestion", ingestionRouter);
 router.use("/archetypes", archetypesRouter);
-
+router.use("/queries", queryRouter);
+router.use("/settings", settingsRouter);
 router.post("/transform-copy", postCopyTransform);
 
 // 404 route

@@ -1,6 +1,7 @@
 type: object
 required:
   - id
+  - trackingKey
   - dateCreated
   - dateUpdated
   - name
@@ -20,6 +21,8 @@ required:
   - settings
 properties:
   id:
+    type: string
+  trackingKey:
     type: string
   dateCreated:
     type: string
@@ -141,6 +144,18 @@ properties:
               rangeEnd: number
         targetingCondition:
           type: string
+        prerequisites:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - condition
+            properties:
+              id:
+                type: string
+              condition:
+                type: string
         savedGroupTargeting:
           type: array
           items:
@@ -189,3 +204,28 @@ properties:
       - "organization"
   publicUrl:
     type: string
+  banditScheduleValue:
+    type: number
+  banditScheduleUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  banditBurnInValue:
+    type: number
+  banditBurnInUnit:
+    type: string
+    enum:
+      - "days"
+      - "hours"
+  linkedFeatures:
+    type: array
+    items:
+      type: string
+  hasVisualChangesets:
+    type: boolean
+  hasURLRedirects:
+    type: boolean
+  customFields:
+    type: object
+    additionalProperties: true

@@ -9,7 +9,7 @@ import NamespaceTableRow from "@/components/Settings/NamespaceTableRow";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 export type NamespaceApiResponse = {
   namespaces: NamespaceUsage;
@@ -17,7 +17,7 @@ export type NamespaceApiResponse = {
 
 const NamespacesPage: FC = () => {
   const { data, error } = useApi<NamespaceApiResponse>(
-    `/organization/namespaces`
+    `/organization/namespaces`,
   );
 
   const permissionsUtil = usePermissionsUtil();
@@ -109,7 +109,7 @@ const NamespacesPage: FC = () => {
                       `/organization/namespaces/${encodeURIComponent(ns.name)}`,
                       {
                         method: "DELETE",
-                      }
+                      },
                     );
                     await refreshOrganization();
                   }}
@@ -124,7 +124,7 @@ const NamespacesPage: FC = () => {
                       {
                         method: "PUT",
                         body: JSON.stringify(newNamespace),
-                      }
+                      },
                     );
                     await refreshOrganization();
                   }}

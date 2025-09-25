@@ -40,6 +40,7 @@ const factTableSchema = new mongoose.Schema({
       column: String,
       numberFormat: String,
       datatype: String,
+      jsonFields: {},
       deleted: Boolean,
       alwaysInlineFilter: Boolean,
       topValues: [String],
@@ -68,7 +69,7 @@ type FactTableDocument = mongoose.Document & FactTableInterface;
 
 const FactTableModel = mongoose.model<FactTableInterface>(
   "FactTable",
-  factTableSchema
+  factTableSchema,
 );
 
 function toInterface(doc: FactTableDocument): FactTableInterface {
@@ -78,13 +79,13 @@ function toInterface(doc: FactTableDocument): FactTableInterface {
 
 function createPropsToInterface(
   context: ReqContext | ApiReqContext,
-  rawProps: CreateFactTableProps
+  rawProps: CreateFactTableProps,
 ): FactTableInterface {
   const props = { ...rawProps, owner: rawProps.owner || context.userName };
   const id = props.id || uniqid("ftb_");
   if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
     throw new Error(
-      "Fact table ids must contain only letters, numbers, underscores, and dashes"
+      "Fact table ids must contain only letters, numbers, underscores, and dashes",
     );
   }
 
@@ -121,7 +122,7 @@ function createPropsToInterface(
 }
 
 export async function getAllFactTablesForOrganization(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ) {
   const docs = await FactTableModel.find({ organization: context.org.id });
   return docs
@@ -131,7 +132,7 @@ export async function getAllFactTablesForOrganization(
 
 export async function getFactTablesForDatasource(
   context: ReqContext,
-  datasource: string
+  datasource: string,
 ): Promise<FactTableInterface[]> {
   const docs = await FactTableModel.find({
     organization: context.org.id,
@@ -146,7 +147,7 @@ export async function getFactTablesForDatasource(
 export type FactTableMap = Map<string, FactTableInterface>;
 
 export async function getFactTableMap(
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ): Promise<FactTableMap> {
   const factTables = await getAllFactTablesForOrganization(context);
 
@@ -155,7 +156,7 @@ export async function getFactTableMap(
 
 export async function getFactTable(
   context: ReqContext | ApiReqContext,
-  id: string
+  id: string,
 ) {
   const doc = await FactTableModel.findOne({
     organization: context.org.id,
@@ -172,7 +173,7 @@ export async function getFactTable(
 
 export async function getFactTablesByIds(
   context: ReqContext | ApiReqContext,
-  ids: string[]
+  ids: string[],
 ) {
   const factTables: FactTableInterface[] = [];
 
@@ -189,16 +190,16 @@ export async function getFactTablesByIds(
   });
 
   return factTables.filter((factTable) =>
-    context.permissions.canReadMultiProjectResource(factTable.projects)
+    context.permissions.canReadMultiProjectResource(factTable.projects),
   );
 }
 
 export async function createFactTable(
   context: ReqContext | ApiReqContext,
-  data: CreateFactTableProps
+  data: CreateFactTableProps,
 ) {
   const doc = await FactTableModel.create(
-    createPropsToInterface(context, data)
+    createPropsToInterface(context, data),
   );
 
   const factTable = toInterface(doc);
@@ -208,10 +209,10 @@ export async function createFactTable(
 export async function createFactTables(
   context: ReqContext,
   factTables: Omit<CreateFactTableProps, "datasource">[],
-  datasource: string
+  datasource: string,
 ): Promise<FactTableInterface[]> {
   const factTablesToCreate = factTables.map((factTable) =>
-    createPropsToInterface(context, { ...factTable, datasource })
+    createPropsToInterface(context, { ...factTable, datasource }),
   );
 
   return (await FactTableModel.insertMany(factTablesToCreate)).map(toInterface);
@@ -220,9 +221,18 @@ export async function createFactTables(
 export async function updateFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
-  changes: UpdateFactTableProps
+  changes: UpdateFactTableProps,
+  {
+    bypassManagedByCheck,
+  }: {
+    bypassManagedByCheck?: boolean;
+  } = {},
 ) {
-  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (
+    !bypassManagedByCheck &&
+    factTable.managedBy === "api" &&
+    context.auditUser?.type !== "api_key"
+  ) {
     throw new Error("This fact table is managed by the API");
   }
 
@@ -236,7 +246,7 @@ export async function updateFactTable(
         ...changes,
         dateUpdated: new Date(),
       },
-    }
+    },
   );
 }
 
@@ -244,7 +254,7 @@ export async function updateFactTable(
 // It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
 export async function updateFactTableColumns(
   factTable: FactTableInterface,
-  changes: Partial<Pick<FactTableInterface, "columns" | "columnsError">>
+  changes: Partial<Pick<FactTableInterface, "columns" | "columnsError">>,
 ) {
   await FactTableModel.updateOne(
     {
@@ -253,14 +263,14 @@ export async function updateFactTableColumns(
     },
     {
       $set: changes,
-    }
+    },
   );
 }
 
 export async function updateColumn(
   factTable: FactTableInterface,
   column: string,
-  changes: UpdateColumnProps
+  changes: UpdateColumnProps,
 ) {
   const columnIndex = factTable.columns.findIndex((c) => c.column === column);
   if (columnIndex < 0) throw new Error("Could not find that column");
@@ -289,24 +299,24 @@ export async function updateColumn(
         dateUpdated: new Date(),
         columns: factTable.columns,
       },
-    }
+    },
   );
 }
 
 export async function createFactFilter(
   factTable: FactTableInterface,
-  data: CreateFactFilterProps
+  data: CreateFactFilterProps,
 ) {
   if (!factTable.managedBy && data.managedBy) {
     throw new Error(
-      "Cannot create a filter managed by API unless the Fact Table is also managed by API"
+      "Cannot create a filter managed by API unless the Fact Table is also managed by API",
     );
   }
 
   const id = data.id || uniqid("flt_");
   if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
     throw new Error(
-      "Fact table filter ids must contain only letters, numbers, underscores, and dashes"
+      "Fact table filter ids must contain only letters, numbers, underscores, and dashes",
     );
   }
 
@@ -336,7 +346,7 @@ export async function createFactFilter(
       $push: {
         filters: filter,
       },
-    }
+    },
   );
 
   return filter;
@@ -346,7 +356,7 @@ export async function updateFactFilter(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   filterId: string,
-  changes: UpdateFactFilterProps
+  changes: UpdateFactFilterProps,
 ) {
   const filters = [...factTable.filters];
 
@@ -377,15 +387,24 @@ export async function updateFactFilter(
         dateUpdated: new Date(),
         filters: filters,
       },
-    }
+    },
   );
 }
 
 export async function deleteFactTable(
   context: ReqContext | ApiReqContext,
-  factTable: FactTableInterface
+  factTable: FactTableInterface,
+  {
+    bypassManagedByCheck,
+  }: {
+    bypassManagedByCheck?: boolean;
+  } = {},
 ) {
-  if (factTable.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (
+    !bypassManagedByCheck &&
+    factTable.managedBy === "api" &&
+    context.auditUser?.type !== "api_key"
+  ) {
     throw new Error("This fact table is managed by the API");
   }
 
@@ -398,7 +417,7 @@ export async function deleteFactTable(
 export async function deleteFactFilter(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
-  filterId: string
+  filterId: string,
 ) {
   const filter = factTable.filters.find((f) => f.id === filterId);
 
@@ -426,12 +445,12 @@ export async function deleteFactFilter(
         dateUpdated: new Date(),
         filters: newFilters,
       },
-    }
+    },
   );
 }
 
 export function toFactTableApiInterface(
-  factTable: FactTableInterface
+  factTable: FactTableInterface,
 ): ApiFactTable {
   return {
     ...omit(factTable, [
@@ -449,7 +468,7 @@ export function toFactTableApiInterface(
 
 export function toFactTableFilterApiInterface(
   factTable: FactTableInterface,
-  filterId: string
+  filterId: string,
 ): ApiFactTableFilter {
   const filter = factTable.filters.find((f) => f.id === filterId);
 

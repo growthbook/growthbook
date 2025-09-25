@@ -381,7 +381,7 @@ describe("Metric Migration", () => {
         capping: "percentile",
         capValue: 0.99,
         cap: 35,
-      })
+      }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -391,7 +391,7 @@ describe("Metric Migration", () => {
     });
 
     expect(
-      upgradeMetricDoc({ ...baseMetric, capping: "", capValue: 0.99, cap: 35 })
+      upgradeMetricDoc({ ...baseMetric, capping: "", capValue: 0.99, cap: 35 }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -407,7 +407,7 @@ describe("Metric Migration", () => {
         capValue: 0.99,
         capping: "absolute",
         cap: 35,
-      })
+      }),
     ).toEqual({
       ...baseMetric,
       cappingSettings: {
@@ -671,7 +671,7 @@ describe("Datasource Migration", () => {
       upgradeDatasourceObject({
         ...baseDatasource,
         settings: { ...noUserIdTypes },
-      }).settings
+      }).settings,
     ).toEqual({
       userIdTypes: [
         {
@@ -697,7 +697,7 @@ describe("Datasource Migration", () => {
       upgradeDatasourceObject({
         ...baseDatasource,
         settings: { ...userIdTypes },
-      }).settings
+      }).settings,
     ).toEqual({
       ...userIdTypes,
     });
@@ -823,6 +823,61 @@ describe("Datasource Migration", () => {
       },
     });
   });
+
+  it("migrates pipelineSettings: add mode if not existing", () => {
+    const baseDatasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      settings: {
+        pipelineSettings: {
+          allowWriting: true,
+        } as any,
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const upgraded = upgradeDatasourceObject(cloneDeep(baseDatasource));
+    expect(upgraded.settings?.pipelineSettings).toBeDefined();
+    expect(upgraded.settings?.pipelineSettings?.mode).toBe("ephemeral");
+    expect(upgraded.settings?.pipelineSettings?.allowWriting).toBe(true);
+  });
+
+  it("migrates pipelineSettings: does not change mode if it exists", () => {
+    const baseDatasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      settings: {
+        pipelineSettings: {
+          allowWriting: false,
+          mode: "incremental",
+        } as any,
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const upgraded = upgradeDatasourceObject(cloneDeep(baseDatasource));
+    expect(upgraded.settings?.pipelineSettings).toBeDefined();
+    expect(upgraded.settings?.pipelineSettings?.mode).toBe("incremental");
+    expect(upgraded.settings?.pipelineSettings?.allowWriting).toBe(false);
+  });
 });
 
 describe("Feature Migration", () => {
@@ -893,7 +948,7 @@ describe("Feature Migration", () => {
         ...origFeature,
         environments: ["dev"],
         rules: [rule],
-      })
+      }),
     ).toEqual(expected);
   });
 
@@ -938,7 +993,7 @@ describe("Feature Migration", () => {
             description: "",
           },
         ],
-      })
+      }),
     ).toEqual(origFeature);
   });
 
@@ -1236,9 +1291,11 @@ describe("Experiment Migration", () => {
       },
     ],
     sequentialTestingEnabled: false,
-    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingTuningParameter:
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     uid: "1234",
     shareLevel: "organization",
+    decisionFrameworkSettings: {},
   };
 
   it("upgrades experiment objects", () => {
@@ -1250,7 +1307,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "dnf",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1263,7 +1320,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "lost",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1277,7 +1334,7 @@ describe("Experiment Migration", () => {
         ...exp,
         status: "stopped",
         results: "won",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1292,7 +1349,7 @@ describe("Experiment Migration", () => {
         status: "stopped",
         results: "won",
         winner: 2,
-      })
+      }),
     ).toEqual({
       ...upgraded,
       status: "stopped",
@@ -1306,7 +1363,7 @@ describe("Experiment Migration", () => {
       upgradeExperimentDoc({
         ...exp,
         attributionModel: "firstExposure",
-      })
+      }),
     ).toEqual({
       ...upgraded,
       attributionModel: "firstExposure",
@@ -1326,7 +1383,7 @@ describe("Experiment Migration", () => {
             };
           }),
         ],
-      })
+      }),
     ).toEqual({
       ...upgraded,
       phases: [
@@ -1347,7 +1404,7 @@ describe("Experiment Migration", () => {
         ...exp,
         metrics: ["met_abc"],
         guardrails: ["met_def"],
-      })
+      }),
     ).toEqual({
       ...upgraded,
       goalMetrics: ["met_abc"],
@@ -1367,7 +1424,7 @@ describe("Experiment Migration", () => {
         guardrailMetrics: ["met_789"],
         metrics: ["met_abc"],
         guardrails: ["met_def"],
-      })
+      }),
     ).toEqual({
       ...upgraded,
       goalMetrics: ["met_123"],
@@ -1395,7 +1452,7 @@ describe("Organization Migration", () => {
     expect(
       upgradeOrganizationDoc({
         ...org,
-      })
+      }),
     ).toEqual({
       ...org,
       settings: {
@@ -1629,7 +1686,7 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 
@@ -1692,14 +1749,14 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
 
     initial.error = "foo";
     result.error = "foo";
     result.status = "error";
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 
@@ -1826,7 +1883,7 @@ describe("Snapshot Migration", () => {
     };
 
     expect(
-      migrateSnapshot(initial as LegacyExperimentSnapshotInterface)
+      migrateSnapshot(initial as LegacyExperimentSnapshotInterface),
     ).toEqual(result);
   });
 });
@@ -1869,6 +1926,7 @@ describe("Report Migration", () => {
         goalMetrics: [],
         secondaryMetrics: [],
         guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1890,6 +1948,7 @@ describe("Report Migration", () => {
         goalMetrics: ["met_123"],
         guardrailMetrics: ["met_456"],
         secondaryMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1904,6 +1963,7 @@ describe("Report Migration", () => {
         goalMetrics: ["met_abc"],
         secondaryMetrics: ["met_def"],
         guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     };
 
@@ -1914,6 +1974,7 @@ describe("Report Migration", () => {
         goalMetrics: ["met_abc"],
         secondaryMetrics: ["met_def"],
         guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1954,6 +2015,7 @@ describe("Report Migration", () => {
         goalMetrics: [],
         secondaryMetrics: [],
         guardrailMetrics: [],
+        decisionFrameworkSettings: {},
       },
     });
   });
@@ -1975,7 +2037,7 @@ describe("saved group migrations", () => {
         ...baseSavedGroup,
         attributeKey: "foo",
         values: ["a", "b"],
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -1991,7 +2053,7 @@ describe("saved group migrations", () => {
         attributeKey: "foo",
         values: ["a", "b"],
         source: "inline",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -2007,7 +2069,7 @@ describe("saved group migrations", () => {
         attributeKey: "foo",
         values: [],
         source: "runtime",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -2025,7 +2087,7 @@ describe("saved group migrations", () => {
         values: ["a", "b"],
         source: "inline",
         type: "list",
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",
@@ -2043,7 +2105,7 @@ describe("saved group migrations", () => {
         source: "runtime",
         type: "condition",
         condition: JSON.stringify({ id: { $eq: "123" } }),
-      })
+      }),
     ).toEqual({
       ...baseSavedGroup,
       attributeKey: "foo",

@@ -4,6 +4,7 @@ import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "back-end/src/validators/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { getSRMValue } from "shared/health";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -13,7 +14,7 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { GBCuped } from "@/components/Icons";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -44,13 +45,13 @@ export default function BanditSummaryResultsTab({
     `banditSummaryResultsChartMode__${isPublic ? "public__" : ""}${
       experiment.id
     }`,
-    "values"
+    "values",
   );
   const [chartType, setChartType] = useLocalStorage<"area" | "line">(
     `banditSummaryResultsChartType__${isPublic ? "public__" : ""}${
       experiment.id
     }`,
-    "area"
+    "area",
   );
   const numPhases = experiment.phases.length;
   const [phase, setPhase] = useState<number>(experiment.phases.length - 1);
@@ -77,7 +78,7 @@ export default function BanditSummaryResultsTab({
   const event: BanditEvent | undefined =
     phaseObj?.banditEvents?.[(phaseObj?.banditEvents?.length ?? 1) - 1];
   const users = experiment.variations.map(
-    (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0
+    (_, i) => event?.banditResult?.singleVariationResults?.[i]?.users ?? 0,
   );
   const totalUsers = users.reduce((acc, cur) => acc + cur, 0);
 
@@ -132,7 +133,11 @@ export default function BanditSummaryResultsTab({
         {!isPublic && (
           <div className="mx-3">
             <SRMWarning
-              srm={event?.banditResult?.srm ?? Infinity}
+              srm={
+                latest
+                  ? (getSRMValue("multi-armed-bandit", latest) ?? Infinity)
+                  : Infinity
+              }
               users={users}
               showWhenHealthy={false}
               isBandit={true}
@@ -152,7 +157,7 @@ export default function BanditSummaryResultsTab({
                   ? getRenderLabelColumn(
                       false,
                       "bayesian",
-                      isPublic
+                      isPublic,
                     )("", metric)
                   : null}
               </div>
@@ -243,8 +248,8 @@ export default function BanditSummaryResultsTab({
                 chartMode === "values"
                   ? undefined
                   : chartMode === "probabilities"
-                  ? "Probability of Winning"
-                  : "Variation Weight"
+                    ? "Probability of Winning"
+                    : "Variation Weight"
               }
               mode={chartMode}
               type={chartMode === "values" ? "line" : chartType}

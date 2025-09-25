@@ -45,6 +45,7 @@ interface SortableProps {
   showDescription?: boolean;
   dragging?: boolean;
   className?: string;
+  onlySafeToEditVariationMetadata?: boolean;
 }
 
 type VariationProps = SortableProps &
@@ -64,6 +65,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       valueType,
       hideVariationIds,
       hideValueField,
+      onlySafeToEditVariationMetadata,
       customSplit,
       hideSplit,
       setWeight,
@@ -73,7 +75,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
       className = "",
       ...props
     },
-    ref
+    ref,
   ) => {
     const weights = variations.map((v) => v.weight);
     const weight = weights[i];
@@ -89,7 +91,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
     const rebalanceAndUpdate = (
       i: number,
       newValue: number,
-      precision: number = 4
+      precision: number = 4,
     ) => {
       if (!setWeight) return;
       rebalance(weights, i, newValue, precision).forEach((w, j) => {
@@ -151,7 +153,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
             <Field
               placeholder={`${getVariationDefaultName(
                 variation,
-                valueType ?? "string"
+                valueType ?? "string",
               )}`}
               value={variation.name || ""}
               onChange={(e) => {
@@ -228,12 +230,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                 )}
               </>
             )}
-            {variations.length > 1 && setVariations && (
-              <div {...handle} title="Drag and drop to re-order rules">
-                <FaArrowsAlt />
-              </div>
-            )}
-            {setVariations && (
+            {variations.length > 1 &&
+              setVariations &&
+              !onlySafeToEditVariationMetadata && (
+                <div {...handle} title="Drag and drop to re-order rules">
+                  <FaArrowsAlt />
+                </div>
+              )}
+            {setVariations && !onlySafeToEditVariationMetadata && (
               <div className="col-auto">
                 <MoreMenu zIndex={1000000}>
                   <Tooltip
@@ -244,7 +248,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
                       disabled={variations.length <= 2}
                       className={clsx(
                         "dropdown-item",
-                        variations.length > 2 && "text-danger"
+                        variations.length > 2 && "text-danger",
                       )}
                       onClick={(e) => {
                         e.preventDefault();
@@ -254,7 +258,7 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
 
                         const newWeights = distributeWeights(
                           newValues.map((v) => v.weight),
-                          customSplit
+                          customSplit,
                         );
 
                         newValues.forEach((v, j) => {
@@ -274,20 +278,14 @@ export const VariationRow = forwardRef<HTMLTableRowElement, VariationProps>(
         </td>
       </tr>
     );
-  }
+  },
 );
 
 VariationRow.displayName = "VariationRow";
 
 export function SortableFeatureVariationRow(props: SortableProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    active,
-  } = useSortable({ id: props.variation.id });
+  const { attributes, listeners, setNodeRef, transform, transition, active } =
+    useSortable({ id: props.variation.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),

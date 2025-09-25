@@ -15,6 +15,8 @@ import EmptyPowerCalculation from "@/components/PowerCalculation/EmptyPowerCalcu
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PowerCalculationContent from "@/components/PowerCalculation/PowerCalculationContent";
 import track from "@/services/track";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 
 const WEEKS = 9;
 const INITIAL_FORM_PARAMS = { metrics: {} } as const;
@@ -35,6 +37,9 @@ const INITIAL_PAGE_SETTINGS: PageSettings = {
 const PowerCalculationPage = (): React.ReactElement => {
   const orgSettings = useOrgSettings();
 
+  const pValueThreshold = usePValueThreshold();
+  const { ciLower } = useConfidenceLevels();
+
   const initialJSONParams = localStorage.getItem(LOCAL_STORAGE_KEY);
 
   const initialParams: PageSettings = initialJSONParams
@@ -47,12 +52,8 @@ const PowerCalculationPage = (): React.ReactElement => {
     FullModalPowerCalculationParams | undefined
   >(initialParams.powerCalculationParams);
 
-  const [
-    settingsModalParams,
-    setSettingsModalParams,
-  ] = useState<PartialPowerCalculationParams>(
-    initialParams.settingsModalParams
-  );
+  const [settingsModalParams, setSettingsModalParams] =
+    useState<PartialPowerCalculationParams>(initialParams.settingsModalParams);
 
   const [variations, setVariations] = useState(initialParams.variations);
 
@@ -64,17 +65,13 @@ const PowerCalculationPage = (): React.ReactElement => {
       : false,
   };
 
-  const [
-    statsEngineSettings,
-    setStatsEngineSettings,
-  ] = useState<StatsEngineSettings>(
-    initialParams.statsEngineSettings || defaultStatsEngineSettings
-  );
+  const [statsEngineSettings, setStatsEngineSettings] =
+    useState<StatsEngineSettings>(
+      initialParams.statsEngineSettings || defaultStatsEngineSettings,
+    );
 
-  const [
-    modalStatsEngineSettings,
-    setModalStatsEngineSettings,
-  ] = useState<StatsEngineSettings>(statsEngineSettings);
+  const [modalStatsEngineSettings, setModalStatsEngineSettings] =
+    useState<StatsEngineSettings>(statsEngineSettings);
 
   useEffect(() => {
     localStorage.setItem(
@@ -84,7 +81,7 @@ const PowerCalculationPage = (): React.ReactElement => {
         settingsModalParams,
         variations,
         statsEngineSettings,
-      })
+      }),
     );
   }, [
     powerCalculationParams,
@@ -101,9 +98,19 @@ const PowerCalculationPage = (): React.ReactElement => {
       nVariations: variations,
       nWeeks: WEEKS,
       targetPower: 0.8,
-      alpha: 0.05,
+      alpha:
+        powerCalculationParams.alpha ||
+        (statsEngineSettings.type === "frequentist"
+          ? pValueThreshold
+          : ciLower),
     };
-  }, [powerCalculationParams, variations, statsEngineSettings]);
+  }, [
+    powerCalculationParams,
+    variations,
+    statsEngineSettings,
+    pValueThreshold,
+    ciLower,
+  ]);
 
   const results: PowerCalculationResults | undefined = useMemo(() => {
     if (!finalParams) return;
@@ -150,7 +157,13 @@ const PowerCalculationPage = (): React.ReactElement => {
             setShowModal("set-params");
           }}
           updateVariations={setVariations}
-          updateStatsEngineSettings={setStatsEngineSettings}
+          updateStatsEngineSettingsWithAlpha={(v) => {
+            setPowerCalculationParams({
+              ...powerCalculationParams,
+              alpha: v.alpha,
+            });
+            setStatsEngineSettings(v);
+          }}
           newCalculation={() => {
             setModalStatsEngineSettings(defaultStatsEngineSettings);
             setSettingsModalParams(INITIAL_FORM_PARAMS);

@@ -1,14 +1,37 @@
 import { z } from "zod";
+
+// If you change these types, also update the factTableColumnTypeValidator to match
+export const factTableColumnTypes = [
+  "number",
+  "string",
+  "date",
+  "boolean",
+  "json",
+  "other",
+  "",
+];
+// Duplicate of the above as we can't use `as const` without breaking imports in the frontend
 export const factTableColumnTypeValidator = z.enum([
   "number",
   "string",
   "date",
   "boolean",
+  "json",
   "other",
   "",
 ]);
 
-export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
+export const numberFormatValidator = z.enum([
+  "",
+  "currency",
+  "time:seconds",
+  "memory:bytes",
+  "memory:kilobytes",
+]);
+
+export const jsonColumnFieldsValidator = z.record(
+  z.object({ datatype: factTableColumnTypeValidator }),
+);
 
 export const createColumnPropsValidator = z
   .object({
@@ -17,6 +40,7 @@ export const createColumnPropsValidator = z
     description: z.string(),
     numberFormat: numberFormatValidator,
     datatype: factTableColumnTypeValidator,
+    jsonFields: jsonColumnFieldsValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
@@ -29,6 +53,7 @@ export const updateColumnPropsValidator = z
     description: z.string().optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
+    jsonFields: jsonColumnFieldsValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
@@ -170,6 +195,7 @@ export const factMetricValidator = z
     minPercentChange: z.number(),
     minSampleSize: z.number(),
     targetMDE: z.number(),
+    displayAsPercentage: z.boolean().optional(),
 
     winRisk: z.number(),
     loseRisk: z.number(),

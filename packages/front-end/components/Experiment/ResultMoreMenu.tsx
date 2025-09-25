@@ -11,6 +11,7 @@ import {
 import { BsArrowRepeat } from "react-icons/bs";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { DifferenceType } from "back-end/types/stats";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import Button from "@/components/Button";
@@ -39,6 +40,7 @@ export default function ResultMoreMenu({
   dimension,
   datasource,
   project,
+  differenceType,
 }: {
   experiment?: ExperimentInterfaceStringDates;
   editMetrics?: () => void;
@@ -58,6 +60,7 @@ export default function ResultMoreMenu({
   dimension?: string;
   datasource?: DataSourceInterfaceWithParams | null;
   project?: string;
+  differenceType: DifferenceType;
 }) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -105,7 +108,7 @@ export default function ResultMoreMenu({
               {
                 method: "POST",
                 body: reportArgs ? JSON.stringify(reportArgs) : undefined,
-              }
+              },
             );
             if (!res.report) {
               throw new Error("Failed to create report");
@@ -136,7 +139,7 @@ export default function ResultMoreMenu({
             const url = URL.createObjectURL(
               new Blob([res.notebook], {
                 type: "application/json",
-              })
+              }),
             );
 
             const name = notebookFilename
@@ -170,6 +173,7 @@ export default function ResultMoreMenu({
       {results && (
         <ResultsDownloadButton
           results={results}
+          differenceType={differenceType}
           metrics={metrics}
           variations={variations}
           trackingKey={trackingKey || ""}

@@ -5,7 +5,6 @@ import {
   PowerCalculationParams,
   PowerCalculationResults,
   PowerCalculationSuccessResults,
-  StatsEngineSettings,
 } from "shared/power";
 import { Box } from "@radix-ui/themes";
 import { LinePath } from "@visx/shape";
@@ -22,12 +21,15 @@ import {
 } from "@visx/tooltip";
 import { ParentSize } from "@visx/responsive";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { ensureAndReturn } from "@/types/utils";
 import { GBHeadingArrowLeft } from "@/components/Icons";
-import Frame from "@/components/Radix/Frame";
-import PowerCalculationStatsEngineSettingsModal from "./PowerCalculationStatsEngineSettingsModal";
+import Frame from "@/ui/Frame";
+import PowerCalculationStatsEngineSettingsModal, {
+  alphaToChanceToWin,
+  StatsEngineSettingsWithAlpha,
+} from "./PowerCalculationStatsEngineSettingsModal";
 
 const engineType = {
   frequentist: "Frequentist",
@@ -36,7 +38,7 @@ const engineType = {
 
 const percentFormatter = (
   v: number,
-  { digits }: { digits: number } = { digits: 0 }
+  { digits }: { digits: number } = { digits: 0 },
 ) =>
   isNaN(v)
     ? "N/A"
@@ -63,21 +65,19 @@ const AnalysisSettings = ({
   params,
   results,
   updateVariations,
-  updateStatsEngineSettings,
+  updateStatsEngineSettingsWithAlpha,
 }: {
   params: PowerCalculationParams;
   results: PowerCalculationResults;
   updateVariations: (_: number) => void;
-  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
+  updateStatsEngineSettingsWithAlpha: (_: StatsEngineSettingsWithAlpha) => void;
 }) => {
   const [currentVariations, setCurrentVariations] = useState<
     number | undefined
   >(params.nVariations);
 
-  const [
-    showStatsEngineSettingsModal,
-    setShowStatsEngineSettingsModal,
-  ] = useState(false);
+  const [showStatsEngineSettingsModal, setShowStatsEngineSettingsModal] =
+    useState(false);
 
   const isValidCurrentVariations =
     currentVariations &&
@@ -89,9 +89,12 @@ const AnalysisSettings = ({
       {showStatsEngineSettingsModal && (
         <PowerCalculationStatsEngineSettingsModal
           close={() => setShowStatsEngineSettingsModal(false)}
-          params={params.statsEngineSettings}
+          params={{
+            ...params.statsEngineSettings,
+            alpha: params.alpha,
+          }}
           onSubmit={(v) => {
-            updateStatsEngineSettings(v);
+            updateStatsEngineSettingsWithAlpha(v);
             setShowStatsEngineSettingsModal(false);
           }}
         />
@@ -108,9 +111,10 @@ const AnalysisSettings = ({
                 params.statsEngineSettings.sequentialTesting
                   ? "enabled"
                   : "disabled"
-              })
+              }; ${params.alpha} p-value threshold)
               `
-                : ""}{" "}
+                : ` (${alphaToChanceToWin(params.alpha)}% chance to win threshold)
+              `}{" "}
               ·{" "}
               <Link
                 href="#"
@@ -128,7 +132,7 @@ const AnalysisSettings = ({
                 type="number"
                 className={clsx(
                   "form-control w-50 mr-2",
-                  !isValidCurrentVariations && "border border-danger"
+                  !isValidCurrentVariations && "border border-danger",
                 )}
                 value={currentVariations}
                 min={2}
@@ -144,7 +148,7 @@ const AnalysisSettings = ({
             <small
               className={clsx(
                 "form-text text-muted",
-                isValidCurrentVariations && "invisible"
+                isValidCurrentVariations && "invisible",
               )}
             >
               <div className="text-danger">
@@ -190,7 +194,7 @@ const SampleSizeAndRuntime = ({
 }) => {
   const sampleSizeAndRuntime = results.sampleSizeAndRuntime;
   const [selectedRow, setSelectedRow] = useState(
-    Object.keys(sampleSizeAndRuntime)[0]
+    Object.keys(sampleSizeAndRuntime)[0],
   );
 
   const selectedTarget = sampleSizeAndRuntime[selectedRow];
@@ -227,7 +231,7 @@ const SampleSizeAndRuntime = ({
                 const target = sampleSizeAndRuntime[id];
 
                 const { name, type, effectSize } = ensureAndReturn(
-                  params.metrics[id]
+                  params.metrics[id],
                 );
 
                 return (
@@ -235,7 +239,7 @@ const SampleSizeAndRuntime = ({
                     key={id}
                     className={clsx(
                       "power-analysis-row",
-                      selectedRow === id && "selected"
+                      selectedRow === id && "selected",
                     )}
                     onClick={() => setSelectedRow(id)}
                   >
@@ -349,7 +353,7 @@ const MinimumDetectableEffect = ({
                 key={idx}
                 className={clsx(
                   results.weekThreshold === idx + 1 &&
-                    "power-analysis-cell-threshold power-analysis-overall-header-threshold"
+                    "power-analysis-cell-threshold power-analysis-overall-header-threshold",
                 )}
               >
                 {(() => {
@@ -400,7 +404,7 @@ const MinimumDetectableEffect = ({
                       "power-analysis-overall-cell-threshold",
                     Object.keys(results.weeks[0]?.metrics).length == pos + 1 &&
                       results.weekThreshold === idx + 1 &&
-                      "power-analysis-overall-bottom-threshold"
+                      "power-analysis-overall-bottom-threshold",
                   )}
                 >
                   {(() => {
@@ -408,12 +412,12 @@ const MinimumDetectableEffect = ({
                       ensureAndReturn(metrics[id]).effectSize,
                       {
                         digits: 1,
-                      }
+                      },
                     );
 
                     if (ensureAndReturn(metrics[id]).isThreshold) {
                       const { effectSize, name } = ensureAndReturn(
-                        params.metrics[id]
+                        params.metrics[id],
                       );
                       return (
                         <Tooltip
@@ -422,7 +426,7 @@ const MinimumDetectableEffect = ({
                             idx + 1
                           } is the first week where the minimum detectable effect over time dropped below your target effect size of ${percentFormatter(
                             effectSize,
-                            { digits: 1 }
+                            { digits: 1 },
                           )} for ${name}.`}
                           tipPosition="top"
                         >
@@ -478,7 +482,7 @@ const PowerOverTime = ({
               key={idx}
               className={clsx(
                 results.weekThreshold === idx + 1 &&
-                  "power-analysis-cell-threshold power-analysis-overall-header-threshold"
+                  "power-analysis-cell-threshold power-analysis-overall-header-threshold",
               )}
             >
               {(() => {
@@ -529,18 +533,18 @@ const PowerOverTime = ({
                     "power-analysis-overall-cell-threshold",
                   Object.keys(results.weeks[0]?.metrics).length == pos + 1 &&
                     results.weekThreshold === idx + 1 &&
-                    "power-analysis-overall-bottom-threshold"
+                    "power-analysis-overall-bottom-threshold",
                 )}
               >
                 {(() => {
                   const content = percentFormatter(
-                    ensureAndReturn(metrics[id]).power
+                    ensureAndReturn(metrics[id]).power,
                   );
 
                   if (ensureAndReturn(metrics[id]).isThreshold) {
                     const { targetPower } = params;
                     const { effectSize, name } = ensureAndReturn(
-                      params.metrics[id]
+                      params.metrics[id],
                     );
                     return (
                       <Tooltip
@@ -548,10 +552,10 @@ const PowerOverTime = ({
                         body={`Week ${
                           idx + 1
                         } is the first week with at least ${percentFormatter(
-                          targetPower
+                          targetPower,
                         )} power to detect an effect size of ${percentFormatter(
                           effectSize,
-                          { digits: 1 }
+                          { digits: 1 },
                         )} for ${name}.`}
                         tipPosition="top"
                       >
@@ -584,14 +588,14 @@ export default function PowerCalculationContent({
   results,
   params,
   updateVariations,
-  updateStatsEngineSettings,
+  updateStatsEngineSettingsWithAlpha,
   edit,
   newCalculation,
 }: {
   results: PowerCalculationResults;
   params: PowerCalculationParams;
   updateVariations: (_: number) => void;
-  updateStatsEngineSettings: (_: StatsEngineSettings) => void;
+  updateStatsEngineSettingsWithAlpha: (_: StatsEngineSettingsWithAlpha) => void;
   edit: () => void;
   newCalculation: () => void;
 }) {
@@ -628,7 +632,7 @@ export default function PowerCalculationContent({
         params={params}
         results={results}
         updateVariations={updateVariations}
-        updateStatsEngineSettings={updateStatsEngineSettings}
+        updateStatsEngineSettingsWithAlpha={updateStatsEngineSettingsWithAlpha}
       />
       {results.type !== "error" ? (
         <>
@@ -714,7 +718,7 @@ const ResponsivePowerLineGraph = ({
         domain: [0, weeks.length],
         range: [0, xMax],
       }),
-    [xMax, weeks]
+    [xMax, weeks],
   );
 
   const yScale = useMemo(
@@ -727,16 +731,16 @@ const ResponsivePowerLineGraph = ({
             Math.max(
               ...weeks.flatMap((week) =>
                 Object.values(week.metrics).map((m) =>
-                  dataType === "power" ? m.power * 100 : m.effectSize * 100
-                )
-              )
-            )
+                  dataType === "power" ? m.power * 100 : m.effectSize * 100,
+                ),
+              ),
+            ),
           ),
         ],
         range: [yMax, 0],
         nice: true,
       }),
-    [yMax, weeks, target, dataType]
+    [yMax, weeks, target, dataType],
   );
 
   const numYTicks = 5;
@@ -751,7 +755,7 @@ const ResponsivePowerLineGraph = ({
       "var(--cyan-9)",
       "var(--amber-9)",
     ],
-    []
+    [],
   );
 
   const {
@@ -789,7 +793,7 @@ const ResponsivePowerLineGraph = ({
         tooltipTop: point.y,
       });
     },
-    [margin.left, xScale, data, showTooltip, colors, weeks.length]
+    [margin.left, xScale, data, showTooltip, colors, weeks.length],
   );
 
   return (
@@ -877,7 +881,7 @@ const ResponsivePowerLineGraph = ({
               .map(
                 (m) =>
                   (Math.max(Math.ceil(m.name.length / 15), 1) + 1) *
-                  legendItemHeight
+                  legendItemHeight,
               )
               .reduce((ps, a) => ps + a, 0)}
             fill="var(--slate-a2)"

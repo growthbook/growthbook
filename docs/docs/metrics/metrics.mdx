@@ -53,7 +53,7 @@ Any column can be used to create filters, but only numeric columns can be used a
 
 #### Number Formats
 
-For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency` and `time:seconds`.
+For numeric columns, you can also specify a number format, which controls how the metric is displayed on the front-end. Possible values are `currency`, `time:seconds`, `memory:bytes`, and `memory:kilobytes`.
 
 :::note
 The default display currency is USD, but you can change it under **Settings** → **General** → **Metric Settings**
@@ -109,7 +109,7 @@ For example, to create a **Session Duration** metric, you would do the following
 
 ### Quantile Metrics
 
-Quantile Metrics are useful when you care about comparing variations at a quantile (e.g. latency at P99) rather than the mean. Learn more about when to use Quantile Metrics [here](/statistics/quantile).
+Quantile Metrics are useful when you care about comparing variations at a quantile (e.g. latency at P99) rather than the mean. These are also called percentile metrics. Learn more about when to use Quantile Metrics [here](/statistics/quantile).
 
 One key consideration is `Group by Experiment User before taking quantile?`. In short, if you often think about your metric at the user level, you should aggregate. If you think about your metric at the event level, do not aggregate.
 
@@ -322,7 +322,7 @@ The inserted values do not have surrounding quotes, so you must add those yourse
 
 GrowthBook Enterprise customers can enable Fact Table Query Optimization for faster, more efficient queries.
 
-If multiple metrics from the same Fact Table are added to an experiment, they will be combined into a single SQL query. For data sourcees with usage-based billing, this can result in dramatic cost savings.
+If multiple metrics from the same Fact Table are added to an experiment, they will be combined into a single SQL query. For data sources with usage-based billing, this can result in dramatic cost savings.
 
 There are some restrictions that limit when this optimization can be performed:
 

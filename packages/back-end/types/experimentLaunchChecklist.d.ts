@@ -9,6 +9,7 @@ export interface ChecklistTask {
     | "project"
     | "tag"
     | "screenshots"
+    | "prerequisiteTargeting"
     | "customField";
 }
 
@@ -19,4 +20,5 @@ export interface ExperimentLaunchChecklistInterface {
   dateUpdated: Date;
   updatedByUserId: string;
   tasks: ChecklistTask[];
+  projectId: string;
 }

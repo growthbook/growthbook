@@ -28,16 +28,19 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 
 export function getInitialInlineFilters(
   factTable: FactTableInterface,
-  existingInlineFilters?: Record<string, string[]>
+  existingInlineFilters?: Record<string, string[]>,
 ) {
   const inlineFilters = { ...existingInlineFilters };
   factTable.columns
-    .filter((c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c))
+    .filter(
+      (c) => c.alwaysInlineFilter && canInlineFilterColumn(factTable, c.column),
+    )
     .forEach((c) => {
       if (!inlineFilters[c.column] || !inlineFilters[c.column].length) {
         inlineFilters[c.column] = [""];
@@ -83,7 +86,7 @@ export function getDefaultFactMetricProps({
         datasources,
         settings,
         project,
-        initialFactTable ? { datasource: initialFactTable?.datasource } : {}
+        initialFactTable ? { datasource: initialFactTable?.datasource } : {},
       ).datasource,
     inverse: existing?.inverse || false,
     cappingSettings: existing?.cappingSettings || {
@@ -106,6 +109,7 @@ export function getDefaultFactMetricProps({
       DEFAULT_MIN_PERCENT_CHANGE,
     targetMDE:
       existing?.targetMDE ?? metricDefaults.targetMDE ?? DEFAULT_TARGET_MDE,
+    displayAsPercentage: existing?.displayAsPercentage,
     maxPercentChange:
       existing?.maxPercentChange ??
       metricDefaults.maxPercentageChange ??
@@ -157,7 +161,7 @@ export function getPercentileLabel(quantile: number): string {
 
 export function formatCurrency(
   value: number,
-  options: Intl.NumberFormatOptions
+  options: Intl.NumberFormatOptions,
 ) {
   const cleanedOptions = {
     ...options,
@@ -223,13 +227,12 @@ export function formatDurationSeconds(value: number) {
 
   return f;
 }
+
 export function formatNumber(
   value: number,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ) {
-  const absValue = Math.abs(value);
-  const digits =
-    absValue > 1000 ? 0 : absValue > 100 ? 1 : absValue > 10 ? 2 : 3;
+  const digits = getNumberFormatDigits(value);
   // Show fewer fractional digits for bigger numbers
   const formatter = new Intl.NumberFormat(undefined, {
     maximumFractionDigits: digits,
@@ -240,7 +243,7 @@ export function formatNumber(
 }
 export function formatPercent(
   value: number,
-  options?: Intl.NumberFormatOptions
+  options?: Intl.NumberFormatOptions,
 ) {
   const percentFormatter = new Intl.NumberFormat(undefined, {
     style: "percent",
@@ -250,8 +253,29 @@ export function formatPercent(
   return percentFormatter.format(Math.round(value * 100000) / 100000);
 }
 
+export function formatPercentagePoints(value: number) {
+  const ppValue = 100 * value;
+  const absValue = Math.abs(ppValue);
+  const digits = absValue > 100 ? 0 : absValue > 10 ? 1 : absValue > 1 ? 2 : 3;
+  // Show fewer fractional digits for bigger numbers
+  const formatter = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: 0,
+  });
+  const number = formatter.format(ppValue);
+  return `${number} pp`;
+}
+
+export function formatBytes(value: number) {
+  return formatByteSizeString(value, true);
+}
+
+export function formatKilobytes(value: number) {
+  return formatByteSizeString(value * 1024, true);
+}
+
 export function getColumnFormatter(
-  column: ColumnInterface
+  column: ColumnInterface,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   switch (column.numberFormat) {
     case "":
@@ -260,12 +284,16 @@ export function getColumnFormatter(
       return formatCurrency;
     case "time:seconds":
       return formatDurationSeconds;
+    case "memory:bytes":
+      return formatBytes;
+    case "memory:kilobytes":
+      return formatKilobytes;
   }
 }
 
 export function getColumnRefFormatter(
   columnRef: ColumnRef,
-  getFactTableById: (id: string) => FactTableInterface | null
+  getFactTableById: (id: string) => FactTableInterface | null,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (
     columnRef.column === "$$count" ||
@@ -275,7 +303,7 @@ export function getColumnRefFormatter(
   }
 
   const fact = getFactTableById(columnRef.factTableId)?.columns?.find(
-    (c) => c.column === columnRef.column
+    (c) => c.column === columnRef.column,
   );
   if (!fact) return formatNumber;
 
@@ -285,36 +313,46 @@ export function getColumnRefFormatter(
 export function getExperimentMetricFormatter(
   metric: ExperimentMetricInterface,
   getFactTableById: (id: string) => FactTableInterface | null,
-  formatProportionAsNumber: boolean = false
+  proportionFormat: "number" | "percentagePoints" | "percentage" = "percentage",
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   // Old metric
   if ("type" in metric) {
-    return getMetricFormatter(
-      metric.type === "binomial" && formatProportionAsNumber
-        ? "count"
-        : metric.type
-    );
+    if (metric.type === "binomial" && proportionFormat === "number") {
+      return getMetricFormatter("count");
+    }
+    if (metric.type === "binomial" && proportionFormat === "percentagePoints") {
+      return formatPercentagePoints;
+    }
+    return getMetricFormatter(metric.type);
   }
 
   // Fact metric
   switch (metric.metricType) {
     case "proportion":
     case "retention":
-      if (formatProportionAsNumber) {
+      if (proportionFormat === "number") {
         return formatNumber;
+      }
+      if (proportionFormat === "percentagePoints") {
+        return formatPercentagePoints;
       }
       return formatPercent;
     case "ratio":
       return (() => {
+        // If user has set displayAsPercentage to true, format as a percentage
+        if (metric.displayAsPercentage) {
+          return formatPercent;
+        }
+
         // If the metric is ratio of the same unit, they cancel out
         // For example: profit/revenue = $/$ = plain number
         const numerator = getFactTableById(
-          metric.numerator.factTableId
+          metric.numerator.factTableId,
         )?.columns?.find((c) => c.column === metric.numerator.column);
         const denominator =
           metric.denominator &&
           getFactTableById(metric.denominator.factTableId)?.columns?.find(
-            (c) => c.column === metric.denominator?.column
+            (c) => c.column === metric.denominator?.column,
           );
         if (
           numerator &&
@@ -336,7 +374,7 @@ export function getExperimentMetricFormatter(
 }
 
 export function getMetricFormatter(
-  type: MetricType
+  type: MetricType,
 ): (value: number, options?: Intl.NumberFormatOptions) => string {
   if (type === "count") {
     return formatNumber;

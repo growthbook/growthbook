@@ -43,7 +43,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -65,11 +65,11 @@ function MetricAnalysisOverview({
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   numeratorFormatter?: (
     value: number,
-    options?: Intl.NumberFormatOptions
+    options?: Intl.NumberFormatOptions,
   ) => string;
   denominatorFormatter?: (
     value: number,
-    options?: Intl.NumberFormatOptions
+    options?: Intl.NumberFormatOptions,
   ) => string;
 }) {
   const displayCurrency = useCurrency();
@@ -93,11 +93,11 @@ function MetricAnalysisOverview({
     denominatorText = "Denominator: ";
     numeratorValue = numeratorFormatter(
       result.numerator ?? 0,
-      formatterOptions
+      formatterOptions,
     );
     denominatorValue = denominatorFormatter(
       result.denominator ?? 0,
-      formatterOptions
+      formatterOptions,
     );
   }
 
@@ -152,19 +152,19 @@ function getLookbackSelected(lookbackDays: number): string {
 
 function settingsMatch(
   settings: MetricAnalysisSettings,
-  desiredSettings: CreateMetricAnalysisProps
+  desiredSettings: CreateMetricAnalysisProps,
 ) {
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
   return Object.entries(settings).every(
     ([key, value]) =>
-      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key)
+      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key),
   );
 }
 
 function isOutdated(
   factMetric: FactMetricInterface,
-  analysis?: MetricAnalysisInterface | null
+  analysis?: MetricAnalysisInterface | null,
 ): { outdated: boolean; reasons: string[] } {
   if (analysis && factMetric.dateUpdated > analysis.dateCreated) {
     return {
@@ -180,7 +180,7 @@ function isOutdated(
 
 function getAnalysisSettingsForm(
   settings: MetricAnalysisSettings | undefined,
-  userIdTypes: string[] | undefined
+  userIdTypes: string[] | undefined,
 ) {
   return {
     userIdType: settings?.userIdType ?? userIdTypes?.[0] ?? "",
@@ -234,11 +234,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const storageKeySum = `metric_smoothBy_sum`;
   const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
     storageKeyAvg,
-    "day"
+    "day",
   );
   const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
     storageKeySum,
-    "day"
+    "day",
   );
 
   const [uniqueHoverDate, setUniqueHoverDate] = useState<number | null>(null);
@@ -263,29 +263,24 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const metricAnalysis = data?.metricAnalysis;
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   // get latest full object or add reset to default?
-  const {
-    reset,
-    watch,
-    getValues,
-    setValue,
-    register,
-  } = useForm<MetricAnalysisFormFields>({
-    defaultValues: getAnalysisSettingsForm(
-      metricAnalysis?.settings,
-      factTable?.userIdTypes
-    ),
-  });
+  const { reset, watch, getValues, setValue, register } =
+    useForm<MetricAnalysisFormFields>({
+      defaultValues: getAnalysisSettingsForm(
+        metricAnalysis?.settings,
+        factTable?.userIdTypes,
+      ),
+    });
   const populationValue: string | undefined = watch("populationType");
 
   // TODO better way to populate form/fields than the following
   const { queries, queryStatus } = useMemo(() => {
     reset(
-      getAnalysisSettingsForm(metricAnalysis?.settings, factTable?.userIdTypes)
+      getAnalysisSettingsForm(metricAnalysis?.settings, factTable?.userIdTypes),
     );
     const queries = metricAnalysis?.queries ?? [];
     const { status: queryStatus } = getQueryStatus(
       queries,
-      metricAnalysis?.error
+      metricAnalysis?.error,
     );
     return {
       queries,
@@ -297,7 +292,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
 
   const numeratorFormatter = getColumnRefFormatter(
     factMetric.numerator,
-    getFactTableById
+    getFactTableById,
   );
   const denominatorFormatter = factMetric.denominator
     ? getColumnRefFormatter(factMetric.denominator, getFactTableById)
@@ -391,7 +386,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   setValue={(v) =>
                     setValue(
                       "populationType",
-                      v as MetricAnalysisPopulationType
+                      v as MetricAnalysisPopulationType,
                     )
                   }
                   setPopulationValue={(v) => setValue("populationId", v)}
@@ -426,7 +421,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         "partially-succeeded",
                       ].includes(queryStatus),
                     },
-                    " "
+                    " ",
                   )}
                   icon={
                     <span
@@ -552,8 +547,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                           reset(
                             getAnalysisSettingsForm(
                               metricAnalysis?.settings,
-                              factTable?.userIdTypes
-                            )
+                              factTable?.userIdTypes,
+                            ),
                           );
                         }}
                       >
@@ -661,7 +656,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         setSmoothByAvg(
                                           smoothByAvg === "week"
                                             ? "day"
-                                            : "week"
+                                            : "week",
                                         )
                                       }
                                       id="toggle-group-by-avg"
@@ -750,7 +745,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         setSmoothBySum(
                                           smoothBySum === "week"
                                             ? "day"
-                                            : "week"
+                                            : "week",
                                         )
                                       }
                                       id="toggle-group-by-sum"

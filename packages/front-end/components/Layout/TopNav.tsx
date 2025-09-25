@@ -24,7 +24,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -57,10 +57,8 @@ const TopNav: FC<{
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [
-    enableCelebrations,
-    setEnableCelebrations,
-  ] = useCelebrationLocalStorage();
+  const [enableCelebrations, setEnableCelebrations] =
+    useCelebrationLocalStorage();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();

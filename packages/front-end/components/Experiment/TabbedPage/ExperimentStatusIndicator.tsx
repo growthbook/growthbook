@@ -1,28 +1,49 @@
 import { Flex, Tooltip } from "@radix-ui/themes";
-import Badge from "@/components/Radix/Badge";
-import {
-  ExperimentData,
-  StatusIndicatorData,
-  useExperimentStatusIndicator,
-} from "@/hooks/useExperimentStatusIndicator";
+import { ExperimentDataForStatusStringDates } from "back-end/types/experiment";
+import { StatusIndicatorData } from "shared/enterprise";
+import Badge from "@/ui/Badge";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
 
 export default function ExperimentStatusIndicator({
   experimentData,
   labelFormat = "full",
+  skipArchived = false,
 }: {
-  experimentData: ExperimentData;
+  experimentData: ExperimentDataForStatusStringDates;
   labelFormat?: LabelFormat;
+  skipArchived?: boolean;
 }) {
   const getExperimentStatusIndicator = useExperimentStatusIndicator();
-  const statusIndicatorData = getExperimentStatusIndicator(experimentData);
+  const statusIndicatorData = getExperimentStatusIndicator(
+    experimentData,
+    skipArchived,
+  );
 
   return (
     <RawExperimentStatusIndicator
       statusIndicatorData={statusIndicatorData}
       labelFormat={labelFormat}
+      experimentData={experimentData}
     />
+  );
+}
+
+export function ExperimentDot({
+  color,
+}: {
+  color: StatusIndicatorData["color"];
+}) {
+  return (
+    <div
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 8,
+        backgroundColor: `var(--${color}-9)`,
+      }}
+    ></div>
   );
 }
 
@@ -31,27 +52,15 @@ export function ExperimentStatusDetailsWithDot({
 }: {
   statusIndicatorData: StatusIndicatorData;
 }) {
-  const {
-    color,
-    status,
-    detailedStatus,
-    needsAttention,
-    tooltip,
-  } = statusIndicatorData;
+  const { color, status, detailedStatus, needsAttention, tooltip } =
+    statusIndicatorData;
 
   if (!detailedStatus) return null;
 
   const contents =
     needsAttention || status === "Stopped" ? (
       <Flex gap="1" align="center">
-        <div
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 8,
-            backgroundColor: `var(--${color}-9)`,
-          }}
-        ></div>
+        <ExperimentDot color={color} />
         {detailedStatus}
       </Flex>
     ) : (
@@ -64,19 +73,31 @@ export function ExperimentStatusDetailsWithDot({
 export function RawExperimentStatusIndicator({
   statusIndicatorData,
   labelFormat = "full",
+  experimentData,
 }: {
   statusIndicatorData: StatusIndicatorData;
   labelFormat?: LabelFormat;
+  experimentData: ExperimentDataForStatusStringDates;
 }) {
   const { color, status, detailedStatus, tooltip } = statusIndicatorData;
-  const label = getFormattedLabel(labelFormat, status, detailedStatus);
+  const isHoldout = experimentData.type === "holdout";
+  const label = getFormattedLabel(
+    isHoldout ? "status-only" : labelFormat,
+    status,
+    detailedStatus,
+  );
+  const isInAnalysisPeriod =
+    isHoldout &&
+    experimentData.phases.length > 1 &&
+    experimentData.status === "running" &&
+    !experimentData.archived;
 
   const badge = (
     <Badge
       color={color}
       variant={"solid"}
       radius="full"
-      label={label}
+      label={`${label}${isInAnalysisPeriod ? ": Analysis Period" : ""}`}
       style={{
         cursor: tooltip !== undefined ? "default" : undefined,
       }}
@@ -89,7 +110,7 @@ export function RawExperimentStatusIndicator({
 function getFormattedLabel(
   labelFormat: LabelFormat,
   status: string,
-  detailedStatus?: string
+  detailedStatus?: string,
 ): string {
   switch (labelFormat) {
     case "full":

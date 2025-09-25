@@ -48,7 +48,7 @@ import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/Experime
 
 export async function postReportFromSnapshot(
   req: AuthRequest<ExperimentSnapshotReportArgs, { snapshot: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -83,7 +83,12 @@ export async function postReportFromSnapshot(
     throw new Error("Unknown experiment phase");
   }
 
-  const analysis = getSnapshotAnalysis(snapshot);
+  const analysis = getSnapshotAnalysis(
+    snapshot,
+    snapshot.analyses.find(
+      (a) => a.settings.differenceType === reportArgs.differenceType,
+    )?.settings,
+  );
   if (!analysis) {
     throw new Error("Missing analysis settings");
   }
@@ -131,10 +136,10 @@ export async function postReportFromSnapshot(
           "variationWeights",
           "banditEvents",
           "coverage",
-        ])
+        ]),
       ),
       variations: experiment.variations.map((variation) =>
-        omit(variation, ["description", "screenshots"])
+        omit(variation, ["description", "screenshots"]),
       ),
     },
     experimentAnalysisSettings: _experimentAnalysisSettings,
@@ -142,7 +147,7 @@ export async function postReportFromSnapshot(
 
   // Save the snapshot
   snapshot.report = doc.id;
-  await createExperimentSnapshotModel({ data: snapshot, context });
+  await createExperimentSnapshotModel({ data: snapshot });
 
   await req.audit({
     event: "experiment.analysis",
@@ -169,7 +174,7 @@ export async function getReports(
       project?: string;
     }
   >,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   let project = "";
@@ -202,7 +207,7 @@ export async function getReports(
 
 export async function getReportsOnExperiment(
   req: AuthRequest<unknown, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
   const { id } = req.params;
@@ -217,7 +222,7 @@ export async function getReportsOnExperiment(
 
 export async function getReport(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const { org } = getContextFromReq(req);
 
@@ -235,7 +240,7 @@ export async function getReport(
 
 export async function getReportPublic(
   req: Request<{ uid: string }>,
-  res: Response
+  res: Response,
 ) {
   const { uid } = req.params;
   const report = await getReportByUid(uid);
@@ -280,7 +285,7 @@ export async function getReportPublic(
 
 export async function deleteReport(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -299,7 +304,7 @@ export async function deleteReport(
 
   const connectedExperiment = await getExperimentById(
     context,
-    report.experimentId || ""
+    report.experimentId || "",
   );
 
   if (!context.permissions.canDeleteReport(connectedExperiment || {})) {
@@ -315,7 +320,7 @@ export async function deleteReport(
 
 export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -329,11 +334,11 @@ export async function refreshReport(
   if (report.type === "experiment-snapshot") {
     const experiment = await getExperimentById(
       context,
-      report.experimentId || ""
+      report.experimentId || "",
     );
     const isOwner = report.userId === req.userId;
     const canUpdateReport = context.permissions.canUpdateReport(
-      experiment || {}
+      experiment || {},
     );
     if (
       !(isOwner || (report.editLevel === "organization" && canUpdateReport))
@@ -367,19 +372,19 @@ export async function refreshReport(
     }
   } else if (report.type === "experiment") {
     report.args.statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
-    report.args.regressionAdjustmentEnabled = !!report.args
-      ?.regressionAdjustmentEnabled;
+    report.args.regressionAdjustmentEnabled =
+      !!report.args?.regressionAdjustmentEnabled;
 
     const integration = await getIntegrationFromDatasourceId(
       context,
       report.args.datasource,
-      true
+      true,
     );
     const queryRunner = new ExperimentReportQueryRunner(
       context,
       report,
       integration,
-      useCache
+      useCache,
     );
 
     const updatedReport = await queryRunner.startAnalysis({
@@ -398,7 +403,7 @@ export async function refreshReport(
 
 export async function putReport(
   req: AuthRequest<Partial<ReportInterface>, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -410,11 +415,11 @@ export async function putReport(
   if (report.type === "experiment-snapshot") {
     const experiment = await getExperimentById(
       context,
-      report.experimentId || ""
+      report.experimentId || "",
     );
     const isOwner = report.userId === req.userId;
     const canUpdateReport = context.permissions.canUpdateReport(
-      experiment || {}
+      experiment || {},
     );
     if (
       !(isOwner || (report.editLevel === "organization" && canUpdateReport))
@@ -475,11 +480,11 @@ export async function putReport(
         ]),
       };
       updates.experimentAnalysisSettings.dateStarted = getValidDate(
-        updates.experimentAnalysisSettings.dateStarted
+        updates.experimentAnalysisSettings.dateStarted,
       );
       if (updates.experimentAnalysisSettings.dateEnded) {
         updates.experimentAnalysisSettings.dateEnded = getValidDate(
-          updates.experimentAnalysisSettings.dateEnded
+          updates.experimentAnalysisSettings.dateEnded,
         );
       }
     }
@@ -499,7 +504,7 @@ export async function putReport(
   } else if (report.type === "experiment") {
     const experiment = await getExperimentById(
       context,
-      report.experimentId || ""
+      report.experimentId || "",
     );
 
     // Reports don't have projects, but the experiment does, so check the experiment's project for permission if it exists
@@ -524,8 +529,8 @@ export async function putReport(
         updates.args.endDate = getValidDate(updates.args.endDate || new Date());
       }
       updates.args.statsEngine = statsEngine;
-      updates.args.regressionAdjustmentEnabled = !!updates.args
-        ?.regressionAdjustmentEnabled;
+      updates.args.regressionAdjustmentEnabled =
+        !!updates.args?.regressionAdjustmentEnabled;
       updates.args.settingsForSnapshotMetrics =
         updates.args?.settingsForSnapshotMetrics || [];
 
@@ -548,13 +553,13 @@ export async function putReport(
       const integration = await getIntegrationFromDatasourceId(
         context,
         updatedReport.args.datasource,
-        true
+        true,
       );
 
       const queryRunner = new ExperimentReportQueryRunner(
         context,
         updatedReport,
-        integration
+        integration,
       );
 
       await queryRunner.startAnalysis({
@@ -574,7 +579,7 @@ export async function putReport(
 
 export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -588,7 +593,7 @@ export async function cancelReport(
     const snapshot = report.snapshot
       ? (await findLatestRunningSnapshotByReportId(
           report.organization,
-          report.id
+          report.id,
         )) || undefined
       : undefined;
     if (!snapshot) {
@@ -610,13 +615,13 @@ export async function cancelReport(
     const integration = await getIntegrationFromDatasourceId(
       context,
       datasourceId,
-      true
+      true,
     );
 
     const queryRunner = new ExperimentResultsQueryRunner(
       context,
       snapshot,
-      integration
+      integration,
     );
     await queryRunner.cancelQueries();
 
@@ -624,13 +629,13 @@ export async function cancelReport(
   } else if (report.type === "experiment") {
     const integration = await getIntegrationFromDatasourceId(
       context,
-      report.args.datasource
+      report.args.datasource,
     );
 
     const queryRunner = new ExperimentReportQueryRunner(
       context,
       report,
-      integration
+      integration,
     );
     await queryRunner.cancelQueries();
 
@@ -642,7 +647,7 @@ export async function cancelReport(
 
 export async function postNotebook(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;

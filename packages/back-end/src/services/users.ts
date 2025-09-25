@@ -19,14 +19,14 @@ export async function hash(password: string): Promise<string> {
   const derivedKey = await (scrypt(
     password,
     salt,
-    HASH_LEN
+    HASH_LEN,
   ) as Promise<Buffer>);
   return salt + ":" + derivedKey.toString("hex");
 }
 
 export async function verifyPassword(
   user: UserInterface,
-  password: string
+  password: string,
 ): Promise<boolean> {
   if (!user.passwordHash) return false;
   const [salt, key] = user.passwordHash.split(":");
@@ -34,7 +34,7 @@ export async function verifyPassword(
   const derivedKey = await (scrypt(
     password,
     salt,
-    HASH_LEN
+    HASH_LEN,
   ) as Promise<Buffer>);
   return crypto.timingSafeEqual(keyBuffer, derivedKey);
 }
@@ -50,7 +50,7 @@ export async function updatePassword(userId: string, password: string) {
  * @param req
  */
 export const getUserLoginPropertiesFromRequest = (
-  req: Request
+  req: Request,
 ): Pick<UserLoginInterface, "userAgent" | "device" | "ip" | "os"> => {
   const userAgent = (req.headers["user-agent"] as string) || "";
   const device = (req.headers["sec-ch-ua"] as string) || "";
@@ -83,19 +83,19 @@ export async function trackLoginForUser({
 }: Pick<UserLoginInterface, "userAgent" | "device" | "ip" | "os"> & {
   email: string;
 }): Promise<void> {
-  const user = await getUserByEmail(email);
-  if (!user) {
-    return;
-  }
-
-  const organizations = await findOrganizationsByMemberId(user.id);
-  if (!organizations) {
-    return;
-  }
-
-  const organizationIds = organizations.map((org) => org.id);
-
   try {
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return;
+    }
+
+    const organizations = await findOrganizationsByMemberId(user.id);
+    if (!organizations) {
+      return;
+    }
+
+    const organizationIds = organizations.map((org) => org.id);
+
     // Create a login event for all of a user's organizations
     const eventCreatePromises = organizationIds.map((organizationId) =>
       createEventWithPayload({
@@ -128,7 +128,7 @@ export async function trackLoginForUser({
         },
         organizationId,
         objectId: user.id,
-      })
+      }),
     );
     await Promise.all(eventCreatePromises);
   } catch (e) {

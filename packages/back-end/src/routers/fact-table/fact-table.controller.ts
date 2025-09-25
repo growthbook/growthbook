@@ -38,7 +38,7 @@ import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable
 
 export const getFactTables = async (
   req: AuthRequest,
-  res: Response<{ status: 200; factTables: FactTableInterface[] }>
+  res: Response<{ status: 200; factTables: FactTableInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -54,7 +54,7 @@ async function testFilterQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   factTable: FactTableInterface,
-  filter: string
+  filter: string,
 ): Promise<FactFilterTestResults> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     context.permissions.throwPermissionError();
@@ -93,7 +93,7 @@ async function testFilterQuery(
 
 export const postFactTable = async (
   req: AuthRequest<CreateFactTableProps>,
-  res: Response<{ status: 200; factTable: FactTableInterface }>
+  res: Response<{ status: 200; factTable: FactTableInterface }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -114,7 +114,7 @@ export const postFactTable = async (
     data.columns = await runRefreshColumnsQuery(
       context,
       datasource,
-      data as FactTableInterface
+      data as FactTableInterface,
     );
 
     if (!data.columns.length) {
@@ -139,7 +139,7 @@ export const putFactTable = async (
     { id: string },
     { forceColumnRefresh?: string }
   >,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -158,6 +158,12 @@ export const putFactTable = async (
     throw new Error("Could not find datasource");
   }
 
+  // This method is called with an empty object when we just want to refresh columns
+  let bypassManagedByCheck = false;
+  if (Object.keys(data).length === 0) {
+    bypassManagedByCheck = true;
+  }
+
   // Update the columns
   if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
     data.columns = await runRefreshColumnsQuery(context, datasource, {
@@ -171,7 +177,7 @@ export const putFactTable = async (
     }
   }
 
-  await updateFactTable(context, factTable, data);
+  await updateFactTable(context, factTable, data, { bypassManagedByCheck });
 
   await addTagsDiff(context.org.id, factTable.tags, data.tags || []);
 
@@ -182,7 +188,7 @@ export const putFactTable = async (
 
 export const archiveFactTable = async (
   req: AuthRequest<unknown, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -204,7 +210,7 @@ export const archiveFactTable = async (
 
 export const unarchiveFactTable = async (
   req: AuthRequest<unknown, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -226,7 +232,7 @@ export const unarchiveFactTable = async (
 
 export const deleteFactTable = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -244,8 +250,8 @@ export const deleteFactTable = async (
   if (segments.length) {
     throw new Error(
       `The following segments are defined via this fact table: ${segments.map(
-        (segment) => `\n - ${segment.name}`
-      )}`
+        (segment) => `\n - ${segment.name}`,
+      )}`,
     );
   }
 
@@ -258,7 +264,7 @@ export const deleteFactTable = async (
 
 export const putColumn = async (
   req: AuthRequest<UpdateColumnProps, { id: string; column: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -283,7 +289,7 @@ export const putColumn = async (
   if (
     !col.alwaysInlineFilter &&
     data.alwaysInlineFilter &&
-    canInlineFilterColumn(factTable, updatedCol)
+    canInlineFilterColumn(factTable, updatedCol.column)
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {
@@ -316,7 +322,7 @@ export const postFactFilterTest = async (
   res: Response<{
     status: 200;
     result: FactFilterTestResults;
-  }>
+  }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -339,7 +345,7 @@ export const postFactFilterTest = async (
     context,
     datasource,
     factTable,
-    data.value
+    data.value,
   );
 
   res.status(200).json({
@@ -350,7 +356,7 @@ export const postFactFilterTest = async (
 
 export const postFactFilter = async (
   req: AuthRequest<CreateFactFilterProps, { id: string }>,
-  res: Response<{ status: 200; filterId: string }>
+  res: Response<{ status: 200; filterId: string }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -379,7 +385,7 @@ export const postFactFilter = async (
 
 export const putFactFilter = async (
   req: AuthRequest<UpdateFactFilterProps, { id: string; filterId: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -402,7 +408,7 @@ export const putFactFilter = async (
 
 export const deleteFactFilter = async (
   req: AuthRequest<null, { id: string; filterId: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -422,8 +428,8 @@ export const deleteFactFilter = async (
   if (segments.length) {
     throw new Error(
       `The following segments are using this filter: ${segments.map(
-        (segment) => `\n - ${segment.name}`
-      )}`
+        (segment) => `\n - ${segment.name}`,
+      )}`,
     );
   }
 
@@ -436,7 +442,7 @@ export const deleteFactFilter = async (
 
 export const getFactMetrics = async (
   req: AuthRequest,
-  res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>
+  res: Response<{ status: 200; factMetrics: FactMetricInterface[] }>,
 ) => {
   const context = getContextFromReq(req);
 
@@ -450,7 +456,7 @@ export const getFactMetrics = async (
 
 export const postFactMetric = async (
   req: AuthRequest<unknown>,
-  res: Response<{ status: 200; factMetric: FactMetricInterface }>
+  res: Response<{ status: 200; factMetric: FactMetricInterface }>,
 ) => {
   const context = getContextFromReq(req);
   const data = context.models.factMetrics.createValidator.parse(req.body);
@@ -465,7 +471,7 @@ export const postFactMetric = async (
 
 export const putFactMetric = async (
   req: AuthRequest<unknown, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
   const data = context.models.factMetrics.updateValidator.parse(req.body);
@@ -479,7 +485,7 @@ export const putFactMetric = async (
 
 export const deleteFactMetric = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<{ status: 200 }>,
 ) => {
   const context = getContextFromReq(req);
 

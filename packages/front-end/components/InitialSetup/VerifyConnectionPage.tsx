@@ -22,7 +22,7 @@ import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConne
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 
@@ -81,7 +81,7 @@ const VerifyConnectionPage = ({
         setEventTracker(value);
       }
     },
-    [apiCall, canUpdate, currentConnection?.id]
+    [apiCall, canUpdate, currentConnection?.id],
   );
   const apiHost = currentConnection ? getApiBaseUrl(currentConnection) : "";
   const language = currentConnection?.languages[0] || "javascript";
@@ -89,7 +89,7 @@ const VerifyConnectionPage = ({
   const hashSecureAttributes = !!currentConnection?.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
-      ["secureString", "secureString[]"].includes(a.datatype)
+      ["secureString", "secureString[]"].includes(a.datatype),
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
 

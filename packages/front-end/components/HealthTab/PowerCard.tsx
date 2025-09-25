@@ -4,9 +4,9 @@ import { Box, Flex, Separator, Text, Tooltip } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiInfo, PiX } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
-import Link from "@/components/Radix/Link";
-import Callout from "@/components/Radix/Callout";
-import Button from "@/components/Radix/Button";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -26,9 +26,8 @@ export function PowerCard({
   const { mutate } = useSWRConfig();
   const { hasCommercialFeature } = useUser();
   const snapshotPower = snapshot.health?.power;
-  const hasMidExperimentPowerFeature = hasCommercialFeature(
-    "decision-framework"
-  );
+  const hasMidExperimentPowerFeature =
+    hasCommercialFeature("decision-framework");
 
   const phase = experiment.phases[snapshot.phase];
   const hasPowerData = snapshotPower !== undefined;
@@ -94,19 +93,19 @@ export function PowerCard({
         <li key="coverage">
           Consider increasing the traffic percentage above{" "}
           {phase.coverage * 100}%
-        </li>
+        </li>,
       );
     }
 
     if (snapshot.settings.variations.length > 2) {
       recommendations.push(
-        <li key="variations">Consider reducing the number of variations</li>
+        <li key="variations">Consider reducing the number of variations</li>,
       );
     }
 
     if (snapshot.settings.goalMetrics.length > 3) {
       recommendations.push(
-        <li key="metrics">Consider reducing the number of goal metrics</li>
+        <li key="metrics">Consider reducing the number of goal metrics</li>,
       );
     }
 
@@ -129,10 +128,10 @@ export function PowerCard({
   const content = !hasMidExperimentPowerFeature
     ? renderUpsell()
     : !hasPowerData
-    ? renderNoPowerData()
-    : !isLowPowered
-    ? renderHealthyExperiment()
-    : renderLowPowerRecommendations();
+      ? renderNoPowerData()
+      : !isLowPowered
+        ? renderHealthyExperiment()
+        : renderLowPowerRecommendations();
 
   return (
     <div id="power-card" style={{ scrollMarginTop: "100px" }}>

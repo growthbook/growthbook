@@ -9,13 +9,16 @@ import {
 import { useForm } from "react-hook-form";
 import { useState } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
+import { PiPlus, PiX } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -27,7 +30,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
 
   const [showDescription, setShowDescription] = useState(
-    !!existing?.description?.length
+    !!existing?.description?.length,
   );
 
   const { mutateDefinitions } = useDefinitions();
@@ -39,9 +42,48 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       name: existing?.name || "",
       numberFormat: existing?.numberFormat || "",
       datatype: existing?.datatype || "",
+      jsonFields: existing?.jsonFields || {},
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
     },
   });
+
+  const [newJSONField, setNewJSONField] = useState<{
+    adding: boolean;
+    key: string;
+    value: FactTableColumnType;
+  }>({
+    adding: false,
+    key: "",
+    value: "string",
+  });
+
+  const closeNewJSONField = () => {
+    setNewJSONField((v) => ({ ...v, adding: false, key: "" }));
+  };
+
+  const submitNewJSONField = () => {
+    if (newJSONField.key) {
+      form.setValue("jsonFields", {
+        ...form.watch("jsonFields"),
+        [newJSONField.key]: { datatype: newJSONField.value },
+      });
+      closeNewJSONField();
+    }
+  };
+
+  const updatedColumn: ColumnInterface = {
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    ...existing,
+    column: form.watch("column"),
+    name: form.watch("name"),
+    description: form.watch("description"),
+    numberFormat: form.watch("numberFormat"),
+    datatype: form.watch("datatype"),
+    jsonFields: form.watch("jsonFields"),
+    alwaysInlineFilter: form.watch("alwaysInlineFilter"),
+    deleted: false,
+  };
 
   return (
     <Modal
@@ -62,14 +104,21 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             alwaysInlineFilter: value.alwaysInlineFilter,
           };
 
-          if (
-            data.alwaysInlineFilter &&
-            !canInlineFilterColumn(factTable, {
-              ...existing,
-              ...data,
-            })
-          ) {
-            data.alwaysInlineFilter = false;
+          // If the column can no longer be inline filtered
+          if (data.alwaysInlineFilter) {
+            const updatedFactTable = {
+              ...factTable,
+              columns: factTable.columns.map((c) =>
+                c.column === existing.column ? { ...c, ...data } : c,
+              ),
+            };
+            if (!canInlineFilterColumn(updatedFactTable, existing.column)) {
+              data.alwaysInlineFilter = false;
+            }
+          }
+
+          if (data.datatype === "json") {
+            data.jsonFields = value.jsonFields;
           }
 
           await apiCall(
@@ -77,7 +126,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             {
               method: "PUT",
               body: JSON.stringify(data),
-            }
+            },
           );
         } else {
           await apiCall(`/fact-tables/${factTable.id}/column`, {
@@ -102,10 +151,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       <SelectField
         label="Data Type"
         value={form.watch("datatype")}
-        helpText="Only `number` data types can be used to create metrics"
         onChange={(f) => form.setValue("datatype", f as FactTableColumnType)}
         initialOption="Unknown"
         required
+        sort={false}
         options={[
           {
             label: "Number",
@@ -122,6 +171,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           {
             label: "Boolean",
             value: "boolean",
+          },
+          {
+            label: "JSON",
+            value: "json",
           },
           {
             label: "Other",
@@ -148,19 +201,164 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
               label: "Time (seconds)",
               value: "time:seconds",
             },
+            {
+              label: "Memory (bytes)",
+              value: "memory:bytes",
+            },
+            {
+              label: "Memory (kilobytes)",
+              value: "memory:kilobytes",
+            },
           ]}
         />
+      )}
+      {form.watch("datatype") === "json" && (
+        <div className="mb-3">
+          <label>JSON Fields</label>
+          {newJSONField.adding ||
+          Object.keys(form.watch("jsonFields") || {}).length > 0 ? (
+            <div
+              style={{ height: "200px", overflowY: "auto" }}
+              className="border mb-2"
+            >
+              <table className="table table-sm appbox gbtable mb-0">
+                <thead>
+                  <tr>
+                    <th style={{ position: "sticky", top: -1 }}>Field</th>
+                    <th style={{ position: "sticky", top: -1 }}>Data Type</th>
+                    <th style={{ position: "sticky", top: -1 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(form.watch("jsonFields") || {}).map(
+                    ([key, value]) => (
+                      <tr key={key}>
+                        <td>{key}</td>
+                        <td>{value.datatype}</td>
+                        <td>
+                          <a
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              const newFields = { ...form.watch("jsonFields") };
+                              delete newFields[key];
+                              form.setValue("jsonFields", newFields);
+                            }}
+                          >
+                            <PiX />
+                          </a>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                  {newJSONField.adding ? (
+                    <tr>
+                      <td colSpan={3}>
+                        <Flex gap="3" align="center">
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Field Key"
+                            value={newJSONField.key}
+                            onChange={(e) =>
+                              setNewJSONField({
+                                ...newJSONField,
+                                key: e.target.value,
+                              })
+                            }
+                            onKeyDown={(e) => {
+                              if (e.code === "Enter") {
+                                e.preventDefault();
+                                submitNewJSONField();
+                              } else if (e.code === "Escape") {
+                                e.preventDefault();
+                                closeNewJSONField();
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <div style={{ minWidth: 115 }}>
+                            <SelectField
+                              value={newJSONField.value}
+                              onChange={(f) =>
+                                setNewJSONField({
+                                  ...newJSONField,
+                                  value: f as FactTableColumnType,
+                                })
+                              }
+                              sort={false}
+                              options={[
+                                {
+                                  label: "Number",
+                                  value: "number",
+                                },
+                                {
+                                  label: "String",
+                                  value: "string",
+                                },
+                                {
+                                  label: "Date",
+                                  value: "date",
+                                },
+                                {
+                                  label: "Boolean",
+                                  value: "boolean",
+                                },
+                                {
+                                  label: "Other",
+                                  value: "other",
+                                },
+                              ]}
+                            />
+                          </div>
+                          <Flex gap="1">
+                            <Button
+                              onClick={submitNewJSONField}
+                              disabled={
+                                !newJSONField.key || !newJSONField.value
+                              }
+                            >
+                              Add
+                            </Button>
+                            <Button variant="ghost" onClick={closeNewJSONField}>
+                              cancel
+                            </Button>
+                          </Flex>
+                        </Flex>
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+          {!newJSONField.adding && (
+            <div>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setNewJSONField((v) => ({ ...v, adding: true }));
+                }}
+              >
+                <PiPlus /> Add
+              </a>
+            </div>
+          )}
+        </div>
       )}
       <Field
         label="Display Name"
         {...form.register("name")}
         placeholder={form.watch("column")}
       />
-      {canInlineFilterColumn(factTable, {
-        column: form.watch("column"),
-        datatype: form.watch("datatype"),
-        deleted: false,
-      }) && (
+      {canInlineFilterColumn(
+        {
+          ...factTable,
+          columns: [updatedColumn],
+        },
+        form.watch("column"),
+      ) && (
         <Checkbox
           value={form.watch("alwaysInlineFilter") ?? false}
           setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}

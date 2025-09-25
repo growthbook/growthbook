@@ -5,9 +5,8 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { ComputedExperimentInterface } from "back-end/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
@@ -27,22 +26,17 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import { useExperimentSearch } from "@/services/experiments";
 
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
-  const {
-    ready,
-    project,
-    getExperimentMetricById,
-    getProjectById,
-    getDatasourceById,
-  } = useDefinitions();
+  const { ready, project } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
 
@@ -56,58 +50,24 @@ const ExperimentsPage = (): React.ReactElement => {
   const tagsFilter = useTagsFilter("experiments");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyExperimentsOnly",
-    false
+    false,
   );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { getUserDisplay, userId, hasCommercialFeature } = useUser();
+  const { userId, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  const experiments = useAddComputedFields(
-    allExperiments,
-    (exp) => {
-      const projectId = exp.project;
-      const projectName = projectId ? getProjectById(projectId)?.name : "";
-      const projectIsDeReferenced = projectId && !projectName;
-
-      return {
-        ownerName: getUserDisplay(exp.owner, false) || "",
-        metricNames: exp.goalMetrics
-          .map((m) => getExperimentMetricById(m)?.name)
-          .filter(Boolean),
-        datasource: getDatasourceById(exp.datasource)?.name || "",
-        projectId,
-        projectName,
-        projectIsDeReferenced,
-        tab: exp.archived
-          ? "archived"
-          : exp.status === "draft"
-          ? "drafts"
-          : exp.status,
-        date:
-          (exp.archived
-            ? exp.dateUpdated
-            : exp.status === "running"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-            : exp.status === "stopped"
-            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-            : exp.dateCreated) ?? "",
-      };
-    },
-    [getExperimentMetricById, getProjectById, getUserDisplay]
-  );
-
   const { watchedExperiments } = useWatching();
 
   const filterResults = useCallback(
-    (items: typeof experiments) => {
+    (items: ComputedExperimentInterface[]) => {
       if (showMineOnly) {
         items = items.filter(
           (item) =>
-            item.owner === userId || watchedExperiments.includes(item.id)
+            item.owner === userId || watchedExperiments.includes(item.id),
         );
       }
 
@@ -115,80 +75,14 @@ const ExperimentsPage = (): React.ReactElement => {
 
       return items;
     },
-    [showMineOnly, userId, tagsFilter.tags, watchedExperiments]
+    [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: experiments,
-    localStorageKey: "experiments",
-    defaultSortField: "date",
-    defaultSortDir: -1,
-    searchFields: [
-      "name^3",
-      "trackingKey^2",
-      "id",
-      "hypothesis^2",
-      "description",
-      "tags",
-      "status",
-      "ownerName",
-      "metricNames",
-      "results",
-      "analysis",
-    ],
-    searchTermFilters: {
-      is: (item) => {
-        const is: string[] = [];
-        if (item.archived) is.push("archived");
-        if (item.status === "draft") is.push("draft");
-        if (item.status === "running") is.push("running");
-        if (item.status === "stopped") is.push("stopped");
-        if (item.results === "won") is.push("winner");
-        if (item.results === "lost") is.push("loser");
-        if (item.results === "inconclusive") is.push("inconclusive");
-        if (item.hasVisualChangesets) is.push("visual");
-        if (item.hasURLRedirects) is.push("redirect");
-        return is;
-      },
-      has: (item) => {
-        const has: string[] = [];
-        if (item.project) has.push("project");
-        if (item.hasVisualChangesets) {
-          has.push("visualChange", "visualChanges");
-        }
-        if (item.hasURLRedirects) has.push("redirect", "redirects");
-        if (item.linkedFeatures?.length) has.push("features", "feature");
-        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
-        if (item.description?.trim()?.length) has.push("description");
-        if (item.variations.some((v) => !!v.screenshots?.length)) {
-          has.push("screenshots");
-        }
-        return has;
-      },
-      variations: (item) => item.variations.length,
-      variation: (item) => item.variations.map((v) => v.name),
-      created: (item) => new Date(item.dateCreated),
-      updated: (item) => new Date(item.dateUpdated),
-      name: (item) => item.name,
-      key: (item) => item.trackingKey,
-      trackingKey: (item) => item.trackingKey,
-      id: (item) => [item.id, item.trackingKey],
-      status: (item) => item.status,
-      result: (item) =>
-        item.status === "stopped" ? item.results || "unfinished" : "unfinished",
-      owner: (item) => [item.owner, item.ownerName],
-      tag: (item) => item.tags,
-      project: (item) => [item.project, item.projectName],
-      feature: (item) => item.linkedFeatures || [],
-      datasource: (item) => item.datasource,
-      metric: (item) => [
-        ...item.metricNames,
-        ...getAllMetricIdsFromExperiment(item),
-      ],
-      goal: (item) => [...item.metricNames, ...item.goalMetrics],
-    },
-    filterResults,
-  });
+  const { items, searchInputProps, isFiltered, SortableTH } =
+    useExperimentSearch({
+      allExperiments,
+      filterResults,
+    });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -211,7 +105,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits"
+    "multi-armed-bandits",
   );
 
   // Reset to page 1 when a filter is applied or tabs change
@@ -230,7 +124,7 @@ const ExperimentsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasExperiments = experiments.length > 0;
+  const hasExperiments = allExperiments.length > 0;
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
 
@@ -254,7 +148,6 @@ const ExperimentsPage = (): React.ReactElement => {
           title="Run Adaptive Experiments with Bandits"
           description="Bandits automatically guide more traffic to better variants."
           commercialFeature="multi-armed-bandits"
-          reason="Bandit Experiments No Access"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
       </div>
@@ -381,10 +274,10 @@ const ExperimentsPage = (): React.ReactElement => {
                             active && tabs.length > 1
                               ? `Hide ${tab} experiments`
                               : active
-                              ? `Remove filter`
-                              : tabs.length === 0
-                              ? `View only ${tab} experiments`
-                              : `Include ${tab} experiments`
+                                ? `Remove filter`
+                                : tabs.length === 0
+                                  ? `View only ${tab} experiments`
+                                  : `Include ${tab} experiments`
                           }
                         >
                           <span className="mr-1">
@@ -398,7 +291,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           )}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
                 <div className="col-auto">
@@ -510,7 +403,7 @@ const ExperimentsPage = (): React.ReactElement => {
                                 </span>
                               </Tooltip>
                             ) : (
-                              e.projectName ?? <em>None</em>
+                              (e.projectName ?? <em>None</em>)
                             )}
                           </td>
                         )}
@@ -528,12 +421,12 @@ const ExperimentsPage = (): React.ReactElement => {
                           {e.tab === "running"
                             ? "started"
                             : e.tab === "drafts"
-                            ? "created"
-                            : e.tab === "stopped"
-                            ? "ended"
-                            : e.tab === "archived"
-                            ? "updated"
-                            : ""}{" "}
+                              ? "created"
+                              : e.tab === "stopped"
+                                ? "ended"
+                                : e.tab === "archived"
+                                  ? "updated"
+                                  : ""}{" "}
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Status:">

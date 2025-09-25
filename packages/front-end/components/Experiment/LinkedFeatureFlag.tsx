@@ -8,8 +8,8 @@ import { PiCheckCircleFill, PiWarningFill } from "react-icons/pi";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ForceSummary from "@/components/Features/ForceSummary";
-import Badge from "@/components/Radix/Badge";
-import Callout from "@/components/Radix/Callout";
+import Badge from "@/ui/Badge";
+import Callout from "@/ui/Callout";
 
 type Props = {
   info: LinkedFeatureInfo;
@@ -42,7 +42,7 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
     >
       <Box mt="2">
         <Flex width="100%" gap="4">
-          {info.state !== "locked" && (
+          {info.state !== "locked" && info.state !== "discarded" && (
             <Box width="33%">
               <Heading weight="bold" as="h4" size="3">
                 Environments
@@ -56,10 +56,10 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                           state === "active"
                             ? "The experiment is active in this environment"
                             : state === "disabled-env"
-                            ? "The environment is disabled for this feature, so the experiment is not active"
-                            : state === "disabled-rule"
-                            ? "The experiment is disabled in this environment and is not active"
-                            : "The experiment is not present in this environment"
+                              ? "The environment is disabled for this feature, so the experiment is not active"
+                              : state === "disabled-rule"
+                                ? "The experiment is disabled in this environment and is not active"
+                                : "The experiment is not present in this environment"
                         }
                       >
                         <Flex gap="3" display="inline-flex">
@@ -81,52 +81,60 @@ export default function LinkedFeatureFlag({ info, experiment, open }: Props) {
                         </Flex>
                       </Tooltip>
                     </Box>
-                  )
+                  ),
                 )}
               </Flex>
             </Box>
           )}
-
-          <Box flexGrow="1">
-            <Heading weight="bold" as="h4" size="3">
-              Feature values
-            </Heading>
-            <Box>
-              {orderedValues.map((v, j) => (
-                <Flex
-                  justify="between"
-                  width="100%"
-                  key={j}
-                  gap="4"
-                  py="2"
-                  my="2"
-                  style={{ borderBottom: "1px solid var(--slate-a4)" }}
-                >
+          {info.state !== "discarded" && (
+            <Box flexGrow="1">
+              <Heading weight="bold" as="h4" size="3">
+                Feature values
+              </Heading>
+              <Box>
+                {orderedValues.map((v, j) => (
                   <Flex
-                    align="center"
-                    gap="2"
-                    flexBasis="30%"
-                    flexShrink="0"
-                    className={`variation with-variation-label border-right-0 variation${j}`}
+                    justify="between"
+                    width="100%"
+                    key={j}
+                    gap="4"
+                    py="2"
+                    my="2"
+                    style={{ borderBottom: "1px solid var(--slate-a4)" }}
                   >
-                    <span className="label" style={{ width: 20, height: 20 }}>
-                      {j}
-                    </span>
-                    <span
-                      className="d-inline-block text-ellipsis"
-                      title={experiment.variations[j]?.name}
+                    <Flex
+                      align="center"
+                      gap="2"
+                      flexBasis="30%"
+                      flexShrink="0"
+                      className={`variation with-variation-label border-right-0 variation${j}`}
                     >
-                      {experiment.variations[j]?.name}
-                    </span>
+                      <span className="label" style={{ width: 20, height: 20 }}>
+                        {j}
+                      </span>
+                      <span
+                        className="d-inline-block text-ellipsis"
+                        title={experiment.variations[j]?.name}
+                      >
+                        {experiment.variations[j]?.name}
+                      </span>
+                    </Flex>
+                    <Box flexGrow="1">
+                      <ForceSummary value={v} feature={info.feature} />
+                    </Box>
                   </Flex>
-                  <Box flexGrow="1">
-                    <ForceSummary value={v} feature={info.feature} />
-                  </Box>
-                </Flex>
-              ))}
+                ))}
+              </Box>
             </Box>
-          </Box>
+          )}
         </Flex>
+
+        {info.state === "discarded" && (
+          <Callout status="info">
+            This experiment was linked to this feature in the past, but is no
+            longer live.
+          </Callout>
+        )}
 
         {(info.state === "live" || info.state === "draft") && (
           <>

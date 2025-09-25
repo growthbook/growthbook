@@ -107,7 +107,7 @@ export default function BanditSummaryTooltip({
   const meanText = data.metric
     ? getExperimentMetricFormatter(data.metric, getFactTableById)(
         data.stats.cr ?? 0,
-        metricFormatterOptions
+        metricFormatterOptions,
       )
     : (data.stats.cr ?? 0) + "";
 
@@ -117,16 +117,16 @@ export default function BanditSummaryTooltip({
       {data.metric
         ? getExperimentMetricFormatter(data.metric, getFactTableById)(
             data.stats.ci?.[0] ?? 0,
-            metricFormatterOptions
+            metricFormatterOptions,
           )
-        : data.stats.ci?.[0] ?? 0}
+        : (data.stats.ci?.[0] ?? 0)}
       ,{" "}
       {data.metric
         ? getExperimentMetricFormatter(data.metric, getFactTableById)(
             data.stats.ci?.[1] ?? 0,
-            metricFormatterOptions
+            metricFormatterOptions,
           )
-        : data.stats.ci?.[1] ?? 0}
+        : (data.stats.ci?.[1] ?? 0)}
       ]
     </>
   );
@@ -134,10 +134,10 @@ export default function BanditSummaryTooltip({
     data.layoutX === "element-right"
       ? "3%"
       : data.layoutX === "element-left"
-      ? "97%"
-      : data.layoutX === "element-center"
-      ? "50%"
-      : "50%";
+        ? "97%"
+        : data.layoutX === "element-center"
+          ? "50%"
+          : "50%";
 
   return (
     <div
@@ -229,7 +229,7 @@ export default function BanditSummaryTooltip({
           <div
             className={clsx(
               "results-overview mt-2 px-3 pb-2 rounded position-relative",
-              data.status
+              data.status,
             )}
             style={{ paddingTop: 12 }}
           >
@@ -237,7 +237,7 @@ export default function BanditSummaryTooltip({
               <div
                 className={clsx(
                   "results-status position-absolute d-flex align-items-center",
-                  data.status
+                  data.status,
                 )}
               >
                 <Tooltip

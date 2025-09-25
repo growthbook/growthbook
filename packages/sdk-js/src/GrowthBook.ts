@@ -28,6 +28,7 @@ import type {
   StickyAssignmentsDocument,
   EventLogger,
   LogUnion,
+  DestroyOptions,
 } from "./types/growthbook";
 import {
   decrypt,
@@ -38,6 +39,7 @@ import {
   promiseTimeout,
 } from "./util";
 import {
+  clearAutoRefresh,
   configureCache,
   refreshFeatures,
   startStreaming,
@@ -50,7 +52,10 @@ import {
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
   getApiHosts,
+  getExperimentDedupeKey,
+  getStickyBucketAttributes,
 } from "./core";
+import { StickyBucketServiceSync } from "./sticky-bucket-service";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -59,7 +64,7 @@ const SDK_VERSION = loadSDKVersion();
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AppFeatures extends Record<string, any> = Record<string, any>
+  AppFeatures extends Record<string, any> = Record<string, any>,
 > {
   // context is technically private, but some tools depend on it so we can't mangle the name
   private context: Options;
@@ -85,9 +90,6 @@ export class GrowthBook<
       result: Result<any>;
     }
   >;
-  // eslint-disable-next-line
-  private _forcedFeatureValues: Map<string, any> | undefined;
-  private _attributeOverrides: Attributes;
   private _activeAutoExperiments: Map<
     AutoExperiment,
     { valueHash: string; undo: () => void }
@@ -120,7 +122,6 @@ export class GrowthBook<
     this._subscriptions = new Set();
     this.ready = false;
     this._assigned = new Map();
-    this._attributeOverrides = {};
     this._activeAutoExperiments = new Map();
     this._triggeredExpKeys = new Set();
     this._initialized = false;
@@ -131,9 +132,8 @@ export class GrowthBook<
     this.logs = [];
 
     this.log = this.log.bind(this);
-    this._track = this._track.bind(this);
     this._saveDeferredTrack = this._saveDeferredTrack.bind(this);
-    this._trackFeatureUsage = this._trackFeatureUsage.bind(this);
+    this._onExperimentEval = this._onExperimentEval.bind(this);
     this._fireSubscriptions = this._fireSubscriptions.bind(this);
     this._recordChangedId = this._recordChangedId.bind(this);
 
@@ -147,7 +147,7 @@ export class GrowthBook<
       let isGbHost = false;
       try {
         isGbHost = !!new URL(options.apiHost || "").hostname.match(
-          /growthbook\.io$/i
+          /growthbook\.io$/i,
         );
       } catch (e) {
         // ignore invalid URLs
@@ -241,9 +241,11 @@ export class GrowthBook<
       this._options.stickyBucketService &&
       !this._options.stickyBucketAssignmentDocs
     ) {
-      throw new Error(
-        "initSync requires you to pass stickyBucketAssignmentDocs into the GrowthBook constructor"
-      );
+      this._options.stickyBucketAssignmentDocs =
+        this.generateStickyBucketAssignmentDocsSync(
+          this._options.stickyBucketService as StickyBucketServiceSync,
+          payload,
+        );
     }
 
     this._payload = payload;
@@ -302,7 +304,7 @@ export class GrowthBook<
   }
 
   public async refreshFeatures(
-    options?: RefreshFeaturesOptions
+    options?: RefreshFeaturesOptions,
   ): Promise<void> {
     const res = await this._refresh({
       ...(options || {}),
@@ -385,15 +387,15 @@ export class GrowthBook<
   public async setEncryptedFeatures(
     encryptedString: string,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<void> {
     const featuresJSON = await decrypt(
       encryptedString,
       decryptionKey || this._options.decryptionKey,
-      subtle
+      subtle,
     );
     this.setFeatures(
-      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>
+      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>,
     );
   }
 
@@ -408,12 +410,12 @@ export class GrowthBook<
   public async setEncryptedExperiments(
     encryptedString: string,
     decryptionKey?: string,
-    subtle?: SubtleCrypto
+    subtle?: SubtleCrypto,
   ): Promise<void> {
     const experimentsJSON = await decrypt(
       encryptedString,
       decryptionKey || this._options.decryptionKey,
-      subtle
+      subtle,
     );
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
@@ -436,7 +438,7 @@ export class GrowthBook<
   }
 
   public async setAttributeOverrides(overrides: Attributes) {
-    this._attributeOverrides = overrides;
+    this._options.attributeOverrides = overrides;
     if (this._options.stickyBucketService) {
       await this.refreshStickyBuckets();
     }
@@ -460,7 +462,7 @@ export class GrowthBook<
 
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
-    this._forcedFeatureValues = map;
+    this._options.forcedFeatureValues = map;
     this._render();
   }
 
@@ -477,7 +479,7 @@ export class GrowthBook<
   }
 
   public getAttributes() {
-    return { ...this._options.attributes, ...this._attributeOverrides };
+    return { ...this._options.attributes, ...this._options.attributeOverrides };
   }
 
   public getForcedVariations() {
@@ -486,7 +488,7 @@ export class GrowthBook<
 
   public getForcedFeatures() {
     // eslint-disable-next-line
-    return this._forcedFeatureValues || new Map<string, any>();
+    return this._options.forcedFeatureValues || new Map<string, any>();
   }
 
   public getStickyBucketAssignmentDocs() {
@@ -539,7 +541,8 @@ export class GrowthBook<
     return !!this._destroyed;
   }
 
-  public destroy() {
+  public destroy(options?: DestroyOptions) {
+    options = options || {};
     this._destroyed = true;
 
     // Custom callbacks
@@ -563,6 +566,9 @@ export class GrowthBook<
     this._payload = undefined;
     this._saveStickyBucketAssignmentDoc = undefined;
     unsubscribe(this);
+    if (options.destroyAllStreams) {
+      clearAutoRefresh();
+    }
     this.logs = [];
 
     if (isBrowser && window._growthbook === this) {
@@ -594,7 +600,7 @@ export class GrowthBook<
 
   public run<T>(experiment: Experiment<T>): Result<T> {
     const { result } = runExperiment(experiment, null, this._getEvalContext());
-    this._fireSubscriptions(experiment, result);
+    this._onExperimentEval(experiment, result);
     return result;
   }
 
@@ -602,7 +608,7 @@ export class GrowthBook<
     this._triggeredExpKeys.add(key);
     if (!this._options.experiments) return null;
     const experiments = this._options.experiments.filter(
-      (exp) => exp.key === key
+      (exp) => exp.key === key,
     );
     return experiments
       .map((exp) => {
@@ -631,19 +637,22 @@ export class GrowthBook<
       attributes: this._options.user
         ? {
             ...this._options.user,
-            ...this.getAttributes(),
+            ...this._options.attributes,
           }
-        : this.getAttributes(),
+        : this._options.attributes,
+      enableDevMode: this._options.enableDevMode,
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
       url: this._getContextUrl(),
       forcedVariations: this._options.forcedVariations,
-      forcedFeatureValues: this._forcedFeatureValues,
+      forcedFeatureValues: this._options.forcedFeatureValues,
+      attributeOverrides: this._options.attributeOverrides,
       saveStickyBucketAssignmentDoc: this._saveStickyBucketAssignmentDoc,
-      trackingCallback: this._options.trackingCallback
-        ? this._track
-        : undefined,
-      onFeatureUsage: this._trackFeatureUsage,
+      trackingCallback: this._options.trackingCallback,
+      onFeatureUsage: this._options.onFeatureUsage,
+      devLogs: this.logs,
+      trackedExperiments: this._trackedExperiments,
+      trackedFeatureUsage: this._trackedFeatures,
     };
   }
   private _getGlobalContext(): GlobalContext {
@@ -656,8 +665,7 @@ export class GrowthBook<
       savedGroups: this._options.savedGroups,
       groups: this._options.groups,
       overrides: this._options.overrides,
-      onExperimentEval:
-        this._subscriptions.size > 0 ? this._fireSubscriptions : undefined,
+      onExperimentEval: this._onExperimentEval,
       recordChangeId: this._recordChangedId,
       saveDeferredTrack: this._saveDeferredTrack,
       eventLogger: this._options.eventLogger,
@@ -692,15 +700,15 @@ export class GrowthBook<
         experiment,
         -1,
         false,
-        ""
+        "",
       );
     } else {
       ({ result, trackingCall } = runExperiment(
         experiment,
         null,
-        this._getEvalContext()
+        this._getEvalContext(),
       ));
-      this._fireSubscriptions(experiment, result);
+      this._onExperimentEval(experiment, result);
     }
 
     // A hash to quickly tell if the assigned value changed
@@ -737,7 +745,7 @@ export class GrowthBook<
             "Skipping redirect because original URL matches redirect URL",
             {
               id: experiment.key,
-            }
+            },
           );
           return result;
         }
@@ -751,12 +759,15 @@ export class GrowthBook<
                 ? [
                     promiseTimeout(
                       trackingCall,
-                      this._options.maxNavigateDelay ?? 1000
+                      this._options.maxNavigateDelay ?? 1000,
                     ),
                   ]
                 : []),
               new Promise((resolve) =>
-                window.setTimeout(resolve, this._options.navigateDelay ?? delay)
+                window.setTimeout(
+                  resolve,
+                  this._options.navigateDelay ?? delay,
+                ),
               ),
             ]).then(() => {
               try {
@@ -825,18 +836,27 @@ export class GrowthBook<
     }
   }
 
-  private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
-    const key = experiment.key;
+  private _onExperimentEval<T>(experiment: Experiment<T>, result: Result<T>) {
+    const prev = this._assigned.get(experiment.key);
+    this._assigned.set(experiment.key, { experiment, result });
+    if (this._subscriptions.size > 0) {
+      this._fireSubscriptions<T>(experiment, result, prev);
+    }
+  }
 
+  private _fireSubscriptions<T>(
+    experiment: Experiment<T>,
+    result: Result<T>,
+    // eslint-disable-next-line
+    prev?: { experiment: Experiment<any>; result: Result<any> },
+  ) {
     // If assigned variation has changed, fire subscriptions
-    const prev = this._assigned.get(key);
     // TODO: what if the experiment definition has changed?
     if (
       !prev ||
       prev.result.inExperiment !== result.inExperiment ||
       prev.result.variationId !== result.variationId
     ) {
-      this._assigned.set(key, { experiment, result });
       this._subscriptions.forEach((cb) => {
         try {
           cb(experiment, result);
@@ -851,31 +871,6 @@ export class GrowthBook<
     this._completedChangeIds.add(id);
   }
 
-  private _trackFeatureUsage(key: string, res: FeatureResult): void {
-    // Only track a feature once, unless the assigned value changed
-    const stringifiedValue = JSON.stringify(res.value);
-    if (this._trackedFeatures[key] === stringifiedValue) return;
-    this._trackedFeatures[key] = stringifiedValue;
-
-    if (this._options.enableDevMode) {
-      this.logs.push({
-        featureKey: key,
-        result: res,
-        timestamp: Date.now().toString(),
-        logType: "feature",
-      });
-    }
-
-    // Fire user-supplied callback
-    if (this._options.onFeatureUsage) {
-      try {
-        this._options.onFeatureUsage(key, res);
-      } catch (e) {
-        // Ignore feature usage callback errors
-      }
-    }
-  }
-
   public isOn<K extends string & keyof AppFeatures = string>(key: K): boolean {
     return this.evalFeature(key).on;
   }
@@ -886,7 +881,7 @@ export class GrowthBook<
 
   public getFeatureValue<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(key: K, defaultValue: V): WidenPrimitives<V> {
     const value = this.evalFeature<WidenPrimitives<V>, K>(key).value;
     return value === null ? (defaultValue as WidenPrimitives<V>) : value;
@@ -899,14 +894,14 @@ export class GrowthBook<
   // eslint-disable-next-line
   public feature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return this.evalFeature(id);
   }
 
   public evalFeature<
     V extends AppFeatures[K],
-    K extends string & keyof AppFeatures = string
+    K extends string & keyof AppFeatures = string,
   >(id: K): FeatureResult<V | null> {
     return _evalFeature(id, this._getEvalContext());
   }
@@ -926,8 +921,8 @@ export class GrowthBook<
       calls
         .filter((c) => c && c.experiment && c.result)
         .map((c) => {
-          return [this._getTrackKey(c.experiment, c.result), c];
-        })
+          return [getExperimentDedupeKey(c.experiment, c.result), c];
+        }),
     );
   }
 
@@ -939,7 +934,12 @@ export class GrowthBook<
       if (!call || !call.experiment || !call.result) {
         console.error("Invalid deferred tracking call", { call: call });
       } else {
-        promises.push(this._track(call.experiment, call.result));
+        promises.push(
+          (this._options.trackingCallback as TrackingCallback)(
+            call.experiment,
+            call.result,
+          ),
+        );
       }
     });
     this._deferredTrackingCalls.clear();
@@ -957,7 +957,7 @@ export class GrowthBook<
 
   public async logEvent(
     eventName: string,
-    properties?: Record<string, unknown>
+    properties?: Record<string, unknown>,
   ) {
     if (this._destroyed) {
       console.error("Cannot log event to destroyed GrowthBook instance");
@@ -976,7 +976,7 @@ export class GrowthBook<
         await this._options.eventLogger(
           eventName,
           properties || {},
-          this._getUserContext()
+          this._getUserContext(),
         );
       } catch (e) {
         console.error(e);
@@ -986,48 +986,11 @@ export class GrowthBook<
     }
   }
 
-  private _getTrackKey(
-    experiment: Experiment<unknown>,
-    result: Result<unknown>
-  ) {
-    return (
-      result.hashAttribute +
-      result.hashValue +
-      experiment.key +
-      result.variationId
-    );
-  }
-
   private _saveDeferredTrack(data: TrackingData) {
     this._deferredTrackingCalls.set(
-      this._getTrackKey(data.experiment, data.result),
-      data
+      getExperimentDedupeKey(data.experiment, data.result),
+      data,
     );
-  }
-
-  private async _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    const k = this._getTrackKey(experiment, result);
-
-    // Make sure a tracking callback is only fired once per unique experiment
-    if (this._trackedExperiments.has(k)) return;
-    this._trackedExperiments.add(k);
-
-    if (this._options.enableDevMode) {
-      this.logs.push({
-        experiment,
-        result,
-        timestamp: Date.now().toString(),
-        logType: "experiment",
-      });
-    }
-
-    if (!this._options.trackingCallback) return;
-
-    try {
-      await this._options.trackingCallback(experiment, result);
-    } catch (e) {
-      console.error(e);
-    }
   }
 
   private _getContextUrl() {
@@ -1035,7 +998,7 @@ export class GrowthBook<
   }
 
   private _isAutoExperimentBlockedByContext(
-    experiment: AutoExperiment
+    experiment: AutoExperiment,
   ): boolean {
     const changeType = getAutoExperimentChangeType(experiment);
     if (changeType === "visual") {
@@ -1146,10 +1109,29 @@ export class GrowthBook<
       const docs = await getAllStickyBucketAssignmentDocs(
         ctx,
         this._options.stickyBucketService,
-        data
+        data,
       );
       this._options.stickyBucketAssignmentDocs = docs;
     }
+  }
+
+  public generateStickyBucketAssignmentDocsSync(
+    stickyBucketService: StickyBucketServiceSync,
+    payload: FeatureApiResponse,
+  ) {
+    if (!("getAllAssignmentsSync" in stickyBucketService)) {
+      console.error(
+        "generating StickyBucketAssignmentDocs docs requires StickyBucketServiceSync",
+      );
+      return;
+    }
+    const ctx = this._getEvalContext();
+    const attributes = getStickyBucketAttributes(ctx, payload);
+    return stickyBucketService.getAllAssignmentsSync(attributes);
+  }
+
+  public inDevMode(): boolean {
+    return !!this._options.enableDevMode;
   }
 }
 

@@ -6,7 +6,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { filterEnvironmentsByFeature, isFeatureStale } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ImBlocked } from "react-icons/im";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
@@ -27,9 +28,12 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
-import Callout from "@/components/Radix/Callout";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import Link from "@/ui/Link";
+import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
   feature,
@@ -40,6 +44,8 @@ export default function FeaturesHeader({
   setTab,
   setEditFeatureInfoModal,
   dependents,
+  holdout,
+  dependentExperiments,
 }: {
   feature: FeatureInterface;
   features: FeatureInterface[];
@@ -49,6 +55,8 @@ export default function FeaturesHeader({
   setTab: (tab: FeatureTab) => void;
   setEditFeatureInfoModal: (open: boolean) => void;
   dependents: number;
+  holdout: HoldoutInterface | undefined;
+  dependentExperiments: ExperimentInterfaceStringDates[];
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -56,9 +64,10 @@ export default function FeaturesHeader({
   const [auditModal, setAuditModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
   const [staleFFModal, setStaleFFModal] = useState(false);
+  const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
 
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -69,6 +78,10 @@ export default function FeaturesHeader({
     project: currentProject,
     projects,
   } = useDefinitions();
+  const { holdouts } = useHoldouts(feature.project);
+  const hasHoldoutsFeature = hasCommercialFeature("holdouts");
+  const holdoutsEnabled =
+    useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
 
   const { stale, reason } = useMemo(() => {
     if (!feature) return { stale: false };
@@ -76,9 +89,10 @@ export default function FeaturesHeader({
       feature,
       features,
       experiments,
+      dependentExperiments,
       environments: envs,
     });
-  }, [feature, features, experiments, envs]);
+  }, [feature, features, experiments, dependentExperiments, envs]);
 
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
@@ -113,8 +127,8 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center">
-              <Heading size="7" as="h1">
+            <Flex align="center" mb="2">
+              <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
               {stale && (
@@ -176,6 +190,22 @@ export default function FeaturesHeader({
                     </a>
                   </>
                 )}
+                {canEdit &&
+                  canPublish &&
+                  holdoutsEnabled &&
+                  holdouts.length > 0 &&
+                  !holdout?.id && (
+                    <a
+                      className="dropdown-item"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setAddToHoldoutModal(true);
+                      }}
+                    >
+                      Add to holdout
+                    </a>
+                  )}
                 {canEdit && canPublish && (
                   <a
                     className="dropdown-item"
@@ -189,75 +219,58 @@ export default function FeaturesHeader({
                   </a>
                 )}
                 {canEdit && canPublish && (
-                  <Tooltip
-                    shouldDisplay={dependents > 0}
-                    usePortal={true}
-                    body={
-                      <div style={{ zIndex: 1050 }}>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>
-                        . This feature cannot be archived until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
-                      </div>
+                  <ConfirmButton
+                    onClick={async () => {
+                      await apiCall(`/feature/${feature.id}/archive`, {
+                        method: "POST",
+                      });
+                      mutate();
+                    }}
+                    modalHeader={
+                      isArchived ? "Unarchive Feature" : "Archive Feature"
+                    }
+                    confirmationText={
+                      isArchived ? (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature active again.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            Are you sure you want to continue? This will make
+                            the current feature inactive. It will not be
+                            included in API responses or Webhook payloads.
+                          </p>
+                        </>
+                      )
+                    }
+                    cta={isArchived ? "Unarchive" : "Archive"}
+                    ctaColor="danger"
+                    ctaEnabled={dependents === 0}
+                    additionalMessage={
+                      dependents > 0 ? (
+                        <Callout status="error">
+                          This feature has{" "}
+                          <strong>
+                            {dependents} dependent{dependents !== 1 && "s"}
+                          </strong>
+                          . This feature cannot be archived until{" "}
+                          {dependents === 1 ? "it has" : "they have"} been
+                          removed.
+                        </Callout>
+                      ) : undefined
                     }
                   >
-                    <ConfirmButton
-                      onClick={async () => {
-                        await apiCall(`/feature/${feature.id}/archive`, {
-                          method: "POST",
-                        });
-                        mutate();
-                      }}
-                      modalHeader={
-                        isArchived ? "Unarchive Feature" : "Archive Feature"
-                      }
-                      confirmationText={
-                        isArchived ? (
-                          <>
-                            <p>
-                              Are you sure you want to continue? This will make
-                              the current feature active again.
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p>
-                              Are you sure you want to continue? This will make
-                              the current feature inactive. It will not be
-                              included in API responses or Webhook payloads.
-                            </p>
-                          </>
-                        )
-                      }
-                      cta={isArchived ? "Unarchive" : "Archive"}
-                      ctaColor="danger"
-                      disabled={dependents > 0}
-                    >
-                      <button className="dropdown-item">
-                        {isArchived ? "Unarchive" : "Archive"}
-                      </button>
-                    </ConfirmButton>
-                  </Tooltip>
+                    <button className="dropdown-item">
+                      {isArchived ? "Unarchive" : "Archive"}
+                    </button>
+                  </ConfirmButton>
                 )}
                 {canEdit && canPublish && (
-                  <Tooltip
-                    shouldDisplay={dependents > 0}
-                    usePortal={true}
-                    body={
-                      <div style={{ zIndex: 1090, position: "relative" }}>
-                        <ImBlocked className="text-danger" /> This feature has{" "}
-                        <strong>
-                          {dependents} dependent{dependents !== 1 && "s"}
-                        </strong>
-                        . This feature cannot be deleted until{" "}
-                        {dependents === 1 ? "it has" : "they have"} been
-                        removed.
-                      </div>
-                    }
-                  >
+                  <>
                     <hr className="my-2" />
                     <DeleteButton
                       useIcon={false}
@@ -270,14 +283,34 @@ export default function FeaturesHeader({
                       }}
                       className="dropdown-item text-danger"
                       text="Delete"
-                      disabled={dependents > 0}
+                      canDelete={dependents === 0}
+                      additionalMessage={
+                        dependents > 0 ? (
+                          <Callout status="error">
+                            This feature has{" "}
+                            <strong>
+                              {dependents} dependent{dependents !== 1 && "s"}
+                            </strong>
+                            . This feature cannot be deleted until{" "}
+                            {dependents === 1 ? "it has" : "they have"} been
+                            removed.
+                          </Callout>
+                        ) : undefined
+                      }
                     />
-                  </Tooltip>
+                  </>
                 )}
               </MoreMenu>
             </Box>
           </Flex>
           <Flex gap="4">
+            {holdout?.id && (
+              <Box>
+                <Text weight="medium">Holdout: </Text>
+                <Link href={`/holdout/${holdout.id}`}>{holdout.name}</Link>
+              </Box>
+            )}
+
             {(projects.length > 0 || projectIsDeReferenced) && (
               <Box>
                 <Text weight="medium">Project: </Text>
@@ -410,6 +443,13 @@ export default function FeaturesHeader({
           close={() => {
             setShowImplementation(false);
           }}
+        />
+      )}
+      {addToHoldoutModal && (
+        <AddToHoldoutModal
+          close={() => setAddToHoldoutModal(false)}
+          feature={feature}
+          mutate={mutate}
         />
       )}
     </>

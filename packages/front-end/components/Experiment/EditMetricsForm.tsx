@@ -20,6 +20,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
+import PremiumCallout from "@/ui/PremiumCallout";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -36,7 +37,7 @@ export interface EditMetricsFormInterface {
 export function getDefaultMetricOverridesFormValue(
   overrides: MetricOverride[],
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null,
-  settings: OrganizationSettings
+  settings: OrganizationSettings,
 ) {
   const defaultMetricOverrides = cloneDeep(overrides);
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
@@ -56,7 +57,7 @@ export function getDefaultMetricOverridesFormValue(
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
       const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
+        defaultMetricOverrides[i].id,
       );
       if (metricDefinition?.regressionAdjustmentOverride) {
         defaultMetricOverrides[i].regressionAdjustmentDays =
@@ -72,7 +73,7 @@ export function getDefaultMetricOverridesFormValue(
       isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN)
     ) {
       const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id
+        defaultMetricOverrides[i].id,
       );
       const defaultValues = metricDefinition?.priorSettings?.override
         ? {
@@ -132,9 +133,8 @@ const EditMetricsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
@@ -144,10 +144,11 @@ const EditMetricsForm: FC<{
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
     getExperimentMetricById,
-    settings
+    settings,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
@@ -166,7 +167,6 @@ const EditMetricsForm: FC<{
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To override metric conversion windows,"
         source="override-metrics"
         commercialFeature="override-metrics"
       />
@@ -209,12 +209,29 @@ const EditMetricsForm: FC<{
         setSecondaryMetrics={(secondaryMetrics) =>
           form.setValue("secondaryMetrics", secondaryMetrics)
         }
-        setGuardrailMetrics={(guardrailMetrics) =>
-          form.setValue("guardrailMetrics", guardrailMetrics)
+        setGuardrailMetrics={
+          !isHoldout
+            ? (guardrailMetrics) =>
+                form.setValue("guardrailMetrics", guardrailMetrics)
+            : undefined
         }
+        filterConversionWindowMetrics={isHoldout}
       />
+      {/* If the org has the feature, we render a callout within MetricsSelector */}
+      {!hasCommercialFeature("metric-groups") ? (
+        <PremiumCallout
+          commercialFeature="metric-groups"
+          dismissable={true}
+          id="metrics-list-metric-group-promo"
+          docSection="metricGroups"
+          mb="4"
+        >
+          <strong>Metric Groups</strong> make it possible to reuse sets of
+          metrics in your experiments.
+        </PremiumCallout>
+      ) : null}
 
-      {!(isBandit && experiment.status === "running") && (
+      {!isHoldout && !(isBandit && experiment.status === "running") ? (
         <>
           <div className="form-group">
             <label className="font-weight-bold mb-1">Activation Metric</label>
@@ -265,7 +282,7 @@ const EditMetricsForm: FC<{
             )}
           </div>
         </>
-      )}
+      ) : null}
     </Modal>
   );
 };

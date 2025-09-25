@@ -14,5 +14,7 @@ export function toSegmentApiInterface(segment: SegmentInterface): ApiSegment {
     filters: segment.filters || [],
     dateCreated: segment.dateCreated?.toISOString() || "",
     dateUpdated: segment.dateUpdated?.toISOString() || "",
+    managedBy: segment.managedBy || "",
+    projects: segment.projects || [],
   };
 }

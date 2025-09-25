@@ -8,6 +8,7 @@ import {
 } from "shared/constants";
 import { isUndefined } from "lodash";
 import {
+  expandMetricGroups,
   getConversionWindowHours,
   getDelayWindowHours,
   isBinomialMetric,
@@ -53,6 +54,7 @@ export default function MetricsOverridesSelector({
   const {
     metrics: metricDefinitions,
     factMetrics: factMetricDefinitions,
+    metricGroups,
     getExperimentMetricById,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -60,19 +62,26 @@ export default function MetricsOverridesSelector({
 
   const allMetricDefinitions = useMemo(
     () => [...metricDefinitions, ...factMetricDefinitions],
-    [metricDefinitions, factMetricDefinitions]
+    [metricDefinitions, factMetricDefinitions],
   );
 
-  const metrics = new Set<string>(
+  const unexpandedMetrics = new Set<string>(
     form
       .watch(fieldMap["goalMetrics"])
       .concat(form.watch(fieldMap["guardrailMetrics"]))
-      .concat(form.watch(fieldMap["secondaryMetrics"]))
+      .concat(form.watch(fieldMap["secondaryMetrics"])),
   );
+
+  // expand metric groups
   const activationMetric = form.watch(fieldMap["activationMetric"]);
   if (activationMetric) {
-    metrics.add(activationMetric);
+    unexpandedMetrics.add(activationMetric);
   }
+
+  const expandedMetrics = expandMetricGroups(
+    Array.from(unexpandedMetrics),
+    metricGroups,
+  );
 
   const metricOverrides = useFieldArray({
     control: form.control,
@@ -80,10 +89,10 @@ export default function MetricsOverridesSelector({
   });
 
   const usedMetrics: Set<string> = new Set(
-    form.watch(fieldMap["metricOverrides"]).map((m) => m.id)
+    form.watch(fieldMap["metricOverrides"]).map((m) => m.id),
   );
-  const unusedMetrics: string[] = [...metrics].filter(
-    (m) => !usedMetrics.has(m)
+  const unusedMetrics: string[] = [...expandedMetrics].filter(
+    (m) => !usedMetrics.has(m),
   );
 
   useEffect(() => {
@@ -92,7 +101,7 @@ export default function MetricsOverridesSelector({
       metricOverrides.fields.map((v, i) => {
         const mo = form.watch(`${fieldMap["metricOverrides"]}.${i}`);
         const metricDefinition = allMetricDefinitions.find(
-          (md) => md.id === mo.id
+          (md) => md.id === mo.id,
         );
 
         const loseRisk =
@@ -127,7 +136,7 @@ export default function MetricsOverridesSelector({
         metricOverrides.fields.map((v, i) => {
           const mo = form.watch(`${fieldMap["metricOverrides"]}.${i}`);
           const metricDefinition = allMetricDefinitions.find(
-            (md) => md.id === mo.id
+            (md) => md.id === mo.id,
           );
 
           const defaultPriorSource = metricDefinition?.priorSettings.override
@@ -135,21 +144,21 @@ export default function MetricsOverridesSelector({
             : "organization";
           const defaultPriorSettings = metricDefinition?.priorSettings.override
             ? metricDefinition.priorSettings
-            : settings.metricDefaults?.priorSettings ?? {
+            : (settings.metricDefaults?.priorSettings ?? {
                 override: false,
                 proper: false,
                 mean: 0,
                 stddev: DEFAULT_PROPER_PRIOR_STDDEV,
-              };
+              });
 
           const hasRegressionAdjustmentFeature = hasCommercialFeature(
-            "regression-adjustment"
+            "regression-adjustment",
           );
           let regressionAdjustmentAvailableForMetric = true;
           let regressionAdjustmentAvailableForMetricReason = <></>;
           if (metricDefinition?.denominator) {
             const denominator = allMetricDefinitions.find(
-              (m) => m.id === metricDefinition.denominator
+              (m) => m.id === metricDefinition.denominator,
             );
             if (
               denominator &&
@@ -205,9 +214,9 @@ export default function MetricsOverridesSelector({
             mo.regressionAdjustmentDays > 28
               ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
               : !isUndefined(mo.regressionAdjustmentDays) &&
-                mo.regressionAdjustmentDays < 7
-              ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
-              : "";
+                  mo.regressionAdjustmentDays < 7
+                ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+                : "";
 
           return (
             <div className="appbox px-3 pt-1 bg-light" key={i}>
@@ -250,13 +259,14 @@ export default function MetricsOverridesSelector({
                           placeholder={`${
                             metricDefinition?.windowSettings?.type !== undefined
                               ? capitalizeFirstLetter(
-                                  metricDefinition.windowSettings.type || "none"
+                                  metricDefinition.windowSettings.type ||
+                                    "none",
                                 )
                               : ""
                           } (default)`}
                           value={
                             form.watch(
-                              `${fieldMap["metricOverrides"]}.${i}.windowType`
+                              `${fieldMap["metricOverrides"]}.${i}.windowType`,
                             ) ??
                             metricDefinition?.windowSettings?.type ??
                             ""
@@ -264,7 +274,7 @@ export default function MetricsOverridesSelector({
                           onChange={(value) => {
                             form.setValue(
                               `${fieldMap["metricOverrides"]}.${i}.windowType`,
-                              value as "conversion" | "lookback" | ""
+                              value as "conversion" | "lookback" | "",
                             );
                           }}
                           sort={false}
@@ -295,7 +305,7 @@ export default function MetricsOverridesSelector({
                         />
                       </div>
                       {(form.watch(
-                        `${fieldMap["metricOverrides"]}.${i}.windowType`
+                        `${fieldMap["metricOverrides"]}.${i}.windowType`,
                       ) ?? metricDefinition?.windowSettings?.type) ===
                         "conversion" ||
                       (metricDefinition &&
@@ -315,7 +325,7 @@ export default function MetricsOverridesSelector({
                                   default:{" "}
                                   {metricDefinition?.windowSettings
                                     ? getDelayWindowHours(
-                                        metricDefinition.windowSettings
+                                        metricDefinition.windowSettings,
                                       )
                                     : 0}
                                 </div>
@@ -326,7 +336,7 @@ export default function MetricsOverridesSelector({
                               step="any"
                               {...form.register(
                                 `${fieldMap["metricOverrides"]}.${i}.delayHours`,
-                                { valueAsNumber: true }
+                                { valueAsNumber: true },
                               )}
                             />
                           </div>
@@ -336,7 +346,7 @@ export default function MetricsOverridesSelector({
                               placeholder="default"
                               disabled={
                                 (form.watch(
-                                  `${fieldMap["metricOverrides"]}.${i}.windowType`
+                                  `${fieldMap["metricOverrides"]}.${i}.windowType`,
                                 ) ?? metricDefinition?.windowSettings?.type) !==
                                 "conversion"
                               }
@@ -347,10 +357,10 @@ export default function MetricsOverridesSelector({
                                   "conversion"
                                     ? "No conversion window "
                                     : metricDefinition?.windowSettings
-                                    ? getConversionWindowHours(
-                                        metricDefinition.windowSettings
-                                      )
-                                    : null}{" "}
+                                      ? getConversionWindowHours(
+                                          metricDefinition.windowSettings,
+                                        )
+                                      : null}{" "}
                                 </div>
                               }
                               labelClassName="small mb-1"
@@ -369,14 +379,14 @@ export default function MetricsOverridesSelector({
                               step="any"
                               {...form.register(
                                 `${fieldMap["metricOverrides"]}.${i}.windowHours`,
-                                { valueAsNumber: true }
+                                { valueAsNumber: true },
                               )}
                             />
                           </div>
                         </div>
                       ) : null}
                       {(form.watch(
-                        `${fieldMap["metricOverrides"]}.${i}.windowType`
+                        `${fieldMap["metricOverrides"]}.${i}.windowType`,
                       ) ?? metricDefinition?.windowSettings?.type) ===
                       "lookback" ? (
                         <div className="row m-1 mr-1 px-1">
@@ -393,14 +403,15 @@ export default function MetricsOverridesSelector({
                                 <div className="text-right">
                                   default:{" "}
                                   {["conversion", "lookback"].includes(
-                                    metricDefinition?.windowSettings?.type ?? ""
+                                    metricDefinition?.windowSettings?.type ??
+                                      "",
                                   )
                                     ? "No delay"
                                     : metricDefinition
-                                    ? getConversionWindowHours(
-                                        metricDefinition.windowSettings
-                                      )
-                                    : 0}
+                                      ? getConversionWindowHours(
+                                          metricDefinition.windowSettings,
+                                        )
+                                      : 0}
                                 </div>
                               }
                               labelClassName="small mb-1"
@@ -409,7 +420,7 @@ export default function MetricsOverridesSelector({
                               step="any"
                               {...form.register(
                                 `${fieldMap["metricOverrides"]}.${i}.delayHours`,
-                                { valueAsNumber: true }
+                                { valueAsNumber: true },
                               )}
                             />
                           </div>
@@ -424,10 +435,10 @@ export default function MetricsOverridesSelector({
                                   "lookback"
                                     ? "No lookback window "
                                     : metricDefinition?.windowSettings
-                                    ? getConversionWindowHours(
-                                        metricDefinition.windowSettings
-                                      )
-                                    : null}{" "}
+                                      ? getConversionWindowHours(
+                                          metricDefinition.windowSettings,
+                                        )
+                                      : null}{" "}
                                 </div>
                               }
                               labelClassName="small mb-1"
@@ -446,7 +457,7 @@ export default function MetricsOverridesSelector({
                               step="any"
                               {...form.register(
                                 `${fieldMap["metricOverrides"]}.${i}.windowHours`,
-                                { valueAsNumber: true }
+                                { valueAsNumber: true },
                               )}
                             />
                           </div>
@@ -475,7 +486,7 @@ export default function MetricsOverridesSelector({
                             `${fieldMap["metricOverrides"]}.${i}.winRisk`,
                             {
                               valueAsNumber: true,
-                            }
+                            },
                           )}
                         />
                       </div>
@@ -499,7 +510,7 @@ export default function MetricsOverridesSelector({
                             `${fieldMap["metricOverrides"]}.${i}.loseRisk`,
                             {
                               valueAsNumber: true,
-                            }
+                            },
                           )}
                         />
                       </div>
@@ -526,7 +537,7 @@ export default function MetricsOverridesSelector({
                         type="checkbox"
                         className="form-check-input"
                         {...form.register(
-                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`
+                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`,
                         )}
                         id={`toggle-priorOverride_${i}`}
                         disabled={!hasRegressionAdjustmentFeature}
@@ -541,7 +552,7 @@ export default function MetricsOverridesSelector({
                     <div
                       style={{
                         display: form.watch(
-                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`
+                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`,
                         )
                           ? "block"
                           : "none",
@@ -559,13 +570,13 @@ export default function MetricsOverridesSelector({
                           id={`toggle-properPrior_${i}`}
                           value={
                             !!form.watch(
-                              `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`
+                              `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
                             )
                           }
                           setValue={(v) =>
                             form.setValue(
                               `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
-                              v
+                              v,
                             )
                           }
                         />
@@ -581,10 +592,10 @@ export default function MetricsOverridesSelector({
                       </div>
                       {(defaultPriorSettings.proper &&
                         !form.watch(
-                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`
+                          `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`,
                         )) ||
                       !!form.watch(
-                        `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`
+                        `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
                       ) ? (
                         <>
                           <div className="row">
@@ -602,7 +613,7 @@ export default function MetricsOverridesSelector({
                                   `${fieldMap["metricOverrides"]}.${i}.properPriorMean`,
                                   {
                                     valueAsNumber: true,
-                                  }
+                                  },
                                 )}
                               />
                             </div>
@@ -623,7 +634,7 @@ export default function MetricsOverridesSelector({
                                     validate: (v) => {
                                       return !((v ?? 0) <= 0);
                                     },
-                                  }
+                                  },
                                 )}
                               />
                             </div>
@@ -653,7 +664,7 @@ export default function MetricsOverridesSelector({
                             type="checkbox"
                             className="form-check-input"
                             {...form.register(
-                              `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentOverride`
+                              `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentOverride`,
                             )}
                             id={`toggle-regressionAdjustmentOverride_${i}`}
                             disabled={!hasRegressionAdjustmentFeature}
@@ -668,7 +679,7 @@ export default function MetricsOverridesSelector({
                         <div
                           style={{
                             display: form.watch(
-                              `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentOverride`
+                              `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentOverride`,
                             )
                               ? "block"
                               : "none",
@@ -686,13 +697,13 @@ export default function MetricsOverridesSelector({
                               id={`toggle-regressionAdjustmentEnabled_${i}`}
                               value={
                                 !!form.watch(
-                                  `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`
+                                  `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
                                 )
                               }
                               setValue={(value) => {
                                 form.setValue(
                                   `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
-                                  value
+                                  value,
                                 );
                               }}
                               disabled={!hasRegressionAdjustmentFeature}
@@ -723,7 +734,7 @@ export default function MetricsOverridesSelector({
                             className="form-group mt-1 mb-1 mr-2"
                             style={{
                               opacity: form.watch(
-                                `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`
+                                `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
                               )
                                 ? "1"
                                 : "0.5",
@@ -733,11 +744,13 @@ export default function MetricsOverridesSelector({
                               label="Pre-exposure lookback period (days)"
                               type="number"
                               style={{
-                                borderColor: regressionAdjustmentDaysHighlightColor,
-                                backgroundColor: regressionAdjustmentDaysHighlightColor
-                                  ? regressionAdjustmentDaysHighlightColor +
-                                    "15"
-                                  : "",
+                                borderColor:
+                                  regressionAdjustmentDaysHighlightColor,
+                                backgroundColor:
+                                  regressionAdjustmentDaysHighlightColor
+                                    ? regressionAdjustmentDaysHighlightColor +
+                                      "15"
+                                    : "",
                               }}
                               className="ml-2"
                               containerClassName="mb-0 small form-inline"
@@ -775,7 +788,7 @@ export default function MetricsOverridesSelector({
                                   validate: (v) => {
                                     return !((v ?? 0) <= 0 || (v ?? 0) > 100);
                                   },
-                                }
+                                },
                               )}
                             />
                             {regressionAdjustmentDaysWarningMsg && (
@@ -842,7 +855,7 @@ export default function MetricsOverridesSelector({
                 const metricOverride = getDefaultMetricOverridesFormValue(
                   [{ id: selectedMetricId }],
                   getExperimentMetricById,
-                  settings
+                  settings,
                 )?.[0];
                 if (metricOverride) {
                   metricOverrides.append(metricOverride);

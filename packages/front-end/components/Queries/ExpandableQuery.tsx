@@ -13,8 +13,8 @@ import { FaBoltLightning } from "react-icons/fa6";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Callout from "@/components/Radix/Callout";
-import HelperText from "@/components/Radix/HelperText";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
 import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{
@@ -91,16 +91,18 @@ const ExpandableQuery: FC<{
         <>
           {query.rawResult?.[0] ? (
             <div style={{ maxHeight: 300, overflowY: "auto" }}>
-              <table className="table table-bordered table-sm">
+              <table className="table table-bordered table-sm query-table">
                 <thead>
                   <tr
-                    style={{ position: "sticky", top: 0 }}
-                    className="bg-light"
+                    style={{
+                      position: "sticky",
+                      top: -1,
+                    }}
                   >
                     <th></th>
-                    {Object.keys(query.rawResult[0]).map((k) => {
-                      return <th key={k}>{k}</th>;
-                    })}
+                    {Object.keys(query.rawResult[0]).map((k) => (
+                      <th key={k}>{k}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -159,7 +161,7 @@ const ExpandableQuery: FC<{
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.startedAt),
-                    getValidDate(query.finishedAt)
+                    getValidDate(query.finishedAt),
                   )}
                 </strong>
               </div>
@@ -168,7 +170,7 @@ const ExpandableQuery: FC<{
                 <strong>
                   {formatDistanceStrict(
                     getValidDate(query.createdAt),
-                    getValidDate(query.startedAt)
+                    getValidDate(query.startedAt),
                   )}
                 </strong>
               </div>
@@ -187,7 +189,7 @@ const ExpandableQuery: FC<{
               Was queued for{" "}
               {formatDistanceStrict(
                 getValidDate(query.createdAt),
-                getValidDate(query.startedAt)
+                getValidDate(query.startedAt),
               )}
             </HelperText>
           ) : null}

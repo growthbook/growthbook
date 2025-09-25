@@ -5,7 +5,7 @@ import {
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import {
-  isIdListSupportedDatatype,
+  isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
@@ -77,7 +77,6 @@ const SavedGroupForm: FC<{
   return upgradeModal ? (
     <UpgradeModal
       close={() => setUpgradeModal(false)}
-      reason=""
       source="large-saved-groups"
       commercialFeature="large-saved-groups"
     />
@@ -133,10 +132,10 @@ const SavedGroupForm: FC<{
             (responseData) => {
               if (responseData.status === 413) {
                 setErrorMessage(
-                  "Cannot import such a large CSV. Try again with a smaller payload"
+                  "Cannot import such a large CSV. Try again with a smaller payload",
                 );
               }
-            }
+            },
           );
         }
         mutateDefinitions({});
@@ -220,17 +219,18 @@ const SavedGroupForm: FC<{
             }))}
             isOptionDisabled={({ label }) => {
               const attr = attributeSchema.find(
-                (attr) => attr.property === label
+                (attr) => attr.property === label,
               );
               if (!attr) return false;
-              return !isIdListSupportedDatatype(attr.datatype);
+              return !isIdListSupportedAttribute(attr);
             }}
+            sort={false}
             formatOptionLabel={({ label }) => {
               const attr = attributeSchema.find(
-                (attr) => attr.property === label
+                (attr) => attr.property === label,
               );
               if (!attr) return label;
-              const unsupported = !isIdListSupportedDatatype(attr.datatype);
+              const unsupported = !isIdListSupportedAttribute(attr);
               return (
                 <div className={clsx(unsupported ? "disabled" : "")}>
                   {label}

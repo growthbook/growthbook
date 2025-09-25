@@ -4,6 +4,9 @@ import uniqid from "uniqid";
 import { QueryInterface, QueryType } from "back-end/types/query";
 import { QUERY_CACHE_TTL_MINS } from "back-end/src/util/secrets";
 import { QueryLanguage } from "back-end/types/datasource";
+import { ApiQuery } from "back-end/types/openapi";
+import type { ReqContext } from "back-end/types/organization";
+import type { ApiReqContext } from "back-end/types/api";
 
 export const queriesSchema = [
   {
@@ -62,10 +65,21 @@ export async function getQueriesByIds(organization: string, ids: string[]) {
   return docs.map((doc) => toInterface(doc));
 }
 
+export async function getQueryById(
+  context: ReqContext | ApiReqContext,
+  id: string,
+) {
+  const doc = await QueryModel.findOne({
+    organization: context.org.id,
+    id: id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getQueriesByDatasource(
   organization: string,
   datasource: string,
-  limit: number = 50
+  limit: number = 50,
 ) {
   const docs = await QueryModel.find({ organization, datasource })
     .limit(limit)
@@ -77,7 +91,7 @@ export async function getQueriesByDatasource(
 
 export async function countRunningQueries(
   organization: string,
-  datasource: string
+  datasource: string,
 ) {
   return await QueryModel.find({
     organization,
@@ -88,11 +102,11 @@ export async function countRunningQueries(
 
 export async function updateQuery(
   query: QueryInterface,
-  changes: Partial<QueryInterface>
+  changes: Partial<QueryInterface>,
 ): Promise<QueryInterface> {
   await QueryModel.updateOne(
     { organization: query.organization, id: query.id },
-    { $set: changes }
+    { $set: changes },
   );
   return {
     ...query,
@@ -103,7 +117,7 @@ export async function updateQuery(
 export async function getRecentQuery(
   organization: string,
   datasource: string,
-  query: string
+  query: string,
 ) {
   // Only re-use queries that were run recently
   const earliestDate = new Date();
@@ -157,7 +171,7 @@ export async function getStaleQueries(): Promise<
         status: "failed",
         error: "Query execution was interupted. Please try again.",
       },
-    }
+    },
   );
 
   return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
@@ -230,4 +244,21 @@ export async function createNewQueryFromCached({
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);
+}
+
+export function toQueryApiInterface(query: QueryInterface): ApiQuery {
+  return {
+    id: query.id,
+    organization: query.organization,
+    datasource: query.datasource,
+    language: query.language,
+    query: query.query,
+    queryType: query.queryType || "",
+    createdAt: query.createdAt?.toISOString() || "",
+    startedAt: query.startedAt?.toISOString() || "",
+    status: query.status,
+    externalId: query.externalId ? query.externalId : "",
+    dependencies: query.dependencies ? query.dependencies : [],
+    runAtEnd: query.runAtEnd ? query.runAtEnd : false,
+  };
 }

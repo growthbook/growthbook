@@ -11,6 +11,7 @@ import {
   ProjectScopedPermission,
   UserPermissions,
   GetOrganizationResponse,
+  OrganizationUsage,
 } from "back-end/types/organization";
 import type {
   AccountPlan,
@@ -29,12 +30,13 @@ import {
   useMemo,
   useState,
 } from "react";
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { Permissions, userHasPermission } from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { useFeature } from "@growthbook/growthbook-react";
+import { AgreementType } from "back-end/src/validators/agreements";
 import {
   getGrowthBookBuild,
   getSuperadminDefaultRole,
@@ -54,11 +56,11 @@ export interface PermissionFunctions {
   check(
     permission: EnvScopedPermission,
     project: string[] | string | undefined,
-    envs: string[]
+    envs: string[],
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string[] | string | undefined
+    project: string[] | string | undefined,
   ): boolean;
 }
 
@@ -84,6 +86,7 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   readData: false,
   manageCustomRoles: false,
   manageCustomFields: false,
+  manageDecisionCriteria: false,
 };
 
 export interface UserContextValue {
@@ -108,6 +111,7 @@ export interface UserContextValue {
   commercialFeatures: CommercialFeature[];
   apiKeys: ApiKeyInterface[];
   organization: Partial<OrganizationInterface>;
+  agreements?: AgreementType[];
   seatsInUse: number;
   roles: Role[];
   teams?: Team[];
@@ -121,6 +125,7 @@ export interface UserContextValue {
   };
   canSubscribe: boolean;
   freeSeats: number;
+  usage?: OrganizationUsage;
 }
 
 interface UserResponse {
@@ -149,6 +154,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   apiKeys: [],
   organization: {},
+  agreements: [],
   subscription: null,
   licenseError: "",
   seatsInUse: 0,
@@ -190,7 +196,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   const selfServePricingEnabled = useFeature("self-serve-billing").on;
 
-  const { data, mutate: mutateUser, error } = useApi<UserResponse>(`/user`, {
+  const {
+    data,
+    mutate: mutateUser,
+    error,
+  } = useApi<UserResponse>(`/user`, {
     shouldRun: () => isAuthenticated,
     orgScoped: false,
   });
@@ -241,7 +251,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           }
           return res;
         },
-        []
+        [],
       );
       return { ...team, members: hydratedMembers };
     });
@@ -336,6 +346,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       hasLicenseKey: !!currentOrg?.organization?.licenseKey,
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
+      isVercelIntegration: !!currentOrg?.organization?.isVercelIntegration,
     });
   }, [currentOrg, hashedOrganizationId, user?.role]);
 
@@ -363,6 +374,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     }
   }, [data?.email, data?.userId]);
 
+  useEffect(() => {
+    // Error tracking only enabled on GrowthBook Cloud
+    const orgId = currentOrg?.organization?.id;
+    if (isSentryEnabled() && orgId) {
+      Sentry.setTag("organization", orgId);
+    }
+  }, [currentOrg?.organization?.id]);
+
   const commercialFeatures = useMemo(() => {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
@@ -371,7 +390,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     (
       permission: Permission,
       project?: string[] | string,
-      envs?: string[]
+      envs?: string[],
     ): boolean => {
       if (!currentOrg?.currentUserPermissions || !currentOrg || !data?.userId)
         return false;
@@ -380,10 +399,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         currentOrg.currentUserPermissions,
         permission,
         project,
-        envs ? [...envs] : undefined
+        envs ? [...envs] : undefined,
       );
     },
-    [currentOrg, data?.userId]
+    [currentOrg, data?.userId],
   );
 
   const permissions = useMemo(() => {
@@ -416,7 +435,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      }
+      },
     );
   }, [currentOrg?.currentUserPermissions]);
 
@@ -426,7 +445,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       if (!u && fallback) return id;
       return u?.name || u?.email || "";
     },
-    [users]
+    [users],
   );
 
   const watching = useMemo(() => {
@@ -497,6 +516,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         commercialFeatureLowestPlan: currentOrg?.commercialFeatureLowestPlan,
         licenseError: currentOrg?.licenseError || "",
         commercialFeatures: currentOrg?.commercialFeatures || [],
+        agreements: currentOrg?.agreements || [],
         apiKeys: currentOrg?.apiKeys || [],
         organization: organization || {},
         seatsInUse: currentOrg?.seatsInUse || 0,
@@ -506,6 +526,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         watching: watching,
         canSubscribe,
         freeSeats: organization?.freeSeats || 3,
+        usage: currentOrg?.usage,
       }}
     >
       {children}

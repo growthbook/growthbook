@@ -15,9 +15,8 @@ export default class ClickHouse extends SqlIntegration {
   requiresDatabase = false;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<ClickHouseConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<ClickHouseConnectionParams>(encryptedParams);
 
     if (this.params.user) {
       this.params.username = this.params.user;
@@ -34,7 +33,7 @@ export default class ClickHouse extends SqlIntegration {
 
   async runQuery(sql: string): Promise<QueryResponse> {
     const client = createClient({
-      host: getHost(this.params.url, this.params.port),
+      url: getHost(this.params.url, this.params.port),
       username: this.params.username,
       password: this.params.password,
       database: this.params.database,
@@ -43,7 +42,7 @@ export default class ClickHouse extends SqlIntegration {
       clickhouse_settings: {
         max_execution_time: Math.min(
           this.params.maxExecutionTime ?? 1800,
-          3600
+          3600,
         ),
       },
     });
@@ -71,7 +70,7 @@ export default class ClickHouse extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `date${sign === "+" ? "Add" : "Sub"}(${unit}, ${amount}, ${col})`;
   }
@@ -116,34 +115,66 @@ export default class ClickHouse extends SqlIntegration {
     return `quantile(${quantile})(${value})`;
     // TODO explore gains to using `quantiles`
   }
+  extractJSONField(jsonCol: string, path: string, isNumeric: boolean): string {
+    if (isNumeric) {
+      return `
+if(
+  toTypeName(${jsonCol}) = 'JSON', 
+  toFloat64(${jsonCol}.${path}),
+  JSONExtractFloat(${jsonCol}, '${path}')
+)
+      `;
+    } else {
+      return `
+if(
+  toTypeName(${jsonCol}) = 'JSON',
+  ${jsonCol}.${path}.:String,
+  JSONExtractString(${jsonCol}, '${path}')
+)
+      `;
+    }
+  }
+
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
-        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
+        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings.",
       );
-    return `table_schema IN ('${this.params.database}')`;
+
+    // For Managed Warehouse, filter out materialized views
+    const extraWhere =
+      this.datasource.type === "growthbook_clickhouse"
+        ? " AND table_name NOT LIKE '%_mv'"
+        : "";
+
+    return `table_schema IN ('${this.params.database}')${extraWhere}`;
   }
 
   async getFeatureUsage(
     feature: string,
-    lookback: FeatureUsageLookback
+    lookback: FeatureUsageLookback,
   ): Promise<{ start: number; rows: FeatureUsageAggregateRow[] }> {
     logger.info(
-      `Getting feature usage for ${feature} with lookback ${lookback}`
+      `Getting feature usage for ${feature} with lookback ${lookback}`,
     );
     const start = new Date();
+    start.setSeconds(0, 0);
     let roundedTimestamp = "";
     if (lookback === "15minute") {
       roundedTimestamp = "toStartOfMinute(timestamp)";
       start.setMinutes(start.getMinutes() - 15);
     } else if (lookback === "hour") {
       start.setHours(start.getHours() - 1);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfFiveMinutes(timestamp)";
     } else if (lookback === "day") {
-      start.setDate(start.getDate() - 1);
+      start.setHours(start.getHours() - 24);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfHour(timestamp)";
     } else if (lookback === "week") {
       start.setDate(start.getDate() - 7);
+      start.setHours(0);
+      start.setMinutes(0);
       roundedTimestamp = "toStartOfInterval(timestamp, INTERVAL 6 HOUR)";
     } else {
       throw new Error(`Invalid lookback: ${lookback}`);
@@ -163,23 +194,24 @@ WITH _data as (
 	  timestamp > ${this.toTimestamp(start)}
 	  AND feature = '${this.escapeStringLiteral(feature)}'
 )
-SELECT
-  ts,
-  environment,
-  value,
-  source,
-  ruleId,
-  variationId,
-  COUNT(*) as evaluations
-FROM _data
-GROUP BY
-  ts,
-  environment,
-  value,
-  source,
-  ruleId,
-  variationId
-LIMIT 50
+  SELECT
+    ts,
+    environment,
+    value,
+    source,
+    ruleId,
+    variationId,
+    COUNT(*) as evaluations
+  FROM _data
+  GROUP BY
+    ts,
+    environment,
+    value,
+    source,
+    ruleId,
+    variationId
+  ORDER BY evaluations DESC
+  LIMIT 200
       `);
 
     return {

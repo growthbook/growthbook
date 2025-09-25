@@ -4,14 +4,15 @@ import {
   isFactMetric,
   quantileMetricType,
 } from "shared/experiments";
-import { VscListTree } from "react-icons/vsc";
 import React from "react";
-import { FaExclamationCircle } from "react-icons/fa";
+import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
+import { PiFolderDuotone } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { getPercentileLabel } from "@/services/metrics";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 
 export function PercentileLabel({
   metric,
@@ -37,11 +38,13 @@ export function OfficialBadge({
   managedBy,
   disableTooltip,
   showOfficialLabel,
+  color,
 }: {
   type: string;
-  managedBy?: "" | "config" | "api";
+  managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
+  color?: string;
 }) {
   if (!managedBy) return null;
 
@@ -53,14 +56,14 @@ export function OfficialBadge({
             ""
           ) : (
             <>
-              <h4>
+              <h4 className="pb-1">
                 <HiBadgeCheck
                   style={{
                     fontSize: "1.2em",
                     lineHeight: "1em",
                     marginTop: "-2px",
+                    color: color || "var(--blue-11)",
                   }}
-                  className="text-purple"
                 />{" "}
                 Official{" "}
                 <span
@@ -76,16 +79,25 @@ export function OfficialBadge({
                 <>
                   a <code>config.yml</code> file
                 </>
+              ) : managedBy === "admin" ? (
+                <>admins.</>
               ) : (
-                <>the API</>
+                <>
+                  the API. It is read-only and cannot be modified from within
+                  GrowthBook.
+                </>
               )}
-              . It is read-only and cannot be modified from within GrowthBook.
             </>
           )
         }
       >
         <HiBadgeCheck
-          style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
+          style={{
+            fontSize: "1.2em",
+            lineHeight: "1em",
+            marginTop: "-2px",
+            color: color || "var(--blue-11)",
+          }}
         />
         {showOfficialLabel ? (
           <span className="ml-1 badge badge-purple">Official</span>
@@ -101,16 +113,20 @@ export default function MetricName({
   disableTooltip,
   showOfficialLabel,
   showDescription,
+  filterConversionWindowMetrics,
   isGroup,
   metrics,
+  badgeColor,
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   showDescription?: boolean;
+  filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
+  badgeColor?: string;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -122,21 +138,39 @@ export default function MetricName({
       return <>{id}</>;
     }
     const allJoinable = metrics?.every((m) => m.joinable) ?? true;
+    const allNonConversionWindow = metrics?.every(
+      (m) => m?.metric?.windowSettings?.type !== "conversion",
+    );
+
     return (
-      <>
-        <VscListTree className="mr-1" />
+      <Flex align="center" className="ml-1">
+        <PiFolderDuotone
+          className="mr-1"
+          style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
+        />
         {metricGroup.name}
         <Tooltip
-          className={clsx("px-1", { "text-danger": !allJoinable })}
+          className={clsx("px-1", {
+            "text-danger": !allJoinable,
+            "text-warning":
+              filterConversionWindowMetrics && !allNonConversionWindow,
+          })}
           body={
             <>
-              {!allJoinable && (
+              {!allJoinable ? (
                 <div className="mb-2">
                   <HelperText status="error">
                     Includes metrics that are not joinable
                   </HelperText>
                 </div>
-              )}
+              ) : null}
+              {filterConversionWindowMetrics && !allNonConversionWindow ? (
+                <div className="mb-2">
+                  <HelperText status="warning">
+                    Includes metrics with conversion windows
+                  </HelperText>
+                </div>
+              ) : null}
               {metrics && metrics.length > 0 ? (
                 <>
                   <div>Metrics in group:</div>
@@ -144,7 +178,12 @@ export default function MetricName({
                     {metrics.map((m, i) => (
                       <li
                         key={i}
-                        className={clsx({ "text-danger": !m.joinable })}
+                        className={clsx({
+                          "text-danger": !m.joinable,
+                          "text-warning":
+                            filterConversionWindowMetrics &&
+                            m?.metric?.windowSettings?.type === "conversion",
+                        })}
                       >
                         {m.metric?.name}
                       </li>
@@ -165,6 +204,13 @@ export default function MetricName({
                 style={{ top: -2 }}
               />
             )}
+            {filterConversionWindowMetrics && !allNonConversionWindow ? (
+              <FaExclamationTriangle
+                size={10}
+                className="position-relative text-warning ml-1"
+                style={{ top: -2 }}
+              />
+            ) : null}
           </span>
         </Tooltip>
         {showDescription && metricGroup.description ? (
@@ -176,7 +222,7 @@ export default function MetricName({
               : metricGroup?.description}
           </span>
         ) : null}
-      </>
+      </Flex>
     );
   }
 
@@ -184,6 +230,17 @@ export default function MetricName({
 
   return (
     <>
+      <span className="mr-1">
+        {metric.managedBy && (
+          <OfficialBadge
+            type="metric"
+            managedBy={metric.managedBy || ""}
+            disableTooltip={disableTooltip}
+            showOfficialLabel={showOfficialLabel}
+            color={badgeColor}
+          />
+        )}
+      </span>
       {metric.name}
       {showDescription && metric.description ? (
         <span className="text-muted">
@@ -196,12 +253,6 @@ export default function MetricName({
       ) : (
         ""
       )}
-      <OfficialBadge
-        type="metric"
-        managedBy={metric.managedBy}
-        disableTooltip={disableTooltip}
-        showOfficialLabel={showOfficialLabel}
-      />
     </>
   );
 }

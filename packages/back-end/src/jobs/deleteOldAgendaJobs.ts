@@ -1,11 +1,10 @@
 import Agenda from "agenda";
-import { trackJob } from "back-end/src/services/otel";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { logger } from "back-end/src/util/logger";
 const JOB_NAME = "deleteOldAgendaJobs";
 
 // Delete old agenda jobs that finished over one week ago and are not going to be repeated
-const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
+const deleteOldAgendaJobs = async () => {
   const agenda = getAgendaInstance();
 
   const startDate = Date.now();
@@ -19,7 +18,7 @@ const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
       {
         limit: 1000,
         projection: { _id: 1 },
-      }
+      },
     )
     .toArray();
 
@@ -27,12 +26,12 @@ const deleteOldAgendaJobs = trackJob(JOB_NAME, async () => {
 
   const deleteRes = await agenda._collection.deleteMany({ _id: { $in: ids } });
 
-  logger.info(
+  logger.debug(
     `Deleted ${deleteRes.deletedCount} old agenda jobs in ` +
       (Date.now() - startDate) +
-      `ms`
+      `ms`,
   );
-});
+};
 
 export default async function (agenda: Agenda) {
   agenda.define(JOB_NAME, deleteOldAgendaJobs);

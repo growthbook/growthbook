@@ -25,7 +25,7 @@ export const triggerWebhookJobs = async (
   payloadKeys: SDKPayloadKey[],
   environments: string[],
   isProxyEnabled: boolean,
-  isFeature = true
+  isFeature = true,
 ) => {
   queueWebhooksBySdkPayloadKeys(context, payloadKeys).catch((e) => {
     logger.error(e, "Error queueing webhooks");
@@ -52,7 +52,7 @@ export const triggerSingleSDKWebhookJobs = async (
   connection: SDKConnectionInterface,
   otherChanges: Partial<SDKConnectionInterface>,
   newProxy: ProxyConnection,
-  isUsingProxy: boolean
+  isUsingProxy: boolean,
 ) => {
   queueWebhooksForSdkConnection(context, connection).catch((e) => {
     logger.error(e, "Error queueing webhooks");
@@ -68,7 +68,7 @@ export const triggerSingleSDKWebhookJobs = async (
       queueSingleProxyUpdate(context.org.id, newConnection, IS_CLOUD).catch(
         (e) => {
           logger.error(e, "Error queueing single proxy update");
-        }
+        },
       );
     }
   }

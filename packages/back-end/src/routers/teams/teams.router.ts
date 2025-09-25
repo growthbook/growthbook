@@ -25,6 +25,7 @@ router.post(
       .object({
         name: z.string(),
         description: z.string(),
+        defaultProject: z.string(),
         permissions: PermissionZodObject.extend({
           projectRoles: PermissionZodObject.extend({
             project: z.string(),
@@ -33,7 +34,7 @@ router.post(
       })
       .strict(),
   }),
-  teamController.postTeam
+  teamController.postTeam,
 );
 
 router.put(
@@ -43,6 +44,7 @@ router.put(
       .object({
         name: z.string().optional(),
         description: z.string().optional(),
+        defaultProject: z.string().optional(),
         permissions: PermissionZodObject.extend({
           projectRoles: PermissionZodObject.extend({
             project: z.string(),
@@ -53,7 +55,7 @@ router.put(
       })
       .strict(),
   }),
-  teamController.updateTeam
+  teamController.updateTeam,
 );
 
 router.delete("/:id", teamController.deleteTeamById);

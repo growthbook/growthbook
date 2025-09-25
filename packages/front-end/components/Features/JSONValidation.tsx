@@ -6,7 +6,7 @@ import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
 import { useRouter } from "next/router";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import JSONSchemaDescription from "@/components/Features/JSONSchemaDescription";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
@@ -25,14 +25,13 @@ export default function JSONValidation({ feature, mutate }: Props) {
 
   const [upgradeModal, setUpgradeModal] = useState(false);
 
-  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
-    feature
-  );
+  const { jsonSchema, validationEnabled, schemaDateUpdated } =
+    getValidation(feature);
 
   const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const [collapsed, setCollapsed] = useState(
-    (hasJsonValidator && validationEnabled) || !isNew
+    (hasJsonValidator && validationEnabled) || !isNew,
   );
 
   const [edit, setEdit] = useState(false);
@@ -57,7 +56,6 @@ export default function JSONValidation({ feature, mutate }: Props) {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason="To get access to JSON Validation,"
           source="json-validation"
           commercialFeature="json-validation"
         />

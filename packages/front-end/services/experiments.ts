@@ -1,12 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import {
-  DifferenceType,
-  PValueCorrection,
-  StatsEngine,
-} from "back-end/types/stats";
-import normal from "@stdlib/stats/base/dists/normal";
-import {
-  ExperimentReportResultDimension,
   ExperimentReportVariationWithIndex,
   MetricSnapshotSettings,
 } from "back-end/types/report";
@@ -15,6 +9,7 @@ import {
   SDKAttributeSchema,
 } from "back-end/types/organization";
 import {
+  ComputedExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentStatus,
   ExperimentTemplateInterface,
@@ -26,14 +21,15 @@ import { isNil, omit } from "lodash";
 import { FactTableInterface } from "back-end/types/fact-table";
 import {
   ExperimentMetricInterface,
+  getAllMetricIdsFromExperiment,
+  getEqualWeights,
   getMetricResultStatus,
   getMetricSampleSize,
   hasEnoughData,
   isBinomialMetric,
+  isRatioMetric,
   isSuspiciousUplift,
   quantileMetricType,
-  isRatioMetric,
-  getEqualWeights,
 } from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
@@ -42,7 +38,24 @@ import {
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
+import { useAddComputedFields, useSearch } from "@/services/search";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
+
+export function experimentDate(exp: ExperimentInterfaceStringDates): string {
+  return (
+    (exp.archived
+      ? exp.dateUpdated
+      : exp.status === "running"
+        ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+        : exp.status === "stopped"
+          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+          : exp.dateCreated) ?? new Date().toISOString() // fallback to now
+  );
+}
 
 export type ExperimentTableRow = {
   label: string;
@@ -52,6 +65,7 @@ export type ExperimentTableRow = {
   rowClass?: string;
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
+  error?: RowError;
 };
 
 export function getRisk(
@@ -59,8 +73,9 @@ export function getRisk(
   baseline: SnapshotMetric,
   metric: ExperimentMetricInterface,
   metricDefaults: MetricDefaults,
+  differenceType: DifferenceType,
   // separate CR because sometimes "baseline" above is the variation
-  baselineCR: number
+  baselineCR: number,
 ): { risk: number; relativeRisk: number; showRisk: boolean } {
   const statsRisk = stats.risk?.[1] ?? 0;
   let risk: number;
@@ -77,20 +92,34 @@ export function getRisk(
   const showRisk =
     baseline.cr > 0 &&
     hasEnoughData(baseline, stats, metric, metricDefaults) &&
-    !isSuspiciousUplift(baseline, stats, metric, metricDefaults);
+    !isSuspiciousUplift(
+      baseline,
+      stats,
+      metric,
+      metricDefaults,
+      differenceType,
+    );
   return { risk, relativeRisk, showRisk };
 }
 
 export function getRiskByVariation(
   riskVariation: number,
   row: ExperimentTableRow,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType,
 ) {
   const baseline = row.variations[0];
 
   if (riskVariation > 0) {
     const stats = row.variations[riskVariation];
-    return getRisk(stats, baseline, row.metric, metricDefaults, baseline.cr);
+    return getRisk(
+      stats,
+      baseline,
+      row.metric,
+      metricDefaults,
+      differenceType,
+      baseline.cr,
+    );
   } else {
     let risk = -1;
     let relativeRisk = 0;
@@ -106,7 +135,14 @@ export function getRiskByVariation(
         risk: vRisk,
         relativeRisk: vRelativeRisk,
         showRisk: vShowRisk,
-      } = getRisk(baseline, stats, row.metric, metricDefaults, baseline.cr);
+      } = getRisk(
+        baseline,
+        stats,
+        row.metric,
+        metricDefaults,
+        differenceType,
+        baseline.cr,
+      );
       if (vRisk > risk) {
         risk = vRisk;
         relativeRisk = vRelativeRisk;
@@ -121,13 +157,10 @@ export function getRiskByVariation(
   }
 }
 
-export function hasRisk(rows: ExperimentTableRow[]) {
-  return rows.filter((row) => row.variations[1]?.risk?.length).length > 0;
-}
-
 export function useDomain(
   variations: ExperimentReportVariationWithIndex[], // must be ordered, baseline first
-  rows: ExperimentTableRow[]
+  rows: ExperimentTableRow[],
+  differenceType: DifferenceType,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -146,7 +179,15 @@ export function useDomain(
       if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
         return;
       }
-      if (isSuspiciousUplift(baseline, stats, row.metric, metricDefaults)) {
+      if (
+        isSuspiciousUplift(
+          baseline,
+          stats,
+          row.metric,
+          metricDefaults,
+          differenceType,
+        )
+      ) {
         return;
       }
 
@@ -166,7 +207,7 @@ export function useDomain(
 
 export function applyMetricOverrides<T extends ExperimentMetricInterface>(
   metric: T,
-  metricOverrides?: MetricOverride[]
+  metricOverrides?: MetricOverride[],
 ): {
   newMetric: T;
   overrideFields: string[];
@@ -207,10 +248,11 @@ export function applyMetricOverrides<T extends ExperimentMetricInterface>(
       // only apply RA fields if doing an override
       newMetric.regressionAdjustmentOverride =
         metricOverride.regressionAdjustmentOverride;
-      newMetric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      newMetric.regressionAdjustmentEnabled =
+        !!metricOverride.regressionAdjustmentEnabled;
       overrideFields.push(
         "regressionAdjustmentOverride",
-        "regressionAdjustmentEnabled"
+        "regressionAdjustmentEnabled",
       );
       if (!isNil(metricOverride?.regressionAdjustmentDays)) {
         newMetric.regressionAdjustmentDays =
@@ -242,147 +284,162 @@ export function pValueFormatter(pValue: number, digits: number = 3): string {
     : pValue.toFixed(digits);
 }
 
-export type IndexedPValue = {
-  pValue: number;
-  index: (number | string)[];
-};
+export function useExperimentSearch({
+  allExperiments,
+  defaultSortField = "date",
+  defaultSortDir = -1,
+  filterResults,
+  localStorageKey = "experiments",
+  watchedExperimentIds,
+}: {
+  allExperiments: ExperimentInterfaceStringDates[];
+  defaultSortField?: keyof ComputedExperimentInterface;
+  defaultSortDir?: -1 | 1;
+  filterResults?: (
+    items: ComputedExperimentInterface[],
+  ) => ComputedExperimentInterface[];
+  localStorageKey?: string;
+  watchedExperimentIds?: string[];
+}) {
+  const {
+    getExperimentMetricById,
+    getProjectById,
+    getDatasourceById,
+    getSavedGroupById,
+  } = useDefinitions();
+  const { getUserDisplay } = useUser();
+  const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
-export function adjustPValuesBenjaminiHochberg(
-  indexedPValues: IndexedPValue[]
-): IndexedPValue[] {
-  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
-  const m = newIndexedPValues.length;
+  const experiments: ComputedExperimentInterface[] = useAddComputedFields(
+    allExperiments,
+    (exp) => {
+      const projectId = exp.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+      const statusIndicator = getExperimentStatusIndicator(exp);
+      const statusSortOrder = statusIndicator.sortOrder;
+      const lastPhase = exp.phases?.[exp.phases?.length - 1] || {};
+      const rawSavedGroup = lastPhase?.savedGroups || [];
+      const savedGroupIds = rawSavedGroup.map((g) => g.ids).flat();
+      const isWatched = watchedExperimentIds?.includes(exp.id) ?? false;
 
-  newIndexedPValues.sort((a, b) => {
-    return b.pValue - a.pValue;
-  });
-  newIndexedPValues.forEach((p, i) => {
-    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
-  });
-
-  let tempval = newIndexedPValues[0].pValue;
-  for (let i = 1; i < m; i++) {
-    if (newIndexedPValues[i].pValue < tempval) {
-      tempval = newIndexedPValues[i].pValue;
-    } else {
-      newIndexedPValues[i].pValue = tempval;
-    }
-  }
-  return newIndexedPValues;
-}
-
-export function adjustPValuesHolmBonferroni(
-  indexedPValues: IndexedPValue[]
-): IndexedPValue[] {
-  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
-  const m = newIndexedPValues.length;
-  newIndexedPValues.sort((a, b) => {
-    return a.pValue - b.pValue;
-  });
-  newIndexedPValues.forEach((p, i) => {
-    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
-  });
-
-  let tempval = newIndexedPValues[0].pValue;
-  for (let i = 1; i < m; i++) {
-    if (newIndexedPValues[i].pValue > tempval) {
-      tempval = newIndexedPValues[i].pValue;
-    } else {
-      newIndexedPValues[i].pValue = tempval;
-    }
-  }
-  return newIndexedPValues;
-}
-
-export function setAdjustedPValuesOnResults(
-  results: ExperimentReportResultDimension[],
-  nonGuardrailMetrics: string[],
-  adjustment: PValueCorrection
-): void {
-  if (!adjustment) {
-    return;
-  }
-
-  let indexedPValues: IndexedPValue[] = [];
-  results.forEach((r, i) => {
-    r.variations.forEach((v, j) => {
-      nonGuardrailMetrics.forEach((m) => {
-        const pValue = v.metrics[m]?.pValue;
-        if (pValue !== undefined) {
-          indexedPValues.push({
-            pValue: pValue,
-            index: [i, j, m],
-          });
-        }
-      });
-    });
-  });
-
-  if (indexedPValues.length === 0) {
-    return;
-  }
-
-  if (adjustment === "benjamini-hochberg") {
-    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
-  } else if (adjustment === "holm-bonferroni") {
-    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
-  }
-
-  // modify results in place
-  indexedPValues.forEach((ip) => {
-    const ijk = ip.index;
-    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
-      ip.pValue;
-  });
-  return;
-}
-
-export function adjustedCI(
-  adjustedPValue: number,
-  uplift: { dist: string; mean?: number; stddev?: number },
-  zScore: number
-): [number, number] {
-  if (!uplift.mean) return [uplift.mean ?? 0, uplift.mean ?? 0];
-  const adjStdDev = Math.abs(
-    uplift.mean / normal.quantile(1 - adjustedPValue / 2, 0, 1)
+      return {
+        ownerName: getUserDisplay(exp.owner, false) || "",
+        metricNames: exp.goalMetrics
+          .map((m) => getExperimentMetricById(m)?.name)
+          .filter(Boolean),
+        datasource: getDatasourceById(exp.datasource)?.name || "",
+        savedGroups: savedGroupIds.map(
+          (id) => getSavedGroupById(id)?.groupName,
+        ),
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        tab: exp.archived
+          ? "archived"
+          : exp.status === "draft"
+            ? "drafts"
+            : exp.status,
+        date: experimentDate(exp),
+        statusIndicator,
+        statusSortOrder,
+        isWatched,
+      };
+    },
+    [getExperimentMetricById, getProjectById, getUserDisplay],
   );
-  const width = zScore * adjStdDev;
-  return [uplift.mean - width, uplift.mean + width];
-}
 
-export function setAdjustedCIs(
-  results: ExperimentReportResultDimension[],
-  pValueThreshold: number
-): void {
-  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
-  results.forEach((r) => {
-    r.variations.forEach((v) => {
-      for (const key in v.metrics) {
-        const pValueAdjusted = v.metrics[key].pValueAdjusted;
-        const uplift = v.metrics[key].uplift;
-        const ci = v.metrics[key].ci;
-        if (pValueAdjusted === undefined) {
-          continue;
-        } else if (pValueAdjusted > 0.999999) {
-          // set to Inf if adjusted pValue is 1
-          v.metrics[key].ciAdjusted = [-Infinity, Infinity];
-        } else if (
-          pValueAdjusted !== undefined &&
-          uplift !== undefined &&
-          ci !== undefined
-        ) {
-          const adjCI = adjustedCI(pValueAdjusted, uplift, zScore);
-          // only update if CI got wider, should never get more narrow
-          if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
-            v.metrics[key].ciAdjusted = adjCI;
-          } else {
-            v.metrics[key].ciAdjusted = v.metrics[key].ci;
-          }
+  return useSearch({
+    items: experiments,
+    localStorageKey,
+    defaultSortField,
+    defaultSortDir,
+    updateSearchQueryOnChange: true,
+    searchFields: [
+      "name^3",
+      "trackingKey^2",
+      "id",
+      "hypothesis^2",
+      "description",
+      "tags",
+      "status",
+      "ownerName",
+      "metricNames",
+      "results",
+      "analysis",
+      "isWatched",
+    ],
+    searchTermFilters: {
+      is: (item) => {
+        const is: string[] = [];
+        if (item.archived) is.push("archived");
+        if (item.status === "draft") is.push("draft");
+        if (item.status === "running") is.push("running");
+        if (item.status === "stopped") is.push("stopped");
+        if (item.results === "won") {
+          is.push("winner");
+          is.push("won");
         }
-      }
-    });
+        if (item.results === "lost") {
+          is.push("loser");
+          is.push("lost");
+        }
+        if (item.results === "inconclusive") is.push("inconclusive");
+        if (item.results === "dnf") is.push("dnf");
+        if (item.hasVisualChangesets) is.push("visual");
+        if (item.hasURLRedirects) is.push("redirect");
+        if (item.isWatched) is.push("watched");
+        return is;
+      },
+      has: (item) => {
+        const has: string[] = [];
+        if (item.project) has.push("project");
+        if (item.hasVisualChangesets) {
+          has.push("visualChange", "visualChanges");
+        }
+        if (item.hasURLRedirects) has.push("redirect", "redirects");
+        if (item.linkedFeatures?.length) has.push("features", "feature");
+        if (item.hypothesis?.trim()?.length) has.push("hypothesis");
+        if (item.description?.trim()?.length) has.push("description");
+        if (item.variations.some((v) => !!v.screenshots?.length)) {
+          has.push("screenshots");
+        }
+        if (
+          item.status === "stopped" &&
+          !item.excludeFromPayload &&
+          (item.linkedFeatures?.length ||
+            item.hasURLRedirects ||
+            item.hasVisualChangesets)
+        ) {
+          has.push("rollout", "tempRollout");
+        }
+        return has;
+      },
+      variations: (item) => item.variations.length,
+      variation: (item) => item.variations.map((v) => v.name),
+      created: (item) => new Date(item.dateCreated),
+      updated: (item) => new Date(item.dateUpdated),
+      name: (item) => item.name,
+      key: (item) => item.trackingKey,
+      trackingKey: (item) => item.trackingKey,
+      id: (item) => [item.id, item.trackingKey],
+      status: (item) => item.status,
+      result: (item) =>
+        item.status === "stopped" ? item.results || "unfinished" : "unfinished",
+      owner: (item) => [item.owner, item.ownerName],
+      tag: (item) => item.tags,
+      project: (item) => [item.project, item.projectName],
+      feature: (item) => item.linkedFeatures || [],
+      datasource: (item) => item.datasource,
+      metric: (item) => [
+        ...(item.metricNames ?? []),
+        ...getAllMetricIdsFromExperiment(item),
+      ],
+      savedgroup: (item) => item.savedGroups || [],
+      goal: (item) => [...(item.metricNames ?? []), ...item.goalMetrics],
+    },
+    filterResults,
   });
-  return;
 }
 
 export type RowResults = {
@@ -397,6 +454,7 @@ export type RowResults = {
   significantUnadjusted: boolean;
   significantReason: string;
   suspiciousChange: boolean;
+  suspiciousThreshold: number;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
   risk: number;
@@ -411,14 +469,22 @@ export type RiskMeta = {
   relativeRiskFormatted: string;
   riskReason: string;
 };
-export type EnoughDataMeta = {
+export type EnoughDataMetaZeroValues = {
+  reason: "baselineZero" | "variationZero";
+  reasonText: string;
+};
+export type EnoughDataMetaNotEnoughData = {
+  reason: "notEnoughData";
+  reasonText: string;
   percentComplete: number;
   percentCompleteNumerator: number;
   percentCompleteDenominator: number;
   timeRemainingMs: number | null;
   showTimeRemaining: boolean;
-  reason: string;
 };
+export type EnoughDataMeta =
+  | EnoughDataMetaZeroValues
+  | EnoughDataMetaNotEnoughData;
 export function getRowResults({
   stats,
   baseline,
@@ -428,6 +494,7 @@ export function getRowResults({
   isGuardrail,
   minSampleSize,
   statsEngine,
+  differenceType,
   ciUpper,
   ciLower,
   pValueThreshold,
@@ -441,6 +508,7 @@ export function getRowResults({
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
   metric: ExperimentMetricInterface;
   denominator?: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -476,48 +544,87 @@ export function getRowResults({
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const enoughDataReason =
-    `This metric has a minimum ${
-      quantileMetricType(metric) ? "sample size" : "total"
-    } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
-    `The total ${
-      quantileMetricType(metric) ? "sample size" : "metric value"
-    } of the variation is ${compactNumberFormatter.format(
-      variationSampleSize
-    )} and the baseline total is ${compactNumberFormatter.format(
-      baselineSampleSize
-    )}.`;
-  const percentComplete =
-    minSampleSize > 0
-      ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
-      : 1;
-  const timeRemainingMs =
-    percentComplete > 0.1
-      ? ((snapshotDate.getTime() - getValidDate(phaseStartDate).getTime()) *
-          (1 - percentComplete)) /
-          percentComplete -
-        (Date.now() - snapshotDate.getTime())
-      : null;
-  const showTimeRemaining =
-    timeRemainingMs !== null && isLatestPhase && experimentStatus === "running";
-  const enoughDataMeta: EnoughDataMeta = {
-    percentComplete,
-    percentCompleteNumerator: Math.max(baselineSampleSize, variationSampleSize),
-    percentCompleteDenominator: minSampleSize,
-    timeRemainingMs,
-    showTimeRemaining,
-    reason: enoughDataReason,
-  };
 
+  const reason: EnoughDataMeta["reason"] =
+    baseline.value === 0
+      ? "baselineZero"
+      : stats.value === 0
+        ? "variationZero"
+        : "notEnoughData";
+
+  const enoughDataMeta: EnoughDataMeta = (() => {
+    switch (reason) {
+      case "notEnoughData": {
+        const reasonText =
+          `This metric has a minimum ${
+            quantileMetricType(metric) ? "sample size" : "total"
+          } of ${minSampleSize}; this value must be reached in one variation before results are displayed. ` +
+          `The total ${
+            quantileMetricType(metric) ? "sample size" : "metric value"
+          } of the variation is ${compactNumberFormatter.format(
+            variationSampleSize,
+          )} and the baseline total is ${compactNumberFormatter.format(
+            baselineSampleSize,
+          )}.`;
+        const percentComplete =
+          minSampleSize > 0
+            ? Math.max(baselineSampleSize, variationSampleSize) / minSampleSize
+            : 1;
+        const timeRemainingMs =
+          percentComplete !== null && percentComplete > 0.1
+            ? ((snapshotDate.getTime() -
+                getValidDate(phaseStartDate).getTime()) *
+                (1 - percentComplete)) /
+                percentComplete -
+              (Date.now() - snapshotDate.getTime())
+            : null;
+        const showTimeRemaining =
+          timeRemainingMs !== null &&
+          isLatestPhase &&
+          experimentStatus === "running";
+        return {
+          percentComplete,
+          percentCompleteNumerator: Math.max(
+            baselineSampleSize,
+            variationSampleSize,
+          ),
+          percentCompleteDenominator: minSampleSize,
+          timeRemainingMs,
+          showTimeRemaining,
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "baselineZero": {
+        const reasonText = `Statistics can only be displayed once the baseline has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+        break;
+      }
+      case "variationZero": {
+        const reasonText = `Statistics can only be displayed once the variation has a non-zero value.`;
+        return {
+          reason,
+          reasonText,
+        };
+      }
+    }
+  })();
   const suspiciousChange = isSuspiciousUplift(
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType,
   );
+  const suspiciousThreshold =
+    metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
   const suspiciousChangeReason = suspiciousChange
     ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
-        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0
+        suspiciousThreshold,
       )}).`
     : "";
 
@@ -526,7 +633,8 @@ export function getRowResults({
     baseline,
     metric,
     metricDefaults,
-    baseline.cr
+    differenceType,
+    baseline.cr,
   );
   const winRiskThreshold = metric.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD;
   const loseRiskThreshold = metric.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD;
@@ -535,16 +643,16 @@ export function getRowResults({
   if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
     riskStatus = "warning";
     riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk
+      relativeRisk,
     )}) exceeds the warning threshold (${percentFormatter.format(
-      winRiskThreshold
+      winRiskThreshold,
     )}) for this metric.`;
   } else if (relativeRisk >= loseRiskThreshold) {
     riskStatus = "danger";
     riskReason = `The relative risk (${percentFormatter.format(
-      relativeRisk
+      relativeRisk,
     )}) exceeds the danger threshold (${percentFormatter.format(
-      loseRiskThreshold
+      loseRiskThreshold,
     )}) for this metric.`;
   }
   let riskFormatted = "";
@@ -553,10 +661,10 @@ export function getRowResults({
 
   // TODO: support formatted risk for fact metrics
   if (!isBinomial) {
-    riskFormatted = `${getExperimentMetricFormatter(
-      metric,
-      getFactTableById
-    )(risk, { currency: displayCurrency })} / user`;
+    riskFormatted = `${getExperimentMetricFormatter(metric, getFactTableById)(
+      risk,
+      { currency: displayCurrency },
+    )} / user`;
   }
   const riskMeta: RiskMeta = {
     riskStatus,
@@ -581,17 +689,18 @@ export function getRowResults({
     ciUpper,
     pValueThreshold,
     statsEngine,
+    differenceType,
   });
 
   let significantReason = "";
   if (!significant) {
     if (statsEngine === "bayesian") {
       significantReason = `This metric is not statistically significant. The chance to win is not less than ${percentFormatter.format(
-        ciLower
+        ciLower,
       )} or greater than ${percentFormatter.format(ciUpper)}.`;
     } else {
       significantReason = `This metric is not statistically significant. The p-value (${pValueFormatter(
-        stats.pValueAdjusted ?? stats.pValue ?? 1
+        stats.pValueAdjusted ?? stats.pValue ?? 1,
       )}) is greater than the threshold (${pValueFormatter(pValueThreshold)}).`;
     }
   }
@@ -600,11 +709,11 @@ export function getRowResults({
   if (statsEngine === "bayesian") {
     if (resultsStatus === "won") {
       resultsReason = `Significant win as the chance to win is above the ${percentFormatter.format(
-        ciUpper
+        ciUpper,
       )} threshold and the change is in the desired direction.`;
     } else if (resultsStatus === "lost") {
       resultsReason = `Significant loss as the chance to win is below the ${percentFormatter.format(
-        ciLower
+        ciLower,
       )} threshold and the change is not in the desired direction.`;
     } else if (resultsStatus === "draw") {
       resultsReason =
@@ -613,11 +722,11 @@ export function getRowResults({
   } else {
     if (resultsStatus === "won") {
       resultsReason = `Significant win as the p-value is below the ${numberFormatter.format(
-        pValueThreshold
+        pValueThreshold,
       )} threshold`;
     } else if (resultsStatus === "lost") {
       resultsReason = `Significant loss as the p-value is below the ${numberFormatter.format(
-        pValueThreshold
+        pValueThreshold,
       )} threshold`;
     } else if (resultsStatus === "draw") {
       resultsReason =
@@ -647,6 +756,7 @@ export function getRowResults({
     significantUnadjusted,
     significantReason,
     suspiciousChange,
+    suspiciousThreshold,
     suspiciousChangeReason,
     belowMinChange,
     risk,
@@ -667,7 +777,7 @@ export function getEffectLabel(differenceType: DifferenceType): string {
 }
 
 export function convertTemplateToExperiment(
-  template: ExperimentTemplateInterface
+  template: ExperimentTemplateInterface,
 ): Partial<ExperimentInterfaceStringDates> {
   const templateWithoutTemplateFields = omit(template, [
     "id",
@@ -716,9 +826,8 @@ export function convertTemplateToExperimentRule({
   ]);
   if ("skipPartialData" in templateWithoutTemplateFields) {
     // @ts-expect-error Mangled types
-    templateWithoutTemplateFields.skipPartialData = templateWithoutTemplateFields.skipPartialData
-      ? "strict"
-      : "loose";
+    templateWithoutTemplateFields.skipPartialData =
+      templateWithoutTemplateFields.skipPartialData ? "strict" : "loose";
   }
   return {
     ...(getDefaultRuleValue({
@@ -733,7 +842,7 @@ export function convertTemplateToExperimentRule({
 }
 
 export function convertExperimentToTemplate(
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
 ): Partial<ExperimentTemplateInterface> {
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const template = {

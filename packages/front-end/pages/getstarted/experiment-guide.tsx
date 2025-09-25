@@ -29,10 +29,8 @@ const ExperimentGuide = (): React.ReactElement => {
   const router = useRouter();
   const params = router.query;
   const { apiCall } = useAuth();
-  const [
-    generatedHypothesis,
-    setGeneratedHypothesis,
-  ] = useState<GeneratedHypothesisInterface | null>(null);
+  const [generatedHypothesis, setGeneratedHypothesis] =
+    useState<GeneratedHypothesisInterface | null>(null);
   const [loadingHypothesis, setLoadingHypothesis] = useState(false);
 
   useEffect(() => {
@@ -77,18 +75,18 @@ const ExperimentGuide = (): React.ReactElement => {
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
   // Ignore the demo datasource
   const hasExperiments = project
     ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project
+        (e) => e.project !== demoProjectId && e.project === project,
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
 
   const hasStartedExperiment = project
@@ -96,10 +94,10 @@ const ExperimentGuide = (): React.ReactElement => {
         (e) =>
           e.project !== demoProjectId &&
           e.status !== "draft" &&
-          e.project === project
+          e.project === project,
       )
     : experiments.some(
-        (e) => e.project !== demoProjectId && e.status !== "draft"
+        (e) => e.project !== demoProjectId && e.status !== "draft",
       );
 
   // if coming from hypothesis generator, show slightly different UI
@@ -107,7 +105,7 @@ const ExperimentGuide = (): React.ReactElement => {
     ? "Run an Auto-generated Website Experiment"
     : "Run an Experiment";
   const generatedExp = experiments.find(
-    (e) => e.id === generatedHypothesis?.experiment
+    (e) => e.id === generatedHypothesis?.experiment,
   );
   const hasStartedGeneratedExp =
     generatedHypothesis && generatedExp
@@ -125,7 +123,6 @@ const ExperimentGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started-experiment-guide"
           commercialFeature={null}
         />

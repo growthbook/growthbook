@@ -17,10 +17,10 @@ import { useAuth } from "@/services/auth";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -184,7 +184,7 @@ const drawChange = ({
                               setShowChangeset(
                                 showChangeset.includes(j)
                                   ? showChangeset.filter((item) => item !== j)
-                                  : [...showChangeset, j]
+                                  : [...showChangeset, j],
                               );
                             }}
                           >
@@ -243,11 +243,11 @@ const drawChange = ({
                                 ([key]) =>
                                   key !== "id" &&
                                   key !== "variation" &&
-                                  key !== "description"
-                              )
+                                  key !== "description",
+                              ),
                             ),
                             null,
-                            2
+                            2,
                           )}
                         />
                       </Box>
@@ -273,10 +273,8 @@ export const VisualChangesetTable: FC<Props> = ({
   const { apiCall } = useAuth();
   const [showChangeset, setShowChangeset] = useState<number[]>([]);
 
-  const [
-    editingVisualChangeset,
-    setEditingVisualChangeset,
-  ] = useState<VisualChangesetInterface | null>(null);
+  const [editingVisualChangeset, setEditingVisualChangeset] =
+    useState<VisualChangesetInterface | null>(null);
 
   const [editingVisualChange, setEditingVisualChange] = useState<{
     visualChangeset: VisualChangesetInterface;
@@ -294,7 +292,7 @@ export const VisualChangesetTable: FC<Props> = ({
         source: "visual-editor-ui",
       });
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   const updateVisualChange = useCallback(
@@ -310,7 +308,7 @@ export const VisualChangesetTable: FC<Props> = ({
       const newVisualChangeset: VisualChangesetInterface = {
         ...visualChangeset,
         visualChanges: visualChangeset.visualChanges.map((c, i) =>
-          i === index ? visualChange : c
+          i === index ? visualChange : c,
         ),
       };
       await apiCall(`/visual-changesets/${visualChangeset.id}`, {
@@ -322,7 +320,7 @@ export const VisualChangesetTable: FC<Props> = ({
         source: "visual-editor-ui",
       });
     },
-    [apiCall, mutate]
+    [apiCall, mutate],
   );
 
   return (
@@ -365,7 +363,7 @@ export const VisualChangesetTable: FC<Props> = ({
         const visualChangeTypesDict: string[] = ["Text", "CSS", "Javascript"];
         const visualChangeTypes: string[] = [...visualChangeTypesSet].sort(
           (a, b) =>
-            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b)
+            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b),
         );
 
         return (

@@ -23,10 +23,10 @@ import Button from "@/components/Button";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Callout from "@/components/Radix/Callout";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -68,7 +68,7 @@ export default function RequestReviewModal({
     permissionsUtil.canReviewFeatureDrafts(feature);
   const approved = revision?.status === "approved" || adminPublish;
   const baseRevision = revisions.find(
-    (r) => r.version === revision?.baseVersion
+    (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
@@ -79,7 +79,7 @@ export default function RequestReviewModal({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revision, baseRevision, liveRevision, environments]);
 
@@ -92,7 +92,7 @@ export default function RequestReviewModal({
   });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
-    new Set(experimentData.map((e) => e.experiment.id))
+    new Set(experimentData.map((e) => e.experiment.id)),
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
 
@@ -357,7 +357,7 @@ export default function RequestReviewModal({
                                 body: JSON.stringify({
                                   comment,
                                 }),
-                              }
+                              },
                             );
                           } catch (e) {
                             await mutate();
@@ -402,7 +402,7 @@ export default function RequestReviewModal({
                   comment: data.comment,
                   review: data.reviewStatus,
                 }),
-              }
+              },
             );
           } catch (e) {
             mutate();

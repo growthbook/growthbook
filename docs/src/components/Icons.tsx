@@ -72,6 +72,66 @@ export function CodeLogos({ name }: { name: string }) {
           </g>
         </svg>
       );
+    case "nextjs":
+      return (
+        <svg viewBox="0 0 180 180" color="white">
+          <defs>
+            <linearGradient
+              gradientUnits="userSpaceOnUse"
+              id=":S2:paint0_linear_408_134"
+              x1="109"
+              x2="144.5"
+              y1="116.5"
+              y2="160.5"
+            >
+              <stop stopColor="white"></stop>
+              <stop offset="1" stopColor="white" stopOpacity="0"></stop>
+            </linearGradient>
+            <linearGradient
+              gradientUnits="userSpaceOnUse"
+              id=":S2:paint1_linear_408_134"
+              x1="121"
+              x2="120.799"
+              y1="54"
+              y2="106.875"
+            >
+              <stop stopColor="white"></stop>
+              <stop offset="1" stopColor="white" stopOpacity="0"></stop>
+            </linearGradient>
+          </defs>
+          <mask
+            height="180"
+            id=":S2:mask0_408_134"
+            maskUnits="userSpaceOnUse"
+            style={{ maskType: "alpha" }}
+            width="180"
+            x="0"
+            y="0"
+          >
+            <circle cx="90" cy="90" fill="black" r="90"></circle>
+          </mask>
+          <g mask="url(#:S2:mask0_408_134)">
+            <circle
+              cx="90"
+              cy="90"
+              data-circle="true"
+              fill="black"
+              r="90"
+            ></circle>
+            <path
+              d="M149.508 157.52L69.142 54H54V125.97H66.1136V69.3836L139.999 164.845C143.333 162.614 146.509 160.165 149.508 157.52Z"
+              fill="url(#:S2:paint0_linear_408_134)"
+            ></path>
+            <rect
+              fill="url(#:S2:paint1_linear_408_134)"
+              height="72"
+              width="12"
+              x="115"
+              y="54"
+            ></rect>
+          </g>
+        </svg>
+      );
     case "php":
       return (
         <svg viewBox="0 0 128 128">
@@ -175,6 +235,65 @@ export function CodeLogos({ name }: { name: string }) {
               <stop offset=".862" stopColor="#3F873F"></stop>
             </linearGradient>
           </defs>
+        </svg>
+      );
+      return (
+        <svg viewBox="0 0 180 180" color="white">
+          <defs>
+            <linearGradient
+              gradientUnits="userSpaceOnUse"
+              id=":S2:paint0_linear_408_134"
+              x1="109"
+              x2="144.5"
+              y1="116.5"
+              y2="160.5"
+            >
+              <stop stopColor="white"></stop>
+              <stop offset="1" stopColor="white" stopOpacity="0"></stop>
+            </linearGradient>
+            <linearGradient
+              gradientUnits="userSpaceOnUse"
+              id=":S2:paint1_linear_408_134"
+              x1="121"
+              x2="120.799"
+              y1="54"
+              y2="106.875"
+            >
+              <stop stopColor="white"></stop>
+              <stop offset="1" stopColor="white" stopOpacity="0"></stop>
+            </linearGradient>
+          </defs>
+          <mask
+            height="180"
+            id=":S2:mask0_408_134"
+            maskUnits="userSpaceOnUse"
+            style={{ maskType: "alpha" }}
+            width="180"
+            x="0"
+            y="0"
+          >
+            <circle cx="90" cy="90" fill="black" r="90"></circle>
+          </mask>
+          <g mask="url(#:S2:mask0_408_134)">
+            <circle
+              cx="90"
+              cy="90"
+              data-circle="true"
+              fill="black"
+              r="90"
+            ></circle>
+            <path
+              d="M149.508 157.52L69.142 54H54V125.97H66.1136V69.3836L139.999 164.845C143.333 162.614 146.509 160.165 149.508 157.52Z"
+              fill="url(#:S2:paint0_linear_408_134)"
+            ></path>
+            <rect
+              fill="url(#:S2:paint1_linear_408_134)"
+              height="72"
+              width="12"
+              x="115"
+              y="54"
+            ></rect>
+          </g>
         </svg>
       );
     case "ruby":
@@ -976,7 +1095,6 @@ export function CodeLogos({ name }: { name: string }) {
           ></path>
         </svg>
       );
-
     case "edgeCloudflare":
       return (
         <svg viewBox="0 0 128 128">
@@ -992,6 +1110,39 @@ export function CodeLogos({ name }: { name: string }) {
             fill="#FAAE40"
             d="M101.542 60.275c-.4 0-.836 0-1.236.036-.291 0-.545.218-.654.509l-1.744 6.069c-.763 2.617-.472 5.015.8 6.796 1.163 1.635 3.125 2.58 5.488 2.689l9.522.581c.291 0 .545.145.691.363.145.218.182.545.109.8-.145.436-.581.763-1.054.8l-9.924.582c-5.379.254-11.157 4.579-13.192 9.885l-.727 1.853c-.145.363.109.727.509.727h34.089c.4 0 .763-.254.872-.654.581-2.108.909-4.325.909-6.614 0-13.447-10.975-24.422-24.458-24.422"
           ></path>
+        </svg>
+      );
+    case "edgeFastly":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path
+            fill="#ff282d"
+            d="M13.919 3.036V1.3h.632V0H9.377v1.3h.631v1.749a10.572 10.572 0 00-8.575 10.384C1.433 19.275 6.17 24 12 24c5.842 0 10.567-4.737 10.567-10.567 0-5.186-3.729-9.486-8.648-10.397zm-1.628 15.826v-.607h-.619v.607c-2.757-.158-4.955-2.38-5.101-5.137h.607v-.62h-.607a5.436 5.436 0 015.101-5.089v.607h.62v-.607a5.435 5.435 0 015.137 5.114h-.607v.619h.607a5.444 5.444 0 01-5.138 5.113zm2.26-7.712l-.39-.389-1.979 1.725a.912.912 0 00-.316-.06c-.534 0-.971.448-.971.995 0 .547.437.996.971.996.535 0 .972-.45.972-.996a.839.839 0 00-.049-.304Z"
+          />
+        </svg>
+      );
+    case "edgeLambda":
+      return (
+        <svg viewBox="0 0 24 24">
+          <path
+            fill="#e57714"
+            d="M4.9855 0c-.2941.0031-.5335.2466-.534.5482L4.446 5.456c0 .1451.06.2835.159.3891a.5322.5322 0 0 0 .3806.1562h3.4282l8.197 17.6805a.5365.5365 0 0 0 .4885.3181h5.811c.2969 0 .5426-.2448.5426-.5482V18.544c0-.3035-.2392-.5482-.5425-.5482h-2.0138L12.7394.3153C12.647.124 12.4564 0 12.2452 0h-7.254Zm.5397 1.0907h6.3678l8.16 17.6804a.5365.5365 0 0 0 .4885.3181h1.8178v3.8173H17.437L9.2402 5.226a.536.536 0 0 0-.4885-.318H5.5223Zm2.0137 8.2366c-.2098.0011-.3937.1193-.4857.3096L.6002 23.2133a.5506.5506 0 0 0 .0313.5282.5334.5334 0 0 0 .4544.25h6.169a.5468.5468 0 0 0 .497-.3096l3.38-7.166a.5405.5405 0 0 0-.0029-.4686L8.036 9.637a.5468.5468 0 0 0-.4942-.3096Zm.0057 1.8036 2.488 5.1522-3.1214 6.6206H1.9465Z"
+          />
+        </svg>
+      );
+    case "edgeUtils":
+      return (
+        <svg
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          fill="none"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M11 18.004h-4.343c-2.572 -.004 -4.657 -2.011 -4.657 -4.487c0 -2.475 2.085 -4.482 4.657 -4.482c.393 -1.762 1.794 -3.2 3.675 -3.773c1.88 -.572 3.956 -.193 5.444 1c1.488 1.19 2.162 3.007 1.77 4.769h.99a3.468 3.468 0 0 1 3.307 2.444"></path>
+          <path d="M20 21l2 -2l-2 -2"></path>
+          <path d="M17 17l-2 2l2 2"></path>
         </svg>
       );
     case "flutter":

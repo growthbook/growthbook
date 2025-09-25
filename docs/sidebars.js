@@ -59,6 +59,12 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "features/safe-rollouts",
+          label: "Safe Rollouts",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "features/prerequisites",
           label: "Prerequisites",
         },
@@ -81,7 +87,6 @@ const sidebars = {
           type: "doc",
           id: "features/approval-flows",
           label: "Approval Flows",
-          className: "pill-new",
         },
       ],
     },
@@ -281,8 +286,24 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/query-optimization",
+          label: "Query Optimization",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/managed-warehouse",
+          label: "Managed Warehouse",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "official-resources",
+          label: "Official Resources",
         },
       ],
     },
@@ -330,6 +351,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/experiment-time-series",
+          label: "Experiment Time Series",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/decision-framework",
           label: "Experiment Decision Framework",
         },
@@ -362,6 +388,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "running-experiments/running-holdouts",
+          label: "Holdouts",
+        },
+        {
+          type: "doc",
           id: "sticky-bucketing",
           label: "Sticky Bucketing",
         },
@@ -379,6 +410,11 @@ const sidebars = {
           type: "doc",
           id: "running-experiments/pre-launch-checklist",
           label: "Pre-Launch Checklists",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiment-dashboards",
+          label: "Experiment Dashboards",
         },
         {
           type: "doc",
@@ -435,6 +471,11 @@ const sidebars = {
       ],
     },
     {
+      type: "doc",
+      id: "insights",
+      label: "Insights",
+    },
+    {
       type: "category",
       label: "SDKs",
       collapsed: false,
@@ -449,6 +490,7 @@ const sidebars = {
           collapsed: true,
           items: [
             { type: "doc", id: "lib/node", label: "Node.js" },
+            { type: "doc", id: "lib/nextjs", label: "Next.js" },
             { type: "doc", id: "lib/php", label: "PHP" },
             { type: "doc", id: "lib/ruby", label: "Ruby" },
             { type: "doc", id: "lib/python", label: "Python" },
@@ -456,6 +498,11 @@ const sidebars = {
               type: "doc",
               id: "lib/java",
               label: "Java",
+            },
+            {
+              type: "doc",
+              id: "lib/kotlin-jvm",
+              label: "Kotlin (JVM)",
             },
             {
               type: "doc",
@@ -533,14 +580,10 @@ const sidebars = {
         "self-host/production",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
+        { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },
-    {
-      type: "doc",
-      id: "dashboard",
-      label: "Management Dashboard",
-    },
     {
       type: "category",
       collapsed: true,
@@ -578,15 +621,31 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "integrations/mcp",
+          label: "MCP Server",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/vercel",
+          label: "Vercel",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/framer",
+          label: "Framer",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "integrations/slack",
           label: "Slack alerts",
-          className: "pill-new",
         },
         {
           type: "doc",
           id: "integrations/discord",
           label: "Discord alerts",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -611,13 +670,24 @@ const sidebars = {
         {
           type: "doc",
           id: "tools/cli",
-          className: "pill-new",
           label: "GrowthBook CLI",
         },
         {
           type: "doc",
           id: "integrations/clarity",
           label: "Microsoft Clarity (Heatmaps)",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/jira",
+          label: "Jira",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "integrations/ai",
+          label: "AI",
           className: "pill-new",
         },
       ],
@@ -663,9 +733,13 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/sanity",
+          label: "Sanity",
+        },
+        {
+          type: "doc",
           id: "guide/strapi",
           label: "Strapi CMS",
-          className: "pill-new",
         },
         {
           type: "doc",
@@ -765,6 +839,28 @@ const sidebars = {
               type: "doc",
               id: "kb/experiments/holdouts",
               label: "Holdouts in GrowthBook",
+            },
+          ],
+        },
+        {
+          type: "category",
+          label: "Google Analytics",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-big-query-bq-troubleshooting",
+              label: "BigQuery Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-analytics-ga4-troubleshooting",
+              label: "GA4 Troubleshooting",
+            },
+            {
+              type: "doc",
+              id: "kb/google-analytics/google-tag-manager-gtm-troubleshooting",
+              label: "GTM Troubleshooting",
             },
           ],
         },

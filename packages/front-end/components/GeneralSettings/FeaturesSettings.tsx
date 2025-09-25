@@ -10,16 +10,14 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useEnvironments } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Checkbox from "@/components/Radix/Checkbox";
-import Button from "@/components/Radix/Button";
+import Checkbox from "@/ui/Checkbox";
+import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 
 export default function FeaturesSettings() {
-  const [
-    codeRefsBranchesToFilterStr,
-    setCodeRefsBranchesToFilterStr,
-  ] = useState<string>("");
+  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
+    useState<string>("");
 
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
@@ -27,7 +25,7 @@ export default function FeaturesSettings() {
   const { projects } = useDefinitions();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes"
+    "hash-secure-attributes",
   );
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
@@ -48,7 +46,7 @@ export default function FeaturesSettings() {
       codeRefsBranchesToFilterStr
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     );
   }, [form, codeRefsBranchesToFilterStr]);
 
@@ -180,6 +178,50 @@ export default function FeaturesSettings() {
               </Flex>
             </Flex>
           </Box>
+
+          {/* Require project for features */}
+          {hasCommercialFeature("require-project-for-features-setting") && (
+            <Box mb="6" width="100%">
+              <Flex align="start" justify="start" gap="3">
+                <Box>
+                  <Checkbox
+                    id="toggle-requireProjectForFeatures"
+                    value={!!form.watch("requireProjectForFeatures")}
+                    setValue={(value) => {
+                      form.setValue("requireProjectForFeatures", value, {
+                        shouldDirty: true,
+                      });
+                    }}
+                    mt="1"
+                  />
+                </Box>
+                <Flex
+                  direction="column"
+                  justify="start"
+                  style={{ marginTop: "1px" }}
+                >
+                  <Box>
+                    <Text
+                      size="3"
+                      className="font-weight-semibold"
+                      htmlFor="toggle-requireProjectForFeatures"
+                      as="label"
+                      mb="2"
+                    >
+                      Require Project for all new Features
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text size="2" color="gray">
+                      If enabled, users will be required to select a project
+                      when creating a feature flag.
+                    </Text>
+                  </Box>
+                </Flex>
+              </Flex>
+            </Box>
+          )}
+
           {hasRequireApprovals && (
             <>
               <Box mb="6" width="100%">
@@ -199,7 +241,7 @@ export default function FeaturesSettings() {
                           setValue={(value) => {
                             form.setValue(
                               `requireReviews.${i}.requireReviewOn`,
-                              value
+                              value,
                             );
                           }}
                         />
@@ -214,7 +256,7 @@ export default function FeaturesSettings() {
                           </Text>
 
                           {!!form.watch(
-                            `requireReviews.${i}.requireReviewOn`
+                            `requireReviews.${i}.requireReviewOn`,
                           ) && (
                             <Box mt="4">
                               <Text
@@ -233,7 +275,7 @@ export default function FeaturesSettings() {
                                 onChange={(projects) => {
                                   form.setValue(
                                     `requireReviews.${i}.projects`,
-                                    projects
+                                    projects,
                                   );
                                 }}
                                 options={projects.map((e) => {
@@ -256,13 +298,13 @@ export default function FeaturesSettings() {
                                 id={`environments-${i}`}
                                 value={
                                   form.watch(
-                                    `requireReviews.${i}.environments`
+                                    `requireReviews.${i}.environments`,
                                   ) || []
                                 }
                                 onChange={(environments) => {
                                   form.setValue(
                                     `requireReviews.${i}.environments`,
-                                    environments
+                                    environments,
                                   );
                                 }}
                                 options={environments.map((e) => {
@@ -278,13 +320,13 @@ export default function FeaturesSettings() {
                                   id={`toggle-reset-review-on-change-${i}`}
                                   value={
                                     !!form.watch(
-                                      `requireReviews.${i}.resetReviewOnChange`
+                                      `requireReviews.${i}.resetReviewOnChange`,
                                     )
                                   }
                                   setValue={(value) => {
                                     form.setValue(
                                       `requireReviews.${i}.resetReviewOnChange`,
-                                      value
+                                      value,
                                     );
                                   }}
                                 />

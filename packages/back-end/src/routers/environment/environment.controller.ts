@@ -44,12 +44,11 @@ type CreateEnvironmentResponse = {
 
 export const putEnvironmentOrder = async (
   req: AuthRequest<UpdateEnvOrderProps>,
-  res: Response
+  res: Response,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const envIds = req.body.environments;
-
+  const { envId, newIndex } = req.body;
   const existingEnvs = org.settings?.environments;
 
   if (!existingEnvs) {
@@ -61,28 +60,32 @@ export const putEnvironmentOrder = async (
 
   // If the user doesn't have permission to update any envs, don't allow this action
   if (
-    existingEnvs.every(
-      (env) => !context.permissions.canUpdateEnvironment(env, {})
+    existingEnvs.some(
+      (env) => !context.permissions.canUpdateEnvironment(env, {}),
     )
   ) {
     context.permissions.throwPermissionError();
   }
 
-  const updatedEnvs: Environment[] = [];
+  const envIndex = existingEnvs.findIndex((env) => env.id === envId);
 
-  // Loop through env ids, to get the full env object and add it to the updatedEnvs arr
-  envIds.forEach((envId) => {
-    const env = existingEnvs.find((existing) => existing.id === envId);
+  if (envIndex < 0) {
+    return res.status(400).json({
+      status: 400,
+      message: `Unable to find environment: ${envId}`,
+    });
+  }
 
-    if (!env) {
-      return res.status(400).json({
-        status: 400,
-        message: `Unable to find environment: ${envId}`,
-      });
-    }
+  const updatedEnvs = [...existingEnvs];
 
-    updatedEnvs.push(env);
-  });
+  if (newIndex < 0 || newIndex >= existingEnvs.length) {
+    return res.status(400).json({
+      status: 400,
+      message: `Invalid new index: ${newIndex}`,
+    });
+  }
+  updatedEnvs.splice(envIndex, 1);
+  updatedEnvs.splice(newIndex, 0, existingEnvs[envIndex]);
 
   try {
     await updateOrganization(org.id, {
@@ -112,7 +115,7 @@ export const putEnvironmentOrder = async (
 
 export const putEnvironments = async (
   req: AuthRequest<UpdateEnvironmentsProps>,
-  res: Response
+  res: Response,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
@@ -125,7 +128,7 @@ export const putEnvironments = async (
       context,
       environment,
       acc,
-      false
+      false,
     );
   }, getEnvironments(org));
 
@@ -157,7 +160,7 @@ export const putEnvironments = async (
 
 export const putEnvironment = async (
   req: AuthRequest<UpdateEnvironmentProps, { id: string }>,
-  res: Response
+  res: Response,
 ) => {
   const { environment } = req.body;
   const { id } = req.params;
@@ -178,7 +181,7 @@ export const putEnvironment = async (
   if (
     !context.permissions.canUpdateEnvironment(
       envsArr[existingEnvIndex],
-      environment
+      environment,
     )
   ) {
     context.permissions.throwPermissionError();
@@ -202,7 +205,7 @@ export const putEnvironment = async (
       if (!isEqual(existingProjects, newProjects)) {
         const connections = await findSDKConnectionsByOrganization(context);
         const affectedConnections = connections.filter(
-          (c) => c.environment === id
+          (c) => c.environment === id,
         );
 
         for (const connection of affectedConnections) {
@@ -214,7 +217,7 @@ export const putEnvironment = async (
             connection,
             {},
             connection.proxy,
-            isUsingProxy
+            isUsingProxy,
           );
         }
       }
@@ -257,7 +260,7 @@ export const postEnvironment = async (
   res: Response<
     CreateEnvironmentResponse | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const { environment } = req.body;
 
@@ -274,8 +277,8 @@ export const postEnvironment = async (
   if (environment.parent && !DEFAULT_ENVIRONMENT_IDS.includes(environment.id)) {
     throw new Error(
       `Manual environment inheritance only valid for environments ${DEFAULT_ENVIRONMENT_IDS.join(
-        ", "
-      )}. For programmatic control use the API endpoint instead.`
+        ", ",
+      )}. For programmatic control use the API endpoint instead.`,
     );
   }
 
@@ -283,7 +286,7 @@ export const postEnvironment = async (
     context,
     environment,
     getEnvironments(org),
-    false
+    false,
   );
 
   try {
@@ -319,7 +322,7 @@ export const postEnvironment = async (
 
 export const deleteEnvironment = async (
   req: AuthRequest<null, DeleteEnvironmentProps>,
-  res: Response
+  res: Response,
 ) => {
   const id = req.params.id;
   const context = getContextFromReq(req);

@@ -228,7 +228,7 @@ export const EventWebHookDetail: FC<EventWebHookDetailProps> = ({
           )}
         </div>
 
-        {payloadType === "raw" && (
+        {["raw", "json"].includes(payloadType) && (
           <div className="ml-2 d-flex align-items-center">
             <div className="text-main">
               <b>Secret:</b>
@@ -378,9 +378,9 @@ export const EventWebHookDetailContainer = ({
                 "environments",
                 "method",
                 "headers",
-              ])
+              ]),
             ),
-          }
+          },
         );
 
         if (response.error) {
@@ -394,7 +394,7 @@ export const EventWebHookDetailContainer = ({
         handleUpdateError("Unknown error");
       }
     },
-    [mutateEventWebHook, apiCall, eventWebHookId]
+    [mutateEventWebHook, apiCall, eventWebHookId],
   );
 
   const handleDelete = useCallback(async () => {

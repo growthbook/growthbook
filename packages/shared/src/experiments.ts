@@ -1,6 +1,6 @@
+import normal from "@stdlib/stats/base/dists/normal";
 import { MetricInterface } from "back-end/types/metric";
 import {
-  ColumnInterface,
   ColumnRef,
   FactMetricInterface,
   FactTableColumnType,
@@ -19,14 +19,24 @@ import {
   ExperimentInterfaceStringDates,
   MetricOverride,
 } from "back-end/types/experiment";
-import { MetricSnapshotSettings } from "back-end/types/report";
+import {
+  ExperimentReportResultDimension,
+  MetricSnapshotSettings,
+} from "back-end/types/report";
+import { DEFAULT_GUARDRAIL_ALPHA } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
+  ExperimentDimensionMetadata,
 } from "back-end/types/datasource";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { StatsEngine } from "back-end/types/stats";
+import {
+  DifferenceType,
+  IndexedPValue,
+  PValueCorrection,
+  StatsEngine,
+} from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
 import {
@@ -46,30 +56,60 @@ export function isMetricGroupId(id: string): boolean {
 }
 
 export function isFactMetric(
-  m: ExperimentMetricInterface
+  m: ExperimentMetricInterface,
 ): m is FactMetricInterface {
   return "metricType" in m;
 }
 
 export function canInlineFilterColumn(
-  factTable: Pick<FactTableInterface, "userIdTypes">,
-  column: Pick<ColumnInterface, "column" | "datatype" | "deleted">
+  factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
+  column: string,
 ): boolean {
-  if (column.deleted) return false;
-
-  if (column.datatype !== "string") return false;
-
   // If the column is one of the identifier columns, it is not eligible for prompting
-  if (factTable.userIdTypes.includes(column.column)) return false;
+  if (factTable.userIdTypes.includes(column)) return false;
+
+  if (
+    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
+    "string"
+  ) {
+    return false;
+  }
 
   return true;
+}
+
+export function getColumnExpression(
+  column: string,
+  factTable: Pick<FactTableInterface, "columns">,
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+  alias: string = "",
+): string {
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json") {
+      const path = parts.slice(1).join(".");
+
+      const field = col.jsonFields?.[path];
+      const isNumeric = field?.datatype === "number";
+
+      return jsonExtract(
+        alias ? `${alias}.${parts[0]}` : parts[0],
+        path,
+        isNumeric,
+      );
+    }
+  }
+
+  return alias ? `${alias}.${column}` : column;
 }
 
 export function getColumnRefWhereClause(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
   columnRef: ColumnRef,
   escapeStringLiteral: (s: string) => string,
-  showSourceComment = false
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+  showSourceComment = false,
 ): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
   const filterIds = columnRef.filters || [];
@@ -81,15 +121,21 @@ export function getColumnRefWhereClause(
     const escapedValues = new Set(
       values
         .filter((v) => v.length > 0)
-        .map((v) => "'" + escapeStringLiteral(v) + "'")
+        .map((v) => "'" + escapeStringLiteral(v) + "'"),
     );
+
+    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
 
     if (!escapedValues.size) {
       return;
     } else if (escapedValues.size === 1) {
-      where.add(`${column} = ${[...escapedValues][0]}`);
+      // parentheses are overkill here but they help de-dupe with
+      // any identical user additional filters
+      where.add(`(${columnExpr} = ${[...escapedValues][0]})`);
     } else {
-      where.add(`${column} IN (\n  ${[...escapedValues].join(",\n  ")}\n)`);
+      where.add(
+        `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`,
+      );
     }
   });
 
@@ -98,7 +144,7 @@ export function getColumnRefWhereClause(
     const filter = factTable.filters.find((f) => f.id === filterId);
     if (filter) {
       const comment = showSourceComment ? `-- Filter: ${filter.name}\n` : "";
-      where.add(comment + filter.value);
+      where.add(comment + `(${filter.value})`);
     }
   });
 
@@ -145,7 +191,7 @@ export function getAggregateFilters({
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
   factTableMap: FactTableMap,
-  useDenominator?: boolean
+  useDenominator?: boolean,
 ): TemplateVariables {
   if (isFactMetric(m)) {
     const columnRef = useDenominator ? m.denominator : m.numerator;
@@ -162,6 +208,10 @@ export function getMetricTemplateVariables(
   return m.templateVariables || {};
 }
 
+export function isCappableMetricType(m: ExperimentMetricInterface) {
+  return !quantileMetricType(m) && !isBinomialMetric(m);
+}
+
 export function isBinomialMetric(m: ExperimentMetricInterface) {
   if (isFactMetric(m))
     return ["proportion", "retention"].includes(m.metricType);
@@ -174,14 +224,14 @@ export function isRetentionMetric(m: ExperimentMetricInterface) {
 
 export function isRatioMetric(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ): boolean {
   if (isFactMetric(m)) return m.metricType === "ratio";
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
 export function quantileMetricType(
-  m: ExperimentMetricInterface
+  m: ExperimentMetricInterface,
 ): "" | MetricQuantileSettings["type"] {
   if (isFactMetric(m) && m.metricType === "quantile") {
     return m.quantileSettings?.type || "";
@@ -191,7 +241,7 @@ export function quantileMetricType(
 
 export function isFunnelMetric(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ): boolean {
   if (isFactMetric(m)) return false;
   return !!denominatorMetric && isBinomialMetric(denominatorMetric);
@@ -199,7 +249,7 @@ export function isFunnelMetric(
 
 export function isRegressionAdjusted(
   m: ExperimentMetricInterface,
-  denominatorMetric?: ExperimentMetricInterface
+  denominatorMetric?: ExperimentMetricInterface,
 ) {
   const isLegacyRatioMetric: boolean =
     isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
@@ -212,7 +262,7 @@ export function isRegressionAdjusted(
 }
 
 export function getConversionWindowHours(
-  windowSettings: MetricWindowSettings
+  windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.windowValue;
   if (windowSettings.windowUnit === "minutes") return value / 60;
@@ -224,7 +274,7 @@ export function getConversionWindowHours(
 }
 
 export function getDelayWindowHours(
-  windowSettings: MetricWindowSettings
+  windowSettings: MetricWindowSettings,
 ): number {
   const value = windowSettings.delayValue;
   if (windowSettings.delayUnit === "minutes") return value / 60;
@@ -238,25 +288,42 @@ export function getDelayWindowHours(
 export function getSelectedColumnDatatype({
   factTable,
   column,
+  excludeDeleted = false,
 }: {
-  factTable: FactTableInterface | null;
+  factTable: Pick<FactTableInterface, "columns"> | null;
   column: string;
+  excludeDeleted?: boolean;
 }): FactTableColumnType | undefined {
   if (!factTable) return undefined;
+
+  // Might be a JSON column, look at nested field
+  const parts = column.split(".");
+  if (parts.length > 1) {
+    const col = factTable.columns.find((c) => c.column === parts[0]);
+    if (col?.datatype === "json" && (!excludeDeleted || !col?.deleted)) {
+      const field = col.jsonFields?.[parts.slice(1).join(".")];
+      if (field) {
+        return field.datatype;
+      }
+    }
+  }
+
   const col = factTable.columns.find((c) => c.column === column);
+  if (excludeDeleted && (!col || col.deleted)) return undefined;
+
   return col?.datatype;
 }
 
 export function getUserIdTypes(
   metric: ExperimentMetricInterface,
   factTableMap: FactTableMap,
-  useDenominator?: boolean
+  useDenominator?: boolean,
 ): string[] {
   if (isFactMetric(metric)) {
     const factTable = factTableMap.get(
       useDenominator
         ? metric.denominator?.factTableId || ""
-        : metric.numerator.factTableId
+        : metric.numerator.factTableId,
     );
     return factTable?.userIdTypes || [];
   }
@@ -353,7 +420,8 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
     // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled =
+        !!metricOverride?.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
@@ -393,7 +461,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
     if (metric?.denominator) {
       // is this a classic "ratio" metric (denominator unsupported type)?
       const denominator = denominatorMetrics.find(
-        (m) => m.id === metric?.denominator
+        (m) => m.id === metric?.denominator,
       );
       if (denominator && !isBinomialMetric(denominator)) {
         regressionAdjustmentEnabled = false;
@@ -497,7 +565,7 @@ export function getAllMetricSettingsForSnapshot({
 
 export function isExpectedDirection(
   stats: SnapshotMetric,
-  metric: { inverse?: boolean }
+  metric: { inverse?: boolean },
 ): boolean {
   const expected: number = stats?.expected ?? 0;
   if (metric.inverse) {
@@ -535,7 +603,7 @@ export function shouldHighlight({
 export function getMetricSampleSize(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
-  metric: ExperimentMetricInterface
+  metric: ExperimentMetricInterface,
 ): { baselineValue?: number; variationValue?: number } {
   return quantileMetricType(metric)
     ? {
@@ -549,12 +617,12 @@ export function hasEnoughData(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: ExperimentMetricInterface,
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
 ): boolean {
   const { baselineValue, variationValue } = getMetricSampleSize(
     baseline,
     stats,
-    metric
+    metric,
   );
   if (!baselineValue || !variationValue) return false;
 
@@ -568,28 +636,56 @@ export function isSuspiciousUplift(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { maxPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType,
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const maxPercentChange =
     metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) >= maxPercentChange;
+  } else if (differenceType === "absolute") {
+    return (
+      Math.abs(stats.expected ?? 0) / Math.abs(baseline.cr) >= maxPercentChange
+    );
+  } else {
+    // This means scaled impact could show up as suspicious even when
+    // it doesn't show up for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) >=
+      maxPercentChange
+    );
+  }
 }
 
 export function isBelowMinChange(
   baseline: SnapshotMetric,
   stats: SnapshotMetric,
   metric: { minPercentChange?: number },
-  metricDefaults: MetricDefaults
+  metricDefaults: MetricDefaults,
+  differenceType: DifferenceType,
 ): boolean {
-  if (!baseline?.cr || !stats?.cr) return false;
+  if (!baseline?.cr || !stats?.cr || !stats?.expected) return false;
 
   const minPercentChange =
     metric.minPercentChange ?? metricDefaults.minPercentageChange ?? 0;
 
-  return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
+  if (differenceType === "relative") {
+    return Math.abs(stats.expected) < minPercentChange;
+  } else if (differenceType === "absolute") {
+    return Math.abs(stats.expected) / Math.abs(baseline.cr) < minPercentChange;
+  } else {
+    // This means scaled impact could show up as too small even it is
+    // large enough for other difference types if CUPED is applied
+    // and CUPED causes the value to cross the threshold
+    return (
+      Math.abs(stats.cr - baseline.cr) / Math.abs(baseline.cr) <
+      minPercentChange
+    );
+  }
 }
 
 export function getMetricResultStatus({
@@ -601,6 +697,7 @@ export function getMetricResultStatus({
   ciUpper,
   pValueThreshold,
   statsEngine,
+  differenceType,
 }: {
   metric: ExperimentMetricInterface;
   metricDefaults: MetricDefaults;
@@ -610,6 +707,7 @@ export function getMetricResultStatus({
   ciUpper: number;
   pValueThreshold: number;
   statsEngine: StatsEngine;
+  differenceType: DifferenceType;
 }) {
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (metric.inverse ? -1 : 1) > 0
@@ -621,7 +719,8 @@ export function getMetricResultStatus({
     baseline,
     stats,
     metric,
-    metricDefaults
+    metricDefaults,
+    differenceType,
   );
   const _shouldHighlight = shouldHighlight({
     metric,
@@ -647,7 +746,7 @@ export function getMetricResultStatus({
   } else {
     significant = isStatSig(
       stats.pValueAdjusted ?? stats.pValue ?? 1,
-      pValueThreshold
+      pValueThreshold,
     );
     significantUnadjusted = isStatSig(stats.pValue ?? 1, pValueThreshold);
   }
@@ -698,7 +797,7 @@ export function getMetricResultStatus({
   } else {
     const clearStatSig = isStatSig(
       stats.pValueAdjusted ?? stats.pValue ?? 1,
-      Math.min(pValueThreshold, 0.001)
+      Math.min(pValueThreshold, 0.001),
     );
     if (_shouldHighlight && clearStatSig && directionalStatus === "winning") {
       clearSignalResultsStatus = "won";
@@ -710,6 +809,21 @@ export function getMetricResultStatus({
       clearSignalResultsStatus = "lost";
     }
   }
+  let guardrailSafeStatus = false;
+  if (stats.ci) {
+    const ciLowerGuardrail = stats.ci?.[0] ?? Number.NEGATIVE_INFINITY;
+    const ciUpperGuardrail = stats.ci?.[1] ?? Number.POSITIVE_INFINITY;
+    const guardrailChanceToWin =
+      stats.chanceToWin ??
+      chanceToWinFlatPrior(
+        stats.expected ?? 0,
+        ciLowerGuardrail,
+        ciUpperGuardrail,
+        pValueThreshold,
+        metric.inverse,
+      );
+    guardrailSafeStatus = guardrailChanceToWin > 1 - DEFAULT_GUARDRAIL_ALPHA;
+  }
   return {
     shouldHighlight: _shouldHighlight,
     belowMinChange,
@@ -718,7 +832,50 @@ export function getMetricResultStatus({
     directionalStatus,
     resultsStatus,
     clearSignalResultsStatus,
+    guardrailSafeStatus,
   };
+}
+
+export function chanceToWinFlatPrior(
+  expected: number,
+  lower: number,
+  upper: number,
+  pValueThreshold: number,
+  inverse: boolean = false,
+): number {
+  if (
+    lower === Number.NEGATIVE_INFINITY &&
+    upper === Number.POSITIVE_INFINITY
+  ) {
+    return 0;
+  }
+  const confidenceIntervalType =
+    lower === Number.NEGATIVE_INFINITY
+      ? "oneSidedLesser"
+      : upper === Number.POSITIVE_INFINITY
+        ? "oneSidedGreater"
+        : "twoSided";
+  const halfwidth =
+    confidenceIntervalType === "twoSided"
+      ? 0.5 * (upper - lower)
+      : confidenceIntervalType === "oneSidedGreater"
+        ? expected - lower
+        : upper - expected;
+  const numTails = confidenceIntervalType === "twoSided" ? 2 : 1;
+  const zScore = normal.quantile(1 - pValueThreshold / numTails, 0, 1);
+  const s = halfwidth / zScore;
+  if (s === 0) {
+    if (expected === 0) {
+      return 0;
+    }
+    const chanceToWin = expected > 0;
+    return inverse ? 1 - +chanceToWin : +chanceToWin;
+  }
+  const ctwInverse = normal.cdf(-expected / s, 0, 1);
+  if (inverse) {
+    return ctwInverse;
+  }
+  return 1 - ctwInverse;
 }
 
 export function getAllMetricIdsFromExperiment(
@@ -729,7 +886,7 @@ export function getAllMetricIdsFromExperiment(
     activationMetric?: string | null;
   },
   includeActivationMetric: boolean = true,
-  metricGroups: MetricGroupInterface[] = []
+  metricGroups: MetricGroupInterface[] = [],
 ) {
   return Array.from(
     new Set(
@@ -742,9 +899,9 @@ export function getAllMetricIdsFromExperiment(
             ? [exp.activationMetric]
             : []),
         ],
-        metricGroups
-      )
-    )
+        metricGroups,
+      ),
+    ),
   );
 }
 
@@ -780,8 +937,8 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
 export async function generateTrackingKey(
   exp: Partial<ExperimentInterface>,
   getExperimentByKey?: (
-    key: string
-  ) => Promise<ExperimentInterface | ExperimentInterfaceStringDates | null>
+    key: string,
+  ) => Promise<ExperimentInterface | ExperimentInterfaceStringDates | null>,
 ): Promise<string> {
   // Try to generate a unique tracking key based on the experiment name
   let n = 1;
@@ -807,7 +964,7 @@ export async function generateTrackingKey(
       // Remove stopwords
       .replace(
         /-((a|about|above|after|again|all|am|an|and|any|are|arent|as|at|be|because|been|before|below|between|both|but|by|cant|could|did|do|does|dont|down|during|each|few|for|from|had|has|have|having|here|how|if|in|into|is|isnt|it|its|itself|more|most|no|nor|not|of|on|once|only|or|other|our|out|over|own|same|should|shouldnt|so|some|such|that|than|then|the|there|theres|these|this|those|through|to|too|under|until|up|very|was|wasnt|we|weve|were|what|whats|when|where|which|while|who|whos|whom|why|with|wont|would)-)+/g,
-        "-"
+        "-",
       )
       // Collapse duplicate hyphens
       .replace(/-{2,}/g, "-")
@@ -825,7 +982,7 @@ export async function generateTrackingKey(
 
 export function expandMetricGroups(
   metricIds: string[],
-  metricGroups: MetricGroupInterface[]
+  metricGroups: MetricGroupInterface[],
 ): string[] {
   const metricGroupMap = new Map(metricGroups.map((mg) => [mg.id, mg]));
   const expandedMetricIds: string[] = [];
@@ -842,7 +999,7 @@ export function expandMetricGroups(
 export function isMetricJoinable(
   metricIdTypes: string[],
   userIdType: string,
-  settings?: DataSourceSettings
+  settings?: DataSourceSettings,
 ): boolean {
   if (metricIdTypes.includes(userIdType)) return true;
 
@@ -851,7 +1008,7 @@ export function isMetricJoinable(
       settings.queries.identityJoins.some(
         (j) =>
           j.ids.includes(userIdType) &&
-          j.ids.some((jid) => metricIdTypes.includes(jid))
+          j.ids.some((jid) => metricIdTypes.includes(jid)),
       )
     ) {
       return true;
@@ -869,4 +1026,200 @@ export function isMetricJoinable(
   }
 
   return false;
+}
+
+export function adjustPValuesBenjaminiHochberg(
+  indexedPValues: IndexedPValue[],
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+
+  newIndexedPValues.sort((a, b) => {
+    return b.pValue - a.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue < tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function adjustPValuesHolmBonferroni(
+  indexedPValues: IndexedPValue[],
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+  newIndexedPValues.sort((a, b) => {
+    return a.pValue - b.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue > tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function setAdjustedPValuesOnResults(
+  results: ExperimentReportResultDimension[],
+  nonGuardrailMetrics: string[],
+  adjustment: PValueCorrection,
+): void {
+  if (!adjustment) {
+    return;
+  }
+
+  let indexedPValues: IndexedPValue[] = [];
+  results.forEach((r, i) => {
+    r.variations.forEach((v, j) => {
+      nonGuardrailMetrics.forEach((m) => {
+        const pValue = v.metrics[m]?.pValue;
+        if (pValue !== undefined) {
+          indexedPValues.push({
+            pValue: pValue,
+            index: [i, j, m],
+          });
+        }
+      });
+    });
+  });
+
+  if (indexedPValues.length === 0) {
+    return;
+  }
+
+  if (adjustment === "benjamini-hochberg") {
+    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
+  } else if (adjustment === "holm-bonferroni") {
+    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
+  }
+
+  // modify results in place
+  indexedPValues.forEach((ip) => {
+    const ijk = ip.index;
+    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
+      ip.pValue;
+  });
+  return;
+}
+
+export function adjustedCI(
+  adjustedPValue: number,
+  lift: number | undefined,
+  pValueThreshold: number,
+): [number, number] {
+  if (!lift) return [0, 0];
+  const zScore = normal.quantile(1 - pValueThreshold / 2, 0, 1);
+  const adjStdDev = Math.abs(
+    lift / normal.quantile(1 - adjustedPValue / 2, 0, 1),
+  );
+  const width = zScore * adjStdDev;
+  return [lift - width, lift + width];
+}
+
+export function setAdjustedCIs(
+  results: ExperimentReportResultDimension[],
+  pValueThreshold: number,
+): void {
+  results.forEach((r) => {
+    r.variations.forEach((v) => {
+      for (const key in v.metrics) {
+        const pValueAdjusted = v.metrics[key].pValueAdjusted;
+        const uplift = v.metrics[key].uplift;
+        const ci = v.metrics[key].ci;
+        if (
+          pValueAdjusted === undefined ||
+          uplift === undefined ||
+          ci === undefined
+        ) {
+          continue;
+        }
+
+        const adjCI = getAdjustedCI(
+          pValueAdjusted,
+          uplift.mean,
+          pValueThreshold,
+          ci,
+        );
+        if (adjCI) {
+          v.metrics[key].ciAdjusted = adjCI;
+        } else {
+          v.metrics[key].ciAdjusted = ci;
+        }
+      }
+    });
+  });
+  return;
+}
+
+export function getAdjustedCI(
+  pValueAdjusted: number,
+  lift: number | undefined,
+  pValueThreshold: number,
+  ci: [number, number],
+): [number, number] | undefined {
+  // set to Inf if adjusted pValue is 1
+  if (pValueAdjusted > 0.999999) {
+    return [-Infinity, Infinity];
+  }
+
+  const adjCI = adjustedCI(pValueAdjusted, lift, pValueThreshold);
+  // only update if CI got wider, should never get more narrow
+  if (adjCI[0] < ci[0] && adjCI[1] > ci[1]) {
+    return adjCI;
+  } else {
+    return ci;
+  }
+}
+
+export function getPredefinedDimensionSlicesByExperiment(
+  dimensionMetadata: ExperimentDimensionMetadata[],
+  nVariations: number,
+): ExperimentDimensionMetadata[] {
+  // Ensure we return no more than 1k rows in full joint distribution
+  // for post-stratification
+  let dimensions = dimensionMetadata;
+
+  // remove dimensions that have no slices
+  dimensions = dimensions.filter((d) => d.specifiedSlices.length > 0);
+
+  let totalLevels = countDimensionLevels(dimensions, nVariations);
+  const maxLevels = 1000;
+  while (totalLevels > maxLevels) {
+    dimensions = dimensions.slice(0, -1);
+    if (dimensions.length === 0) {
+      break;
+    }
+    totalLevels = countDimensionLevels(dimensions, nVariations);
+  }
+
+  return dimensions;
+}
+
+export function countDimensionLevels(
+  dimensionMetadata: { specifiedSlices: string[] }[],
+  nVariations: number,
+): number {
+  const nLevels: number[] = [];
+  dimensionMetadata.forEach((dim) => {
+    // add 1 for __other__ slice
+    nLevels.push(dim.specifiedSlices.length + 1);
+  });
+
+  return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
 }

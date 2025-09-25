@@ -28,7 +28,7 @@ export class MetricAnalysisModel extends BaseClass {
   protected canRead(doc: MetricAnalysisInterface): boolean {
     const { metric } = this.getForeignRefs(doc);
     return this.context.permissions.canReadMultiProjectResource(
-      metric?.projects || []
+      metric?.projects || [],
     );
   }
   protected canCreate(doc: MetricAnalysisInterface): boolean {
@@ -50,7 +50,7 @@ export class MetricAnalysisModel extends BaseClass {
         metric,
         ...(!includeNorthStar ? { source: { $ne: "northstar" } } : {}),
       },
-      { sort: { dateCreated: -1 }, limit: 1 }
+      { sort: { dateCreated: -1 }, limit: 1 },
     );
     return metricAnalyses[0] ? metricAnalyses[0] : null;
   }

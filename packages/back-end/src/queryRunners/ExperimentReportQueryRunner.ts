@@ -35,7 +35,7 @@ export class ExperimentReportQueryRunner extends QueryRunner<
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
-      this.integration.datasource
+      this.integration.datasource,
     );
   }
 
@@ -44,10 +44,11 @@ export class ExperimentReportQueryRunner extends QueryRunner<
 
     const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
       this.model.args,
-      params.metricMap
+      params.metricMap,
     );
 
     const experimentParams: ExperimentResultsQueryParams = {
+      snapshotType: "report",
       metricMap: params.metricMap,
       snapshotSettings,
       variationNames: this.model.args.variations.map((v) => v.name),
@@ -59,15 +60,13 @@ export class ExperimentReportQueryRunner extends QueryRunner<
       this.context,
       experimentParams,
       this.integration,
-      this.startQuery.bind(this)
+      this.startQuery.bind(this),
     );
   }
   async runAnalysis(queryMap: QueryMap): Promise<ExperimentReportResults> {
     if (this.model.type === "experiment") {
-      const {
-        snapshotSettings,
-        analysisSettings,
-      } = getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
+      const { snapshotSettings, analysisSettings } =
+        getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
 
       // todo: bandits? (probably not needed)
       const { results } = await analyzeExperimentResults({

@@ -12,9 +12,9 @@ import { EventsTableRow } from "@/components/Events/EventsPage/EventsTableRow";
 import SelectField from "@/components/Forms/SelectField";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -194,7 +194,7 @@ export const EventsPageContainer = () => {
     "/events/count?type=" +
       JSON.stringify(eventType) +
       (fromDate ? "&from=" + fromDate?.toISOString() : "") +
-      (toDate ? "&to=" + toDate?.toISOString() : "")
+      (toDate ? "&to=" + toDate?.toISOString() : ""),
   );
   const {
     isDownloading,

@@ -2,7 +2,7 @@ import { FaPlusCircle } from "react-icons/fa";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   ICON_PROPERTIES,
   LINKED_CHANGE_CONTAINER_PROPERTIES,
@@ -79,11 +79,17 @@ export default function LinkedChangesContainer({
                     {addButtonCopy}
                   </Button>
                 ) : (
-                  <PremiumTooltip commercialFeature={type}>
-                    <div className="btn btn-link disabled">
-                      <FaPlusCircle className="mr-1" />
+                  <PremiumTooltip
+                    commercialFeature={type}
+                    body="You can add this to your draft, but you will not be able to start the experiment until upgrading."
+                  >
+                    <Button variant="ghost" onClick={() => onAddChange()}>
+                      <FaPlusCircle
+                        className="mr-2"
+                        style={{ position: "relative", top: "-2px" }}
+                      />
                       {addButtonCopy}
-                    </div>
+                    </Button>
                   </PremiumTooltip>
                 )}
               </div>

@@ -19,8 +19,10 @@ import {
   MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
-import Badge from "@/components/Radix/Badge";
-import Button from "@/components/Radix/Button";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -33,23 +35,38 @@ export default function DataSourceMetrics({
   canEdit,
 }: DataSourceMetricsProps) {
   const permissionsUtil = usePermissionsUtil();
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
+  const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
+    useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
-  const { mutateDefinitions } = useDefinitions();
+  const settings = useOrgSettings();
+  const { disableLegacyMetricCreation } = settings;
+  const {
+    mutateDefinitions,
+    factTables,
+    metrics: legacyMetrics,
+  } = useDefinitions();
 
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
   });
   const metrics = combinedMetrics.filter((m) => m.datasource === dataSource.id);
 
-  // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
-  const canCreateMetricsInAllDataSourceProjects = permissionsUtil.canCreateMetric(
-    { projects: dataSource.projects }
+  const hasLegacyMetrics = legacyMetrics.some(
+    (f) => f.datasource === dataSource.id,
   );
+
+  const hasFactTables = factTables.some((f) => f.datasource === dataSource.id);
+
+  // Show the create fact table button if there are no legacy metrics and no fact tables
+  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
+  const showCreateFactTableButton = disableLegacyMetricCreation
+    ? !hasFactTables
+    : !hasLegacyMetrics && !hasFactTables;
+
+  // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
+  const canCreateMetricsInAllDataSourceProjects =
+    permissionsUtil.canCreateMetric({ projects: dataSource.projects });
 
   return (
     <>
@@ -69,9 +86,9 @@ export default function DataSourceMetrics({
           datasource={dataSource.id}
         />
       ) : null}
-      <Flex align="center" justify="between">
+      <Flex align="center" justify="between" mb="3">
         <Box>
-          <Flex align="center" gap="3" mb="3">
+          <Flex align="center" gap="3" mb="0">
             <Heading as="h4" size="4" mb="0">
               Metrics
             </Heading>
@@ -81,43 +98,45 @@ export default function DataSourceMetrics({
               radius="medium"
             />
           </Flex>
-          <p className="m-0">
-            Metrics are what your experiments are trying to improve (or at least
-            not hurt). Below are the metrics defined from this data source.{" "}
-            <DocLink docSection="metrics">Learn more.</DocLink>
-          </p>
         </Box>
-
-        <Flex gap="2" direction="column" justify="end">
-          {canEdit &&
-          envAllowsCreatingMetrics() &&
-          canCreateMetricsInAllDataSourceProjects ? (
-            <>
-              <AutoGenerateMetricsButton
-                setShowAutoGenerateMetricsModal={
-                  setShowAutoGenerateMetricsModal
-                }
-                datasource={dataSource}
-                size="sm"
-              />
-              <Button onClick={() => setModalData({ mode: "new" })}>
-                <FaPlus className="mr-1" /> Add
-              </Button>
-            </>
-          ) : null}
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setMetricsOpen(!metricsOpen);
-            }}
-          >
-            <FaChevronRight
-              style={{
-                transform: `rotate(${metricsOpen ? "90deg" : "0deg"})`,
-              }}
+        {canEdit &&
+        envAllowsCreatingMetrics() &&
+        canCreateMetricsInAllDataSourceProjects &&
+        !showCreateFactTableButton ? (
+          <>
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+              datasource={dataSource}
+              size="sm"
             />
-          </Button>
-        </Flex>
+            <Button onClick={() => setModalData({ mode: "new" })}>
+              <FaPlus className="mr-1" /> Add
+            </Button>
+          </>
+        ) : permissionsUtil.canCreateFactTable({
+            projects: dataSource.projects || [],
+          }) ? (
+          <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+        ) : null}
+      </Flex>
+      <Flex gap="2">
+        <p className="m-0">
+          Metrics are what your experiments are trying to improve (or at least
+          not hurt). Below are the metrics defined from this data source.{" "}
+          <DocLink docSection="metrics">Learn more.</DocLink>
+        </p>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setMetricsOpen(!metricsOpen);
+          }}
+        >
+          <FaChevronRight
+            style={{
+              transform: `rotate(${metricsOpen ? "90deg" : "0deg"})`,
+            }}
+          />
+        </Button>
       </Flex>
       {metricsOpen ? (
         <Box>
@@ -156,7 +175,7 @@ export default function DataSourceMetrics({
                                 {
                                   "text-muted": metric.archived,
                                 },
-                                "pr-3"
+                                "pr-3",
                               )}
                             >
                               <strong>Owner: </strong>
@@ -167,7 +186,7 @@ export default function DataSourceMetrics({
                                 {
                                   "text-muted": metric.archived,
                                 },
-                                "pr-3"
+                                "pr-3",
                               )}
                             >
                               <strong>Projects: </strong>
@@ -187,7 +206,7 @@ export default function DataSourceMetrics({
                                   {
                                     "text-muted": metric.archived,
                                   },
-                                  "d-none d-md-table-cell"
+                                  "d-none d-md-table-cell",
                                 )}
                               >
                                 <strong>Last Updated: </strong>
@@ -255,7 +274,10 @@ export default function DataSourceMetrics({
           ) : (
             <div className="alert alert-info">
               No metrics have been defined yet from this data source. Click the{" "}
-              <strong>Add</strong> button to create your first one.
+              <strong>
+                {showCreateFactTableButton ? "Create Fact Table" : "Add"}
+              </strong>{" "}
+              button to create your first one.
             </div>
           )}
         </Box>

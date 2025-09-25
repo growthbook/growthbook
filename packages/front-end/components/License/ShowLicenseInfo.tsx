@@ -6,22 +6,15 @@ import { useUser } from "@/services/UserContext";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
-import { isCloud } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import RefreshLicenseButton from "./RefreshLicenseButton";
 import DownloadLicenseUsageButton from "./DownloadLicenseUsageButton";
 
 const ShowLicenseInfo: FC<{
   showInput?: boolean;
 }> = ({ showInput = true }) => {
-  const {
-    accountPlan,
-    license,
-    refreshOrganization,
-    organization,
-    subscription,
-  } = useUser();
+  const { accountPlan, license, refreshOrganization, subscription } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
 
@@ -36,21 +29,16 @@ const ShowLicenseInfo: FC<{
     (actualPlan === "enterprise"
       ? "Enterprise"
       : actualPlan === "pro"
-      ? "Pro"
-      : actualPlan === "pro_sso"
-      ? "Pro + SSO"
-      : "Starter") + (license && license.isTrial ? " (trial)" : "");
-
-  // TODO: Remove this once we have migrated all organizations to use the license key
-  const usesLicenseInfoOnModel =
-    isCloud() && !showUpgradeButton && !organization?.licenseKey;
+        ? "Pro"
+        : actualPlan === "pro_sso"
+          ? "Pro + SSO"
+          : "Starter") + (license && license.isTrial ? " (trial)" : "");
 
   return (
     <Box>
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="settings"
           commercialFeature={null}
         />
@@ -88,9 +76,11 @@ const ShowLicenseInfo: FC<{
                     )}
                   </Flex>
                 </div>
-                <AccountPlanNotices />
+                <Box pl="2">
+                  <AccountPlanNotices />
+                </Box>
               </div>
-              {permissionsUtil.canManageBilling() && !usesLicenseInfoOnModel && (
+              {permissionsUtil.canManageBilling() && (
                 <div className="form-group row mt-3 mb-0">
                   {showInput && (
                     <div className="col-auto mr-3 nowrap">
@@ -133,7 +123,7 @@ const ShowLicenseInfo: FC<{
                               <span
                                 className={`text-muted ${
                                   !["active", "trialing"].includes(
-                                    subscription?.status || ""
+                                    subscription?.status || "",
                                   )
                                     ? "alert-danger"
                                     : ""

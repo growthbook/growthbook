@@ -149,7 +149,7 @@ export class FooDataModel extends BaseClass {
   }
   protected canUpdate(
     existing: FooInterface,
-    updates: UpdateProps<FooInterface>
+    updates: UpdateProps<FooInterface>,
   ): boolean {
     return this.context.permissions.canUpdateFoo(existing, updates);
   }
@@ -314,7 +314,7 @@ Now, this can be specified whenever calling create, update, or delete methods.
 await context.models.factMetrics.updateById(
   id,
   { name: "New Name" },
-  { skipTestQuery: true }
+  { skipTestQuery: true },
 );
 ```
 
@@ -436,15 +436,15 @@ export const listProjects = createApiRequestHandler(listProjectsValidator)(
     const projects = await req.context.models.projects.getAll();
     const { filtered, returnFields } = applyPagination(
       projects.sort((a, b) => a.id.localeCompare(b.id)),
-      req.query
+      req.query,
     );
     return {
       projects: filtered.map((project) =>
-        req.context.models.projects.toApiInterface(project)
+        req.context.models.projects.toApiInterface(project),
       ),
       ...returnFields,
     };
-  }
+  },
 );
 ```
 
@@ -554,42 +554,48 @@ Next, you'll need to set up the connection to your DB from within GrowthBook.
 
 ```sql
 SELECT
-  userId as user_id,
-  anonymousId as anonymous_id
+  user_id,
+  anonymous_id
 FROM
-  experiment_viewed
+  viewed_experiment
 ```
 
 6. Then, define an assignment query for logged-in users:
    - Identifier type: `user_id`
    - SQL:
+
    ```sql
    SELECT
-     userId as user_id,
+     user_id,
      timestamp as timestamp,
-     experimentId as experiment_id,
-     variationId as variation_id,
+     experiment_id,
+     variation_id,
      browser,
      country
    FROM
-     experiment_viewed
+     viewed_experiment
    ```
+
    - Dimension columns: `browser`, `country`
+
 7. And another assignment query for anonymous visitors:
    - Identifier type: `anonymous_id`
    - SQL:
+
    ```sql
    SELECT
-     anonymousId as anonymous_id,
+     anonymous_id,
      timestamp as timestamp,
-     experimentId as experiment_id,
-     variationId as variation_id,
+     experiment_id as experiment_id,
+     variation_id as variation_id,
      browser,
      country
    FROM
-     experiment_viewed
+     viewed_experiment
    ```
+
    - Dimension columns: `browser`, `country`
+
 8. Create a metric:
    - Name: `Purchased`
    - Type: `binomial`
@@ -597,8 +603,8 @@ FROM
    - SQL:
    ```sql
    SELECT
-     userId as user_id,
-     anonymousId as anonymous_id,
+     user_id,
+     anonymous_id,
      timestamp as timestamp
    FROM
      orders

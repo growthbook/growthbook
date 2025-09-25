@@ -7,7 +7,7 @@ import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import EnvironmentDropdown from "@/components/Environments/EnvironmentDropdown";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 
 export interface Props {
   feature: FeatureInterface;
@@ -43,7 +43,7 @@ export default function CompareEnvironmentsModal({
     environments.map((e) => {
       const rules = getRules(feature, e.id);
       return [e.id, rules];
-    })
+    }),
   );
 
   const submit = async () => {
@@ -56,7 +56,7 @@ export default function CompareEnvironmentsModal({
           sourceEnv,
           targetEnv,
         }),
-      }
+      },
     );
     track("Copy Feature Rules", {
       sourceEnv,

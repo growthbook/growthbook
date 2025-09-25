@@ -1,9 +1,30 @@
 import fs from "node:fs";
 import path from "node:path";
-import { getLatestSDKVersion, getSDKCapabilities } from "shared/sdk-versioning";
+import prettier from "prettier";
+import {
+  getLatestSDKVersion,
+  getSDKCapabilities,
+  getSDKCapabilityVersion,
+  SDKCapability,
+} from "shared/src/sdk-versioning";
+import type { SDKLanguage } from "back-end/types/sdk-connection";
+
+function defineSDKCapabilityVersion(sdk: string, capabilities: string[]) {
+  return capabilities.map((c) => {
+    const v = getSDKCapabilityVersion(sdk as SDKLanguage, c as SDKCapability);
+    return {
+      [c]: v === "All versions" ? "All versions" : `≥ v${v}`,
+    };
+  });
+}
 
 const basePath = path.resolve(path.dirname(process.argv[1]), "..");
-const TARGET = `${basePath}/src/data/SDKInfo.json`;
+const TARGET = `${basePath}/src/data/SDKInfo.ts`;
+
+const defaultCapabilities = [
+  { features: "All versions" },
+  { experimentation: "All versions" },
+];
 
 const baseSDKInfo = {
   js: {
@@ -13,8 +34,7 @@ const baseSDKInfo = {
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/vanilla-typescript",
+        url: "https://github.com/growthbook/examples/tree/main/vanilla-typescript",
         name: "Typescript example app",
       },
     ],
@@ -24,10 +44,13 @@ const baseSDKInfo = {
         url: "https://www.npmjs.com/package/@growthbook/growthbook",
       },
     ],
-    capabilities: getSDKCapabilities(
-      "javascript",
-      getLatestSDKVersion("javascript")
-    ),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "javascript",
+        getSDKCapabilities("javascript", getLatestSDKVersion("javascript")),
+      ),
+    ],
   },
   react: {
     name: "React SDK",
@@ -54,7 +77,38 @@ const baseSDKInfo = {
         url: "https://www.npmjs.com/package/@growthbook/growthbook-react",
       },
     ],
-    capabilities: getSDKCapabilities("react", getLatestSDKVersion("react")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "react",
+        getSDKCapabilities("react", getLatestSDKVersion("react")),
+      ),
+    ],
+  },
+  nextjs: {
+    name: "Next.js SDK",
+    version: getLatestSDKVersion("nextjs"),
+    github:
+      "https://github.com/vercel/flags/tree/main/packages/adapter-growthbook",
+    examples: [
+      {
+        url: "https://github.com/vercel/examples/tree/main/flags-sdk/growthbook",
+        name: "Next.js Flags SDK example app",
+      },
+    ],
+    packageRepos: [
+      {
+        name: "npm",
+        url: "https://www.npmjs.com/package/@flags-sdk/growthbook",
+      },
+    ],
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "nextjs",
+        getSDKCapabilities("nextjs", getLatestSDKVersion("nextjs")),
+      ),
+    ],
   },
   php: {
     name: "PHP SDK",
@@ -67,7 +121,13 @@ const baseSDKInfo = {
         url: "https://packagist.org/packages/growthbook/growthbook",
       },
     ],
-    capabilities: getSDKCapabilities("php", getLatestSDKVersion("php")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "php",
+        getSDKCapabilities("php", getLatestSDKVersion("php")),
+      ),
+    ],
   },
   node: {
     name: "Node SDK",
@@ -76,17 +136,23 @@ const baseSDKInfo = {
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
     examples: [
       {
-        url: "http://localhost:3200/guide/express-js",
+        url: "https://docs.growthbook.io/guide/express-js",
         name: "Express.js guide",
       },
     ],
     packageRepos: [
       {
-        name: "npm module",
+        name: "npm",
         url: "https://www.npmjs.com/package/@growthbook/growthbook",
       },
     ],
-    capabilities: getSDKCapabilities("nodejs", getLatestSDKVersion("nodejs")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "nodejs",
+        getSDKCapabilities("nodejs", getLatestSDKVersion("nodejs")),
+      ),
+    ],
   },
   ruby: {
     name: "Ruby SDK",
@@ -94,8 +160,7 @@ const baseSDKInfo = {
     github: "https://github.com/growthbook/growthbook-ruby",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/acme_donuts_rails",
+        url: "https://github.com/growthbook/examples/tree/main/acme_donuts_rails",
         name: "Rails example app",
       },
     ],
@@ -105,7 +170,13 @@ const baseSDKInfo = {
         url: "https://rubygems.org/gems/growthbook",
       },
     ],
-    capabilities: getSDKCapabilities("ruby", getLatestSDKVersion("ruby")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "ruby",
+        getSDKCapabilities("ruby", getLatestSDKVersion("ruby")),
+      ),
+    ],
   },
   python: {
     name: "Python SDK",
@@ -118,7 +189,13 @@ const baseSDKInfo = {
         url: "https://pypi.org/project/growthbook/",
       },
     ],
-    capabilities: getSDKCapabilities("python", getLatestSDKVersion("python")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "python",
+        getSDKCapabilities("python", getLatestSDKVersion("python")),
+      ),
+    ],
   },
   go: {
     name: "Go SDK",
@@ -136,7 +213,13 @@ const baseSDKInfo = {
         url: "https://pkg.go.dev/github.com/growthbook/growthbook-golang",
       },
     ],
-    capabilities: getSDKCapabilities("go", getLatestSDKVersion("go")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "go",
+        getSDKCapabilities("go", getLatestSDKVersion("go")),
+      ),
+    ],
   },
   java: {
     name: "Java SDK",
@@ -148,8 +231,7 @@ const baseSDKInfo = {
         name: "JVM with Spring Web example app",
       },
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example",
+        url: "https://github.com/growthbook/examples/tree/main/jvm-kotlin-ktor-example",
         name: "JVM with Kotlin Ktor example app",
       },
       {
@@ -167,7 +249,13 @@ const baseSDKInfo = {
         url: "https://jitpack.io/#growthbook/growthbook-sdk-java",
       },
     ],
-    capabilities: getSDKCapabilities("java", getLatestSDKVersion("java")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "java",
+        getSDKCapabilities("java", getLatestSDKVersion("java")),
+      ),
+    ],
   },
   csharp: {
     name: "C# SDK",
@@ -175,8 +263,7 @@ const baseSDKInfo = {
     github: "https://github.com/growthbook/growthbook-c-sharp",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/csharp-example/GrowthBookCSharpExamples",
+        url: "https://github.com/growthbook/examples/tree/main/csharp-example/GrowthBookCSharpExamples",
         name: "C# example app",
       },
     ],
@@ -186,7 +273,13 @@ const baseSDKInfo = {
         url: "https://www.nuget.org/packages/growthbook-c-sharp",
       },
     ],
-    capabilities: getSDKCapabilities("csharp", getLatestSDKVersion("csharp")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "csharp",
+        getSDKCapabilities("csharp", getLatestSDKVersion("csharp")),
+      ),
+    ],
   },
   elixir: {
     name: "Elixir SDK",
@@ -199,7 +292,13 @@ const baseSDKInfo = {
         url: "https://www.hex.pm/packages/growthbook",
       },
     ],
-    capabilities: getSDKCapabilities("elixir", getLatestSDKVersion("elixir")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "elixir",
+        getSDKCapabilities("elixir", getLatestSDKVersion("elixir")),
+      ),
+    ],
   },
   kotlin: {
     name: "Kotlin SDK",
@@ -212,7 +311,13 @@ const baseSDKInfo = {
         url: "https://mvnrepository.com/artifact/io.growthbook.sdk/GrowthBook",
       },
     ],
-    capabilities: getSDKCapabilities("android", getLatestSDKVersion("android")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "android",
+        getSDKCapabilities("android", getLatestSDKVersion("android")),
+      ),
+    ],
   },
   swift: {
     name: "Swift SDK",
@@ -225,17 +330,22 @@ const baseSDKInfo = {
         url: "https://swiftpackageindex.com/growthbook/growthbook-swift",
       },
     ],
-    capabilities: getSDKCapabilities("ios", getLatestSDKVersion("ios")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "ios",
+        getSDKCapabilities("ios", getLatestSDKVersion("ios")),
+      ),
+    ],
   },
   reactNative: {
-    name: "React SDK",
+    name: "React Native SDK",
     version: getLatestSDKVersion("react"),
     github:
       "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/examples/tree/main/react-native-cli",
+        url: "https://github.com/growthbook/examples/tree/main/react-native-cli",
         name: "React Native CLI example app",
       },
     ],
@@ -245,30 +355,106 @@ const baseSDKInfo = {
         url: "https://www.npmjs.com/package/@growthbook/growthbook-react",
       },
     ],
-    capabilities: getSDKCapabilities("react", getLatestSDKVersion("react")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "react",
+        getSDKCapabilities("react", getLatestSDKVersion("react")),
+      ),
+    ],
   },
   edgeCloudflare: {
-    name: "Cloudflare Edge SDK",
+    name: "Cloudflare Workers App & SDK",
     version: getLatestSDKVersion("edge-cloudflare"),
     github:
       "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare",
     examples: [
       {
-        url:
-          "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
-        name: "Edge Utils",
+        url: "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-cloudflare/example",
+        name: "Example worker",
       },
     ],
     packageRepos: [
       {
         name: "npm",
-        url: "https://www.npmjs.com/package/@growthbook/growthbook-proxy",
+        url: "https://www.npmjs.com/package/@growthbook/edge-cloudflare",
       },
     ],
-    capabilities: getSDKCapabilities(
-      "edge-cloudflare",
-      getLatestSDKVersion("edge-cloudflare")
-    ),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "edge-cloudflare",
+        getSDKCapabilities(
+          "edge-cloudflare",
+          getLatestSDKVersion("edge-cloudflare"),
+        ),
+      ),
+    ],
+  },
+  edgeFastly: {
+    name: "Fastly Compute App & SDK",
+    version: getLatestSDKVersion("edge-fastly"),
+    github:
+      "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly",
+    examples: [
+      {
+        url: "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-fastly/example",
+        name: "Example compute worker",
+      },
+    ],
+    packageRepos: [
+      {
+        name: "npm",
+        url: "https://www.npmjs.com/package/@growthbook/edge-fastly",
+      },
+    ],
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "edge-fastly",
+        getSDKCapabilities("edge-fastly", getLatestSDKVersion("edge-fastly")),
+      ),
+    ],
+  },
+  edgeLambda: {
+    name: "Lambda@Edge App & SDK",
+    version: getLatestSDKVersion("edge-lambda"),
+    github:
+      "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-lambda",
+    examples: [],
+    packageRepos: [
+      {
+        name: "npm",
+        url: "https://www.npmjs.com/package/@growthbook/edge-lambda",
+      },
+    ],
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "edge-lambda",
+        getSDKCapabilities("edge-lambda", getLatestSDKVersion("edge-lambda")),
+      ),
+    ],
+  },
+  edgeUtils: {
+    name: "Edge Utils",
+    version: "0.2.5",
+    github:
+      "https://github.com/growthbook/growthbook-proxy/tree/main/packages/lib/edge-utils",
+    examples: [],
+    packageRepos: [
+      {
+        name: "npm",
+        url: "https://www.npmjs.com/package/@growthbook/edge-utils",
+      },
+    ],
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "edge-other",
+        getSDKCapabilities("edge-other", getLatestSDKVersion("edge-other")),
+      ),
+    ],
   },
   flutter: {
     name: "Flutter SDK",
@@ -281,8 +467,27 @@ const baseSDKInfo = {
         url: "https://pub.dev/packages/growthbook_sdk_flutter",
       },
     ],
-    capabilities: getSDKCapabilities("flutter", getLatestSDKVersion("flutter")),
+    capabilities: [
+      ...defaultCapabilities,
+      ...defineSDKCapabilityVersion(
+        "flutter",
+        getSDKCapabilities("flutter", getLatestSDKVersion("flutter")),
+      ),
+    ],
   },
 };
 
-fs.writeFileSync(TARGET, JSON.stringify(baseSDKInfo, null, 2));
+const content = `// THIS FILE IS AUTOGENERATED. DO NOT EDIT DIRECTLY.\n\nexport default ${JSON.stringify(
+  baseSDKInfo,
+  null,
+  2,
+)}`;
+
+async function formatAndSaveFile(content: string, target: string) {
+  const formattedSDKInfo = await prettier.format(content, {
+    parser: "typescript",
+  });
+  fs.writeFileSync(target, formattedSDKInfo);
+}
+
+formatAndSaveFile(content, TARGET);

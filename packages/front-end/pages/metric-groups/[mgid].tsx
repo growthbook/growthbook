@@ -4,7 +4,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricGroupDetails from "@/components/Metrics/MetricGroupDetails";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import MetricGroupModal from "@/components/Metrics/MetricGroupModal";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import PageHead from "@/components/Layout/PageHead";
 
 export default function MetricGroupDetailPage() {

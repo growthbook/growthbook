@@ -13,7 +13,7 @@ import React, { RefObject } from "react";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
@@ -55,14 +55,22 @@ export default function ReportResults({
         report.experimentMetadata.phases?.[snapshot?.phase || 0]
           ?.variationWeights?.[i] ||
         1 / (report.experimentMetadata?.variations?.length || 2),
-    })
+    }),
   );
+  // find analysis matching the difference type
   const analysis = snapshot
-    ? getSnapshotAnalysis(snapshot) ?? undefined
+    ? (getSnapshotAnalysis(
+        snapshot,
+        snapshot.analyses.find(
+          (a) =>
+            a.settings.differenceType ===
+            report.experimentAnalysisSettings.differenceType,
+        )?.settings,
+      ) ?? undefined)
     : undefined;
   const queryStatusData = getQueryStatus(
     snapshot?.queries || [],
-    snapshot?.error
+    snapshot?.error,
   );
 
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
@@ -76,10 +84,10 @@ export default function ReportResults({
         m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled: !!m.computedSettings
-        ?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable: !!m.computedSettings
-        ?.regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
   const _orgSettings = useOrgSettings();
@@ -174,6 +182,7 @@ export default function ReportResults({
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
+                experimentId={snapshot.experiment}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -195,7 +204,9 @@ export default function ReportResults({
                 }
                 dimensionId={snapshot.dimension ?? ""}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
+                phase={phase}
                 reportDate={snapshot.dateCreated}
                 status={"stopped"}
                 statsEngine={analysis.settings.statsEngine}
@@ -216,13 +227,16 @@ export default function ReportResults({
               />
             ) : showCompactResults ? (
               <CompactResults
+                experimentId={snapshot.experiment}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}
                 queryStatusData={queryStatusData}
                 reportDate={snapshot.dateCreated}
                 startDate={getValidDate(phaseObj.dateStarted).toISOString()}
+                endDate={getValidDate(phaseObj.dateEnded).toISOString()}
                 isLatestPhase={phase === phases.length - 1}
+                phase={phase}
                 status={"stopped"}
                 goalMetrics={report.experimentAnalysisSettings.goalMetrics}
                 secondaryMetrics={
@@ -250,6 +264,7 @@ export default function ReportResults({
                 experimentType={report.experimentMetadata.type}
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={!showDetails}
+                disableTimeSeriesButton={true}
               />
             ) : (
               <div className="mx-3 mb-3">

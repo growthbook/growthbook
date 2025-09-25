@@ -16,9 +16,9 @@ export const OrganizationMessages: FC<OrganizationMessagesProps> = ({
       messages.filter(
         (orgMessage) =>
           typeof orgMessage?.level === "string" &&
-          typeof orgMessage?.message === "string"
+          typeof orgMessage?.message === "string",
       ),
-    [messages]
+    [messages],
   );
 
   if (!renderedMessages.length) {

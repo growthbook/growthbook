@@ -1,21 +1,17 @@
-import React, { ReactElement, useCallback, useState } from "react";
+import React, { ReactElement, useCallback, useEffect, useState } from "react";
 import { FaArchive } from "react-icons/fa";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
 import { isProjectListValidForProject } from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
+import { Box, Flex } from "@radix-ui/themes";
 import SortedTags from "@/components/Tags/SortedTags";
 import ProjectBadges from "@/components/ProjectBadges";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import { DocLink } from "@/components/DocLink";
 import { useUser } from "@/services/UserContext";
 import { envAllowsCreatingMetrics } from "@/services/env";
@@ -27,17 +23,23 @@ import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
-  MetricModalState,
   MetricModal,
+  MetricModalState,
 } from "@/components/FactTables/NewMetricModal";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import MetricSearchFilters from "@/components/Search/MetricSearchFilters";
+import PremiumCallout from "@/ui/PremiumCallout";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import LinkButton from "@/ui/LinkButton";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export interface MetricTableItem {
   id: string;
-  managedBy: "" | "api" | "config";
+  managedBy: "" | "api" | "config" | "admin";
   name: string;
+  description?: string;
   type: string;
   tags: string[];
   projects: string[];
@@ -49,6 +51,7 @@ export interface MetricTableItem {
   archived: boolean;
   canEdit: boolean;
   canDuplicate: boolean;
+  canDelete: boolean;
   onArchive?: (desiredState: boolean) => Promise<void>;
   onDuplicate?: () => void;
   onEdit?: () => void;
@@ -74,9 +77,18 @@ export function useCombinedMetrics({
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
-      const canDuplicate = permissionsUtil.canCreateMetric(m);
-      const canEdit = permissionsUtil.canUpdateMetric(m, {});
-      const canDelete = permissionsUtil.canDeleteMetric(m);
+      const canDuplicate = permissionsUtil.canCreateMetric({
+        // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+        projects: m.projects,
+      });
+      let canEdit = permissionsUtil.canUpdateMetric(m, {});
+      let canDelete = permissionsUtil.canDeleteMetric(m);
+
+      // Additional check if managed by api or config
+      if (m.managedBy && ["api", "config"].includes(m.managedBy)) {
+        canEdit = false;
+        canDelete = false;
+      }
 
       const item: MetricTableItem = {
         id: m.id,
@@ -93,6 +105,7 @@ export function useCombinedMetrics({
         isRatio: !!m.denominator,
         canDuplicate,
         canEdit,
+        canDelete,
         onArchive: canEdit
           ? async (desiredState) => {
               const newStatus = desiredState ? "archived" : "active";
@@ -118,6 +131,12 @@ export function useCombinedMetrics({
                   currentMetric: {
                     ...m,
                     name: m.name + " (copy)",
+                    // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+                    managedBy:
+                      m.managedBy === "admin" &&
+                      permissionsUtil.canCreateOfficialResources(m)
+                        ? "admin"
+                        : "",
                   },
                 })
             : undefined,
@@ -154,6 +173,7 @@ export function useCombinedMetrics({
         dateUpdated: m.dateUpdated,
         dateCreated: m.dateCreated,
         name: m.name,
+        description: m.description,
         owner: m.owner,
         projects: m.projects || [],
         tags: m.tags || [],
@@ -161,6 +181,7 @@ export function useCombinedMetrics({
         type: m.metricType,
         canDuplicate,
         canEdit,
+        canDelete,
         onArchive: canEdit
           ? async (archivedState) => {
               await apiCall(`/fact-metrics/${m.id}`, {
@@ -216,43 +237,36 @@ export function useCombinedMetrics({
 const MetricsList = (): React.ReactElement => {
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
 
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
+  const [showAutoGenerateMetricsModal, setShowAutoGenerateMetricsModal] =
+    useState(false);
 
   const {
     getDatasourceById,
     mutateDefinitions,
+    getProjectById,
+    metricGroups,
     project,
+    factTables,
+    metrics: legacyMetrics,
     ready,
   } = useDefinitions();
   const { getUserDisplay } = useUser();
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
-
-  const tagsFilter = useTagsFilter("metrics");
+  const settings = useOrgSettings();
+  const { disableLegacyMetricCreation } = settings;
 
   const [showArchived, setShowArchived] = useState(false);
-  const [recentlyArchived, setRecentlyArchived] = useState<Set<string>>(
-    new Set()
-  );
-
   const combinedMetrics = useCombinedMetrics({
     setMetricModalProps: setModalData,
-    afterArchive: (id, archived) => {
-      if (archived) {
-        setRecentlyArchived((set) => new Set([...set, id]));
-      } else {
-        setRecentlyArchived((set) => new Set([...set].filter((i) => i !== id)));
-      }
-    },
   });
 
   const metrics = useAddComputedFields(
     combinedMetrics,
     (m) => ({
+      projectNames: m.projects.map((p) => getProjectById(p)?.name || p),
       datasourceName: m.datasource
         ? getDatasourceById(m.datasource)?.name || "Unknown"
         : "None",
@@ -261,31 +275,46 @@ const MetricsList = (): React.ReactElement => {
         : undefined,
       ownerName: getUserDisplay(m.owner),
     }),
-    [getDatasourceById]
+    [getDatasourceById],
   );
   const filteredMetrics = project
     ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
     : metrics;
 
-  // Searching
+  const hasLegacyMetrics = legacyMetrics.some(
+    (f) =>
+      isProjectListValidForProject(f.projects, project) &&
+      f.datasource !== demoDataSourceId,
+  ); // Don't factor in demo datasource metrics
+
+  const hasFactTables = factTables.some((f) =>
+    isProjectListValidForProject(f.projects, project),
+  );
+
+  // Show the create fact table button if there are no legacy metrics and no fact tables
+  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
+  const showCreateFactTableButton = disableLegacyMetricCreation
+    ? !hasFactTables
+    : !hasLegacyMetrics && !hasFactTables;
+
+  //searching:
   const filterResults = useCallback(
     (items: typeof filteredMetrics) => {
       if (!showArchived) {
         items = items.filter((m) => {
-          return !m.archived || recentlyArchived.has(m.id);
+          return !m.archived;
         });
       }
-      items = filterByTags(items, tagsFilter.tags);
       return items;
     },
-    [showArchived, recentlyArchived, tagsFilter.tags]
+    [showArchived],
   );
-
   const {
     items,
-    unpaginatedItems,
     searchInputProps,
     isFiltered,
+    syntaxFilters,
+    setSearchValue,
     SortableTH,
     pagination,
   } = useSearch({
@@ -293,6 +322,7 @@ const MetricsList = (): React.ReactElement => {
     defaultSortField: "name",
     localStorageKey: "metrics",
     searchFields: ["name^3", "datasourceName", "ownerName", "tags", "type"],
+    updateSearchQueryOnChange: true,
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [item.type];
@@ -311,6 +341,7 @@ const MetricsList = (): React.ReactElement => {
       created: (item) => (item.dateCreated ? new Date(item.dateCreated) : null),
       updated: (item) => (item.dateUpdated ? new Date(item.dateUpdated) : null),
       name: (item) => item.name,
+      description: (item) => item.description,
       id: (item) => item.id,
       owner: (item) => [item.owner, item.ownerName],
       type: (item) => {
@@ -323,12 +354,22 @@ const MetricsList = (): React.ReactElement => {
         return item.type;
       },
       tag: (item) => item.tags,
-      project: (item) => item.projects,
+      project: (item) => [...item.projectNames, ...item.projects],
       datasource: (item) => [item.datasource, item.datasourceName],
     },
     filterResults,
     pageSize: 20,
   });
+  // watch to see if we should include archived features or not:
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.includes("archived"),
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
 
   if (!ready) {
     return <LoadingOverlay />;
@@ -337,8 +378,6 @@ const MetricsList = (): React.ReactElement => {
   const closeModal = () => {
     setModalData(null);
   };
-
-  const hasArchivedMetrics = filteredMetrics.some((m) => m.archived);
 
   return (
     <div className="container-fluid pagecontents p-0">
@@ -363,41 +402,48 @@ const MetricsList = (): React.ReactElement => {
         </div>
         <div style={{ flex: 1 }} />
         {permissionsUtil.canCreateMetric({ projects: [project] }) &&
-          envAllowsCreatingMetrics() && (
-            <div className="col-auto">
-              <AutoGenerateMetricsButton
-                setShowAutoGenerateMetricsModal={
-                  setShowAutoGenerateMetricsModal
-                }
-              />
-              <Button onClick={() => setModalData({ mode: "new" })}>
-                Add Metric
-              </Button>
-            </div>
-          )}
+        envAllowsCreatingMetrics() &&
+        !showCreateFactTableButton ? (
+          <div className="col-auto">
+            <AutoGenerateMetricsButton
+              setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+            />
+            <Button onClick={() => setModalData({ mode: "new" })}>
+              Add Metric
+            </Button>
+          </div>
+        ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
+          <div className="col-auto">
+            <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+          </div>
+        ) : null}
       </div>
       <div className="mt-4">
         <CustomMarkdown page={"metricList"} />
       </div>
-      <div className="row mb-2 align-items-center">
-        <div className="col-lg-3 col-md-4 col-6">
+      <Flex justify="between" mb="3" gap="3" align="center">
+        <Box className="relative" width="40%">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
-        </div>
-        {hasArchivedMetrics && (
-          <div className="col-auto text-muted">
-            <Toggle
-              value={showArchived}
-              setValue={setShowArchived}
-              id="show-archived"
-              label="show archived"
-            />
-            Show archived
-          </div>
-        )}
-        <div className="col-auto">
-          <TagsFilter filter={tagsFilter} items={unpaginatedItems} />
-        </div>
-      </div>
+        </Box>
+        <MetricSearchFilters
+          combinedMetrics={combinedMetrics}
+          searchInputProps={searchInputProps}
+          setSearchValue={setSearchValue}
+          syntaxFilters={syntaxFilters}
+        />
+      </Flex>
+      {metrics.length > 4 && !metricGroups.length ? (
+        <PremiumCallout
+          commercialFeature="metric-groups"
+          dismissable={true}
+          id="metrics-list-metric-group-promo"
+          docSection="metricGroups"
+          mb="2"
+        >
+          <strong>Metric Groups</strong> help you organize and manage your
+          metrics at scale.
+        </PremiumCallout>
+      ) : null}
       <table className="table appbox gbtable table-hover">
         <thead>
           <tr>
@@ -440,11 +486,11 @@ const MetricsList = (): React.ReactElement => {
                   }}
                 >
                   Duplicate
-                </button>
+                </button>,
               );
             }
 
-            if (!metric.managedBy && !metric.archived && metric.onEdit) {
+            if (metric.canEdit && !metric.archived && metric.onEdit) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
@@ -454,11 +500,11 @@ const MetricsList = (): React.ReactElement => {
                   }}
                 >
                   Edit
-                </button>
+                </button>,
               );
             }
 
-            if (!metric.managedBy && metric.onArchive) {
+            if (metric.canEdit && metric.onArchive) {
               moreMenuLinks.push(
                 <button
                   className="btn dropdown-item py-2"
@@ -468,11 +514,11 @@ const MetricsList = (): React.ReactElement => {
                   }}
                 >
                   {metric.archived ? "Unarchive" : "Archive"}
-                </button>
+                </button>,
               );
             }
 
-            if (!metric.managedBy && metric.onDelete) {
+            if (metric.canDelete && metric.onDelete) {
               moreMenuLinks.push(
                 <DeleteButton
                   className="dropdown-item text-danger"
@@ -484,7 +530,7 @@ const MetricsList = (): React.ReactElement => {
                   text="Delete"
                   canDelete={true}
                   disabled={false}
-                />
+                />,
               );
             }
 
@@ -576,7 +622,7 @@ const MetricsList = (): React.ReactElement => {
             );
           })}
 
-          {!items.length && (isFiltered || tagsFilter.tags.length > 0) && (
+          {!items.length && isFiltered && (
             <tr>
               <td colSpan={9} align={"center"}>
                 No matching metrics

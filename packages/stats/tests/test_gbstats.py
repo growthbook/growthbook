@@ -10,7 +10,6 @@ from gbstats.gbstats import (
     BanditSettingsForStatsEngine,
     MetricSettingsForStatsEngine,
     detect_unknown_variations,
-    diff_for_daily_time_series,
     reduce_dimensionality,
     analyze_metric_df,
     get_metric_df,
@@ -363,16 +362,13 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     phase_length_days=1,
     alpha=0.05,
     max_dimensions=20,
+    one_sided_intervals=False,
 )
 
 
 BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     var_names=["zero", "one", "two", "three"],
     var_ids=["zero", "one", "two", "three"],
-    historical_weights=[
-        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
-        BanditWeightsSinglePeriod(date="", weights=[1 / 4] * 4, total_users=0),
-    ],
     current_weights=[1 / 4] * 4,
     reweight=True,
     decision_metric="count_metric",
@@ -380,56 +376,6 @@ BANDIT_ANALYSIS = BanditSettingsForStatsEngine(
     weight_by_period=True,
     top_two=True,
 )
-
-
-class TestDiffDailyTS(TestCase):
-    def test_diff_works_as_expected(self):
-        dfc = MULTI_DIMENSION_STATISTICS_DF.copy()
-        dfc["dimension"].replace(
-            ["one", "two"], ["2022-01-01", "2022-01-02"], inplace=True
-        )
-        dfc = diff_for_daily_time_series(dfc)
-
-        target_df = pd.DataFrame(
-            [
-                {
-                    "dimension": "2022-01-01",
-                    "variation": "one",
-                    "main_sum": 300,
-                    "main_sum_squares": 869,
-                    "users": 120,
-                    "count": 120,
-                },
-                {
-                    "dimension": "2022-01-01",
-                    "variation": "zero",
-                    "main_sum": 270,
-                    "main_sum_squares": 848.79,
-                    "users": 100,
-                    "count": 100,
-                },
-                {
-                    "dimension": "2022-01-02",
-                    "variation": "one",
-                    "main_sum": 770.0 - 300,
-                    "main_sum_squares": 3571 - 869,
-                    "users": 220,
-                    "count": 220,
-                },
-                {
-                    "dimension": "2022-01-02",
-                    "variation": "zero",
-                    "main_sum": 740.0 - 270,
-                    "main_sum_squares": 3615.59 - 848.79,
-                    "users": 200,
-                    "count": 200,
-                },
-            ]
-        )
-        pd.testing.assert_frame_equal(
-            dfc.sort_values(["variation", "dimension"]).reset_index(drop=True),
-            target_df.sort_values(["variation", "dimension"]).reset_index(drop=True),
-        )
 
 
 class TestGetMetricDf(TestCase):
@@ -787,10 +733,9 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         )
 
     def test_analyze_metric_df_ra_proportion(self):
-        rows = RA_STATISTICS_DF
+        rows = RA_STATISTICS_DF.copy()
         # override default DF
-        rows["main_sum_squares"] = None
-        rows["covariate_sum_squares"] = None
+        rows.drop(columns=["main_sum_squares", "covariate_sum_squares"], inplace=True)
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df,
@@ -810,9 +755,9 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
         self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
         self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.31620216)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000352)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000353)
 
     def test_analyze_metric_df_ratio_ra(self):
         rows = RATIO_RA_STATISTICS_DF
@@ -911,7 +856,6 @@ class TestBandit(TestCase):
         self.true_additional_reward = 192.0
         num_variations = len(self.true_weights)
         self.constant_weights = [1 / num_variations] * num_variations
-        self.historical_weights = [self.constant_weights, self.constant_weights]
 
     import unittest
 

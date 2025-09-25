@@ -35,12 +35,12 @@ export function validateAggregationSpecification({
   });
   if (column.aggregation === "count distinct" && datatype !== "string") {
     throw new Error(
-      `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`
+      `${errorPrefix}Cannot use 'count distinct' aggregation with the special or numeric column '${column.column}'.`,
     );
   }
   if (datatype === "string" && column.aggregation !== "count distinct") {
     throw new Error(
-      `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`
+      `${errorPrefix}Must use 'count distinct' aggregation with string column '${column.column}'.`,
     );
   }
 }
@@ -48,7 +48,7 @@ export function validateAggregationSpecification({
 export async function getCreateMetricPropsFromBody(
   body: z.infer<typeof postFactMetricValidator.bodySchema>,
   organization: OrganizationInterface,
-  getFactTable: (id: string) => Promise<FactTableInterface | null>
+  getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<CreateFactMetricProps> {
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -77,6 +77,7 @@ export async function getCreateMetricPropsFromBody(
 
   const cleanedNumerator = {
     filters: [],
+    inlineFilters: {},
     ...numerator,
     column:
       body.metricType === "proportion" || body.metricType === "retention"
@@ -121,15 +122,13 @@ export async function getCreateMetricPropsFromBody(
     inverse: false,
     quantileSettings: quantileSettings ?? null,
     windowSettings: {
-      type: scopedSettings.windowType.value ?? DEFAULT_FACT_METRIC_WINDOW,
+      type: DEFAULT_FACT_METRIC_WINDOW,
       delayValue:
         windowSettings?.delayValue ??
         windowSettings?.delayHours ??
-        scopedSettings.delayHours.value ??
         DEFAULT_METRIC_WINDOW_DELAY_HOURS,
       delayUnit: windowSettings?.delayUnit ?? "hours",
-      windowValue:
-        scopedSettings.windowHours.value ?? DEFAULT_METRIC_WINDOW_HOURS,
+      windowValue: DEFAULT_METRIC_WINDOW_HOURS,
       windowUnit: "hours",
     },
     cappingSettings: {
@@ -154,6 +153,7 @@ export async function getCreateMetricPropsFromBody(
   if (denominator) {
     data.denominator = {
       filters: [],
+      inlineFilters: {},
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     };
@@ -206,7 +206,7 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     const data = await getCreateMetricPropsFromBody(
       req.body,
       req.organization,
-      lookupFactTable
+      lookupFactTable,
     );
 
     const factMetric = await req.context.models.factMetrics.create(data);
@@ -214,5 +214,5 @@ export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
     return {
       factMetric: req.context.models.factMetrics.toApiInterface(factMetric),
     };
-  }
+  },
 );

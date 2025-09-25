@@ -15,12 +15,15 @@ RUN \
 FROM python:${PYTHON_MAJOR}-slim AS nodebuild
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
+# Set node max memory
+ENV NODE_OPTIONS="--max-old-space-size=8192"
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 build-essential && \
-  echo "deb https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
-  echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
-  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+  apt-get install -y wget gnupg2 build-essential ca-certificates && \
+  mkdir -p /etc/apt/keyrings && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/yarn.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
   apt-get update && \
   apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
   apt-get clean && \
@@ -58,11 +61,12 @@ FROM python:${PYTHON_MAJOR}-slim
 ARG NODE_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
-  apt-get install -y wget gnupg2 && \
-  echo "deb https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
-  echo "deb https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
-  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - && \
+  apt-get install -y wget gnupg2 build-essential ca-certificates && \
+  mkdir -p /etc/apt/keyrings && \
+  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x buster main" > /etc/apt/sources.list.d/nodesource.list && \
+  wget -qO- https://dl.yarnpkg.com/debian/pubkey.gpg | gpg --dearmor -o /etc/apt/keyrings/yarn.gpg && \
+  echo "deb [signed-by=/etc/apt/keyrings/yarn.gpg] https://dl.yarnpkg.com/debian/ stable main" > /etc/apt/sources.list.d/yarn.list && \
   apt-get update && \
   apt-get install -yqq nodejs=$(apt-cache show nodejs|grep Version|grep nodesource|cut -c 10-) yarn && \
   apt-get clean && \
@@ -77,7 +81,13 @@ COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 COPY buildinfo* ./buildinfo
 
 COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
-RUN pip3 install /usr/local/src/gbstats/*.whl
+RUN pip3 install /usr/local/src/gbstats/*.whl ddtrace
+ARG DD_GIT_COMMIT_SHA=""
+ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
+ARG DD_VERSION=""
+ENV DD_GIT_COMMIT_SHA=$DD_GIT_COMMIT_SHA
+ENV DD_GIT_REPOSITORY_URL=$DD_GIT_REPOSITORY_URL
+ENV DD_VERSION=$DD_VERSION
 # The front-end app (NextJS)
 EXPOSE 3000
 # The back-end api (Express)

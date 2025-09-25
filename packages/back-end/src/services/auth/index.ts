@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { licenseInit, SSO_CONFIG } from "shared/enterprise";
+import { SSO_CONFIG } from "shared/enterprise";
 import { userHasPermission } from "shared/permissions";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -37,21 +37,28 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
+import { licenseInit } from "back-end/src/enterprise";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
 
 type JWTInfo = {
-  email?: string;
-  verified?: boolean;
-  name?: string;
+  email: string;
+  verified: boolean;
+  name: string;
+  issuedAt?: number;
+  sub?: string;
+  vercelInstallationId?: string;
 };
 
 type IdToken = {
   email?: string;
+  user_email?: string;
   email_verified?: boolean;
   given_name?: string;
   name?: string;
+  user_name?: string;
+  installation_id?: string;
   sub?: string;
   iat?: number;
 };
@@ -60,17 +67,17 @@ export function getAuthConnection(): AuthConnection {
   return usingOpenId() ? new OpenIdAuthConnection() : new LocalAuthConnection();
 }
 
-async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
-  if (!token.email) {
+async function getUserFromJWT(info: JWTInfo): Promise<null | UserInterface> {
+  if (!info.email) {
     throw new Error("Id token does not contain email address");
   }
-  const user = await getUserByEmail(String(token.email));
+  const user = await getUserByEmail(String(info.email));
   if (!user) return null;
 
-  if (!usingOpenId() && user.minTokenDate && token.iat) {
-    if (token.iat < Math.floor(user.minTokenDate.getTime() / 1000)) {
+  if (!usingOpenId() && user.minTokenDate && info.issuedAt) {
+    if (info.issuedAt < Math.floor(user.minTokenDate.getTime() / 1000)) {
       throw new Error(
-        "Your session has been revoked. Please refresh the page and login."
+        "Your session has been revoked. Please refresh the page and login.",
       );
     }
   }
@@ -78,10 +85,23 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
   return user;
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
+  // Vercel has special property names
+  if ("iss" in user && user.iss === "https://marketplace.vercel.com") {
+    return {
+      verified: true,
+      email: user["user_email"] || "",
+      name: user["user_name"] || "",
+      vercelInstallationId: user["installation_id"] || "",
+      sub: user.sub,
+    };
+  }
+
   return {
     verified: user.email_verified || false,
     email: user.email || "",
     name: user.given_name || user.name || "",
+    issuedAt: user.iat,
+    sub: user.sub,
   };
 }
 
@@ -89,11 +109,12 @@ export async function processJWT(
   // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
   res: Response<unknown, EventUserForResponseLocals>,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> {
-  const { email, name, verified } = getInitialDataFromJWT(req.user);
+  const parsedJWT = getInitialDataFromJWT(req.user);
+  const { email, name, verified } = parsedJWT;
 
-  req.authSubject = req.user.sub || "";
+  req.authSubject = parsedJWT.sub || "";
   req.email = email || "";
   req.name = name || "";
   req.verified = verified || false;
@@ -105,18 +126,19 @@ export async function processJWT(
     verified: verified || false,
     name: name || "",
   };
+  req.vercelInstallationId = parsedJWT.vercelInstallationId || "";
 
   req.checkPermissions = (
     permission: Permission,
     project?: string | string[],
-    envs?: string[] | Set<string>
+    envs?: string[] | Set<string>,
   ) => {
     if (!req.userId || !req.organization) return false;
 
     const userPermissions = getUserPermissions(
       req.currentUser,
       req.organization,
-      req.teams
+      req.teams,
     );
 
     if (
@@ -124,14 +146,14 @@ export async function processJWT(
         userPermissions,
         permission,
         project,
-        envs ? [...envs] : undefined
+        envs ? [...envs] : undefined,
       )
     ) {
       throw new Error("You do not have permission to complete that action.");
     }
   };
 
-  const user = await getUserFromJWT(req.user);
+  const user = await getUserFromJWT(parsedJWT);
 
   if (user) {
     req.currentUser = user;
@@ -174,7 +196,7 @@ export async function processJWT(
         }
 
         const memberRecord = req.organization.members.find(
-          (m) => m.id === req.userId
+          (m) => m.id === req.userId,
         );
         if (memberRecord) {
           const lastLoginDate = memberRecord.lastLoginDate;
@@ -189,11 +211,14 @@ export async function processJWT(
                 lastLoginDate: now,
               });
             } catch (e) {
-              logger.error("error updating last login date", {
-                organization: req.organization.id,
-                member: memberRecord.id,
-                error: e,
-              });
+              logger.error(
+                {
+                  organization: req.organization.id,
+                  member: memberRecord.id,
+                  err: e,
+                },
+                "error updating last login date",
+              );
             }
           }
         }
@@ -215,7 +240,7 @@ export async function processJWT(
         await licenseInit(
           req.organization,
           getUserCodesForOrg,
-          getLicenseMetaData
+          getLicenseMetaData,
         );
       } else {
         res.status(404).json({
@@ -235,7 +260,10 @@ export async function processJWT(
     res.locals.eventAudit = eventAudit;
 
     req.audit = async (
-      data: Omit<AuditInterface, "user" | "organization" | "dateCreated" | "id">
+      data: Omit<
+        AuditInterface,
+        "user" | "organization" | "dateCreated" | "id"
+      >,
     ) => {
       await insertAudit({
         ...data,

@@ -6,8 +6,8 @@ import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 
 export default function OrganizationAndLicenseSettings({
   org,
@@ -22,7 +22,7 @@ export default function OrganizationAndLicenseSettings({
   const canEdit = permissions.check("organizationSettings");
   const { users } = useUser();
   const ownerEmailExists = !!Array.from(users).find(
-    (e) => e[1].email === org.ownerEmail
+    (e) => e[1].email === org.ownerEmail,
   );
 
   return (
@@ -65,11 +65,9 @@ export default function OrganizationAndLicenseSettings({
                     </a>
                   )}
                 </Box>
-                {!isCloud() && !isMultiOrg() && (
-                  <Box>
-                    <Text weight="medium">Organization Id: </Text> {org.id}
-                  </Box>
-                )}
+                <Box>
+                  <Text weight="medium">Organization Id: </Text> {org.id}
+                </Box>
               </Flex>
               {canEdit && (
                 <Button

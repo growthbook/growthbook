@@ -1,4 +1,6 @@
 export const entityEvents = {
+  agreement: ["create", "update", "delete"],
+  aiPrompt: ["create", "update", "delete"],
   attribute: ["create", "update", "delete"],
   experiment: [
     "create",
@@ -32,6 +34,7 @@ export const entityEvents = {
     "archive",
     "delete",
   ],
+  featureRevisionLog: ["create", "update", "delete"],
   urlRedirect: ["create", "update", "delete"],
   metric: ["autocreate", "create", "update", "delete", "analysis"],
   metricAnalysis: ["create", "update", "delete"],
@@ -46,14 +49,23 @@ export const entityEvents = {
   segment: ["create", "delete", "update"],
   archetype: ["created", "deleted", "updated"],
   team: ["create", "delete", "update"],
+  vercelNativeIntegration: ["create", "update", "delete"],
   factTable: ["autocreate"],
   customField: ["create", "update", "delete"],
   experimentTemplate: ["create", "update", "delete"],
+  safeRollout: ["create", "update", "delete"],
+  decisionCriteria: ["create", "update", "delete"],
+  execReport: ["create", "update", "delete"],
+  holdout: ["create", "update", "delete"],
+  savedQuery: ["create", "update", "delete"],
+  dashboard: ["create", "update", "delete"],
+  dashboardTemplate: ["create", "update", "delete"],
+  vector: ["create", "update", "delete"],
 } as const;
 
 export type EntityEvents = typeof entityEvents;
 export const EntityType = Object.keys(entityEvents) as [keyof EntityEvents];
-export type EntityType = typeof EntityType[number];
+export type EntityType = (typeof EntityType)[number];
 
 export type EventTypes<K> = K extends EntityType
   ? `${K}.${EntityEvents[K][number]}`

@@ -17,7 +17,7 @@ import {
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import { useExperiments } from "@/hooks/useExperiments";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 
 export default function ExperimentRefFields({
@@ -54,7 +54,7 @@ export default function ExperimentRefFields({
         (e.id === experimentId ||
           (!e.archived &&
             e.status !== "stopped" &&
-            (e.project || "") === (feature.project || "")))
+            (e.project || "") === (feature.project || ""))),
     )
     .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
     .map((e) => ({
@@ -86,7 +86,7 @@ export default function ExperimentRefFields({
                   exp.variations.map((v, i) => ({
                     variationId: v.id,
                     value: i ? variationValue : controlValue,
-                  }))
+                  })),
                 );
               }
             }}

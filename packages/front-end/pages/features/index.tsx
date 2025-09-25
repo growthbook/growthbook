@@ -1,8 +1,8 @@
 import Link from "next/link";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
-import { Box, Switch, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   ComputedFeatureInterface,
   FeatureInterface,
@@ -35,31 +35,24 @@ import {
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/components/Pagination";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import StaleFeatureIcon from "@/components/StaleFeatureIcon";
 import StaleDetectionModal from "@/components/Features/StaleDetectionModal";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
-import LinkButton from "@/components/Radix/LinkButton";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
+import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
+import { useExperiments } from "@/hooks/useExperiments";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -73,14 +66,10 @@ export default function FeaturesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showArchived, setShowArchived] = useState(false);
-  const [
-    featureToDuplicate,
-    setFeatureToDuplicate,
-  ] = useState<FeatureInterface | null>(null);
-  const [
-    featureToToggleStaleDetection,
-    setFeatureToToggleStaleDetection,
-  ] = useState<FeatureInterface | null>(null);
+  const [featureToDuplicate, setFeatureToDuplicate] =
+    useState<FeatureInterface | null>(null);
+  const [featureToToggleStaleDetection, setFeatureToToggleStaleDetection] =
+    useState<FeatureInterface | null>(null);
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -95,11 +84,12 @@ export default function FeaturesPage() {
     mutate,
     hasArchived,
   } = useFeaturesList(true, showArchived);
+  const { experiments: allExperiments } = useExperiments();
 
   const { usage, usageDomain } = useRealtimeData(
     allFeatures,
     !!router?.query?.mockdata,
-    showGraphs
+    showGraphs,
   );
 
   const staleFeatures = useMemo(() => {
@@ -110,73 +100,41 @@ export default function FeaturesPage() {
     allFeatures.forEach((feature) => {
       const featureEnvironments = filterEnvironmentsByFeature(
         environments,
-        feature
+        feature,
       );
       const envs = featureEnvironments.map((e) => e.id);
       staleFeatures[feature.id] = isFeatureStale({
         feature,
         features: allFeatures,
-        experiments,
+        experiments: allExperiments,
         environments: envs,
       });
     });
     return staleFeatures;
-  }, [allFeatures, experiments, environments]);
-
-  // Searching
-  const tagsFilter = useTagsFilter("features");
-  const filterResults = useCallback(
-    (items: typeof allFeatures) => {
-      if (!showArchived) {
-        items = items.filter((f) => !f.archived);
-      }
-
-      items = filterByTags(items, tagsFilter.tags);
-      return items;
-    },
-    [showArchived, tagsFilter.tags]
-  );
+  }, [allFeatures, allExperiments, environments]);
 
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
-        <div>
-          <div className="row mb-2 align-items-center">
-            <div className="col-auto">
-              <Field
-                placeholder="Search..."
-                type="search"
-                {...searchInputProps}
+        <Box>
+          <Box className="mb-2 align-items-center">
+            <Flex justify="between" mb="3" gap="3" align="center">
+              <Box className="relative" width="40%">
+                <Field
+                  placeholder="Search..."
+                  type="search"
+                  {...searchInputProps}
+                />
+              </Box>
+              <FeatureSearchFilters
+                features={allFeatures}
+                searchInputProps={searchInputProps}
+                setSearchValue={setSearchValue}
+                syntaxFilters={syntaxFilters}
+                hasArchived={hasArchived}
               />
-            </div>
-            <div className="col-auto">
-              <Link
-                href="https://docs.growthbook.io/using/growthbook-best-practices#syntax-search"
-                target="_blank"
-              >
-                <Tooltip body={searchTermFilterExplainations}></Tooltip>
-              </Link>
-            </div>
-            <div className="col-auto">
-              <TagsFilter filter={tagsFilter} items={items} />
-            </div>
-            {showArchivedToggle && (
-              <>
-                <div className="flex-1" />
-                <div className="col-auto">
-                  <Text as="label" mb="0">
-                    <Switch
-                      checked={showArchived}
-                      id="archived"
-                      onCheckedChange={setShowArchived}
-                      mr="2"
-                    />
-                    Show Archived
-                  </Text>
-                </div>
-              </>
-            )}
-          </div>
+            </Flex>
+          </Box>
 
           <table className="table gbtable appbox">
             <thead
@@ -212,7 +170,7 @@ export default function FeaturesPage() {
               {featureItems.map((feature: ComputedFeatureInterface) => {
                 let rules: FeatureRule[] = [];
                 environments.forEach(
-                  (e) => (rules = rules.concat(getRules(feature, e.id)))
+                  (e) => (rules = rules.concat(getRules(feature, e.id))),
                 );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
@@ -234,7 +192,7 @@ export default function FeaturesPage() {
                   feature.prerequisites?.length || 0;
                 const prerequisiteRules = rules.reduce(
                   (acc, rule) => acc + (rule.prerequisites?.length || 0),
-                  0
+                  0,
                 );
                 const totalPrerequisites =
                   topLevelPrerequisites + prerequisiteRules;
@@ -376,7 +334,7 @@ export default function FeaturesPage() {
                           onClick={() => {
                             if (
                               permissionsUtil.canViewFeatureModal(
-                                feature.project
+                                feature.project,
                               )
                             )
                               setFeatureToToggleStaleDetection(feature);
@@ -422,60 +380,17 @@ export default function FeaturesPage() {
               }}
             />
           )}
-        </div>
+        </Box>
       )
     );
   };
 
-  const { searchInputProps, items, SortableTH } = useFeatureSearch({
-    allFeatures,
-    filterResults,
-    environments,
-  });
-
-  const searchTermFilterExplainations = (
-    <>
-      <p>This search field supports advanced syntax search, including:</p>
-      <ul>
-        <li>
-          <strong>key</strong>: The feature&apos;s key (name)
-        </li>
-        <li>
-          <strong>owner</strong>: The creator of the feature (eg: owner:abby)
-        </li>
-        <li>
-          <strong>rules</strong>: Matches based on the number of rules (eg:
-          rules:&gt;2)
-        </li>
-        <li>
-          <strong>tag</strong>: Features tagged with this tag
-        </li>
-        <li>
-          <strong>project</strong>: The feature&apos;s project
-        </li>
-        <li>
-          <strong>version</strong>: The feature&apos;s revision number
-        </li>
-        <li>
-          <strong>experiment</strong>: The feature is linked to the specified
-          experiment
-        </li>
-        <li>
-          <strong>created</strong>:The feature&apos;s creation date, in UTC.
-          Date entered is parsed so supports most formats.
-        </li>
-        <li>
-          <strong>on</strong>: Shows features that are on for a specific
-          environment (on:production)
-        </li>
-        <li>
-          <strong>off</strong>: Shows features that are off for a specific
-          environment (off:dev)
-        </li>
-      </ul>
-      <p>Click to see all syntax fields supported in our docs.</p>
-    </>
-  );
+  const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
+    useFeatureSearch({
+      allFeatures,
+      environments,
+      staleFeatures,
+    });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -491,6 +406,16 @@ export default function FeaturesPage() {
     if (modalOpen) return;
     setFeatureToDuplicate(null);
   }, [modalOpen]);
+  // watch to see if we should include archived features or not:
+  useEffect(() => {
+    const isArchivedFilter = syntaxFilters.some(
+      (filter) =>
+        filter.field === "is" &&
+        !filter.negated &&
+        filter.values.includes("archived"),
+    );
+    setShowArchived(isArchivedFilter);
+  }, [syntaxFilters]);
 
   if (error) {
     return (
@@ -510,7 +435,7 @@ export default function FeaturesPage() {
   const hasFeatures = allFeatures.some(
     (f) =>
       f.project !==
-      getDemoDatasourceProjectIdForOrganization(organization.id || "")
+      getDemoDatasourceProjectIdForOrganization(organization.id || ""),
   );
 
   const canUseSetupFlow =
@@ -530,7 +455,6 @@ export default function FeaturesPage() {
     !sdkConnectionData.connections.length;
 
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
-  const showArchivedToggle = hasArchived;
 
   const canCreateFeatures = permissionsUtil.canManageFeatureDrafts({
     project,

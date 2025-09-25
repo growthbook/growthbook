@@ -8,7 +8,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
@@ -21,7 +21,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export function isExperimentRefRuleSkipped(
   experiment: ExperimentInterfaceStringDates,
-  isDraft: boolean
+  isDraft: boolean,
 ) {
   if (experiment.status === "draft" && !experiment.archived) {
     // Draft experiments are published alongside feature drafts,
@@ -81,7 +81,7 @@ export default function ExperimentRefSummary({
   const releasedValue =
     experiment.status === "stopped" && !experiment.excludeFromPayload
       ? rule.variations.find(
-          (v) => v.variationId === experiment.releasedVariationId
+          (v) => v.variationId === experiment.releasedVariationId,
         )
       : null;
 
@@ -145,7 +145,7 @@ export default function ExperimentRefSummary({
         </Box>
         <Box>
           {" "}
-          users by{" "}
+          by{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {experiment.hashAttribute || "id"}
           </span>
@@ -258,7 +258,7 @@ export default function ExperimentRefSummary({
                           name: variation.name,
                           value:
                             variations.find(
-                              (v) => v.variationId === variation.id
+                              (v) => v.variationId === variation.id,
                             )?.value ?? "null",
                           weight: phase.variationWeights?.[j] || 0,
                         };

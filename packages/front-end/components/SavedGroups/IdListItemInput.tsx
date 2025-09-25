@@ -9,8 +9,8 @@ import clsx from "clsx";
 import { Container, Text } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Link from "@/components/Radix/Link";
+import RadioGroup from "@/ui/RadioGroup";
+import Link from "@/ui/Link";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";
@@ -28,15 +28,13 @@ export const IdListItemInput: FC<{
 
   const [importMethod, setImportMethod] = useState("file");
   const [numValuesToImport, setNumValuesToImport] = useState<number | null>(
-    null
+    null,
   );
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const {
-    unsupportedConnections,
-    hasLargeSavedGroupFeature,
-  } = useLargeSavedGroupSupport();
+  const { unsupportedConnections, hasLargeSavedGroupFeature } =
+    useLargeSavedGroupSupport();
 
   const resetFile = () => {
     setValues([]);
@@ -113,7 +111,7 @@ export const IdListItemInput: FC<{
                       const str = e.target?.result;
                       if (typeof str !== "string") {
                         setFileErrorMessage(
-                          "Failed to import file. Please try again"
+                          "Failed to import file. Please try again",
                         );
                         return;
                       }
@@ -123,6 +121,8 @@ export const IdListItemInput: FC<{
                         .replaceAll(/,,/g, ",")
                         // Remove trailing delimiters to prevent adding an empty value
                         .replace(/,$/, "")
+                        // Remove Windows carriage return
+                        .replaceAll(/\r/g, "")
                         .split(",");
                       setFileName(file.name);
                       setValues(newValues);

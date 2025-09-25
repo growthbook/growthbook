@@ -16,6 +16,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
+import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
 import { useAuth } from "@/services/auth";
 import {
   getRules,
@@ -24,6 +26,7 @@ import {
 } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { Rule, SortableRule } from "./Rule";
+import { HoldoutRule } from "./HoldoutRule";
 
 export default function RuleList({
   feature,
@@ -37,6 +40,9 @@ export default function RuleList({
   experimentsMap,
   hideInactive,
   isDraft,
+  safeRolloutsMap,
+  holdout,
+  openHoldoutModal,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -57,6 +63,9 @@ export default function RuleList({
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   hideInactive?: boolean;
   isDraft: boolean;
+  safeRolloutsMap: Map<string, SafeRolloutInterface>;
+  holdout: HoldoutInterface | undefined;
+  openHoldoutModal: () => void;
 }) {
   const { apiCall } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -71,12 +80,12 @@ export default function RuleList({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
-  if (!items.length) {
+  if (!items.length && !holdout) {
     return (
       <div className="px-3 mb-3">
         <em>None</em>
@@ -129,7 +138,7 @@ export default function RuleList({
                 from: oldIndex,
                 to: newIndex,
               }),
-            }
+            },
           );
           await mutate();
           res.version && setVersion(res.version);
@@ -147,6 +156,14 @@ export default function RuleList({
         <div className="px-3 mb-3">
           <em>No Active Rules</em>
         </div>
+      )}
+      {holdout && (
+        <HoldoutRule
+          feature={feature}
+          setRuleModal={openHoldoutModal}
+          mutate={mutate}
+          ruleCount={items.length}
+        />
       )}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {items.map(({ ...rule }, i) => (
@@ -166,6 +183,8 @@ export default function RuleList({
             experimentsMap={experimentsMap}
             hideInactive={hideInactive}
             isDraft={isDraft}
+            safeRolloutsMap={safeRolloutsMap}
+            holdout={holdout}
           />
         ))}
       </SortableContext>
@@ -189,6 +208,8 @@ export default function RuleList({
               getRuleIndex(activeId as string) >= unreachableIndex
             }
             isDraft={isDraft}
+            safeRolloutsMap={safeRolloutsMap}
+            holdout={holdout}
           />
         ) : null}
       </DragOverlay>

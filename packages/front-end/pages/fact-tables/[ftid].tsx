@@ -2,6 +2,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
+import { FactTableInterface } from "back-end/types/fact-table";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -26,14 +27,9 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Badge from "@/components/Radix/Badge";
-import Frame from "@/components/Radix/Frame";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Badge from "@/ui/Badge";
+import Frame from "@/ui/Frame";
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -45,6 +41,10 @@ export default function FactTablePage() {
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
+
+  const [duplicateFactTable, setDuplicateFactTable] = useState<
+    FactTableInterface | undefined
+  >();
 
   const { apiCall } = useAuth();
 
@@ -83,6 +83,13 @@ export default function FactTablePage() {
     <div className="pagecontents container-fluid">
       {editOpen && (
         <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
+      )}
+      {duplicateFactTable && (
+        <FactTableModal
+          close={() => setDuplicateFactTable(undefined)}
+          existing={duplicateFactTable}
+          duplicate
+        />
       )}
       {editSQLOpen && (
         <EditFactTableSQLModal
@@ -188,6 +195,18 @@ export default function FactTablePage() {
               </button>
               <button
                 className="dropdown-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDuplicateFactTable({
+                    ...factTable,
+                    name: `${factTable.name} (Copy)`,
+                  });
+                }}
+              >
+                Duplicate Fact Table
+              </button>
+              <button
+                className="dropdown-item"
                 onClick={async () => {
                   await apiCall(
                     `/fact-tables/${factTable.id}/${
@@ -195,7 +214,7 @@ export default function FactTablePage() {
                     }`,
                     {
                       method: "POST",
-                    }
+                    },
                   );
                   mutateDefinitions();
                 }}

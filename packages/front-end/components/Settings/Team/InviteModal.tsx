@@ -49,21 +49,19 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     },
   });
   const [successfulInvites, setSuccessfulInvites] = useState<InviteResult[]>(
-    []
+    [],
   );
   const [failedInvites, setFailedInvites] = useState<InviteResult[]>([]);
   const { apiCall } = useAuth();
   const [showUpgradeModal, setShowUpgradeModal] = useState(
-    isCloud() && canSubscribe && seatsInUse >= freeSeats
-      ? "Whoops! You reached your free seat limit."
-      : ""
+    isCloud() && canSubscribe && seatsInUse >= freeSeats,
   );
 
   const [showContactSupport, setShowContactSupport] = useState(
     ["pro", "pro_sso", "enterprise"].includes(effectiveAccountPlan || "") &&
       license &&
       license.hardCap &&
-      (license.seats || 0) <= seatsInUse
+      (license.seats || 0) <= seatsInUse,
   );
 
   // Hit their free limit and needs to upgrade to invite more team members
@@ -72,7 +70,6 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       <UpgradeModal
         close={close}
         source="invite team"
-        reason={showUpgradeModal}
         commercialFeature={null}
       />
     );
@@ -108,7 +105,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       canSubscribe &&
       seatsInUse + value.email.length > freeSeats
     ) {
-      setShowUpgradeModal("Whoops! You reached your free seat limit.");
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -249,7 +246,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
               const parsedEmails: string[] = [];
               emails.forEach((em) => {
                 parsedEmails.push(
-                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0)
+                  ...em.split(/[\s,]/g).filter((e) => e.trim().length > 0),
                 );
               });
               // dedup:
@@ -262,9 +259,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           <RoleSelector
             value={form.watch("roleInfo")}
             setValue={(value) => form.setValue("roleInfo", value)}
-            showUpgradeModal={() =>
-              setShowUpgradeModal("To enable advanced permissioning,")
-            }
+            showUpgradeModal={() => setShowUpgradeModal(true)}
           />
         </>
       )}

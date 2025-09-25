@@ -4,7 +4,7 @@ import { FeatureEnvironment } from "back-end/types/feature";
 import { Box, Grid, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 const EnvironmentSelect: FC<{
   environmentSettings: Record<string, FeatureEnvironment>;
@@ -20,10 +20,10 @@ const EnvironmentSelect: FC<{
   }, [environments, permissionsUtil, project]);
 
   const selectAllChecked = environmentsUserCanAccess.every(
-    (env) => environmentSettings[env.id]?.enabled
+    (env) => environmentSettings[env.id]?.enabled,
   );
   const selectAllIndeterminate = environmentsUserCanAccess.some(
-    (env) => environmentSettings[env.id]?.enabled
+    (env) => environmentSettings[env.id]?.enabled,
   );
 
   return (
@@ -44,8 +44,8 @@ const EnvironmentSelect: FC<{
               selectAllChecked
                 ? true
                 : selectAllIndeterminate
-                ? "indeterminate"
-                : false
+                  ? "indeterminate"
+                  : false
             }
             setValue={(v) =>
               environmentsUserCanAccess.forEach((env) => {

@@ -8,6 +8,7 @@ toc_max_heading_level: 5
 
 import ExternalLink from '@site/src/components/ExternalLink'
 import SdkResources from '@site/src/components/SdkResources';
+import SdkSupportedFeatures from '@site/src/components/SdkSupportedFeatures';
 
 # GrowthBook Go SDK
 
@@ -75,7 +76,7 @@ if darkMode.On {
 
 The client is the core component of the GrowthBook SDK. After installing and importing the SDK, create a single shared instance of `growthbook.Client` using the `growthbook.NewClient` function with a list of options. You can customize the client with options such as a custom logger, client key, decryption key, default attributes, or a feature list loaded from JSON. The client is thread-safe and can be safely used from multiple goroutines.
 
-While you can evaluate features directly using the main client instance, it’s recommended to create child client instances that include session- or query-specific data. To create a child client with local attributes, call `client.WithAttributes`:
+While you can evaluate features directly using the main client instance, it's recommended to create child client instances that include session- or query-specific data. To create a child client with local attributes, call `client.WithAttributes`:
 
 ```go
 attrs := gb.Attributes{"id": 100, "user": "Bob"}
@@ -91,6 +92,20 @@ res := child.EvalFeature(context.Background(), "main-button-color")
 Additional options, such as `WithLogger`, `WithUrl`, and `WithAttributesOverrides`, can also be used to customize child clients. Since child clients share data with the main client instance, they will automatically receive feature updates.
 
 To stop background updates, call `client.Close()` on the main client instance when it is no longer needed.
+
+#### Additional options for sticky bucketing:
+
+- `WithStickyBucketService`: Provides a service implementation for storing and retrieving sticky bucket assignments
+- `WithStickyBucketAttributes`: Sets specific attributes to use for sticky bucketing (if different from regular attributes)
+
+```go
+// Configure a client with sticky bucketing
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-XXXX"),
+    gb.WithStickyBucketService(NewInMemoryStickyBucketService()),
+)
+```
 
 ---
 
@@ -119,7 +134,7 @@ You can specify attributes about the current user and request. These attributes 
 - Feature targeting (for example, paid users receive one value, while free users receive another).
 - Assigning persistent variations in A/B tests (for example, a user with id "123" always gets variation B).
 
-Attributes can be any JSON data type—boolean, float, string, array, or object—and are represented by the `Attributes` type, which is an alias for Go’s generic `map[string]interface{}` type used for JSON objects. If you know the attributes upfront, you can pass them into `NewClient` using the `WithAttributes` option:
+Attributes can be any JSON data type—boolean, float, string, array, or object—and are represented by the `Attributes` type, which is an alias for Go's generic `map[string]interface{}` type used for JSON objects. If you know the attributes upfront, you can pass them into `NewClient` using the `WithAttributes` option:
 
 ```go
 attrs := gb.Attributes{
@@ -159,6 +174,54 @@ client, err := client.WithAttributeOverrides(attrs)
 This method updates only the fields provided in `attrs`, keeping the other fields from the original client instance.
 
 Be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully. A common approach is to refresh attributes only on navigation, when the window is focused, or after a user performs a major action such as logging in.
+
+#### Secure Attributes
+
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
+
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
+
+To hash an attribute, use Go's `crypto/sha256` package to compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
+
+```go
+import (
+    "crypto/sha256"
+    "encoding/hex"
+    gb "github.com/growthbook/growthbook-golang"
+)
+
+// Your secure attribute salt (set in Organization Settings)
+salt := "f09jq3fij"
+
+// Hashing a secureString attribute
+userEmail := user.Email
+hasher := sha256.New()
+hasher.Write([]byte(salt + userEmail))
+hashedEmail := hex.EncodeToString(hasher.Sum(nil))
+
+// Hashing a secureString[] attribute
+userTags := user.Tags
+hashedTags := make([]string, len(userTags))
+for i, tag := range userTags {
+    hasher := sha256.New()
+    hasher.Write([]byte(salt + tag))
+    hashedTags[i] = hex.EncodeToString(hasher.Sum(nil))
+}
+
+// Create attributes with hashed values
+attrs := gb.Attributes{
+    "id":       user.ID,
+    "loggedIn": true,
+    "email":    hashedEmail,
+    "tags":     hashedTags,
+}
+
+// Create a client with the hashed attributes
+client, err := client.WithAttributes(attrs)
+if err != nil {
+    // Handle error
+}
+```
 
 ### Tracking Callback
 
@@ -212,6 +275,86 @@ client := gb.NewClient(ctx, gb.WithFeatureUsageCallback(cb), /* other options */
 
 The `result` argument is the same as what is returned from `EvalFeature`.
 
+### Sticky Bucketing
+
+Sticky Bucketing ensures users see consistent experiment variations across sessions and devices. This is particularly useful when:
+
+- You need to slow down experiment enrollment without affecting existing users
+- You want to fix bugs in an experiment without including users who saw the buggy version
+- You need consistent experiences across different devices or sessions
+
+#### Implementation
+
+The SDK provides a built-in thread-safe in-memory implementation that you can use right away:
+
+```go
+// Create an in-memory sticky bucket service
+service := gb.NewInMemoryStickyBucketService()
+
+// Create a client with sticky bucketing
+client, err := gb.NewClient(
+    context.Background(),
+    gb.WithClientKey("sdk-XXXX"),
+    gb.WithStickyBucketService(service),
+)
+```
+
+To use sticky bucketing in an experiment, set the `BucketVersion` and optionally `MinBucketVersion` properties:
+
+```go
+exp := &gb.Experiment{
+    Key:             "my-experiment",
+    Variations:      []gb.FeatureValue{"control", "treatment"},
+    Meta: []gb.VariationMeta{
+        {Key: "0"}, // Use numeric keys to match variation IDs
+        {Key: "1"},
+    },
+    BucketVersion:    1,       // Current version of the experiment
+    MinBucketVersion: 0,       // Minimum version users must have seen
+    HashAttribute:    "userId", // Primary attribute for bucketing
+    FallbackAttribute: "deviceId", // Used when primary is missing
+}
+
+result := client.RunExperiment(context.Background(), exp)
+```
+
+#### Custom Storage Implementation
+
+Implement your own persistent storage by implementing the `StickyBucketService` interface:
+
+```go
+type StickyBucketService interface {
+    GetAssignments(attributeName string, attributeValue string) (*StickyBucketAssignmentDoc, error)
+    SaveAssignments(doc *StickyBucketAssignmentDoc) error
+    GetAllAssignments(attributes map[string]string) (StickyBucketAssignments, error)
+}
+```
+
+#### Key Features
+
+1. **Version Control**:
+   - `BucketVersion`: Controls which version of the experiment a user is assigned to
+   - `MinBucketVersion`: Blocks users from versions below this number
+
+2. **Attribute-Based Bucketing**:
+   - `HashAttribute`: Primary attribute for bucketing (usually userId)
+   - `FallbackAttribute`: Secondary attribute when primary is missing
+
+3. **Thread Safety**:
+   - The in-memory implementation uses `sync.RWMutex` for concurrent access
+   - Caching reduces database/service calls in high-traffic environments
+
+#### Experiment Result Changes
+
+The `ExperimentResult` returned by `RunExperiment` now includes a `StickyBucketUsed` boolean field that indicates if the variation was assigned from a sticky bucket:
+
+```go
+result := client.RunExperiment(context.Background(), experiment)
+if result.StickyBucketUsed {
+    // The user was assigned based on a previously stored assignment
+}
+```
+
 ### Using Features
 
 The primary method, `client.EvalFeature(ctx, key)`, accepts a feature key and uses the stored feature definitions and attributes to evaluate the feature value. It returns a `FeatureResult` value that includes detailed information about why the value was assigned to the user:
@@ -249,7 +392,7 @@ if result.Source == gb.ExperimentResultSource {
 
 ## Inline Experiments
 
-Experiments can be defined and run using the `Experiment` type and the `RunExperiment` method of the client. Experiment definitions can be created directly as values of the `Experiment` type, or parsed from JSON using Go’s `json.Unmarshal` function. Passing an `Experiment` value to the `RunExperiment` method will run the experiment and return an `ExperimentResult` that contains the resulting feature value. This approach allows users to run arbitrary experiments without providing feature definitions upfront.
+Experiments can be defined and run using the `Experiment` type and the `RunExperiment` method of the client. Experiment definitions can be created directly as values of the `Experiment` type, or parsed from JSON using Go's `json.Unmarshal` function. Passing an `Experiment` value to the `RunExperiment` method will run the experiment and return an `ExperimentResult` that contains the resulting feature value. This approach allows users to run arbitrary experiments without providing feature definitions upfront.
 
 ```go
 experiment := &gb.Experiment{
@@ -261,6 +404,20 @@ result := client.RunExperiment(context.TODO(), experiment)
 ```
 
 A full list of experiment fields can be found in the [documentation <ExternalLink/>](https://pkg.go.dev/github.com/growthbook/growthbook-golang#Experiment).
+
+When defining experiments, you can now use additional parameters for sticky bucketing:
+
+```go
+experiment := &gb.Experiment{
+    Key: "my-experiment",
+    Variations: []gb.FeatureValue{"red", "blue", "green"},
+    // Sticky bucket parameters
+    BucketVersion: 1,
+    MinBucketVersion: 0,
+    HashAttribute: "userId",
+    FallbackAttribute: "deviceId",
+}
+```
 
 ### Inline Experiment Return Value
 
@@ -283,6 +440,9 @@ fmt.Println(result.HashAttribute) // "id"
 
 // The value of that attribute.
 fmt.Println(result.HashValue) // e.g., "123"
+
+// Whether a sticky bucket assignment was used
+fmt.Println(result.StickyBucketUsed) // true or false
 ```
 
 The `InExperiment` flag is set to true only if the user was randomly assigned a variation. If the user fails any targeting rules or is forced into a specific variation, this flag will be false.
@@ -324,3 +484,7 @@ func handleRequest(ctx context.Context, client *gb.Client, r request) {
 ---
 
 This version addresses grammatical issues and clarifies the text while maintaining the original content and code examples.
+
+## Supported Features
+
+<SdkSupportedFeatures sdk="go" />

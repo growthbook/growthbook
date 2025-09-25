@@ -1,5 +1,8 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { FeatureRevisionInterface } from "back-end/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "back-end/types/feature-revision";
 import React from "react";
 import { Box } from "@radix-ui/themes";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -18,7 +21,7 @@ export default function FeatureTest({
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
   revision: FeatureRevisionInterface | null;
-  revisions: FeatureRevisionInterface[];
+  revisions: MinimalFeatureRevisionInterface[];
   version: number | null;
   setVersion: (v: number) => void;
 }) {
@@ -41,7 +44,6 @@ export default function FeatureTest({
           description={
             "Feature allows you to see how your rules will apply to users based on their attributes. Upgrade to unlock this feature."
           }
-          reason={"No Access Feature Testing Tab"}
           learnMoreLink="https://docs.growthbook.io/features/rules#testing-rules"
         />
       </Box>

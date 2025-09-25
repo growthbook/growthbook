@@ -1,4 +1,5 @@
 import { ExperimentType } from "back-end/src/validators/experiments";
+import { SafeRolloutSnapshotInterface } from "back-end/src/validators/safe-rollout-snapshot";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 
 type MultipleExposureHealthStatus =
@@ -96,12 +97,17 @@ export function getSRMHealthData({
 
 export function getSRMValue(
   experimentType: ExperimentType,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
 ): number | undefined {
   switch (experimentType) {
     case "multi-armed-bandit":
-      return snapshot.banditResult?.srm;
+      // get SRM from bandit result if available (only old bandit snapshots have SRM
+      // on the banditResult object)
+      return (
+        snapshot.banditResult?.srm ?? snapshot.health?.traffic?.overall?.srm
+      );
 
+    case "holdout":
     case "standard": {
       const healthQuerySRM = snapshot.health?.traffic?.overall?.srm;
 
@@ -124,9 +130,26 @@ export function getSRMValue(
       const _exhaustiveCheck: never = experimentType;
       // eslint-disable-next-line no-console
       console.error(
-        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`
+        `Unknown experiment type for SRM: ${_exhaustiveCheck}. snapshotId: ${snapshot.id}`,
       );
       return undefined;
     }
   }
+}
+
+export function getSafeRolloutSRMValue(
+  safeRolloutSnapshot: SafeRolloutSnapshotInterface,
+): number | undefined {
+  const healthQuerySRM = safeRolloutSnapshot.health?.traffic?.overall?.srm;
+  if (healthQuerySRM !== undefined) {
+    return healthQuerySRM;
+  }
+
+  // fall back to main results SRM for no dimension split snapshots
+  // and without health query SRM
+  // if no dimension && only one overall result (e.g. no dim splits)
+  if (safeRolloutSnapshot.analyses?.[0]?.results?.length === 1) {
+    return safeRolloutSnapshot.analyses?.[0]?.results?.[0]?.srm;
+  }
+  return undefined;
 }

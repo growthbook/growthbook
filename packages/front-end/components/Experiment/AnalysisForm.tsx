@@ -30,7 +30,7 @@ import SelectField from "@/components/Forms/SelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
@@ -81,9 +81,8 @@ const AnalysisForm: FC<{
   const orgSettings = useOrgSettings();
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
-  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] = useState(
-    false
-  );
+  const [hasMetricOverrideRiskError, setHasMetricOverrideRiskError] =
+    useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const pid = experiment?.project;
@@ -95,11 +94,10 @@ const AnalysisForm: FC<{
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
-  const hasSequentialTestingFeature = hasCommercialFeature(
-    "sequential-testing"
-  );
+  const hasSequentialTestingFeature =
+    hasCommercialFeature("sequential-testing");
 
   let canRunExperiment = !experiment.archived;
   if (envs.length > 0) {
@@ -118,7 +116,7 @@ const AnalysisForm: FC<{
         getExposureQuery(
           getDatasourceById(experiment.datasource)?.settings,
           experiment.exposureQueryId,
-          experiment.userIdType
+          experiment.userIdType,
         )?.id || "",
       activationMetric: experiment.activationMetric || "",
       segment: experiment.segment || "",
@@ -144,15 +142,15 @@ const AnalysisForm: FC<{
       sequentialTestingTuningParameter:
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingTuningParameter
-          : orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          : (orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER),
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
-        orgSettings
+        orgSettings,
       ),
       statsEngine: experiment.statsEngine,
       regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
@@ -170,21 +168,19 @@ const AnalysisForm: FC<{
     },
   });
 
-  const [
-    usingSequentialTestingDefault,
-    setUsingSequentialTestingDefault,
-  ] = useState(experiment.sequentialTestingEnabled === undefined);
+  const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
+    useState(experiment.sequentialTestingEnabled === undefined);
   const setSequentialTestingToDefault = useCallback(
     (enable: boolean) => {
       if (enable) {
         form.setValue(
           "sequentialTestingEnabled",
-          !!orgSettings.sequentialTestingEnabled
+          !!orgSettings.sequentialTestingEnabled,
         );
         form.setValue(
           "sequentialTestingTuningParameter",
           orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
         );
       }
       setUsingSequentialTestingDefault(enable);
@@ -194,7 +190,7 @@ const AnalysisForm: FC<{
       setUsingSequentialTestingDefault,
       orgSettings.sequentialTestingEnabled,
       orgSettings.sequentialTestingTuningParameter,
-    ]
+    ],
   );
 
   const { apiCall } = useAuth();
@@ -203,7 +199,7 @@ const AnalysisForm: FC<{
   const datasourceProperties = datasource?.properties;
 
   const filteredSegments = segments.filter(
-    (s) => s.datasource === datasource?.id
+    (s) => s.datasource === datasource?.id,
   );
 
   // Error: Type instantiation is excessively deep and possibly infinite.
@@ -218,12 +214,12 @@ const AnalysisForm: FC<{
 
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
+  const isHoldout = type === "holdout";
 
   if (upgradeModal) {
     return (
       <UpgradeModal
         close={() => setUpgradeModal(false)}
-        reason="To override metric conversion windows,"
         source="override-metrics"
         commercialFeature="override-metrics"
       />
@@ -239,7 +235,7 @@ const AnalysisForm: FC<{
     <Modal
       trackingEventModalType="analysis-form"
       trackingEventModalSource={source}
-      header={"Experiment Settings"}
+      header={isHoldout ? "Analysis Settings" : "Experiment Settings"}
       open={true}
       close={cancel}
       size="lg"
@@ -265,7 +261,8 @@ const AnalysisForm: FC<{
         }
         if (usingSequentialTestingDefault) {
           // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled = !!orgSettings.sequentialTestingEnabled;
+          body.sequentialTestingEnabled =
+            !!orgSettings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
             orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
@@ -289,7 +286,7 @@ const AnalysisForm: FC<{
           const phaseId = (body.phases?.length ?? 0) - 1;
           if (body.phases?.[phaseId] && body.variations) {
             body.phases[phaseId].variationWeights = body.variations.map(
-              () => 1 / (body?.variations?.length || 2)
+              () => 1 / (body?.variations?.length || 2),
             );
           }
           const banditScheduleHours =
@@ -373,7 +370,7 @@ const AnalysisForm: FC<{
             const secondaryMetrics = form.watch("secondaryMetrics");
             form.setValue(
               "secondaryMetrics",
-              secondaryMetrics.filter(isValidMetric)
+              secondaryMetrics.filter(isValidMetric),
             );
 
             const guardrails = form.watch("guardrailMetrics");
@@ -383,7 +380,7 @@ const AnalysisForm: FC<{
             .filter(
               (ds) =>
                 ds.id === experiment.datasource ||
-                isProjectListValidForProject(ds.projects, experiment.project)
+                isProjectListValidForProject(ds.projects, experiment.project),
             )
             .map((d) => ({
               value: d.id,
@@ -418,8 +415,9 @@ const AnalysisForm: FC<{
               };
             })}
             formatOptionLabel={({ label, value }) => {
-              const userIdType = exposureQueries?.find((e) => e.id === value)
-                ?.userIdType;
+              const userIdType = exposureQueries?.find(
+                (e) => e.id === value,
+              )?.userIdType;
               return (
                 <>
                   {label}
@@ -436,7 +434,7 @@ const AnalysisForm: FC<{
             }}
           />
         )}
-        {datasource && (
+        {datasource && !isHoldout && (
           <Field
             label="Tracking Key"
             labelClassName="font-weight-bold"
@@ -461,7 +459,7 @@ const AnalysisForm: FC<{
                 <div
                   className={`col-${Math.max(
                     Math.round(12 / variations.fields.length),
-                    3
+                    3,
                   )} mb-2`}
                   key={i}
                 >
@@ -480,7 +478,7 @@ const AnalysisForm: FC<{
             </small>
           </div>
         )}
-        {!!phaseObj && editDates && !isBandit && (
+        {!!phaseObj && editDates && !isBandit && !isHoldout && (
           <div className="row">
             <div className="col">
               <DatePicker
@@ -510,7 +508,7 @@ const AnalysisForm: FC<{
             )}
           </div>
         )}
-        {!!datasource && !isBandit && (
+        {!!datasource && !isBandit && !isHoldout && (
           <MetricSelector
             datasource={form.watch("datasource")}
             exposureQueryId={exposureQueryId}
@@ -529,65 +527,72 @@ const AnalysisForm: FC<{
             helpText="Users must convert on this metric before being included"
           />
         )}
-        {datasourceProperties?.experimentSegments && !isBandit && (
-          <SelectField
-            label="Segment"
-            labelClassName="font-weight-bold"
-            value={form.watch("segment")}
-            onChange={(value) => form.setValue("segment", value || "")}
-            initialOption="None (All Users)"
-            options={filteredSegments.map((s) => {
-              return {
-                label: s.name,
-                value: s.id,
-              };
-            })}
-            helpText="Only users in this segment will be included"
-          />
-        )}
-        {datasourceProperties?.separateExperimentResultQueries && !isBandit && (
-          <SelectField
-            label="Metric Conversion Windows"
-            labelClassName="font-weight-bold"
-            value={form.watch("skipPartialData")}
-            onChange={(value) => form.setValue("skipPartialData", value)}
-            options={[
-              {
-                label: "Include In-Progress Conversions",
-                value: "loose",
-              },
-              {
-                label: "Exclude In-Progress Conversions",
-                value: "strict",
-              },
-            ]}
-            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
-          />
-        )}
-        {datasourceProperties?.separateExperimentResultQueries && !isBandit && (
-          <SelectField
-            label={
-              <AttributionModelTooltip>
-                <strong>Conversion Window Override</strong> <FaQuestionCircle />
-              </AttributionModelTooltip>
-            }
-            value={form.watch("attributionModel")}
-            onChange={(value) => {
-              const model = value as AttributionModel;
-              form.setValue("attributionModel", model);
-            }}
-            options={[
-              {
-                label: "Respect Conversion Windows",
-                value: "firstExposure",
-              },
-              {
-                label: "Ignore Conversion Windows",
-                value: "experimentDuration",
-              },
-            ]}
-          />
-        )}
+        {datasourceProperties?.experimentSegments &&
+          !isBandit &&
+          !isHoldout && (
+            <SelectField
+              label="Segment"
+              labelClassName="font-weight-bold"
+              value={form.watch("segment")}
+              onChange={(value) => form.setValue("segment", value || "")}
+              initialOption="None (All Users)"
+              options={filteredSegments.map((s) => {
+                return {
+                  label: s.name,
+                  value: s.id,
+                };
+              })}
+              helpText="Only users in this segment will be included"
+            />
+          )}
+        {datasourceProperties?.separateExperimentResultQueries &&
+          !isBandit &&
+          !isHoldout && (
+            <SelectField
+              label="Metric Conversion Windows"
+              labelClassName="font-weight-bold"
+              value={form.watch("skipPartialData")}
+              onChange={(value) => form.setValue("skipPartialData", value)}
+              options={[
+                {
+                  label: "Include In-Progress Conversions",
+                  value: "loose",
+                },
+                {
+                  label: "Exclude In-Progress Conversions",
+                  value: "strict",
+                },
+              ]}
+              helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+            />
+          )}
+        {datasourceProperties?.separateExperimentResultQueries &&
+          !isBandit &&
+          !isHoldout && (
+            <SelectField
+              label={
+                <AttributionModelTooltip>
+                  <strong>Conversion Window Override</strong>{" "}
+                  <FaQuestionCircle />
+                </AttributionModelTooltip>
+              }
+              value={form.watch("attributionModel")}
+              onChange={(value) => {
+                const model = value as AttributionModel;
+                form.setValue("attributionModel", model);
+              }}
+              options={[
+                {
+                  label: "Respect Conversion Windows",
+                  value: "firstExposure",
+                },
+                {
+                  label: "Ignore Conversion Windows",
+                  value: "experimentDuration",
+                },
+              ]}
+            />
+          )}
         <StatsEngineSelect
           label={
             isBandit ? (
@@ -639,7 +644,8 @@ const AnalysisForm: FC<{
         )}
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
           "frequentist" &&
-          !isBandit && (
+          !isBandit &&
+          !isHoldout && (
             <div className="d-flex flex-row no-gutters align-items-top">
               <div className="col-5">
                 <SelectField
@@ -720,39 +726,41 @@ const AnalysisForm: FC<{
               </div>
             </div>
           )}
-        {datasourceProperties?.queryLanguage === "sql" && !isBandit && (
-          <div className="row">
-            <div className="col">
-              <Field
-                label="Custom SQL Filter"
-                labelClassName="font-weight-bold"
-                {...form.register("queryFilter")}
-                textarea
-                placeholder="e.g. user_id NOT IN ('123', '456')"
-                helpText="WHERE clause to add to the default experiment query"
-              />
-            </div>
-            <div className="pt-2 border-left col-sm-4 col-lg-6">
-              Available columns:
-              <div className="mb-2 d-flex flex-wrap">
-                {["timestamp", "variation_id"]
-                  .concat(exposureQuery ? [exposureQuery.userIdType] : [])
-                  .concat(exposureQuery?.dimensions || [])
-                  .map((d) => {
-                    return (
-                      <div className="mr-2 mb-2 border px-1" key={d}>
-                        <code>{d}</code>
-                      </div>
-                    );
-                  })}
+        {datasourceProperties?.queryLanguage === "sql" &&
+          !isBandit &&
+          !isHoldout && (
+            <div className="row">
+              <div className="col">
+                <Field
+                  label="Custom SQL Filter"
+                  labelClassName="font-weight-bold"
+                  {...form.register("queryFilter")}
+                  textarea
+                  placeholder="e.g. user_id NOT IN ('123', '456')"
+                  helpText="WHERE clause to add to the default experiment query"
+                />
               </div>
-              <div>
-                <strong>Tip:</strong> Use a subquery inside an <code>IN</code>{" "}
-                or <code>NOT IN</code> clause for more advanced filtering.
+              <div className="pt-2 border-left col-sm-4 col-lg-6">
+                Available columns:
+                <div className="mb-2 d-flex flex-wrap">
+                  {["timestamp", "variation_id"]
+                    .concat(exposureQuery ? [exposureQuery.userIdType] : [])
+                    .concat(exposureQuery?.dimensions || [])
+                    .map((d) => {
+                      return (
+                        <div className="mr-2 mb-2 border px-1" key={d}>
+                          <code>{d}</code>
+                        </div>
+                      );
+                    })}
+                </div>
+                <div>
+                  <strong>Tip:</strong> Use a subquery inside an <code>IN</code>{" "}
+                  or <code>NOT IN</code> clause for more advanced filtering.
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
         {editMetrics && (
           <>
             <ExperimentMetricsSelector
@@ -768,15 +776,19 @@ const AnalysisForm: FC<{
               setSecondaryMetrics={(secondaryMetrics) =>
                 form.setValue("secondaryMetrics", secondaryMetrics)
               }
-              setGuardrailMetrics={(guardrailMetrics) =>
-                form.setValue("guardrailMetrics", guardrailMetrics)
+              setGuardrailMetrics={
+                !isHoldout
+                  ? (guardrailMetrics) =>
+                      form.setValue("guardrailMetrics", guardrailMetrics)
+                  : undefined
               }
               forceSingleGoalMetric={isBandit}
-              noPercentileGoalMetrics={isBandit}
+              noQuantileGoalMetrics={isBandit}
+              filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
             />
 
-            {hasMetrics && !isBandit && (
+            {hasMetrics && !isBandit && !isHoldout && (
               <div className="form-group mb-2">
                 <PremiumTooltip commercialFeature="override-metrics">
                   <label className="font-weight-bold mb-1">
@@ -790,7 +802,7 @@ const AnalysisForm: FC<{
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={
-                    (form as unknown) as UseFormReturn<EditMetricsFormInterface>
+                    form as unknown as UseFormReturn<EditMetricsFormInterface>
                   }
                   disabled={!hasOverrideMetricsFeature}
                   setHasMetricOverrideRiskError={(v: boolean) =>
