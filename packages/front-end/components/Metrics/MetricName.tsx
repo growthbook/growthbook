@@ -273,7 +273,7 @@ export default function MetricName({
       {showLink ? (
         <div className="mt-1 mb-2 small">
           <a
-            href={`/metric/${metric.id}`}
+            href={`/${isFactMetric(metric) ? "fact-metrics" : "metric"}/${metric.id}`}
             target="_blank"
             className="link-purple"
             rel="noreferrer"
