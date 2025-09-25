@@ -79,10 +79,14 @@ export function OfficialBadge({
                 <>
                   a <code>config.yml</code> file
                 </>
+              ) : managedBy === "admin" ? (
+                <>admins.</>
               ) : (
-                <>the API</>
+                <>
+                  the API. It is read-only and cannot be modified from within
+                  GrowthBook.
+                </>
               )}
-              . It is read-only and cannot be modified from within GrowthBook.
             </>
           )
         }

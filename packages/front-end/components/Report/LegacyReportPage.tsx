@@ -494,6 +494,7 @@ export default function LegacyReportPage({
                   />
                 ) : (
                   <BreakDownResults
+                    experimentId={report.experimentId ?? ""}
                     isLatestPhase={true}
                     phase={
                       (experimentData?.experiment?.phases?.length ?? 1) - 1
@@ -568,6 +569,7 @@ export default function LegacyReportPage({
                 report.results?.dimensions?.[0] !== undefined && (
                   <div className="mt-0 mb-3">
                     <CompactResults
+                      experimentId={report.experimentId ?? ""}
                       variations={variations}
                       multipleExposures={report.results?.multipleExposures || 0}
                       results={report.results?.dimensions?.[0]}
