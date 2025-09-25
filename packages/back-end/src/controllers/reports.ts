@@ -141,7 +141,6 @@ export async function postReportFromSnapshot(
       variations: experiment.variations.map((variation) =>
         omit(variation, ["description", "screenshots"]),
       ),
-      customFields: experiment.customFields,
     },
     experimentAnalysisSettings: _experimentAnalysisSettings,
   });

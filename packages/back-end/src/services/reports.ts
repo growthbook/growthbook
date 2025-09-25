@@ -124,8 +124,6 @@ export function reportArgsFromSnapshot(
     exposureQueryId: experiment.exposureQueryId,
     startDate: snapshot.settings.startDate,
     endDate: snapshot.settings.endDate,
-    phase: snapshot.phase + "",
-    customFields: experiment.customFields,
     dimension: snapshot.dimension || undefined,
     variations: getReportVariations(experiment, phase),
     coverage: snapshot.settings.coverage,
@@ -200,8 +198,6 @@ export function getSnapshotSettingsFromReportArgs(
     startDate: args.startDate,
     endDate: args.endDate || new Date(),
     experimentId: args.trackingKey,
-    phase: args.phase,
-    customFields: args.customFields,
     exposureQueryId: args.exposureQueryId,
     manual: false,
     segment: args.segment || "",
@@ -484,6 +480,7 @@ export async function createReportSnapshot({
     factTableMap,
     metricGroups,
     datasource,
+    experiment,
   });
 
   const snapshotType = "report";
@@ -556,6 +553,7 @@ export function getReportSnapshotSettings({
   factTableMap,
   metricGroups,
   datasource,
+  experiment,
 }: {
   report: ExperimentSnapshotReportInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -566,6 +564,7 @@ export function getReportSnapshotSettings({
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
+  experiment?: ExperimentInterface | null;
 }): ExperimentSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -656,7 +655,7 @@ export function getReportSnapshotSettings({
     endDate: report.experimentAnalysisSettings.dateEnded || new Date(),
     experimentId: report.experimentAnalysisSettings.trackingKey,
     phase: phaseIndex + "",
-    customFields: report.experimentMetadata.customFields,
+    customFields: experiment?.customFields,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,

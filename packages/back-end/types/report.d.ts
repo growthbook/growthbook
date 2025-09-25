@@ -55,8 +55,6 @@ export interface ExperimentReportMetadata {
   type: ExperimentType;
   phases: ExperimentReportPhase[];
   variations: Omit<Variation, "description" | "screenshots">[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  customFields?: Record<string, any>;
 }
 export type ExperimentReportPhase = Pick<
   ExperimentPhase,
@@ -113,9 +111,6 @@ export interface ExperimentReportArgs {
   exposureQueryId: string;
   startDate: Date;
   endDate?: Date;
-  phase?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  customFields?: Record<string, any>;
   dimension?: string | null;
   variations: ExperimentReportVariation[];
   coverage?: number;
