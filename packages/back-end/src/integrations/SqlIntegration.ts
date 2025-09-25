@@ -1929,6 +1929,8 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        phase: settings.phase,
+        customFields: settings.customFields,
       })}
     ),
     __experimentExposures AS (
@@ -1977,6 +1979,8 @@ export default abstract class SqlIntegration
               overrideConversionWindows,
             ),
             experimentId: settings.experimentId,
+            phase: settings.phase,
+            customFields: settings.customFields,
             factTableMap,
           })})
         `
@@ -1993,6 +1997,8 @@ export default abstract class SqlIntegration
               startDate: settings.startDate,
               endDate: settings.endDate,
               experimentId: settings.experimentId,
+              phase: settings.phase,
+              customFields: settings.customFields,
             },
           )})`
         : ""
@@ -2782,6 +2788,8 @@ export default abstract class SqlIntegration
         startDate: metricStart,
         factTableMap,
         experimentId: settings.experimentId,
+        phase: settings.phase,
+        customFields: settings.customFields,
         addFiltersToWhere: true,
       })})
       , __userMetricJoin as (
@@ -3369,6 +3377,8 @@ export default abstract class SqlIntegration
         startDate: metricStart,
         endDate: metricEnd,
         experimentId: settings.experimentId,
+        phase: settings.phase,
+        customFields: settings.customFields,
         factTableMap,
       })})
       ${denominatorMetrics
@@ -3380,6 +3390,8 @@ export default abstract class SqlIntegration
             startDate: metricStart,
             endDate: metricEnd,
             experimentId: settings.experimentId,
+            phase: settings.phase,
+            customFields: settings.customFields,
             factTableMap,
             useDenominator: true,
           })})`;
@@ -4682,6 +4694,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     endDate,
     experimentId,
     addFiltersToWhere,
+    phase,
+    customFields,
   }: {
     metrics: FactMetricInterface[];
     factTableMap: FactTableMap;
@@ -4691,6 +4705,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     endDate: Date | null;
     experimentId?: string;
     addFiltersToWhere?: boolean;
+    phase?: string;
+    customFields?: Record<string, unknown>;
   }) {
     const factTable = factTableMap.get(
       metrics[0]?.numerator?.factTableId || "",
@@ -4828,6 +4844,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         startDate,
         endDate: endDate || undefined,
         experimentId,
+        phase,
+        customFields,
         templateVariables: getMetricTemplateVariables(
           metrics[0],
           factTableMap,
@@ -4908,6 +4926,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     startDate,
     endDate,
     experimentId,
+    phase,
+    customFields,
     factTableMap,
     useDenominator,
   }: {
@@ -4917,6 +4937,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     startDate: Date;
     endDate: Date | null;
     experimentId?: string;
+    phase?: string;
+    customFields?: Record<string, unknown>;
     factTableMap: FactTableMap;
     useDenominator?: boolean;
   }) {
@@ -5035,6 +5057,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         startDate,
         endDate: endDate || undefined,
         experimentId,
+        phase,
+        customFields,
         templateVariables: getMetricTemplateVariables(
           metric,
           factTableMap,
