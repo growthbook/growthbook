@@ -13,7 +13,10 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import Checkbox from "@/ui/Checkbox";
 import SelectOwner from "../Owner/SelectOwner";
+import { MANAGED_BY_ADMIN, MANAGED_BY_EMPTY } from "../Metrics/MetricForm";
 
 type Props = {
   goBack: () => void;
@@ -29,6 +32,7 @@ export default function FactSegmentForm({
   close,
 }: Props) {
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
   const { memberUsernameOptions } = useMembers();
   const {
     getDatasourceById,
@@ -41,7 +45,10 @@ export default function FactSegmentForm({
   const permissionsUtil = usePermissionsUtil();
 
   // If the segment is externally managed, automatically set it as read-only, even if the user has create/update permissions
-  let isReadOnly = !!current?.managedBy;
+  let isReadOnly =
+    current?.managedBy && ["api", "config"].includes(current.managedBy)
+      ? true
+      : false;
 
   // If the segment is not externally managed, check the user's permissions
   if (isReadOnly === false) {
@@ -82,6 +89,7 @@ export default function FactSegmentForm({
       projects: current?.id
         ? current.projects || []
         : filteredDatasources[0]?.projects || [],
+      managedBy: current?.managedBy || MANAGED_BY_EMPTY,
     },
   });
 
@@ -187,6 +195,20 @@ export default function FactSegmentForm({
           textarea
           disabled={isReadOnly}
         />
+        {permissionsUtil.canCreateOfficialResources({ projects: [] }) &&
+        hasCommercialFeature("manage-official-resources") ? (
+          <Checkbox
+            label="Mark as Official Segment"
+            value={form.watch("managedBy") === MANAGED_BY_ADMIN}
+            description="Official Segments can only be modified by Admins or users with the ManageOfficialResources policy."
+            setValue={(value) => {
+              form.setValue(
+                "managedBy",
+                value ? MANAGED_BY_ADMIN : MANAGED_BY_EMPTY,
+              );
+            }}
+          />
+        ) : null}
         <SelectField
           label="Data Source"
           required

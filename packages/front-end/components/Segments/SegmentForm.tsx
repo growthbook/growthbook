@@ -14,9 +14,12 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Checkbox from "@/ui/Checkbox";
+import { useUser } from "@/services/UserContext";
 import MultiSelectField from "../Forms/MultiSelectField";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectOwner from "../Owner/SelectOwner";
+import { MANAGED_BY_ADMIN, MANAGED_BY_EMPTY } from "../Metrics/MetricForm";
 import FactSegmentForm from "./FactSegmentForm";
 
 export type CursorData = {
@@ -30,6 +33,7 @@ const SegmentForm: FC<{
   current: Partial<SegmentInterface>;
 }> = ({ close, current }) => {
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
   const { memberUsernameOptions } = useMembers();
   const {
     datasources,
@@ -42,7 +46,10 @@ const SegmentForm: FC<{
   const permissionsUtil = usePermissionsUtil();
 
   // If the segment is externally managed, automatically set it as read-only, even if the user has create/update permissions
-  let isReadOnly = !!current?.managedBy;
+  let isReadOnly =
+    current?.managedBy && ["api", "config"].includes(current.managedBy)
+      ? true
+      : false;
 
   // If the segment is not externally managed, check the user's permissions
   if (isReadOnly === false) {
@@ -77,6 +84,7 @@ const SegmentForm: FC<{
       projects: current.id
         ? current.projects || []
         : filteredDatasources[0]?.projects || [],
+      managedBy: current.managedBy || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -305,6 +313,20 @@ const SegmentForm: FC<{
             }
           />
         )}
+        {permissionsUtil.canCreateOfficialResources({ projects: [] }) &&
+        hasCommercialFeature("manage-official-resources") ? (
+          <Checkbox
+            label="Mark as Official Segment"
+            value={form.watch("managedBy") === MANAGED_BY_ADMIN}
+            description="Official Segments can only be modified by Admins or users with the ManageOfficialResources policy."
+            setValue={(value) => {
+              form.setValue(
+                "managedBy",
+                value ? MANAGED_BY_ADMIN : MANAGED_BY_EMPTY,
+              );
+            }}
+          />
+        ) : null}
       </Modal>
     </>
   );
