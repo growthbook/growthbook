@@ -110,6 +110,7 @@ export default function ExperimentDimensionBlock({
 
   return (
     <BreakDownResults
+      experimentId={experiment.id}
       noStickyHeader
       idPrefix={blockId}
       key={snapshot.dimension}

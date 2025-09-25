@@ -7,6 +7,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import Checkbox from "@/ui/Checkbox";
 
 export default function MetricsSettings() {
   const form = useFormContext();
@@ -180,6 +181,45 @@ export default function MetricsSettings() {
               helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
             />
           </>
+
+          {/* Require Fact Metrics */}
+          <Box mt="3" mb="6" width="100%">
+            <Flex align="start" justify="start" gap="3">
+              <Box>
+                <Checkbox
+                  id="toggle-disableLegacyMetricCreation"
+                  value={!!form.watch("disableLegacyMetricCreation")}
+                  setValue={(value) => {
+                    form.setValue("disableLegacyMetricCreation", value);
+                  }}
+                  mt="1"
+                />
+              </Box>
+              <Flex
+                direction="column"
+                justify="start"
+                style={{ marginTop: "1px" }}
+              >
+                <Box>
+                  <Text
+                    size="3"
+                    className="font-weight-semibold"
+                    htmlFor="toggle-disableLegacyMetricCreation"
+                    as="label"
+                    mb="2"
+                  >
+                    Require Fact Metrics
+                  </Text>
+                </Box>
+                <Box>
+                  <Text size="2" color="gray">
+                    If enabled, users will only be able to create Fact Metrics.
+                    Legacy metric creation will be disabled.
+                  </Text>
+                </Box>
+              </Flex>
+            </Flex>
+          </Box>
         </Flex>
       </Flex>
     </Frame>

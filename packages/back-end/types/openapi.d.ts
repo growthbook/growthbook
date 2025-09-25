@@ -335,6 +335,16 @@ export interface paths {
     /** Deletes a single fact metric */
     delete: operations["deleteFactMetric"];
   };
+  "/fact-metrics/{id}/analysis": {
+    /** Create a fact metric analysis */
+    post: operations["postFactMetricAnalysis"];
+    parameters: {
+        /** @description The fact metric id to analyze */
+      path: {
+        id: string;
+      };
+    };
+  };
   "/bulk-import/facts": {
     /** Bulk import fact tables, filters, and metrics */
     post: operations["postBulkImportFacts"];
@@ -393,7 +403,7 @@ export interface components {
        * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api" | "config";
+      managedBy: "" | "api" | "config" | "admin";
       dateCreated: string;
       dateUpdated: string;
       owner: string;
@@ -3419,6 +3429,10 @@ export interface components {
         aggregation?: "sum" | "max" | "count distinct";
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+        inlineFilters?: {
+          [key: string]: (string)[] | undefined;
+        };
         /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
         aggregateFilterColumn?: string;
         /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -3429,6 +3443,10 @@ export interface components {
         column: string;
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+        inlineFilters?: {
+          [key: string]: (string)[] | undefined;
+        };
       };
       /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
       inverse: boolean;
@@ -3493,6 +3511,13 @@ export interface components {
       dateUpdated: string;
       archived?: boolean;
     };
+    MetricAnalysis: {
+      /** @description The ID of the created metric analysis */
+      id: string;
+      /** @description The status of the analysis (e.g., "running", "completed", "error") */
+      status: string;
+      settings?: any;
+    };
     Member: {
       id: string;
       name?: string;
@@ -3543,7 +3568,7 @@ export interface components {
       runAtEnd: boolean;
     };
     Settings: {
-      confidenceLevel: number | null;
+      confidenceLevel: number;
       northStar: {
         title?: string;
         metricIds?: (string)[];
@@ -3559,8 +3584,8 @@ export interface components {
         maxPercentageChange?: number;
         minPercentageChange?: number;
         targetMDE?: number;
-      } | null;
-      pastExperimentsMinLength: number | null;
+      };
+      pastExperimentsMinLength: number;
       metricAnalysisDays: number;
       updateSchedule: ({
         /** @enum {string} */
@@ -3574,7 +3599,7 @@ export interface components {
         limitAccessByEnvironment?: boolean;
         environments?: (string)[];
       };
-      statsEngine: string | null;
+      statsEngine: string;
       pValueThreshold: number;
       regressionAdjustmentEnabled: boolean;
       regressionAdjustmentDays: number;
@@ -3582,12 +3607,12 @@ export interface components {
       sequentialTestingTuningParameter: number;
       /** @enum {string} */
       attributionModel: "firstExposure" | "experimentDuration";
-      targetMDE: number | null;
-      delayHours: number | null;
-      windowType: string | null;
-      windowHours: number | null;
-      winRisk: number | null;
-      loseRisk: number | null;
+      targetMDE: number;
+      delayHours: number;
+      windowType: string;
+      windowHours: number;
+      winRisk: number;
+      loseRisk: number;
       secureAttributeSalt: string;
       killswitchConfirmation: boolean;
       requireReviews: ({
@@ -9982,7 +10007,7 @@ export interface operations {
                  * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api" | "config";
+                managedBy: "" | "api" | "config" | "admin";
                 dateCreated: string;
                 dateUpdated: string;
                 owner: string;
@@ -10100,10 +10125,10 @@ export interface operations {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
           /**
-           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -10249,7 +10274,7 @@ export interface operations {
                * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "config";
+              managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -10370,7 +10395,7 @@ export interface operations {
                * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "config";
+              managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -10485,10 +10510,10 @@ export interface operations {
       content: {
         "application/json": {
           /**
-           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -12229,6 +12254,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                   /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                   aggregateFilterColumn?: string;
                   /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12239,6 +12268,10 @@ export interface operations {
                   column: string;
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse: boolean;
@@ -12338,6 +12371,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
             /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
             aggregateFilterColumn?: string;
             /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12355,6 +12392,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
@@ -12464,6 +12505,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12474,6 +12519,10 @@ export interface operations {
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -12572,6 +12621,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12582,6 +12635,10 @@ export interface operations {
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -12680,6 +12737,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
             /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
             aggregateFilterColumn?: string;
             /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12697,6 +12758,10 @@ export interface operations {
             aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
@@ -12795,6 +12860,10 @@ export interface operations {
                 aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
                 /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                 aggregateFilterColumn?: string;
                 /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12805,6 +12874,10 @@ export interface operations {
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -12896,6 +12969,43 @@ export interface operations {
       };
     };
   };
+  postFactMetricAnalysis: {
+    /** Create a fact metric analysis */
+    requestBody?: {
+      content: {
+        "application/json": {
+          /** @description The identifier type to use for the analysis. If not provided, defaults to the first available identifier type in the fact table. */
+          userIdType?: string;
+          /** @description Number of days to look back for the analysis. Defaults to 30. */
+          lookbackDays?: number;
+          /**
+           * @description The type of population to analyze. Defaults to 'factTable', meaning the analysis will return the metric value for all units found in the fact table. 
+           * @enum {string}
+           */
+          populationType?: "factTable" | "segment";
+          /** @description The ID of the population (e.g., segment ID) when populationType is not 'factTable'. Defaults to null. */
+          populationId?: string | null;
+          /** @description Whether to use a cached query if one exists. Defaults to true. */
+          useCache?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricAnalysis: {
+              /** @description The ID of the created metric analysis */
+              id: string;
+              /** @description The status of the analysis (e.g., "running", "completed", "error") */
+              status: string;
+              settings?: any;
+            };
+          };
+        };
+      };
+    };
+  };
   postBulkImportFacts: {
     /** Bulk import fact tables, filters, and metrics */
     requestBody: {
@@ -12966,6 +13076,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                   /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
                   aggregateFilterColumn?: string;
                   /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
@@ -12983,6 +13097,10 @@ export interface operations {
                   aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse?: boolean;
@@ -13267,7 +13385,7 @@ export interface operations {
         content: {
           "application/json": {
             settings: {
-              confidenceLevel: number | null;
+              confidenceLevel: number;
               northStar: {
                 title?: string;
                 metricIds?: (string)[];
@@ -13283,8 +13401,8 @@ export interface operations {
                 maxPercentageChange?: number;
                 minPercentageChange?: number;
                 targetMDE?: number;
-              } | null;
-              pastExperimentsMinLength: number | null;
+              };
+              pastExperimentsMinLength: number;
               metricAnalysisDays: number;
               updateSchedule: ({
                 /** @enum {string} */
@@ -13298,7 +13416,7 @@ export interface operations {
                 limitAccessByEnvironment?: boolean;
                 environments?: (string)[];
               };
-              statsEngine: string | null;
+              statsEngine: string;
               pValueThreshold: number;
               regressionAdjustmentEnabled: boolean;
               regressionAdjustmentDays: number;
@@ -13306,12 +13424,12 @@ export interface operations {
               sequentialTestingTuningParameter: number;
               /** @enum {string} */
               attributionModel: "firstExposure" | "experimentDuration";
-              targetMDE: number | null;
-              delayHours: number | null;
-              windowType: string | null;
-              windowHours: number | null;
-              winRisk: number | null;
-              loseRisk: number | null;
+              targetMDE: number;
+              delayHours: number;
+              windowType: string;
+              windowHours: number;
+              winRisk: number;
+              loseRisk: number;
               secureAttributeSalt: string;
               killswitchConfirmation: boolean;
               requireReviews: ({
@@ -13375,6 +13493,7 @@ export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationVa
 export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
+export type ApiMetricAnalysis = z.infer<typeof openApiValidators.apiMetricAnalysisValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
 export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
 export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
@@ -13471,6 +13590,7 @@ export type PostFactMetricResponse = operations["postFactMetric"]["responses"]["
 export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type PostFactMetricAnalysisResponse = operations["postFactMetricAnalysis"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
 export type ListCodeRefsResponse = operations["listCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
