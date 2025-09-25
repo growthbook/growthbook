@@ -25,6 +25,7 @@ import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Toggle from "@/components/Forms/Toggle";
+import track from "@/services/track";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -237,6 +238,11 @@ export default function FactMetricList({ factTable }: Props) {
                               enableMetricDimensions: checked,
                             }),
                           });
+                          if (checked) {
+                            track("dimensions-on-for-metric");
+                          } else if (!checked) {
+                            track("dimensions-off-for-metric");
+                          }
                           mutateDefinitions();
                         }}
                         disabled={

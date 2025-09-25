@@ -28,6 +28,7 @@ import Button from "@/components/Button";
 import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import track from "@/services/track";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -183,6 +184,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             isDimension: value.isDimension,
             dimensionLevels: value.dimensionLevels,
           };
+
+          if (existing.dimensionLevels !== value.dimensionLevels) {
+            track("dimension-levels-changed-for-column");
+          }
 
           // If the column can no longer be inline filtered
           if (data.alwaysInlineFilter) {

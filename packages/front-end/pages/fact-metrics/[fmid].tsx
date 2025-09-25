@@ -58,6 +58,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import track from "@/services/track";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -717,6 +718,11 @@ export default function FactMetricPage() {
                               enableMetricDimensions: checked,
                             }),
                           });
+                          if (checked) {
+                            track("dimensions-on-for-metric");
+                          } else if (!checked) {
+                            track("dimensions-off-for-metric");
+                          }
                           mutateDefinitions();
                         }}
                         disabled={!canEdit}
