@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
-    "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx,js,jsx,ts,tsx}",
+    "pretty": "prettier --write .",
     "type-check": "wsrun -m type-check",
     "clean": "wsrun -m clean && rimraf node_modules && yarn cache clean",
     "doc-gen": "cd docs && yarn && yarn gen",
@@ -61,11 +61,11 @@
     "typescript": "5.6.3"
   },
   "lint-staged": {
-    "./**/*.{json,css,scss,md,mdx}": [
+    "./**/*.{json,css,scss,md,mdx,yml,yaml}": [
       "prettier --write"
     ],
-    "./**/*.{ts,tsx}": [
-      "yarn eslint  --fix --max-warnings 0 --cache --cache-strategy content"
+    "./**/*.{ts,tsx,js,jsx,mjs}": [
+      "yarn eslint --fix --max-warnings 0 --cache --cache-strategy content"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
       "yarn workspace stats lint"

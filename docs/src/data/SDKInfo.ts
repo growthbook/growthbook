@@ -11,7 +11,7 @@ export default {
         url: "https://github.com/growthbook/examples/tree/main/vanilla-typescript",
         name: "Typescript example app",
       },
-    ],
+  ],
     packageRepos: [
       {
         name: "npm",

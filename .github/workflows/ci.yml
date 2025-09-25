@@ -70,6 +70,39 @@ jobs:
         env:
           CI: true
 
+      - name: Prettier check
+        run: |
+          # Get the list of changed files
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For pull requests, compare against the base branch
+            BASE_REF="${{ github.event.pull_request.base.sha }}"
+            HEAD_REF="${{ github.event.pull_request.head.sha }}"
+            CHANGED_FILES=$(git diff --name-only $BASE_REF $HEAD_REF)
+          else
+            # For push events check all files but don't fail CI
+            CHANGED_FILES="."
+          fi
+
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            if ! yarn prettier --check $CHANGED_FILES; then
+              echo "::warning::Prettier formatting issues found in modified files. Consider running 'yarn pretty' to fix:"
+              echo "$CHANGED_FILES"
+            fi
+          else
+            echo "Checking Prettier format for modified files..."
+            yarn prettier --check $CHANGED_FILES
+          fi
+        env:
+          CI: true
+
+      - name: Check api types
+        run: |
+          yarn generate-api-types
+          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && git status --porcelain && exit 1 || true
+          yarn prettier --check $CHANGED_FILES
+        env:
+          CI: true
+
       - name: Check api types
         run: |
           yarn generate-api-types

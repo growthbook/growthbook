@@ -11,5 +11,9 @@ dist
 *.hbs
 packages/back-end/src/templates/javascript.js
 # Auto-generated files
+packages/back-end/generated
 packages/back-end/src/validators/openapi.ts
 packages/back-end/types/openapi.d.ts
+# Helm charts are not strictly yaml, so they are not supported by prettier
+# See https://github.com/prettier/prettier/issues/6517
+charts/
