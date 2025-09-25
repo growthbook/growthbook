@@ -76,7 +76,7 @@ export const createFactTablePropsValidator = z
     userIdTypes: z.array(z.string()),
     sql: z.string(),
     eventName: z.string(),
-    columns: z.array(createColumnPropsValidator),
+    columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api"]).optional(),
   })
   .strict();

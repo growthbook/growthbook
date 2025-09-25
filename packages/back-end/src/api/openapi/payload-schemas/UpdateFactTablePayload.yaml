@@ -33,7 +33,7 @@ properties:
     type: array
     items:
       $ref: "../schemas/FactTableColumnUpdate.yaml"
-    description: "Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license."
+    description: "Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Dimension-related properties require an enterprise license."
   columnsError:
     type: string
     nullable: true

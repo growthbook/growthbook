@@ -4418,11 +4418,6 @@ paths:
                 eventName:
                   type: string
                   description: The event name used in SQL template variables
-                columns:
-                  type: array
-                  items:
-                    $ref: '#/components/schemas/FactTableColumnUpdate'
-                  description: 'Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license.'
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -4517,7 +4512,7 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/FactTableColumnUpdate'
-                  description: 'Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license.'
+                  description: Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Dimension-related properties require an enterprise license.
                 columnsError:
                   type: string
                   nullable: true

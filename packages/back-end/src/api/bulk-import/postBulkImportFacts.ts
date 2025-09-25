@@ -104,25 +104,12 @@ export const postBulkImportFacts = createApiRequestHandler(
         factTableMap.set(existing.id, {
           ...existing,
           ...data,
-          columns: data.columns
-            ? data.columns.map((col) => ({
-                ...col,
-                name: col.name ?? col.column,
-                description: col.description ?? "",
-                numberFormat: col.numberFormat ?? "",
-                dateCreated:
-                  existing.columns.find((c) => c.column === col.column)
-                    ?.dateCreated || new Date(),
-                dateUpdated: new Date(),
-              }))
-            : existing.columns,
         });
         numUpdated.factTables++;
       }
       // Create new fact table
       else {
         const factTable: CreateFactTableProps = {
-          columns: [],
           eventName: "",
           id: id,
           description: "",

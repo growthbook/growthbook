@@ -57,7 +57,7 @@ export const updateFactTable = createApiRequestHandler(
 
   const data: UpdateFactTableProps = { ...req.body };
 
-  // Handle column updates with enterprise feature gating
+  // Handle column property updates only (no creation/deletion of columns)
   if (data.columns) {
     // Check if any column has dimension properties
     const hasDimensionProperties = data.columns.some(
@@ -71,32 +71,17 @@ export const updateFactTable = createApiRequestHandler(
       }
     }
 
-    // Update columns individually to preserve existing values and apply validation
+    // Only allow updating properties of existing columns
     for (const columnUpdate of data.columns) {
       const existingColumn = factTable.columns.find(
         (c) => c.column === columnUpdate.column,
       );
-
       if (!existingColumn) {
-        throw new Error(`Column ${columnUpdate.column} not found`);
-      }
-
-      // Validate alwaysInlineFilter for non-string columns
-      if (
-        columnUpdate.alwaysInlineFilter &&
-        (columnUpdate.datatype || existingColumn.datatype) !== "string"
-      ) {
         throw new Error(
-          "Only string columns are eligible for inline filtering",
+          `Column ${columnUpdate.column} not found - cannot create new columns via API`,
         );
       }
 
-      // If name is not provided or empty, use the column name
-      if (!columnUpdate.name) {
-        columnUpdate.name = existingColumn.column;
-      }
-
-      // Update the column using the existing updateColumn logic
       await updateColumn(factTable, columnUpdate.column, columnUpdate);
     }
 

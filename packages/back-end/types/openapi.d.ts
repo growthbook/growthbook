@@ -12017,39 +12017,6 @@ export interface operations {
           sql: string;
           /** @description The event name used in SQL template variables */
           eventName?: string;
-          /** @description Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license. */
-          columns?: ({
-              /** @description The actual column name in the database/SQL query */
-              column: string;
-              /** @enum {string} */
-              datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
-              /** @enum {string} */
-              numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
-              /** @description For JSON columns, defines the structure of nested fields */
-              jsonFields?: {
-                [key: string]: ({
-                  /** @enum {string} */
-                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
-                }) | undefined;
-              };
-              /** @description Display name for the column (can be different from the actual column name) */
-              name?: string;
-              description?: string;
-              /**
-               * @description Whether this column should always be included as an inline filter in queries 
-               * @default false
-               */
-              alwaysInlineFilter?: boolean;
-              /** @default false */
-              deleted?: boolean;
-              /**
-               * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
-               * @default false
-               */
-              isDimension?: boolean;
-              /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-              dimensionLevels?: (string)[];
-            })[];
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -12234,7 +12201,7 @@ export interface operations {
           sql?: string;
           /** @description The event name used in SQL template variables */
           eventName?: string;
-          /** @description Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license. */
+          /** @description Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Dimension-related properties require an enterprise license. */
           columns?: ({
               /** @description The actual column name in the database/SQL query */
               column: string;
@@ -13404,39 +13371,6 @@ export interface operations {
                 sql: string;
                 /** @description The event name used in SQL template variables */
                 eventName?: string;
-                /** @description Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license. */
-                columns?: ({
-                    /** @description The actual column name in the database/SQL query */
-                    column: string;
-                    /** @enum {string} */
-                    datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
-                    /** @enum {string} */
-                    numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
-                    /** @description For JSON columns, defines the structure of nested fields */
-                    jsonFields?: {
-                      [key: string]: ({
-                        /** @enum {string} */
-                        datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
-                      }) | undefined;
-                    };
-                    /** @description Display name for the column (can be different from the actual column name) */
-                    name?: string;
-                    description?: string;
-                    /**
-                     * @description Whether this column should always be included as an inline filter in queries 
-                     * @default false
-                     */
-                    alwaysInlineFilter?: boolean;
-                    /** @default false */
-                    deleted?: boolean;
-                    /**
-                     * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
-                     * @default false
-                     */
-                    isDimension?: boolean;
-                    /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-                    dimensionLevels?: (string)[];
-                  })[];
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
