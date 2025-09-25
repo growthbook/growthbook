@@ -60,7 +60,7 @@ export class Permissions {
     return this.checkGlobalPermission("createPresentations");
   };
 
-  public canCreateDimension = (managedBy?: ManagedBy): boolean => {
+  public canCreateDimension = (managedBy: ManagedBy): boolean => {
     if (managedBy && ["admin", "api"].includes(managedBy)) {
       if (!this.canCreateOfficialResources({ projects: [] })) {
         return false;
@@ -69,7 +69,7 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
-  public canUpdateDimension = (managedBy?: ManagedBy): boolean => {
+  public canUpdateDimension = (managedBy: ManagedBy): boolean => {
     if (managedBy && ["admin", "api"].includes(managedBy)) {
       if (
         !this.canUpdateOfficialResources({ projects: [] }, { projects: [] })
@@ -80,7 +80,7 @@ export class Permissions {
     return this.checkGlobalPermission("createDimensions");
   };
 
-  public canDeleteDimension = (managedBy?: ManagedBy): boolean => {
+  public canDeleteDimension = (managedBy: ManagedBy): boolean => {
     if (managedBy && ["admin", "api"].includes(managedBy)) {
       if (!this.canDeleteOfficialResources({ projects: [] })) {
         return false;

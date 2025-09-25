@@ -74,7 +74,7 @@ const DimensionsPage: FC = () => {
     mutateDefinitions,
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
+  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension("");
   const orgCanCreateDimensions = hasFileConfig()
     ? envAllowsCreatingDimensions()
     : true;
@@ -250,10 +250,10 @@ const DimensionsPage: FC = () => {
                   const language: Language =
                     datasource?.properties?.queryLanguage || "sql";
                   let canEditDimension = permissionsUtil.canUpdateDimension(
-                    s.managedBy,
+                    s.managedBy || "",
                   );
                   let canDeleteDimension = permissionsUtil.canDeleteDimension(
-                    s.managedBy,
+                    s.managedBy || "",
                   );
 
                   if (s.managedBy && ["api", "config"].includes(s.managedBy)) {

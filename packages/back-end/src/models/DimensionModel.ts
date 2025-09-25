@@ -58,7 +58,7 @@ export async function createDimension(
     );
   }
 
-  if (!context.permissions.canCreateDimension(dimension.managedBy)) {
+  if (!context.permissions.canCreateDimension(dimension.managedBy || "")) {
     context.permissions.throwPermissionError();
   }
 
@@ -135,7 +135,7 @@ export async function updateDimension(
     throw new Error("Cannot update. Dimenision managed by the API");
   }
 
-  if (!context.permissions.canUpdateDimension(existing.managedBy)) {
+  if (!context.permissions.canUpdateDimension(existing.managedBy || "")) {
     context.permissions.throwPermissionError();
   }
 
@@ -161,7 +161,7 @@ export async function deleteDimensionById(
     );
   }
 
-  if (!context.permissions.canDeleteDimension(dimension.managedBy)) {
+  if (!context.permissions.canDeleteDimension(dimension.managedBy || "")) {
     context.permissions.throwPermissionError();
   }
 
