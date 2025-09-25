@@ -60,8 +60,8 @@ const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
 // ManagedBy constants to avoid type assertions
-const MANAGED_BY_ADMIN: ManagedBy = "admin";
-const MANAGED_BY_EMPTY: ManagedBy = "";
+export const MANAGED_BY_ADMIN: ManagedBy = "admin";
+export const MANAGED_BY_EMPTY: ManagedBy = "";
 
 export type MetricFormProps = {
   initialStep?: number;

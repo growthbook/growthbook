@@ -15,10 +15,7 @@ import Checkbox from "@/ui/Checkbox";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import SelectOwner from "../Owner/SelectOwner";
-
-// ManagedBy constants to avoid type assertions
-const MANAGED_BY_ADMIN = "admin";
-const MANAGED_BY_EMPTY = "";
+import { MANAGED_BY_ADMIN, MANAGED_BY_EMPTY } from "../Metrics/MetricForm";
 
 const DimensionForm: FC<{
   close: () => void;
