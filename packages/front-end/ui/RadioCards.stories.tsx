@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import RadioCards from "./RadioCards";
@@ -12,25 +12,25 @@ export default function RadioCardsStories() {
   >("1");
 
   return (
-    <Flex>
-      <div className="mb-2 w-100px">
-        <SelectField
-          label="columns"
-          value={radioCardColumns}
-          options={[
-            { label: "1", value: "1" },
-            { label: "2", value: "2" },
-            { label: "3", value: "3" },
-            { label: "4", value: "4" },
-            { label: "5", value: "5" },
-            { label: "6", value: "6" },
-          ]}
-          sort={false}
-          onChange={(v: "1" | "2" | "3" | "4" | "5" | "6") =>
-            setRadioCardColumns(v)
-          }
-        />
-      </div>
+    <Flex direction="column" gap="2">
+      <Text weight="medium">Configuration</Text>
+      <SelectField
+        label="Columns"
+        value={radioCardColumns}
+        options={[
+          { label: "1", value: "1" },
+          { label: "2", value: "2" },
+          { label: "3", value: "3" },
+          { label: "4", value: "4" },
+          { label: "5", value: "5" },
+          { label: "6", value: "6" },
+        ]}
+        sort={false}
+        onChange={(v: "1" | "2" | "3" | "4" | "5" | "6") =>
+          setRadioCardColumns(v)
+        }
+      />
+      <Text weight="medium">Rendering</Text>
       <RadioCards
         columns={radioCardColumns}
         width={radioCardColumns === "1" ? "400px" : undefined}
