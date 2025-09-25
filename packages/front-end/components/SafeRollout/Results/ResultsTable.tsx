@@ -27,8 +27,8 @@ import {
 import { getValidDate } from "shared/dates";
 import { filterInvalidMetricTimeSeries } from "shared/util";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
-import AnalysisResultPopover from "@/components/AnalysisResultPopover/AnalysisResultPopover";
-import { useAnalysisResultPopover } from "@/components/AnalysisResultPopover/useAnalysisResultPopover";
+import AnalysisResultSummary from "@/ui/AnalysisResultSummary";
+import { useAnalysisResultSummary } from "@/ui/hooks/useAnalysisResultSummary";
 import {
   ExperimentTableRow,
   getEffectLabel,
@@ -272,7 +272,7 @@ export default function ResultsTable({
     setOpenTooltipRowIndex,
     handleRowTooltipMouseEnter,
     handleRowTooltipMouseLeave,
-  } = useAnalysisResultPopover({
+  } = useAnalysisResultSummary({
     orderedVariations,
     rows,
     rowsResults,
@@ -530,7 +530,7 @@ export default function ResultsTable({
                           side="bottom"
                           sideOffset={-5}
                         >
-                          <AnalysisResultPopover
+                          <AnalysisResultSummary
                             data={tooltipData}
                             differenceType={differenceType}
                             isBandit={isBandit}
