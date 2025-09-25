@@ -18,6 +18,7 @@ import {
   getDelayWindowHours,
   getColumnExpression,
   isCappableMetricType,
+  parseDimensionMetricId,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -4625,13 +4626,14 @@ export default abstract class SqlIntegration
     factTable,
     column,
     limit = 50,
+    lookbackDays = 14,
   }: ColumnTopValuesParams) {
     if (column.datatype !== "string") {
       throw new Error(`Column ${column.column} is not a string column`);
     }
 
     const start = new Date();
-    start.setDate(start.getDate() - 7);
+    start.setDate(start.getDate() - lookbackDays);
 
     return format(
       `
@@ -4750,11 +4752,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
+      const dimensionInfo = parseDimensionMetricId(m.id);
       const filters = getColumnRefWhereClause(
         factTable,
         m.numerator,
         this.escapeStringLiteral.bind(this),
         this.extractJSONField.bind(this),
+        false,
+        dimensionInfo,
       );
 
       const column =
@@ -4781,11 +4786,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
+        const dimensionInfo = parseDimensionMetricId(m.id);
         const filters = getColumnRefWhereClause(
           factTable,
           m.denominator,
           this.escapeStringLiteral.bind(this),
           this.extractJSONField.bind(this),
+          false,
+          dimensionInfo,
         );
         const column =
           filters.length > 0
@@ -4987,11 +4995,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
+      const dimensionInfo = parseDimensionMetricId(metric.id);
       getColumnRefWhereClause(
         factTable,
         columnRef,
         this.escapeStringLiteral.bind(this),
         this.extractJSONField.bind(this),
+        false,
+        dimensionInfo,
       ).forEach((filterSQL) => {
         where.push(filterSQL);
       });
