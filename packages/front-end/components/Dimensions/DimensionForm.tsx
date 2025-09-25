@@ -87,8 +87,6 @@ const DimensionForm: FC<{
             validateSQL(value.sql, [value.userIdType, "value"]);
           }
 
-          console.log("about to make the apiCall");
-
           await apiCall(
             current.id ? `/dimensions/${current.id}` : `/dimensions`,
             {

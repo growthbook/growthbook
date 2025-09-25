@@ -73,11 +73,8 @@ const DimensionsPage: FC = () => {
     error,
     mutateDefinitions,
   } = useDefinitions();
-
   const permissionsUtil = usePermissionsUtil();
   const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
-  // const hasEditDimensionPermission = permissionsUtil.canUpdateDimension();
-  // const hasDeleteDimensionPermissions = permissionsUtil.canDeleteDimension();
   const orgCanCreateDimensions = hasFileConfig()
     ? envAllowsCreatingDimensions()
     : true;
