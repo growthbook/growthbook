@@ -481,6 +481,7 @@ const MetricPage: FC = () => {
             ) : null}
             {!metric.managedBy &&
             canEditMetric &&
+            permissionsUtil.canCreateOfficialResources(metric) &&
             hasCommercialFeature("manage-official-resources") ? (
               <Button
                 className="btn dropdown-item py-2"

@@ -161,9 +161,16 @@ export function useCombinedMetrics({
       return item;
     }),
     ...factMetrics.map((m) => {
-      const canDuplicate = permissionsUtil.canCreateFactMetric(m);
-      const canEdit = permissionsUtil.canUpdateFactMetric(m, {});
-      const canDelete = permissionsUtil.canDeleteFactMetric(m);
+      const canDuplicate = permissionsUtil.canCreateFactMetric({
+        projects: m.projects,
+      });
+      let canEdit = permissionsUtil.canUpdateFactMetric(m, {});
+      let canDelete = permissionsUtil.canDeleteFactMetric(m);
+
+      if (m.managedBy && ["admin", "api"].includes(m.managedBy)) {
+        canEdit = false;
+        canDelete = false;
+      }
 
       const item: MetricTableItem = {
         id: m.id,

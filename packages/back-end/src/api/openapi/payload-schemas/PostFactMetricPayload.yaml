@@ -244,3 +244,4 @@ properties:
     enum:
       - ""
       - api
+      - admin

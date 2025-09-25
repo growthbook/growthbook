@@ -68,6 +68,7 @@ import HelperText from "@/ui/HelperText";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
 
 export interface Props {
   close?: () => void;
@@ -1457,9 +1458,8 @@ export default function FactMetricModal({
 
   const settings = useOrgSettings();
 
+  const { hasCommercialFeature, permissionsUtil } = useUser();
   const { disableLegacyMetricCreation } = settings;
-
-  const { hasCommercialFeature } = useUser();
 
   // TODO: We may want to hide this from non-technical users in the future
   const showSQLPreview = true;
@@ -1501,6 +1501,7 @@ export default function FactMetricModal({
     initialFactTable: initialFactTable
       ? getFactTableById(initialFactTable) || undefined
       : undefined,
+    managedBy: existing?.managedBy,
   });
 
   // Multiple percent values by 100 for the UI
@@ -2449,6 +2450,22 @@ export default function FactMetricModal({
                           </div>
                         )}
                       </div>
+                      {permissionsUtil.canUpdateOfficialResources(
+                        { projects: form.watch("projects") },
+                        {},
+                      ) && hasCommercialFeature("manage-official-resources") ? (
+                        <Checkbox
+                          label="Mark as Official Metric"
+                          disabled={form.watch("managedBy") === "api"}
+                          disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
+                          description="Official Metrics can only be modified by Admins or users
+                      with the ManageOfficialResources policy."
+                          value={form.watch("managedBy") === MANAGED_BY_ADMIN}
+                          setValue={(value) => {
+                            form.setValue("managedBy", value ? "admin" : "");
+                          }}
+                        />
+                      ) : null}
                     </TabsContent>
 
                     <TabsContent value="display">

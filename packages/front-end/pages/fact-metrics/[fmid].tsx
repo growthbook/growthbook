@@ -56,6 +56,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
+import { useUser } from "@/services/UserContext";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -159,12 +161,16 @@ export default function FactMetricPage() {
   const [auditModal, setAuditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(false);
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
     "analysis",
   );
   const { apiCall } = useAuth();
+
+  const { hasCommercialFeature } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -204,11 +210,16 @@ export default function FactMetricPage() {
     );
   }
 
-  const canEdit =
-    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-    !factMetric.managedBy;
-  const canDelete =
-    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
+  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
+  let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
+
+  if (
+    factMetric.managedBy &&
+    ["api", "config"].includes(factMetric.managedBy)
+  ) {
+    canEdit = false;
+    canDelete = false;
+  }
 
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   const denominatorFactTable = getFactTableById(
@@ -373,6 +384,22 @@ export default function FactMetricPage() {
           <HistoryTable type="metric" id={factMetric.id} />
         </Modal>
       )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          resourceType="Fact Metric"
+          source="fact-metric-page"
+          close={() => setShowConvertToOfficialModal(false)}
+          onSubmit={async () => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "admin",
+              }),
+            });
+            await mutateDefinitions();
+          }}
+        />
+      )}
       {showDeleteModal && (
         <Modal
           trackingEventModalType=""
@@ -509,6 +536,19 @@ export default function FactMetricPage() {
                 Edit Metric
               </DropdownMenuItem>
             )}
+            {canEdit &&
+            !factMetric.managedBy &&
+            permissionsUtil.canCreateOfficialResources(factMetric) &&
+            hasCommercialFeature("manage-official-resources") ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setShowConvertToOfficialModal(true);
+                }}
+              >
+                Convert to Official Metric
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem
               onClick={() => {
                 setOpenDropdown(false);
