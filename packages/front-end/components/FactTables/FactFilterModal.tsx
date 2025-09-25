@@ -45,6 +45,13 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
 
   const { mutateDefinitions } = useDefinitions();
 
+  let canEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
+  const canRunQueries = permissionsUtil.canRunFactQueries(factTable);
+
+  if (existing?.managedBy && ["config", "api"].includes(existing.managedBy)) {
+    canEdit = false;
+  }
+
   const form = useForm<CreateFactFilterProps>({
     defaultValues: {
       description: existing?.description || "",
@@ -80,6 +87,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
       close={close}
       cta={"Save"}
       size="lg"
+      ctaEnabled={canEdit}
       header={existing ? "Edit Filter" : "Add Filter"}
       submit={form.handleSubmit(async (value) => {
         // If they added their own "WHERE" to the start, remove it
@@ -210,6 +218,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           <Button
             color="primary"
             className="btn-sm mr-4"
+            disabled={!canRunQueries}
             onClick={async () => {
               await testQuery(form.watch("value"));
             }}
