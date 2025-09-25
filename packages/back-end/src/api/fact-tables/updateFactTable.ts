@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import { UpdateFactTableProps } from "back-end/types/fact-table";
 import { UpdateFactTableResponse } from "back-end/types/openapi";
 import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
@@ -12,6 +13,11 @@ import { addTagsDiff } from "back-end/src/models/TagModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateFactTableValidator } from "back-end/src/validators/openapi";
 
+// Type override to handle auto-generated OpenAPI types vs internal types
+type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
+  columns?: Array<NonNullable<UpdateFactTableProps["columns"]>[0]>;
+};
+
 export const updateFactTable = createApiRequestHandler(
   updateFactTableValidator,
 )(async (req): Promise<UpdateFactTableResponse> => {
@@ -20,7 +26,12 @@ export const updateFactTable = createApiRequestHandler(
     throw new Error("Could not find factTable with that id");
   }
 
-  if (!req.context.permissions.canUpdateFactTable(factTable, req.body)) {
+  if (
+    !req.context.permissions.canUpdateFactTable(
+      factTable,
+      req.body as UpdateFactTableRequest,
+    )
+  ) {
     req.context.permissions.throwPermissionError();
   }
 
@@ -55,7 +66,7 @@ export const updateFactTable = createApiRequestHandler(
     }
   }
 
-  const data: UpdateFactTableProps = { ...req.body };
+  const data: UpdateFactTableProps = { ...req.body } as UpdateFactTableRequest;
 
   // Handle column property updates only (no creation/deletion of columns)
   if (data.columns) {
@@ -82,7 +93,11 @@ export const updateFactTable = createApiRequestHandler(
         );
       }
 
-      await updateColumn(factTable, columnUpdate.column, columnUpdate);
+      await updateColumn(
+        factTable,
+        columnUpdate.column,
+        omit(columnUpdate, ["dateCreated", "dateUpdated"]),
+      );
     }
 
     // Remove columns from the main update since we handled them individually
@@ -103,7 +118,9 @@ export const updateFactTable = createApiRequestHandler(
       ...factTable,
       ...req.body,
       columns: req.body.columns
-        ? req.body.columns.map((col) => ({
+        ? (
+            req.body.columns as NonNullable<UpdateFactTableRequest["columns"]>
+          ).map((col) => ({
             ...col,
             name: col.name ?? col.column,
             description: col.description ?? "",
@@ -112,6 +129,7 @@ export const updateFactTable = createApiRequestHandler(
               factTable.columns.find((c) => c.column === col.column)
                 ?.dateCreated || new Date(),
             dateUpdated: new Date(),
+            deleted: false,
           }))
         : factTable.columns,
     }),

@@ -64,8 +64,6 @@ FactTable:
   $ref: "./FactTable.yaml"
 FactTableColumn:
   $ref: "./FactTableColumn.yaml"
-FactTableColumnUpdate:
-  $ref: "./FactTableColumnUpdate.yaml"
 FactTableFilter:
   $ref: "./FactTableFilter.yaml"
 FactMetric:

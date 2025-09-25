@@ -162,9 +162,6 @@ tags:
   - name: FactTableColumn_model
     x-displayName: FactTableColumn
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableColumn" />
-  - name: FactTableColumnUpdate_model
-    x-displayName: FactTableColumnUpdate
-    description: <SchemaDefinition schemaRef="#/components/schemas/FactTableColumnUpdate" />
   - name: FactTableFilter_model
     x-displayName: FactTableFilter
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
@@ -4511,7 +4508,7 @@ paths:
                 columns:
                   type: array
                   items:
-                    $ref: '#/components/schemas/FactTableColumnUpdate'
+                    $ref: '#/components/schemas/FactTableColumn'
                   description: Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Dimension-related properties require an enterprise license.
                 columnsError:
                   type: string
@@ -7781,72 +7778,6 @@ components:
           type: string
           format: date-time
           readOnly: true
-    FactTableColumnUpdate:
-      type: object
-      required:
-        - column
-        - datatype
-      properties:
-        column:
-          type: string
-          description: The actual column name in the database/SQL query
-        datatype:
-          type: string
-          enum:
-            - number
-            - string
-            - date
-            - boolean
-            - json
-            - other
-            - ''
-        numberFormat:
-          type: string
-          enum:
-            - ''
-            - currency
-            - 'time:seconds'
-            - 'memory:bytes'
-            - 'memory:kilobytes'
-        jsonFields:
-          type: object
-          description: 'For JSON columns, defines the structure of nested fields'
-          additionalProperties:
-            type: object
-            required:
-              - datatype
-            properties:
-              datatype:
-                type: string
-                enum:
-                  - number
-                  - string
-                  - date
-                  - boolean
-                  - json
-                  - other
-                  - ''
-        name:
-          type: string
-          description: Display name for the column (can be different from the actual column name)
-        description:
-          type: string
-        alwaysInlineFilter:
-          type: boolean
-          description: Whether this column should always be included as an inline filter in queries
-          default: false
-        deleted:
-          type: boolean
-          default: false
-        isDimension:
-          type: boolean
-          description: Whether this column can be used for dimension analysis. This is an enterprise feature.
-          default: false
-        dimensionLevels:
-          type: array
-          items:
-            type: string
-          description: 'Specific values from this dimension column to include in analysis. If empty, all top values will be used.'
     FactTableFilter:
       type: object
       required:
@@ -8590,7 +8521,6 @@ x-tagGroups:
       - FactMetric_model
       - FactTable_model
       - FactTableColumn_model
-      - FactTableColumnUpdate_model
       - FactTableFilter_model
       - Feature_model
       - FeatureDefinition_model

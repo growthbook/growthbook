@@ -3478,38 +3478,6 @@ export interface components {
       /** Format: date-time */
       dateUpdated?: string;
     };
-    FactTableColumnUpdate: {
-      /** @description The actual column name in the database/SQL query */
-      column: string;
-      /** @enum {string} */
-      datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
-      /** @enum {string} */
-      numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
-      /** @description For JSON columns, defines the structure of nested fields */
-      jsonFields?: {
-        [key: string]: ({
-          /** @enum {string} */
-          datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
-        }) | undefined;
-      };
-      /** @description Display name for the column (can be different from the actual column name) */
-      name?: string;
-      description?: string;
-      /**
-       * @description Whether this column should always be included as an inline filter in queries 
-       * @default false
-       */
-      alwaysInlineFilter?: boolean;
-      /** @default false */
-      deleted?: boolean;
-      /**
-       * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
-       * @default false
-       */
-      isDimension?: boolean;
-      /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-      dimensionLevels?: (string)[];
-    };
     FactTableFilter: {
       id: string;
       name: string;
@@ -12213,7 +12181,7 @@ export interface operations {
               jsonFields?: {
                 [key: string]: ({
                   /** @enum {string} */
-                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
                 }) | undefined;
               };
               /** @description Display name for the column (can be different from the actual column name) */
@@ -12225,7 +12193,7 @@ export interface operations {
                */
               alwaysInlineFilter?: boolean;
               /** @default false */
-              deleted?: boolean;
+              deleted: boolean;
               /**
                * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
                * @default false
@@ -12233,6 +12201,10 @@ export interface operations {
               isDimension?: boolean;
               /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
               dimensionLevels?: (string)[];
+              /** Format: date-time */
+              dateCreated?: string;
+              /** Format: date-time */
+              dateUpdated?: string;
             })[];
           /** @description Error message if there was an issue parsing the SQL schema */
           columnsError?: string | null;
@@ -13836,7 +13808,6 @@ export type ApiSavedGroup = z.infer<typeof openApiValidators.apiSavedGroupValida
 export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationValidator>;
 export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
 export type ApiFactTableColumn = z.infer<typeof openApiValidators.apiFactTableColumnValidator>;
-export type ApiFactTableColumnUpdate = z.infer<typeof openApiValidators.apiFactTableColumnUpdateValidator>;
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMetricAnalysis = z.infer<typeof openApiValidators.apiMetricAnalysisValidator>;
