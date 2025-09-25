@@ -7,34 +7,30 @@ import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
 # Migrate from Statsig
 
-This guide helps you migrate your feature flags, experiments, SDKs, and more from Statsig to GrowthBook.
+This guide walks through migrating feature flags, experiments, and SDKs from Statsig to GrowthBook.
 
 ## Import Your Statsig Data
+
+Use GrowthBook's import tool to migrate your Statsig configuration and experiments.
 
 <MaxWidthImage border>
 ![GrowthBook Statsig importer](/images/guides/import-from-statsig-with-data.png)
 </MaxWidthImage>
 
-GrowthBook provides an import tool to migrate your data from Statsig to GrowthBook. 
-
 :::warning
 The Statsig import tool is currently in a private beta. Please contact support@growthbook.io if you're interested in using it.
 :::
 
-### Requirements
-- A Statsig Console API Key with read access (see Step 1)
-- Admin access to GrowthBook
-
 ### Step 1: Generate Statsig API Key
 
 - In Statsig, go to **Settings** → ** Key & Environments**
-- Create a new key with the "Console" type and make it read only
+- Create a new "Console" key with read-only permissions
 - Copy the key (it starts with `secret-`)
 
 ### Step 2: Run the Import
 
 - In GrowthBook, go to **Settings** → **Import your data**
-- Select Statsig from the list
+- Select Statsig
 - Enter your Statsig API key
 - Click **Fetch from Statsig** 
 
@@ -50,20 +46,24 @@ The import tool will retrieve:
 
 ### Step 3: Review and Confirm
 
-Items slated to be imported will be marked as "pending." Items that already exist in GrowthBook will be marked as "skipped" and won't be imported.
+Items will show as:
 
-You can: 
+- **Pending**: Will be imported
+- **Skipped**: Already exists in GrowthBook
+
+You can:
+
 - Uncheck items to remove them from the import
-- View details about any item by toggling the caret
-- **Import to GrowthBook** when ready
+- Click the arrow (>) to view item details
+- Click **Import to GrowthBook** when ready
 
 When **Status** is marked as complete, your data is available in GrowthBook 🎉
 
 ## Migrate Your SDKs
 
-**Automated SDK Migration with Claude Code and Other Agents**
+**Automated SDK Migration**
 
-We provide a migration AI assistant that helps refactor your code from Statsig SDKs to GrowthBook SDKs.
+Use our AI-powered migration assistant to automatically refactor your code from Statsig to GrowthBook SDKs.
 
 **Supported SDKs**
 - JavaScript
@@ -91,7 +91,7 @@ curl -o ~/.claude/agents/statsig-to-growthbook-sdk-migrator.md \
 
 In Claude Code, simply ask:
 
-> "I need to migrate this code from the Statsig SDK to the GrowthBook SDK: [filename]"
+> "I need to migrate this code from the Statsig SDK to the GrowthBook SDK: @<filename or directory>"
 
 The subagent will:
 
@@ -101,13 +101,13 @@ The subagent will:
 - Flatten `StatsigUser` objects to GrowthBook attributes
 - Generate a migration report with any manual steps needed
 
-🔗 See the [GitHub repo](https://github.com/growthbook/claude-statsig-to-growthbook-sdk-migrator) for more details
+🔗 See the [GitHub repo](https://github.com/growthbook/claude-statsig-to-growthbook-sdk-migrator) for more details.
 
 ## Terminology Mapping
 
 | Statsig | GrowthBook |
 | --- | --- |
-| Segements | Saved Groups |
+| Segments | Saved Groups |
 | Feature Gates | Features |
 | Dynamic Configs | Features |
 
