@@ -23,9 +23,6 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       ...req.body,
     };
 
-    if (!req.context.permissions.canCreateFactTable(data)) {
-      req.context.permissions.throwPermissionError();
-    }
     const datasource = await getDataSourceById(
       req.context,
       req.body.datasource,
