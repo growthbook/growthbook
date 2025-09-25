@@ -69,8 +69,14 @@ tags:
   - name: data-sources
     x-displayName: Data Sources
     description: How GrowthBook connects and queries your data
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: metrics
-    x-displayName: Metrics
+    x-displayName: Metrics (legacy)
     description: Metrics used as goals and guardrails for experiments
   - name: experiments
     x-displayName: Experiments
@@ -99,12 +105,6 @@ tags:
   - name: members
     x-displayName: Members
     description: Members are users who have been invited to an organization.
-  - name: fact-tables
-    x-displayName: Fact Tables
-    description: Fact Tables describe the shape of your data warehouse tables
-  - name: fact-metrics
-    x-displayName: Fact Metrics
-    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: code-references
     x-displayName: Code References
     description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
@@ -159,6 +159,9 @@ tags:
   - name: FactTable_model
     x-displayName: FactTable
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTable" />
+  - name: FactTableColumn_model
+    x-displayName: FactTableColumn
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactTableColumn" />
   - name: FactTableFilter_model
     x-displayName: FactTableFilter
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
@@ -2113,6 +2116,11 @@ paths:
                   enum:
                     - days
                     - hours
+                pinnedMetricDimensionLevels:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
       responses:
         '200':
           content:
@@ -2449,6 +2457,11 @@ paths:
                   enum:
                     - days
                     - hours
+                pinnedMetricDimensionLevels:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
       responses:
         '200':
           content:
@@ -4399,6 +4412,9 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                eventName:
+                  type: string
+                  description: The event name used in SQL template variables
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -4486,6 +4502,18 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                eventName:
+                  type: string
+                  description: The event name used in SQL template variables
+                columns:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FactTableColumn'
+                  description: Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Dimension-related properties require an enterprise license.
+                columnsError:
+                  type: string
+                  nullable: true
+                  description: Error message if there was an issue parsing the SQL schema
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -5005,6 +5033,9 @@ paths:
                   enum:
                     - ''
                     - api
+                enableMetricDimensions:
+                  type: boolean
+                  description: Whether this metric supports dimension analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -5300,6 +5331,9 @@ paths:
                     - api
                 archived:
                   type: boolean
+                enableMetricDimensions:
+                  type: boolean
+                  description: Whether this metric supports dimension analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -7085,6 +7119,11 @@ components:
         customFields:
           type: object
           additionalProperties: true
+        pinnedMetricDimensionLevels:
+          type: array
+          items:
+            type: string
+          description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
     ExperimentSnapshot:
       type: object
       required:
@@ -7640,6 +7679,18 @@ components:
             type: string
         sql:
           type: string
+        eventName:
+          type: string
+          description: The event name used in SQL template variables
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/FactTableColumn'
+          description: Array of column definitions for this fact table
+        columnsError:
+          type: string
+          nullable: true
+          description: Error message if there was an issue parsing the SQL schema
         archived:
           type: boolean
         managedBy:
@@ -7654,6 +7705,79 @@ components:
         dateUpdated:
           type: string
           format: date-time
+    FactTableColumn:
+      type: object
+      required:
+        - column
+        - datatype
+        - deleted
+      properties:
+        column:
+          type: string
+          description: The actual column name in the database/SQL query
+        datatype:
+          type: string
+          enum:
+            - number
+            - string
+            - date
+            - boolean
+            - json
+            - other
+            - ''
+        numberFormat:
+          type: string
+          enum:
+            - ''
+            - currency
+            - 'time:seconds'
+            - 'memory:bytes'
+            - 'memory:kilobytes'
+        jsonFields:
+          type: object
+          description: 'For JSON columns, defines the structure of nested fields'
+          additionalProperties:
+            type: object
+            properties:
+              datatype:
+                type: string
+                enum:
+                  - number
+                  - string
+                  - date
+                  - boolean
+                  - json
+                  - other
+                  - ''
+        name:
+          type: string
+          description: Display name for the column (can be different from the actual column name)
+        description:
+          type: string
+        alwaysInlineFilter:
+          type: boolean
+          description: Whether this column should always be included as an inline filter in queries
+          default: false
+        deleted:
+          type: boolean
+          default: false
+        isDimension:
+          type: boolean
+          description: Whether this column can be used for dimension analysis. This is an enterprise feature.
+          default: false
+        dimensionLevels:
+          type: array
+          items:
+            type: string
+          description: 'Specific values from this dimension column to include in analysis. If empty, all top values will be used.'
+        dateCreated:
+          type: string
+          format: date-time
+          readOnly: true
+        dateUpdated:
+          type: string
+          format: date-time
+          readOnly: true
     FactTableFilter:
       type: object
       required:
@@ -7936,6 +8060,9 @@ components:
           format: date-time
         archived:
           type: boolean
+        enableMetricDimensions:
+          type: boolean
+          description: Whether this metric supports dimension analysis. This is an enterprise feature.
     MetricAnalysis:
       type: object
       required:
@@ -8361,6 +8488,8 @@ x-tagGroups:
       - environments
       - features
       - data-sources
+      - fact-tables
+      - fact-metrics
       - metrics
       - experiments
       - snapshots
@@ -8371,8 +8500,6 @@ x-tagGroups:
       - saved-groups
       - organizations
       - members
-      - fact-tables
-      - fact-metrics
       - code-references
       - archetypes
       - queries
@@ -8393,6 +8520,7 @@ x-tagGroups:
       - ExperimentWithEnhancedStatus_model
       - FactMetric_model
       - FactTable_model
+      - FactTableColumn_model
       - FactTableFilter_model
       - Feature_model
       - FeatureDefinition_model

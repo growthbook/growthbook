@@ -1,6 +1,6 @@
 import { FactTableInterface } from "back-end/types/fact-table";
 import { useMemo, useState } from "react";
-import { FaClock, FaFilter, FaUser } from "react-icons/fa";
+import { FaClock, FaFilter, FaUser, FaLayerGroup } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { useAuth } from "@/services/auth";
@@ -46,7 +46,7 @@ export default function ColumnList({ factTable }: Props) {
       defaultSortField: "dateCreated",
       localStorageKey: "factColumns",
       searchFields: ["name^3", "description", "column^2"],
-      pageSize: 5,
+      pageSize: 10,
     });
 
   const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
@@ -111,9 +111,10 @@ export default function ColumnList({ factTable }: Props) {
       )}
       {columns.length > 0 ? (
         <>
-          <table className="table appbox gbtable mt-2 mb-0">
+          <table className="table table-tiny appbox gbtable mt-2 mb-0">
             <thead>
               <tr>
+                <th style={{ width: 30 }}></th>
                 <SortableTH field="column">Column</SortableTH>
                 <th></th>
                 <SortableTH field="type">Type</SortableTH>
@@ -124,7 +125,6 @@ export default function ColumnList({ factTable }: Props) {
               {items.map((col) => (
                 <tr key={col.column}>
                   <td>
-                    {col.column}{" "}
                     {col.identifier && (
                       <Tooltip body="User Identifier Type">
                         <span className="badge badge-purple">
@@ -139,6 +139,13 @@ export default function ColumnList({ factTable }: Props) {
                         </span>
                       </Tooltip>
                     )}
+                    {col.isDimension && (
+                      <Tooltip body="Dimension">
+                        <span className="badge badge-purple">
+                          <FaLayerGroup />
+                        </span>
+                      </Tooltip>
+                    )}
                     {col.alwaysInlineFilter && (
                       <Tooltip body="Prompt all metrics to filter on this column">
                         <span className="badge badge-purple">
@@ -147,6 +154,7 @@ export default function ColumnList({ factTable }: Props) {
                       </Tooltip>
                     )}
                   </td>
+                  <td>{col.column}</td>
                   <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
                   <td>
                     {col.datatype || "unknown"}{" "}

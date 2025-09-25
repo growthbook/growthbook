@@ -7,18 +7,28 @@ import {
   FactTableColumnType,
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import React, { useState } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
 import { PiPlus, PiX } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
+import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
+import { differenceInDays } from "date-fns";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
-import Button from "@/ui/Button";
+import HelperText from "@/ui/HelperText";
+import RadixButton from "@/ui/Button";
+import Button from "@/components/Button";
+import { useUser } from "@/services/UserContext";
+import { AppFeatures } from "@/types/app-features";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import track from "@/services/track";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -28,12 +38,42 @@ export interface Props {
 
 export default function ColumnModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
+
+  // Feature flag and commercial feature checks for dimension analysis
+  const isMetricDimensionsFeatureEnabled =
+    growthbook?.isOn("metric-dimensions");
+  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
 
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length,
   );
+  const [refreshingTopValues, setRefreshingTopValues] = useState(false);
+
+  const [dimensionLevelsWarning, setDimensionLevelsWarning] = useState(false);
 
   const { mutateDefinitions } = useDefinitions();
+
+  const refreshTopValues = async () => {
+    if (!existing) return;
+
+    setRefreshingTopValues(true);
+    try {
+      await apiCall(
+        `/fact-tables/${factTable.id}?forceColumnRefresh=1&dim=${existing.column}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({}),
+        },
+      );
+      mutateDefinitions();
+    } catch (error) {
+      console.error("Failed to refresh top values:", error);
+    } finally {
+      setRefreshingTopValues(false);
+    }
+  };
 
   const form = useForm<CreateColumnProps>({
     defaultValues: {
@@ -44,8 +84,45 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       datatype: existing?.datatype || "",
       jsonFields: existing?.jsonFields || {},
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
+      isDimension: existing?.isDimension || false,
+      dimensionLevels: existing?.dimensionLevels || [],
     },
   });
+
+  // Check if topValuesDate is stale (older than 7 days) or if topValues are empty
+  const isTopValuesStale =
+    !existing?.topValues?.length ||
+    (existing?.topValuesDate &&
+      differenceInDays(new Date(), new Date(existing.topValuesDate)) > 7);
+
+  // Auto-refresh top values when isDimension is checked (set to true) and topValues are stale
+  React.useEffect(
+    () => {
+      const isDimension = form.watch("isDimension");
+      const wasDimension = existing?.isDimension;
+
+      // Only trigger if isDimension is being set to true (not already true) and topValues are stale
+      if (
+        isDimension &&
+        !wasDimension &&
+        !refreshingTopValues &&
+        isTopValuesStale
+      ) {
+        refreshTopValues();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [form.watch("isDimension")],
+  );
+
+  // Calculate dimension level options combining topValues with current dimensionLevels
+  const topValues = existing?.topValues || [];
+  const currentLevels = form.watch("dimensionLevels") || [];
+  const allValues = new Set([...topValues, ...currentLevels]);
+  const dimensionLevelOptions = Array.from(allValues).map((value) => ({
+    label: value,
+    value: value,
+  }));
 
   const [newJSONField, setNewJSONField] = useState<{
     adding: boolean;
@@ -76,12 +153,14 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     dateUpdated: new Date(),
     ...existing,
     column: form.watch("column"),
-    name: form.watch("name"),
-    description: form.watch("description"),
-    numberFormat: form.watch("numberFormat"),
+    name: form.watch("name") || form.watch("column"),
+    description: form.watch("description") || "",
+    numberFormat: form.watch("numberFormat") || "",
     datatype: form.watch("datatype"),
     jsonFields: form.watch("jsonFields"),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
+    isDimension: form.watch("isDimension"),
+    dimensionLevels: form.watch("dimensionLevels"),
     deleted: false,
   };
 
@@ -102,7 +181,13 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             numberFormat: value.numberFormat,
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
+            isDimension: value.isDimension,
+            dimensionLevels: value.dimensionLevels,
           };
+
+          if (existing.dimensionLevels !== value.dimensionLevels) {
+            track("dimension-levels-changed-for-column");
+          }
 
           // If the column can no longer be inline filtered
           if (data.alwaysInlineFilter) {
@@ -185,7 +270,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       {form.watch("datatype") === "number" && (
         <SelectField
           label="Number Format"
-          value={form.watch("numberFormat")}
+          value={form.watch("numberFormat") || ""}
           helpText="Used to properly format numbers in the UI"
           onChange={(f) => form.setValue("numberFormat", f as NumberFormat)}
           options={[
@@ -320,7 +405,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                             >
                               Add
                             </Button>
-                            <Button variant="ghost" onClick={closeNewJSONField}>
+                            <Button
+                              color="secondary"
+                              onClick={closeNewJSONField}
+                            >
                               cancel
                             </Button>
                           </Flex>
@@ -347,11 +435,80 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
           )}
         </div>
       )}
+
       <Field
         label="Display Name"
         {...form.register("name")}
         placeholder={form.watch("column")}
       />
+
+      {isMetricDimensionsFeatureEnabled &&
+        form.watch("datatype") === "string" &&
+        !factTable.userIdTypes.includes(form.watch("column")) &&
+        form.watch("column") !== "timestamp" && (
+          <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
+            <div className="d-flex align-items-center mb-3">
+              <Checkbox
+                value={form.watch("isDimension") ?? false}
+                setValue={(v) => form.setValue("isDimension", v === true)}
+                label={
+                  <>
+                    Is Dimension
+                    {!hasMetricDimensionsFeature ? (
+                      <PaidFeatureBadge
+                        commercialFeature="metric-dimensions"
+                        premiumText="This is an Enterprise feature"
+                        variant="outline"
+                        ml="2"
+                      />
+                    ) : null}
+                  </>
+                }
+                description="Column represents a dimension that can be applied to metrics"
+                disabled={!hasMetricDimensionsFeature}
+              />
+            </div>
+
+            {form.watch("isDimension") && hasMetricDimensionsFeature && (
+              <div className="mb-2">
+                <div className="d-flex justify-content-between mb-1">
+                  <label className="form-label mb-0">Dimension Levels</label>
+                  <RadixButton
+                    size="xs"
+                    variant="ghost"
+                    onClick={refreshTopValues}
+                    loading={refreshingTopValues}
+                  >
+                    Refresh
+                  </RadixButton>
+                </div>
+                {dimensionLevelsWarning ||
+                (form.watch("dimensionLevels") || [])?.length >
+                  MAX_METRIC_DIMENSION_LEVELS ? (
+                  <HelperText status="warning" mb="1">
+                    Limit {MAX_METRIC_DIMENSION_LEVELS + ""} dimension levels
+                  </HelperText>
+                ) : null}
+                <MultiSelectField
+                  value={form.watch("dimensionLevels") || []}
+                  onChange={(values) => {
+                    if (values.length > MAX_METRIC_DIMENSION_LEVELS) {
+                      values = values.slice(0, MAX_METRIC_DIMENSION_LEVELS);
+                      setDimensionLevelsWarning(true);
+                      setTimeout(() => {
+                        setDimensionLevelsWarning(false);
+                      }, 3000);
+                    }
+                    form.setValue("dimensionLevels", values);
+                  }}
+                  options={dimensionLevelOptions}
+                  creatable={true}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
       {canInlineFilterColumn(
         {
           ...factTable,
@@ -359,19 +516,21 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         },
         form.watch("column"),
       ) && (
-        <Checkbox
-          value={form.watch("alwaysInlineFilter") ?? false}
-          setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
-          label="Prompt all metrics to filter on this column"
-          description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
-          mb="3"
-        />
+        <div className="px-3 pb-1 mb-4">
+          <Checkbox
+            value={form.watch("alwaysInlineFilter") ?? false}
+            setValue={(v) => form.setValue("alwaysInlineFilter", v === true)}
+            label="Prompt all metrics to filter on this column"
+            description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
+          />
+        </div>
       )}
+
       {showDescription ? (
         <div className="form-group">
           <label>Description</label>
           <MarkdownInput
-            value={form.watch("description")}
+            value={form.watch("description") || ""}
             setValue={(value) => form.setValue("description", value)}
             autofocus={!existing?.description?.length}
           />

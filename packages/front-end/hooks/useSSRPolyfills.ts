@@ -22,6 +22,16 @@ export interface SSRPolyfills {
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
+  getFactMetricDimensions: (parentId: string) => Array<{
+    id: string;
+    name: string;
+    description: string;
+    parentMetricId: string;
+    dimensionColumn: string;
+    dimensionColumnName: string;
+    dimensionValue: string | null;
+    dimensionLevels: string[];
+  }>;
   useOrgSettings: typeof useOrgSettings;
   getProjectById: (id: string) => null | ProjectInterface;
   useCurrency: typeof useCurrency;
@@ -39,6 +49,7 @@ export default function useSSRPolyfills(
     getExperimentMetricById,
     getMetricGroupById,
     getFactTableById,
+    getFactMetricDimensions,
     metricGroups,
     dimensions,
     getDimensionById,
@@ -66,6 +77,11 @@ export default function useSSRPolyfills(
   const getFactTableByIdSSR = useCallback(
     (id: string) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
     [getFactTableById, ssrData?.factTables],
+  );
+  const getFactMetricDimensionsSSR = useCallback(
+    (id: string) =>
+      getFactMetricDimensions(id) || ssrData?.factMetricDimensions?.[id] || [],
+    [getFactMetricDimensions, ssrData?.factMetricDimensions],
   );
 
   const useOrgSettingsSSR = () => {
@@ -126,6 +142,7 @@ export default function useSSRPolyfills(
     metricGroups: metricGroupsSSR,
     getMetricGroupById: getMetricGroupByIdSSR,
     getFactTableById: getFactTableByIdSSR,
+    getFactMetricDimensions: getFactMetricDimensionsSSR,
     useOrgSettings: useOrgSettingsSSR,
     getProjectById: getProjectByIdSSR,
     useCurrency: useCurrencySSR,
