@@ -2932,6 +2932,8 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+      pinnedMetricDimensionLevels?: (string)[];
     };
     ExperimentSnapshot: {
       id: string;
@@ -3259,6 +3261,8 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
+      /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+      pinnedMetricDimensionLevels?: (string)[];
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -9032,6 +9036,8 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
+                /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+                pinnedMetricDimensionLevels?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -9157,6 +9163,8 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+          pinnedMetricDimensionLevels?: (string)[];
         };
       };
     };
@@ -9307,6 +9315,8 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              pinnedMetricDimensionLevels?: (string)[];
             };
           };
         };
@@ -9489,6 +9499,8 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              pinnedMetricDimensionLevels?: (string)[];
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -9618,6 +9630,8 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
+          /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+          pinnedMetricDimensionLevels?: (string)[];
         };
       };
     };
@@ -9768,6 +9782,8 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              pinnedMetricDimensionLevels?: (string)[];
             };
           };
         };
@@ -10860,6 +10876,8 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
+              /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              pinnedMetricDimensionLevels?: (string)[];
             };
           };
         };

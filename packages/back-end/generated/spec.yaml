@@ -2113,6 +2113,11 @@ paths:
                   enum:
                     - days
                     - hours
+                pinnedMetricDimensionLevels:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
       responses:
         '200':
           content:
@@ -2449,6 +2454,11 @@ paths:
                   enum:
                     - days
                     - hours
+                pinnedMetricDimensionLevels:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
       responses:
         '200':
           content:
@@ -7091,6 +7101,11 @@ components:
         customFields:
           type: object
           additionalProperties: true
+        pinnedMetricDimensionLevels:
+          type: array
+          items:
+            type: string
+          description: 'Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
     ExperimentSnapshot:
       type: object
       required:

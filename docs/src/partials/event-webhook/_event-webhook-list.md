@@ -1457,6 +1457,8 @@ Triggered when an experiment is created
             customFields?: {
                 [x: string]: any;
             } | undefined;
+            /** Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            pinnedMetricDimensionLevels?: string[] | undefined;
         };
     };
     user: {
@@ -1618,6 +1620,8 @@ Triggered when an experiment is updated
             customFields?: {
                 [x: string]: any;
             } | undefined;
+            /** Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            pinnedMetricDimensionLevels?: string[] | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1745,6 +1749,8 @@ Triggered when an experiment is updated
             customFields?: ({
                 [x: string]: any;
             } | undefined) | undefined;
+            /** Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            pinnedMetricDimensionLevels?: (string[] | undefined) | undefined;
         };
         changes?: {
             added: {
@@ -1917,6 +1923,8 @@ Triggered when an experiment is deleted
             customFields?: {
                 [x: string]: any;
             } | undefined;
+            /** Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            pinnedMetricDimensionLevels?: string[] | undefined;
         };
     };
     user: {

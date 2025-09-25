@@ -2614,6 +2614,7 @@ export function postExperimentApiPayloadToInterface(
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
+    pinnedMetricDimensionLevels: payload.pinnedMetricDimensionLevels || [],
   };
 
   const { settings } = getScopedSettings({
@@ -2681,6 +2682,7 @@ export function updateExperimentApiPayloadToInterface(
     sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
+    pinnedMetricDimensionLevels,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2777,6 +2779,9 @@ export function updateExperimentApiPayloadToInterface(
         }
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
+    ...(pinnedMetricDimensionLevels !== undefined
+      ? { pinnedMetricDimensionLevels }
+      : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

@@ -287,8 +287,9 @@ const CompactResults: FC<{
           const dimensionValue = dimension.dimensionValue;
           const expandedKey = `${metricId}:${resultGroup}`;
           const isExpanded = expandedMetrics[expandedKey] || false;
-          const pinnedKey = `${metricId}?dim:${dimension.dimensionColumn}=${dimensionValue || ''}&location=${resultGroup}`;
-          const isPinned = pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
+          const pinnedKey = `${metricId}?dim:${dimension.dimensionColumn}=${dimensionValue || ""}&location=${resultGroup}`;
+          const isPinned =
+            pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
 
           // Show level if metric is expanded OR if it's pinned
           const shouldShowLevel = isExpanded || isPinned;
@@ -685,7 +686,7 @@ export function getRenderLabelColumn({
 
     // Dimension row
     if (isDimensionRow) {
-      const pinnedKey = `${metric.id}?dim:${row?.dimensionColumn}=${row?.dimensionValue || ''}&location=${location || ''}`;
+      const pinnedKey = `${metric.id}?dim:${row?.dimensionColumn}=${row?.dimensionValue || ""}&location=${location || ""}`;
       const isPinned =
         pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
 
