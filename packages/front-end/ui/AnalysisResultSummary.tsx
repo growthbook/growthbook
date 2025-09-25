@@ -45,7 +45,7 @@ import { PercentileLabel } from "@/components/Metrics/MetricName";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import Callout from "@/ui/Callout";
 
-interface AnalysisResultPopoverProps {
+interface AnalysisResultSummaryProps {
   data?: {
     metricRow: number;
     metric: ExperimentMetricInterface;
@@ -68,12 +68,12 @@ interface AnalysisResultPopoverProps {
 
 const numberFormatter = Intl.NumberFormat();
 
-export default function AnalysisResultPopover({
+export default function AnalysisResultSummary({
   data,
   differenceType,
   isBandit,
   ssrPolyfills,
-}: AnalysisResultPopoverProps) {
+}: AnalysisResultSummaryProps) {
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
