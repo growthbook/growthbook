@@ -303,6 +303,145 @@ export default function ImportFromStatsig() {
     }));
   };
 
+  // Helper function to get global checkbox state (true/false/indeterminate)
+  const getGlobalCheckboxState = (): boolean | "indeterminate" => {
+    if (data.status !== "ready") return false;
+
+    const allItems: { category: string; items: unknown[] }[] = [];
+
+    if (data.environments)
+      allItems.push({ category: "environments", items: data.environments });
+    if (data.tags) allItems.push({ category: "tags", items: data.tags });
+    if (data.segments)
+      allItems.push({ category: "segments", items: data.segments });
+    if (data.featureGates)
+      allItems.push({ category: "featureGates", items: data.featureGates });
+    if (data.dynamicConfigs)
+      allItems.push({ category: "dynamicConfigs", items: data.dynamicConfigs });
+    if (data.experiments)
+      allItems.push({ category: "experiments", items: data.experiments });
+    if (data.metrics)
+      allItems.push({ category: "metrics", items: data.metrics });
+
+    if (allItems.length === 0) return false;
+
+    let totalItems = 0;
+    let enabledItems = 0;
+
+    allItems.forEach(({ category, items }) => {
+      items.forEach((item, index) => {
+        totalItems++;
+        if (isItemEnabled(category, index, item)) {
+          enabledItems++;
+        }
+      });
+    });
+
+    if (enabledItems === 0) return false;
+    if (enabledItems === totalItems) return true;
+    return "indeterminate";
+  };
+
+  // Helper function to get total selected items count
+  const getSelectedItemsCount = (): number => {
+    if (data.status !== "ready") return 0;
+
+    let count = 0;
+    const allItems: { category: string; items: unknown[] }[] = [];
+
+    if (data.environments)
+      allItems.push({ category: "environments", items: data.environments });
+    if (data.tags) allItems.push({ category: "tags", items: data.tags });
+    if (data.segments)
+      allItems.push({ category: "segments", items: data.segments });
+    if (data.featureGates)
+      allItems.push({ category: "featureGates", items: data.featureGates });
+    if (data.dynamicConfigs)
+      allItems.push({ category: "dynamicConfigs", items: data.dynamicConfigs });
+    if (data.experiments)
+      allItems.push({ category: "experiments", items: data.experiments });
+    if (data.metrics)
+      allItems.push({ category: "metrics", items: data.metrics });
+
+    allItems.forEach(({ category, items }) => {
+      items.forEach((item, index) => {
+        if (isItemEnabled(category, index, item)) {
+          count++;
+        }
+      });
+    });
+
+    return count;
+  };
+
+  // Helper function to toggle all items globally
+  const toggleAllItems = (enabled: boolean) => {
+    if (data.status !== "ready") return;
+
+    const updates: { [category: string]: { [key: string]: boolean } } = {};
+
+    if (data.environments) {
+      updates.environments = {};
+      data.environments.forEach((item, index) => {
+        const key = getItemKey("environments", index, item);
+        updates.environments[key] = enabled;
+      });
+    }
+
+    if (data.tags) {
+      updates.tags = {};
+      data.tags.forEach((item, index) => {
+        const key = getItemKey("tags", index, item);
+        updates.tags[key] = enabled;
+      });
+    }
+
+    if (data.segments) {
+      updates.segments = {};
+      data.segments.forEach((item, index) => {
+        const key = getItemKey("segments", index, item);
+        updates.segments[key] = enabled;
+      });
+    }
+
+    if (data.featureGates) {
+      updates.featureGates = {};
+      data.featureGates.forEach((item, index) => {
+        const key = getItemKey("featureGates", index, item);
+        updates.featureGates[key] = enabled;
+      });
+    }
+
+    if (data.dynamicConfigs) {
+      updates.dynamicConfigs = {};
+      data.dynamicConfigs.forEach((item, index) => {
+        const key = getItemKey("dynamicConfigs", index, item);
+        updates.dynamicConfigs[key] = enabled;
+      });
+    }
+
+    if (data.experiments) {
+      updates.experiments = {};
+      data.experiments.forEach((item, index) => {
+        const key = getItemKey("experiments", index, item);
+        updates.experiments[key] = enabled;
+      });
+    }
+
+    if (data.metrics) {
+      updates.metrics = {};
+      data.metrics.forEach((item, index) => {
+        const key = getItemKey("metrics", index, item);
+        updates.metrics[key] = enabled;
+      });
+    }
+
+    setItemEnabled((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+  };
+
   // Initialize item checkbox states when data changes
   React.useEffect(
     () => {
@@ -553,10 +692,25 @@ export default function ImportFromStatsig() {
           <div className="alert alert-danger">{data.error || "Error"}</div>
         ) : data.status === "init" ? null : (
           <div>
-            <h2>
-              Status: {data.status}{" "}
+            <h3>
+              Import status: {data.status}{" "}
               {data.status === "fetching" ? <LoadingSpinner /> : null}
-            </h2>
+            </h3>
+            <div className="p-3 mb-2">
+              <div className="d-flex align-items-center">
+                <Checkbox
+                  value={getGlobalCheckboxState()}
+                  setValue={(enabled) => toggleAllItems(enabled)}
+                  label="Select all items"
+                  size="sm"
+                  containerClassName="mr-3 mb-0"
+                />
+                <span className="text-muted">
+                  {getSelectedItemsCount()} item
+                  {getSelectedItemsCount() !== 1 ? "s" : ""} selected
+                </span>
+              </div>
+            </div>
             {data.environments ? (
               <div className="appbox mb-4">
                 <ImportHeader
