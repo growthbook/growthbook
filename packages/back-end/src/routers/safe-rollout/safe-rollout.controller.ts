@@ -83,7 +83,7 @@ export const postSafeRolloutSnapshot = async (
   }
 
   const feature = await getFeature(context, safeRollout.featureId);
-  if (!feature || feature.archived) {
+  if (!feature) {
     return res.status(404).json({
       status: 404,
       message: "Feature not found",
