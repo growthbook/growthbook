@@ -4,6 +4,7 @@ import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTable
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   updateFactTable as updateFactTableInDb,
+  updateColumn,
   toFactTableApiInterface,
   getFactTable,
 } from "back-end/src/models/FactTableModel";
@@ -56,6 +57,53 @@ export const updateFactTable = createApiRequestHandler(
 
   const data: UpdateFactTableProps = { ...req.body };
 
+  // Handle column updates with enterprise feature gating
+  if (data.columns) {
+    // Check if any column has dimension properties
+    const hasDimensionProperties = data.columns.some(
+      (col) => col.isDimension || col.dimensionLevels,
+    );
+
+    if (hasDimensionProperties) {
+      // Check enterprise feature access
+      if (!req.context.hasPremiumFeature("metric-dimensions")) {
+        throw new Error("Metric dimensions require an enterprise license");
+      }
+    }
+
+    // Update columns individually to preserve existing values and apply validation
+    for (const columnUpdate of data.columns) {
+      const existingColumn = factTable.columns.find(
+        (c) => c.column === columnUpdate.column,
+      );
+
+      if (!existingColumn) {
+        throw new Error(`Column ${columnUpdate.column} not found`);
+      }
+
+      // Validate alwaysInlineFilter for non-string columns
+      if (
+        columnUpdate.alwaysInlineFilter &&
+        (columnUpdate.datatype || existingColumn.datatype) !== "string"
+      ) {
+        throw new Error(
+          "Only string columns are eligible for inline filtering",
+        );
+      }
+
+      // If name is not provided or empty, use the column name
+      if (!columnUpdate.name) {
+        columnUpdate.name = existingColumn.column;
+      }
+
+      // Update the column using the existing updateColumn logic
+      await updateColumn(factTable, columnUpdate.column, columnUpdate);
+    }
+
+    // Remove columns from the main update since we handled them individually
+    delete data.columns;
+  }
+
   await updateFactTableInDb(req.context, factTable, data);
   if (needsColumnRefresh(data)) {
     await queueFactTableColumnsRefresh(factTable);
@@ -66,7 +114,22 @@ export const updateFactTable = createApiRequestHandler(
   }
 
   return {
-    factTable: toFactTableApiInterface({ ...factTable, ...req.body }),
+    factTable: toFactTableApiInterface({
+      ...factTable,
+      ...req.body,
+      columns: req.body.columns
+        ? req.body.columns.map((col) => ({
+            ...col,
+            name: col.name ?? col.column,
+            description: col.description ?? "",
+            numberFormat: col.numberFormat ?? "",
+            dateCreated:
+              factTable.columns.find((c) => c.column === col.column)
+                ?.dateCreated || new Date(),
+            dateUpdated: new Date(),
+          }))
+        : factTable.columns,
+    }),
   };
 });
 

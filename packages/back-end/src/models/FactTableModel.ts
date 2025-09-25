@@ -95,6 +95,9 @@ function createPropsToInterface(
     ? props.columns.map((column) => {
         return {
           ...column,
+          name: column.name ?? column.column,
+          description: column.description ?? "",
+          numberFormat: column.numberFormat ?? "",
           dateCreated: new Date(),
           dateUpdated: new Date(),
           deleted: false,
@@ -464,11 +467,18 @@ export function toFactTableApiInterface(
   return {
     ...omit(factTable, [
       "organization",
-      "columns",
       "filters",
       "dateCreated",
       "dateUpdated",
     ]),
+    columns: factTable.columns.map((col) => ({
+      ...col,
+      alwaysInlineFilter: col.alwaysInlineFilter ?? false,
+      isDimension: col.isDimension ?? false,
+      dateCreated: col.dateCreated.toISOString(),
+      dateUpdated: col.dateUpdated.toISOString(),
+      topValuesDate: col.topValuesDate?.toISOString(),
+    })),
     managedBy: factTable.managedBy || "",
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",

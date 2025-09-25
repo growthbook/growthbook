@@ -2932,7 +2932,7 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
       pinnedMetricDimensionLevels?: (string)[];
     };
     ExperimentSnapshot: {
@@ -3261,7 +3261,7 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
       pinnedMetricDimensionLevels?: (string)[];
     }) & ({
       enhancedStatus?: {
@@ -3390,6 +3390,47 @@ export interface components {
       datasource: string;
       userIdTypes: (string)[];
       sql: string;
+      /** @description The event name used in SQL template variables */
+      eventName?: string;
+      /** @description Array of column definitions for this fact table */
+      columns?: ({
+          /** @description The actual column name in the database/SQL query */
+          column: string;
+          /** @enum {string} */
+          datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+          /** @enum {string} */
+          numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+          /** @description For JSON columns, defines the structure of nested fields */
+          jsonFields?: {
+            [key: string]: ({
+              /** @enum {string} */
+              datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+            }) | undefined;
+          };
+          /** @description Display name for the column (can be different from the actual column name) */
+          name?: string;
+          description?: string;
+          /**
+           * @description Whether this column should always be included as an inline filter in queries 
+           * @default false
+           */
+          alwaysInlineFilter?: boolean;
+          /** @default false */
+          deleted: boolean;
+          /**
+           * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+           * @default false
+           */
+          isDimension?: boolean;
+          /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+          dimensionLevels?: (string)[];
+          /** Format: date-time */
+          dateCreated?: string;
+          /** Format: date-time */
+          dateUpdated?: string;
+        })[];
+      /** @description Error message if there was an issue parsing the SQL schema */
+      columnsError?: string | null;
       archived?: boolean;
       /**
        * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
@@ -3400,6 +3441,74 @@ export interface components {
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+    };
+    FactTableColumn: {
+      /** @description The actual column name in the database/SQL query */
+      column: string;
+      /** @enum {string} */
+      datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+      /** @enum {string} */
+      numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+      /** @description For JSON columns, defines the structure of nested fields */
+      jsonFields?: {
+        [key: string]: ({
+          /** @enum {string} */
+          datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+        }) | undefined;
+      };
+      /** @description Display name for the column (can be different from the actual column name) */
+      name?: string;
+      description?: string;
+      /**
+       * @description Whether this column should always be included as an inline filter in queries 
+       * @default false
+       */
+      alwaysInlineFilter?: boolean;
+      /** @default false */
+      deleted: boolean;
+      /**
+       * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+       * @default false
+       */
+      isDimension?: boolean;
+      /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+      dimensionLevels?: (string)[];
+      /** Format: date-time */
+      dateCreated?: string;
+      /** Format: date-time */
+      dateUpdated?: string;
+    };
+    FactTableColumnUpdate: {
+      /** @description The actual column name in the database/SQL query */
+      column: string;
+      /** @enum {string} */
+      datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+      /** @enum {string} */
+      numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+      /** @description For JSON columns, defines the structure of nested fields */
+      jsonFields?: {
+        [key: string]: ({
+          /** @enum {string} */
+          datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+        }) | undefined;
+      };
+      /** @description Display name for the column (can be different from the actual column name) */
+      name?: string;
+      description?: string;
+      /**
+       * @description Whether this column should always be included as an inline filter in queries 
+       * @default false
+       */
+      alwaysInlineFilter?: boolean;
+      /** @default false */
+      deleted?: boolean;
+      /**
+       * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+       * @default false
+       */
+      isDimension?: boolean;
+      /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+      dimensionLevels?: (string)[];
     };
     FactTableFilter: {
       id: string;
@@ -9036,7 +9145,7 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
-                /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+                /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
                 pinnedMetricDimensionLevels?: (string)[];
               })[];
           }) & {
@@ -9163,7 +9272,7 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
-          /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
           pinnedMetricDimensionLevels?: (string)[];
         };
       };
@@ -9315,7 +9424,7 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
               pinnedMetricDimensionLevels?: (string)[];
             };
           };
@@ -9499,7 +9608,7 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
               pinnedMetricDimensionLevels?: (string)[];
             }) & ({
               enhancedStatus?: {
@@ -9630,7 +9739,7 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
-          /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
           pinnedMetricDimensionLevels?: (string)[];
         };
       };
@@ -9782,7 +9891,7 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
               pinnedMetricDimensionLevels?: (string)[];
             };
           };
@@ -10876,7 +10985,7 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
               pinnedMetricDimensionLevels?: (string)[];
             };
           };
@@ -11822,6 +11931,47 @@ export interface operations {
                 datasource: string;
                 userIdTypes: (string)[];
                 sql: string;
+                /** @description The event name used in SQL template variables */
+                eventName?: string;
+                /** @description Array of column definitions for this fact table */
+                columns?: ({
+                    /** @description The actual column name in the database/SQL query */
+                    column: string;
+                    /** @enum {string} */
+                    datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    /** @enum {string} */
+                    numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                    /** @description For JSON columns, defines the structure of nested fields */
+                    jsonFields?: {
+                      [key: string]: ({
+                        /** @enum {string} */
+                        datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                      }) | undefined;
+                    };
+                    /** @description Display name for the column (can be different from the actual column name) */
+                    name?: string;
+                    description?: string;
+                    /**
+                     * @description Whether this column should always be included as an inline filter in queries 
+                     * @default false
+                     */
+                    alwaysInlineFilter?: boolean;
+                    /** @default false */
+                    deleted: boolean;
+                    /**
+                     * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                     * @default false
+                     */
+                    isDimension?: boolean;
+                    /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                    dimensionLevels?: (string)[];
+                    /** Format: date-time */
+                    dateCreated?: string;
+                    /** Format: date-time */
+                    dateUpdated?: string;
+                  })[];
+                /** @description Error message if there was an issue parsing the SQL schema */
+                columnsError?: string | null;
                 archived?: boolean;
                 /**
                  * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
@@ -11865,6 +12015,41 @@ export interface operations {
           userIdTypes: (string)[];
           /** @description The SQL query for this fact table */
           sql: string;
+          /** @description The event name used in SQL template variables */
+          eventName?: string;
+          /** @description Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license. */
+          columns?: ({
+              /** @description The actual column name in the database/SQL query */
+              column: string;
+              /** @enum {string} */
+              datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+              /** @enum {string} */
+              numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+              /** @description For JSON columns, defines the structure of nested fields */
+              jsonFields?: {
+                [key: string]: ({
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                }) | undefined;
+              };
+              /** @description Display name for the column (can be different from the actual column name) */
+              name?: string;
+              description?: string;
+              /**
+               * @description Whether this column should always be included as an inline filter in queries 
+               * @default false
+               */
+              alwaysInlineFilter?: boolean;
+              /** @default false */
+              deleted?: boolean;
+              /**
+               * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+               * @default false
+               */
+              isDimension?: boolean;
+              /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+              dimensionLevels?: (string)[];
+            })[];
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -11887,6 +12072,47 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isDimension?: boolean;
+                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                  dimensionLevels?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
               archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
@@ -11925,6 +12151,47 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isDimension?: boolean;
+                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                  dimensionLevels?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
               archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
@@ -11965,6 +12232,43 @@ export interface operations {
           userIdTypes?: (string)[];
           /** @description The SQL query for this fact table */
           sql?: string;
+          /** @description The event name used in SQL template variables */
+          eventName?: string;
+          /** @description Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license. */
+          columns?: ({
+              /** @description The actual column name in the database/SQL query */
+              column: string;
+              /** @enum {string} */
+              datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+              /** @enum {string} */
+              numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+              /** @description For JSON columns, defines the structure of nested fields */
+              jsonFields?: {
+                [key: string]: ({
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                }) | undefined;
+              };
+              /** @description Display name for the column (can be different from the actual column name) */
+              name?: string;
+              description?: string;
+              /**
+               * @description Whether this column should always be included as an inline filter in queries 
+               * @default false
+               */
+              alwaysInlineFilter?: boolean;
+              /** @default false */
+              deleted?: boolean;
+              /**
+               * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+               * @default false
+               */
+              isDimension?: boolean;
+              /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+              dimensionLevels?: (string)[];
+            })[];
+          /** @description Error message if there was an issue parsing the SQL schema */
+          columnsError?: string | null;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
@@ -11988,6 +12292,47 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isDimension?: boolean;
+                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                  dimensionLevels?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
               archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
@@ -13057,6 +13402,41 @@ export interface operations {
                 userIdTypes: (string)[];
                 /** @description The SQL query for this fact table */
                 sql: string;
+                /** @description The event name used in SQL template variables */
+                eventName?: string;
+                /** @description Optional array of column definitions. If provided, will override auto-detected columns from SQL. Dimension-related properties (isDimension, dimensionLevels) require an enterprise license. */
+                columns?: ({
+                    /** @description The actual column name in the database/SQL query */
+                    column: string;
+                    /** @enum {string} */
+                    datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    /** @enum {string} */
+                    numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                    /** @description For JSON columns, defines the structure of nested fields */
+                    jsonFields?: {
+                      [key: string]: ({
+                        /** @enum {string} */
+                        datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                      }) | undefined;
+                    };
+                    /** @description Display name for the column (can be different from the actual column name) */
+                    name?: string;
+                    description?: string;
+                    /**
+                     * @description Whether this column should always be included as an inline filter in queries 
+                     * @default false
+                     */
+                    alwaysInlineFilter?: boolean;
+                    /** @default false */
+                    deleted?: boolean;
+                    /**
+                     * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                     * @default false
+                     */
+                    isDimension?: boolean;
+                    /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                    dimensionLevels?: (string)[];
+                  })[];
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
@@ -13521,6 +13901,8 @@ export type ApiVisualChange = z.infer<typeof openApiValidators.apiVisualChangeVa
 export type ApiSavedGroup = z.infer<typeof openApiValidators.apiSavedGroupValidator>;
 export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationValidator>;
 export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
+export type ApiFactTableColumn = z.infer<typeof openApiValidators.apiFactTableColumnValidator>;
+export type ApiFactTableColumnUpdate = z.infer<typeof openApiValidators.apiFactTableColumnUpdateValidator>;
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
 export type ApiMetricAnalysis = z.infer<typeof openApiValidators.apiMetricAnalysisValidator>;

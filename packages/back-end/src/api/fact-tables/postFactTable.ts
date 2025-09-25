@@ -26,6 +26,33 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
     if (!req.context.permissions.canCreateFactTable(data)) {
       req.context.permissions.throwPermissionError();
     }
+
+    // Check enterprise feature access for dimension properties
+    if (data.columns?.length) {
+      const hasDimensionProperties = data.columns.some(
+        (col) => col.isDimension || col.dimensionLevels,
+      );
+
+      if (hasDimensionProperties) {
+        if (!req.context.hasPremiumFeature("metric-dimensions")) {
+          throw new Error("Metric dimensions require an enterprise license");
+        }
+      }
+
+      // Validate alwaysInlineFilter for non-string columns and set default names
+      for (const column of data.columns) {
+        if (column.alwaysInlineFilter && column.datatype !== "string") {
+          throw new Error(
+            "Only string columns are eligible for inline filtering",
+          );
+        }
+
+        // If name is not provided or empty, use the column name
+        if (!column.name) {
+          column.name = column.column;
+        }
+      }
+    }
     const datasource = await getDataSourceById(
       req.context,
       req.body.datasource,

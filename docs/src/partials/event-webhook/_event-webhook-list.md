@@ -1457,7 +1457,7 @@ Triggered when an experiment is created
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
             pinnedMetricDimensionLevels?: string[] | undefined;
         };
     };
@@ -1620,7 +1620,7 @@ Triggered when an experiment is updated
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
             pinnedMetricDimensionLevels?: string[] | undefined;
         };
         previous_attributes: {
@@ -1749,7 +1749,7 @@ Triggered when an experiment is updated
             customFields?: ({
                 [x: string]: any;
             } | undefined) | undefined;
-            /** Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
             pinnedMetricDimensionLevels?: (string[] | undefined) | undefined;
         };
         changes?: {
@@ -1923,7 +1923,7 @@ Triggered when an experiment is deleted
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
             pinnedMetricDimensionLevels?: string[] | undefined;
         };
     };

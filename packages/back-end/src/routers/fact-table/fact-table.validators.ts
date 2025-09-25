@@ -36,9 +36,9 @@ export const jsonColumnFieldsValidator = z.record(
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
-    name: z.string(),
-    description: z.string(),
-    numberFormat: numberFormatValidator,
+    name: z.string().optional(),
+    description: z.string().optional(),
+    numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator,
     jsonFields: jsonColumnFieldsValidator.optional(),
     deleted: z.boolean().optional(),
@@ -58,7 +58,6 @@ export const updateColumnPropsValidator = z
     jsonFields: jsonColumnFieldsValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
-    topValuesDate: z.date().optional(),
     deleted: z.boolean().optional(),
     isDimension: z.boolean().optional(),
     dimensionLevels: z.array(z.string()).optional(),

@@ -149,9 +149,9 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     dateUpdated: new Date(),
     ...existing,
     column: form.watch("column"),
-    name: form.watch("name"),
-    description: form.watch("description"),
-    numberFormat: form.watch("numberFormat"),
+    name: form.watch("name") || form.watch("column"),
+    description: form.watch("description") || "",
+    numberFormat: form.watch("numberFormat") || "",
     datatype: form.watch("datatype"),
     jsonFields: form.watch("jsonFields"),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
@@ -262,7 +262,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       {form.watch("datatype") === "number" && (
         <SelectField
           label="Number Format"
-          value={form.watch("numberFormat")}
+          value={form.watch("numberFormat") || ""}
           helpText="Used to properly format numbers in the UI"
           onChange={(f) => form.setValue("numberFormat", f as NumberFormat)}
           options={[
@@ -443,26 +443,26 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
               <Checkbox
                 value={form.watch("isDimension") ?? false}
                 setValue={(v) => form.setValue("isDimension", v === true)}
-                label="Is Dimension"
+                label={
+                  <>
+                    Is Dimension
+                    {!hasMetricDimensionsFeature ? (
+                      <PaidFeatureBadge
+                        commercialFeature="metric-dimensions"
+                        premiumText="This is an Enterprise feature"
+                        variant="outline"
+                        ml="2"
+                      />
+                    ) : null}
+                  </>
+                }
+                description="Column represents a dimension that can be applied to metrics"
                 disabled={!hasMetricDimensionsFeature}
               />
-              {!hasMetricDimensionsFeature && (
-                <div style={{ marginTop: -10 }}>
-                  <PaidFeatureBadge
-                    commercialFeature="metric-dimensions"
-                    premiumText="This is an Enterprise feature"
-                    variant="outline"
-                    ml="2"
-                  />
-                </div>
-              )}
-            </div>
-            <div className="text-muted mb-3">
-              Column represents a dimension that can be applied to metrics
             </div>
 
             {form.watch("isDimension") && hasMetricDimensionsFeature && (
-              <div>
+              <div className="mb-2">
                 <div className="d-flex justify-content-between mb-1">
                   <label className="form-label mb-0">Dimension Levels</label>
                   <RadixButton
@@ -511,7 +511,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         <div className="form-group">
           <label>Description</label>
           <MarkdownInput
-            value={form.watch("description")}
+            value={form.watch("description") || ""}
             setValue={(value) => form.setValue("description", value)}
             autofocus={!existing?.description?.length}
           />

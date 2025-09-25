@@ -207,6 +207,10 @@ export async function runRefreshColumnsQuery(
   });
 
   for (const col of columns) {
+    if (col.numberFormat === undefined) {
+      col.numberFormat = "";
+    }
+
     if (
       (col.alwaysInlineFilter || col.isDimension) &&
       canInlineFilterColumn(factTable, col.column)

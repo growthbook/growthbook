@@ -201,7 +201,6 @@ export const putFactTable = async (
         // Update the column with new top values
         await updateColumn(factTable, column.column, {
           topValues: constrainedTopValues,
-          topValuesDate: new Date(),
         });
       } catch (e) {
         logger.error(e, "Error running top values query for specific column", {
@@ -315,6 +314,17 @@ export const putColumn = async (
   const col = factTable.columns.find((c) => c.column === req.params.column);
   if (!col) {
     throw new Error("Could not find column");
+  }
+
+  if (!data.name) {
+    data.name = col.column;
+  }
+
+  // Check enterprise feature access for dimension properties
+  if (data.isDimension) {
+    if (!context.hasPremiumFeature("metric-dimensions")) {
+      throw new Error("Metric dimensions require an enterprise license");
+    }
   }
 
   const updatedCol = { ...col, ...data };
