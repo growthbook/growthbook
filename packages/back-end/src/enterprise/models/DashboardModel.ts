@@ -3,7 +3,11 @@ import {
   dashboardInterface,
   DashboardInterface,
 } from "back-end/src/enterprise/validators/dashboard";
-import { MakeModelClass, UpdateProps } from "back-end/src/models/BaseModel";
+import {
+  MakeModelClass,
+  ScopedFilterQuery,
+  UpdateProps,
+} from "back-end/src/models/BaseModel";
 import {
   removeMongooseFields,
   ToInterface,
@@ -19,9 +23,10 @@ type LegacyDashboardDocument = Omit<DashboardDocument, "blocks"> & {
   blocks: LegacyDashboardBlockInterface[];
 };
 
+const COLLECTION_NAME = "dashboards";
 const BaseClass = MakeModelClass({
   schema: dashboardInterface,
-  collectionName: "dashboards",
+  collectionName: COLLECTION_NAME,
   idPrefix: "dash_",
   auditLog: {
     entity: "dashboard",
@@ -44,8 +49,14 @@ export const toInterface: ToInterface<DashboardInterface> = (doc) => {
 export class DashboardModel extends BaseClass {
   public async findByExperiment(
     experimentId: string,
+    additionalFilter: ScopedFilterQuery<typeof dashboardInterface> = {},
   ): Promise<DashboardInterface[]> {
-    return this._find({ experimentId, isDeleted: false, isDefault: false });
+    return this._find({
+      experimentId,
+      isDeleted: false,
+      isDefault: false,
+      ...additionalFilter,
+    });
   }
 
   protected canCreate(doc: DashboardInterface): boolean {

@@ -4,7 +4,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useMemo, useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
 import {
   blockHasFieldOfType,
   isDifferenceType,
@@ -30,7 +30,11 @@ import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
 import Checkbox from "@/ui/Checkbox";
 import Avatar from "@/ui/Avatar";
-import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
+import {
+  DashboardSnapshotContext,
+  useDashboardSnapshot,
+} from "../../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "..";
 
 type RequiredField = {
@@ -111,6 +115,9 @@ export default function EditSingleBlock({
   );
 
   const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
+  const { defaultSnapshot, dimensionless } = useContext(
+    DashboardSnapshotContext,
+  );
 
   const dimensionValueOptions =
     snapshot?.dimension && analysis?.results
@@ -185,6 +192,10 @@ export default function EditSingleBlock({
   const dimensionOptions = useMemo(() => {
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
+      precomputedDimensions: getPrecomputedDimensions(
+        defaultSnapshot,
+        dimensionless,
+      ),
       datasource,
       dimensions,
       exposureQueryId: experiment.exposureQueryId,
@@ -197,7 +208,13 @@ export default function EditSingleBlock({
         (option) => option.value !== "pre:date",
       ),
     }));
-  }, [experiment, dimensions, getDatasourceById]);
+  }, [
+    experiment,
+    dimensions,
+    getDatasourceById,
+    defaultSnapshot,
+    dimensionless,
+  ]);
 
   if (isLoading) return <LoadingSpinner />;
 
