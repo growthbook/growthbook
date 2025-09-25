@@ -43,14 +43,6 @@ export default function FactFilterList({ factTable }: Props) {
     canAddFiltersForTable = false;
   }
 
-  // let canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
-  // let canDelete = permissionsUtil.canDeleteFactFilter(factTable);
-
-  // if (factTable.managedBy && ["config", "api"].includes(factTable.managedBy)) {
-  //   canAddAndEdit = false;
-  //   canDelete = false;
-  // }
-
   return (
     <>
       {newOpen && (
