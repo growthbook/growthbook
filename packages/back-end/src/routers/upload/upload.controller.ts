@@ -45,6 +45,10 @@ export async function putUpload(
   const contentType = req.headers["content-type"] as string;
   const context = getContextFromReq(req);
 
+  if (context.org.settings?.blockFileUploads) {
+    throw new Error("File uploads are disabled for this organization");
+  }
+
   // The user can upload images if they have permission to add comments globally, or in atleast 1 project
   if (!context.permissions.canAddComment([])) {
     context.permissions.throwPermissionError();
@@ -59,10 +63,9 @@ export async function putUpload(
   }
 
   const ext = mimetypes[contentType];
-  const { org } = getContextFromReq(req);
 
   const now = new Date();
-  const pathPrefix = `${org.id}/${now.toISOString().substr(0, 7)}/`;
+  const pathPrefix = `${context.org.id}/${now.toISOString().substr(0, 7)}/`;
   const fileName = "img_" + uuidv4();
   const filePath = `${pathPrefix}${fileName}.${ext}`;
   const fileURL = await uploadFile(filePath, contentType, req.body);
@@ -75,6 +78,10 @@ export async function putUpload(
 
 export function getImage(req: AuthRequest<{ path: string }>, res: Response) {
   const { org } = getContextFromReq(req);
+
+  if (org.settings?.blockFileUploads) {
+    throw new Error("File uploads are disabled for this organization");
+  }
 
   const path = req.path[0] === "/" ? req.path.substr(1) : req.path;
 
@@ -102,6 +109,10 @@ export async function getSignedImageToken(
 ) {
   const { org } = getContextFromReq(req);
 
+  if (org.settings?.blockFileUploads) {
+    throw new Error("File uploads are disabled for this organization");
+  }
+
   const fullPath = req.path.substring("/signed-url/".length);
 
   const orgFromPath = fullPath.split("/")[0];
@@ -128,6 +139,10 @@ export async function getSignedUploadToken(
 ) {
   const context = getContextFromReq(req);
   const { org } = getContextFromReq(req);
+
+  if (org.settings?.blockFileUploads) {
+    throw new Error("File uploads are disabled for this organization");
+  }
 
   // The user can upload images if they have permission to add comments globally, or in at least 1 project
   if (!context.permissions.canAddComment([])) {

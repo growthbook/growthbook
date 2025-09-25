@@ -69,8 +69,14 @@ tags:
   - name: data-sources
     x-displayName: Data Sources
     description: How GrowthBook connects and queries your data
+  - name: fact-tables
+    x-displayName: Fact Tables
+    description: Fact Tables describe the shape of your data warehouse tables
+  - name: fact-metrics
+    x-displayName: Fact Metrics
+    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: metrics
-    x-displayName: Metrics
+    x-displayName: Metrics (legacy)
     description: Metrics used as goals and guardrails for experiments
   - name: experiments
     x-displayName: Experiments
@@ -99,12 +105,6 @@ tags:
   - name: members
     x-displayName: Members
     description: Members are users who have been invited to an organization.
-  - name: fact-tables
-    x-displayName: Fact Tables
-    description: Fact Tables describe the shape of your data warehouse tables
-  - name: fact-metrics
-    x-displayName: Fact Metrics
-    description: Fact Metrics are metrics built on top of Fact Table definitions
   - name: code-references
     x-displayName: Code References
     description: 'Intended for use with our code reference CI utility, [`gb-find-code-refs`](https://github.com/growthbook/gb-find-code-refs).'
@@ -159,6 +159,9 @@ tags:
   - name: FactTable_model
     x-displayName: FactTable
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTable" />
+  - name: FactTableColumn_model
+    x-displayName: FactTableColumn
+    description: <SchemaDefinition schemaRef="#/components/schemas/FactTableColumn" />
   - name: FactTableFilter_model
     x-displayName: FactTableFilter
     description: <SchemaDefinition schemaRef="#/components/schemas/FactTableFilter" />
@@ -201,6 +204,9 @@ tags:
   - name: Metric_model
     x-displayName: Metric
     description: <SchemaDefinition schemaRef="#/components/schemas/Metric" />
+  - name: MetricAnalysis_model
+    x-displayName: MetricAnalysis
+    description: <SchemaDefinition schemaRef="#/components/schemas/MetricAnalysis" />
   - name: Organization_model
     x-displayName: Organization
     description: <SchemaDefinition schemaRef="#/components/schemas/Organization" />
@@ -2110,6 +2116,11 @@ paths:
                   enum:
                     - days
                     - hours
+                pinnedMetricDimensionLevels:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
       responses:
         '200':
           content:
@@ -2446,6 +2457,11 @@ paths:
                   enum:
                     - days
                     - hours
+                pinnedMetricDimensionLevels:
+                  type: array
+                  items:
+                    type: string
+                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
       responses:
         '200':
           content:
@@ -2655,10 +2671,11 @@ paths:
                   description: 'ID for the [DataSource](#tag/DataSource_model)'
                 managedBy:
                   type: string
-                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy.'
                   enum:
                     - ''
                     - api
+                    - admin
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -2969,10 +2986,11 @@ paths:
               properties:
                 managedBy:
                   type: string
-                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  description: 'Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy.'
                   enum:
                     - ''
                     - api
+                    - admin
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -4394,6 +4412,9 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                eventName:
+                  type: string
+                  description: The event name used in SQL template variables
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -4481,6 +4502,18 @@ paths:
                 sql:
                   type: string
                   description: The SQL query for this fact table
+                eventName:
+                  type: string
+                  description: The event name used in SQL template variables
+                columns:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FactTableColumn'
+                  description: Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Dimension-related properties require an enterprise license.
+                columnsError:
+                  type: string
+                  nullable: true
+                  description: Error message if there was an issue parsing the SQL schema
                 managedBy:
                   type: string
                   description: Set this to "api" to disable editing in the GrowthBook UI
@@ -4805,6 +4838,13 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
                     aggregateFilterColumn:
                       type: string
                       description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -4835,6 +4875,13 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -4986,6 +5033,9 @@ paths:
                   enum:
                     - ''
                     - api
+                enableMetricDimensions:
+                  type: boolean
+                  description: Whether this metric supports dimension analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -5085,6 +5135,13 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
                     aggregateFilterColumn:
                       type: string
                       description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -5115,6 +5172,13 @@ paths:
                       description: Array of Fact Table Filter Ids
                       items:
                         type: string
+                    inlineFilters:
+                      type: object
+                      description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+                      additionalProperties:
+                        type: array
+                        items:
+                          type: string
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -5267,6 +5331,9 @@ paths:
                     - api
                 archived:
                   type: boolean
+                enableMetricDimensions:
+                  type: boolean
+                  description: Whether this metric supports dimension analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -5303,6 +5370,64 @@ paths:
                     type: string
                     description: The ID of the deleted fact metric
                     example: fact__123abc
+  '/fact-metrics/{id}/analysis':
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The fact metric id to analyze
+        schema:
+          type: string
+    post:
+      tags:
+        - fact-metrics
+      summary: Create a fact metric analysis
+      operationId: postFactMetricAnalysis
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/fact-metrics/fact_1234/analysis \
+              -d '{"lookbackDays":90}' \
+              -u secret_abc123DEF456:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userIdType:
+                  type: string
+                  description: 'The identifier type to use for the analysis. If not provided, defaults to the first available identifier type in the fact table.'
+                lookbackDays:
+                  type: number
+                  description: Number of days to look back for the analysis. Defaults to 30.
+                  minimum: 1
+                  maximum: 999999
+                populationType:
+                  type: string
+                  enum:
+                    - factTable
+                    - segment
+                  description: 'The type of population to analyze. Defaults to ''factTable'', meaning the analysis will return the metric value for all units found in the fact table.'
+                populationId:
+                  type: string
+                  nullable: true
+                  description: 'The ID of the population (e.g., segment ID) when populationType is not ''factTable''. Defaults to null.'
+                useCache:
+                  type: boolean
+                  description: Whether to use a cached query if one exists. Defaults to true.
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - metricAnalysis
+                properties:
+                  metricAnalysis:
+                    $ref: '#/components/schemas/MetricAnalysis'
   /bulk-import/facts:
     post:
       parameters: []
@@ -5749,6 +5874,7 @@ components:
             - ''
             - api
             - config
+            - admin
         dateCreated:
           type: string
         dateUpdated:
@@ -6993,6 +7119,11 @@ components:
         customFields:
           type: object
           additionalProperties: true
+        pinnedMetricDimensionLevels:
+          type: array
+          items:
+            type: string
+          description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
     ExperimentSnapshot:
       type: object
       required:
@@ -7548,6 +7679,18 @@ components:
             type: string
         sql:
           type: string
+        eventName:
+          type: string
+          description: The event name used in SQL template variables
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/FactTableColumn'
+          description: Array of column definitions for this fact table
+        columnsError:
+          type: string
+          nullable: true
+          description: Error message if there was an issue parsing the SQL schema
         archived:
           type: boolean
         managedBy:
@@ -7562,6 +7705,79 @@ components:
         dateUpdated:
           type: string
           format: date-time
+    FactTableColumn:
+      type: object
+      required:
+        - column
+        - datatype
+        - deleted
+      properties:
+        column:
+          type: string
+          description: The actual column name in the database/SQL query
+        datatype:
+          type: string
+          enum:
+            - number
+            - string
+            - date
+            - boolean
+            - json
+            - other
+            - ''
+        numberFormat:
+          type: string
+          enum:
+            - ''
+            - currency
+            - 'time:seconds'
+            - 'memory:bytes'
+            - 'memory:kilobytes'
+        jsonFields:
+          type: object
+          description: 'For JSON columns, defines the structure of nested fields'
+          additionalProperties:
+            type: object
+            properties:
+              datatype:
+                type: string
+                enum:
+                  - number
+                  - string
+                  - date
+                  - boolean
+                  - json
+                  - other
+                  - ''
+        name:
+          type: string
+          description: Display name for the column (can be different from the actual column name)
+        description:
+          type: string
+        alwaysInlineFilter:
+          type: boolean
+          description: Whether this column should always be included as an inline filter in queries
+          default: false
+        deleted:
+          type: boolean
+          default: false
+        isDimension:
+          type: boolean
+          description: Whether this column can be used for dimension analysis. This is an enterprise feature.
+          default: false
+        dimensionLevels:
+          type: array
+          items:
+            type: string
+          description: 'Specific values from this dimension column to include in analysis. If empty, all top values will be used.'
+        dateCreated:
+          type: string
+          format: date-time
+          readOnly: true
+        dateUpdated:
+          type: string
+          format: date-time
+          readOnly: true
     FactTableFilter:
       type: object
       required:
@@ -7668,6 +7884,13 @@ components:
               description: Array of Fact Table Filter Ids
               items:
                 type: string
+            inlineFilters:
+              type: object
+              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+              additionalProperties:
+                type: array
+                items:
+                  type: string
             aggregateFilterColumn:
               type: string
               description: Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics.
@@ -7690,6 +7913,13 @@ components:
               description: Array of Fact Table Filter Ids
               items:
                 type: string
+            inlineFilters:
+              type: object
+              description: 'Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by.'
+              additionalProperties:
+                type: array
+                items:
+                  type: string
         inverse:
           type: boolean
           description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
@@ -7830,6 +8060,23 @@ components:
           format: date-time
         archived:
           type: boolean
+        enableMetricDimensions:
+          type: boolean
+          description: Whether this metric supports dimension analysis. This is an enterprise feature.
+    MetricAnalysis:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          description: The ID of the created metric analysis
+        status:
+          type: string
+          description: 'The status of the analysis (e.g., "running", "completed", "error")'
+        settings:
+          type: object
     Member:
       type: object
       required:
@@ -8241,6 +8488,8 @@ x-tagGroups:
       - environments
       - features
       - data-sources
+      - fact-tables
+      - fact-metrics
       - metrics
       - experiments
       - snapshots
@@ -8251,8 +8500,6 @@ x-tagGroups:
       - saved-groups
       - organizations
       - members
-      - fact-tables
-      - fact-metrics
       - code-references
       - archetypes
       - queries
@@ -8273,6 +8520,7 @@ x-tagGroups:
       - ExperimentWithEnhancedStatus_model
       - FactMetric_model
       - FactTable_model
+      - FactTableColumn_model
       - FactTableFilter_model
       - Feature_model
       - FeatureDefinition_model
@@ -8287,6 +8535,7 @@ x-tagGroups:
       - FeatureWithRevisions_model
       - Member_model
       - Metric_model
+      - MetricAnalysis_model
       - Organization_model
       - PaginationFields_model
       - Project_model

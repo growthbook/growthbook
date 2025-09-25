@@ -66,6 +66,16 @@ export type ExperimentTableRow = {
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
+  numDimensions?: number;
+  // Dimension row properties
+  isDimensionRow?: boolean;
+  parentRowId?: string;
+  dimensionColumn?: string;
+  dimensionColumnName?: string;
+  dimensionValue?: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
+  dimensionLevels?: string[];
+  isHiddenByFilter?: boolean; // True if this row should be hidden due to dimension level filtering
+  isPinned?: boolean; // True if this dimension level row is pinned
 };
 
 export function getRisk(

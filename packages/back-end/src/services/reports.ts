@@ -12,6 +12,7 @@ import {
   isBinomialMetric,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
 } from "shared/experiments";
@@ -20,6 +21,10 @@ import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
+import {
+  expandDimensionMetricsInMap,
+  getMetricsByIds,
+} from "back-end/src/models/MetricModel";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
@@ -62,11 +67,12 @@ import {
   ConversionWindowUnit,
   MetricPriorSettings,
   MetricWindowSettings,
+  FactTableInterface,
+  ColumnInterface,
 } from "back-end/types/fact-table";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { ReqContextClass } from "back-end/src/services/context";
-import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
 import { ProjectInterface } from "back-end/types/project";
 
@@ -170,6 +176,7 @@ export function getAnalysisSettingsFromReportArgs(
 export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
   metricMap: Map<string, ExperimentMetricInterface>,
+  factTableMap?: FactTableMap,
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -180,8 +187,24 @@ export function getSnapshotSettingsFromReportArgs(
     mean: 0,
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
+
+  // Expand dimension metrics if factTableMap is provided
+  if (factTableMap) {
+    const baseMetricIds = getAllMetricIdsFromExperiment(args);
+    const baseMetrics = baseMetricIds
+      .map((m) => metricMap.get(m) || null)
+      .filter(isDefined);
+    expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
+  }
+
   const snapshotSettings: ExperimentSnapshotSettings = {
-    metricSettings: getAllMetricIdsFromExperiment(args)
+    metricSettings: getAllExpandedMetricIdsFromExperiment(
+      args,
+      metricMap,
+      factTableMap || new Map(),
+      true,
+      [],
+    )
       .map((m) =>
         getMetricForSnapshot({
           id: m,
@@ -429,8 +452,24 @@ export async function createReportSnapshot({
     report.experimentAnalysisSettings.statsEngine || settings.statsEngine.value;
 
   const metricGroups = await context.models.metricGroups.getAll();
-  const metricIds = getAllMetricIdsFromExperiment(
+
+  // First, expand dimension metrics and add them to the metricMap
+  const baseMetricIds = getAllMetricIdsFromExperiment(
     report.experimentAnalysisSettings,
+    false,
+    metricGroups,
+  );
+  const baseMetrics = baseMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(isDefined);
+
+  // Expand dimension metrics for fact metrics with enableMetricDimensions
+  expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
+
+  const metricIds = getAllExpandedMetricIdsFromExperiment(
+    report.experimentAnalysisSettings,
+    metricMap,
+    factTableMap,
     false,
     metricGroups,
   );
@@ -613,12 +652,11 @@ export function getReportSnapshotSettings({
     }),
   );
 
-  const metricSettings = expandMetricGroups(
-    getAllMetricIdsFromExperiment(
-      report.experimentAnalysisSettings,
-      true,
-      metricGroups,
-    ),
+  const metricSettings = getAllExpandedMetricIdsFromExperiment(
+    report.experimentAnalysisSettings,
+    metricMap,
+    factTableMap,
+    true,
     metricGroups,
   )
     .map((m) =>
@@ -744,7 +782,7 @@ export async function generateExperimentReportSSRData({
   factTableIds = uniq(factTableIds);
 
   const factTables = await getFactTablesByIds(context, factTableIds);
-  const factTableMap = factTables.reduce(
+  const factTableMap: Record<string, FactTableInterface> = factTables.reduce(
     (map, factTable) => Object.assign(map, { [factTable.id]: factTable }),
     {},
   );
@@ -782,10 +820,83 @@ export async function generateExperimentReportSSRData({
     : undefined;
   const projectMap = _project?.id ? { [_project.id]: _project } : {};
 
+  // Generate fact metric dimensions for fact metrics with dimension analysis enabled
+  const factMetricDimensions: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      description: string;
+      parentMetricId: string;
+      dimensionColumn: string;
+      dimensionColumnName: string;
+      dimensionValue: string | null;
+      dimensionLevels: string[];
+    }>
+  > = {};
+  for (const factMetric of factMetrics) {
+    if (factMetric.enableMetricDimensions) {
+      const factTableId = factMetric.numerator.factTableId;
+      const factTable = factTableId ? factTableMap[factTableId] : undefined;
+      if (factTable) {
+        const dimensionColumns = factTable.columns.filter(
+          (col: ColumnInterface) => col.isDimension && !col.deleted,
+        );
+        if (dimensionColumns.length > 0) {
+          const dimensionMetrics: Array<{
+            id: string;
+            name: string;
+            description: string;
+            parentMetricId: string;
+            dimensionColumn: string;
+            dimensionColumnName: string;
+            dimensionValue: string | null;
+            dimensionLevels: string[];
+          }> = [];
+
+          dimensionColumns.forEach((col: ColumnInterface) => {
+            const dimensionLevels = col.dimensionLevels || [];
+
+            // Create a metric for each dimension level
+            dimensionLevels.forEach((value: string) => {
+              dimensionMetrics.push({
+                id: `${factMetric.id}?dim:${col.column}=${value}`,
+                name: `${factMetric.name} (${col.name || col.column}: ${value})`,
+                description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = ${value}`,
+                parentMetricId: factMetric.id,
+                dimensionColumn: col.column,
+                dimensionColumnName: col.name || col.column,
+                dimensionValue: value,
+                dimensionLevels: col.dimensionLevels || [],
+              });
+            });
+
+            // Create an "other" metric for values not in dimensionLevels
+            if (dimensionLevels.length > 0) {
+              dimensionMetrics.push({
+                id: `${factMetric.id}?dim:${col.column}=`,
+                name: `${factMetric.name} (${col.name || col.column}: other)`,
+                description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = other`,
+                parentMetricId: factMetric.id,
+                dimensionColumn: col.column,
+                dimensionColumnName: col.name || col.column,
+                dimensionValue: null,
+                dimensionLevels: col.dimensionLevels || [],
+              });
+            }
+          });
+
+          factMetricDimensions[factMetric.id] = dimensionMetrics;
+        }
+      }
+    }
+  }
+
   return {
     metrics: metricMap,
     metricGroups,
     factTables: factTableMap,
+    factMetricDimensions,
     settings: orgSettings,
     projects: projectMap,
     dimensions,
