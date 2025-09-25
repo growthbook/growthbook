@@ -77,13 +77,13 @@ function ImportHeader({
   name,
   items,
   beta,
-  categoryEnabled,
+  checkboxState,
   onCategoryToggle,
 }: {
   name: string;
   items: { status: ImportStatus }[];
   beta?: boolean;
-  categoryEnabled: boolean;
+  checkboxState: boolean | "indeterminate";
   onCategoryToggle: (enabled: boolean) => void;
 }) {
   const countsByStatus = items.reduce(
@@ -100,7 +100,7 @@ function ImportHeader({
         <div className="col-auto" style={{ minWidth: 300 }}>
           <div className="d-flex align-items-center">
             <Checkbox
-              value={categoryEnabled}
+              value={checkboxState}
               setValue={onCategoryToggle}
               label={name}
               size="sm"
@@ -162,17 +162,6 @@ export default function ImportFromStatsig() {
     "",
   );
 
-  // Category-level checkbox states
-  const [categoryEnabled, setCategoryEnabled] = useState({
-    environments: true,
-    tags: true,
-    segments: true,
-    featureGates: true,
-    dynamicConfigs: true,
-    experiments: true,
-    metrics: false,
-  });
-
   // Item-level checkbox states (all enabled by default)
   const [itemEnabled, setItemEnabled] = useState<{
     [category: string]: { [key: string]: boolean };
@@ -191,23 +180,42 @@ export default function ImportFromStatsig() {
   };
 
   // Helper function to get item key for checkbox state
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getItemKey = (category: string, index: number, item: any): string => {
+  const getItemKey = (
+    category: string,
+    index: number,
+    item: unknown,
+  ): string => {
     switch (category) {
-      case "environments":
-        return `env-${item.environment?.name || index}`;
-      case "tags":
-        return `tag-${item.tag?.name || item.tag?.id || index}`;
-      case "segments":
-        return `segment-${item.segment?.name || item.segment?.id || index}`;
-      case "featureGates":
-        return `gate-${item.featureGate?.id || index}`;
-      case "dynamicConfigs":
-        return `config-${item.dynamicConfig?.id || index}`;
-      case "experiments":
-        return `exp-${item.experiment?.name || item.experiment?.id || index}`;
-      case "metrics":
-        return `metric-${item.metric?.name || item.metric?.id || index}`;
+      case "environments": {
+        const envItem = item as { environment?: { name?: string } };
+        return `env-${envItem.environment?.name || index}`;
+      }
+      case "tags": {
+        const tagItem = item as { tag?: { name?: string; id?: string } };
+        return `tag-${tagItem.tag?.name || tagItem.tag?.id || index}`;
+      }
+      case "segments": {
+        const segmentItem = item as {
+          segment?: { name?: string; id?: string };
+        };
+        return `segment-${segmentItem.segment?.name || segmentItem.segment?.id || index}`;
+      }
+      case "featureGates": {
+        const gateItem = item as { featureGate?: { id?: string } };
+        return `gate-${gateItem.featureGate?.id || index}`;
+      }
+      case "dynamicConfigs": {
+        const configItem = item as { dynamicConfig?: { id?: string } };
+        return `config-${configItem.dynamicConfig?.id || index}`;
+      }
+      case "experiments": {
+        const expItem = item as { experiment?: { name?: string; id?: string } };
+        return `exp-${expItem.experiment?.name || expItem.experiment?.id || index}`;
+      }
+      case "metrics": {
+        const metricItem = item as { metric?: { name?: string; id?: string } };
+        return `metric-${metricItem.metric?.name || metricItem.metric?.id || index}`;
+      }
       default:
         return `${category}-${index}`;
     }
@@ -217,24 +225,18 @@ export default function ImportFromStatsig() {
   const isItemEnabled = (
     category: string,
     index: number,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    item: any,
+    item: unknown,
   ): boolean => {
     const key = getItemKey(category, index, item);
     return itemEnabled[category]?.[key] ?? true; // Default to enabled
   };
 
-  // Helper function to get the effective checkbox state (overridden by category state)
+  // Helper function to get the effective checkbox state
   const getEffectiveCheckboxState = (
     category: string,
     index: number,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    item: any,
+    item: unknown,
   ): boolean => {
-    const categoryKey = category as keyof typeof categoryEnabled;
-    if (!categoryEnabled[categoryKey]) {
-      return false; // Force unchecked when category is disabled
-    }
     return isItemEnabled(category, index, item);
   };
 
@@ -242,8 +244,7 @@ export default function ImportFromStatsig() {
   const toggleItemEnabled = (
     category: string,
     index: number,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    item: any,
+    item: unknown,
     enabled: boolean,
   ) => {
     const key = getItemKey(category, index, item);
@@ -253,6 +254,51 @@ export default function ImportFromStatsig() {
       [category]: {
         ...prev[category],
         [key]: enabled,
+      },
+    }));
+  };
+
+  // Helper function to get category checkbox state (boolean or "indeterminate")
+  const getCategoryCheckboxState = (
+    category: string,
+    items: unknown[],
+  ): boolean | "indeterminate" => {
+    if (!items || items.length === 0) {
+      return false;
+    }
+
+    const enabledCount = items.filter((item, index) =>
+      getEffectiveCheckboxState(category, index, item),
+    ).length;
+
+    if (enabledCount === 0) {
+      return false;
+    } else if (enabledCount === items.length) {
+      return true;
+    } else {
+      return "indeterminate";
+    }
+  };
+
+  // Helper function to toggle all items in a category
+  const toggleCategoryItems = (
+    category: string,
+    items: unknown[] | undefined,
+    enabled: boolean,
+  ) => {
+    if (!items) return;
+
+    const updates: { [key: string]: boolean } = {};
+    items.forEach((item, index) => {
+      const key = getItemKey(category, index, item);
+      updates[key] = enabled;
+    });
+
+    setItemEnabled((prev) => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        ...updates,
       },
     }));
   };
@@ -488,7 +534,6 @@ export default function ImportFromStatsig() {
                   callback: (d) => setData(d),
                   featuresMap,
                   project: projectId,
-                  categoryEnabled,
                   itemEnabled,
                 };
                 await runImport(runOptions);
@@ -517,12 +562,16 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Environments"
                   items={data.environments}
-                  categoryEnabled={categoryEnabled.environments}
+                  checkboxState={getCategoryCheckboxState(
+                    "environments",
+                    data.environments,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    setCategoryEnabled((prev) => ({
-                      ...prev,
-                      environments: enabled,
-                    }))
+                    toggleCategoryItems(
+                      "environments",
+                      data.environments,
+                      enabled,
+                    )
                   }
                 />
                 <div className="p-3">
@@ -561,7 +610,6 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
-                                    disabled={!categoryEnabled.environments}
                                     mt="2"
                                   />
                                 </td>
@@ -600,9 +648,9 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Tags"
                   items={data.tags}
-                  categoryEnabled={categoryEnabled.tags}
+                  checkboxState={getCategoryCheckboxState("tags", data.tags)}
                   onCategoryToggle={(enabled) =>
-                    setCategoryEnabled((prev) => ({ ...prev, tags: enabled }))
+                    toggleCategoryItems("tags", data.tags, enabled)
                   }
                 />
                 <div className="p-3">
@@ -636,7 +684,6 @@ export default function ImportFromStatsig() {
                                       toggleItemEnabled("tags", i, tag, enabled)
                                     }
                                     size="sm"
-                                    disabled={!categoryEnabled.tags}
                                     mt="2"
                                   />
                                 </td>
@@ -671,12 +718,12 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Segments → Saved Groups"
                   items={data.segments}
-                  categoryEnabled={categoryEnabled.segments}
+                  checkboxState={getCategoryCheckboxState(
+                    "segments",
+                    data.segments,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    setCategoryEnabled((prev) => ({
-                      ...prev,
-                      segments: enabled,
-                    }))
+                    toggleCategoryItems("segments", data.segments, enabled)
                   }
                 />
                 <div className="p-3">
@@ -717,7 +764,6 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
-                                    disabled={!categoryEnabled.segments}
                                     mt="2"
                                   />
                                 </td>
@@ -760,12 +806,16 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Feature Gates → Features"
                   items={data.featureGates}
-                  categoryEnabled={categoryEnabled.featureGates}
+                  checkboxState={getCategoryCheckboxState(
+                    "featureGates",
+                    data.featureGates,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    setCategoryEnabled((prev) => ({
-                      ...prev,
-                      featureGates: enabled,
-                    }))
+                    toggleCategoryItems(
+                      "featureGates",
+                      data.featureGates,
+                      enabled,
+                    )
                   }
                 />
                 <div className="p-3">
@@ -805,7 +855,6 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
-                                    disabled={!categoryEnabled.featureGates}
                                     mt="2"
                                   />
                                 </td>
@@ -843,12 +892,16 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Dynamic Configs → Features"
                   items={data.dynamicConfigs}
-                  categoryEnabled={categoryEnabled.dynamicConfigs}
+                  checkboxState={getCategoryCheckboxState(
+                    "dynamicConfigs",
+                    data.dynamicConfigs,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    setCategoryEnabled((prev) => ({
-                      ...prev,
-                      dynamicConfigs: enabled,
-                    }))
+                    toggleCategoryItems(
+                      "dynamicConfigs",
+                      data.dynamicConfigs,
+                      enabled,
+                    )
                   }
                 />
                 <div className="p-3">
@@ -887,7 +940,6 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
-                                    disabled={!categoryEnabled.dynamicConfigs}
                                     mt="2"
                                   />
                                 </td>
@@ -922,12 +974,16 @@ export default function ImportFromStatsig() {
                 <ImportHeader
                   name="Experiments"
                   items={data.experiments}
-                  categoryEnabled={categoryEnabled.experiments}
+                  checkboxState={getCategoryCheckboxState(
+                    "experiments",
+                    data.experiments,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    setCategoryEnabled((prev) => ({
-                      ...prev,
-                      experiments: enabled,
-                    }))
+                    toggleCategoryItems(
+                      "experiments",
+                      data.experiments,
+                      enabled,
+                    )
                   }
                 />
                 <div className="p-3">
@@ -966,7 +1022,6 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
-                                    disabled={!categoryEnabled.experiments}
                                     mt="2"
                                   />
                                 </td>
@@ -1002,12 +1057,12 @@ export default function ImportFromStatsig() {
                   name="Metrics"
                   beta={true}
                   items={data.metrics}
-                  categoryEnabled={categoryEnabled.metrics}
+                  checkboxState={getCategoryCheckboxState(
+                    "metrics",
+                    data.metrics,
+                  )}
                   onCategoryToggle={(enabled) =>
-                    setCategoryEnabled((prev) => ({
-                      ...prev,
-                      metrics: enabled,
-                    }))
+                    toggleCategoryItems("metrics", data.metrics, enabled)
                   }
                 />
                 <div className="p-3">
@@ -1047,7 +1102,6 @@ export default function ImportFromStatsig() {
                                       )
                                     }
                                     size="sm"
-                                    disabled={!categoryEnabled.metrics}
                                     mt="2"
                                   />
                                 </td>

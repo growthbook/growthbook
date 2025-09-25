@@ -331,6 +331,7 @@ const Results: FC<{
         />
       ) : showBreakDownResults && snapshot ? (
         <BreakDownResults
+          experimentId={experiment.id}
           key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
           results={analysis?.results ?? []}
           queryStatusData={queryStatusData}
@@ -374,6 +375,7 @@ const Results: FC<{
             </div>
           )}
           <CompactResults
+            experimentId={experiment.id}
             editMetrics={editMetrics}
             variations={variations}
             variationFilter={analysisBarSettings.variationFilter}

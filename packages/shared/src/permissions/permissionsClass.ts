@@ -171,6 +171,59 @@ export class Permissions {
   };
 
   //Project Permissions
+  public canCreateOfficialResources = (
+    resource: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      resource,
+      "manageOfficialResources",
+    );
+  };
+
+  public canUpdateOfficialResources = (
+    existing: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+    updates: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageOfficialResources",
+    );
+  };
+
+  public canDeleteOfficialResources = (
+    resource: Pick<
+      | SegmentInterface
+      | FactTableInterface
+      | FactMetricInterface
+      | MetricInterface,
+      "projects"
+    >,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      resource,
+      "manageOfficialResources",
+    );
+  };
+
   public canCreateSegment = (
     segment: Pick<SegmentInterface, "projects">,
   ): boolean => {
@@ -605,15 +658,30 @@ export class Permissions {
   };
 
   public canCreateMetric = (
-    metric: Pick<MetricInterface, "projects">,
+    metric: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+      if (!this.canCreateOfficialResources(metric)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 
   public canUpdateMetric = (
-    existing: Pick<MetricInterface, "projects">,
-    updates: Pick<MetricInterface, "projects">,
+    existing: Pick<MetricInterface, "projects" | "managedBy">,
+    updates: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (
+      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
+      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
+    ) {
+      if (!this.canUpdateOfficialResources(existing, updates)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
@@ -622,8 +690,14 @@ export class Permissions {
   };
 
   public canDeleteMetric = (
-    metric: Pick<MetricInterface, "projects">,
+    metric: Pick<MetricInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+      if (!this.canDeleteOfficialResources(metric)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(metric, "createMetrics");
   };
 

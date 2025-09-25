@@ -66,6 +66,8 @@ FactTableFilter:
   $ref: "./FactTableFilter.yaml"
 FactMetric:
   $ref: "./FactMetric.yaml"
+MetricAnalysis:
+  $ref: "./MetricAnalysis.yaml"
 Member:
   $ref: "./Member.yaml"
 Archetype:
