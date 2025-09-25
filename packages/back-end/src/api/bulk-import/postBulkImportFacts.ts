@@ -148,9 +148,6 @@ export const postBulkImportFacts = createApiRequestHandler(
           `Could not find fact table ${factTableId} for filter ${id}`,
         );
       }
-      if (!req.context.permissions.canCreateAndUpdateFactFilter(factTable)) {
-        req.context.permissions.throwPermissionError();
-      }
 
       // This bulk endpoint is mostly used to sync from version control
       // So default these resources to only be managed by API and not the UI
@@ -172,7 +169,7 @@ export const postBulkImportFacts = createApiRequestHandler(
       }
       // Create new filter
       else {
-        const newFilter = await createFactFilter(factTable, {
+        const newFilter = await createFactFilter(req.context, factTable, {
           description: "",
           ...data,
           id: id,

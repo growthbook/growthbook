@@ -36,8 +36,12 @@ export default function FactFilterList({ factTable }: Props) {
       pageSize: 10,
     });
 
-  const canAddAndEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
-  const canDelete = permissionsUtil.canDeleteFactFilter(factTable);
+  let canAddFiltersForTable =
+    permissionsUtil.canCreateAndUpdateFactFilter(factTable);
+
+  if (factTable.managedBy && ["config", "api"].includes(factTable.managedBy)) {
+    canAddFiltersForTable = false;
+  }
 
   return (
     <>
@@ -68,7 +72,7 @@ export default function FactFilterList({ factTable }: Props) {
         <div className="col-auto">
           <Tooltip
             body={
-              canAddAndEdit
+              canAddFiltersForTable
                 ? ""
                 : `You don't have permission to edit this fact table`
             }
@@ -77,10 +81,10 @@ export default function FactFilterList({ factTable }: Props) {
               className="btn btn-primary"
               onClick={(e) => {
                 e.preventDefault();
-                if (!canAddAndEdit) return;
+                if (!canAddFiltersForTable) return;
                 setNewOpen(true);
               }}
-              disabled={!canAddAndEdit}
+              disabled={!canAddFiltersForTable}
             >
               <GBAddCircle /> Add Filter
             </button>
@@ -98,20 +102,36 @@ export default function FactFilterList({ factTable }: Props) {
               </tr>
             </thead>
             <tbody>
-              {items.map((filter) => (
-                <tr key={filter.id}>
-                  <td style={{ verticalAlign: "top" }}>
-                    {filter.name}
-                    <OfficialBadge type="filter" managedBy={filter.managedBy} />
-                  </td>
-                  <td style={{ verticalAlign: "top" }}>
-                    <div style={{ marginTop: 2 }}>
-                      <InlineCode language="sql" code={filter.value} />
-                    </div>
-                  </td>
-                  <td style={{ verticalAlign: "top" }}>
-                    <MoreMenu>
-                      {canAddAndEdit && !filter.managedBy ? (
+              {items.map((filter) => {
+                let canEdit =
+                  permissionsUtil.canCreateAndUpdateFactFilter(factTable);
+                let canDelete = permissionsUtil.canDeleteFactFilter(factTable);
+
+                // If the filter is managed by the API or config, we block deleting
+                if (
+                  filter.managedBy &&
+                  ["config", "api"].includes(filter.managedBy)
+                ) {
+                  canEdit = false;
+                  canDelete = false;
+                }
+                return (
+                  <tr key={filter.id}>
+                    <td style={{ verticalAlign: "top" }}>
+                      {filter.name}
+                      <OfficialBadge
+                        type="filter"
+                        managedBy={filter.managedBy}
+                      />
+                    </td>
+                    <td style={{ verticalAlign: "top" }}>
+                      <div style={{ marginTop: 2 }}>
+                        <InlineCode language="sql" code={filter.value} />
+                      </div>
+                    </td>
+                    <td style={{ verticalAlign: "top" }}>
+                      <MoreMenu>
+                        {/* We always render the edit button, even if the user doesn't have permission. The modal blocks editing, but this allows the user to view details of the filter */}
                         <button
                           className="dropdown-item"
                           onClick={(e) => {
@@ -119,33 +139,33 @@ export default function FactFilterList({ factTable }: Props) {
                             setEditOpen(filter.id);
                           }}
                         >
-                          Edit
+                          {canEdit ? "Edit" : "View Details"}
                         </button>
-                      ) : null}
-                      {canDelete && !filter.managedBy ? (
-                        <DeleteButton
-                          displayName="Filter"
-                          className="dropdown-item"
-                          useIcon={false}
-                          text="Delete"
-                          additionalMessage={
-                            "This will remove the filter from all metrics that are using it."
-                          }
-                          onClick={async () => {
-                            await apiCall(
-                              `/fact-tables/${factTable.id}/filter/${filter.id}`,
-                              {
-                                method: "DELETE",
-                              },
-                            );
-                            mutateDefinitions();
-                          }}
-                        />
-                      ) : null}
-                    </MoreMenu>
-                  </td>
-                </tr>
-              ))}
+                        {canDelete ? (
+                          <DeleteButton
+                            displayName="Filter"
+                            className="dropdown-item"
+                            useIcon={false}
+                            text="Delete"
+                            additionalMessage={
+                              "This will remove the filter from all metrics that are using it."
+                            }
+                            onClick={async () => {
+                              await apiCall(
+                                `/fact-tables/${factTable.id}/filter/${filter.id}`,
+                                {
+                                  method: "DELETE",
+                                },
+                              );
+                              mutateDefinitions();
+                            }}
+                          />
+                        ) : null}
+                      </MoreMenu>
+                    </td>
+                  </tr>
+                );
+              })}
               {!items.length && isFiltered && (
                 <tr>
                   <td colSpan={3} align={"center"}>

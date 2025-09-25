@@ -214,7 +214,7 @@ export const createFactFilterPropsValidator = z
     name: z.string(),
     description: z.string(),
     value: z.string(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
   })
   .strict();
 
@@ -223,7 +223,7 @@ export const updateFactFilterPropsValidator = z
     name: z.string().optional(),
     description: z.string().optional(),
     value: z.string().optional(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
   })
   .strict();
 

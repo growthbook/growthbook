@@ -355,16 +355,12 @@ export const postFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
-    context.permissions.throwPermissionError();
-  }
-
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource");
   }
 
-  const filter = await createFactFilter(factTable, data);
+  const filter = await createFactFilter(context, factTable, data);
 
   res.status(200).json({
     status: 200,
@@ -384,10 +380,6 @@ export const putFactFilter = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canCreateAndUpdateFactFilter(factTable)) {
-    context.permissions.throwPermissionError();
-  }
-
   await updateFactFilter(context, factTable, req.params.filterId, data);
 
   res.status(200).json({
@@ -404,9 +396,6 @@ export const deleteFactFilter = async (
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find filter table with that id");
-  }
-  if (!context.permissions.canDeleteFactFilter(factTable)) {
-    context.permissions.throwPermissionError();
   }
 
   //Before deleting a fact filter, check if it's used by a fact segment

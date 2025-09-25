@@ -52,7 +52,7 @@ export interface FactFilterInterface {
   name: string;
   description: string;
   value: string;
-  managedBy?: "" | "api";
+  managedBy?: "" | "api" | "admin";
 }
 
 export interface FactTableInterface {

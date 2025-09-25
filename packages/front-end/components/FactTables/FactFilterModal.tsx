@@ -18,6 +18,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import Button from "@/components/Button";
 import Checkbox from "@/ui/Checkbox";
+import { useUser } from "@/services/UserContext";
 import FactTableSchema from "./FactTableSchema";
 
 export interface Props {
@@ -28,6 +29,7 @@ export interface Props {
 
 export default function FactFilterModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
+  const { hasCommercialFeature, permissionsUtil } = useUser();
 
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length,
@@ -43,11 +45,19 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
 
   const { mutateDefinitions } = useDefinitions();
 
+  let canEdit = permissionsUtil.canCreateAndUpdateFactFilter(factTable);
+  const canRunQueries = permissionsUtil.canRunFactQueries(factTable);
+
+  if (existing?.managedBy && ["config", "api"].includes(existing.managedBy)) {
+    canEdit = false;
+  }
+
   const form = useForm<CreateFactFilterProps>({
     defaultValues: {
       description: existing?.description || "",
       name: existing?.name || "",
       value: existing?.value || "",
+      managedBy: existing?.managedBy || "",
     },
   });
 
@@ -77,6 +87,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
       close={close}
       cta={"Save"}
       size="lg"
+      ctaEnabled={canEdit}
       header={existing ? "Edit Filter" : "Add Filter"}
       submit={form.handleSubmit(async (value) => {
         // If they added their own "WHERE" to the start, remove it
@@ -98,6 +109,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             description: value.description,
             name: value.name,
             value: value.value,
+            managedBy: value.managedBy,
           };
           await apiCall(`/fact-tables/${factTable.id}/filter/${existing.id}`, {
             method: "PUT",
@@ -206,6 +218,7 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
           <Button
             color="primary"
             className="btn-sm mr-4"
+            disabled={!canRunQueries}
             onClick={async () => {
               await testQuery(form.watch("value"));
             }}
@@ -215,6 +228,23 @@ export default function FactFilterModal({ existing, factTable, close }: Props) {
             </span>
             Test Query
           </Button>
+
+          {permissionsUtil.canCreateOfficialResources({
+            projects: factTable.projects || [],
+          }) && hasCommercialFeature("manage-official-resources") ? (
+            <div className="mt-4">
+              <Checkbox
+                label="Mark as Official Filter"
+                disabled={form.watch("managedBy") === "api"}
+                disabledMessage="This Filter is managed by the API, so it can not be edited in the UI."
+                description="Official Filters can only be modified by Admins or users with the ManageOfficialResources policy."
+                value={form.watch("managedBy") === "admin"}
+                setValue={(value) => {
+                  form.setValue("managedBy", value ? "admin" : "");
+                }}
+              />
+            </div>
+          ) : null}
         </div>
         {factTable.columns?.some((col) => !col.deleted) ? (
           <div className="col-auto border-left">
