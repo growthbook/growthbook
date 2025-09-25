@@ -1,4 +1,4 @@
-import { ManagedBy, MetricType } from "back-end/types/metric";
+import { MetricType } from "back-end/types/metric";
 import {
   ColumnInterface,
   ColumnRef,
