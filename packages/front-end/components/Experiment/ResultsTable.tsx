@@ -88,14 +88,14 @@ export type ResultsTableProps = {
     metric,
     row,
     maxRows,
-    resultGroup,
+    location,
   }: {
     label: string;
     metric: ExperimentMetricInterface;
     row: ExperimentTableRow;
     maxRows?: number;
     numDimensions?: number;
-    resultGroup?: "goal" | "secondary" | "guardrail";
+    location?: "goal" | "secondary" | "guardrail";
   }) => string | ReactElement;
   dateCreated: Date;
   statsEngine: StatsEngine;
@@ -750,7 +750,7 @@ export default function ResultsTable({
                                 label: row.label,
                                 metric: row.metric,
                                 row,
-                                resultGroup,
+                                location: resultGroup,
                               })
                             ) : (
                               <></>
@@ -812,7 +812,7 @@ export default function ResultsTable({
                                           label: row.label,
                                           metric: row.metric,
                                           row,
-                                          resultGroup,
+                                          location: resultGroup,
                                         })}
                                       </div>
                                     ) : null}
@@ -970,7 +970,7 @@ export default function ResultsTable({
                                       metric: row.metric,
                                       row,
                                       maxRows: 3,
-                                      resultGroup,
+                                      location: resultGroup,
                                     })
                                   )}
                                 </td>

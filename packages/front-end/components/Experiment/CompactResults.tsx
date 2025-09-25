@@ -30,7 +30,6 @@ import {
 import { isDefined } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { HiBadgeCheck } from "react-icons/hi";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -92,6 +91,13 @@ const CompactResults: FC<{
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
   disableTimeSeriesButton?: boolean;
+  pinnedMetricDimensionLevels?: string[];
+  togglePinnedMetricDimensionLevel?: (
+    metricId: string,
+    dimensionColumn: string,
+    dimensionValue: string | null,
+    location?: "goal" | "secondary" | "guardrail",
+  ) => void;
 }> = ({
   experimentId,
   editMetrics,
@@ -129,6 +135,8 @@ const CompactResults: FC<{
   ssrPolyfills,
   hideDetails,
   disableTimeSeriesButton,
+  pinnedMetricDimensionLevels,
+  togglePinnedMetricDimensionLevel,
 }) => {
   const {
     getExperimentMetricById,
@@ -149,20 +157,6 @@ const CompactResults: FC<{
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
-
-  const [pinnedMetricDimensionLevels, setPinnedMetricDimensionLevels] =
-    useLocalStorage<string[]>(`pinned-dimension-levels-${id}`, []);
-  const togglePinnedMetricDimensionLevel = (
-    metricId: string,
-    dimensionColumn: string,
-    dimensionValue: string,
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => {
-    const key = `${metricId}:${dimensionColumn}:${dimensionValue}:${resultGroup}`;
-    setPinnedMetricDimensionLevels((prev) =>
-      prev.includes(key) ? prev.filter((id) => id !== key) : [...prev, key],
-    );
-  };
 
   const [expandedMetrics, setExpandedMetrics] = useState<
     Record<string, boolean>
@@ -293,8 +287,8 @@ const CompactResults: FC<{
           const dimensionValue = dimension.dimensionValue;
           const expandedKey = `${metricId}:${resultGroup}`;
           const isExpanded = expandedMetrics[expandedKey] || false;
-          const pinnedKey = `${metricId}:${dimension.dimensionColumn}:${dimensionValue}:${resultGroup}`;
-          const isPinned = pinnedMetricDimensionLevels.includes(pinnedKey);
+          const pinnedKey = `${metricId}?dim:${dimension.dimensionColumn}=${dimensionValue || ''}&location=${resultGroup}`;
+          const isPinned = pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
 
           // Show level if metric is expanded OR if it's pinned
           const shouldShowLevel = isExpanded || isPinned;
@@ -676,28 +670,28 @@ export function getRenderLabelColumn({
     metric,
     row,
     maxRows,
-    resultGroup,
+    location,
   }: {
     label: string;
     metric: ExperimentMetricInterface;
     row?: ExperimentTableRow;
     maxRows?: number;
-    resultGroup?: "goal" | "secondary" | "guardrail";
+    location?: "goal" | "secondary" | "guardrail";
   }) {
-    const expandedKey = `${metric.id}:${resultGroup}`;
+    const expandedKey = `${metric.id}:${location}`;
     const isExpanded = !!expandedMetrics?.[expandedKey];
 
     const isDimensionRow = !!row?.isDimensionRow;
 
     // Dimension row
     if (isDimensionRow) {
-      const pinnedKey = `${metric.id}:${row?.dimensionColumn}:${row?.dimensionValue}:${resultGroup}`;
+      const pinnedKey = `${metric.id}?dim:${row?.dimensionColumn}=${row?.dimensionValue || ''}&location=${location || ''}`;
       const isPinned =
         pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
 
       return (
         <div className={className} style={{ position: "relative" }}>
-          {isExpanded && (
+          {isExpanded && togglePinnedMetricDimensionLevel ? (
             <Tooltip
               body={
                 isPinned
@@ -726,13 +720,13 @@ export function getRenderLabelColumn({
                       metric.id,
                       row.dimensionColumn,
                       row.dimensionValue,
-                      resultGroup || "goal",
+                      location || "goal",
                     );
                   }
                 }}
               />
             </Tooltip>
-          )}
+          ) : null}
           <div
             className="ml-2 font-weight-bold"
             style={{
@@ -781,7 +775,7 @@ export function getRenderLabelColumn({
               role="button"
               onClick={() => {
                 if (toggleExpandedMetric) {
-                  toggleExpandedMetric(metric.id, resultGroup || "goal");
+                  toggleExpandedMetric(metric.id, location || "goal");
                 }
               }}
               style={{

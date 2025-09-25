@@ -1474,6 +1474,7 @@ export async function postExperiment(
     "dismissedWarnings",
     "holdoutId",
     "defaultDashboardId",
+    "pinnedMetricDimensionLevels",
   ];
   let changes: Changeset = {};
 
