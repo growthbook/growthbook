@@ -20,7 +20,7 @@ export const postDimension = createApiRequestHandler(postDimensionValidator)(
       throw new Error("Invalid data source");
     }
 
-    const dimension = await createDimension({
+    const dimension = await createDimension(req.context, {
       datasource: req.body.datasourceId,
       userIdType: req.body.identifierType,
       owner: req.body.owner || "",

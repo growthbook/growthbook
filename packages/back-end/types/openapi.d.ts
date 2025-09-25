@@ -392,10 +392,10 @@ export interface components {
       description?: string;
       query: string;
       /**
-       * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
        * @enum {string}
        */
-      managedBy?: "" | "api" | "config";
+      managedBy?: "" | "api" | "config" | "admin";
     };
     Metric: {
       id: string;
@@ -8029,10 +8029,10 @@ export interface operations {
                 description?: string;
                 query: string;
                 /**
-                 * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
                  * @enum {string}
                  */
-                managedBy?: "" | "api" | "config";
+                managedBy?: "" | "api" | "config" | "admin";
               })[];
           }) & {
             limit: number;
@@ -8064,10 +8064,10 @@ export interface operations {
           /** @description SQL query or equivalent for the dimension */
           query: string;
           /**
-           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
         };
       };
     };
@@ -8086,10 +8086,10 @@ export interface operations {
               description?: string;
               query: string;
               /**
-               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
                * @enum {string}
                */
-              managedBy?: "" | "api" | "config";
+              managedBy?: "" | "api" | "config" | "admin";
             };
           };
         };
@@ -8119,10 +8119,10 @@ export interface operations {
               description?: string;
               query: string;
               /**
-               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
                * @enum {string}
                */
-              managedBy?: "" | "api" | "config";
+              managedBy?: "" | "api" | "config" | "admin";
             };
           };
         };
@@ -8153,10 +8153,10 @@ export interface operations {
           /** @description SQL query or equivalent for the dimension */
           query?: string;
           /**
-           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
         };
       };
     };
@@ -8175,10 +8175,10 @@ export interface operations {
               description?: string;
               query: string;
               /**
-               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API. 
                * @enum {string}
                */
-              managedBy?: "" | "api" | "config";
+              managedBy?: "" | "api" | "config" | "admin";
             };
           };
         };

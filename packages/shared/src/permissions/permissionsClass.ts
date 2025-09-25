@@ -1,5 +1,5 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { MetricInterface } from "back-end/types/metric";
+import { ManagedBy, MetricInterface } from "back-end/types/metric";
 import {
   EnvScopedPermission,
   Environment,
@@ -60,15 +60,32 @@ export class Permissions {
     return this.checkGlobalPermission("createPresentations");
   };
 
-  public canCreateDimension = (): boolean => {
+  public canCreateDimension = (managedBy?: ManagedBy): boolean => {
+    if (managedBy && ["admin", "api"].includes(managedBy)) {
+      if (!this.canCreateOfficialResources({ projects: [] })) {
+        return false;
+      }
+    }
     return this.checkGlobalPermission("createDimensions");
   };
 
-  public canUpdateDimension = (): boolean => {
+  public canUpdateDimension = (managedBy?: ManagedBy): boolean => {
+    if (managedBy && ["admin", "api"].includes(managedBy)) {
+      if (
+        !this.canUpdateOfficialResources({ projects: [] }, { projects: [] })
+      ) {
+        return false;
+      }
+    }
     return this.checkGlobalPermission("createDimensions");
   };
 
-  public canDeleteDimension = (): boolean => {
+  public canDeleteDimension = (managedBy?: ManagedBy): boolean => {
+    if (managedBy && ["admin", "api"].includes(managedBy)) {
+      if (!this.canDeleteOfficialResources({ projects: [] })) {
+        return false;
+      }
+    }
     return this.checkGlobalPermission("createDimensions");
   };
 

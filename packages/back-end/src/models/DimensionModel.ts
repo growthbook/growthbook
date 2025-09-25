@@ -33,12 +33,35 @@ function toInterface(doc: DimensionDocument): DimensionInterface {
   return doc.toJSON();
 }
 
-export async function createDimension(dimension: Partial<DimensionInterface>) {
+export async function createDimension(
+  context: ReqContext | ApiReqContext,
+  dimension: Partial<DimensionInterface>,
+) {
   if (usingFileConfig() && !ALLOW_CREATE_DIMENSIONS) {
     throw new Error(
       "Cannot add new dimensions. Dimensions managed by config.yml",
     );
   }
+
+  if (dimension.managedBy === "api" && !context.isApiRequest) {
+    throw new Error(
+      "Cannot create dimension managed by the API outside of the API.",
+    );
+  }
+
+  if (
+    dimension.managedBy === "admin" &&
+    !context.hasPremiumFeature("manage-official-resources")
+  ) {
+    throw new Error(
+      "Your organization's plan does not support creating official dimensions.",
+    );
+  }
+
+  if (!context.permissions.canCreateDimension(dimension.managedBy)) {
+    context.permissions.throwPermissionError();
+  }
+
   return toInterface(await DimensionModel.create(dimension));
 }
 
@@ -112,6 +135,10 @@ export async function updateDimension(
     throw new Error("Cannot update. Dimenision managed by the API");
   }
 
+  if (!context.permissions.canUpdateDimension(existing.managedBy)) {
+    context.permissions.throwPermissionError();
+  }
+
   await DimensionModel.updateOne(
     { id: existing.id, organization: context.org.id },
     { $set: updates },
@@ -132,6 +159,10 @@ export async function deleteDimensionById(
     throw new Error(
       "Cannot delete. This Dimension is being managed by the API",
     );
+  }
+
+  if (!context.permissions.canDeleteDimension(dimension.managedBy)) {
+    context.permissions.throwPermissionError();
   }
 
   await DimensionModel.deleteOne({
