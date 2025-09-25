@@ -46,7 +46,7 @@ export class SegmentModel extends BaseClass {
       );
     }
 
-    if (doc.managedBy === "admin") {
+    if (doc.managedBy === "admin" || doc.managedBy === "api") {
       if (!this.context.hasPremiumFeature("manage-official-resources")) {
         throw new Error(
           "Your organization's plan does not support creating official fact metrics.",
