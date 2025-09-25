@@ -50,7 +50,8 @@ export async function createDimension(
   }
 
   if (
-    dimension.managedBy === "admin" &&
+    dimension.managedBy &&
+    ["admin", "api"].includes(dimension.managedBy) &&
     !context.hasPremiumFeature("manage-official-resources")
   ) {
     throw new Error(
