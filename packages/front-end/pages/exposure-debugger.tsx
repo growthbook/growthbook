@@ -38,6 +38,7 @@ const ExposureDebuggerPage = () => {
   const { apiCall } = useAuth();
   const [results, setResults] = useState<UserExposureQueryResults | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { experimentsMap } = useExperiments();
   const datasourceId = form.watch("datasourceId");
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -58,6 +59,7 @@ const ExposureDebuggerPage = () => {
 
   const onSubmit = form.handleSubmit(async (value) => {
     setLoading(true);
+    setError(null);
     try {
       const results = await apiCall<UserExposureQueryResults>(
         "/query/user-exposures",
@@ -78,7 +80,7 @@ const ExposureDebuggerPage = () => {
       }
       setResults(results);
     } catch (e) {
-      setResults({ error: e.message });
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -198,13 +200,14 @@ const ExposureDebuggerPage = () => {
               <LoadingSpinner className="mr-2" /> Loading...
             </div>
           )}
+          {error && (
+            <Callout status="error">
+              <strong>Error:</strong> {error}
+            </Callout>
+          )}
           {results && !loading && (
             <div>
-              {results.error ? (
-                <Callout status="error">
-                  <strong>Error:</strong> {results.error}
-                </Callout>
-              ) : results.rows && results.rows.length > 0 ? (
+              {results.rows && results.rows.length > 0 ? (
                 <>
                   <div className="mb-3">
                     <strong>Found {results.rows.length} exposure(s)</strong>
