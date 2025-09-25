@@ -81,6 +81,7 @@ export function canInlineFilterColumn(
 export function getColumnExpression(
   column: string,
   factTable: Pick<FactTableInterface, "columns">,
+  // todo: add stringification for dimension cols that may not be string type
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   alias: string = "",
 ): string {

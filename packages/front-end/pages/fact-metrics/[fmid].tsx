@@ -723,7 +723,7 @@ export default function FactMetricPage() {
                       />
                       <div>
                         <div className="font-weight-bold mb-1">
-                          Enable Dimension Analysis
+                          Enable Dimensions
                         </div>
                         <div className="text-muted">
                           Analyze this metric across dimension values from the
@@ -734,7 +734,7 @@ export default function FactMetricPage() {
                   ) : (
                     <div>
                       <div className="font-weight-bold mb-1">
-                        Enable Dimension Analysis
+                        Enable Dimensions
                       </div>
                       <div className="text-muted">
                         Analyze this metric across dimension values from the

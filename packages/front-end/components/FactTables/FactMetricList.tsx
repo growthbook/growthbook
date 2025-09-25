@@ -197,7 +197,7 @@ export default function FactMetricList({ factTable }: Props) {
                 <SortableTH field="metricType">Type</SortableTH>
                 {shouldShowDimensionAnalysisColumn && (
                   <th>
-                    Enable Dimension Analysis
+                    Enable Dimensions
                     {!hasMetricDimensionsFeature && (
                       <PaidFeatureBadge
                         commercialFeature="metric-dimensions"

@@ -22,6 +22,7 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Checkbox from "@/ui/Checkbox";
+import HelperText from "@/ui/HelperText";
 import RadixButton from "@/ui/Button";
 import Button from "@/components/Button";
 import { useUser } from "@/services/UserContext";
@@ -48,6 +49,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     !!existing?.description?.length,
   );
   const [refreshingTopValues, setRefreshingTopValues] = useState(false);
+
+  const [dimensionLevelsWarning, setDimensionLevelsWarning] = useState(false);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -469,19 +472,30 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     size="xs"
                     variant="ghost"
                     onClick={refreshTopValues}
-                    disabled={refreshingTopValues}
+                    loading={refreshingTopValues}
                   >
                     Refresh
                   </RadixButton>
                 </div>
+                {dimensionLevelsWarning ||
+                (form.watch("dimensionLevels") || [])?.length >
+                  MAX_METRIC_DIMENSION_LEVELS ? (
+                  <HelperText status="warning" mb="1">
+                    Limit {MAX_METRIC_DIMENSION_LEVELS + ""} dimension levels
+                  </HelperText>
+                ) : null}
                 <MultiSelectField
                   value={form.watch("dimensionLevels") || []}
-                  onChange={(values) =>
-                    form.setValue(
-                      "dimensionLevels",
-                      values.slice(0, MAX_METRIC_DIMENSION_LEVELS),
-                    )
-                  }
+                  onChange={(values) => {
+                    if (values.length > MAX_METRIC_DIMENSION_LEVELS) {
+                      values = values.slice(0, MAX_METRIC_DIMENSION_LEVELS);
+                      setDimensionLevelsWarning(true);
+                      setTimeout(() => {
+                        setDimensionLevelsWarning(false);
+                      }, 3000);
+                    }
+                    form.setValue("dimensionLevels", values);
+                  }}
                   options={dimensionLevelOptions}
                   creatable={true}
                 />
