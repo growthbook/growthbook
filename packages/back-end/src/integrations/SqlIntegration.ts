@@ -2442,9 +2442,9 @@ export default abstract class SqlIntegration
             // Create dimension columns for ALL possible dimensions
             const dimensionSelects = allDimensionNames.map((dim) => {
               if (availableDimensions.includes(dim)) {
-                return `${tableAlias}.${dim} AS ${dim}`;
+                return `${this.castToString(`${tableAlias}.${dim}`)} AS ${dim}`;
               } else {
-                return `null AS ${dim}`;
+                return `${this.castToString("null")} AS ${dim}`;
               }
             });
 

@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { UserExperimentExposuresQueryResponseRows } from "back-end/src/types/Integration";
 import { QueryStatistics } from "back-end/types/query";
 import { useEffect, useState } from "react";
+import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -228,6 +229,7 @@ const ExposureDebuggerPage = () => {
                           <th>Timestamp</th>
                           <th>Experiment</th>
                           <th>Variation</th>
+                          <th>Variation Key</th>
                           {dynamicColumns.map((column) => (
                             <th key={column}>{column}</th>
                           ))}
@@ -246,7 +248,7 @@ const ExposureDebuggerPage = () => {
                             : null;
                           return (
                             <tr key={index}>
-                              <td>{new Date(row.timestamp).toUTCString()}</td>
+                              <td>{datetime(row.timestamp)}</td>
                               <td>
                                 <Link href={`/experiment/${row.id}`}>
                                   {row.experiment_id}
@@ -270,7 +272,6 @@ const ExposureDebuggerPage = () => {
                                     <span
                                       className="d-inline-block"
                                       style={{
-                                        width: 150,
                                         lineHeight: "14px",
                                       }}
                                     >
@@ -284,8 +285,9 @@ const ExposureDebuggerPage = () => {
                                   </span>
                                 )}
                               </td>
+                              <td>{row.variation_id}</td>
                               {dynamicColumns.map((column) => (
-                                <td key={column}>{row[column] || "-"}</td>
+                                <td key={column}>{row[column] || "--"}</td>
                               ))}
                             </tr>
                           );
