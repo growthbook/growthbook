@@ -397,9 +397,6 @@ export const deleteFactFilter = async (
   if (!factTable) {
     throw new Error("Could not find filter table with that id");
   }
-  if (!context.permissions.canDeleteFactFilter(factTable)) {
-    context.permissions.throwPermissionError();
-  }
 
   //Before deleting a fact filter, check if it's used by a fact segment
   const segments = (

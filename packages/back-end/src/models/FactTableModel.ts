@@ -475,6 +475,10 @@ export async function deleteFactFilter(
     throw new Error("This filter is managed by the API");
   }
 
+  if (!context.permissions.canDeleteFactFilter(factTable)) {
+    context.permissions.throwPermissionError();
+  }
+
   const newFilters = factTable.filters.filter((f) => f.id !== filterId);
 
   if (newFilters.length === factTable.filters.length) {
