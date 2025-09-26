@@ -6,12 +6,16 @@ import { isProjectListValidForProject } from "shared/util";
 import { validateSQL } from "@/services/datasources";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import Checkbox from "@/ui/Checkbox";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import SelectOwner from "../Owner/SelectOwner";
+import { MANAGED_BY_ADMIN, MANAGED_BY_EMPTY } from "../Metrics/MetricForm";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -20,6 +24,8 @@ const DimensionForm: FC<{
   const { apiCall } = useAuth();
   const { getDatasourceById, datasources, mutateDefinitions, project } =
     useDefinitions();
+  const { hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
 
   const validDatasources = datasources.filter(
     (d) =>
@@ -36,6 +42,7 @@ const DimensionForm: FC<{
         (current.id ? current.datasource : validDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current?.owner || "",
+      managedBy: current.managedBy || MANAGED_BY_EMPTY,
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -151,6 +158,22 @@ const DimensionForm: FC<{
           <strong>Important:</strong> Please limit dimensions to at most 50
           unique values.
         </p>
+        {permissionsUtil.canCreateOfficialResources({ projects: [] }) &&
+        hasCommercialFeature("manage-official-resources") ? (
+          <Checkbox
+            label="Mark as Official Dimension"
+            disabled={form.watch("managedBy") === "api"}
+            disabledMessage="This dimension is managed by the API, so it can not be edited in the UI."
+            description="Official Dimensions can only be modified by Admins or users with the ManageOfficialResources policy."
+            value={form.watch("managedBy") === MANAGED_BY_ADMIN}
+            setValue={(value) => {
+              form.setValue(
+                "managedBy",
+                value ? MANAGED_BY_ADMIN : MANAGED_BY_EMPTY,
+              );
+            }}
+          />
+        ) : null}
       </Modal>
     </>
   );

@@ -1158,10 +1158,11 @@ paths:
                   description: SQL query or equivalent for the dimension
                 managedBy:
                   type: string
-                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API.'
                   enum:
                     - ''
                     - api
+                    - admin
       responses:
         '200':
           content:
@@ -1237,10 +1238,11 @@ paths:
                   description: SQL query or equivalent for the dimension
                 managedBy:
                   type: string
-                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+                  description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API.'
                   enum:
                     - ''
                     - api
+                    - admin
       responses:
         '200':
           content:
@@ -5843,11 +5845,12 @@ components:
           type: string
         managedBy:
           type: string
-          description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere.'
+          description: 'Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API.'
           enum:
             - ''
             - api
             - config
+            - admin
     Metric:
       type: object
       required:
