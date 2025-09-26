@@ -295,6 +295,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
 
+  // TODO(funnel): add funnel dimensions
   const getFactMetricDimensions = useCallback(
     (parentId: string): FactMetricDimension[] => {
       const parentMetric = data?.factMetrics?.find((m) => m.id === parentId);

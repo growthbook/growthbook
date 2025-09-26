@@ -4885,6 +4885,47 @@ paths:
                 inverse:
                   type: boolean
                   description: 'Set to true for things like Bounce Rate, where you want the metric to decrease'
+                funnelSettings:
+                  description: Controls the settings for funnel metrics (mandatory if metricType is "funnel")
+                  type: object
+                  required:
+                    - funnelSteps
+                    - order
+                  properties:
+                    funnelSteps:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - factTableId
+                          - column
+                          - filters
+                        properties:
+                          factTableId:
+                            type: string
+                          column:
+                            type: string
+                          filters:
+                            type: array
+                            items:
+                              type: string
+                          inlineFilters:
+                            type: object
+                            additionalProperties:
+                              type: array
+                              items:
+                                type: string
+                          optional:
+                            type: boolean
+                            description: 'If true, the step is optional'
+                          name:
+                            type: string
+                            description: The name of the step
+                    order:
+                      type: string
+                      enum:
+                        - any
+                        - consecutive
                 quantileSettings:
                   description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
                   type: object
@@ -7862,6 +7903,7 @@ components:
             - mean
             - quantile
             - ratio
+            - funnel
         numerator:
           type: object
           required:
@@ -7946,6 +7988,45 @@ components:
               multipleOf: 0.001
               minimum: 0.001
               maximum: 0.999
+        funnelSettings:
+          type: object
+          description: Controls the settings for funnel metrics (mandatory if metricType is "funnel")
+          required:
+            - funnelSteps
+            - order
+          properties:
+            funnelSteps:
+              type: array
+              items:
+                type: object
+                required:
+                  - factTableId
+                  - column
+                  - filters
+                properties:
+                  factTableId:
+                    type: string
+                  filters:
+                    type: array
+                    items:
+                      type: string
+                  inlineFilters:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+                  optional:
+                    type: boolean
+                    description: 'If true, the step is optional'
+                  name:
+                    type: string
+                    description: The name of the step
+            order:
+              type: string
+              enum:
+                - any
+                - consecutive
         cappingSettings:
           description: Controls how outliers are handled
           type: object

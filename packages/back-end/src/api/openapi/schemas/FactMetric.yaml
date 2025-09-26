@@ -50,6 +50,7 @@ properties:
       - mean
       - quantile
       - ratio
+      - funnel
   numerator:
     type: object
     required:
@@ -134,6 +135,45 @@ properties:
         multipleOf: 0.001
         minimum: 0.001
         maximum: 0.999
+  funnelSettings:
+    type: object
+    description: Controls the settings for funnel metrics (mandatory if metricType is "funnel")
+    required:
+      - funnelSteps
+      - order
+    properties:
+      funnelSteps:
+        type: array
+        items:
+          type: object
+          required:
+            - factTableId
+            - column
+            - filters
+          properties:
+            factTableId:
+              type: string
+            filters:
+              type: array
+              items:
+                type: string
+            inlineFilters:
+              type: object
+              additionalProperties:
+                type: array
+                items:
+                  type: string
+            optional:
+              type: boolean
+              description: If true, the step is optional
+            name:
+              type: string
+              description: The name of the step
+      order:
+        type: string
+        enum:
+          - any
+          - consecutive
   cappingSettings:
     description: Controls how outliers are handled
     type: object

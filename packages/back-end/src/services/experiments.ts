@@ -42,6 +42,8 @@ import {
   parseDimensionMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  createFunnelMetrics,
+  parseFunnelMetricId,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -199,9 +201,17 @@ export async function getExperimentMetricById(
 ): Promise<ExperimentMetricInterface | null> {
   // Handle dimension metric IDs by extracting the parent metric ID
   const dimensionInfo = parseDimensionMetricId(metricId);
-  const actualMetricId = dimensionInfo.isDimensionMetric
+  let actualMetricId = dimensionInfo.isDimensionMetric
     ? dimensionInfo.parentMetricId
     : metricId;
+
+  // dimension and funnel are mutually exclusive, so we can just
+  // override if funnel metric is found
+  // Handle funnel metric IDs by extracting the parent metric ID
+  const funnelInfo = parseFunnelMetricId(metricId);
+  actualMetricId = funnelInfo.isFunnelStepMetric
+    ? funnelInfo.parentMetricId
+    : actualMetricId;
 
   if (isFactMetricId(actualMetricId)) {
     return context.models.factMetrics.getById(actualMetricId);
@@ -2873,6 +2883,22 @@ export async function getSettingsForSnapshotMetrics(
           metricMap.set(expandedMetric.id, expandedMetric);
         });
       }
+    }
+    // if this is a fact metric with funnel type, expand it
+    if (isFactMetric(metric) && metric.metricType === "funnel") {
+      const funnelMetrics = createFunnelMetrics({
+        parentMetric: metric,
+      });
+      funnelMetrics.forEach((funnelMetric) => {
+        const expandedMetric: ExperimentMetricInterface = {
+          ...metric,
+          id: funnelMetric.id,
+          name: funnelMetric.name,
+          description: funnelMetric.description,
+        };
+        expandedMetrics.push(expandedMetric);
+        metricMap.set(expandedMetric.id, expandedMetric);
+      });
     }
   }
 

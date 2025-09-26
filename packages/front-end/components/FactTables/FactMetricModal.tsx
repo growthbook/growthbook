@@ -960,6 +960,14 @@ function getPreviewSQL({
   numeratorFactTable: FactTableInterface | null;
   denominatorFactTable: FactTableInterface | null;
 }): { sql: string; denominatorSQL?: string; experimentSQL: string } {
+  // TODO(funnel): implement
+  if (type === "funnel") {
+    return {
+      sql: "",
+      experimentSQL: "",
+    };
+  }
+
   const identifier =
     "`" + (numeratorFactTable?.userIdTypes?.[0] || "user_id") + "`";
 

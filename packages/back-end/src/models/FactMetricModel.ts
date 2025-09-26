@@ -42,7 +42,7 @@ function validateUserFilter({
   numerator: ColumnRef;
   factTable: FactTableInterface;
 }): void {
-  // error if one is specified but not the other
+  // error if one is specified but nocanRunMetricQueriest the other
   if (!!numerator.aggregateFilter !== !!numerator.aggregateFilterColumn) {
     throw new Error(
       `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither.`,
@@ -207,6 +207,24 @@ export class FactMetricModel extends BaseClass {
       });
     }
 
+    // funnel metric validation
+    if (data.metricType === "funnel") {
+      if (!this.context.hasPremiumFeature("funnel-metrics")) {
+        throw new Error("Funnel metrics are a premium feature");
+      }
+      if (!data.funnelSettings || data.funnelSettings.funnelSteps.length <= 1) {
+        throw new Error(
+          "Must specify more than one funnel step for funnel metrics",
+        );
+      }
+
+      // TODO(funnel): support consecutive funnel order
+      if (data.funnelSettings.order === "consecutive") {
+        throw new Error("Consecutive funnel order is not supported");
+      }
+    }
+
+    // ratio metric validation
     if (data.metricType === "ratio") {
       if (!data.denominator) {
         throw new Error("Denominator required for ratio metric");
@@ -235,6 +253,8 @@ export class FactMetricModel extends BaseClass {
     } else if (data.denominator?.factTableId) {
       throw new Error("Denominator not allowed for non-ratio metric");
     }
+
+    // quantile metric validation
     if (data.metricType === "quantile") {
       if (!this.context.hasPremiumFeature("quantile-metrics")) {
         throw new Error("Quantile metrics are a premium feature");
@@ -244,12 +264,15 @@ export class FactMetricModel extends BaseClass {
         throw new Error("Must specify `quantileSettings` for quantile metrics");
       }
     }
+
+    // retention metric validation
     if (
       data.metricType === "retention" &&
       !this.context.hasPremiumFeature("retention-metrics")
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
+
     if (data.loseRisk < data.winRisk) {
       throw new Error(
         `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,

@@ -107,7 +107,7 @@ export function getColumnExpression(
 
 export function getColumnRefWhereClause(
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
-  columnRef: ColumnRef,
+  columnRef: ColumnRef | FunnelColumnRef,
   escapeStringLiteral: (s: string) => string,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
   showSourceComment = false,
@@ -155,27 +155,33 @@ export function getColumnRefWhereClause(
   }
 
   // Then add inline filters
-  Object.entries(inlineFilters).forEach(([column, values]) => {
-    const escapedValues = new Set(
-      values
-        .filter((v) => v.length > 0)
-        .map((v) => "'" + escapeStringLiteral(v) + "'"),
-    );
+  const inlineFiltersArray = Array.isArray(inlineFilters)
+    ? inlineFilters
+    : [inlineFilters];
 
-    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
-
-    if (!escapedValues.size) {
-      return;
-    } else if (escapedValues.size === 1) {
-      // parentheses are overkill here but they help de-dupe with
-      // any identical user additional filters
-      where.add(`(${columnExpr} = ${[...escapedValues][0]})`);
-    } else {
-      where.add(
-        `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`,
+  inlineFiltersArray.forEach((filter) => {
+    Object.entries(filter).forEach(([column, values]) => {
+      const escapedValues = new Set(
+        values
+          .filter((v) => v.length > 0)
+          .map((v) => "'" + escapeStringLiteral(v) + "'"),
       );
-    }
+
+      const columnExpr = getColumnExpression(column, factTable, jsonExtract);
+
+      if (!escapedValues.size) {
+        return;
+      } else if (escapedValues.size === 1) {
+        where.add(`(${columnExpr} = ${[...escapedValues][0]})`);
+      } else {
+        where.add(
+          `(${columnExpr} IN (\n  ${[...escapedValues].join(",\n  ")}\n))`,
+        );
+      }
+    });
   });
+  // TODO(funnel): this will create a really long fact table efficiency where clause
+  // that will have repeated filters
 
   // Finally add additional filters
   filterIds.forEach((filterId) => {
@@ -396,6 +402,74 @@ export function parseDimensionMetricId(metricId: string): DimensionMetricInfo {
     dimensionColumn,
     dimensionValue: dimensionValue === "" ? null : dimensionValue,
   };
+}
+
+export type FunnelMetricInfo =
+  | {
+      isFunnelStepMetric: false;
+      parentMetricId: string;
+    }
+  | {
+      isFunnelStepMetric: true;
+      parentMetricId: string;
+      stepNumber: number;
+    };
+
+export function parseFunnelMetricId(metricId: string): FunnelMetricInfo {
+  const match = metricId.match(/^(.+)\?funnelStep=(\d+)$/);
+
+  if (!match) {
+    return {
+      isFunnelStepMetric: false,
+      parentMetricId: metricId,
+    };
+  }
+
+  const [, parentMetricId, stepNumber] = match;
+
+  return {
+    isFunnelStepMetric: true,
+    parentMetricId,
+    stepNumber: parseInt(stepNumber),
+  };
+}
+
+export type FunnelColumnRef = Omit<ColumnRef, "inlineFilters"> & {
+  inlineFilters: Record<string, string[]>[];
+};
+
+export function buildFunnelStepColumnRef(
+  factMetric: FactMetricInterface,
+  stepNumber: number,
+): ColumnRef | FunnelColumnRef {
+  // stepNumber is one indexed
+
+  if (factMetric.metricType !== "funnel" || !factMetric.funnelSettings) {
+    return factMetric.numerator;
+  }
+
+  const filters: string[] = [];
+  const inlineFilters: Record<string, string[]>[] = [];
+  factMetric.funnelSettings.funnelSteps
+    .slice(0, stepNumber - 1)
+    .forEach((step, i) => {
+      if (step.optional || i !== stepNumber - 1) {
+        return;
+      }
+      filters.push(...step.filters);
+      if (step.inlineFilters) {
+        inlineFilters.push(step.inlineFilters);
+      }
+    });
+
+  const column: FunnelColumnRef = {
+    factTableId: factMetric.numerator.factTableId,
+    column: "$$distinctUsers",
+    filters,
+    inlineFilters,
+  };
+
+  return column;
 }
 
 export function getMetricLink(id: string): string {
@@ -1095,6 +1169,33 @@ export function createDimensionMetrics({
   });
 
   return dimensionMetrics;
+}
+
+export function createFunnelMetrics({
+  parentMetric,
+}: {
+  parentMetric: FactMetricInterface;
+}): Array<{
+  id: string;
+  name: string;
+  description: string;
+  stepNumber: number;
+  stepName: string;
+}> {
+  if (parentMetric.metricType !== "funnel" || !parentMetric.funnelSettings) {
+    return [];
+  }
+
+  return parentMetric.funnelSettings.funnelSteps.map((step, i) => {
+    const stepName = step.name ?? "Step " + i + 1;
+    return {
+      id: `${parentMetric.id}?funnelStep=${i + 1}`,
+      name: `${parentMetric.name} (${stepName})`,
+      description: `${step.name ? `${step.name}: ` : ""}Step ${i + 1} of ${parentMetric.name}`,
+      stepNumber: i,
+      stepName: stepName,
+    };
+  });
 }
 
 // Returns n "equal" decimals rounded to 3 places that add up to 1

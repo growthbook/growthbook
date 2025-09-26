@@ -163,12 +163,30 @@ export const priorSettingsValidator = z.object({
   stddev: z.number(),
 });
 
+export const funnelStepValidator = columnRefValidator
+  .pick({
+    factTableId: true,
+    inlineFilters: true,
+    filters: true,
+    // TODO(funnel): scope feasibility of aggregate filters
+  })
+  .extend({
+    optional: z.boolean().optional(),
+    name: z.string().optional(),
+  });
+
+export const funnelSettingsValidator = z.object({
+  funnelSteps: z.array(funnelStepValidator),
+  order: z.enum(["any", "consecutive"]),
+});
+
 export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
   "proportion",
   "retention",
   "quantile",
+  "funnel",
 ]);
 
 export const factMetricValidator = z
@@ -211,6 +229,9 @@ export const factMetricValidator = z
     enableMetricDimensions: z.boolean().optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
+
+    // TODO(funnel): numerator should be last step in funnel?
+    funnelSettings: funnelSettingsValidator.optional(),
   })
   .strict();
 

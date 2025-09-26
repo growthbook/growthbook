@@ -3502,7 +3502,7 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "funnel";
       numerator: {
         factTableId: string;
         column: string;
@@ -3542,6 +3542,22 @@ export interface components {
         ignoreZeros: boolean;
         /** @description The quantile value (from 0.001 to 0.999) */
         quantile: number;
+      };
+      /** @description Controls the settings for funnel metrics (mandatory if metricType is "funnel") */
+      funnelSettings?: {
+        funnelSteps: ({
+            factTableId: string;
+            filters: (string)[];
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
+            /** @description If true, the step is optional */
+            optional?: boolean;
+            /** @description The name of the step */
+            name?: string;
+          })[];
+        /** @enum {string} */
+        order: "any" | "consecutive";
       };
       /** @description Controls how outliers are handled */
       cappingSettings: {
@@ -12546,7 +12562,7 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "funnel";
                 numerator: {
                   factTableId: string;
                   column: string;
@@ -12586,6 +12602,22 @@ export interface operations {
                   ignoreZeros: boolean;
                   /** @description The quantile value (from 0.001 to 0.999) */
                   quantile: number;
+                };
+                /** @description Controls the settings for funnel metrics (mandatory if metricType is "funnel") */
+                funnelSettings?: {
+                  funnelSteps: ({
+                      factTableId: string;
+                      filters: (string)[];
+                      inlineFilters?: {
+                        [key: string]: (string)[] | undefined;
+                      };
+                      /** @description If true, the step is optional */
+                      optional?: boolean;
+                      /** @description The name of the step */
+                      name?: string;
+                    })[];
+                  /** @enum {string} */
+                  order: "any" | "consecutive";
                 };
                 /** @description Controls how outliers are handled */
                 cappingSettings: {
@@ -12701,6 +12733,23 @@ export interface operations {
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
+          /** @description Controls the settings for funnel metrics (mandatory if metricType is "funnel") */
+          funnelSettings?: {
+            funnelSteps: ({
+                factTableId: string;
+                column: string;
+                filters: (string)[];
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
+                /** @description If true, the step is optional */
+                optional?: boolean;
+                /** @description The name of the step */
+                name?: string;
+              })[];
+            /** @enum {string} */
+            order: "any" | "consecutive";
+          };
           /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
           quantileSettings?: {
             /**
@@ -12801,7 +12850,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "funnel";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -12841,6 +12890,22 @@ export interface operations {
                 ignoreZeros: boolean;
                 /** @description The quantile value (from 0.001 to 0.999) */
                 quantile: number;
+              };
+              /** @description Controls the settings for funnel metrics (mandatory if metricType is "funnel") */
+              funnelSettings?: {
+                funnelSteps: ({
+                    factTableId: string;
+                    filters: (string)[];
+                    inlineFilters?: {
+                      [key: string]: (string)[] | undefined;
+                    };
+                    /** @description If true, the step is optional */
+                    optional?: boolean;
+                    /** @description The name of the step */
+                    name?: string;
+                  })[];
+                /** @enum {string} */
+                order: "any" | "consecutive";
               };
               /** @description Controls how outliers are handled */
               cappingSettings: {
@@ -12919,7 +12984,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "funnel";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -12959,6 +13024,22 @@ export interface operations {
                 ignoreZeros: boolean;
                 /** @description The quantile value (from 0.001 to 0.999) */
                 quantile: number;
+              };
+              /** @description Controls the settings for funnel metrics (mandatory if metricType is "funnel") */
+              funnelSettings?: {
+                funnelSteps: ({
+                    factTableId: string;
+                    filters: (string)[];
+                    inlineFilters?: {
+                      [key: string]: (string)[] | undefined;
+                    };
+                    /** @description If true, the step is optional */
+                    optional?: boolean;
+                    /** @description The name of the step */
+                    name?: string;
+                  })[];
+                /** @enum {string} */
+                order: "any" | "consecutive";
               };
               /** @description Controls how outliers are handled */
               cappingSettings: {
@@ -13162,7 +13243,7 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "funnel";
               numerator: {
                 factTableId: string;
                 column: string;
@@ -13202,6 +13283,22 @@ export interface operations {
                 ignoreZeros: boolean;
                 /** @description The quantile value (from 0.001 to 0.999) */
                 quantile: number;
+              };
+              /** @description Controls the settings for funnel metrics (mandatory if metricType is "funnel") */
+              funnelSettings?: {
+                funnelSteps: ({
+                    factTableId: string;
+                    filters: (string)[];
+                    inlineFilters?: {
+                      [key: string]: (string)[] | undefined;
+                    };
+                    /** @description If true, the step is optional */
+                    optional?: boolean;
+                    /** @description The name of the step */
+                    name?: string;
+                  })[];
+                /** @enum {string} */
+                order: "any" | "consecutive";
               };
               /** @description Controls how outliers are handled */
               cappingSettings: {
@@ -13418,6 +13515,23 @@ export interface operations {
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse?: boolean;
+                /** @description Controls the settings for funnel metrics (mandatory if metricType is "funnel") */
+                funnelSettings?: {
+                  funnelSteps: ({
+                      factTableId: string;
+                      column: string;
+                      filters: (string)[];
+                      inlineFilters?: {
+                        [key: string]: (string)[] | undefined;
+                      };
+                      /** @description If true, the step is optional */
+                      optional?: boolean;
+                      /** @description The name of the step */
+                      name?: string;
+                    })[];
+                  /** @enum {string} */
+                  order: "any" | "consecutive";
+                };
                 /** @description Controls the settings for quantile metrics (mandatory if metricType is "quantile") */
                 quantileSettings?: {
                   /**

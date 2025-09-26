@@ -96,6 +96,7 @@ export type MetricWindowSettings = z.infer<typeof windowSettingsValidator>;
 export type LegacyMetricWindowSettings = z.infer<
   typeof legacyWindowSettingsValidator
 >;
+
 export type MetricPriorSettings = z.infer<typeof priorSettingsValidator>;
 
 export type FactMetricInterface = z.infer<typeof factMetricValidator>;

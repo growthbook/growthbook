@@ -19,6 +19,9 @@ import {
   getColumnExpression,
   isCappableMetricType,
   parseDimensionMetricId,
+  parseFunnelMetricId,
+  FunnelColumnRef,
+  buildFunnelStepColumnRef,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -4833,9 +4836,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
       const dimensionInfo = parseDimensionMetricId(m.id);
+      const funnelInfo = parseFunnelMetricId(m.id);
+      let funnelColumnRef: ColumnRef | FunnelColumnRef | undefined;
+      if (funnelInfo.isFunnelStepMetric) {
+        funnelColumnRef = buildFunnelStepColumnRef(m, funnelInfo.stepNumber);
+      }
       const filters = getColumnRefWhereClause(
         factTable,
-        m.numerator,
+        funnelColumnRef || m.numerator,
         this.escapeStringLiteral.bind(this),
         this.extractJSONField.bind(this),
         false,

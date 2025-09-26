@@ -67,7 +67,8 @@ export type CommercialFeature =
   | "dashboards"
   | "precomputed-dimensions"
   | "metric-dimensions"
-  | "manage-official-resources";
+  | "manage-official-resources"
+  | "funnel-metrics";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -211,6 +212,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "managed-warehouse",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
+    "funnel-metrics",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -242,6 +244,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "managed-warehouse",
     "saveSqlExplorerQueries",
     "precomputed-dimensions",
+    "funnel-metrics",
   ]),
   enterprise: new Set<CommercialFeature>([
     "ai-suggestions",
@@ -300,6 +303,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "precomputed-dimensions",
     "metric-dimensions",
     "manage-official-resources",
+    "funnel-metrics",
   ]),
 };
 

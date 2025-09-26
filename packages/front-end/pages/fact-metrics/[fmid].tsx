@@ -101,7 +101,7 @@ function MetricType({
   type,
   quantileType,
 }: {
-  type: "proportion" | "retention" | "mean" | "ratio" | "quantile";
+  type: "proportion" | "retention" | "mean" | "ratio" | "quantile" | "funnel";
   quantileType?: "" | "unit" | "event";
 }) {
   if (type === "proportion") {
@@ -144,7 +144,14 @@ function MetricType({
       </div>
     );
   }
-
+  if (type === "funnel") {
+    return (
+      <div>
+        <strong>Funnel Metric</strong> - The percent of users who complete a
+        series of steps
+      </div>
+    );
+  }
   return null;
 }
 
@@ -237,6 +244,7 @@ export default function FactMetricPage() {
     ignoreInvalid: true,
   });
 
+  // TODO(funnel): What is the numerator, even?
   const numeratorData: DataListItem[] = [
     {
       label: `Fact Table`,

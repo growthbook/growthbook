@@ -633,6 +633,8 @@ const getTextForEmbedding = (metric: MetricInterface): string => {
   return `Name: ${metric.name}\nDescription: ${metric.description}`;
 };
 
+/** Expands funnel metrics for fact metrics with metricType === "funnel" and adds them to the metric map */
+// TODO(funnel): expandFunnelMetricsInMap()
 /**
  * Expands dimension metrics for fact metrics with enableMetricDimensions and adds them to the metricMap
  */
