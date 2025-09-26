@@ -22,10 +22,11 @@ properties:
       type: string
   managedBy:
     type: string
-    description: Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere.
+    description: Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy. If set to "api", it can only be managed by the API.
     enum:
       - ""
       - api
+      - admin
   type:
     type: string
     description: GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters.

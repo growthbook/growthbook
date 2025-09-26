@@ -28,11 +28,12 @@ properties:
     type: string
   managedBy:
     type: string
-    description: Where this segment must be managed from. If not set (empty string), it can be managed from anywhere.
+    description: Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can only be managed by admins or users with the ManageOfficialResources policy.
     enum:
       - ""
       - api
       - config
+      - admin
   type:
     enum:
       - SQL

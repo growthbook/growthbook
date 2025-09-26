@@ -253,6 +253,13 @@ const SegmentPage: FC = () => {
               </thead>
               <tbody>
                 {segments.map((s) => {
+                  let canEditSegment = permissionsUtil.canUpdateSegment(s, {});
+                  let canDeleteSegment = permissionsUtil.canDeleteSegment(s);
+
+                  if (s.managedBy && ["api", "config"].includes(s.managedBy)) {
+                    canEditSegment = false;
+                    canDeleteSegment = false;
+                  }
                   const datasource = getDatasourceById(s.datasource);
                   const userIdType = datasource?.properties?.userIds
                     ? s.userIdType || "user_id"
@@ -321,8 +328,7 @@ const SegmentPage: FC = () => {
                               setSegmentForm(s);
                             }}
                           >
-                            {permissionsUtil.canUpdateSegment(s, {}) &&
-                            !s.managedBy ? (
+                            {canEditSegment ? (
                               <>
                                 <FaPencilAlt /> Edit
                               </>
@@ -330,10 +336,7 @@ const SegmentPage: FC = () => {
                               <>View Details</>
                             )}
                           </button>
-                          {permissionsUtil.canDeleteSegment(s) &&
-                          canStoreSegmentsInMongo &&
-                          // if the segment has a managedBy value, it can't be deleted in the UI
-                          !s.managedBy ? (
+                          {canDeleteSegment && canStoreSegmentsInMongo ? (
                             <DeleteButton
                               className="dropdown-item"
                               displayName={s.name}
