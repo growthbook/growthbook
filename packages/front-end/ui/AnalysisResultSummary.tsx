@@ -18,7 +18,6 @@ import {
 } from "shared/experiments";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { MdSwapCalls } from "react-icons/md";
-import { BsArrowReturnRight } from "react-icons/bs";
 import { PiInfo } from "react-icons/pi";
 import Table, {
   TableHeader,
@@ -46,7 +45,7 @@ import { PercentileLabel } from "@/components/Metrics/MetricName";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import Callout from "@/ui/Callout";
 
-interface AnalysisResultPopoverProps {
+interface AnalysisResultSummaryProps {
   data?: {
     metricRow: number;
     metric: ExperimentMetricInterface;
@@ -69,12 +68,12 @@ interface AnalysisResultPopoverProps {
 
 const numberFormatter = Intl.NumberFormat();
 
-export default function AnalysisResultPopover({
+export default function AnalysisResultSummary({
   data,
   differenceType,
   isBandit,
   ssrPolyfills,
-}: AnalysisResultPopoverProps) {
+}: AnalysisResultSummaryProps) {
   const _currency = useCurrency();
   const displayCurrency = ssrPolyfills?.useCurrency?.() || _currency;
 
@@ -223,16 +222,13 @@ export default function AnalysisResultPopover({
           {metricInverseIconDisplay}
         </Flex>
         {data.dimensionName ? (
-          <Flex ml="1" gap="1" mt="-2" align="center">
-            <BsArrowReturnRight size={12} />
+          <Flex gap="1" mt="-1" align="center">
+            <span className="uppercase-title">Unit dimension:</span>{" "}
             <Flex gap="1">
               <span className="text-ellipsis" style={{ maxWidth: 150 }}>
                 {data.dimensionName}:
               </span>
-              <span
-                className="font-weight-bold text-ellipsis"
-                style={{ maxWidth: 250 }}
-              >
+              <span className="text-ellipsis" style={{ maxWidth: 250 }}>
                 {data.dimensionValue}
               </span>
             </Flex>
@@ -276,7 +272,9 @@ export default function AnalysisResultPopover({
 
       <Table size="1">
         <TableHeader>
-          <TableRow style={{ color: "var(--color-text-mid)" }}>
+          <TableRow
+            style={{ color: "var(--color-text-mid)", fontSize: "12px" }}
+          >
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
             <TableColumnHeader justify="end">
               {quantileMetric && quantileIgnoreZeros ? "Non-zero " : ""}

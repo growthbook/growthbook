@@ -14,6 +14,7 @@ import {
   DimensionSlicesQueryResponse,
   MetricAnalysisQueryResponse,
   DropTableQueryResponse,
+  UserExperimentExposuresQueryResponse,
 } from "back-end/src/types/Integration";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -115,6 +116,12 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     throw new Error("Method not implemented.");
   }
   async runDimensionSlicesQuery(): Promise<DimensionSlicesQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getUserExperimentExposuresQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runUserExperimentExposuresQuery(): Promise<UserExperimentExposuresQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
