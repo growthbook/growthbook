@@ -220,12 +220,11 @@ export default function DataVizDimensionPanel({
                                   step="1"
                                   type="number"
                                   value={dimension.maxValues?.toString() || "5"}
-                                  onBlur={(e) => {
+                                  onChange={(e) => {
                                     const maxValues = parseInt(
                                       e.target.value,
                                       10,
                                     );
-                                    if (isNaN(maxValues)) return;
                                     if (
                                       !supportsDimension(dataVizConfig) ||
                                       !dataVizConfig.dimension
@@ -240,33 +239,6 @@ export default function DataVizDimensionPanel({
                                         },
                                       ],
                                     });
-                                  }}
-                                  onKeyDown={(e) => {
-                                    // Ignore enter
-                                    if (e.key === "Enter") {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-
-                                      const maxValues = parseInt(
-                                        e.target.value,
-                                        10,
-                                      );
-                                      if (isNaN(maxValues)) return;
-                                      if (
-                                        !supportsDimension(dataVizConfig) ||
-                                        !dataVizConfig.dimension
-                                      )
-                                        return;
-                                      onDataVizConfigChange({
-                                        ...dataVizConfig,
-                                        dimension: [
-                                          {
-                                            ...dimension,
-                                            maxValues,
-                                          },
-                                        ],
-                                      });
-                                    }
                                   }}
                                 />
                               </Flex>

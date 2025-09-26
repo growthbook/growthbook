@@ -46,7 +46,14 @@ const SortableMultiValue = SortableElement(
 const SortableMultiValueLabel = SortableHandle<any>(
   (props: MultiValueGenericProps) => {
     const label = <components.MultiValueLabel {...props} />;
-    return <div title={props.data?.tooltip}>{label}</div>;
+    return (
+      <div
+        title={props.data?.tooltip}
+        style={{ maxWidth: "calc(100% - 22px)" }}
+      >
+        {label}
+      </div>
+    );
   },
 );
 
