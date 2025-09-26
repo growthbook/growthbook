@@ -151,7 +151,6 @@ const AthenaForm: FC<{
           name="catalog"
           value={params.catalog || ""}
           onChange={onParamChange}
-          placeholder="AwsDataCatalog"
         />
       </div>
       <div className="form-group col-md-12">
