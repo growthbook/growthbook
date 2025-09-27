@@ -21,9 +21,8 @@ const MODEL_TOKEN_LIMIT = 128000;
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 
 export const getOllama = (context: ReqContext | ApiReqContext) => {
-  const { aiEnabled, ollamaBaseUrl, ollamaDefaultModel } = getAISettingsForOrg(
-    context
-  );
+  const { aiEnabled, ollamaBaseUrl, ollamaDefaultModel } =
+    getAISettingsForOrg(context);
   let _ollama: Ollama | null = null;
   if (aiEnabled) {
     _ollama = new Ollama({ host: ollamaBaseUrl });
@@ -33,7 +32,7 @@ export const getOllama = (context: ReqContext | ApiReqContext) => {
 };
 
 export const listAvailableModels = async (
-  context: ReqContext | ApiReqContext
+  context: ReqContext | ApiReqContext,
 ) => {
   const { client: ollama } = getOllama(context);
 
@@ -64,13 +63,10 @@ const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
 };
 
 export const secondsUntilAICanBeUsedAgain = async (
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
 ) => {
-  const {
-    numTokensUsed,
-    dailyLimit,
-    nextResetAt,
-  } = await getTokensUsedByOrganization(organization);
+  const { numTokensUsed, dailyLimit, nextResetAt } =
+    await getTokensUsedByOrganization(organization);
   return numTokensUsed > dailyLimit
     ? (nextResetAt - new Date().getTime()) / 1000
     : 0;
@@ -104,12 +100,12 @@ export const simpleCompletion = async ({
   const numTokens = numTokensFromMessages(messages);
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`
+      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
     );
   }
   if (numTokens > MESSAGE_TOKEN_LIMIT) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`
+      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`,
     );
   }
 
@@ -164,7 +160,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
 
   if (!zodObjectSchema) {
     throw new Error(
-      "a Zod Object for the JSON schema is required for structuredPrompt."
+      "a Zod Object for the JSON schema is required for structuredPrompt.",
     );
   }
 
@@ -173,12 +169,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   const numTokens = numTokensFromMessages(messages);
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`
+      `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
     );
   }
   if (numTokens > MESSAGE_TOKEN_LIMIT) {
     throw new Error(
-      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`
+      `Number of tokens (${numTokens}) exceeds MESSAGE_TOKEN_LIMIT (${MESSAGE_TOKEN_LIMIT})`,
     );
   }
 
@@ -187,11 +183,11 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     | ResponseFormatJSONSchema
     | ResponseFormatJSONObject = zodResponseFormat(
     zodObjectSchema,
-    "response_schema"
+    "response_schema",
   );
   if (!supportsJSONSchema(model) && response_format.type === "json_schema") {
     throw new Error(
-      `Model ${model} does not support JSON schema response format. Please use a model that supports it, such as gpt-4o or higher.`
+      `Model ${model} does not support JSON schema response format. Please use a model that supports it, such as gpt-4o or higher.`,
     );
   }
 
@@ -227,7 +223,7 @@ export const supportsJSONSchema = (model: string) => {
 
 const constructOllamaMessages = (
   prompt: string,
-  instructions?: string
+  instructions?: string,
 ): ChatCompletionRequestMessage[] => {
   const messages: ChatCompletionRequestMessage[] = [];
 
