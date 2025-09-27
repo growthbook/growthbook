@@ -4,7 +4,7 @@ import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
-import { ago, datetime } from "shared/dates";
+import { datetime } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Button from "./Button";
@@ -122,7 +122,9 @@ export function HistoryTableRow({
           setOpen(!open);
         }}
       >
-        <td title={datetime(event.dateCreated)}>{ago(event.dateCreated)}</td>
+        <td title={datetime(event.dateCreated)}>
+          {datetime(event.dateCreated)}
+        </td>
         {showType && <td>{event.entity.object}</td>}
         {showName && (
           <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>

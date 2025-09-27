@@ -1,8 +1,9 @@
 import router from "next/router";
-import { FC, useState } from "react";
+import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
 import Link from "next/link";
-import { FaUserLock } from "react-icons/fa";
+import { FaExclamationTriangle, FaUserLock } from "react-icons/fa";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
@@ -11,11 +12,14 @@ import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const TeamPage: FC = () => {
   const { apiCall } = useAuth();
+  const { getProjectById } = useDefinitions();
   const { tid } = router.query as { tid: string };
   const [teamModalOpen, setTeamModalOpen] = useState<boolean>(false);
   const [permissionModalOpen, setPermissionModalOpen] =
@@ -29,6 +33,10 @@ const TeamPage: FC = () => {
 
   const team = teams?.find((team) => team.id === tid);
   const isEditable = !team?.managedByIdp;
+
+  const project = getProjectById(team?.defaultProject || "");
+  const projectName = project?.name || "All projects";
+  const projectIsDeReferenced = team?.defaultProject && !project?.name;
 
   if (!team) {
     return (
@@ -124,6 +132,43 @@ const TeamPage: FC = () => {
             >
               <GBEdit />
             </a>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="form-group">
+            <label className="font-weight-bold text-dark">
+              Default Project
+            </label>
+            <Box>
+              {projectIsDeReferenced ? (
+                <Tooltip
+                  body={
+                    <>
+                      Project <code>{team?.defaultProject}</code> not found
+                    </>
+                  }
+                >
+                  <span className="text-danger">
+                    <FaExclamationTriangle /> Invalid project
+                  </span>
+                </Tooltip>
+              ) : (
+                <Badge label={projectName} />
+              )}
+              {isEditable && (
+                <a
+                  className="ml-2"
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setTeamModalOpen(true);
+                  }}
+                >
+                  <GBEdit />
+                </a>
+              )}
+            </Box>
           </div>
         </div>
 

@@ -11,5 +11,9 @@ router.put("/:id", holdoutController.updateHoldout);
 router.post("/", holdoutController.createHoldout);
 router.post("/:id/edit-status", holdoutController.editStatus);
 router.delete("/:id", holdoutController.deleteHoldout);
+router.delete(
+  "/:id/feature/:featureId",
+  holdoutController.deleteHoldoutFeature,
+);
 
 export { router as holdoutRouter };

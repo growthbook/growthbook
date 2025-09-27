@@ -28,6 +28,7 @@ type CreateTeamRequest = AuthRequest<{
   name: string;
   description: string;
   permissions: MemberRoleWithProjects;
+  defaultProject: string;
 }>;
 
 type CreateTeamResponse = {
@@ -48,7 +49,7 @@ export const postTeam = async (
 ) => {
   const context = getContextFromReq(req);
   const { org, userName } = context;
-  const { name, description, permissions } = req.body;
+  const { name, description, permissions, defaultProject } = req.body;
 
   if (!orgHasPremiumFeature(org, "teams")) {
     throw new Error("Must have a commercial License Key to create a team.");
@@ -83,6 +84,7 @@ export const postTeam = async (
     name,
     createdBy: userName,
     description,
+    defaultProject,
     organization: org.id,
     managedByIdp: false,
     ...permissions,
@@ -113,6 +115,7 @@ type PutTeamRequest = AuthRequest<
     name: string;
     description: string;
     permissions: MemberRoleWithProjects;
+    defaultProject: string;
     members?: string[];
   },
   { id: string }
@@ -135,7 +138,7 @@ export const updateTeam = async (
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;
-  const { name, description, permissions } = req.body;
+  const { name, description, permissions, defaultProject } = req.body;
   const { id } = req.params;
 
   if (!context.permissions.canManageTeam()) {
@@ -155,6 +158,7 @@ export const updateTeam = async (
     name,
     description,
     projectRoles: [],
+    defaultProject,
     ...permissions,
     managedByIdp: team.managedByIdp,
   });

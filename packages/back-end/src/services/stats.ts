@@ -6,6 +6,7 @@ import {
   DEFAULT_TARGET_MDE,
   EXPOSURE_DATE_DIMENSION_NAME,
 } from "shared/constants";
+
 import { putBaselineVariationFirst } from "shared/util";
 import {
   ExperimentMetricInterface,
@@ -773,6 +774,8 @@ export function analyzeExperimentTraffic({
       banditSrmSet = true;
     }
     const variationIndex = variationIdMap[r.variation];
+    // skip if variation is not found (this happens if variation is __multiple__)
+    if (variationIndex === undefined) return;
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();
     const dimValueTraffic: ExperimentSnapshotTrafficDimension = dimTraffic.get(

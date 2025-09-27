@@ -19,7 +19,7 @@ import CodeTextArea from "@/components/Forms/CodeTextArea";
 import { DocLink } from "@/components/DocLink";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 const methodTypes: WebhookMethod[] = [
   "GET",

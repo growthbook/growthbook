@@ -228,6 +228,12 @@ export default function FeatureFromExperimentModal({
           : {
               ...feature,
               defaultValue: variations[0].value,
+              holdout: experiment.holdoutId
+                ? {
+                    id: experiment.holdoutId,
+                    value: variations[0].value,
+                  }
+                : undefined,
             };
 
         if (!featureToCreate) {
@@ -262,14 +268,22 @@ export default function FeatureFromExperimentModal({
         }
 
         if (existing) {
+          const featureHoldoutId = validFeatures.find(
+            (f) => f.id === featureToCreate.id,
+          )?.holdout?.id;
+          // Require users to add the holdout to the feature if the experiment has a holdout and the feature does not
+          if (experiment.holdoutId && !featureHoldoutId) {
+            throw new Error(
+              "You cannot add a feature flag with no holdout to an experiment with a holdout. Add the holdout to the feature on the feature page itself.",
+            );
+          }
           // Only allow adding a FF with the same holdout to an experiment that already is in a holdout
           if (
             experiment.holdoutId &&
-            validFeatures.find((f) => f.id === featureToCreate.id)?.holdout
-              ?.id !== experiment.holdoutId
+            featureHoldoutId !== experiment.holdoutId
           ) {
             throw new Error(
-              "You can only add a feature flag with the same holdout to an experiment that already is in a holdout",
+              "You cannot add a feature flag with a holdout to an experiment that has a different holdout.",
             );
           }
 

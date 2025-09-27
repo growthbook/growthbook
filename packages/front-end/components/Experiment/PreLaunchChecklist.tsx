@@ -19,9 +19,9 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
-import Frame from "@/components/Radix/Frame";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import Frame from "@/ui/Frame";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -369,7 +369,7 @@ export function PreLaunchChecklistUI({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist",
+    `/experiment/${experiment.id}/launch-checklist`,
   );
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
@@ -606,7 +606,7 @@ export function PreLaunchChecklist({
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
 
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
-    "/experiments/launch-checklist",
+    `/experiment/${experiment.id}/launch-checklist`,
   );
 
   const [showSdkForm, setShowSdkForm] = useState(false);

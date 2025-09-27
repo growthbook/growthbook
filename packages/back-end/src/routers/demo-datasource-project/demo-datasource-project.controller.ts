@@ -223,7 +223,7 @@ export const postDemoDatasourceProject = async (
     // Create metrics
     const metrics = await Promise.all(
       DEMO_METRICS.map(async (m) => {
-        return createMetric({
+        return createMetric(context, {
           ...m,
           organization: org.id,
           owner: ASSET_OWNER,
@@ -240,7 +240,7 @@ export const postDemoDatasourceProject = async (
       (m) => m.name === DENOMINATOR_METRIC_NAME,
     )?.id;
     const ratioMetric = denominatorMetricId
-      ? await createMetric({
+      ? await createMetric(context, {
           ...DEMO_RATIO_METRIC,
           denominator: denominatorMetricId,
           organization: org.id,

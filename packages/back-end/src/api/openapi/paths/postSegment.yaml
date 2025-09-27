@@ -1,0 +1,28 @@
+parameters: []
+tags:
+  - segments
+summary: Create a single segment
+operationId: postSegment
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl -X POST https://api.growthbook.io/api/v1/segments \
+        -d '{"name":"Annual Subscribers", "datasource":"ds_123abc", "identifierType":"user_id", "type":"SQL", "query":"SELECT plan FROM subscribers WHERE plan = 'annual'"}' \
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PostSegmentPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - segment
+          properties:
+            segment:
+              $ref: "../schemas/Segment.yaml"

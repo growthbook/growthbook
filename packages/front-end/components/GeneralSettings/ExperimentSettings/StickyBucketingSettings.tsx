@@ -10,8 +10,8 @@ import {
 } from "@/components/Features/FallbackAttributeSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
-import Callout from "@/components/Radix/Callout";
-import Checkbox from "@/components/Radix/Checkbox";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { GBInfo } from "@/components/Icons";
 
 export default function StickyBucketingSettings() {

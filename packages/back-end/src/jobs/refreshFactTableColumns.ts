@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
+import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -77,12 +78,33 @@ export async function runColumnTopValuesQuery(
   const sql = integration.getColumnTopValuesQuery({
     factTable,
     column,
-    limit: 100,
+    limit: Math.max(100, MAX_METRIC_DIMENSION_LEVELS),
   });
-
   const result = await integration.runColumnTopValuesQuery(sql);
 
   return result.rows.map((r) => r.value);
+}
+
+export function populateDimensionLevels(
+  col: ColumnInterface,
+  topValues: string[],
+): string[] {
+  // Use existing dimensionLevels if they exist, otherwise use topValues up to the max
+  if (col.dimensionLevels && col.dimensionLevels.length > 0) {
+    return col.dimensionLevels;
+  }
+
+  // If no dimensionLevels set, use topValues up to the max
+  const maxValues = MAX_METRIC_DIMENSION_LEVELS;
+  const dimensionLevels: string[] = [];
+  for (const value of topValues) {
+    if (dimensionLevels.length >= maxValues) break;
+    if (!dimensionLevels.includes(value)) {
+      dimensionLevels.push(value);
+    }
+  }
+
+  return dimensionLevels;
 }
 
 export async function runRefreshColumnsQuery(
@@ -185,20 +207,32 @@ export async function runRefreshColumnsQuery(
   });
 
   for (const col of columns) {
+    if (col.numberFormat === undefined) {
+      col.numberFormat = "";
+    }
+
     if (
-      col.alwaysInlineFilter &&
+      (col.alwaysInlineFilter || col.isDimension) &&
       canInlineFilterColumn(factTable, col.column)
     ) {
       try {
-        col.topValues = await runColumnTopValuesQuery(
+        const topValues = await runColumnTopValuesQuery(
           context,
           datasource,
           factTable,
           col,
         );
+
+        col.topValues = topValues;
         col.topValuesDate = new Date();
+
+        if (col.isDimension) {
+          col.dimensionLevels = populateDimensionLevels(col, topValues);
+        }
       } catch (e) {
-        logger.error(e, "Error running top values query");
+        logger.error(e, "Error running top values query", {
+          column: col.column,
+        });
       }
     }
   }

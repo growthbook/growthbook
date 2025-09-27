@@ -49,10 +49,14 @@ function validateUserFilter({
     );
   }
 
-  // error if metric type is not retention or proportion
-  if (metricType !== "retention" && metricType !== "proportion") {
+  // error if metric type is not retention, proportion, or ratio
+  if (
+    metricType !== "retention" &&
+    metricType !== "proportion" &&
+    metricType !== "ratio"
+  ) {
     throw new Error(
-      `Aggregate filter is only supported for retention and proportion metrics.`,
+      `Aggregate filter is only supported for retention, proportion, and ratio metrics.`,
     );
   }
 

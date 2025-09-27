@@ -21,7 +21,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
-import StopHoldoutForm from "@/components/Holdout/StopHoldoutForm";
+import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -140,7 +140,7 @@ const HoldoutPage = (): ReactElement => {
         />
       )}
       {stopModalOpen && (
-        <StopHoldoutForm
+        <StopHoldoutModal
           close={() => setStopModalOpen(false)}
           mutate={mutate}
           holdout={holdout}

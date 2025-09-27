@@ -17,7 +17,7 @@ import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { isReadOnlySQL, SQL_ROW_LIMIT } from "shared/sql";
 import { BsThreeDotsVertical, BsStars } from "react-icons/bs";
-import { InformationSchemaInterface } from "back-end/src/types/Integration";
+import { InformationSchemaInterfaceWithPaths } from "back-end/src/types/Integration";
 import { FiChevronRight } from "react-icons/fi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -25,16 +25,11 @@ import { useUser } from "@/services/UserContext";
 import CodeTextArea, { AceCompletion } from "@/components/Forms/CodeTextArea";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
-import Button from "@/components/Radix/Button";
-import { SelectItem } from "@/components/Radix/Select";
+import Button from "@/ui/Button";
+import { SelectItem } from "@/ui/Select";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { formatSql, canFormatSql } from "@/services/sqlFormatter";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   Panel,
   PanelGroup,
@@ -47,12 +42,13 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getAutoCompletions } from "@/services/sqlAutoComplete";
 import Field from "@/components/Forms/Field";
 import OptInModal from "@/components/License/OptInModal";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { SqlExplorerDataVisualization } from "../DataViz/SqlExplorerDataVisualization";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import Tooltip from "../Tooltip/Tooltip";
-import { DropdownMenu, DropdownMenuItem } from "../Radix/DropdownMenu";
+import { filterOptions } from "../DataViz/DataVizFilter";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
@@ -99,7 +95,7 @@ export default function SqlExplorerModal({
   );
   const [autoCompletions, setAutoCompletions] = useState<AceCompletion[]>([]);
   const [informationSchema, setInformationSchema] = useState<
-    InformationSchemaInterface | undefined
+    InformationSchemaInterfaceWithPaths | undefined
   >();
 
   const { getDatasourceById, datasources } = useDefinitions();
@@ -237,6 +233,119 @@ export default function SqlExplorerModal({
             config.title ? config.title : `${index + 1}`
           }. Please add a y axis or remove the visualization to save the query.`,
         );
+      }
+
+      // Validate filters
+      if (config.filters && config.filters.length > 0) {
+        config.filters.forEach((filter, filterIndex) => {
+          const vizTitle = config.title || `${index + 1}`;
+
+          // Validate required filter fields
+          if (!filter.column) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a column selection.`,
+            );
+          }
+
+          if (!filter.columnType) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a type selection.`,
+            );
+          }
+
+          if (!filter.filterMethod) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} is missing a filter type selection.`,
+            );
+          }
+
+          // // Validate filter type matches the data type
+          const filterOptionIndex = filterOptions.findIndex(
+            (option) => option.value === filter.filterMethod,
+          );
+
+          if (filterOptionIndex === -1) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterMethod}" for data type "${filter.columnType}".`,
+            );
+          }
+
+          const validFilterTypes =
+            filterOptions[filterOptionIndex].supportedTypes;
+
+          if (!validFilterTypes.includes(filter.columnType)) {
+            setTab(`visualization-${index}`);
+            throw new Error(
+              `Filter ${filterIndex + 1} in Visualization ${vizTitle} has an invalid filter type "${filter.filterMethod}" for data type "${filter.columnType}".`,
+            );
+          }
+
+          // Validate required config values based on filter type using discriminated union
+          switch (filter.filterMethod) {
+            case "dateRange":
+              if (!filter.config.startDate && !filter.config.endDate) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Date range filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least a start date or end date.`,
+                );
+              }
+              break;
+
+            case "numberRange":
+              if (
+                filter.config.min === undefined &&
+                filter.config.max === undefined
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Number range filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least a minimum or maximum value.`,
+                );
+              }
+              break;
+
+            case "greaterThan":
+            case "lessThan":
+            case "equalTo":
+              if (
+                filter.config.value === undefined ||
+                filter.config.value === ""
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Filter ${filterIndex + 1} in Visualization ${vizTitle} requires a value.`,
+                );
+              }
+              break;
+
+            case "contains":
+              if (
+                !filter.config.value ||
+                String(filter.config.value).trim() === ""
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Text search filter ${filterIndex + 1} in Visualization ${vizTitle} requires search text.`,
+                );
+              }
+              break;
+
+            case "includes":
+              if (
+                !Array.isArray(filter.config.values) ||
+                filter.config.values.length === 0
+              ) {
+                setTab(`visualization-${index}`);
+                throw new Error(
+                  `Multi-select filter ${filterIndex + 1} in Visualization ${vizTitle} requires at least one selected value.`,
+                );
+              }
+              break;
+          }
+        });
       }
     });
 
@@ -470,7 +579,7 @@ export default function SqlExplorerModal({
       }
       try {
         const response = await apiCall<{
-          informationSchema: InformationSchemaInterface;
+          informationSchema: InformationSchemaInterfaceWithPaths;
         }>(`/datasource/${datasourceId}/schema`);
         setInformationSchema(response.informationSchema);
       } catch (error) {

@@ -4,6 +4,8 @@ description: Learn about defining metrics and fact tables within GrowthBook
 slug: /app/metrics
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Metrics and Fact Tables
 
 Metrics are how you measure success and failure for your business. An e-commerce company might have metrics related to conversion rates, revenue, and cart abandonment. A B2B SaaS company might have metrics around subscription trials, cancellations, and usage. Every company is different and GrowthBook is flexible enough to support a wide variety of use cases.
@@ -257,6 +259,55 @@ However, you can also set metric specific priors by opening the Edit Metric moda
 Additionally, you can use experiment metric overrides to further customize these priors for each experiment.
 
 You can read more about Bayesian priors on [our statistical details page](/statistics/details).
+
+## Metric Dimensions
+
+:::note
+Metric dimensions are only available for Enterprise customers.
+:::
+
+Many metrics are easily decomposed, and you may want to learn about the different elements.
+For example, you may want to see revenue across different product types (e.g. "apparel", "equipment").
+
+Rather than creating and maintaining a separate revenue metric for each product type, metric dimensions permits you to automatically create distinct revenue metrics for each product type.
+
+Metric dimensions are enabled for Fact Metrics by setting a string column in a Fact Table as a "dimension", setting the relevant levels for that dimension, and then selecting which metrics to make breakdowns available for. These are the step-by-step instructions:
+
+1. Navigate to your Fact Table that has the right columns. Ensure the Fact Table SQL is returning the relevant column. If it isn't you can click "Edit SQL" on the Fact Table page, add your column (e.g. `product_type`) to the SELECT statement, and then press "Confirm Changes". Only string columns can be used as dimensions.
+
+<MaxWidthImage maxWidth={700}>
+  <img src="/images/metrics/metric-dim-config.png" alt="Configuring a column as a dimension" />
+</MaxWidthImage>
+
+2. With your column (`product_type`) in the Fact Table SQL, you now edit the column property in the "Columns" table. Click the edit icon next to your dimension column, check the "is dimension" checkbox in the window that pops up, and add the dimension levels you want to split your metric by. We run a query to populate the top values for you, and you can update the values found in the data by clicking the "Refresh" button. Dimension Levels here could be "apparel", "equipment", and more.
+
+<MaxWidthImage maxWidth={350}>
+  <img src="/images/metrics/metric-dim-levels.png" alt="Configuring dimension levels" />
+</MaxWidthImage>
+
+3. Scroll down to the list of Fact Metrics, or navigate to a Fact Metric from this Fact Table.
+4. Click "Enable Dimensions" to turn on metric dimensions for this metric.
+
+When you run an experiment, you will now have the option to split revenue by product type.
+If you click the arrow next to "revenue" on the results page, you will see results split by product type. You can also pin a dimension result so that it stays in the results table even when the metric is collapsed or you return to the page.
+
+<MaxWidthImage maxWidth={800}>
+  <img src="/images/metrics/metric-dim-results.png" alt="Metric dimension results" />
+</MaxWidthImage>
+
+:::note
+
+Unit dimensions and experiment dimensions are attributes specific to an experimental unit (e.g. user).
+Metric dimensions are an attribute specific to a metric.
+For example, suppose that a user named Romain lives in France, and he buys products from both France and Germany.
+In a dimension analysis (i.e. a unit dimension analysis), all of Romain's spend will be attributed to France.
+
+In a metric dimension analysis, only the French products purchased will be attributed to French revenue, and only the German products purchased will be attributed to German revenue.
+So one user will always be mapped to a single user dimension, but can contribute to multiple metric dimensions.
+
+This also means the dimension for all metric dimension slices will be all users. This provides the most accurate inference, as trying to filter down the denominator can cause bias issues if you allow users to switch between different dimension levels. To get revenue for French users on French products, you need to apply a unit filter for country and then look at the metric dimension breakdown for French products.
+
+:::
 
 ## Metric Analysis
 

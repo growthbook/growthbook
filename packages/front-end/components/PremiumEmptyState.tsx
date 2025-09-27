@@ -1,8 +1,8 @@
 import React, { FC, useState } from "react";
 import { CommercialFeature } from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import LinkButton from "@/components/Radix/LinkButton";
-import Button from "@/components/Radix/Button";
+import LinkButton from "@/ui/LinkButton";
+import Button from "@/ui/Button";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 

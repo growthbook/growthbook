@@ -22,7 +22,7 @@ import CheckSDKConnectionModal from "@/components/GuidedGetStarted/CheckSDKConne
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { DocLink } from "@/components/DocLink";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 interface Props {
   connection: string | null;

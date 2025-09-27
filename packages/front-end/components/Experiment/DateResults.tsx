@@ -27,7 +27,7 @@ import Toggle from "@/components/Forms/Toggle";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -341,11 +341,11 @@ const DateResults: FC<{
         </div>
       )}
       <div className="mb-5">
-        <h2>Users</h2>
+        <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
           variationNames={variations.map((v) => v.name)}
-          label="Users"
+          label="Units"
           datapoints={users}
           formatter={formatNumber}
           cumulative={cumulative}

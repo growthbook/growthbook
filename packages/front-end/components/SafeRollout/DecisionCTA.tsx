@@ -5,7 +5,7 @@ import {
 } from "shared/enterprise";
 
 import { SafeRolloutRule } from "back-end/src/validators/features";
-import Button, { Color, Variant } from "@/components/Radix/Button";
+import Button, { Color, Variant } from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { useSafeRolloutSnapshot } from "@/components/SafeRollout/SnapshotProvider";
 

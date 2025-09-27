@@ -47,12 +47,7 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
 export default function LegacyReportPage({
@@ -499,6 +494,7 @@ export default function LegacyReportPage({
                   />
                 ) : (
                   <BreakDownResults
+                    experimentId={report.experimentId ?? ""}
                     isLatestPhase={true}
                     phase={
                       (experimentData?.experiment?.phases?.length ?? 1) - 1
@@ -573,6 +569,7 @@ export default function LegacyReportPage({
                 report.results?.dimensions?.[0] !== undefined && (
                   <div className="mt-0 mb-3">
                     <CompactResults
+                      experimentId={report.experimentId ?? ""}
                       variations={variations}
                       multipleExposures={report.results?.multipleExposures || 0}
                       results={report.results?.dimensions?.[0]}

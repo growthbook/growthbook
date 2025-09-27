@@ -823,6 +823,61 @@ describe("Datasource Migration", () => {
       },
     });
   });
+
+  it("migrates pipelineSettings: add mode if not existing", () => {
+    const baseDatasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      settings: {
+        pipelineSettings: {
+          allowWriting: true,
+        } as any,
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const upgraded = upgradeDatasourceObject(cloneDeep(baseDatasource));
+    expect(upgraded.settings?.pipelineSettings).toBeDefined();
+    expect(upgraded.settings?.pipelineSettings?.mode).toBe("ephemeral");
+    expect(upgraded.settings?.pipelineSettings?.allowWriting).toBe(true);
+  });
+
+  it("migrates pipelineSettings: does not change mode if it exists", () => {
+    const baseDatasource: DataSourceInterface = {
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      id: "",
+      description: "",
+      name: "",
+      organization: "",
+      params: encryptParams({
+        projectId: "",
+        secret: "",
+        username: "",
+      } as MixpanelConnectionParams),
+      settings: {
+        pipelineSettings: {
+          allowWriting: false,
+          mode: "incremental",
+        } as any,
+      },
+      type: "mixpanel",
+    } as DataSourceInterface;
+
+    const upgraded = upgradeDatasourceObject(cloneDeep(baseDatasource));
+    expect(upgraded.settings?.pipelineSettings).toBeDefined();
+    expect(upgraded.settings?.pipelineSettings?.mode).toBe("incremental");
+    expect(upgraded.settings?.pipelineSettings?.allowWriting).toBe(false);
+  });
 });
 
 describe("Feature Migration", () => {

@@ -36,8 +36,8 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
-import Button from "@/components/Radix/Button";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
+import Button from "@/ui/Button";
+import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import ExperimentHeader from "./ExperimentHeader";
@@ -124,6 +124,9 @@ export default function TabbedPage({
   const [featureModal, setFeatureModal] = useState(false);
   const [urlRedirectModal, setUrlRedirectModal] = useState(false);
   const [healthNotificationCount, setHealthNotificationCount] = useState(0);
+  const [showDashboardView, setShowDashboardView] = useState(
+    experiment.defaultDashboardId ? true : false,
+  );
 
   // Results tab filters
   const [analysisBarSettings, setAnalysisBarSettings] = useState<{
@@ -168,6 +171,13 @@ export default function TabbedPage({
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab, dashboardsEnabled]);
+
+  // If experiment now has a default dashboard, show the dashboard view
+  useEffect(() => {
+    if (experiment.defaultDashboardId) {
+      setShowDashboardView(true);
+    }
+  }, [experiment.defaultDashboardId]);
 
   const { phase, setPhase } = useSnapshot();
   const { metricGroups } = useDefinitions();
@@ -256,6 +266,9 @@ export default function TabbedPage({
   };
 
   const isHoldout = experiment.type === "holdout";
+
+  const showStoppedBanner =
+    experiment.status === "stopped" && tab !== "dashboards";
 
   return (
     <>
@@ -356,9 +369,15 @@ export default function TabbedPage({
         checklistItemsRemaining={checklistItemsRemaining}
         linkedFeatures={linkedFeatures}
         stop={stop}
+        showDashboardView={showDashboardView}
       />
 
-      <div className="container-fluid pagecontents">
+      <div
+        className={clsx(
+          "container-fluid pagecontents",
+          showDashboardView && "pt-0",
+        )}
+      >
         {experiment.project ===
           getDemoDatasourceProjectIdForOrganization(organization.id) && (
           <div className="alert alert-info d-flex align-items-center mb-0 mt-2">
@@ -374,10 +393,12 @@ export default function TabbedPage({
             </div>
           </div>
         )}
-        {experiment.type !== "holdout" && (
-          <CustomMarkdown page={"experiment"} variables={variables} />
-        )}
-        {experiment.status === "stopped" && (
+        {experiment.type !== "holdout" &&
+          tab !== "dashboards" &&
+          !showDashboardView && (
+            <CustomMarkdown page={"experiment"} variables={variables} />
+          )}
+        {showStoppedBanner && (
           <div className="pt-3">
             <StoppedExperimentBanner
               experiment={experiment}
@@ -415,10 +436,22 @@ export default function TabbedPage({
               )}
             </div>
           )}
+
+        {showDashboardView && (
+          <DashboardsTab
+            experiment={experiment}
+            initialDashboardId={experiment.defaultDashboardId ?? ""}
+            isTabActive
+            showDashboardView
+            switchToExperimentView={() => setShowDashboardView(false)}
+          />
+        )}
         <div
           className={clsx(
             "pt-3",
-            tab === "overview" ? "d-block" : "d-none d-print-block",
+            tab === "overview" && !showDashboardView
+              ? "d-block"
+              : "d-none d-print-block",
           )}
         >
           <SetupTabOverview
@@ -463,7 +496,7 @@ export default function TabbedPage({
             </div>
           )}
         </div>
-        {isBandit ? (
+        {isBandit && !showDashboardView ? (
           <div
             className={
               // todo: standardize explore & results tabs across experiment types
@@ -483,7 +516,9 @@ export default function TabbedPage({
       <div
         className={
           // todo: standardize explore & results tabs across experiment types
-          (!isBandit && tab === "results") || (isBandit && tab === "explore")
+          ((!isBandit && tab === "results") ||
+            (isBandit && tab === "explore")) &&
+          !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
@@ -523,16 +558,21 @@ export default function TabbedPage({
       </div>
       <div
         className={
-          tab === "dashboards"
+          tab === "dashboards" && !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
       >
-        <DashboardsTab experiment={experiment} initialDashboardId={tabPath} />
+        <DashboardsTab
+          experiment={experiment}
+          initialDashboardId={tabPath}
+          isTabActive={tab === "dashboards"}
+          mutateExperiment={mutate}
+        />
       </div>
       <div
         className={
-          tab === "health"
+          tab === "health" && !showDashboardView
             ? "container-fluid pagecontents d-block pt-0"
             : "d-none d-print-block"
         }
@@ -552,17 +592,19 @@ export default function TabbedPage({
         />
       </div>
 
-      <div className="mt-4 px-4 border-top pb-3">
-        <div className="pt-2 pt-4 pb-5 container pagecontents">
-          <div className="h3 mb-4">Comments</div>
-          <DiscussionThread
-            type="experiment"
-            id={experiment.id}
-            allowNewComments={!experiment.archived}
-            projects={experiment.project ? [experiment.project] : []}
-          />
+      {tab !== "dashboards" && !showDashboardView && (
+        <div className="mt-4 px-4 border-top pb-3">
+          <div className="pt-2 pt-4 pb-5 container pagecontents">
+            <div className="h3 mb-4">Comments</div>
+            <DiscussionThread
+              type="experiment"
+              id={experiment.id}
+              allowNewComments={!experiment.archived}
+              projects={experiment.project ? [experiment.project] : []}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

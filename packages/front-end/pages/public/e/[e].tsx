@@ -14,7 +14,7 @@ import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
 import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExperimentMetaInfo";
-import {Tabs, TabsList, TabsTrigger} from "@/components/Radix/Tabs";
+import {Tabs, TabsList, TabsTrigger} from "@/ui/Tabs";
 import {useScrollPosition} from "@/hooks/useScrollPosition";
 import {useLocalStorage} from "@/hooks/useLocalStorage";
 import {ExperimentTab} from "@/components/Experiment/TabbedPage";
@@ -106,17 +106,17 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     | undefined
     | ExperimentPhaseStringDates;
   const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted)
+    ? date(phases[0].dateStarted, "UTC")
     : null;
   const endDate =
     phases.length > 0
       ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded ?? "")
+        ? date(lastPhase.dateEnded, "UTC")
         : "now"
       : date(new Date());
   const dateRangeLabel = startDate
-    ? `${date(startDate)} — ${
-      endDate ? date(endDate) : "now"
+    ? `${startDate} — ${
+      endDate ? endDate : "now"
     }`
     : "";
 

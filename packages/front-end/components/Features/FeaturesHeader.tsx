@@ -28,10 +28,11 @@ import { FeatureTab } from "@/pages/features/[fid]";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UserAvatar from "@/components/Avatar/UserAvatar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
-import Callout from "@/components/Radix/Callout";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Callout from "@/ui/Callout";
 import ProjectBadges from "@/components/ProjectBadges";
-import Link from "../Radix/Link";
+import { useHoldouts } from "@/hooks/useHoldouts";
+import Link from "@/ui/Link";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 
 export default function FeaturesHeader({
@@ -77,6 +78,7 @@ export default function FeaturesHeader({
     project: currentProject,
     projects,
   } = useDefinitions();
+  const { holdouts } = useHoldouts(feature.project);
   const hasHoldoutsFeature = hasCommercialFeature("holdouts");
   const holdoutsEnabled =
     useFeatureIsOn("holdouts_feature") && hasHoldoutsFeature;
@@ -125,8 +127,8 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center">
-              <Heading size="7" as="h1">
+            <Flex align="center" mb="2">
+              <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
               {stale && (
@@ -188,18 +190,22 @@ export default function FeaturesHeader({
                     </a>
                   </>
                 )}
-                {canEdit && canPublish && holdoutsEnabled && (
-                  <a
-                    className="dropdown-item"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setAddToHoldoutModal(true);
-                    }}
-                  >
-                    Add to holdout
-                  </a>
-                )}
+                {canEdit &&
+                  canPublish &&
+                  holdoutsEnabled &&
+                  holdouts.length > 0 &&
+                  !holdout?.id && (
+                    <a
+                      className="dropdown-item"
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setAddToHoldoutModal(true);
+                      }}
+                    >
+                      Add to holdout
+                    </a>
+                  )}
                 {canEdit && canPublish && (
                   <a
                     className="dropdown-item"
@@ -298,7 +304,7 @@ export default function FeaturesHeader({
             </Box>
           </Flex>
           <Flex gap="4">
-            {holdout && (
+            {holdout?.id && (
               <Box>
                 <Text weight="medium">Holdout: </Text>
                 <Link href={`/holdout/${holdout.id}`}>{holdout.name}</Link>

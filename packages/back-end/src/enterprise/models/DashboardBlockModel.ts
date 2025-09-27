@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   CreateDashboardBlockInterface,
   DashboardBlockInterface,
+  LegacyDashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
   removeMongooseFields,
@@ -42,21 +43,42 @@ const markdownBlockSchema = new mongoose.Schema({
   content: String,
 });
 
-const experimentDescriptionBlockSchema = new mongoose.Schema({
+// Begin deprecated block types
+const legacyExperimentDescriptionBlockSchema = new mongoose.Schema({
   experimentId: String,
 });
-
-const experimentHypothesisBlockSchema = new mongoose.Schema({
+const legacyExperimentHypothesisBlockSchema = new mongoose.Schema({
   experimentId: String,
 });
-
-const experimentVariationImageBlockSchema = new mongoose.Schema({
+const legacyExperimentVariationImageBlockSchema = new mongoose.Schema({
   experimentId: String,
   variationIds: [String],
+});
+const legacyExperimentTrafficTableBlockSchema = new mongoose.Schema({
+  experimentId: String,
+});
+const legacyExperimentTrafficGraphBlockSchema = new mongoose.Schema({
+  experimentId: String,
+});
+// End deprecated block types
+
+const experimentMetadataBlockSchema = new mongoose.Schema({
+  experimentId: String,
+  showDescription: Boolean,
+  showHypothesis: Boolean,
+  showVariationImages: Boolean,
+  variationIds: [String],
+});
+
+const experimentTrafficBlockSchema = new mongoose.Schema({
+  experimentId: String,
+  showTable: Boolean,
+  showTimeseries: Boolean,
 });
 
 const experimentMetricBlockSchema = new mongoose.Schema({
   experimentId: String,
+  metricSelector: String,
   metricIds: [String],
   variationIds: [String],
   baselineRow: Number,
@@ -66,6 +88,7 @@ const experimentMetricBlockSchema = new mongoose.Schema({
 
 const experimentDimensionBlockSchema = new mongoose.Schema({
   experimentId: String,
+  metricSelector: String,
   metricIds: [String],
   dimensionId: String,
   dimensionValues: [String],
@@ -77,16 +100,10 @@ const experimentDimensionBlockSchema = new mongoose.Schema({
 
 const experimentTimeSeriesBlockSchema = new mongoose.Schema({
   experimentId: String,
-  metricId: String,
+  metricId: String, // Deprecated
+  metricSelector: String,
+  metricIds: [String],
   variationIds: [String],
-});
-
-const experimentTrafficTableBlockSchema = new mongoose.Schema({
-  experimentId: String,
-});
-
-const experimentTrafficGraphBlockSchema = new mongoose.Schema({
-  experimentId: String,
 });
 
 const sqlExplorerBlockSchema = new mongoose.Schema({
@@ -106,15 +123,19 @@ export const DashboardBlockModel = mongoose.model(
 DashboardBlockModel.discriminator("markdown", markdownBlockSchema);
 DashboardBlockModel.discriminator(
   "experiment-description",
-  experimentDescriptionBlockSchema,
+  legacyExperimentDescriptionBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-hypothesis",
-  experimentHypothesisBlockSchema,
+  legacyExperimentHypothesisBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-variation-image",
-  experimentVariationImageBlockSchema,
+  legacyExperimentVariationImageBlockSchema,
+);
+DashboardBlockModel.discriminator(
+  "experiment-metadata",
+  experimentMetadataBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-metric",
@@ -130,11 +151,15 @@ DashboardBlockModel.discriminator(
 );
 DashboardBlockModel.discriminator(
   "experiment-traffic-table",
-  experimentTrafficTableBlockSchema,
+  legacyExperimentTrafficTableBlockSchema,
 );
 DashboardBlockModel.discriminator(
   "experiment-traffic-graph",
-  experimentTrafficGraphBlockSchema,
+  legacyExperimentTrafficGraphBlockSchema,
+);
+DashboardBlockModel.discriminator(
+  "experiment-traffic",
+  experimentTrafficBlockSchema,
 );
 DashboardBlockModel.discriminator("sql-explorer", sqlExplorerBlockSchema);
 
@@ -154,4 +179,68 @@ export async function createDashboardBlock(
   });
 
   return toInterface(block);
+}
+
+export function migrate(
+  doc: LegacyDashboardBlockInterface,
+): DashboardBlockInterface {
+  switch (doc.type) {
+    case "experiment-metric":
+      return {
+        ...doc,
+        metricSelector: doc.metricSelector || "custom",
+      };
+    case "experiment-dimension":
+      return {
+        ...doc,
+        metricSelector: doc.metricSelector || "custom",
+      };
+    case "experiment-time-series":
+      return {
+        ...doc,
+        metricIds: doc.metricIds || [doc.metricId],
+        metricId: undefined,
+        metricSelector: doc.metricSelector || "custom",
+      };
+    case "experiment-description":
+      return {
+        ...doc,
+        type: "experiment-metadata",
+        showDescription: true,
+        showHypothesis: false,
+        showVariationImages: false,
+      };
+    case "experiment-hypothesis":
+      return {
+        ...doc,
+        type: "experiment-metadata",
+        showDescription: false,
+        showHypothesis: true,
+        showVariationImages: false,
+      };
+    case "experiment-variation-image":
+      return {
+        ...doc,
+        type: "experiment-metadata",
+        showDescription: false,
+        showHypothesis: false,
+        showVariationImages: true,
+      };
+    case "experiment-traffic-graph":
+      return {
+        ...doc,
+        type: "experiment-traffic",
+        showTable: false,
+        showTimeseries: true,
+      };
+    case "experiment-traffic-table":
+      return {
+        ...doc,
+        type: "experiment-traffic",
+        showTable: true,
+        showTimeseries: false,
+      };
+    default:
+      return doc;
+  }
 }

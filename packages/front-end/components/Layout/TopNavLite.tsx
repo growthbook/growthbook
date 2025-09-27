@@ -22,7 +22,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import styles from "./TopNav.module.scss";
 
 export default function TopNavLite({ pageTitle }: { pageTitle?: string }) {

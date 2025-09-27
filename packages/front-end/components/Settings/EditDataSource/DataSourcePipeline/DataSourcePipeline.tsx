@@ -3,8 +3,8 @@ import { DataSourceType } from "back-end/types/datasource";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
-import Badge from "@/components/Radix/Badge";
+import Button from "@/ui/Button";
+import Badge from "@/ui/Badge";
 import { EditDataSourcePipeline } from "./EditDataSourcePipeline";
 
 type DataSourcePipelineProps = DataSourceQueryEditingModalBaseProps;

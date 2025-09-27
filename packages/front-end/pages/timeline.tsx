@@ -11,7 +11,7 @@ import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters
 import DatePicker from "@/components/DatePicker";
 import EmptyState from "@/components/EmptyState";
 import { useExperimentSearch, experimentDate } from "@/services/experiments";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 
 const ExperimentTimelinePage = (): React.ReactElement => {
   const { ready, project } = useDefinitions();
@@ -39,13 +39,12 @@ const ExperimentTimelinePage = (): React.ReactElement => {
     experiments: allExperiments,
     error,
     loading,
-  } = useExperiments(project, false, "standard");
+  } = useExperiments(project, true, "standard");
 
   const filterResults = useCallback(
     (items: ComputedExperimentInterface[]) => {
-      // only show experiments that are not archived and within the date range
+      // only show experiments that are within the date range
       items = items.filter((item) => {
-        if (item.archived) return false;
         const expDate = experimentDate(item);
         if (!expDate) return false;
         return (

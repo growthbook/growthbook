@@ -11,7 +11,7 @@ import {ExperimentInterfaceStringDates} from "back-end/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
@@ -132,6 +132,7 @@ export default function PublicExperimentResults({
               />
             ) : showBreakDownResults ? (
               <BreakDownResults
+                experimentId={experiment.id}
                 key={snapshot.dimension}
                 results={analysis?.results ?? []}
                 queryStatusData={queryStatusData}
@@ -160,6 +161,7 @@ export default function PublicExperimentResults({
               />
             ) : showCompactResults ? (
               <CompactResults
+                experimentId={experiment.id}
                 variations={variations}
                 multipleExposures={snapshot.multipleExposures || 0}
                 results={analysis.results[0]}

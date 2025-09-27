@@ -1,6 +1,24 @@
-import type { DataSourcePipelineSettings } from "back-end/types/datasource";
+import type {
+  DataSourceType,
+  DataSourcePipelineSettings,
+} from "back-end/types/datasource";
+import type SqlIntegration from "back-end/src/integrations/SqlIntegration";
 
-const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;
+export type PipelineValidationResult = {
+  result: "success" | "skipped" | "failed";
+  resultMessage?: string;
+};
+
+// If optional, means the validation is not needed
+export type PipelineValidationResults = {
+  create: PipelineValidationResult;
+  drop?: PipelineValidationResult;
+};
+
+export const DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE: readonly DataSourceType[] =
+  ["bigquery", "databricks", "snowflake"] as const;
+
+export const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;
 
 export function bigQueryCreateTableOptions(
   settings: DataSourcePipelineSettings,
@@ -34,4 +52,35 @@ export function snowflakeCreateTableOptions(
     (settings.unitsTableRetentionHours ?? UNITS_TABLE_RETENTION_HOURS_DEFAULT) /
       24,
   )}`;
+}
+
+export function getPipelineValidationCreateTableQuery({
+  tableFullName,
+  integration,
+}: {
+  tableFullName: string;
+  integration: SqlIntegration;
+}): string {
+  const sampleUnitsCte = `__experimentUnits AS (
+    SELECT 'user_1' AS user_id, 'A' AS variation, CURRENT_TIMESTAMP() AS first_exposure_timestamp
+    UNION ALL
+    SELECT 'user_2' AS user_id, 'B' AS variation, CURRENT_TIMESTAMP() AS first_exposure_timestamp
+  )`;
+
+  return integration.getExperimentUnitsTableQueryFromCte(
+    tableFullName,
+    sampleUnitsCte,
+  );
+}
+
+export function getPipelineValidationDropTableQuery({
+  tableFullName,
+  integration,
+}: {
+  tableFullName: string;
+  integration: SqlIntegration;
+}): string {
+  return integration.getDropUnitsTableQuery({
+    fullTablePath: tableFullName,
+  });
 }

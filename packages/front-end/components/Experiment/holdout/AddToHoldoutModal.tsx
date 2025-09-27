@@ -2,8 +2,8 @@ import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
+import Callout from "@/ui/Callout";
 import Modal from "../../Modal";
-import Callout from "../../Radix/Callout";
 import { HoldoutSelect } from "../../Holdout/HoldoutSelect";
 
 const AddToHoldoutModal = ({
@@ -40,11 +40,6 @@ const AddToHoldoutModal = ({
       submit={
         showHoldoutSelect
           ? form.handleSubmit(async (value) => {
-              console.log(value);
-              if (value.holdoutId === "none") {
-                value.holdoutId = "";
-              }
-
               await apiCall(`/experiment/${experiment.id}`, {
                 method: "POST",
                 body: JSON.stringify(value),
@@ -82,6 +77,7 @@ const AddToHoldoutModal = ({
             form.setValue("holdoutId", holdoutId);
           }}
           selectedHoldoutId={form.watch("holdoutId")}
+          formType="experiment"
         />
       )}
     </Modal>

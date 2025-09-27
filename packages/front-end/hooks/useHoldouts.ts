@@ -30,12 +30,18 @@ export function useHoldouts(
     [experiments],
   );
 
+  const experimentToHoldoutsMap = useMemo(
+    () => new Map(holdouts.map((h) => [h.experimentId, h])),
+    [holdouts],
+  );
+
   return {
     loading: !error && !data,
     holdouts: holdouts,
     holdoutsMap,
     experiments,
     experimentsMap,
+    experimentToHoldoutsMap,
     error: error,
     mutateHoldouts: mutate,
     hasArchived: data?.hasArchived || false,

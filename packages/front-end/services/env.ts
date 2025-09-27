@@ -20,13 +20,13 @@ const env: EnvironmentInitValue = {
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
   allowCreateDimensions: true,
-  usingFileProxy: false,
   superadminDefaultRole: "readonly",
   ingestorOverride: "",
   stripePublishableKey: "",
   experimentRefreshFrequency: 6,
   hasOpenAIKey: false,
   hasOllamaServer: false,
+  uploadMethod: "local",
 };
 
 export async function initEnv() {
@@ -106,9 +106,6 @@ export function isSentryEnabled() {
 export function storeSegmentsInMongo() {
   return env.storeSegmentsInMongo;
 }
-export function usingFileProxy() {
-  return env.usingFileProxy;
-}
 export function getSuperadminDefaultRole() {
   return env.superadminDefaultRole;
 }
@@ -128,4 +125,8 @@ export function hasOllamaServer() {
 
 export function getExperimentRefreshFrequency() {
   return env.experimentRefreshFrequency;
+}
+
+export function getUploadMethod(): "local" | "s3" | "google-cloud" {
+  return env.uploadMethod;
 }

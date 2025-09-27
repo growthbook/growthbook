@@ -27,13 +27,13 @@ export interface EnvironmentInitValue {
   storeSegmentsInMongo: boolean;
   allowCreateMetrics: boolean;
   allowCreateDimensions: boolean;
-  usingFileProxy: boolean;
   superadminDefaultRole: string;
   ingestorOverride: string;
   stripePublishableKey: string;
   experimentRefreshFrequency: number;
   hasOpenAIKey?: boolean;
   hasOllamaServer?: boolean;
+  uploadMethod: "local" | "s3" | "google-cloud";
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -59,12 +59,12 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
     ALLOW_CREATE_DIMENSIONS,
-    USE_FILE_PROXY: USING_FILE_PROXY,
     SUPERADMIN_DEFAULT_ROLE,
     NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
     EXPERIMENT_REFRESH_FREQUENCY,
     OPENAI_API_KEY,
     OLLAMA_BASE_URL,
+    UPLOAD_METHOD,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
@@ -138,7 +138,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
     usingSSO: !!SSO_CONFIG, // No matter what SSO_CONFIG is set to we want it to count as using it.
     storeSegmentsInMongo: stringToBoolean(STORE_SEGMENTS_IN_MONGO),
-    usingFileProxy: stringToBoolean(USING_FILE_PROXY),
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
     ingestorOverride: INGESTOR_HOST || "",
     stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
@@ -147,6 +146,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
       : 6,
     hasOpenAIKey: !!OPENAI_API_KEY || false,
     hasOllamaServer: !!OLLAMA_BASE_URL || false,
+    uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);

@@ -32,6 +32,7 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   ExperimentReportResults
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private factTableMap: FactTableMap = new Map();
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -41,10 +42,12 @@ export class ExperimentReportQueryRunner extends QueryRunner<
 
   async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
+    this.factTableMap = params.factTableMap;
 
     const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
       this.model.args,
       params.metricMap,
+      params.factTableMap,
     );
 
     const experimentParams: ExperimentResultsQueryParams = {
@@ -66,7 +69,11 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   async runAnalysis(queryMap: QueryMap): Promise<ExperimentReportResults> {
     if (this.model.type === "experiment") {
       const { snapshotSettings, analysisSettings } =
-        getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
+        getSnapshotSettingsFromReportArgs(
+          this.model.args,
+          this.metricMap,
+          this.factTableMap,
+        );
 
       // todo: bandits? (probably not needed)
       const { results } = await analyzeExperimentResults({

@@ -20,7 +20,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
-import PremiumCallout from "../Radix/PremiumCallout";
+import PremiumCallout from "@/ui/PremiumCallout";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";

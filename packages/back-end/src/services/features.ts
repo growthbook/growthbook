@@ -1361,7 +1361,9 @@ export function getApiFeatureObj({
   const publishedBy =
     revision?.publishedBy?.type === "api_key"
       ? "API"
-      : revision?.publishedBy?.name;
+      : revision?.publishedBy?.type === "system"
+        ? "SYSTEM"
+        : revision?.publishedBy?.name;
 
   const revisionDefs = revisions?.map((rev) => {
     const environmentRules: Record<string, ApiFeatureRule[]> = {};
@@ -1396,7 +1398,11 @@ export function getApiFeatureObj({
       environmentDefinitions[env] = JSON.stringify(definition);
     });
     const publishedBy =
-      rev?.publishedBy?.type === "api_key" ? "API" : rev?.publishedBy?.name;
+      rev?.publishedBy?.type === "api_key"
+        ? "API"
+        : rev?.publishedBy?.type === "system"
+          ? "SYSTEM"
+          : rev?.publishedBy?.name;
     return {
       baseVersion: rev.baseVersion,
       version: rev.version,

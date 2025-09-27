@@ -3,8 +3,8 @@ import { useForm } from "react-hook-form";
 import { Text } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useExperiments } from "@/hooks/useExperiments";
+import Callout from "@/ui/Callout";
 import Modal from "../Modal";
-import Callout from "../Radix/Callout";
 import { HoldoutSelect } from "../Holdout/HoldoutSelect";
 
 const AddToHoldoutModal = ({
@@ -17,7 +17,9 @@ const AddToHoldoutModal = ({
   mutate: () => void;
 }) => {
   const form = useForm({
-    defaultValues: { holdout: feature.holdout || undefined },
+    defaultValues: {
+      holdout: feature.holdout?.id ? feature.holdout : undefined,
+    },
   });
 
   const { apiCall } = useAuth();
@@ -51,11 +53,6 @@ const AddToHoldoutModal = ({
       submit={
         showHoldoutSelect
           ? form.handleSubmit(async (value) => {
-              console.log(value);
-              if (value.holdout?.id === "none") {
-                value.holdout = undefined;
-              }
-
               await apiCall(`/feature/${feature.id}`, {
                 method: "PUT",
                 body: JSON.stringify(value),
@@ -86,6 +83,7 @@ const AddToHoldoutModal = ({
             });
           }}
           selectedHoldoutId={form.watch("holdout")?.id}
+          formType="feature"
         />
       )}
     </Modal>

@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { Switch, Tooltip } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 export interface Props {
@@ -64,6 +64,29 @@ export default function EnvironmentToggle({
     mutate();
   };
 
+  const isDisabled = !permissionsUtil.canPublishFeature(feature, [environment]);
+
+  const switchElement = (
+    <Switch
+      id={id}
+      className={className}
+      disabled={isDisabled}
+      checked={env?.enabled ?? false}
+      onCheckedChange={async (on) => {
+        if (toggling) return;
+        if (on && env?.enabled) return;
+        if (!on && !env?.enabled) return;
+
+        if (showConfirmation) {
+          setDesiredState(on);
+          setConfirming(true);
+        } else {
+          await submit(feature, environment, on);
+        }
+      }}
+    />
+  );
+
   return (
     <>
       {confirming ? (
@@ -81,29 +104,15 @@ export default function EnvironmentToggle({
           You are about to set the <strong>{environment}</strong> environment to{" "}
           <strong>{desiredState ? "enabled" : "disabled"}</strong>.
         </Modal>
-      ) : (
-        ""
-      )}
-      <Toggle
-        value={env?.enabled ?? false}
-        id={id}
-        disabledMessage="You don't have permission to change features in this environment"
-        disabled={!permissionsUtil.canPublishFeature(feature, [environment])}
-        setValue={async (on) => {
-          if (toggling) return;
-          if (on && env?.enabled) return;
-          if (!on && !env?.enabled) return;
+      ) : null}
 
-          if (showConfirmation) {
-            setDesiredState(on);
-            setConfirming(true);
-          } else {
-            await submit(feature, environment, on);
-          }
-        }}
-        type="environment"
-        className={className}
-      />
+      {isDisabled ? (
+        <Tooltip content="You don't have permission to change features in this environment">
+          {switchElement}
+        </Tooltip>
+      ) : (
+        switchElement
+      )}
     </>
   );
 }

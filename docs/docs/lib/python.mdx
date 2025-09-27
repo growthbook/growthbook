@@ -175,7 +175,7 @@ async def batch_process(user_ids: list[str]):
     for user_id in user_ids:
         user = UserContext(attributes={"id": user_id})
         tasks.append(gb_client.eval_feature("new-feature", user))
-    
+
     results = await asyncio.gather(*tasks)
     return {"results": results}
 ```
@@ -187,12 +187,10 @@ async def batch_process(user_ids: list[str]):
 The `GrowthBookClient` provides significant performance improvements over the traditional per-request `GrowthBook` approach:
 
 - **3x faster** feature evaluations due to instance reuse
-- **Lower memory usage** by sharing feature data across requests  
+- **Lower memory usage** by sharing feature data across requests
 - **Built-in caching** with configurable refresh strategies
 - **Real-time updates** without polling overhead
 - **Async/await support** for non-blocking operations
-
-
 
 ## Loading Features
 
@@ -225,17 +223,17 @@ async def main():
             decryption_key="your-decryption-key"
         )
     )
-    
+
     try:
         # Initialize features (async)
         await client.initialize()
-        
+
         # Features are now cached and ready to use
         user = UserContext(attributes={"id": "user_123"})
         feature_enabled = await client.is_on("my-feature", user)
-        
+
         print(f"Feature enabled: {feature_enabled}")
-        
+
     finally:
         await client.close()
 
@@ -302,8 +300,8 @@ class AsyncRedisFeatureCache(AbstractAsyncFeatureCache):
 
     async def set(self, key: str, value: dict, ttl: int) -> None:
         await self.redis.set(
-            self.prefix + key, 
-            json.dumps(value), 
+            self.prefix + key,
+            json.dumps(value),
             ex=ttl
         )
 
@@ -313,7 +311,7 @@ class AsyncRedisFeatureCache(AbstractAsyncFeatureCache):
 async def main():
     # Create custom cache
     cache = AsyncRedisFeatureCache()
-    
+
     # Create client with custom cache
     client = GrowthBookClient(
         Options(
@@ -322,7 +320,7 @@ async def main():
             cache=cache
         )
     )
-    
+
     try:
         await client.initialize()
         # Use client...
@@ -434,10 +432,10 @@ async def main():
             client_key="sdk-abc123"
         )
     )
-    
+
     try:
         await client.initialize()
-        
+
         # Create user context with attributes
         user = UserContext(
             attributes={
@@ -452,22 +450,22 @@ async def main():
                 'premium': True
             }
         )
-        
+
         # Use features with user context
         feature_enabled = await client.is_on("premium-feature", user)
         discount = await client.get_feature_value("discount-percent", 0, user)
-        
+
         # Different user context for another request
         guest_user = UserContext(
             attributes={
-                'id': "guest_456", 
+                'id': "guest_456",
                 'loggedIn': False,
                 'country': 'CA'
             }
         )
-        
+
         guest_feature = await client.is_on("premium-feature", guest_user)
-        
+
     finally:
         await client.close()
 
@@ -557,17 +555,17 @@ salt = "f09jq3fij"
             client_key="sdk-abc123"
         )
     )
-    
+
     try:
         await client.initialize()
-        
+
         # Hash secure attributes
         user_email = "user@example.com"
         user_tags = ["premium", "beta"]
-        
+
         hashed_email = hash_secure_attribute(user_email, salt)
         hashed_tags = [hash_secure_attribute(tag, salt) for tag in user_tags]
-        
+
         # Create user context with hashed secure attributes
         user = UserContext(
             attributes={
@@ -578,11 +576,11 @@ salt = "f09jq3fij"
                 'country': 'US'         # regular attribute
             }
         )
-        
+
         # Use features with secure attributes
         premium_feature = await client.is_on("premium-feature", user)
         personalized_content = await client.get_feature_value("personalized-content", {}, user)
-        
+
     finally:
         await client.close()
 
@@ -654,7 +652,7 @@ async def on_experiment_viewed(experiment: Experiment, result: Result):
     """Async callback for experiment tracking"""
     # Use whatever event tracking system you want
     user_id = result.hash_attribute or "anonymous"
-    
+
     # Example with async analytics
     await analytics.track_async(user_id, "Experiment Viewed", {
         'experimentId': experiment.key,
@@ -663,7 +661,7 @@ async def on_experiment_viewed(experiment: Experiment, result: Result):
         'inExperiment': result.in_experiment,
         'hashUsed': result.hash_used
     })
-    
+
     print(f"Tracked experiment: {experiment.key} -> {result.value}")
 
 async def main():
@@ -675,25 +673,25 @@ async def main():
             on_experiment_viewed=on_experiment_viewed
         )
     )
-    
+
     try:
         await client.initialize()
-        
+
         # Create user context
         user = UserContext(attributes={"id": "user_123", "premium": True})
-        
+
         # Feature evaluations will automatically trigger tracking
         feature_value = await client.get_feature_value("button-color", "blue", user)
-        
+
         # Run inline experiments (also triggers tracking)
         experiment = Experiment(
             key="pricing-test",
             variations=["$9.99", "$14.99", "$19.99"]
         )
-        
+
         result = await client.run(experiment, user)
         print(f"Experiment result: {result.value}")
-        
+
     finally:
         await client.close()
 
@@ -733,7 +731,7 @@ def on_experiment_viewed(experiment: Experiment, result: Result):
     """Callback for experiment tracking"""
   # Use whatever event tracking system you want
     user_id = result.hash_attribute or "anonymous"
-    
+
     analytics.track(user_id, "Experiment Viewed", {
     'experimentId': experiment.key,
         'variationId': result.key,
@@ -826,18 +824,18 @@ async def main():
             ]
         )
     )
-    
+
     try:
         await client.initialize()
-        
+
         user = UserContext(attributes={"id": "user_123"})
-        
+
         # Events are now automatically tracked and batched
         result1 = await client.get_feature_value("button-color", "blue", user)
         result2 = await client.is_on("premium-feature", user)
-        
+
         # Plugin handles batching and sending automatically
-        
+
     finally:
         await client.close()
 
@@ -1028,11 +1026,11 @@ from growthbook import GrowthBookClient, Options, UserContext, AbstractAsyncStic
 
 class AsyncStickyBucketService(AbstractAsyncStickyBucketService):
     """Async sticky bucket service using database/Redis"""
-    
+
     def __init__(self):
         # Initialize your async database connection
         self.db = AsyncDatabase()  # Your async DB client
-    
+
     async def get_assignments(self, attribute_name: str, attribute_value: str) -> Optional[Dict]:
         """Lookup a sticky bucket document"""
         try:
@@ -1058,7 +1056,7 @@ class AsyncStickyBucketService(AbstractAsyncStickyBucketService):
 async def main():
     # Create sticky bucket service
     sticky_service = AsyncStickyBucketService()
-    
+
     # Create client with sticky bucketing
     client = GrowthBookClient(
         Options(
@@ -1067,32 +1065,32 @@ async def main():
             sticky_bucket_service=sticky_service
         )
     )
-    
+
     try:
         await client.initialize()
-        
+
         # User will get consistent experiment assignments
         user = UserContext(attributes={"id": "user_123"})
-        
+
         # First time - gets assigned and saved
         result1 = await client.get_feature_value("button-color", "blue", user)
         print(f"First assignment: {result1}")
-        
+
         # Second time - retrieves saved assignment
         result2 = await client.get_feature_value("button-color", "blue", user)
         print(f"Consistent assignment: {result2}")
-        
+
         # Run inline experiments with sticky bucketing
         from growthbook import Experiment
-        
+
         experiment = Experiment(
             key="pricing-test",
             variations=["$9.99", "$14.99", "$19.99"]
         )
-        
+
         exp_result = await client.run(experiment, user)
         print(f"Sticky experiment result: {exp_result.value}")
-        
+
     finally:
         await client.close()
 
@@ -1148,11 +1146,11 @@ from growthbook import GrowthBook, AbstractStickyBucketService
 
 class MyStickyBucketService(AbstractStickyBucketService):
     """Synchronous sticky bucket service using database"""
-    
+
     def __init__(self):
         # Initialize your database connection
         self.db = Database()  # Your DB client
-    
+
     def get_assignments(self, attribute_name: str, attribute_value: str) -> Optional[Dict]:
         """Lookup a sticky bucket document"""
         try:
@@ -1283,23 +1281,23 @@ async def main():
             client_key="sdk-abc123"
         )
     )
-    
+
     try:
         await client.initialize()
-        
+
         # Create user context
         user = UserContext(attributes={"id": "user_123", "country": "US"})
-        
+
         # Simple experiment
 exp = Experiment(
             key="my-experiment",
             variations=["red", "blue", "green"]
         )
-        
+
         # Run experiment (async)
         result = await client.run(exp, user)
         print(f"Variation: {result.value}")  # Either "red", "blue", or "green"
-        
+
         # Complex experiment with all options
         complex_exp = Experiment(
             key="pricing-test",
@@ -1311,16 +1309,16 @@ exp = Experiment(
             hashVersion=2,
             namespace=("pricing", 0, 0.5)
         )
-        
+
         pricing_result = await client.run(complex_exp, user)
-        
+
         if pricing_result.in_experiment:
             print(f"User is in pricing experiment: ${pricing_result.value}")
             print(f"Variation ID: {pricing_result.key}")
             print(f"Hash used: {pricing_result.hash_used}")
         else:
             print("User not in pricing experiment")
-        
+
     finally:
         await client.close()
 
@@ -1472,7 +1470,10 @@ result = await client.run(
     ),
     user
 )
-```</TabItem>
+```
+
+</TabItem>
+
 <TabItem value="legacy" label="Legacy Client">
 
 3-way experiment with uneven variation weights:
@@ -1644,16 +1645,16 @@ async def main():
             decryption_key="your-secret-key-here"
         )
     )
-    
+
     try:
         await client.initialize()
-        
+
         # Features are automatically decrypted
         user = UserContext(attributes={"id": "user_123"})
         feature_enabled = await client.is_on("encrypted-feature", user)
-        
+
         print(f"Encrypted feature enabled: {feature_enabled}")
-        
+
     finally:
         await client.close()
 
@@ -1810,11 +1811,11 @@ async def shutdown():
 async def root(user_id: str):
     # Create user context for the request
     user = UserContext(attributes={"id": user_id})
-    
+
     # Use features - no need to pass client around
     show_new_ui = await gb_client.is_on("new-ui", user)
     discount_amount = await gb_client.get_feature_value("discount-percent", 0, user)
-    
+
     return {
         "new_ui": show_new_ui,
         "discount": discount_amount
@@ -1823,17 +1824,17 @@ async def root(user_id: str):
 @app.get("/experiment")
 async def run_experiment(user_id: str):
     user = UserContext(attributes={"id": user_id})
-    
+
     # Run inline experiments
     from growthbook import Experiment
-    
+
     experiment = Experiment(
         key="button-color",
         variations=["red", "blue", "green"]
     )
-    
+
     result = await gb_client.run(experiment, user)
-    
+
     return {
         "variation": result.value,
         "in_experiment": result.in_experiment
@@ -1859,9 +1860,9 @@ gb_client = GrowthBookClient(
 async def homepage(request):
     user_id = request.query_params.get('user_id', 'anonymous')
     user = UserContext(attributes={"id": user_id})
-    
+
     feature_enabled = await gb_client.is_on("new-homepage", user)
-    
+
     return JSONResponse({
         "new_homepage": feature_enabled,
         "user_id": user_id
@@ -1922,7 +1923,7 @@ Then, you can easily use GrowthBook in any of your views:
 def index(request):
     feature_enabled = request.gb.is_on("my-feature")
     button_color = request.gb.get_feature_value("button-color", "blue")
-    
+
     return render(request, 'index.html', {
         'feature_enabled': feature_enabled,
         'button_color': button_color
@@ -1960,7 +1961,7 @@ def teardown_request(exception):
 def index():
     feature_enabled = g.gb.is_on("new-layout")
     theme = g.gb.get_feature_value("theme", "light")
-    
+
     return {
         "feature_enabled": feature_enabled,
         "theme": theme

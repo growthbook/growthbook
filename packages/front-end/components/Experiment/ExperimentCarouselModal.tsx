@@ -13,7 +13,7 @@ const ExperimentCarouselModal: FC<{
   experiment: ExperimentInterfaceStringDates;
   currentVariation: string;
   currentScreenshot: number;
-  imageCache: { [key: string]: string };
+  imageCache: Record<string, { url: string; expiresAt: string }>;
   close: () => void;
   mutate?: () => void;
   restrictVariation?: boolean;

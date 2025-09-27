@@ -132,7 +132,7 @@ export async function updateDashboard(
         "enableAutoUpdates" in updates) &&
       !canManage
     ) {
-      context.permissions.throwPermissionError();
+      return context.permissions.throwPermissionError();
     }
 
     const createdBlocks = await Promise.all(

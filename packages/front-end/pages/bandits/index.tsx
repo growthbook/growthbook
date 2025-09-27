@@ -26,10 +26,10 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useExperimentSearch } from "@/services/experiments";
 

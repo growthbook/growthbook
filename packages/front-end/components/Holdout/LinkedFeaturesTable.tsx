@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { date } from "shared/dates";
 import { FeatureInterface } from "back-end/types/feature";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import Link from "../Radix/Link";
+import Link from "@/ui/Link";
 import ValueDisplay from "../Features/ValueDisplay";
 
 interface Props {

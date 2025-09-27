@@ -1,7 +1,6 @@
 import { analyzeExperimentPower } from "shared/enterprise";
 import { addDays } from "date-fns";
 import {
-  expandMetricGroups,
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   isFactMetric,
@@ -194,12 +193,8 @@ export const startExperimentResultQueries = async (
     : null;
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const allMetricGroups = await context.models.metricGroups.getAll();
-  const selectedMetrics = expandMetricGroups(
-    getAllMetricIdsFromExperiment(snapshotSettings, false),
-    allMetricGroups,
-  )
-    .map((m) => metricMap.get(m))
+  const selectedMetrics = snapshotSettings.metricSettings
+    .map((m) => metricMap.get(m.id))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
     throw new Error("Experiment must have at least 1 metric selected.");

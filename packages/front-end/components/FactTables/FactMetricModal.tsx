@@ -52,12 +52,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import ButtonSelectField from "@/components/Forms/ButtonSelectField";
@@ -66,12 +61,13 @@ import { MetricCappingSettingsForm } from "@/components/Metrics/MetricForm/Metri
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import { MetricDelaySettings } from "@/components/Metrics/MetricForm/MetricDelaySettings";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
-import Checkbox from "@/components/Radix/Checkbox";
-import Callout from "@/components/Radix/Callout";
+import Checkbox from "@/ui/Checkbox";
+import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 export interface Props {
   close?: () => void;
@@ -1461,6 +1457,8 @@ export default function FactMetricModal({
 
   const settings = useOrgSettings();
 
+  const { disableLegacyMetricCreation } = settings;
+
   const { hasCommercialFeature } = useUser();
 
   // TODO: We may want to hide this from non-technical users in the future
@@ -1474,7 +1472,10 @@ export default function FactMetricModal({
     project,
     getFactTableById,
     mutateDefinitions,
+    metrics,
   } = useDefinitions();
+
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -1482,6 +1483,14 @@ export default function FactMetricModal({
     .filter((d) => isProjectListValidForProject(d.projects, project))
     .filter((d) => d.properties?.queryLanguage === "sql")
     .filter((d) => !datasource || d.id === datasource);
+
+  const filteredMetrics = metrics
+    .filter((f) => !datasource || f.datasource === datasource)
+    .filter((f) => isProjectListValidForProject(f.projects, project))
+    .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
+
+  const showSwitchToLegacy =
+    filteredMetrics.length > 0 && !disableLegacyMetricCreation;
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,
@@ -1663,7 +1672,8 @@ export default function FactMetricModal({
         // reset aggregate filter for certain metrics
         if (
           values.metricType !== "proportion" &&
-          values.metricType !== "retention"
+          values.metricType !== "retention" &&
+          values.metricType !== "ratio"
         ) {
           values.numerator.aggregateFilterColumn = undefined;
           values.numerator.aggregateFilter = undefined;
@@ -1677,6 +1687,18 @@ export default function FactMetricModal({
           if (!values.cappingSettings.value) {
             throw new Error("Capped Value cannot be 0");
           }
+        }
+
+        // reset capping that may be carried over to uncappable metrics
+        if (
+          values.metricType === "quantile" ||
+          values.metricType === "proportion" ||
+          values.metricType === "retention"
+        ) {
+          values.cappingSettings = {
+            type: "",
+            value: 0,
+          };
         }
 
         if (
@@ -1767,7 +1789,7 @@ export default function FactMetricModal({
       <div className="d-flex">
         <div className="px-3 py-4 flex-1">
           {showSQLPreview ? <h3>Enter Details</h3> : null}
-          {switchToLegacy && (
+          {showSwitchToLegacy && switchToLegacy && (
             <Callout status="info" mb="3">
               You are creating a Fact Table Metric.{" "}
               <a
@@ -2101,7 +2123,9 @@ export default function FactMetricModal({
                       <>
                         {form
                           .watch("numerator")
-                          ?.column?.startsWith("$$") ? undefined : (
+                          ?.column?.startsWith(
+                            "$$distinctUsers",
+                          ) ? undefined : (
                           <div className="col-auto">
                             <div className="form-group">
                               <label htmlFor="quantileIgnoreZeros">

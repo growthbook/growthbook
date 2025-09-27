@@ -6,7 +6,7 @@ import { date } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import Link from "../Radix/Link";
+import Link from "@/ui/Link";
 import Tooltip from "../Tooltip/Tooltip";
 
 interface Props {
@@ -89,7 +89,6 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
                   <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
                 </td>
                 <td data-title="Status">
-                  {" "}
                   {exp.statusIndicator.tooltip &&
                   !exp.statusIndicator.detailedStatus ? (
                     <Tooltip body={exp.statusIndicator.tooltip}>

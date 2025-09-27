@@ -10,14 +10,17 @@ import { Flex, Text } from "@radix-ui/themes";
 import { PiInfoFill } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, {
+  GroupedValue,
+  SingleValue,
+} from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
-import Link from "../Radix/Link";
+import Link from "@/ui/Link";
 
 type MetricOption = {
   id: string;
@@ -30,17 +33,18 @@ type MetricOption = {
   userIdTypes: string[];
   isGroup: boolean;
   metrics?: string[];
+  managedBy?: string;
 };
 
 type MetricsSelectorTooltipProps = {
   onlyBinomial?: boolean;
-  noPercentileGoalMetrics?: boolean;
+  noQuantileGoalMetrics?: boolean;
   isSingular?: boolean;
 };
 
 export const MetricsSelectorTooltip = ({
   onlyBinomial = false,
-  noPercentileGoalMetrics = false,
+  noQuantileGoalMetrics = false,
   isSingular = false,
 }: MetricsSelectorTooltipProps) => {
   return (
@@ -61,8 +65,12 @@ export const MetricsSelectorTooltip = ({
             {onlyBinomial ? (
               <li>{isSingular ? "is" : "are"} a binomial metric</li>
             ) : null}
-            {noPercentileGoalMetrics ? (
-              <li>{isSingular ? "does" : "do"} not use percentile capping</li>
+            {noQuantileGoalMetrics ? (
+              <li>
+                {isSingular
+                  ? "is not a quantile metric"
+                  : "are not quantile metrics"}
+              </li>
             ) : null}
           </ul>
         </>
@@ -82,11 +90,11 @@ const MetricsSelector: FC<{
   includeGroups?: boolean;
   excludeQuantiles?: boolean;
   forceSingleMetric?: boolean;
-  noPercentile?: boolean;
   noManual?: boolean;
   filterConversionWindowMetrics?: boolean;
   disabled?: boolean;
   helpText?: ReactNode;
+  groupOptions?: boolean;
 }> = ({
   datasource,
   project,
@@ -98,11 +106,11 @@ const MetricsSelector: FC<{
   includeGroups = true,
   excludeQuantiles,
   forceSingleMetric = false,
-  noPercentile = false,
   noManual = false,
   filterConversionWindowMetrics,
   disabled,
   helpText,
+  groupOptions = true,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -123,9 +131,6 @@ const MetricsSelector: FC<{
   const options: MetricOption[] = [
     ...metrics
       .filter((m) => {
-        if (noPercentile) {
-          return m.cappingSettings.type !== "percentile";
-        }
         if (filterConversionWindowMetrics) {
           return m?.windowSettings?.type !== "conversion";
         }
@@ -142,15 +147,13 @@ const MetricsSelector: FC<{
         factTables: [],
         userIdTypes: m.userIdTypes || [],
         isGroup: false,
+        managedBy: m.managedBy,
       })),
     ...(includeFacts
       ? factMetrics
           .filter((m) => {
             if (quantileMetricType(m) && excludeQuantiles) {
               return false;
-            }
-            if (noPercentile) {
-              return m.cappingSettings.type !== "percentile";
             }
             if (filterConversionWindowMetrics) {
               return m?.windowSettings?.type !== "conversion";
@@ -164,6 +167,7 @@ const MetricsSelector: FC<{
             datasource: m.datasource,
             tags: m.tags || [],
             projects: m.projects || [],
+            managedBy: m.managedBy,
             factTables: [
               m.numerator.factTableId,
               (m.metricType === "ratio" && m.denominator
@@ -238,13 +242,63 @@ const MetricsSelector: FC<{
     <MultiSelectField
       value={selected}
       onChange={onChange}
-      options={filteredOptions.map((m) => {
-        return {
-          value: m.id,
-          label: m.name,
-          tooltip: m.description,
-        };
-      })}
+      customStyles={{
+        group: groupOptions
+          ? (base, state) => ({
+              ...base,
+              borderBottom:
+                state.selectProps.options?.length >= 1 &&
+                state.selectProps.options[0] === state.data
+                  ? "1px solid #e9ecef"
+                  : "none",
+            })
+          : undefined,
+      }}
+      options={
+        groupOptions
+          ? (() => {
+              const groupedOptions: GroupedValue[] = [];
+              const managedMetrics: SingleValue[] = [];
+              const unManagedMetrics: SingleValue[] = [];
+
+              filteredOptions.forEach((option) => {
+                const singleValue: SingleValue = {
+                  value: option.id,
+                  label: option.name,
+                  tooltip: option.description,
+                };
+
+                if (option.managedBy) {
+                  managedMetrics.push(singleValue);
+                } else {
+                  unManagedMetrics.push(singleValue);
+                }
+              });
+
+              if (managedMetrics.length > 0) {
+                groupedOptions.push({
+                  label: "",
+                  options: managedMetrics,
+                });
+              }
+
+              if (unManagedMetrics.length > 0) {
+                groupedOptions.push({
+                  label: "",
+                  options: unManagedMetrics,
+                });
+              }
+
+              return groupedOptions;
+            })()
+          : filteredOptions.map((m) => {
+              return {
+                value: m.id,
+                label: m.name,
+                tooltip: m.description,
+              };
+            })
+      }
       placeholder="Select metrics..."
       autoFocus={autoFocus}
       formatOptionLabel={({ value, label }, { context }) => {
@@ -278,6 +332,11 @@ const MetricsSelector: FC<{
             isGroup={isGroup}
             metrics={metricsWithJoinableStatus}
             filterConversionWindowMetrics={filterConversionWindowMetrics}
+            badgeColor={
+              context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
+            }
+            officialBadgePosition="left"
+            officialBadgeLeftGap={context !== "value"}
           />
         ) : (
           label
@@ -403,7 +462,13 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       formatOptionLabel={({ value, label }, { context }) => {
         return value ? (
-          <MetricName id={value} showDescription={context !== "value"} />
+          <MetricName
+            id={value}
+            showDescription={context !== "value"}
+            badgeColor={
+              context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
+            }
+          />
         ) : (
           label
         );

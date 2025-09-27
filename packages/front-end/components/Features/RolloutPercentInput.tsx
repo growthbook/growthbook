@@ -14,7 +14,7 @@ export interface Props {
 export default function RolloutPercentInput({
   value,
   setValue,
-  label = "Percent of Users",
+  label = "Percent of Units",
   className,
 }: Props) {
   return (

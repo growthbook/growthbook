@@ -3,16 +3,11 @@ import { PiArrowLineDownThin, PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useRef, useState } from "react";
 import Code from "@/components/SyntaxHighlighting/Code";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { convertToCSV, downloadCSVFile } from "@/services/sql";
-import Button from "../Radix/Button";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Tooltip from "../Tooltip/Tooltip";
-import Callout from "../Radix/Callout";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 
 export type Props = {

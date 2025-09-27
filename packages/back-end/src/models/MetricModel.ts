@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
-import { ExperimentMetricInterface } from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
 } from "back-end/types/metric";
+import { FactTableMap } from "back-end/types/fact-table";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
@@ -146,16 +147,60 @@ const toInterface: ToInterface<MetricInterface> = (doc) => {
   return upgradeMetricDoc(removeMongooseFields(doc));
 };
 
-export async function insertMetric(metric: Partial<MetricInterface>) {
+export async function insertMetric(
+  context: ReqContext | ApiReqContext,
+  metric: Partial<MetricInterface>,
+) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add new metrics. Metrics managed by config.yml");
   }
+
+  if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+    throw new Error(
+      "Cannot mark a metric as managed by the API outside of the API.",
+    );
+  }
+
+  if (
+    metric.managedBy === "admin" &&
+    !context.hasPremiumFeature("manage-official-resources")
+  ) {
+    throw new Error(
+      "Your organization's plan does not support creating official metrics.",
+    );
+  }
+
+  if (!context.permissions.canCreateMetric(metric)) {
+    context.permissions.throwPermissionError();
+  }
+
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function insertMetrics(metrics: InsertMetricProps[]) {
+export async function insertMetrics(
+  context: ReqContext | ApiReqContext,
+  metrics: InsertMetricProps[],
+) {
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add metrics. Metrics managed by config.yml");
+  }
+  for (const metric of metrics) {
+    if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+      throw new Error(
+        "Cannot mark a metric as managed by the API outside of the API.",
+      );
+    }
+    if (
+      metric.managedBy === "admin" &&
+      !context.hasPremiumFeature("manage-official-resources")
+    ) {
+      throw new Error(
+        "Your organization's plan does not support creating official metrics.",
+      );
+    }
+    if (!context.permissions.canCreateMetric(metric)) {
+      context.permissions.throwPermissionError();
+    }
   }
   return (await MetricModel.insertMany(metrics)).map(toInterface);
 }
@@ -169,6 +214,9 @@ export async function deleteMetricById(
   }
   if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
     throw new Error("Cannot delete a metric managed by the API");
+  }
+  if (!context.permissions.canDeleteMetric(metric)) {
+    context.permissions.throwPermissionError();
   }
 
   // delete references:
@@ -503,6 +551,9 @@ export async function updateMetric(
     if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
       throw new Error("Cannot update. Metric managed by the API");
     }
+    if (!context.permissions.canUpdateMetric(metric, updates)) {
+      context.permissions.throwPermissionError();
+    }
   }
 
   // If using config.yml, need to do an `upsert` since it might not exist in mongo yet
@@ -581,3 +632,52 @@ export async function generateMetricEmbeddings(
 const getTextForEmbedding = (metric: MetricInterface): string => {
   return `Name: ${metric.name}\nDescription: ${metric.description}`;
 };
+
+/**
+ * Expands dimension metrics for fact metrics with enableMetricDimensions and adds them to the metricMap
+ */
+export function expandDimensionMetricsInMap(
+  metricMap: Map<string, ExperimentMetricInterface>,
+  factTableMap: FactTableMap,
+  baseMetrics: ExperimentMetricInterface[],
+): void {
+  for (const metric of baseMetrics) {
+    if (isFactMetric(metric) && metric.enableMetricDimensions) {
+      const factTable = factTableMap.get(metric.numerator.factTableId);
+      if (factTable) {
+        const dimensionColumns = factTable.columns.filter(
+          (col) =>
+            col.isDimension &&
+            !col.deleted &&
+            (col.dimensionLevels?.length || 0) > 0,
+        );
+
+        dimensionColumns.forEach((col) => {
+          const dimensionLevels = col.dimensionLevels || [];
+
+          // Create a metric for each dimension level
+          dimensionLevels.forEach((value: string) => {
+            const dimensionMetric: ExperimentMetricInterface = {
+              ...metric,
+              id: `${metric.id}?dim:${col.column}=${value}`,
+              name: `${metric.name} (${col.name || col.column}: ${value})`,
+              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
+            };
+            metricMap.set(dimensionMetric.id, dimensionMetric);
+          });
+
+          // Create an "other" metric for values not in dimensionLevels
+          if (dimensionLevels.length > 0) {
+            const otherMetric: ExperimentMetricInterface = {
+              ...metric,
+              id: `${metric.id}?dim:${col.column}=`,
+              name: `${metric.name} (${col.name || col.column}: other)`,
+              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = other`,
+            };
+            metricMap.set(otherMetric.id, otherMetric);
+          }
+        });
+      }
+    }
+  }
+}

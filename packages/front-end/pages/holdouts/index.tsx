@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
+import { startCase } from "lodash";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
@@ -14,14 +14,14 @@ import Field from "@/components/Forms/Field";
 import TagsFilter, { useTagsFilter } from "@/components/Tags/TagsFilter";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import UserAvatar from "@/components/Avatar/UserAvatar";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
+import EmptyState from "@/components/EmptyState";
+import LinkButton from "@/ui/LinkButton";
 
 const NUM_PER_PAGE = 20;
 
@@ -94,6 +94,13 @@ const HoldoutsPage = (): React.ReactElement => {
       }
       return [...acc, project.name];
     }, []);
+    const statusString =
+      startCase(item.experiment.status) +
+      (item.experiment.status === "running" &&
+      item.experiment.phases.length === 2
+        ? ": Analysis Period"
+        : "");
+
     const ownerName = getUserDisplay(item.experiment.owner, false) || "";
     return {
       name: item.name,
@@ -105,12 +112,19 @@ const HoldoutsPage = (): React.ReactElement => {
       ownerName,
       hashAttribute: item.experiment.hashAttribute,
       status: item.experiment.status,
+      holdoutStatus: statusString,
     };
   });
 
-  const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
+  const { items, searchInputProps, SortableTH } = useSearch({
     items: holdoutItems,
-    searchFields: ["name", "projects", "ownerName", "hashAttribute", "status"],
+    searchFields: [
+      "name",
+      "projects",
+      "ownerName",
+      "hashAttribute",
+      "holdoutStatus",
+    ],
     localStorageKey: "holdout-search",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
@@ -149,7 +163,7 @@ const HoldoutsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasHoldouts = holdouts.length > 0 && allExperiments.length > 0;
+  const hasHoldoutsCreated = holdouts.length > 0 && allExperiments.length > 0;
 
   const canAdd = permissionsUtil.canViewExperimentModal(project);
 
@@ -173,7 +187,7 @@ const HoldoutsPage = (): React.ReactElement => {
           title="Measure aggregate impact with Holdouts"
           description="Holdouts allow you to measure the aggregate impact of features and experiments."
           commercialFeature="holdouts"
-          // learnMoreLink="https://docs.growthbook.io/bandits/overview"
+          learnMoreLink="https://docs.growthbook.io/app/holdouts"
         />
       </div>
     );
@@ -203,17 +217,22 @@ const HoldoutsPage = (): React.ReactElement => {
               </div>
             )}
           </div>
-          {!hasHoldouts ? (
-            <div className="box py-5 text-center">
-              <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Measure aggregate impact with Holdouts</h1>
-                <p className="">
-                  Measure the aggregate impact of features and experiments with
-                  Holdouts.
-                </p>
-              </div>
-              <div className="d-flex justify-content-center pt-2">
-                {canAdd && (
+          {!hasHoldoutsCreated ? (
+            <EmptyState
+              title="Measure aggregate impact with Holdouts"
+              description="Measure the aggregate impact of features and experiments with
+              Holdouts."
+              leftButton={
+                <LinkButton
+                  href="https://docs.growthbook.io/app/holdouts"
+                  variant="outline"
+                  external={true}
+                >
+                  View docs
+                </LinkButton>
+              }
+              rightButton={
+                canAdd ? (
                   <PremiumTooltip
                     tipPosition="left"
                     popperStyle={{ top: 15 }}
@@ -228,9 +247,9 @@ const HoldoutsPage = (): React.ReactElement => {
                       Add Holdout
                     </Button>
                   </PremiumTooltip>
-                )}
-              </div>
-            </div>
+                ) : null
+              }
+            />
           ) : (
             <>
               <div className="row align-items-center mb-3">
@@ -306,7 +325,7 @@ const HoldoutsPage = (): React.ReactElement => {
                     <SortableTH field="hashAttribute">ID Type</SortableTH>
                     <th>Experiments</th>
                     <th>Features</th>
-                    <SortableTH field="status">Status</SortableTH>
+                    <SortableTH field="holdoutStatus">Status</SortableTH>
                     <SortableTH field="duration">Duration</SortableTH>
                   </tr>
                 </thead>
@@ -323,39 +342,24 @@ const HoldoutsPage = (): React.ReactElement => {
                               <div className="d-flex">
                                 <span className="testname">{holdout.name}</span>
                               </div>
-                              {isFiltered && holdout.experiment.trackingKey && (
-                                <span
-                                  className="testid text-muted small"
-                                  title="Experiment Id"
-                                >
-                                  {holdout.experiment.trackingKey}
-                                </span>
-                              )}
                             </div>
                           </Link>
                         </td>
-                        <td className="nowrap" data-title="Project:">
+                        <td data-title="Projects:">
                           {holdout.projects.length === 0
                             ? null
                             : holdout.projects.join(", ")}
                         </td>
-                        <td data-title="Tags:" className="table-tags">
+                        <td data-title="Tags:">
                           <SortedTags
                             tags={Object.values(holdout?.tags || [])}
                             useFlex={true}
                           />
                         </td>
                         <td className="nowrap" data-title="Owner:">
-                          <Flex align="center" gap="2">
-                            <UserAvatar
-                              name={holdout.ownerName}
-                              size="sm"
-                              variant="soft"
-                            />
-                            <span className="text-truncate">
-                              {holdout.ownerName}
-                            </span>
-                          </Flex>
+                          <span className="text-truncate">
+                            {holdout.ownerName}
+                          </span>
                         </td>
                         <td className="nowrap" data-title="ID Type:">
                           {holdout.hashAttribute}
@@ -363,9 +367,7 @@ const HoldoutsPage = (): React.ReactElement => {
                         <td className="nowrap">{holdout.numExperiments}</td>
                         <td className="nowrap">{holdout.numFeatures}</td>
                         <td className="nowrap" data-title="Status:">
-                          <ExperimentStatusIndicator
-                            experimentData={holdout.experiment}
-                          />
+                          {holdout.holdoutStatus}
                         </td>
                         <td
                           className="nowrap"

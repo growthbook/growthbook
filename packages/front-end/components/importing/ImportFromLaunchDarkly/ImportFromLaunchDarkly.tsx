@@ -14,16 +14,6 @@ import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "back-end/types/organization";
 import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import {
-  FeatureVariationsMap,
-  getLDEnvironments,
-  getLDFeatureFlag,
-  getLDFeatureFlags,
-  getLDProjects,
-  getTypeAndVariations,
-  transformLDFeatureFlag,
-  transformLDProjectsToGBProject,
-} from "@/services/importing";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -35,6 +25,17 @@ import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import {
+  FeatureVariationsMap,
+  getLDEnvironments,
+  getLDFeatureFlag,
+  getLDFeatureFlags,
+  getLDProjects,
+  getTypeAndVariations,
+  transformLDFeatureFlag,
+  transformLDProjectsToGBProject,
+} from "@/services/importing/launchdarkly/launchdarkly-importing";
+import track from "@/services/track";
 
 type ImportStatus = "invalid" | "skipped" | "pending" | "completed" | "failed";
 
@@ -458,7 +459,7 @@ function ImportStatusDisplay({
       ? "success"
       : data.status === "skipped"
         ? "secondary"
-        : "purple";
+        : "info";
 
   return (
     <Tooltip
@@ -705,6 +706,11 @@ export default function ImportFromLaunchDarkly() {
               onClick={async () => {
                 if (!token) return;
 
+                track("LaunchDarkly import fetch started", {
+                  source: "launchdarkly",
+                  step: 1,
+                });
+
                 setData({
                   status: "fetching",
                 });
@@ -734,6 +740,11 @@ export default function ImportFromLaunchDarkly() {
               color={step === 2 ? "primary" : "outline-primary"}
               disabled={step < 2}
               onClick={async () => {
+                track("LaunchDarkly import started", {
+                  source: "launchdarkly",
+                  step: 2,
+                });
+
                 await runImport(data, apiCall, (d) => setData(d));
                 mutateDefinitions();
                 mutateFeatures();

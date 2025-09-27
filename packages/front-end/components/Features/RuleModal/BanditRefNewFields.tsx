@@ -323,7 +323,7 @@ export default function BanditRefNewFields({
             exposureQueryId={exposureQueryId}
             project={project}
             forceSingleGoalMetric={true}
-            noPercentileGoalMetrics={true}
+            noQuantileGoalMetrics={true}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
             guardrailMetrics={form.watch("guardrailMetrics") ?? []}
