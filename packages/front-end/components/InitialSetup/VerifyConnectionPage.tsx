@@ -25,6 +25,7 @@ import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguag
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
+import track from "@/services/track";
 
 interface Props {
   connection: string | null;
@@ -68,6 +69,10 @@ const VerifyConnectionPage = ({
   const updateEventTracker = useCallback(
     async (value: string) => {
       try {
+        track("Event Tracker Selected", {
+          eventTracker,
+          language: currentConnection?.languages || [],
+        });
         if (canUpdate && currentConnection?.id) {
           await apiCall(`/sdk-connections/${currentConnection.id}`, {
             method: "PUT",
@@ -81,7 +86,7 @@ const VerifyConnectionPage = ({
         setEventTracker(value);
       }
     },
-    [apiCall, canUpdate, currentConnection?.id],
+    [apiCall, canUpdate, currentConnection, eventTracker],
   );
   const apiHost = currentConnection ? getApiBaseUrl(currentConnection) : "";
   const language = currentConnection?.languages[0] || "javascript";
