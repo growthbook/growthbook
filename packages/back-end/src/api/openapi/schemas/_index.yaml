@@ -62,6 +62,8 @@ Organization:
   $ref: "./Organization.yaml"
 FactTable:
   $ref: "./FactTable.yaml"
+FactTableColumn:
+  $ref: "./FactTableColumn.yaml"
 FactTableFilter:
   $ref: "./FactTableFilter.yaml"
 FactMetric:

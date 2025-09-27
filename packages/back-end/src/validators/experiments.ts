@@ -324,6 +324,7 @@ export const experimentInterface = z
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
+    pinnedMetricDimensionLevels: z.array(z.string()).optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

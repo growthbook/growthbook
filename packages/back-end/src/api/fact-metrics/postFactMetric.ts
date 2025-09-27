@@ -147,6 +147,7 @@ export async function getCreateMetricPropsFromBody(
     regressionAdjustmentEnabled: !!scopedSettings.regressionAdjustmentEnabled,
     numerator: cleanedNumerator,
     denominator: null,
+    enableMetricDimensions: false,
     ...otherFields,
   };
 
@@ -201,6 +202,13 @@ export async function getCreateMetricPropsFromBody(
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
+    if (
+      req.body.enableMetricDimensions &&
+      !req.context.hasPremiumFeature("metric-dimensions")
+    ) {
+      throw new Error("Metric dimensions require an enterprise license");
+    }
+
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 
     const data = await getCreateMetricPropsFromBody(

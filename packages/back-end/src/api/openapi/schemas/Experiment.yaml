@@ -229,3 +229,8 @@ properties:
   customFields:
     type: object
     additionalProperties: true
+  pinnedMetricDimensionLevels:
+    type: array
+    items:
+      type: string
+    description: Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`

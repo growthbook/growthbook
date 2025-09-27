@@ -244,3 +244,6 @@ properties:
     enum:
       - ""
       - api
+  enableMetricDimensions:
+    type: boolean
+    description: Whether this metric supports dimension analysis. This is an enterprise feature.
