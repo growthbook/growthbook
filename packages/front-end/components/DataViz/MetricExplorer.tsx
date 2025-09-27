@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { useEffect, useMemo, useState } from "react";
 import { PiWrench } from "react-icons/pi";
 import EChartsReact from "echarts-for-react";
-import { getValidDate } from "shared/dates";
+import { ago, getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { Select, SelectItem } from "@/ui/Select";
@@ -17,6 +17,9 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useCurrency } from "@/hooks/useCurrency";
+import { getExperimentMetricFormatter } from "@/services/metrics";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import BigValueChart from "../SqlExplorer/BigValueChart";
@@ -52,6 +55,12 @@ export function MetricExplorer() {
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
+  const displayCurrency = useCurrency();
+  const formatterOptions = useMemo(
+    () => ({ currency: displayCurrency }),
+    [displayCurrency],
+  );
+
   const { apiCall } = useAuth();
 
   const [results, setResults] = useState<MetricAnalysisInterface | null>(null);
@@ -63,7 +72,7 @@ export function MetricExplorer() {
   const { getFactMetricById, getFactTableById, project } = useDefinitions();
 
   const updateResults = async () => {
-    const { metricId, analysisSettings } = form.getValues();
+    const { metricId, analysisSettings, visualizationType } = form.getValues();
 
     setError(null);
 
@@ -74,7 +83,7 @@ export function MetricExplorer() {
       const response = await apiCall<{
         metricAnalysis: MetricAnalysisInterface | null;
       }>(
-        `/metric-analysis/metric/${metricId}?settings=${encodeURIComponent(JSON.stringify(analysisSettings))}`,
+        `/metric-analysis/metric/${metricId}?settings=${encodeURIComponent(JSON.stringify(analysisSettings))}&withHistogram=${visualizationType === "histogram"}`,
         {
           method: "GET",
         },
@@ -153,43 +162,51 @@ export function MetricExplorer() {
 
     const data: { x: string | number | Date; y: number }[] = [];
 
+    const rawFormatter = getExperimentMetricFormatter(
+      metric,
+      getFactTableById,
+      valueType === "sum" ? "number" : "percentage",
+    );
+    const formatter = (value: number) => rawFormatter(value, formatterOptions);
+
+    const rows = (results.result?.dates || [])
+      .map((r) => {
+        return { ...r, date: getValidDate(r.date) };
+      })
+      .filter((d) => {
+        if (d.date < analysisSettings.startDate) return false;
+        if (d.date > analysisSettings.endDate) return false;
+        return true;
+      });
+
     if (visualizationType === "bigNumber") {
-      const sum = (results.result?.dates || []).reduce((acc, curr) => {
+      const sum = rows.reduce((acc, curr) => {
         const value =
           valueType === "avg" ? curr.mean || 0 : curr.mean * (curr.units || 0);
         return acc + value;
       }, 0);
 
       return {
-        value:
-          valueType === "sum"
-            ? sum
-            : sum / (results.result?.dates?.length || 1),
-        format:
-          metric.metricType === "proportion" && valueType === "avg"
-            ? "percentage"
-            : metric.metricType === "proportion"
-              ? "shortNumber"
-              : "longNumber",
+        value: valueType === "sum" ? sum : sum / (rows.length || 1),
+        formatter,
       };
     } else if (
       visualizationType === "histogram" &&
       metric.metricType === "mean"
     ) {
       results.result?.histogram?.forEach((row) => {
-        data.push({ x: `${row.start} - ${row.end}`, y: row.units });
+        data.push({
+          x: `${formatter(row.start)} - ${formatter(row.end)}`,
+          y: row.units,
+        });
       });
     } else if (visualizationType === "timeseries") {
-      results.result?.dates?.forEach((row) => {
-        const d = getValidDate(row.date);
-        if (d < analysisSettings.startDate) return;
-        if (d > analysisSettings.endDate) return;
-
+      rows.forEach((row) => {
         if (valueType === "sum" && metric.metricType !== "ratio") {
-          data.push({ x: d, y: (row.mean || 0) * (row.units || 0) });
+          data.push({ x: row.date, y: (row.mean || 0) * (row.units || 0) });
         } else {
           data.push({
-            x: d,
+            x: row.date,
             y: row.mean || 0,
           });
         }
@@ -237,6 +254,7 @@ export function MetricExplorer() {
         },
         axisLabel: {
           color: textColor,
+          formatter: visualizationType !== "histogram" ? formatter : undefined,
         },
       },
       dataset: [
@@ -263,6 +281,8 @@ export function MetricExplorer() {
     analysisSettings.startDate,
     analysisSettings.endDate,
     textColor,
+    formatterOptions,
+    getFactTableById,
   ]);
 
   return (
@@ -281,11 +301,11 @@ export function MetricExplorer() {
                 Results
               </Text>
               <Box flexGrow={"1"} />
-              {results?.queries?.length ? (
-                <ViewAsyncQueriesButton
-                  queries={results.queries.map((q) => q.query)}
-                />
-              ) : null}
+              {results?.dateCreated && (
+                <Text style={{ color: "var(--color-text-muted)" }} size="1">
+                  {ago(results.dateCreated)}
+                </Text>
+              )}
               <Button
                 onClick={refreshResults}
                 ml="4"
@@ -296,6 +316,16 @@ export function MetricExplorer() {
               >
                 Refresh
               </Button>
+              <MoreMenu>
+                {results?.queries?.length ? (
+                  <ViewAsyncQueriesButton
+                    queries={results.queries.map((q) => q.query)}
+                    color={results?.status === "error" ? "danger" : "info"}
+                    error={results?.error}
+                    className="dropdown-item py-2"
+                  />
+                ) : null}
+              </MoreMenu>
             </Flex>
           }
         >
@@ -305,9 +335,13 @@ export function MetricExplorer() {
             ) : loading ? (
               <LoadingOverlay />
             ) : !results ? (
-              <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-                No data available
-              </Text>
+              <Box p="4" style={{ textAlign: "center" }}>
+                <Text
+                  style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
+                >
+                  No cached data available. Refresh to see results.
+                </Text>
+              </Box>
             ) : results.status === "error" ? (
               <Callout status="error">
                 {results.error || "There was an error with the analysis"}
@@ -320,17 +354,16 @@ export function MetricExplorer() {
                   (chartData && "value" in chartData && chartData.value) || 0
                 }
                 label={"Value"}
-                format={
-                  ((chartData &&
-                    "format" in chartData &&
-                    chartData.format) as "shortNumber") || "shortNumber"
+                formatter={
+                  (chartData as { formatter: (value: number) => string })
+                    .formatter
                 }
               />
             ) : (
               <EChartsReact
                 key={JSON.stringify(chartData)}
                 option={chartData}
-                style={{ width: "100%", minHeight: "350px", height: "80%" }}
+                style={{ width: "100%", minHeight: "450px", height: "80%" }}
               />
             )}
           </Box>
@@ -377,25 +410,52 @@ export function MetricExplorer() {
                       return true;
                     }}
                     onChange={(value) => {
-                      const metric = getFactMetricById(value);
+                      const newMetric = getFactMetricById(value);
 
-                      if (!metric) return;
+                      if (!newMetric) return;
 
                       form.setValue("metricId", value);
 
                       // Only mean metric support histogram views
                       if (
-                        metric.metricType !== "mean" &&
+                        newMetric.metricType !== "mean" &&
                         visualizationType === "histogram"
                       ) {
                         form.setValue("visualizationType", "timeseries");
                       }
 
                       if (
-                        metric.metricType === "ratio" &&
+                        newMetric.metricType === "ratio" &&
                         valueType === "sum"
                       ) {
                         form.setValue("valueType", "avg");
+                      }
+
+                      // If switching to a different fact table, reset user ID type and population
+                      if (
+                        newMetric.numerator?.factTableId !==
+                        metric?.numerator?.factTableId
+                      ) {
+                        const newFactTable = getFactTableById(
+                          newMetric.numerator?.factTableId || "",
+                        );
+                        const newAnalysisSettings: MetricAnalysisSettings = {
+                          ...analysisSettings,
+                          populationType: "factTable",
+                          populationId: "",
+                        };
+
+                        // Only reset userIdType if it's no longer valid
+                        if (
+                          !newFactTable ||
+                          !newFactTable.userIdTypes.includes(
+                            analysisSettings.userIdType,
+                          )
+                        ) {
+                          newAnalysisSettings.userIdType = "";
+                        }
+
+                        form.setValue("analysisSettings", newAnalysisSettings);
                       }
 
                       updateResults();
@@ -510,6 +570,7 @@ export function MetricExplorer() {
                         "visualizationType",
                         v as "bigNumber" | "timeseries" | "histogram",
                       );
+                      updateResults();
                     }}
                   >
                     <SelectItem value="bigNumber">Big Number</SelectItem>

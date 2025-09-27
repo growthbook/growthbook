@@ -49,22 +49,40 @@ export class MetricAnalysisModel extends BaseClass {
 
   public async findLatestBySettings(
     metricId: string,
-    settings: MetricAnalysisSettings,
+    {
+      settings,
+      withHistogram = false,
+    }: {
+      settings: MetricAnalysisSettings;
+      withHistogram?: boolean;
+    },
   ) {
     // 1. Get all possible matches (ignoring date ranges for now)
     const matches = await this._find(
       {
         metric: metricId,
+        source: { $ne: "northstar" },
         "settings.userIdType": settings.userIdType,
         "settings.populationType": settings.populationType,
-        "settings.populationId": settings.populationId,
+        "settings.populationId": settings.populationId || undefined,
       },
       { sort: { dateCreated: -1 }, limit: 10 },
     );
 
-    // 2. Find the analysis that covers the most of the requested date range
-    const maxOverlapAnalysis = matches.reduce(
+    // 2. Find the analysis that best matches the requested date range
+    const bestMatch = matches.reduce(
       (max, current) => {
+        const requestedRange =
+          settings.endDate.getTime() - settings.startDate.getTime();
+        const currentRange =
+          current.settings.endDate.getTime() -
+          current.settings.startDate.getTime();
+
+        if (!requestedRange || !currentRange) {
+          return max;
+        }
+
+        // Calculate overlap
         const maxStart = Math.max(
           settings.startDate.getTime(),
           current.settings.startDate.getTime(),
@@ -73,20 +91,32 @@ export class MetricAnalysisModel extends BaseClass {
           settings.endDate.getTime(),
           current.settings.endDate.getTime(),
         );
-        const currentOverlap =
-          Math.max(0, minEnd - maxStart) /
-          (settings.endDate.getTime() - settings.startDate.getTime());
+        const overlap = Math.max(0, minEnd - maxStart);
 
-        return currentOverlap > max.overlap
-          ? { analysis: current, overlap: currentOverlap }
-          : max;
+        // Calculate coverage
+        // 1 = full coverage of requested date range, 0 = no coverage
+        const coverage = overlap / requestedRange;
+
+        // Calculate precision
+        // 1 = no extra data outside of requested range, 0 = more data outside than inside requested range
+        const precision = Math.max(
+          0,
+          1 - (currentRange - overlap) / requestedRange,
+        );
+
+        // Histograms care about both coverage and precision since it uses a single aggregate row
+        // Other graphs use the raw date values and can filter client-side, so only care about coverage
+        const score = withHistogram ? coverage * precision : coverage;
+
+        return score > max.score ? { analysis: current, score: score } : max;
       },
-      { analysis: null, overlap: 0 },
+      { analysis: null, score: 0 },
     );
 
-    // 3. Return if at least 75% of the requested date range is covered
-    if (maxOverlapAnalysis.overlap >= 0.75) {
-      return maxOverlapAnalysis.analysis;
+    // 3. Return if it's a good enough match
+    // This is a balance between accurate results and cache hit rates (i.e. query costs)
+    if (bestMatch.score >= 0.85) {
+      return bestMatch.analysis;
     }
 
     return null;

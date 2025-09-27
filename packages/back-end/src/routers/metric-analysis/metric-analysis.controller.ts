@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { isFactMetric } from "shared/experiments";
 import { getValidDate } from "shared/dates";
+import { stringToBoolean } from "shared/util";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -130,7 +131,11 @@ export async function cancelMetricAnalysis(
 }
 
 export async function getLatestMetricAnalysis(
-  req: AuthRequest<null, { metricid: string }, { settings?: string }>,
+  req: AuthRequest<
+    null,
+    { metricid: string },
+    { settings?: string; withHistogram?: string }
+  >,
   res: Response<{
     status: 200;
     metricAnalysis: MetricAnalysisInterface | null;
@@ -150,7 +155,7 @@ export async function getLatestMetricAnalysis(
     const metricAnalysis =
       await context.models.metricAnalysis.findLatestBySettings(
         req.params.metricid,
-        settings,
+        { settings, withHistogram: stringToBoolean(req.query.withHistogram) },
       );
     res.status(200).json({
       status: 200,

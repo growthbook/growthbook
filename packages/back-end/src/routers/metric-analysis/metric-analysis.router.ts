@@ -29,7 +29,12 @@ router.get(
   "/metric-analysis/metric/:metricid/",
   validateRequestMiddleware({
     params: z.object({ metricid: z.string() }).strict(),
-    query: z.object({ settings: z.string().optional() }).strict(),
+    query: z
+      .object({
+        settings: z.string().optional(),
+        withHistogram: z.string().optional(),
+      })
+      .strict(),
   }),
   metricAnalysisController.getLatestMetricAnalysis,
 );
