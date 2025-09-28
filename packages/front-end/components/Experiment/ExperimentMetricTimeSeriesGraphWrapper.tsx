@@ -34,8 +34,11 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   firstDateToRender: Date;
   // Dimension row properties
   isDimensionRow?: boolean;
-  dimensionColumn?: string;
-  dimensionValue?: string | null;
+  dimensionLevels?: Array<{
+    column: string;
+    columnName: string;
+    level: string | null;
+  }>;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -67,8 +70,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   pValueAdjustmentEnabled,
   firstDateToRender,
   isDimensionRow,
-  dimensionColumn,
-  dimensionValue,
+  dimensionLevels,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -82,12 +84,17 @@ function ExperimentMetricTimeSeriesGraphWrapper({
 
   // Construct the correct metric ID for dimensional rows
   const metricId = useMemo(() => {
-    if (isDimensionRow && dimensionColumn) {
-      const dimensionValueStr = dimensionValue || "";
-      return `${metric.id}?dim:${dimensionColumn}=${dimensionValueStr}`;
+    if (isDimensionRow && dimensionLevels && dimensionLevels.length > 0) {
+      const dimensionKeyParts = dimensionLevels
+        .map(
+          (dl) =>
+            `${encodeURIComponent(dl.column)}=${encodeURIComponent(dl.level || "")}`,
+        )
+        .join("&");
+      return `${metric.id}?dim:${dimensionKeyParts}`;
     }
     return metric.id;
-  }, [isDimensionRow, dimensionColumn, dimensionValue, metric.id]);
+  }, [isDimensionRow, dimensionLevels, metric.id]);
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
     `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metricId}`,

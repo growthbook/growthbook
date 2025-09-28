@@ -120,38 +120,40 @@ export function getColumnRefWhereClause(
 
   // First add dimension filters if this is a dimension metric
   if (dimensionInfo?.isDimensionMetric) {
-    // Check if the dimension column exists in this fact table
-    const dimensionColumn = factTable.columns.find(
-      (col) => col.column === dimensionInfo.dimensionColumn,
-    );
-
-    if (dimensionColumn && !dimensionColumn.deleted) {
-      const columnExpr = getColumnExpression(
-        dimensionInfo.dimensionColumn,
-        factTable,
-        jsonExtract,
+    // Apply filters for each dimension level
+    dimensionInfo.dimensionLevels.forEach((dimensionLevel) => {
+      const dimensionColumn = factTable.columns.find(
+        (col) => col.column === dimensionLevel.column,
       );
 
-      if (!dimensionInfo.dimensionValue) {
-        // For "other", exclude all dimension values
-        if (
-          dimensionColumn.dimensionLevels &&
-          dimensionColumn.dimensionLevels.length > 0
-        ) {
-          const escapedValues = dimensionColumn.dimensionLevels.map(
-            (v: string) => "'" + escapeStringLiteral(v) + "'",
-          );
+      if (dimensionColumn && !dimensionColumn.deleted) {
+        const columnExpr = getColumnExpression(
+          dimensionLevel.column,
+          factTable,
+          jsonExtract,
+        );
+
+        if (!dimensionLevel.level) {
+          // For "other", exclude all dimension values
+          if (
+            dimensionColumn.dimensionLevels &&
+            dimensionColumn.dimensionLevels.length > 0
+          ) {
+            const escapedValues = dimensionColumn.dimensionLevels.map(
+              (v: string) => "'" + escapeStringLiteral(v) + "'",
+            );
+            where.add(
+              `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`,
+            );
+          }
+        } else {
+          // For specific dimension values, filter to that value
           where.add(
-            `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`,
+            `(${columnExpr} = '${escapeStringLiteral(dimensionLevel.level)}')`,
           );
         }
-      } else {
-        // For specific dimension values, filter to that value
-        where.add(
-          `(${columnExpr} = '${escapeStringLiteral(dimensionInfo.dimensionValue)}')`,
-        );
       }
-    }
+    });
   }
 
   // Then add inline filters
@@ -369,32 +371,156 @@ export function getUserIdTypes(
   return metric.userIdTypes || [];
 }
 
+export interface DimensionLevel {
+  column: string;
+  level: string | null; // null for "other"
+}
+
 export interface DimensionMetricInfo {
   isDimensionMetric: boolean;
   parentMetricId: string;
-  dimensionColumn: string;
-  dimensionValue: string | null;
+  dimensionLevels: DimensionLevel[];
 }
 
 export function parseDimensionMetricId(metricId: string): DimensionMetricInfo {
-  const match = metricId.match(/^(.+)\?dim:([^=]+)=(.*)$/);
-
-  if (!match) {
+  const questionMarkIndex = metricId.indexOf("?");
+  if (questionMarkIndex === -1) {
     return {
       isDimensionMetric: false,
       parentMetricId: metricId,
-      dimensionColumn: "",
-      dimensionValue: null,
+      dimensionLevels: [],
     };
   }
 
-  const [, parentMetricId, dimensionColumn, dimensionValue] = match;
+  const parentMetricId = metricId.substring(0, questionMarkIndex);
+  const queryString = metricId.substring(questionMarkIndex + 1);
+
+  // Parse query parameters using URLSearchParams
+  const dimensionLevels: DimensionLevel[] = [];
+  const params = new URLSearchParams(queryString);
+
+  for (const [key, value] of params.entries()) {
+    if (key.startsWith("dim:")) {
+      const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
+      const level = value === "" ? null : decodeURIComponent(value);
+      dimensionLevels.push({ column, level });
+    }
+  }
+
+  if (dimensionLevels.length === 0) {
+    return {
+      isDimensionMetric: false,
+      parentMetricId,
+      dimensionLevels: [],
+    };
+  }
 
   return {
     isDimensionMetric: true,
     parentMetricId,
-    dimensionColumn,
-    dimensionValue: dimensionValue === "" ? null : dimensionValue,
+    dimensionLevels,
+  };
+}
+
+// Generates dimension metrics from experiment's customMetricDimensionLevels
+export function createCustomDimensionMetrics({
+  experiment,
+  metricMap,
+}: {
+  experiment: ExperimentInterface;
+  metricMap: Map<string, ExperimentMetricInterface>;
+}): ExperimentMetricInterface[] {
+  const customDimensionMetrics: ExperimentMetricInterface[] = [];
+
+  if (!experiment.customMetricDimensionLevels) {
+    return customDimensionMetrics;
+  }
+
+  experiment.customMetricDimensionLevels.forEach((group) => {
+    const metric = metricMap.get(group.metricId);
+    if (metric && isFactMetric(metric) && metric.enableMetricDimensions) {
+      // Sort dimensions alphabetically for consistent ID generation
+      const sortedDimensions = group.dimensionLevels.sort((a, b) =>
+        a.dimension.localeCompare(b.dimension),
+      );
+      const dimensionString = sortedDimensions
+        .map(
+          (combo) =>
+            `dim:${encodeURIComponent(combo.dimension)}=${encodeURIComponent(combo.level)}`,
+        )
+        .join("&");
+
+      const customDimensionMetric: ExperimentMetricInterface = {
+        ...metric,
+        id: `${group.metricId}?${dimensionString}`,
+        name: `${metric.name} (${sortedDimensions.map((combo) => `${combo.dimension}: ${combo.level}`).join(", ")})`,
+        description: `Dimensional analysis of ${metric.name} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.level}`).join(" and ")}`,
+      };
+      customDimensionMetrics.push(customDimensionMetric);
+    }
+  });
+
+  return customDimensionMetrics;
+}
+
+/**
+ * Generates a pinned dimension key for a metric with dimension levels
+ */
+export function generatePinnedDimensionKey(
+  metricId: string,
+  dimensionLevels: Array<{ column: string; level: string | null }>,
+  location: "goal" | "secondary" | "guardrail",
+): string {
+  const dimensionKeyParts = dimensionLevels
+    .map(
+      (dl) =>
+        `dim:${encodeURIComponent(dl.column)}=${encodeURIComponent(dl.level || "")}`,
+    )
+    .join("&");
+  return `${metricId}?${dimensionKeyParts}&location=${location}`;
+}
+
+/**
+ * Parses a pinned dimension key to extract metric ID, dimension levels, and location
+ */
+export function parsePinnedDimensionKey(pinnedKey: string): {
+  metricId: string;
+  dimensionLevels: Array<{ column: string; level: string | null }>;
+  location: "goal" | "secondary" | "guardrail";
+} | null {
+  const locationMatch = pinnedKey.match(
+    /&location=(goal|secondary|guardrail)$/,
+  );
+  if (!locationMatch) return null;
+
+  const location = locationMatch[1] as "goal" | "secondary" | "guardrail";
+  const withoutLocation = pinnedKey.replace(
+    /&location=(goal|secondary|guardrail)$/,
+    "",
+  );
+
+  const questionMarkIndex = withoutLocation.indexOf("?");
+  if (questionMarkIndex === -1) return null;
+
+  const metricId = withoutLocation.substring(0, questionMarkIndex);
+  const queryString = withoutLocation.substring(questionMarkIndex + 1);
+
+  // Parse query parameters using URLSearchParams
+  const dimensionLevels: Array<{ column: string; level: string | null }> = [];
+  const params = new URLSearchParams(queryString);
+
+  for (const [key, value] of params.entries()) {
+    if (key.startsWith("dim:")) {
+      const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
+      const level = value === "" ? null : decodeURIComponent(value);
+      dimensionLevels.push({ column, level });
+    }
+  }
+
+  return {
+    metricId,
+    dimensionLevels,
+    location,
   };
 }
 
@@ -972,18 +1098,22 @@ export function getAllMetricIdsFromExperiment(
   );
 }
 
-export function getAllExpandedMetricIdsFromExperiment(
+export function getAllExpandedMetricIdsFromExperiment({
+  exp,
+  metricMap,
+  includeActivationMetric = true,
+  metricGroups = [],
+}: {
   exp: {
     goalMetrics?: string[];
     secondaryMetrics?: string[];
     guardrailMetrics?: string[];
     activationMetric?: string | null;
-  },
-  metricMap: Map<string, ExperimentMetricInterface>,
-  factTableMap: FactTableMap,
-  includeActivationMetric: boolean = true,
-  metricGroups: MetricGroupInterface[] = [],
-): string[] {
+  };
+  metricMap: Map<string, ExperimentMetricInterface>;
+  includeActivationMetric?: boolean;
+  metricGroups?: MetricGroupInterface[];
+}): string[] {
   const baseMetricIds = getAllMetricIdsFromExperiment(
     exp,
     includeActivationMetric,
@@ -991,33 +1121,12 @@ export function getAllExpandedMetricIdsFromExperiment(
   );
   const expandedMetricIds = new Set<string>(baseMetricIds);
 
-  // Add dimension metrics for fact metrics with enableMetricDimensions
-  baseMetricIds.forEach((metricId) => {
-    const metric = metricMap.get(metricId);
-    if (metric && isFactMetric(metric) && metric.enableMetricDimensions) {
-      const factTable = factTableMap.get(metric.numerator.factTableId);
-      if (factTable) {
-        const dimensionColumns = factTable.columns.filter(
-          (col) =>
-            col.isDimension &&
-            !col.deleted &&
-            (col.dimensionLevels?.length || 0) > 0,
-        );
-
-        dimensionColumns.forEach((col) => {
-          const dimensionLevels = col.dimensionLevels || [];
-
-          // Add dimension metrics for each dimension level
-          dimensionLevels.forEach((value: string) => {
-            expandedMetricIds.add(`${metricId}?dim:${col.column}=${value}`);
-          });
-
-          // Add "other" metric for values not in dimensionLevels
-          if (dimensionLevels.length > 0) {
-            expandedMetricIds.add(`${metricId}?dim:${col.column}=`);
-          }
-        });
-      }
+  // Add all dimension metrics that are already in the metricMap
+  // This includes both standard and custom dimension metrics
+  metricMap.forEach((metric, metricId) => {
+    // Check if this is a dimension metric (contains dim: parameter)
+    if (/[?&]dim:/.test(metricId)) {
+      expandedMetricIds.add(metricId);
     }
   });
 
@@ -1039,10 +1148,12 @@ export function createDimensionMetrics({
   id: string;
   name: string;
   description: string;
-  dimensionColumn: string;
-  dimensionColumnName: string;
-  dimensionValue: string | null;
-  dimensionLevels: string[];
+  dimensionLevels: Array<{
+    column: string;
+    columnName: string;
+    level: string | null;
+  }>;
+  allDimensionLevels: string[];
 }> {
   if (!parentMetric.enableMetricDimensions) {
     return [];
@@ -1052,10 +1163,12 @@ export function createDimensionMetrics({
     id: string;
     name: string;
     description: string;
-    dimensionColumn: string;
-    dimensionColumnName: string;
-    dimensionValue: string | null;
-    dimensionLevels: string[];
+    dimensionLevels: Array<{
+      column: string;
+      columnName: string;
+      level: string | null;
+    }>;
+    allDimensionLevels: string[];
   }> = [];
 
   const dimensionColumns = factTable.columns.filter(
@@ -1070,26 +1183,34 @@ export function createDimensionMetrics({
     // Create a metric for each dimension level
     dimensionLevels.forEach((value) => {
       dimensionMetrics.push({
-        id: `${parentMetric.id}?dim:${col.column}=${value}`,
+        id: `${parentMetric.id}?dim:${encodeURIComponent(col.column)}=${encodeURIComponent(value)}`,
         name: `${parentMetric.name} (${columnName}: ${value})`,
         description: `Dimension analysis of ${parentMetric.name} for ${columnName} = ${value}`,
-        dimensionColumn: col.column,
-        dimensionColumnName: columnName,
-        dimensionValue: value,
-        dimensionLevels,
+        dimensionLevels: [
+          {
+            column: col.column,
+            columnName: columnName,
+            level: value,
+          },
+        ],
+        allDimensionLevels: dimensionLevels,
       });
     });
 
     // Create an "other" metric for values not in dimensionLevels
     if (includeOther && dimensionLevels.length > 0) {
       dimensionMetrics.push({
-        id: `${parentMetric.id}?dim:${col.column}=`,
+        id: `${parentMetric.id}?dim:${encodeURIComponent(col.column)}=`,
         name: `${parentMetric.name} (${columnName}: other)`,
-        description: `Dimension analysis of ${parentMetric.name} for ${columnName} = other`,
-        dimensionColumn: col.column,
-        dimensionColumnName: columnName,
-        dimensionValue: null,
-        dimensionLevels,
+        description: `Dimension analysis of ${parentMetric.name} for ${columnName} (other)`,
+        dimensionLevels: [
+          {
+            column: col.column,
+            columnName: columnName,
+            level: null,
+          },
+        ],
+        allDimensionLevels: dimensionLevels,
       });
     }
   });
@@ -1100,6 +1221,24 @@ export function createDimensionMetrics({
 // Returns n "equal" decimals rounded to 3 places that add up to 1
 // The sum always adds to 1. In some cases the values are not equal.
 // For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]
+/**
+ * Generates a sorted dimension string for ephemeral metric IDs
+ * Dimensions are sorted alphabetically for consistent ID generation
+ */
+export function generateDimensionString(
+  dimensions: Record<string, string>,
+): string {
+  const sortedDimensions = Object.entries(dimensions).sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  );
+  return sortedDimensions
+    .map(
+      ([col, val]) =>
+        `dim:${encodeURIComponent(col)}=${encodeURIComponent(val)}`,
+    )
+    .join("&");
+}
+
 export function getEqualWeights(n: number, precision: number = 4): number[] {
   // The power of 10 we need to manipulate weights to the correct precision
   const multiplier = Math.pow(10, precision);
@@ -1401,6 +1540,21 @@ export function getPredefinedDimensionSlicesByExperiment(
   }
 
   return dimensions;
+}
+
+/**
+ * URL-safe encoding for dimension column names and values
+ * Handles special characters like =, &, spaces, etc.
+ */
+export function encodeDimensionComponent(component: string): string {
+  return encodeURIComponent(component);
+}
+
+/**
+ * URL-safe decoding for dimension column names and values
+ */
+export function decodeDimensionComponent(encodedComponent: string): string {
+  return decodeURIComponent(encodedComponent);
 }
 
 export function countDimensionLevels(

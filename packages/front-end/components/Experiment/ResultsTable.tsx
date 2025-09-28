@@ -794,8 +794,10 @@ export default function ResultsTable({
                                       !row.isDimensionRow &&
                                       i < rows.length - 1 &&
                                       rows[i + 1].isDimensionRow &&
-                                      rows[i + 1].dimensionColumn !==
-                                        (rows[i]?.dimensionColumn || null),
+                                      rows[i + 1].dimensionLevels?.[0]
+                                        ?.column !==
+                                        (rows[i]?.dimensionLevels?.[0]
+                                          ?.column || null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -852,8 +854,10 @@ export default function ResultsTable({
                                       !row.isDimensionRow &&
                                       i < rows.length - 1 &&
                                       rows[i + 1].isDimensionRow &&
-                                      rows[i + 1].dimensionColumn !==
-                                        (rows[i]?.dimensionColumn || null),
+                                      rows[i + 1].dimensionLevels?.[0]
+                                        ?.column !==
+                                        (rows[i]?.dimensionLevels?.[0]
+                                          ?.column || null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -1213,8 +1217,7 @@ export default function ResultsTable({
                                     }
                                     firstDateToRender={getValidDate(startDate)}
                                     isDimensionRow={row.isDimensionRow}
-                                    dimensionColumn={row.dimensionColumn}
-                                    dimensionValue={row.dimensionValue}
+                                    dimensionLevels={row.dimensionLevels}
                                   />
                                 </div>
                               </div>

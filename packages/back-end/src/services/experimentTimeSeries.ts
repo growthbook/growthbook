@@ -43,6 +43,8 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
+  // todo: make sure custom dimension metrics are querying the API properly
+
   // Only update time series for dimensionless snapshots, but if we want to
   // support dimensions for time series, we should revisit this
   if (
@@ -56,13 +58,11 @@ export async function updateExperimentTimeSeries({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const allMetricIds = getAllExpandedMetricIdsFromExperiment(
-    experimentSnapshot.settings,
+  const allMetricIds = getAllExpandedMetricIdsFromExperiment({
+    exp: experimentSnapshot.settings,
     metricMap,
-    factTableMap,
-    false,
     metricGroups,
-  );
+  });
   const relativeAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "relative" &&

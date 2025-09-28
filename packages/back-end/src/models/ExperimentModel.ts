@@ -316,6 +316,13 @@ const experimentSchema = new mongoose.Schema({
   holdoutId: String,
   defaultDashboardId: String,
   pinnedMetricDimensionLevels: [String],
+  customMetricDimensionLevels: [
+    {
+      _id: false,
+      metricId: String,
+      dimensionLevels: [{}],
+    },
+  ],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

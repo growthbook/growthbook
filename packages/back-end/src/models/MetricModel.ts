@@ -636,11 +636,17 @@ const getTextForEmbedding = (metric: MetricInterface): string => {
 /**
  * Expands dimension metrics for fact metrics with enableMetricDimensions and adds them to the metricMap
  */
-export function expandDimensionMetricsInMap(
-  metricMap: Map<string, ExperimentMetricInterface>,
-  factTableMap: FactTableMap,
-  baseMetrics: ExperimentMetricInterface[],
-): void {
+export function expandDimensionMetricsInMap({
+  metricMap,
+  factTableMap,
+  baseMetrics,
+  customDimensionMetrics,
+}: {
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  baseMetrics: ExperimentMetricInterface[];
+  customDimensionMetrics?: ExperimentMetricInterface[];
+}): void {
   for (const metric of baseMetrics) {
     if (isFactMetric(metric) && metric.enableMetricDimensions) {
       const factTable = factTableMap.get(metric.numerator.factTableId);
@@ -659,7 +665,7 @@ export function expandDimensionMetricsInMap(
           dimensionLevels.forEach((value: string) => {
             const dimensionMetric: ExperimentMetricInterface = {
               ...metric,
-              id: `${metric.id}?dim:${col.column}=${value}`,
+              id: `${metric.id}?dim:${encodeURIComponent(col.column)}=${encodeURIComponent(value)}`,
               name: `${metric.name} (${col.name || col.column}: ${value})`,
               description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
             };
@@ -670,7 +676,7 @@ export function expandDimensionMetricsInMap(
           if (dimensionLevels.length > 0) {
             const otherMetric: ExperimentMetricInterface = {
               ...metric,
-              id: `${metric.id}?dim:${col.column}=`,
+              id: `${metric.id}?dim:${encodeURIComponent(col.column)}=`,
               name: `${metric.name} (${col.name || col.column}: other)`,
               description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = other`,
             };
@@ -679,5 +685,12 @@ export function expandDimensionMetricsInMap(
         });
       }
     }
+  }
+
+  // Add custom dimension metrics to the map
+  if (customDimensionMetrics) {
+    customDimensionMetrics.forEach((metric) => {
+      metricMap.set(metric.id, metric);
+    });
   }
 }

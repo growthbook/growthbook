@@ -24,6 +24,7 @@ import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  generatePinnedDimensionKey,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -94,10 +95,16 @@ const CompactResults: FC<{
   pinnedMetricDimensionLevels?: string[];
   togglePinnedMetricDimensionLevel?: (
     metricId: string,
-    dimensionColumn: string,
-    dimensionValue: string | null,
+    dimensionLevels: Array<{ column: string; level: string | null }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => void;
+  customMetricDimensionLevels?: Array<{
+    metricId: string;
+    dimensionLevels: Array<{
+      dimension: string;
+      level: string;
+    }>;
+  }>;
 }> = ({
   experimentId,
   editMetrics,
@@ -137,6 +144,7 @@ const CompactResults: FC<{
   disableTimeSeriesButton,
   pinnedMetricDimensionLevels,
   togglePinnedMetricDimensionLevel,
+  customMetricDimensionLevels,
 }) => {
   const {
     getExperimentMetricById,
@@ -248,10 +256,18 @@ const CompactResults: FC<{
         );
       }
       // Get dimension count for this metric (only if feature is enabled)
+      const standardDimensions =
+        ssrPolyfills?.getFactMetricDimensions?.(metricId)?.length ||
+        getFactMetricDimensions?.(metricId)?.length ||
+        0;
+
+      const customDimensions =
+        customMetricDimensionLevels?.filter(
+          (group) => group.metricId === metricId,
+        ).length || 0;
+
       const numDimensions = shouldShowMetricDimensions
-        ? ssrPolyfills?.getFactMetricDimensions?.(metricId)?.length ||
-          getFactMetricDimensions?.(metricId)?.length ||
-          0
+        ? standardDimensions + customDimensions
         : 0;
 
       const parentRow: ExperimentTableRow = {
@@ -278,24 +294,69 @@ const CompactResults: FC<{
 
       // Add dimension rows if this metric has dimensions and feature is enabled
       if (numDimensions > 0 && shouldShowMetricDimensions) {
-        const dimensionData =
+        const standardDimensionData =
           ssrPolyfills?.getFactMetricDimensions?.(metricId) ||
           getFactMetricDimensions?.(metricId) ||
           [];
 
+        // Convert custom dimension levels to dimension data format
+        const customDimensionData =
+          customMetricDimensionLevels
+            ?.filter((group) => group.metricId === metricId)
+            .map((group) => {
+              // Sort dimensions alphabetically for consistent ID generation
+              const sortedDimensions = group.dimensionLevels.sort((a, b) =>
+                a.dimension.localeCompare(b.dimension),
+              );
+              const dimensionString = sortedDimensions
+                .map(
+                  (combo) =>
+                    `dim:${encodeURIComponent(combo.dimension)}=${encodeURIComponent(combo.level)}`,
+                )
+                .join("&");
+
+              return {
+                id: `${group.metricId}?${dimensionString}`,
+                name: `${newMetric?.name} (${sortedDimensions.map((combo) => `${combo.dimension}: ${combo.level}`).join(", ")})`,
+                description: `Custom dimensional analysis of ${newMetric?.name} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.level}`).join(" and ")}`,
+                parentMetricId: group.metricId,
+                dimensionLevels: sortedDimensions.map((combo) => ({
+                  column: combo.dimension,
+                  columnName: combo.dimension,
+                  level: combo.level,
+                })),
+                allDimensionLevels: [],
+              };
+            }) || [];
+
+        const dimensionData = [
+          ...standardDimensionData,
+          ...customDimensionData,
+        ];
+
         dimensionData.forEach((dimension) => {
-          const dimensionValue = dimension.dimensionValue;
           const expandedKey = `${metricId}:${resultGroup}`;
           const isExpanded = expandedMetrics[expandedKey] || false;
-          const pinnedKey = `${metricId}?dim:${dimension.dimensionColumn}=${dimensionValue || ""}&location=${resultGroup}`;
+
+          // Generate pinned key from all dimension levels
+          const pinnedKey = generatePinnedDimensionKey(
+            metricId,
+            dimension.dimensionLevels,
+            resultGroup,
+          );
           const isPinned =
             pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
 
           // Show level if metric is expanded OR if it's pinned
           const shouldShowLevel = isExpanded || isPinned;
 
+          // Generate label from dimension levels
+          const label = dimension.dimensionLevels
+            .map((dl) => dl.level || "other")
+            .join(" + ");
+
           const dimensionRow: ExperimentTableRow = {
-            label: dimensionValue || "other",
+            label,
             metric: {
               ...newMetric,
               name: dimension.name, // Use the full dimension metric name
@@ -318,10 +379,8 @@ const CompactResults: FC<{
             numDimensions: 0, // Dimension rows don't have their own dimensions
             isDimensionRow: true,
             parentRowId: metricId,
-            dimensionColumn: dimension.dimensionColumn,
-            dimensionColumnName: dimension.dimensionColumnName,
-            dimensionValue: dimension.dimensionValue,
             dimensionLevels: dimension.dimensionLevels,
+            allDimensionLevels: dimension.allDimensionLevels,
             isHiddenByFilter: !shouldShowLevel, // Add this property to indicate if row should be hidden
             isPinned: isPinned,
           };
@@ -329,7 +388,7 @@ const CompactResults: FC<{
           // Always add dimension rows to the array, even if hidden by filter
           // Skip "other" dimension rows with no data
           if (
-            dimensionValue === null &&
+            dimension.dimensionLevels.every((dl) => dl.level === null) &&
             dimensionRow.variations.every((v) => v.value === 0)
           ) {
             return;
@@ -412,6 +471,7 @@ const CompactResults: FC<{
     expandedMetrics,
     getFactMetricDimensions,
     shouldShowMetricDimensions,
+    customMetricDimensionLevels,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";
@@ -652,8 +712,7 @@ export function getRenderLabelColumn({
   pinnedMetricDimensionLevels?: string[];
   togglePinnedMetricDimensionLevel?: (
     metricId: string,
-    dimensionColumn: string,
-    dimensionValue: string,
+    dimensionLevels: Array<{ column: string; level: string | null }>,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   expandedMetrics?: Record<string, boolean>;
@@ -686,7 +745,14 @@ export function getRenderLabelColumn({
 
     // Dimension row
     if (isDimensionRow) {
-      const pinnedKey = `${metric.id}?dim:${row?.dimensionColumn}=${row?.dimensionValue || ""}&location=${location || ""}`;
+      // Generate pinned key from all dimension levels
+      const pinnedKey = row?.dimensionLevels
+        ? generatePinnedDimensionKey(
+            metric.id,
+            row.dimensionLevels,
+            location || "goal",
+          )
+        : "";
       const isPinned =
         pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
 
@@ -714,13 +780,11 @@ export function getRenderLabelColumn({
                 onClick={() => {
                   if (
                     togglePinnedMetricDimensionLevel &&
-                    row?.dimensionColumn &&
-                    row?.dimensionValue
+                    row?.dimensionLevels
                   ) {
                     togglePinnedMetricDimensionLevel(
                       metric.id,
-                      row.dimensionColumn,
-                      row.dimensionValue,
+                      row.dimensionLevels,
                       location || "goal",
                     );
                   }
@@ -741,7 +805,7 @@ export function getRenderLabelColumn({
             {label}
           </div>
           <div className="ml-2 text-muted small">
-            {row?.dimensionColumnName}
+            {row?.dimensionLevels?.map((dl) => dl.columnName).join(" + ")}
           </div>
         </div>
       );

@@ -35,14 +35,16 @@ import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
 
 export interface FactMetricDimension extends FactMetricInterface {
-  id: string; // Format: `${parentId}?dim:${columnId}=${value}` or `${parentId}?dim:${columnId}=` for "other"
+  id: string; // Format: `${parentId}?dim:${encodedColumnId}=${encodedValue}` or `${parentId}?dim:${encodedColumnId}=` for "other"
   name: string; // Format: `${parentName} (${columnName}: ${value})` or `${parentName} (${columnName}: other)`
   description: string;
   parentMetricId: string;
-  dimensionColumn: string;
-  dimensionColumnName: string;
-  dimensionValue: string | null;
-  dimensionLevels: string[];
+  dimensionLevels: Array<{
+    column: string;
+    columnName: string;
+    level: string | null;
+  }>;
+  allDimensionLevels: string[];
 }
 
 type Definitions = {
@@ -322,10 +324,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
             name: dimensionMetric.name,
             description: dimensionMetric.description,
             parentMetricId: parentId,
-            dimensionColumn: dimensionMetric.dimensionColumn,
-            dimensionColumnName: dimensionMetric.dimensionColumnName,
-            dimensionValue: dimensionMetric.dimensionValue,
             dimensionLevels: dimensionMetric.dimensionLevels,
+            allDimensionLevels: dimensionMetric.allDimensionLevels,
           }) as FactMetricDimension,
       );
     },

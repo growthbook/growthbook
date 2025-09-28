@@ -36,6 +36,7 @@ import DatePicker from "@/components/DatePicker";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
+import MetricDimensionsSelector from "./MetricDimensionsSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
@@ -147,6 +148,8 @@ const AnalysisForm: FC<{
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
+      customMetricDimensionLevels: experiment.customMetricDimensionLevels || [],
+      pinnedMetricDimensionLevels: experiment.pinnedMetricDimensionLevels || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
@@ -786,6 +789,24 @@ const AnalysisForm: FC<{
               noQuantileGoalMetrics={isBandit}
               filterConversionWindowMetrics={isHoldout}
               goalDisabled={isBandit && experiment.status !== "draft"}
+            />
+
+            <MetricDimensionsSelector
+              goalMetrics={form.watch("goalMetrics")}
+              secondaryMetrics={form.watch("secondaryMetrics")}
+              guardrailMetrics={form.watch("guardrailMetrics")}
+              customMetricDimensionLevels={
+                form.watch("customMetricDimensionLevels") || []
+              }
+              setCustomMetricDimensionLevels={(levels) =>
+                form.setValue("customMetricDimensionLevels", levels)
+              }
+              pinnedMetricDimensionLevels={
+                form.watch("pinnedMetricDimensionLevels") || []
+              }
+              setPinnedMetricDimensionLevels={(levels) =>
+                form.setValue("pinnedMetricDimensionLevels", levels)
+              }
             />
 
             {hasMetrics && !isBandit && !isHoldout && (

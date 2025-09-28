@@ -31,6 +31,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
+  createCustomDimensionMetrics,
   createDimensionMetrics,
   getEqualWeights,
   getMetricResultStatus,
@@ -591,15 +592,27 @@ export function getSnapshotSettings({
   const baseMetrics = baseMetricIds
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined);
-  expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
 
-  const metricSettings = getAllExpandedMetricIdsFromExperiment(
+  // Generate custom dimension metrics from customMetricDimensionLevels
+  const customDimensionMetrics = createCustomDimensionMetrics({
     experiment,
     metricMap,
+  });
+
+  // Expand regular dimension metrics and add custom dimension metrics
+  expandDimensionMetricsInMap({
+    metricMap,
     factTableMap,
-    true,
+    baseMetrics,
+    customDimensionMetrics,
+  });
+
+  const metricSettings = getAllExpandedMetricIdsFromExperiment({
+    exp: experiment,
+    metricMap,
+    includeActivationMetric: true,
     metricGroups,
-  )
+  })
     .map((m) =>
       getMetricForSnapshot({
         id: m,
@@ -2615,6 +2628,7 @@ export function postExperimentApiPayloadToInterface(
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
     pinnedMetricDimensionLevels: payload.pinnedMetricDimensionLevels || [],
+    customMetricDimensionLevels: payload.customMetricDimensionLevels || [],
   };
 
   const { settings } = getScopedSettings({
@@ -2683,6 +2697,7 @@ export function updateExperimentApiPayloadToInterface(
     secondaryMetrics,
     shareLevel,
     pinnedMetricDimensionLevels,
+    customMetricDimensionLevels,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2781,6 +2796,9 @@ export function updateExperimentApiPayloadToInterface(
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(pinnedMetricDimensionLevels !== undefined
       ? { pinnedMetricDimensionLevels }
+      : {}),
+    ...(customMetricDimensionLevels !== undefined
+      ? { customMetricDimensionLevels }
       : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;

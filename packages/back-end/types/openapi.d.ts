@@ -2932,8 +2932,16 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
       pinnedMetricDimensionLevels?: (string)[];
+      /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+      customMetricDimensionLevels?: ({
+          metricId: string;
+          dimensionLevels: ({
+              dimension: string;
+              level: string;
+            })[];
+        })[];
     };
     ExperimentSnapshot: {
       id: string;
@@ -3261,8 +3269,16 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
       pinnedMetricDimensionLevels?: (string)[];
+      /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+      customMetricDimensionLevels?: ({
+          metricId: string;
+          dimensionLevels: ({
+              dimension: string;
+              level: string;
+            })[];
+        })[];
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -9113,8 +9129,16 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
-                /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+                /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
                 pinnedMetricDimensionLevels?: (string)[];
+                /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+                customMetricDimensionLevels?: ({
+                    metricId: string;
+                    dimensionLevels: ({
+                        dimension: string;
+                        level: string;
+                      })[];
+                  })[];
               })[];
           }) & {
             limit: number;
@@ -9240,8 +9264,16 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
-          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
           pinnedMetricDimensionLevels?: (string)[];
+          /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+          customMetricDimensionLevels?: ({
+              metricId: string;
+              dimensionLevels: ({
+                  dimension: string;
+                  level: string;
+                })[];
+            })[];
         };
       };
     };
@@ -9392,8 +9424,16 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
               pinnedMetricDimensionLevels?: (string)[];
+              /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+              customMetricDimensionLevels?: ({
+                  metricId: string;
+                  dimensionLevels: ({
+                      dimension: string;
+                      level: string;
+                    })[];
+                })[];
             };
           };
         };
@@ -9576,8 +9616,16 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
               pinnedMetricDimensionLevels?: (string)[];
+              /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+              customMetricDimensionLevels?: ({
+                  metricId: string;
+                  dimensionLevels: ({
+                      dimension: string;
+                      level: string;
+                    })[];
+                })[];
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -9707,8 +9755,16 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
-          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
           pinnedMetricDimensionLevels?: (string)[];
+          /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+          customMetricDimensionLevels?: ({
+              metricId: string;
+              dimensionLevels: ({
+                  dimension: string;
+                  level: string;
+                })[];
+            })[];
         };
       };
     };
@@ -9859,8 +9915,16 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
               pinnedMetricDimensionLevels?: (string)[];
+              /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+              customMetricDimensionLevels?: ({
+                  metricId: string;
+                  dimensionLevels: ({
+                      dimension: string;
+                      level: string;
+                    })[];
+                })[];
             };
           };
         };
@@ -10953,8 +11017,16 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
               pinnedMetricDimensionLevels?: (string)[];
+              /** @description Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+              customMetricDimensionLevels?: ({
+                  metricId: string;
+                  dimensionLevels: ({
+                      dimension: string;
+                      level: string;
+                    })[];
+                })[];
             };
           };
         };

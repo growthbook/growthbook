@@ -179,10 +179,12 @@ export type ExperimentReportSSRData = {
       name: string;
       description: string;
       parentMetricId: string;
-      dimensionColumn: string;
-      dimensionColumnName: string;
-      dimensionValue: string | null;
-      dimensionLevels: string[];
+      dimensionLevels: Array<{
+        column: string;
+        columnName: string;
+        level: string | null;
+      }>;
+      allDimensionLevels: string[];
     }>
   >;
   settings: OrganizationSettings;

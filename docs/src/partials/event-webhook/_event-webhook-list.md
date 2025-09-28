@@ -1457,8 +1457,16 @@ Triggered when an experiment is created
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
+            /** Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+            customMetricDimensionLevels?: {
+                metricId: string;
+                dimensionLevels: {
+                    dimension: string;
+                    level: string;
+                }[];
+            }[] | undefined;
         };
     };
     user: {
@@ -1620,8 +1628,16 @@ Triggered when an experiment is updated
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
+            /** Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+            customMetricDimensionLevels?: {
+                metricId: string;
+                dimensionLevels: {
+                    dimension: string;
+                    level: string;
+                }[];
+            }[] | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1749,8 +1765,16 @@ Triggered when an experiment is updated
             customFields?: ({
                 [x: string]: any;
             } | undefined) | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: (string[] | undefined) | undefined;
+            /** Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+            customMetricDimensionLevels?: ({
+                metricId: string;
+                dimensionLevels: {
+                    dimension: string;
+                    level: string;
+                }[];
+            }[] | undefined) | undefined;
         };
         changes?: {
             added: {
@@ -1923,8 +1947,16 @@ Triggered when an experiment is deleted
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
+            /** Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+            customMetricDimensionLevels?: {
+                metricId: string;
+                dimensionLevels: {
+                    dimension: string;
+                    level: string;
+                }[];
+            }[] | undefined;
         };
     };
     user: {

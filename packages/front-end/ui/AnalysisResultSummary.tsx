@@ -50,8 +50,11 @@ interface AnalysisResultSummaryProps {
     metricRow: number;
     metric: ExperimentMetricInterface;
     metricSnapshotSettings?: MetricSnapshotSettings;
-    dimensionName?: string;
-    dimensionValue?: string;
+    dimensionLevels?: Array<{
+      column: string;
+      columnName: string;
+      level: string | null;
+    }>;
     variation: ExperimentReportVariationWithIndex;
     stats: SnapshotMetric;
     baseline: SnapshotMetric;
@@ -221,15 +224,17 @@ export default function AnalysisResultSummary({
           </Text>
           {metricInverseIconDisplay}
         </Flex>
-        {data.dimensionName ? (
+        {data.dimensionLevels && data.dimensionLevels.length > 0 ? (
           <Flex gap="1" mt="-1" align="center">
             <span className="uppercase-title">Unit dimension:</span>{" "}
             <Flex gap="1">
               <span className="text-ellipsis" style={{ maxWidth: 150 }}>
-                {data.dimensionName}:
+                {data.dimensionLevels?.map((dl) => dl.columnName).join(" + ")}:
               </span>
               <span className="text-ellipsis" style={{ maxWidth: 250 }}>
-                {data.dimensionValue}
+                {data.dimensionLevels
+                  ?.map((dl) => dl.level || "other")
+                  .join(" + ")}
               </span>
             </Flex>
           </Flex>

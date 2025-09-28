@@ -1475,6 +1475,7 @@ export async function postExperiment(
     "holdoutId",
     "defaultDashboardId",
     "pinnedMetricDimensionLevels",
+    "customMetricDimensionLevels",
   ];
   let changes: Changeset = {};
 
@@ -1491,7 +1492,9 @@ export async function postExperiment(
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
       key === "variations" ||
-      key === "customFields"
+      key === "customFields" ||
+      key === "pinnedMetricDimensionLevels" ||
+      key === "customMetricDimensionLevels"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);

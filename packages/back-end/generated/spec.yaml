@@ -2120,7 +2120,30 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
+                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded)'
+                customMetricDimensionLevels:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      metricId:
+                        type: string
+                      dimensionLevels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            dimension:
+                              type: string
+                            level:
+                              type: string
+                          required:
+                            - dimension
+                            - level
+                    required:
+                      - metricId
+                      - dimensionLevels
+                  description: Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns.
       responses:
         '200':
           content:
@@ -2461,7 +2484,30 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
+                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded)'
+                customMetricDimensionLevels:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      metricId:
+                        type: string
+                      dimensionLevels:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            dimension:
+                              type: string
+                            level:
+                              type: string
+                          required:
+                            - dimension
+                            - level
+                    required:
+                      - metricId
+                      - dimensionLevels
+                  description: Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns.
       responses:
         '200':
           content:
@@ -7123,7 +7169,30 @@ components:
           type: array
           items:
             type: string
-          description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}`'
+          description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded)'
+        customMetricDimensionLevels:
+          type: array
+          items:
+            type: object
+            properties:
+              metricId:
+                type: string
+              dimensionLevels:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    dimension:
+                      type: string
+                    level:
+                      type: string
+                  required:
+                    - dimension
+                    - level
+            required:
+              - metricId
+              - dimensionLevels
+          description: Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns.
     ExperimentSnapshot:
       type: object
       required:

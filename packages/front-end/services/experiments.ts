@@ -70,10 +70,12 @@ export type ExperimentTableRow = {
   // Dimension row properties
   isDimensionRow?: boolean;
   parentRowId?: string;
-  dimensionColumn?: string;
-  dimensionColumnName?: string;
-  dimensionValue?: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
-  dimensionLevels?: string[];
+  dimensionLevels?: Array<{
+    column: string;
+    columnName: string;
+    level: string | null;
+  }>;
+  allDimensionLevels?: string[];
   isHiddenByFilter?: boolean; // True if this row should be hidden due to dimension level filtering
   isPinned?: boolean; // True if this dimension level row is pinned
 };

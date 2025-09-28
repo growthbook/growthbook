@@ -7,7 +7,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  generatePinnedDimensionKey,
+} from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
@@ -94,13 +97,16 @@ const Results: FC<{
 
   const togglePinnedMetricDimensionLevel = async (
     metricId: string,
-    dimensionColumn: string,
-    dimensionValue: string | null,
+    dimensionLevels: Array<{ column: string; level: string | null }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => {
     if (!editMetrics || !mutateExperiment) return;
 
-    const key = `${metricId}?dim:${dimensionColumn}=${dimensionValue || ""}&location=${location || ""}`;
+    const key = generatePinnedDimensionKey(
+      metricId,
+      dimensionLevels,
+      location || "goal",
+    );
     const newPinned = optimisticPinnedLevels.includes(key)
       ? optimisticPinnedLevels.filter((id) => id !== key)
       : [...optimisticPinnedLevels, key];
@@ -449,6 +455,7 @@ const Results: FC<{
             experimentType={experiment.type}
             pinnedMetricDimensionLevels={optimisticPinnedLevels}
             togglePinnedMetricDimensionLevel={togglePinnedMetricDimensionLevel}
+            customMetricDimensionLevels={experiment.customMetricDimensionLevels}
           />
         </>
       ) : null}

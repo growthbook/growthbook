@@ -194,17 +194,20 @@ export function getSnapshotSettingsFromReportArgs(
     const baseMetrics = baseMetricIds
       .map((m) => metricMap.get(m) || null)
       .filter(isDefined);
-    expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
+    expandDimensionMetricsInMap({
+      metricMap,
+      factTableMap,
+      baseMetrics,
+    });
   }
 
   const snapshotSettings: ExperimentSnapshotSettings = {
-    metricSettings: getAllExpandedMetricIdsFromExperiment(
-      args,
+    metricSettings: getAllExpandedMetricIdsFromExperiment({
+      exp: args,
       metricMap,
-      factTableMap || new Map(),
-      true,
-      [],
-    )
+      includeActivationMetric: true,
+      metricGroups: [],
+    })
       .map((m) =>
         getMetricForSnapshot({
           id: m,
@@ -464,15 +467,18 @@ export async function createReportSnapshot({
     .filter(isDefined);
 
   // Expand dimension metrics for fact metrics with enableMetricDimensions
-  expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
-
-  const metricIds = getAllExpandedMetricIdsFromExperiment(
-    report.experimentAnalysisSettings,
+  expandDimensionMetricsInMap({
     metricMap,
     factTableMap,
-    false,
+    baseMetrics,
+  });
+
+  const metricIds = getAllExpandedMetricIdsFromExperiment({
+    exp: report.experimentAnalysisSettings,
+    metricMap,
+    includeActivationMetric: false,
     metricGroups,
-  );
+  });
   const allReportMetrics = metricIds.map((m) => metricMap.get(m) || null);
   const denominatorMetricIds = uniq<string>(
     allReportMetrics
@@ -652,13 +658,12 @@ export function getReportSnapshotSettings({
     }),
   );
 
-  const metricSettings = getAllExpandedMetricIdsFromExperiment(
-    report.experimentAnalysisSettings,
+  const metricSettings = getAllExpandedMetricIdsFromExperiment({
+    exp: report.experimentAnalysisSettings,
     metricMap,
-    factTableMap,
-    true,
+    includeActivationMetric: true,
     metricGroups,
-  )
+  })
     .map((m) =>
       getMetricForSnapshot({
         id: m,
@@ -828,10 +833,12 @@ export async function generateExperimentReportSSRData({
       name: string;
       description: string;
       parentMetricId: string;
-      dimensionColumn: string;
-      dimensionColumnName: string;
-      dimensionValue: string | null;
-      dimensionLevels: string[];
+      dimensionLevels: Array<{
+        column: string;
+        columnName: string;
+        level: string | null;
+      }>;
+      allDimensionLevels: string[];
     }>
   > = {};
   for (const factMetric of factMetrics) {
@@ -848,10 +855,12 @@ export async function generateExperimentReportSSRData({
             name: string;
             description: string;
             parentMetricId: string;
-            dimensionColumn: string;
-            dimensionColumnName: string;
-            dimensionValue: string | null;
-            dimensionLevels: string[];
+            dimensionLevels: Array<{
+              column: string;
+              columnName: string;
+              level: string | null;
+            }>;
+            allDimensionLevels: string[];
           }> = [];
 
           dimensionColumns.forEach((col: ColumnInterface) => {
@@ -860,28 +869,36 @@ export async function generateExperimentReportSSRData({
             // Create a metric for each dimension level
             dimensionLevels.forEach((value: string) => {
               dimensionMetrics.push({
-                id: `${factMetric.id}?dim:${col.column}=${value}`,
+                id: `${factMetric.id}?dim:${encodeURIComponent(col.column)}=${encodeURIComponent(value)}`,
                 name: `${factMetric.name} (${col.name || col.column}: ${value})`,
                 description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = ${value}`,
                 parentMetricId: factMetric.id,
-                dimensionColumn: col.column,
-                dimensionColumnName: col.name || col.column,
-                dimensionValue: value,
-                dimensionLevels: col.dimensionLevels || [],
+                dimensionLevels: [
+                  {
+                    column: col.column,
+                    columnName: col.name || col.column,
+                    level: value,
+                  },
+                ],
+                allDimensionLevels: col.dimensionLevels || [],
               });
             });
 
             // Create an "other" metric for values not in dimensionLevels
             if (dimensionLevels.length > 0) {
               dimensionMetrics.push({
-                id: `${factMetric.id}?dim:${col.column}=`,
+                id: `${factMetric.id}?dim:${encodeURIComponent(col.column)}=`,
                 name: `${factMetric.name} (${col.name || col.column}: other)`,
                 description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = other`,
                 parentMetricId: factMetric.id,
-                dimensionColumn: col.column,
-                dimensionColumnName: col.name || col.column,
-                dimensionValue: null,
-                dimensionLevels: col.dimensionLevels || [],
+                dimensionLevels: [
+                  {
+                    column: col.column,
+                    columnName: col.name || col.column,
+                    level: null,
+                  },
+                ],
+                allDimensionLevels: col.dimensionLevels || [],
               });
             }
           });
