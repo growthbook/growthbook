@@ -89,6 +89,8 @@ import {
   VariationPeriodWeight,
   DimensionColumnData,
   DataType,
+  UserExperimentExposuresQueryParams,
+  UserExperimentExposuresQueryResponse,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -2409,6 +2411,84 @@ export default abstract class SqlIntegration
         };
       }),
       statistics: statistics,
+    };
+  }
+
+  getUserExperimentExposuresQuery(
+    params: UserExperimentExposuresQueryParams,
+  ): string {
+    const { userIdType } = params;
+    // Get all exposure queries that match the specified userIdType
+    const allExposureQueries = (
+      this.datasource.settings.queries?.exposure || []
+    )
+      .map(({ id }) => this.getExposureQuery(id))
+      .filter((query) => query.userIdType === userIdType); // Filter by userIdType
+
+    // Collect all unique dimension names across all exposure queries
+    const allDimensionNames = Array.from(
+      new Set(allExposureQueries.flatMap((query) => query.dimensions || [])),
+    );
+    const startDate = subDays(new Date(), params.lookbackDays);
+
+    return format(
+      `-- User Exposures Query
+      WITH __userExposures AS (
+        ${allExposureQueries
+          .map((exposureQuery, i) => {
+            // Get all available dimensions for this exposure query
+            const availableDimensions = exposureQuery.dimensions || [];
+            const tableAlias = `t${i}`;
+
+            // Create dimension columns for ALL possible dimensions
+            const dimensionSelects = allDimensionNames.map((dim) => {
+              if (availableDimensions.includes(dim)) {
+                return `${this.castToString(`${tableAlias}.${dim}`)} AS ${dim}`;
+              } else {
+                return `${this.castToString("null")} AS ${dim}`;
+              }
+            });
+
+            const dimensionSelectString = dimensionSelects.join(", ");
+
+            return `
+              SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
+                ${compileSqlTemplate(exposureQuery.query, {
+                  startDate: startDate,
+                })}
+              ) ${tableAlias}
+              WHERE ${this.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${this.toTimestamp(startDate)}
+            `;
+          })
+          .join("\nUNION ALL\n")}
+      )
+      SELECT * FROM __userExposures 
+      ORDER BY timestamp DESC 
+      LIMIT ${SQL_ROW_LIMIT}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  public async runUserExperimentExposuresQuery(
+    query: string,
+  ): Promise<UserExperimentExposuresQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
+
+    // Check if SQL_ROW_LIMIT was reached
+    const truncated = rows.length === SQL_ROW_LIMIT;
+
+    return {
+      rows: rows.map((row) => {
+        return {
+          timestamp: row.timestamp,
+          experiment_id: row.experiment_id,
+          variation_id: row.variation_id,
+          ...row,
+        };
+      }),
+      statistics,
+      truncated,
     };
   }
 

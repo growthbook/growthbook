@@ -17,6 +17,7 @@ export type TransformedCondition = {
  */
 export function transformStatsigConditionsToGB(
   conditions: StatsigCondition[],
+  skipAttributeMapping: boolean = false,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
   const savedGroups: string[] = [];
@@ -71,7 +72,7 @@ export function transformStatsigConditionsToGB(
   // Convert targeting conditions to GrowthBook format
   const conditionString =
     targetingConditions.length > 0
-      ? transformTargetingConditions(targetingConditions)
+      ? transformTargetingConditions(targetingConditions, skipAttributeMapping)
       : "{}";
 
   // Create schedule rules tuple if we have both start and end times
@@ -99,7 +100,10 @@ export function transformStatsigConditionsToGB(
 /**
  * Transform targeting conditions to GrowthBook condition string
  */
-function transformTargetingConditions(conditions: StatsigCondition[]): string {
+function transformTargetingConditions(
+  conditions: StatsigCondition[],
+  skipAttributeMapping: boolean = false,
+): string {
   // Map Statsig operators to GrowthBook operators
   const operatorMap: Record<string, string> = {
     any: "$in",
@@ -122,11 +126,17 @@ function transformTargetingConditions(conditions: StatsigCondition[]): string {
   const conditionObj: ConditionInterface = {};
 
   conditions.forEach((condition) => {
-    const { type, operator, targetValue } = condition;
+    const { type, operator, targetValue, field } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
 
-    // Map Statsig attribute name to GrowthBook attribute name
-    const gbAttributeName = mapStatsigAttributeToGB(type);
+    // For custom_field type, use the field value as the attribute name
+    // Otherwise, use the type as the attribute name
+    const attributeName =
+      type === "custom_field" ? field || "custom_field" : type;
+    const gbAttributeName = mapStatsigAttributeToGB(
+      attributeName,
+      skipAttributeMapping,
+    );
 
     if (operator === "str_contains_none") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];

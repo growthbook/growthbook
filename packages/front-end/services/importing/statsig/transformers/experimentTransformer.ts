@@ -39,6 +39,7 @@ function parseInlineTargetingRules(inlineTargetingRulesJSON: string): Array<{
 export function transformStatsigExperimentToGB(
   experiment: StatsigExperiment,
   _availableEnvironments: string[],
+  skipAttributeMapping: boolean = false,
 ): Partial<ExperimentInterfaceStringDates> {
   const {
     id,
@@ -58,7 +59,10 @@ export function transformStatsigExperimentToGB(
   } = experiment;
 
   // Map Statsig idType to GrowthBook hashAttribute
-  const hashAttribute = mapStatsigAttributeToGB(experiment.idType || "userID");
+  const hashAttribute = mapStatsigAttributeToGB(
+    experiment.idType || "user_id",
+    skipAttributeMapping,
+  );
 
   // Convert groups to variations
   const variations: Variation[] = groups.map((group, index) => ({
@@ -94,7 +98,10 @@ export function transformStatsigExperimentToGB(
       field: undefined,
       customID: undefined,
     }));
-    const transformedCondition = transformStatsigConditionsToGB(conditions);
+    const transformedCondition = transformStatsigConditionsToGB(
+      conditions,
+      skipAttributeMapping,
+    );
     phaseCondition = transformedCondition.condition || "";
     phaseSavedGroups = transformedCondition.savedGroups.map((id) => ({
       match: "all" as const,
