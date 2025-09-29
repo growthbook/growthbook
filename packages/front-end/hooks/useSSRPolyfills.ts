@@ -6,7 +6,7 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
 import { ProjectInterface } from "back-end/types/project";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { useDefinitions, FactMetricDimension } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -22,20 +22,7 @@ export interface SSRPolyfills {
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
-  getFactMetricDimensions: (parentId: string) => Array<{
-    id: string;
-    name: string;
-    description: string;
-    parentMetricId: string;
-    dimensionName: string;
-    dimensionValue: string;
-    dimensionLevels: Array<{
-      column: string;
-      columnName: string;
-      level: string | null;
-    }>;
-    allDimensionLevels: string[];
-  }>;
+  getFactMetricDimensions: (parentId: string) => FactMetricDimension[];
   useOrgSettings: typeof useOrgSettings;
   getProjectById: (id: string) => null | ProjectInterface;
   useCurrency: typeof useCurrency;

@@ -1,15 +1,21 @@
 import { FactTableInterface } from "back-end/types/fact-table";
 import { useMemo, useState } from "react";
-import { FaClock, FaFilter, FaUser, FaLayerGroup } from "react-icons/fa";
-import { BsArrowRepeat } from "react-icons/bs";
+import {
+  PiUserBold,
+  PiClockBold,
+  PiStackBold,
+  PiFunnelBold,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
-import { GBEdit } from "@/components/Icons";
+import Button from "@/ui/Button";
+import Avatar from "@/ui/Avatar";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ColumnModal from "./ColumnModal";
 
@@ -86,7 +92,8 @@ export default function ColumnList({ factTable }: Props) {
         )}
         <div className="col-auto">
           <Button
-            color="link"
+            size="xs"
+            variant="outline"
             onClick={async () => {
               await apiCall(
                 `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
@@ -98,7 +105,7 @@ export default function ColumnList({ factTable }: Props) {
               mutateDefinitions();
             }}
           >
-            <BsArrowRepeat style={{ marginTop: -1 }} /> Refresh
+            Refresh
           </Button>
         </div>
       </div>
@@ -125,34 +132,59 @@ export default function ColumnList({ factTable }: Props) {
               {items.map((col) => (
                 <tr key={col.column}>
                   <td>
-                    {col.identifier && (
-                      <Tooltip body="User Identifier Type">
-                        <span className="badge badge-purple">
-                          <FaUser />
-                        </span>
-                      </Tooltip>
-                    )}
-                    {col.column === "timestamp" && (
-                      <Tooltip body="Main date field used for sorting and filtering">
-                        <span className="badge badge-purple">
-                          <FaClock />
-                        </span>
-                      </Tooltip>
-                    )}
-                    {col.isDimension && (
-                      <Tooltip body="Dimension">
-                        <span className="badge badge-purple">
-                          <FaLayerGroup />
-                        </span>
-                      </Tooltip>
-                    )}
-                    {col.alwaysInlineFilter && (
-                      <Tooltip body="Prompt all metrics to filter on this column">
-                        <span className="badge badge-purple">
-                          <FaFilter />
-                        </span>
-                      </Tooltip>
-                    )}
+                    <div
+                      className="d-flex align-items-center"
+                      style={{ minHeight: 32 }}
+                    >
+                      {col.identifier && (
+                        <Tooltip body="User Identifier Type">
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiUserBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.column === "timestamp" && (
+                        <Tooltip body="Main date field used for sorting and filtering">
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiClockBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.isDimension && (
+                        <Tooltip body="Dimension">
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiStackBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.alwaysInlineFilter && (
+                        <Tooltip body="Prompt all metrics to filter on this column">
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiFunnelBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                    </div>
                   </td>
                   <td>{col.column}</td>
                   <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
@@ -168,17 +200,19 @@ export default function ColumnList({ factTable }: Props) {
                     )}
                   </td>
                   <td>
-                    {canEdit && (
-                      <button
-                        className="btn btn-link btn-sm"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditOpen(col.column);
-                        }}
-                      >
-                        <GBEdit />
-                      </button>
-                    )}
+                    <div className="d-flex align-items-center px-1">
+                      {canEdit && (
+                        <IconButton
+                          size="2"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditOpen(col.column);
+                          }}
+                        >
+                          <PiPencilSimpleFill size={14} />
+                        </IconButton>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

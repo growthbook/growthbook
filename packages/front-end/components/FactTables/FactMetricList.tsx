@@ -12,7 +12,6 @@ import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBAddCircle } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -24,26 +23,18 @@ import RecommendedFactMetricsModal, {
 import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import Toggle from "@/components/Forms/Toggle";
 import track from "@/services/track";
 import FactMetricModal from "./FactMetricModal";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
 
 export interface Props {
   factTable: FactTableInterface;
+  metrics?: FactMetricInterface[];
 }
 
-export function getMetricsForFactTable(
-  factMetrics: FactMetricInterface[],
-  factTable: string,
-) {
-  return factMetrics.filter(
-    (m) =>
-      m.numerator.factTableId === factTable ||
-      (m.denominator && m.denominator.factTableId === factTable),
-  );
-}
 
-export default function FactMetricList({ factTable }: Props) {
+export default function FactMetricList({ factTable, metrics: providedMetrics }: Props) {
   const [newOpen, setNewOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
@@ -57,13 +48,19 @@ export default function FactMetricList({ factTable }: Props) {
   const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const metrics = getMetricsForFactTable(factMetrics, factTable.id);
+  const metrics = providedMetrics || factMetrics.filter(
+    (m) =>
+      m.numerator.factTableId === factTable.id ||
+      (m.denominator && m.denominator.factTableId === factTable.id),
+  );
   const hasArchivedMetrics = factMetrics.some((m) => m.archived);
 
   const isMetricDimensionsFeatureEnabled =
     growthbook?.isOn("metric-dimensions");
   const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
-  const shouldShowDimensionAnalysisColumn = isMetricDimensionsFeatureEnabled;
+  const shouldShowDimensionAnalysisColumn = 
+    isMetricDimensionsFeatureEnabled && 
+    factTable.columns.some((col) => col.isDimension && !col.deleted);
 
   const [editMetric, setEditMetric] = useState<
     FactMetricInterface | undefined
@@ -129,7 +126,7 @@ export default function FactMetricList({ factTable }: Props) {
       )}
 
       {recommendedMetrics.length > 0 && canCreateMetrics && (
-        <div className="alert alert-info mt-3">
+        <Callout status="info" mt="2" mb="4">
           There {recommendedMetrics.length === 1 ? "is" : "are"}{" "}
           <strong>{recommendedMetrics.length}</strong> metric
           {recommendedMetrics.length === 1 ? "" : "s"} we recommend creating for
@@ -143,7 +140,7 @@ export default function FactMetricList({ factTable }: Props) {
           >
             View Recommendation{recommendedMetrics.length === 1 ? "" : "s"}
           </a>
-        </div>
+        </Callout>
       )}
 
       <div className="row align-items-center">
@@ -158,11 +155,9 @@ export default function FactMetricList({ factTable }: Props) {
         )}
         {hasArchivedMetrics && (
           <div className="col-auto text-muted">
-            <Toggle
-              value={showArchived}
-              setValue={setShowArchived}
-              id="show-archived"
-              label="show archived"
+            <Switch
+              checked={showArchived}
+              onCheckedChange={setShowArchived}
             />
             Show archived
           </div>
@@ -175,17 +170,15 @@ export default function FactMetricList({ factTable }: Props) {
                 : `You don't have permission to add metrics to this fact table`
             }
           >
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
+            <Button
+              onClick={() => {
                 if (!canCreateMetrics) return;
                 setNewOpen(true);
               }}
               disabled={!canCreateMetrics}
             >
-              <GBAddCircle /> Add Metric
-            </button>
+              Add Metric
+            </Button>
           </Tooltip>
         </div>
       </div>

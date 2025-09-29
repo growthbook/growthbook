@@ -109,7 +109,7 @@ export default function MetricDimensionsSelector({
   setPinnedMetricDimensionLevels,
 }: MetricDimensionsSelectorProps) {
   const growthbook = useGrowthBook();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature: _hasCommercialFeature } = useUser();
 
   // State for editing
   const [editingIndex, setEditingIndex] = useState<number | null>(null); // null = not editing, -1 = adding new, >=0 = editing existing
@@ -325,7 +325,7 @@ export default function MetricDimensionsSelector({
   // Remove a dimension level from the current editing levels
   const removeDimensionLevel = (index: number) => {
     const newLevels = editingDimensionLevels.filter((_, i) => i !== index);
-    
+
     if (newLevels.length === 0) {
       // If this was the last pair, cancel editing entirely
       cancelEditing();
@@ -533,8 +533,9 @@ function DimensionSelector({
 }) {
   // Check if the last dimension-level pair is complete before showing + AND
   const lastPairIndex = editingDimensionLevels.length - 1;
-  const lastPairIsComplete = lastPairIndex >= 0 && 
-    editingDimensionLevels[lastPairIndex].dimension && 
+  const lastPairIsComplete =
+    lastPairIndex >= 0 &&
+    editingDimensionLevels[lastPairIndex].dimension &&
     editingDimensionLevels[lastPairIndex].levels[0];
 
   // Get all available dimension columns and union their levels

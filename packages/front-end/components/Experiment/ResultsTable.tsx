@@ -703,7 +703,11 @@ export default function ResultsTable({
                 cr: 0,
                 users: 0,
               };
-              console.log(row.metric.name, {baseline, baselineRow, variations: row.variations[baselineRow]})
+              console.log(row.metric.name, {
+                baseline,
+                baselineRow,
+                variations: row.variations[baselineRow],
+              });
               let alreadyShownQueryError = false;
               let alreadyShownQuantileError = false;
 
