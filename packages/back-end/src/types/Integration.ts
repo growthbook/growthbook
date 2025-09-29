@@ -55,6 +55,7 @@ export type FactMetricData = {
   id: string;
   metric: ExperimentMetricInterface;
   ratioMetric: boolean;
+  crossFactTableRatio: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
   metricQuantileSettings: MetricQuantileSettings;

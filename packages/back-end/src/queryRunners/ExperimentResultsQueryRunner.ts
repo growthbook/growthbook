@@ -85,7 +85,9 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      return "";
+      return metric.denominator?.factTableId
+      ? `${metric.numerator.factTableId} ${metric.denominator.factTableId} (cross-table ratio metrics)`
+      : metric.id;
     }
   }
 
