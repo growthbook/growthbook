@@ -131,7 +131,8 @@ function transformTargetingConditions(
 
     // For custom_field type, use the field value as the attribute name
     // Otherwise, use the type as the attribute name
-    const attributeName = type === "custom_field" ? field : type;
+    const attributeName =
+      type === "custom_field" ? field || "custom_field" : type;
     const gbAttributeName = mapStatsigAttributeToGB(
       attributeName,
       skipAttributeMapping,
