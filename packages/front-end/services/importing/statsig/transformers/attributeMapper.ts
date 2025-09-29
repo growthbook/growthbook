@@ -27,7 +27,6 @@ export function mapStatsigAttributeToGB(
     email: "email",
     unit_id: "unit_id",
     time: "time",
-    // TODO: Handle custom_field -> {field} mapping where field property becomes attribute name
   };
 
   return attributeMap[statsigAttribute] || statsigAttribute;

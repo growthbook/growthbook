@@ -126,11 +126,16 @@ function transformTargetingConditions(
   const conditionObj: ConditionInterface = {};
 
   conditions.forEach((condition) => {
-    const { type, operator, targetValue } = condition;
+    const { type, operator, targetValue, field } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
 
-    // Map Statsig attribute name to GrowthBook attribute name
-    const gbAttributeName = mapStatsigAttributeToGB(type, skipAttributeMapping);
+    // For custom_field type, use the field value as the attribute name
+    // Otherwise, use the type as the attribute name
+    const attributeName = type === "custom_field" ? field : type;
+    const gbAttributeName = mapStatsigAttributeToGB(
+      attributeName,
+      skipAttributeMapping,
+    );
 
     if (operator === "str_contains_none") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];
