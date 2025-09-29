@@ -3547,7 +3547,7 @@ export interface components {
       funnelSettings?: {
         funnelSteps: ({
             factTableId: string;
-            filters: (string)[];
+            filters?: (string)[];
             inlineFilters?: {
               [key: string]: (string)[] | undefined;
             };
@@ -12607,7 +12607,7 @@ export interface operations {
                 funnelSettings?: {
                   funnelSteps: ({
                       factTableId: string;
-                      filters: (string)[];
+                      filters?: (string)[];
                       inlineFilters?: {
                         [key: string]: (string)[] | undefined;
                       };
@@ -12693,7 +12693,7 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "funnel";
           numerator: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -12737,8 +12737,7 @@ export interface operations {
           funnelSettings?: {
             funnelSteps: ({
                 factTableId: string;
-                column: string;
-                filters: (string)[];
+                filters?: (string)[];
                 inlineFilters?: {
                   [key: string]: (string)[] | undefined;
                 };
@@ -12895,7 +12894,7 @@ export interface operations {
               funnelSettings?: {
                 funnelSteps: ({
                     factTableId: string;
-                    filters: (string)[];
+                    filters?: (string)[];
                     inlineFilters?: {
                       [key: string]: (string)[] | undefined;
                     };
@@ -13029,7 +13028,7 @@ export interface operations {
               funnelSettings?: {
                 funnelSteps: ({
                     factTableId: string;
-                    filters: (string)[];
+                    filters?: (string)[];
                     inlineFilters?: {
                       [key: string]: (string)[] | undefined;
                     };
@@ -13114,7 +13113,7 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "funnel";
           numerator?: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -13288,7 +13287,7 @@ export interface operations {
               funnelSettings?: {
                 funnelSteps: ({
                     factTableId: string;
-                    filters: (string)[];
+                    filters?: (string)[];
                     inlineFilters?: {
                       [key: string]: (string)[] | undefined;
                     };
@@ -13475,7 +13474,7 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio" | "funnel";
                 numerator: {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
@@ -13519,8 +13518,7 @@ export interface operations {
                 funnelSettings?: {
                   funnelSteps: ({
                       factTableId: string;
-                      column: string;
-                      filters: (string)[];
+                      filters?: (string)[];
                       inlineFilters?: {
                         [key: string]: (string)[] | undefined;
                       };

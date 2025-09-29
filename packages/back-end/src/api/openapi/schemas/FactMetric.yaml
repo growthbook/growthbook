@@ -148,8 +148,6 @@ properties:
           type: object
           required:
             - factTableId
-            - column
-            - filters
           properties:
             factTableId:
               type: string

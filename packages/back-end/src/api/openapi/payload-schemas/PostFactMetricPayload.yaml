@@ -26,6 +26,7 @@ properties:
       - mean
       - quantile
       - ratio
+      - funnel
   numerator:
     type: object
     required:
@@ -96,8 +97,8 @@ properties:
     type: boolean
     description: Set to true for things like Bounce Rate, where you want the metric to decrease
   funnelSettings:
-    description: Controls the settings for funnel metrics (mandatory if metricType is "funnel")
     type: object
+    description: Controls the settings for funnel metrics (mandatory if metricType is "funnel")
     required:
       - funnelSteps
       - order
@@ -108,12 +109,8 @@ properties:
           type: object
           required:
             - factTableId
-            - column
-            - filters
           properties:
             factTableId:
-              type: string
-            column:
               type: string
             filters:
               type: array
@@ -134,8 +131,8 @@ properties:
       order:
         type: string
         enum:
-          - "any"
-          - "consecutive"
+          - any
+          - consecutive
   quantileSettings:
     description: Controls the settings for quantile metrics (mandatory if metricType is "quantile")
     type: object

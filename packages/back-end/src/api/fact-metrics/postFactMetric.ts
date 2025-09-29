@@ -60,6 +60,7 @@ export async function getCreateMetricPropsFromBody(
   }
 
   const {
+    funnelSettings,
     quantileSettings,
     cappingSettings,
     windowSettings,
@@ -90,6 +91,16 @@ export async function getCreateMetricPropsFromBody(
     column: cleanedNumerator,
     factTable: factTable,
   });
+
+  const cleanedFunnelSettings = funnelSettings
+    ? {
+        ...funnelSettings,
+        funnelSteps: funnelSettings.funnelSteps.map((fs) => ({
+          ...fs,
+          filters: fs.filters ?? [],
+        })),
+      }
+    : undefined;
 
   const data: CreateFactMetricProps = {
     datasource: factTable.datasource,
@@ -148,6 +159,7 @@ export async function getCreateMetricPropsFromBody(
     numerator: cleanedNumerator,
     denominator: null,
     enableMetricDimensions: false,
+    funnelSettings: cleanedFunnelSettings,
     ...otherFields,
   };
 
