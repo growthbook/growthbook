@@ -27,6 +27,8 @@ export interface SSRPolyfills {
     name: string;
     description: string;
     parentMetricId: string;
+    dimensionName: string;
+    dimensionValue: string;
     dimensionLevels: Array<{
       column: string;
       columnName: string;

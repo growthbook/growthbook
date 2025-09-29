@@ -168,6 +168,8 @@ export function useResultsTableTooltip({
         metricRow,
         metric,
         metricSnapshotSettings: row.metricSnapshotSettings,
+        dimensionName: _dimension,
+        dimensionValue: _dimension ? row.label : undefined,
         dimensionLevels: row.dimensionLevels,
         variation,
         stats,
