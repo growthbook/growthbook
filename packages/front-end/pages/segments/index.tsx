@@ -264,7 +264,7 @@ const SegmentPage: FC = () => {
                           <OfficialBadge
                             type="Segment"
                             managedBy={s.managedBy}
-                          />{" "}
+                          />
                           {s.name}{" "}
                           {s.description ? (
                             <Tooltip body={s.description} />
