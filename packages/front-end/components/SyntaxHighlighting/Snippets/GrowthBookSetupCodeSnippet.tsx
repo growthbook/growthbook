@@ -150,11 +150,12 @@ window.growthbook_config.trackingCallback = (experiment, result) => {
         {eventTracker === "growthbook" && (
           <>
             <br />
-            Also add GrowthBook log events to track events you care about. Read
-            more about our{" "}
+            If you want to use GrowthBook for experiments (and metrics), you
+            will need to log events you care about. Read more about our{" "}
             <DocLink docSection="managedWarehouseTracking">
               managed warehouse tracking
             </DocLink>
+            . Here are some examples:
             <Code
               language="javascript"
               code={`
@@ -228,6 +229,30 @@ export default function MyApp() {
         </a>{" "}
         with examples of using GrowthBook with SSR, API routes, static pages,
         and more.
+        {eventTracker === "growthbook" && (
+          <>
+            <br />
+            <br />
+            If you want to use GrowthBook for experiments (and metrics), you
+            will need to log events you care about. Read more about our{" "}
+            <DocLink docSection="managedWarehouseTracking">
+              managed warehouse tracking
+            </DocLink>
+            . Here are some examples:
+            <Code
+              language="javascript"
+              code={`
+// Simple (no properties)
+gb.logEvent("Page View");
+
+// With custom properties
+gb.logEvent("Button Click", {
+  button: "Sign Up",
+});
+              `}
+            />
+          </>
+        )}
       </>
     );
   }
