@@ -128,27 +128,29 @@ export const EditDataSourcePipeline = ({
     form.watch("mode") === "incremental" && !!form.watch("partitionSettings");
 
   const handleSubmit = async () => {
-    const validPermissions = await validatePipelinePermissions();
-    if (!validPermissions) {
-      throw new Error(validationError || "Validation failed");
-    }
+    if (currentPage === 0) {
+      const validPermissions = await validatePipelinePermissions();
+      if (!validPermissions) {
+        throw new Error(validationError || "Validation failed");
+      }
 
-    await form.handleSubmit(async (formValues) => {
-      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
-      copy.settings.pipelineSettings = {
-        allowWriting: formValues.mode !== "disabled",
-        mode: formValues.mode === "disabled" ? "ephemeral" : formValues.mode,
-        writeDatabase: formValues.writeDatabase,
-        writeDataset: formValues.writeDataset,
-        unitsTableRetentionHours: formValues.unitsTableRetentionHours,
-        unitsTableDeletion: formValues.unitsTableDeletion,
-        partitionSettings: formValues.partitionSettings,
-        includedExperimentIds: formValues.applyToAllExperiments
-          ? undefined
-          : formValues.includedExperimentIds,
-      };
-      await onSave(copy);
-    })();
+      await form.handleSubmit(async (formValues) => {
+        const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+        copy.settings.pipelineSettings = {
+          allowWriting: formValues.mode !== "disabled",
+          mode: formValues.mode === "disabled" ? "ephemeral" : formValues.mode,
+          writeDatabase: formValues.writeDatabase,
+          writeDataset: formValues.writeDataset,
+          unitsTableRetentionHours: formValues.unitsTableRetentionHours,
+          unitsTableDeletion: formValues.unitsTableDeletion,
+          partitionSettings: formValues.partitionSettings,
+          includedExperimentIds: formValues.applyToAllExperiments
+            ? undefined
+            : formValues.includedExperimentIds,
+        };
+        await onSave(copy);
+      })();
+    }
 
     if (has2Pages && currentPage === 0) {
       setCurrentPage(1);
@@ -259,10 +261,27 @@ export const EditDataSourcePipeline = ({
         ) : null}
 
         {currentPage === 1 ? (
-          <PipelineQueriesValidationStep
-            dataSource={dataSource}
-            onSaveDataSource={onSave}
-          />
+          <Flex direction="column" gap="6">
+            <Text
+              size="5"
+              weight="bold"
+              style={{ color: "var(--color-text-high)" }}
+            >
+              Edit Pipeline Settings
+            </Text>
+
+            <Flex direction="column" gap="3">
+              <Text size="3" style={{ color: "var(--color-text-mid)" }}>
+                As you specified a partition type, we need to ensure the
+                partition columns have been added to all Exposure Queries and
+                Fact Tables.
+              </Text>
+              <PipelineQueriesValidationStep
+                dataSource={dataSource}
+                onSaveDataSource={onSave}
+              />
+            </Flex>
+          </Flex>
         ) : null}
       </Box>
     </Modal>

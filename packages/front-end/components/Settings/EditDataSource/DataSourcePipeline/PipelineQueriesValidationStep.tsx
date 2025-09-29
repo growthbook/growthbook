@@ -1,16 +1,24 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { getRequiredColumnsForPipelineSettings } from "shared/enterprise";
+import { PiArrowClockwise } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Flex, Text } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import Metadata from "@/ui/Metadata";
+import Table, {
+  TableBody,
+  TableHeader,
+  TableRow,
+  TableCell,
+  TableColumnHeader,
+} from "@/ui/Table";
+import Link from "@/ui/Link";
 
 type Props = {
   dataSource: DataSourceInterfaceWithParams;
@@ -199,125 +207,111 @@ const PipelineQueriesValidationStep = ({
   }, [mounted, validateAll]);
 
   return (
-    <Box>
-      <Box mb="3">
-        <Callout status="info">
-          To take full advantage of Pipeline mode and minimize how much data is
-          scanned, update the Exposure Queries and Fact Tables below to include
-          the partition columns you specified.
-          {requiredColumns.length > 0 && (
-            <>
-              <div className="mt-2">
-                <Text size="2" weight="medium">
-                  Partition columns:
-                </Text>
-              </div>
-              <div className="mt-1">
-                {requiredColumns.map((c) => (
-                  <code key={`top-${c}`} className="mr-2 border p-1">
-                    {c}
-                  </code>
-                ))}
-              </div>
-            </>
-          )}
-        </Callout>
-      </Box>
-
-      <Flex align="center" mb="2" gap="3">
-        <Button
-          className="btn-sm btn-secondary"
-          onClick={() => {
-            validateAll();
-          }}
-          type="button"
-          disabled={Object.values(validationById).some(
-            (v) => v.status === "pending",
-          )}
-        >
-          {Object.values(validationById).some((v) => v.status === "pending")
-            ? "Checking..."
-            : "Re-check All"}
-        </Button>
-        <Flex align="center" gap="2">
-          <Badge
-            label={String(dataSourceExposureQueries.length)}
-            color="gray"
-            radius="medium"
+    <>
+      <Flex direction="column" gap="3">
+        {requiredColumns.length > 0 && (
+          <Metadata
+            label="Partition columns"
+            value={<code>{requiredColumns.join(", ")}</code>}
           />
-          <Text size="2">Exposure Queries</Text>
-        </Flex>
-        <Flex align="center" gap="2">
-          <Badge
-            label={String(dataSourceFactTables.length)}
-            color="gray"
-            radius="medium"
-          />
-          <Text size="2">Fact Tables</Text>
-        </Flex>
-      </Flex>
-
-      <Box asChild>
-        <ul className="mb-0" style={{ paddingLeft: 20 }}>
-          {queriesToValidate.map((item) => {
-            const status = validationById[item.id];
-            const missing = status?.missingColumns || [];
-            const hasError = !!status?.error;
-            const pending = status?.status === "pending";
-            return (
-              <li key={`${item.kind}-${item.id}`} style={{ marginBottom: 6 }}>
-                <Flex align="center" justify="between">
-                  <Text size="2" weight="medium">
-                    {item.kind === "exposure"
-                      ? "Exposure query: "
-                      : "Fact Table: "}
-                    {item.name}
-                  </Text>
-                  <Flex align="center" gap="3">
-                    <Text
-                      size="2"
-                      color={
-                        pending
-                          ? "gray"
-                          : hasError || missing.length
-                            ? "red"
-                            : "green"
-                      }
-                    >
-                      {pending
-                        ? "Checking..."
-                        : hasError
-                          ? `Error testing query`
-                          : missing.length
-                            ? `Missing columns: ${missing.join(", ")}`
-                            : "Ready"}
-                    </Text>
-                    {item.kind === "exposure" ? (
-                      <Button
-                        className="btn-sm btn-secondary"
-                        onClick={() => setEditExposureSqlIdx(item.index)}
-                        type="button"
+        )}
+        <Table>
+          <TableHeader>
+            <TableColumnHeader style={{ verticalAlign: "middle" }}>
+              Data
+            </TableColumnHeader>
+            <TableColumnHeader style={{ verticalAlign: "middle" }}>
+              Missing Columns
+            </TableColumnHeader>
+            <TableColumnHeader
+              style={{ verticalAlign: "middle" }}
+              justify="end"
+            >
+              <Button
+                size="xs"
+                variant="soft"
+                icon={<PiArrowClockwise />}
+                onClick={validateAll}
+                loading={Object.values(validationById).some(
+                  (v) => v.status === "pending",
+                )}
+              >
+                Check All
+              </Button>
+            </TableColumnHeader>
+          </TableHeader>
+          <TableBody>
+            {queriesToValidate.map((item) => {
+              const status = validationById[item.id];
+              const missing = status?.missingColumns || [];
+              const hasError = !!status?.error;
+              const pending = status?.status === "pending";
+              return (
+                <TableRow key={`${item.kind}-${item.id}`}>
+                  <TableCell style={{ verticalAlign: "middle" }}>
+                    <Flex direction="column" gap="2px">
+                      <Text
+                        style={{ color: "var(--color-text-high)" }}
+                        size="2"
+                        weight="medium"
                       >
-                        Edit SQL
-                      </Button>
+                        {item.name}
+                      </Text>
+                      <Text size="1" style={{ color: "var(--color-text-mid)" }}>
+                        {item.kind === "exposure"
+                          ? "Exposure query"
+                          : "Fact Table"}
+                      </Text>
+                    </Flex>
+                  </TableCell>
+                  <TableCell
+                    style={{
+                      verticalAlign: "middle",
+                      color:
+                        pending || missing.length === 0
+                          ? "var(--color-text-disabled)"
+                          : "var(--color-text-mid)",
+                    }}
+                  >
+                    {pending ? (
+                      "Checking..."
+                    ) : hasError ? (
+                      <code>Error: {status?.error}</code>
+                    ) : missing.length > 0 ? (
+                      <code>{missing.join(", ")}</code>
                     ) : (
-                      <Button
-                        className="btn-sm btn-secondary"
-                        onClick={() =>
-                          setEditFactTable(item.table as FactTableInterface)
-                        }
-                        type="button"
-                      >
-                        Edit SQL
-                      </Button>
+                      "--"
                     )}
-                  </Flex>
-                </Flex>
-              </li>
-            );
-          })}
-        </ul>
-      </Box>
+                  </TableCell>
+                  <TableCell style={{ verticalAlign: "middle" }} justify="end">
+                    <Link
+                      underline="none"
+                      weight="medium"
+                      size="1"
+                      onClick={() => {
+                        if (item.kind === "exposure") {
+                          setEditExposureSqlIdx(item.index);
+                          return;
+                        }
+                        if (item.kind === "fact") {
+                          setEditFactTable(item.table);
+                          return;
+                        }
+                        throw new Error(
+                          // @ts-expect-error We need to handle the new item.kind here
+                          `Query validation for type ${item.kind} not implemented`,
+                        );
+                      }}
+                    >
+                      Edit SQL
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Flex>
 
       {editExposureSqlIdx !== null && (
         <EditSqlModal
@@ -355,7 +349,7 @@ const PipelineQueriesValidationStep = ({
           }}
         />
       )}
-    </Box>
+    </>
   );
 };
 
