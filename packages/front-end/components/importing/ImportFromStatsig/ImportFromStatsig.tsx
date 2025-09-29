@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
+import { Switch } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
 import { ProjectInterface } from "back-end/types/project";
 import {
@@ -160,6 +161,10 @@ export default function ImportFromStatsig() {
   const [projectName, setProjectName] = useLocalStorage(
     "statsig_import_project",
     "",
+  );
+  const [skipAttributeMapping, setSkipAttributeMapping] = useLocalStorage(
+    "statsig_skip_attribute_mapping",
+    false,
   );
 
   // Item-level checkbox states (all enabled by default)
@@ -635,6 +640,7 @@ export default function ImportFromStatsig() {
                     existingTags,
                     existingExperiments,
                     callback: (d) => setData(d),
+                    skipAttributeMapping,
                   };
                   const featuresMap = await buildImportedData(buildOptions);
                   // Store featuresMap for use in runImport
@@ -674,6 +680,7 @@ export default function ImportFromStatsig() {
                   featuresMap,
                   project: projectId,
                   itemEnabled,
+                  skipAttributeMapping,
                 };
                 await runImport(runOptions);
                 mutateDefinitions();
@@ -692,25 +699,48 @@ export default function ImportFromStatsig() {
           <div className="alert alert-danger">{data.error || "Error"}</div>
         ) : data.status === "init" ? null : (
           <div>
-            <h3>
-              Import status: {data.status}{" "}
-              {data.status === "fetching" ? <LoadingSpinner /> : null}
-            </h3>
-            <div className="p-3 mb-2">
-              <div className="d-flex align-items-center">
-                <Checkbox
-                  value={getGlobalCheckboxState()}
-                  setValue={(enabled) => toggleAllItems(enabled)}
-                  label="Select all items"
-                  size="sm"
-                  containerClassName="mr-3 mb-0"
-                />
-                <span className="text-muted">
-                  {getSelectedItemsCount()} item
-                  {getSelectedItemsCount() !== 1 ? "s" : ""} selected
-                </span>
+            <div className="d-flex justify-content-between mt-3 mb-3">
+            <div>
+              <h3>
+                Import status: {data.status}{" "}
+                {data.status === "fetching" ? <LoadingSpinner /> : null}
+              </h3>
+              <div className="p-3">
+                <div className="d-flex align-items-center">
+                  <Checkbox
+                    value={getGlobalCheckboxState()}
+                    setValue={(enabled) => toggleAllItems(enabled)}
+                    label="Select all items"
+                    size="sm"
+                    containerClassName="mr-3 mb-0"
+                  />
+                  <span className="text-muted">
+                    {getSelectedItemsCount()} item
+                    {getSelectedItemsCount() !== 1 ? "s" : ""} selected
+                  </span>
+                </div>
               </div>
             </div>
+
+            <div className="d-flex justify-content-end">
+              <div>
+                <h5>Attribute Mapping</h5>
+                <div className="d-flex align-items-center mt-1 mr-3">
+                  <Switch
+                    checked={!skipAttributeMapping}
+                    onCheckedChange={(checked) => setSkipAttributeMapping(!checked)}
+                  />
+                  <div className="d-flex flex-column">
+                    <span className="ml-2">
+                      Map Statsig attributes to GrowthBook attributes
+                    </span>
+                    <span className="ml-2 text-muted">(e.g. user_id → id)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+
             {data.environments ? (
               <div className="appbox mb-4">
                 <ImportHeader
