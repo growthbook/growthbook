@@ -49,6 +49,7 @@ const SortableMultiValueLabel = SortableHandle<any>(
     return (
       <div
         title={props.data?.tooltip}
+        // Constrain width to save room for x button
         style={{ maxWidth: "calc(100% - 22px)" }}
       >
         {label}
