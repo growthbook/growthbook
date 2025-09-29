@@ -95,14 +95,13 @@ const CompactResults: FC<{
   pinnedMetricDimensionLevels?: string[];
   togglePinnedMetricDimensionLevel?: (
     metricId: string,
-    dimensionLevels: Array<{ column: string; level: string | null }>,
+    dimensionLevels: Array<{ column: string; levels: string[] }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => void;
   customMetricDimensionLevels?: Array<{
-    metricId: string;
     dimensionLevels: Array<{
       dimension: string;
-      level: string;
+      levels: string[];
     }>;
   }>;
 }> = ({
@@ -261,10 +260,7 @@ const CompactResults: FC<{
         getFactMetricDimensions?.(metricId)?.length ||
         0;
 
-      const customDimensions =
-        customMetricDimensionLevels?.filter(
-          (group) => group.metricId === metricId,
-        ).length || 0;
+      const customDimensions = customMetricDimensionLevels?.length || 0;
 
       const numDimensions = shouldShowMetricDimensions
         ? standardDimensions + customDimensions
@@ -301,33 +297,31 @@ const CompactResults: FC<{
 
         // Convert custom dimension levels to dimension data format
         const customDimensionData =
-          customMetricDimensionLevels
-            ?.filter((group) => group.metricId === metricId)
-            .map((group) => {
-              // Sort dimensions alphabetically for consistent ID generation
-              const sortedDimensions = group.dimensionLevels.sort((a, b) =>
-                a.dimension.localeCompare(b.dimension),
-              );
-              const dimensionString = sortedDimensions
-                .map(
-                  (combo) =>
-                    `dim:${encodeURIComponent(combo.dimension)}=${encodeURIComponent(combo.level)}`,
-                )
-                .join("&");
+          customMetricDimensionLevels?.map((group) => {
+            // Sort dimensions alphabetically for consistent ID generation
+            const sortedDimensions = group.dimensionLevels.sort((a, b) =>
+              a.dimension.localeCompare(b.dimension),
+            );
+            const dimensionString = sortedDimensions
+              .map(
+                (combo) =>
+                  `dim:${encodeURIComponent(combo.dimension)}=${encodeURIComponent(combo.levels[0] || "")}`,
+              )
+              .join("&");
 
-              return {
-                id: `${group.metricId}?${dimensionString}`,
-                name: `${newMetric?.name} (${sortedDimensions.map((combo) => `${combo.dimension}: ${combo.level}`).join(", ")})`,
-                description: `Custom dimensional analysis of ${newMetric?.name} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.level}`).join(" and ")}`,
-                parentMetricId: group.metricId,
-                dimensionLevels: sortedDimensions.map((combo) => ({
-                  column: combo.dimension,
-                  columnName: combo.dimension,
-                  level: combo.level,
-                })),
-                allDimensionLevels: [],
-              };
-            }) || [];
+            return {
+              id: `${metricId}?${dimensionString}`,
+              name: `${newMetric?.name} (${sortedDimensions.map((combo) => `${combo.dimension}: ${combo.levels[0] || ""}`).join(", ")})`,
+              description: `Custom dimensional analysis of ${newMetric?.name} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.levels[0] || ""}`).join(" and ")}`,
+              parentMetricId: metricId,
+              dimensionLevels: sortedDimensions.map((combo) => ({
+                column: combo.dimension,
+                columnName: combo.dimension,
+                level: combo.levels[0] || null,
+              })),
+              allDimensionLevels: [],
+            };
+          }) || [];
 
         const dimensionData = [
           ...standardDimensionData,
@@ -339,9 +333,13 @@ const CompactResults: FC<{
           const isExpanded = expandedMetrics[expandedKey] || false;
 
           // Generate pinned key from all dimension levels
+          const pinnedDimensionLevels = dimension.dimensionLevels.map((dl) => ({
+            column: dl.column,
+            levels: dl.level ? [dl.level] : [],
+          }));
           const pinnedKey = generatePinnedDimensionKey(
             metricId,
-            dimension.dimensionLevels,
+            pinnedDimensionLevels,
             resultGroup,
           );
           const isPinned =
@@ -712,7 +710,7 @@ export function getRenderLabelColumn({
   pinnedMetricDimensionLevels?: string[];
   togglePinnedMetricDimensionLevel?: (
     metricId: string,
-    dimensionLevels: Array<{ column: string; level: string | null }>,
+    dimensionLevels: Array<{ column: string; levels: string[] }>,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   expandedMetrics?: Record<string, boolean>;
@@ -749,7 +747,10 @@ export function getRenderLabelColumn({
       const pinnedKey = row?.dimensionLevels
         ? generatePinnedDimensionKey(
             metric.id,
-            row.dimensionLevels,
+            row.dimensionLevels.map((dl) => ({
+              column: dl.column,
+              levels: dl.level ? [dl.level] : [],
+            })),
             location || "goal",
           )
         : "";
@@ -784,7 +785,10 @@ export function getRenderLabelColumn({
                   ) {
                     togglePinnedMetricDimensionLevel(
                       metric.id,
-                      row.dimensionLevels,
+                      row.dimensionLevels.map((dl) => ({
+                        column: dl.column,
+                        levels: dl.level ? [dl.level] : [],
+                      })),
                       location || "goal",
                     );
                   }

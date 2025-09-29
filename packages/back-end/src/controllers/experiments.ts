@@ -1123,6 +1123,8 @@ export async function postExperiments(
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
     holdoutId: holdoutId || undefined,
+    pinnedMetricDimensionLevels: data.pinnedMetricDimensionLevels,
+    customMetricDimensionLevels: data.customMetricDimensionLevels,
   };
   const { settings } = getScopedSettings({
     organization: org,
@@ -1617,6 +1619,8 @@ export async function postExperiment(
       });
     }
   }
+
+  // No sorting needed - UI doesn't depend on array ordering for these fields
 
   const updated = await updateExperiment({
     context,

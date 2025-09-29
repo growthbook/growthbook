@@ -133,7 +133,7 @@ export function getColumnRefWhereClause(
           jsonExtract,
         );
 
-        if (!dimensionLevel.level) {
+        if (dimensionLevel.levels.length === 0) {
           // For "other", exclude all dimension values
           if (
             dimensionColumn.dimensionLevels &&
@@ -147,9 +147,9 @@ export function getColumnRefWhereClause(
             );
           }
         } else {
-          // For specific dimension values, filter to that value
+          // For specific dimension values, filter to that value (using first level for now)
           where.add(
-            `(${columnExpr} = '${escapeStringLiteral(dimensionLevel.level)}')`,
+            `(${columnExpr} = '${escapeStringLiteral(dimensionLevel.levels[0])}')`,
           );
         }
       }
@@ -373,7 +373,7 @@ export function getUserIdTypes(
 
 export interface DimensionLevel {
   column: string;
-  level: string | null; // null for "other"
+  levels: string[]; // empty array for "other", single element for now
 }
 
 export interface DimensionMetricInfo {
@@ -403,7 +403,7 @@ export function parseDimensionMetricId(metricId: string): DimensionMetricInfo {
     if (key.startsWith("dim:")) {
       const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
       const level = value === "" ? null : decodeURIComponent(value);
-      dimensionLevels.push({ column, level });
+      dimensionLevels.push({ column, levels: level ? [level] : [] });
     }
   }
 
@@ -437,27 +437,42 @@ export function createCustomDimensionMetrics({
   }
 
   experiment.customMetricDimensionLevels.forEach((group) => {
-    const metric = metricMap.get(group.metricId);
-    if (metric && isFactMetric(metric) && metric.enableMetricDimensions) {
-      // Sort dimensions alphabetically for consistent ID generation
-      const sortedDimensions = group.dimensionLevels.sort((a, b) =>
-        a.dimension.localeCompare(b.dimension),
-      );
-      const dimensionString = sortedDimensions
-        .map(
-          (combo) =>
-            `dim:${encodeURIComponent(combo.dimension)}=${encodeURIComponent(combo.level)}`,
-        )
-        .join("&");
+    // Sort dimensions alphabetically for consistent ID generation
+    const sortedDimensions = group.dimensionLevels.sort((a, b) =>
+      a.dimension.localeCompare(b.dimension),
+    );
+    const dimensionString = sortedDimensions
+      .map(
+        (combo) =>
+          `dim:${encodeURIComponent(combo.dimension)}=${encodeURIComponent(combo.levels[0] || "")}`,
+      )
+      .join("&");
+
+    // Apply this custom dimension combination to ALL applicable metrics in the experiment
+    metricMap.forEach((metric, metricId) => {
+      if (!isFactMetric(metric)) return;
+
+      // Check if this metric is actually included in the experiment's metrics
+      const isExperimentMetric =
+        experiment.goalMetrics?.includes(metricId) ||
+        experiment.secondaryMetrics?.includes(metricId) ||
+        experiment.guardrailMetrics?.includes(metricId) ||
+        experiment.activationMetric === metricId;
+
+      if (!isExperimentMetric) return;
+
+      // Note: We should ideally check if the fact table has the required dimension columns,
+      // but that requires passing factTableMap to this function. For now, we'll apply to all
+      // experiment fact metrics and let the frontend/snapshot generation handle validation.
 
       const customDimensionMetric: ExperimentMetricInterface = {
         ...metric,
-        id: `${group.metricId}?${dimensionString}`,
-        name: `${metric.name} (${sortedDimensions.map((combo) => `${combo.dimension}: ${combo.level}`).join(", ")})`,
-        description: `Dimensional analysis of ${metric.name} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.level}`).join(" and ")}`,
+        id: `${metricId}?${dimensionString}`,
+        name: `${metric.name} (${sortedDimensions.map((combo) => `${combo.dimension}: ${combo.levels[0] || ""}`).join(", ")})`,
+        description: `Dimensional analysis of ${metric.name} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.levels[0] || ""}`).join(" and ")}`,
       };
       customDimensionMetrics.push(customDimensionMetric);
-    }
+    });
   });
 
   return customDimensionMetrics;
@@ -468,13 +483,13 @@ export function createCustomDimensionMetrics({
  */
 export function generatePinnedDimensionKey(
   metricId: string,
-  dimensionLevels: Array<{ column: string; level: string | null }>,
+  dimensionLevels: DimensionLevel[],
   location: "goal" | "secondary" | "guardrail",
 ): string {
   const dimensionKeyParts = dimensionLevels
     .map(
       (dl) =>
-        `dim:${encodeURIComponent(dl.column)}=${encodeURIComponent(dl.level || "")}`,
+        `dim:${encodeURIComponent(dl.column)}=${encodeURIComponent(dl.levels[0] || "")}`,
     )
     .join("&");
   return `${metricId}?${dimensionKeyParts}&location=${location}`;

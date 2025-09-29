@@ -239,8 +239,6 @@ properties:
     items:
       type: object
       properties:
-        metricId:
-          type: string
         dimensionLevels:
           type: array
           items:
@@ -248,12 +246,13 @@ properties:
             properties:
               dimension:
                 type: string
-              level:
-                type: string
+              levels:
+                type: array
+                items:
+                  type: string
             required:
               - dimension
-              - level
+              - levels
       required:
-        - metricId
         - dimensionLevels
-    description: "Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns."
+    description: "Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns."

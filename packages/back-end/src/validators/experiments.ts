@@ -328,11 +328,10 @@ export const experimentInterface = z
     customMetricDimensionLevels: z
       .array(
         z.object({
-          metricId: z.string(),
           dimensionLevels: z.array(
             z.object({
               dimension: z.string(),
-              level: z.string(),
+              levels: z.array(z.string()),
             }),
           ),
         }),

@@ -97,14 +97,20 @@ const Results: FC<{
 
   const togglePinnedMetricDimensionLevel = async (
     metricId: string,
-    dimensionLevels: Array<{ column: string; level: string | null }>,
+    dimensionLevels: Array<{ column: string; levels: string[] }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => {
     if (!editMetrics || !mutateExperiment) return;
 
+    // Convert the dimension levels to the format expected by generatePinnedDimensionKey
+    const formattedDimensionLevels = dimensionLevels.map((dl) => ({
+      column: dl.column,
+      levels: dl.levels || [],
+    }));
+
     const key = generatePinnedDimensionKey(
       metricId,
-      dimensionLevels,
+      formattedDimensionLevels,
       location || "goal",
     );
     const newPinned = optimisticPinnedLevels.includes(key)

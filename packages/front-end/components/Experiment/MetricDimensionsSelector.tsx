@@ -1,31 +1,41 @@
 import React, { useState, useMemo } from "react";
-import {
-  FaPlusCircle,
-  FaMinusCircle,
-  FaPencilAlt,
-  FaTimes,
-} from "react-icons/fa";
-import { Text, Flex } from "@radix-ui/themes";
+import { FaPlusCircle, FaTimes } from "react-icons/fa";
+import { PiPencilSimpleFill, PiX } from "react-icons/pi";
+import { Text, Flex, IconButton } from "@radix-ui/themes";
 import {
   isFactMetric,
   generatePinnedDimensionKey,
   expandMetricGroups,
 } from "shared/experiments";
+import {
+  FactTableInterface,
+  FactMetricInterface,
+} from "back-end/types/fact-table";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Button from "@/ui/Button";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface DimensionLevel {
   dimension: string;
-  level: string;
+  levels: string[]; // single element for now, will support multiple levels in future
 }
 
 export interface MetricDimensionLevels {
-  metricId: string;
   dimensionLevels: DimensionLevel[];
+}
+
+interface MetricWithDimensions extends FactMetricInterface {
+  dimensionColumns: Array<{
+    column: string;
+    name: string;
+    isDimension?: boolean;
+    dimensionLevels?: string[];
+  }>;
 }
 
 export interface MetricDimensionsSelectorProps {
@@ -38,6 +48,57 @@ export interface MetricDimensionsSelectorProps {
   setPinnedMetricDimensionLevels: (levels: string[]) => void;
 }
 
+interface StandardDimensionsSectionProps {
+  metricsWithDimensions: MetricWithDimensions[];
+  factTables: FactTableInterface[];
+}
+
+function StandardDimensionsSection({
+  metricsWithDimensions,
+  factTables,
+}: StandardDimensionsSectionProps) {
+  // Create a map for efficient lookups
+  const factTableMap = new Map(factTables.map((table) => [table.id, table]));
+
+  const metricsWithEnabledDimensions = metricsWithDimensions.filter(
+    (metric) => metric.enableMetricDimensions,
+  );
+
+  if (metricsWithEnabledDimensions.length === 0) {
+    return (
+      <div className="text-muted">
+        <em>No metrics have dimension analysis enabled.</em>
+      </div>
+    );
+  }
+
+  return (
+    <div className="d-flex flex-wrap" style={{ gap: "0.5rem" }}>
+      {metricsWithEnabledDimensions.map((metric) => {
+        const factTable = factTableMap.get(metric.numerator.factTableId);
+        if (!factTable) return null;
+
+        const dimensionColumns = factTable.columns.filter(
+          (col) => col.isDimension && !col.deleted,
+        );
+
+        const totalDimensionLevels = dimensionColumns.reduce((total, col) => {
+          return total + (col.dimensionLevels?.length || 0);
+        }, 0);
+
+        return (
+          <Tooltip
+            key={metric.id}
+            body={`${dimensionColumns.length} dimensions, ${totalDimensionLevels} levels`}
+          >
+            <Badge label={metric.name} color="violet" />
+          </Tooltip>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function MetricDimensionsSelector({
   goalMetrics,
   secondaryMetrics,
@@ -47,13 +108,11 @@ export default function MetricDimensionsSelector({
   pinnedMetricDimensionLevels,
   setPinnedMetricDimensionLevels,
 }: MetricDimensionsSelectorProps) {
-  const { getFactTableById } = useDefinitions();
   const growthbook = useGrowthBook();
   const { hasCommercialFeature } = useUser();
 
   // State for editing
   const [editingIndex, setEditingIndex] = useState<number | null>(null); // null = not editing, -1 = adding new, >=0 = editing existing
-  const [editingMetricId, setEditingMetricId] = useState("");
   const [editingDimensionLevels, setEditingDimensionLevels] = useState<
     DimensionLevel[]
   >([]);
@@ -62,8 +121,8 @@ export default function MetricDimensionsSelector({
   // Feature flags
   const hasMetricDimensionsFeature = growthbook?.isOn("metric-dimensions");
 
-  // Get all metrics with dimension analysis enabled
-  const { factMetrics, metricGroups } = useDefinitions();
+  // Get all metrics and fact tables with dimension analysis enabled
+  const { factMetrics, metricGroups, factTables } = useDefinitions();
   const allMetricIds = useMemo(() => {
     const rawMetricIds = [
       ...goalMetrics,
@@ -75,11 +134,13 @@ export default function MetricDimensionsSelector({
   }, [goalMetrics, secondaryMetrics, guardrailMetrics, metricGroups]);
 
   const metricsWithDimensions = useMemo(() => {
+    const factTableMap = new Map(factTables.map((table) => [table.id, table]));
+
     return allMetricIds
       .map((id) => factMetrics.find((m) => m.id === id))
       .filter((metric) => {
         const factTable = metric
-          ? getFactTableById(metric.numerator?.factTableId)
+          ? factTableMap.get(metric.numerator?.factTableId)
           : null;
         const hasColumns = !!factTable?.columns;
         return (
@@ -90,7 +151,7 @@ export default function MetricDimensionsSelector({
         );
       })
       .map((metric) => {
-        const factTable = getFactTableById(metric!.numerator?.factTableId);
+        const factTable = factTableMap.get(metric!.numerator?.factTableId);
         const dimensionColumns = factTable?.columns?.filter(
           (col) => col.isDimension,
         );
@@ -99,7 +160,7 @@ export default function MetricDimensionsSelector({
           dimensionColumns: dimensionColumns || [],
         };
       });
-  }, [allMetricIds, factMetrics, getFactTableById]);
+  }, [allMetricIds, factMetrics, factTables]);
 
   // Update the parent state with new metric dimension levels
   const updateCustomMetricDimensionLevels = (
@@ -112,35 +173,70 @@ export default function MetricDimensionsSelector({
   const startEditing = (index: number) => {
     setEditingIndex(index);
     if (index === -1) {
-      // Adding new entry
-      setEditingMetricId("");
+      // Adding new entry - start with empty dimension-level pair
       setEditingDimensionLevels([]);
+      setAddingDimension(true); // Start in adding mode for first dimension
     } else {
       // Editing existing entry
       const levels = customMetricDimensionLevels[index];
-      setEditingMetricId(levels.metricId);
       setEditingDimensionLevels(levels.dimensionLevels);
+      setAddingDimension(false); // Don't show dimension selector initially
     }
-    setAddingDimension(false);
   };
 
   // Cancel editing
   const cancelEditing = () => {
     setEditingIndex(null);
-    setEditingMetricId("");
     setEditingDimensionLevels([]);
     setAddingDimension(false);
   };
 
   // Save editing changes
   const saveEditing = () => {
-    if (!editingMetricId || editingDimensionLevels.length === 0) return;
+    if (editingDimensionLevels.length === 0) return;
+
+    const dimensionLevelsFormatted = editingDimensionLevels.map((dl) => ({
+      column: dl.dimension,
+      levels: dl.levels[0] ? [dl.levels[0]] : [],
+    }));
 
     const newLevels: MetricDimensionLevels = {
-      metricId: editingMetricId,
       dimensionLevels: editingDimensionLevels,
     };
 
+    // Remove old pinned keys if editing existing entry
+    const keysToRemove: string[] = [];
+    if (editingIndex !== null && editingIndex >= 0) {
+      const oldLevels = customMetricDimensionLevels[editingIndex as number];
+      const oldDimensionLevelsFormatted = oldLevels.dimensionLevels.map(
+        (dl) => ({
+          column: dl.dimension,
+          levels: dl.levels[0] ? [dl.levels[0]] : [],
+        }),
+      );
+
+      // Remove pins for all applicable metrics for the old dimension combination
+      [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
+        (metricId) => {
+          const locations: ("goal" | "secondary" | "guardrail")[] = [];
+          if (goalMetrics.includes(metricId)) locations.push("goal");
+          if (secondaryMetrics.includes(metricId)) locations.push("secondary");
+          if (guardrailMetrics.includes(metricId)) locations.push("guardrail");
+
+          locations.forEach((location) => {
+            keysToRemove.push(
+              generatePinnedDimensionKey(
+                metricId,
+                oldDimensionLevelsFormatted,
+                location as "goal" | "secondary" | "guardrail",
+              ),
+            );
+          });
+        },
+      );
+    }
+
+    // Update the custom dimension levels
     let updatedLevels: MetricDimensionLevels[];
     if (editingIndex === -1) {
       // Adding new entry
@@ -153,60 +249,28 @@ export default function MetricDimensionsSelector({
 
     updateCustomMetricDimensionLevels(updatedLevels);
 
-    // Auto-pin custom dimension levels for all locations where the metric appears
-    const generatePinnedKeys = (
-      metricId: string,
-      dimensionLevels: DimensionLevel[],
-    ) => {
-      const keys: string[] = [];
-      const dimensionLevelsFormatted = dimensionLevels.map((dl) => ({
-        column: dl.dimension,
-        level: dl.level || null,
-      }));
+    // Generate new pinned keys for all applicable metrics
+    const newKeys: string[] = [];
+    [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
+      (metricId) => {
+        const locations: ("goal" | "secondary" | "guardrail")[] = [];
+        if (goalMetrics.includes(metricId)) locations.push("goal");
+        if (secondaryMetrics.includes(metricId)) locations.push("secondary");
+        if (guardrailMetrics.includes(metricId)) locations.push("guardrail");
 
-      if (goalMetrics.includes(metricId)) {
-        keys.push(
-          generatePinnedDimensionKey(
-            metricId,
-            dimensionLevelsFormatted,
-            "goal",
-          ),
-        );
-      }
-      if (secondaryMetrics.includes(metricId)) {
-        keys.push(
-          generatePinnedDimensionKey(
-            metricId,
-            dimensionLevelsFormatted,
-            "secondary",
-          ),
-        );
-      }
-      if (guardrailMetrics.includes(metricId)) {
-        keys.push(
-          generatePinnedDimensionKey(
-            metricId,
-            dimensionLevelsFormatted,
-            "guardrail",
-          ),
-        );
-      }
-      return keys;
-    };
+        locations.forEach((location) => {
+          newKeys.push(
+            generatePinnedDimensionKey(
+              metricId,
+              dimensionLevelsFormatted,
+              location as "goal" | "secondary" | "guardrail",
+            ),
+          );
+        });
+      },
+    );
 
-    // Remove old pinned keys if editing existing levels
-    let keysToRemove: string[] = [];
-    if (editingIndex !== null && editingIndex >= 0) {
-      const oldLevels = customMetricDimensionLevels[editingIndex as number];
-      keysToRemove = generatePinnedKeys(
-        oldLevels.metricId,
-        oldLevels.dimensionLevels,
-      );
-    }
-
-    // Add new pinned keys
-    const newKeys = generatePinnedKeys(editingMetricId, editingDimensionLevels);
-
+    // Update pinnedDimensionLevels by removing old keys and adding new ones
     setPinnedMetricDimensionLevels([
       ...pinnedMetricDimensionLevels.filter(
         (key) => !keysToRemove.includes(key),
@@ -225,50 +289,32 @@ export default function MetricDimensionsSelector({
     );
     updateCustomMetricDimensionLevels(updatedLevels);
 
-    // Auto-unpin custom dimension levels from all locations where the metric appears
-    const generatePinnedKeys = (
-      metricId: string,
-      dimensionLevels: DimensionLevel[],
-    ) => {
-      const keys: string[] = [];
-      const dimensionLevelsFormatted = dimensionLevels.map((dl) => ({
+    // Auto-unpin custom dimension levels from all applicable metrics
+    const dimensionLevelsFormatted = levelsToRemove.dimensionLevels.map(
+      (dl) => ({
         column: dl.dimension,
-        level: dl.level || null,
-      }));
+        levels: dl.levels[0] ? [dl.levels[0]] : [],
+      }),
+    );
 
-      if (goalMetrics.includes(metricId)) {
-        keys.push(
-          generatePinnedDimensionKey(
-            metricId,
-            dimensionLevelsFormatted,
-            "goal",
-          ),
-        );
-      }
-      if (secondaryMetrics.includes(metricId)) {
-        keys.push(
-          generatePinnedDimensionKey(
-            metricId,
-            dimensionLevelsFormatted,
-            "secondary",
-          ),
-        );
-      }
-      if (guardrailMetrics.includes(metricId)) {
-        keys.push(
-          generatePinnedDimensionKey(
-            metricId,
-            dimensionLevelsFormatted,
-            "guardrail",
-          ),
-        );
-      }
-      return keys;
-    };
+    const keysToRemove: string[] = [];
+    [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics].forEach(
+      (metricId) => {
+        const locations: ("goal" | "secondary" | "guardrail")[] = [];
+        if (goalMetrics.includes(metricId)) locations.push("goal");
+        if (secondaryMetrics.includes(metricId)) locations.push("secondary");
+        if (guardrailMetrics.includes(metricId)) locations.push("guardrail");
 
-    const keysToRemove = generatePinnedKeys(
-      levelsToRemove.metricId,
-      levelsToRemove.dimensionLevels,
+        locations.forEach((location) => {
+          keysToRemove.push(
+            generatePinnedDimensionKey(
+              metricId,
+              dimensionLevelsFormatted,
+              location as "goal" | "secondary" | "guardrail",
+            ),
+          );
+        });
+      },
     );
 
     setPinnedMetricDimensionLevels(
@@ -278,9 +324,14 @@ export default function MetricDimensionsSelector({
 
   // Remove a dimension level from the current editing levels
   const removeDimensionLevel = (index: number) => {
-    setEditingDimensionLevels(
-      editingDimensionLevels.filter((_, i) => i !== index),
-    );
+    const newLevels = editingDimensionLevels.filter((_, i) => i !== index);
+    
+    if (newLevels.length === 0) {
+      // If this was the last pair, cancel editing entirely
+      cancelEditing();
+    } else {
+      setEditingDimensionLevels(newLevels);
+    }
   };
 
   // Update a dimension level in the current editing levels
@@ -290,49 +341,351 @@ export default function MetricDimensionsSelector({
     value: string,
   ) => {
     const newLevels = [...editingDimensionLevels];
-    newLevels[index] = { ...newLevels[index], [field]: value };
+    if (field === "level") {
+      newLevels[index] = { ...newLevels[index], levels: [value] };
+    } else {
+      newLevels[index] = { ...newLevels[index], [field]: value };
+    }
     setEditingDimensionLevels(newLevels);
   };
 
-  // Render editing interface (shared between editing existing and adding new)
-  const renderEditingInterface = () => (
+  if (!hasMetricDimensionsFeature) {
+    return null;
+  }
+
+  return (
+    <>
+      <div className="my-4">
+        <label className="font-weight-bold mb-1">
+          Metric Dimensions
+          <PaidFeatureBadge commercialFeature="metric-dimensions" />
+        </label>
+
+        <Text
+          as="p"
+          className="mb-2"
+          style={{ color: "var(--color-text-mid)" }}
+        >
+          These metrics will be analyzed across all dimensions and levels
+          defined in their fact table.
+        </Text>
+        <StandardDimensionsSection
+          metricsWithDimensions={metricsWithDimensions}
+          factTables={factTables}
+        />
+      </div>
+
+      <div className="my-4">
+        <label className="font-weight-bold mb-1">
+          Additional Metric Dimensions
+        </label>
+
+        <Text
+          as="p"
+          className="mb-2"
+          style={{ color: "var(--color-text-mid)" }}
+        >
+          Define custom dimensions to analyze beyond the standard dimension
+          breakdowns.
+        </Text>
+
+        {!hasMetricDimensionsFeature && (
+          <div className="alert alert-info">
+            Additional metric dimensions require an enterprise license.
+          </div>
+        )}
+
+        {hasMetricDimensionsFeature && metricsWithDimensions.length === 0 && (
+          <div className="alert alert-info">
+            No metrics with dimension analysis enabled found. Enable dimension
+            analysis on your fact metrics first.
+          </div>
+        )}
+
+        {hasMetricDimensionsFeature && metricsWithDimensions.length > 0 && (
+          <>
+            {customMetricDimensionLevels.map((levels, levelsIndex) => {
+              const isEditing = editingIndex === levelsIndex;
+
+              return (
+                <div key={levelsIndex} className="appbox px-2 py-1 mb-2">
+                  {isEditing ? (
+                    <EditingInterface
+                      editingDimensionLevels={editingDimensionLevels}
+                      addingDimension={addingDimension}
+                      setAddingDimension={setAddingDimension}
+                      setEditingDimensionLevels={setEditingDimensionLevels}
+                      updateDimensionLevel={updateDimensionLevel}
+                      removeDimensionLevel={removeDimensionLevel}
+                      saveEditing={saveEditing}
+                      cancelEditing={cancelEditing}
+                      metricsWithDimensions={metricsWithDimensions}
+                    />
+                  ) : (
+                    <div className="d-flex align-items-center">
+                      <div className="flex-grow-1">
+                        <Flex gap="2" align="center">
+                          {levels.dimensionLevels.map((combo, comboIndex) => (
+                            <React.Fragment key={comboIndex}>
+                              {comboIndex > 0 && <Text size="1">AND</Text>}
+                              <Badge
+                                label={
+                                  <Text style={{ color: "var(--slate-12)" }}>
+                                    {combo.dimension} = {combo.levels[0]}
+                                  </Text>
+                                }
+                                color="gray"
+                              />
+                            </React.Fragment>
+                          ))}
+                        </Flex>
+                      </div>
+                      <div
+                        className="d-flex align-items-center"
+                        style={{ gap: "0.5rem" }}
+                      >
+                        <IconButton
+                          variant="ghost"
+                          size="1"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            startEditing(levelsIndex);
+                          }}
+                          mr="1"
+                        >
+                          <PiPencilSimpleFill />
+                        </IconButton>
+                        <IconButton
+                          color="red"
+                          variant="ghost"
+                          size="1"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            removeMetricDimensionLevels(levelsIndex);
+                          }}
+                        >
+                          <PiX />
+                        </IconButton>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {customMetricDimensionLevels.length === 0 &&
+              editingIndex === null && (
+                <div className="font-italic text-muted mr-3">
+                  No custom dimension combinations defined.
+                </div>
+              )}
+
+            {editingIndex === null ? (
+              <div className="mt-3">
+                <a
+                  role="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    startEditing(-1);
+                  }}
+                  className="link-purple font-weight-bold"
+                >
+                  <FaPlusCircle className="mr-1" />
+                  Add dimension breakdown
+                </a>
+              </div>
+            ) : editingIndex === -1 ? (
+              // Adding new entry
+              <div className="appbox px-2 py-1 mb-2">
+                <EditingInterface
+                  editingDimensionLevels={editingDimensionLevels}
+                  addingDimension={addingDimension}
+                  setAddingDimension={setAddingDimension}
+                  setEditingDimensionLevels={setEditingDimensionLevels}
+                  updateDimensionLevel={updateDimensionLevel}
+                  removeDimensionLevel={removeDimensionLevel}
+                  saveEditing={saveEditing}
+                  cancelEditing={cancelEditing}
+                  metricsWithDimensions={metricsWithDimensions}
+                />
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+// Dimension selector component for adding new dimensions
+function DimensionSelector({
+  editingDimensionLevels,
+  addingDimension,
+  setAddingDimension,
+  setEditingDimensionLevels,
+  metricsWithDimensions,
+}: {
+  editingDimensionLevels: DimensionLevel[];
+  addingDimension: boolean;
+  setAddingDimension: (value: boolean) => void;
+  setEditingDimensionLevels: (value: DimensionLevel[]) => void;
+  metricsWithDimensions: MetricWithDimensions[];
+}) {
+  // Check if the last dimension-level pair is complete before showing + AND
+  const lastPairIndex = editingDimensionLevels.length - 1;
+  const lastPairIsComplete = lastPairIndex >= 0 && 
+    editingDimensionLevels[lastPairIndex].dimension && 
+    editingDimensionLevels[lastPairIndex].levels[0];
+
+  // Get all available dimension columns and union their levels
+  const usedDimensions = new Set(
+    editingDimensionLevels.map((dl) => dl.dimension),
+  );
+
+  const dimensionMap = new Map<
+    string,
+    { name: string; levels: Set<string>; column: string }
+  >();
+
+  metricsWithDimensions.forEach((metric) => {
+    (metric.dimensionColumns || []).forEach((col) => {
+      if (!col.isDimension) return;
+
+      const existing = dimensionMap.get(col.column);
+      if (existing) {
+        // UNION the levels from this metric with existing levels
+        col.dimensionLevels?.forEach((level) => {
+          existing.levels.add(level);
+        });
+      } else {
+        // Create new entry with levels from this metric
+        dimensionMap.set(col.column, {
+          column: col.column,
+          name: col.name || col.column || "",
+          levels: new Set(col.dimensionLevels || []),
+        });
+      }
+    });
+  });
+
+  // Convert to array and filter out used dimensions
+  const uniqueDimensions = Array.from(dimensionMap.values())
+    .filter((dim) => !usedDimensions.has(dim.column))
+    .map((dim) => ({
+      column: dim.column,
+      name: dim.name,
+      dimensionLevels: Array.from(dim.levels).sort(), // Convert Set back to sorted array
+    }));
+
+  // Only show + AND if there are available dimensions AND the last pair is complete
+  const shouldShowAndButton = uniqueDimensions.length > 0 && lastPairIsComplete;
+
+  return addingDimension ? (
+    uniqueDimensions.length > 0 ? (
+      <div className="border rounded d-flex align-items-center bg-white">
+        <SelectField
+          value=""
+          onChange={(value) => {
+            if (value) {
+              const newDimensionLevel: DimensionLevel = {
+                dimension: value,
+                levels: [""], // Start with empty level
+              };
+              setEditingDimensionLevels([
+                ...editingDimensionLevels,
+                newDimensionLevel,
+              ]);
+              setAddingDimension(false);
+            }
+          }}
+          options={uniqueDimensions.map((col) => ({
+            label: col.name || col.column || "",
+            value: col.column || "",
+          }))}
+          onBlur={() => setAddingDimension(false)}
+          className="mb-0"
+          autoFocus
+        />
+      </div>
+    ) : null
+  ) : shouldShowAndButton ? (
+    <a
+      role="button"
+      onClick={(e) => {
+        e.preventDefault();
+        setAddingDimension(true);
+      }}
+      className="link-purple mx-1"
+    >
+      + AND
+    </a>
+  ) : null;
+}
+
+// Main editing interface component
+function EditingInterface({
+  editingDimensionLevels,
+  addingDimension,
+  setAddingDimension,
+  setEditingDimensionLevels,
+  updateDimensionLevel,
+  removeDimensionLevel,
+  saveEditing,
+  cancelEditing,
+  metricsWithDimensions,
+}: {
+  editingDimensionLevels: DimensionLevel[];
+  addingDimension: boolean;
+  setAddingDimension: (value: boolean) => void;
+  setEditingDimensionLevels: (value: DimensionLevel[]) => void;
+  updateDimensionLevel: (
+    index: number,
+    field: "dimension" | "level",
+    value: string,
+  ) => void;
+  removeDimensionLevel: (index: number) => void;
+  saveEditing: () => void;
+  cancelEditing: () => void;
+  metricsWithDimensions: MetricWithDimensions[];
+}) {
+  return (
     <div className="d-flex align-items-top" style={{ gap: "3rem" }}>
       <div
         className="flex-grow-1 d-flex flex-wrap align-items-center"
         style={{ gap: "0.5rem", minHeight: "40px" }}
       >
-        {editingMetricId ? (
-          <div className="d-flex align-items-center">
-            <span className="font-weight-medium mr-2">
-              {metricsWithDimensions.find((m) => m.id === editingMetricId)
-                ?.name || editingMetricId}
-              :
-            </span>
-          </div>
-        ) : (
-          <SelectField
-            value={editingMetricId}
-            onChange={setEditingMetricId}
-            options={metricsWithDimensions.map((m) => ({
-              label: m.name || "",
-              value: m.id || "",
-            }))}
-            className="mb-0"
-            style={{ minWidth: "200px" }}
-            placeholder="Select metric..."
-          />
-        )}
-
         {editingDimensionLevels.map((dimensionLevel, levelIndex) => {
-          const metricForEditing = metricsWithDimensions.find(
-            (m) => m.id === editingMetricId,
-          );
-          if (!metricForEditing) return null;
+          // Build the same dimension map with unioned levels
+          const dimensionMap = new Map<
+            string,
+            { name: string; levels: string[] }
+          >();
 
-          const dimensionColumn = metricForEditing.dimensionColumns.find(
-            (col) => col.column === dimensionLevel.dimension,
-          );
-          const availableLevels = dimensionColumn?.dimensionLevels || [];
+          metricsWithDimensions.forEach((metric) => {
+            (metric.dimensionColumns || []).forEach((col) => {
+              if (!col.isDimension || col.column !== dimensionLevel.dimension)
+                return;
+
+              const existing = dimensionMap.get(col.column);
+              if (existing) {
+                // UNION the levels from this metric with existing levels
+                col.dimensionLevels?.forEach((level) => {
+                  if (!existing.levels.includes(level)) {
+                    existing.levels.push(level);
+                  }
+                });
+              } else {
+                // Create new entry with levels from this metric
+                dimensionMap.set(col.column, {
+                  name: col.name || col.column || "",
+                  levels: [...(col.dimensionLevels || [])],
+                });
+              }
+            });
+          });
+
+          const dimensionColumn = dimensionMap.get(dimensionLevel.dimension);
+          const availableLevels = dimensionColumn?.levels.sort() || [];
 
           return (
             <div
@@ -340,13 +693,10 @@ export default function MetricDimensionsSelector({
               className="border rounded d-flex align-items-center bg-white"
             >
               <span className="px-2 font-weight-medium">
-                {dimensionColumn?.name ||
-                  dimensionColumn?.column ||
-                  dimensionLevel.dimension}
-                :
+                {dimensionColumn?.name || dimensionLevel.dimension}:
               </span>
               <SelectField
-                value={dimensionLevel.level}
+                value={dimensionLevel.levels[0] || ""}
                 onChange={(value) =>
                   updateDimensionLevel(levelIndex, "level", value)
                 }
@@ -358,7 +708,7 @@ export default function MetricDimensionsSelector({
                 style={{ minWidth: "120px" }}
                 createable
                 placeholder=""
-                autoFocus={!dimensionLevel.level}
+                autoFocus={!dimensionLevel.levels[0]}
               />
               <button
                 type="button"
@@ -371,231 +721,38 @@ export default function MetricDimensionsSelector({
           );
         })}
 
-        {(() => {
-          const metricForEditing = metricsWithDimensions.find(
-            (m) => m.id === editingMetricId,
-          );
-          if (!metricForEditing) return null;
-
-          const usedDimensions = new Set(
-            editingDimensionLevels.map((dl) => dl.dimension),
-          );
-          const availableDimensions = metricForEditing.dimensionColumns.filter(
-            (col) => !usedDimensions.has(col.column),
-          );
-
-          return availableDimensions.length > 0 ? (
-            addingDimension ? (
-              <div className="border rounded d-flex align-items-center bg-white">
-                <SelectField
-                  value=""
-                  onChange={(value) => {
-                    if (value) {
-                      const newDimensionLevel: DimensionLevel = {
-                        dimension: value,
-                        level: "", // Start with empty level
-                      };
-                      setEditingDimensionLevels([
-                        ...editingDimensionLevels,
-                        newDimensionLevel,
-                      ]);
-                      setAddingDimension(false);
-                    }
-                  }}
-                  options={availableDimensions.map((col) => ({
-                    label: col.name || col.column || "",
-                    value: col.column || "",
-                  }))}
-                  onBlur={() => setAddingDimension(false)}
-                  className="mb-0"
-                  autoFocus
-                />
-              </div>
-            ) : (
-              <a
-                role="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAddingDimension(true);
-                }}
-                className="link-purple mx-1"
-              >
-                {editingDimensionLevels.length === 0 ? "+ Dimension" : "+ AND"}
-              </a>
-            )
-          ) : null;
-        })()}
+        <DimensionSelector
+          editingDimensionLevels={editingDimensionLevels}
+          addingDimension={addingDimension}
+          setAddingDimension={setAddingDimension}
+          setEditingDimensionLevels={setEditingDimensionLevels}
+          metricsWithDimensions={metricsWithDimensions}
+        />
       </div>
 
-      <div className="d-flex align-items-start pt-1" style={{ flexShrink: 0 }}>
-        <button
-          className="btn btn-primary btn-sm mr-2"
-          type="button"
+      <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
+        <Button
+          size="xs"
           onClick={saveEditing}
           disabled={
-            !editingMetricId ||
             editingDimensionLevels.length === 0 ||
             editingDimensionLevels.some(
-              (level) => !level.level || level.level.trim() === "",
+              (level) => !level.levels[0] || level.levels[0].trim() === "",
             )
           }
-          style={{ height: "auto", alignSelf: "flex-start" }}
+          mr="1"
         >
           Done
-        </button>
-        <button
-          className="btn btn-link text-danger p-0"
-          type="button"
+        </Button>
+        <IconButton
+          color="red"
+          variant="ghost"
+          size="1"
           onClick={cancelEditing}
-          style={{ height: "auto", alignSelf: "flex-start" }}
         >
-          <FaMinusCircle />
-        </button>
+          <PiX />
+        </IconButton>
       </div>
-    </div>
-  );
-
-  if (!hasCommercialFeature("metric-dimensions")) {
-    // todo: handle this better
-    return null;
-  }
-
-  return (
-    <div className="form-group my-4">
-      {/* Label with conditional premium tooltip */}
-      {hasMetricDimensionsFeature ? (
-        <label className="font-weight-bold mb-1">
-          Additional Metric Dimension Breakdowns
-        </label>
-      ) : (
-        <PremiumTooltip commercialFeature="metric-dimensions">
-          <label className="font-weight-bold mb-1">
-            Additional Metric Dimension Breakdowns
-          </label>
-        </PremiumTooltip>
-      )}
-
-      {/* Description text */}
-      <Text
-        as="p"
-        size="2"
-        style={{ color: "var(--color-text-mid)" }}
-        className="mb-2"
-      >
-        Define specific dimension combinations to analyze beyond the standard
-        dimension breakdowns.
-      </Text>
-
-      {/* Conditional alerts */}
-      {!hasMetricDimensionsFeature && (
-        <div className="alert alert-info">
-          Additional metric dimension breakdowns require an enterprise license.
-        </div>
-      )}
-
-      {hasMetricDimensionsFeature && metricsWithDimensions.length === 0 && (
-        <div className="alert alert-info">
-          No metrics with dimension analysis enabled found. Enable dimension
-          analysis on your fact metrics first.
-        </div>
-      )}
-
-      {/* Main content - only show if feature is enabled and metrics exist */}
-      {hasMetricDimensionsFeature && metricsWithDimensions.length > 0 && (
-        <>
-          {/* List of submitted entries */}
-          {customMetricDimensionLevels.map((levels, levelsIndex) => {
-            const metric = metricsWithDimensions.find(
-              (m) => m.id === levels.metricId,
-            );
-            if (!metric) return null;
-
-            const isEditing = editingIndex === levelsIndex;
-
-            return (
-              <div key={levelsIndex} className="appbox px-2 py-1 mb-2">
-                {isEditing ? (
-                  renderEditingInterface()
-                ) : (
-                  // Display mode
-                  <div className="d-flex align-items-center">
-                    <div className="flex-grow-1">
-                      <Flex gap="2" align="center">
-                        <Text weight="medium">{metric.name}:</Text>
-                        {levels.dimensionLevels.map((combo, comboIndex) => (
-                          <React.Fragment key={comboIndex}>
-                            {comboIndex > 0 && <Text size="1">AND</Text>}
-                            <Badge
-                              label={
-                                <Text style={{ color: "var(--slate-12)" }}>
-                                  {combo.dimension} = {combo.level}
-                                </Text>
-                              }
-                              color="gray"
-                            />
-                          </React.Fragment>
-                        ))}
-                      </Flex>
-                    </div>
-                    <div className="d-flex align-items-center">
-                      <button
-                        className="btn btn-link text-primary p-0 mr-2"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          startEditing(levelsIndex);
-                        }}
-                      >
-                        <FaPencilAlt />
-                      </button>
-                      <button
-                        className="btn btn-link text-danger p-0"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          removeMetricDimensionLevels(levelsIndex);
-                        }}
-                      >
-                        <FaMinusCircle />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Empty state message */}
-          {customMetricDimensionLevels.length === 0 &&
-            editingIndex === null && (
-              <div className="font-italic text-muted mr-3">
-                No custom dimension combinations defined.
-              </div>
-            )}
-
-          {/* Add button or editing form */}
-          {editingIndex === null ? (
-            <div className="mt-3">
-              <a
-                role="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  startEditing(-1);
-                }}
-                className="link-purple font-weight-bold"
-              >
-                <FaPlusCircle className="mr-1" />
-                Add dimension breakdown
-              </a>
-            </div>
-          ) : editingIndex === -1 ? (
-            // Adding new entry
-            <div className="appbox px-2 py-1 mb-2">
-              {renderEditingInterface()}
-            </div>
-          ) : null}
-        </>
-      )}
     </div>
   );
 }

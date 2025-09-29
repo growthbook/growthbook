@@ -929,8 +929,12 @@ export default function ResultsTable({
                                     !row.isDimensionRow &&
                                     i < rows.length - 1 &&
                                     rows[i + 1].isDimensionRow &&
-                                    rows[i + 1].dimensionColumn !==
-                                      (rows[i]?.dimensionColumn || null) &&
+                                    JSON.stringify(
+                                      rows[i + 1].dimensionLevels,
+                                    ) !==
+                                      JSON.stringify(
+                                        rows[i]?.dimensionLevels || [],
+                                      ) &&
                                     j === orderedVariations.length - 1,
                                 },
                               )}
