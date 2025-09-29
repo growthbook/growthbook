@@ -124,7 +124,7 @@ export default function MetricName({
   metrics,
   showLink,
   badgeColor,
-  officialBadgePosition,
+  officialBadgePosition = "left",
   officialBadgeLeftGap,
 }: {
   id?: string;
@@ -258,15 +258,14 @@ export default function MetricName({
           />
         ) : null}
         {metric.name}
-        {officialBadgePosition === "right" && metric.managedBy ? (
-          <HiBadgeCheck
-            style={{
-              fontSize: "1em",
-              lineHeight: "1em",
-              marginTop: "-2px",
-              marginLeft: "4px",
-              color: "var(--blue-11)",
-            }}
+        {officialBadgePosition === "right" ? (
+          <OfficialBadge
+            type="metric"
+            managedBy={metric.managedBy || ""}
+            disableTooltip={disableTooltip}
+            showOfficialLabel={showOfficialLabel}
+            color={badgeColor}
+            leftGap={officialBadgeLeftGap}
           />
         ) : null}
       </span>
