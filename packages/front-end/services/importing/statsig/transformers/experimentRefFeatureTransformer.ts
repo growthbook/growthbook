@@ -86,7 +86,10 @@ export function transformStatsigExperimentToFeature(
         field: undefined,
         customID: undefined,
       }));
-      const transformedCondition = transformStatsigConditionsToGB(conditions, skipAttributeMapping);
+      const transformedCondition = transformStatsigConditionsToGB(
+        conditions,
+        skipAttributeMapping,
+      );
 
       // Determine which environments this rule applies to
       const targetEnvironments =

@@ -700,45 +700,49 @@ export default function ImportFromStatsig() {
         ) : data.status === "init" ? null : (
           <div>
             <div className="d-flex justify-content-between mt-3 mb-3">
-            <div>
-              <h3>
-                Import status: {data.status}{" "}
-                {data.status === "fetching" ? <LoadingSpinner /> : null}
-              </h3>
-              <div className="p-3">
-                <div className="d-flex align-items-center">
-                  <Checkbox
-                    value={getGlobalCheckboxState()}
-                    setValue={(enabled) => toggleAllItems(enabled)}
-                    label="Select all items"
-                    size="sm"
-                    containerClassName="mr-3 mb-0"
-                  />
-                  <span className="text-muted">
-                    {getSelectedItemsCount()} item
-                    {getSelectedItemsCount() !== 1 ? "s" : ""} selected
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="d-flex justify-content-end">
               <div>
-                <h5>Attribute Mapping</h5>
-                <div className="d-flex align-items-center mt-1 mr-3">
-                  <Switch
-                    checked={!skipAttributeMapping}
-                    onCheckedChange={(checked) => setSkipAttributeMapping(!checked)}
-                  />
-                  <div className="d-flex flex-column">
-                    <span className="ml-2">
-                      Map Statsig attributes to GrowthBook attributes
+                <h3>
+                  Import status: {data.status}{" "}
+                  {data.status === "fetching" ? <LoadingSpinner /> : null}
+                </h3>
+                <div className="p-3">
+                  <div className="d-flex align-items-center">
+                    <Checkbox
+                      value={getGlobalCheckboxState()}
+                      setValue={(enabled) => toggleAllItems(enabled)}
+                      label="Select all items"
+                      size="sm"
+                      containerClassName="mr-3 mb-0"
+                    />
+                    <span className="text-muted">
+                      {getSelectedItemsCount()} item
+                      {getSelectedItemsCount() !== 1 ? "s" : ""} selected
                     </span>
-                    <span className="ml-2 text-muted">(e.g. user_id → id)</span>
                   </div>
                 </div>
               </div>
-            </div>
+
+              <div className="d-flex justify-content-end">
+                <div>
+                  <h5>Attribute Mapping</h5>
+                  <div className="d-flex align-items-center mt-1 mr-3">
+                    <Switch
+                      checked={!skipAttributeMapping}
+                      onCheckedChange={(checked) =>
+                        setSkipAttributeMapping(!checked)
+                      }
+                    />
+                    <div className="d-flex flex-column">
+                      <span className="ml-2">
+                        Map Statsig attributes to GrowthBook attributes
+                      </span>
+                      <span className="ml-2 text-muted">
+                        (e.g. user_id → id)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {data.environments ? (

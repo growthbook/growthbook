@@ -36,7 +36,10 @@ export async function transformStatsigSegmentToSavedGroup(
     rules.forEach((rule) => {
       if (rule.conditions && rule.conditions.length > 0) {
         // Transform this rule's conditions to GrowthBook format
-        const transformed = transformStatsigConditionsToGB(rule.conditions, skipAttributeMapping);
+        const transformed = transformStatsigConditionsToGB(
+          rule.conditions,
+          skipAttributeMapping,
+        );
         if (transformed.condition && transformed.condition !== "{}") {
           ruleConditions.push(transformed.condition);
         }
@@ -61,7 +64,10 @@ export async function transformStatsigSegmentToSavedGroup(
   if (segment.type === "id_list") {
     // ID List type - convert to GrowthBook "list" type
     const statsigAttributeKey = segment.idType || "user_id";
-    const gbAttributeKey = mapStatsigAttributeToGB(statsigAttributeKey, skipAttributeMapping);
+    const gbAttributeKey = mapStatsigAttributeToGB(
+      statsigAttributeKey,
+      skipAttributeMapping,
+    );
 
     // Ensure the attribute exists before using it
     await ensureAttributeExists(
@@ -88,7 +94,9 @@ export async function transformStatsigSegmentToSavedGroup(
         (rule) => rule.conditions || [],
       );
       const uniqueAttributeNames = new Set(
-        allConditions.map((cond) => mapStatsigAttributeToGB(cond.type, skipAttributeMapping)),
+        allConditions.map((cond) =>
+          mapStatsigAttributeToGB(cond.type, skipAttributeMapping),
+        ),
       );
 
       // Ensure all attributes exist

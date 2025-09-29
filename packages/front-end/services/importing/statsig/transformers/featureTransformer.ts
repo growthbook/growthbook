@@ -87,7 +87,10 @@ export function transformStatsigFeatureGateToGB(
             enabled: true,
             value: JSON.stringify(variant.returnValue),
             coverage: variantEndCoverage,
-            hashAttribute: mapStatsigAttributeToGB("user_id", skipAttributeMapping),
+            hashAttribute: mapStatsigAttributeToGB(
+              "user_id",
+              skipAttributeMapping,
+            ),
             savedGroups: transformedCondition.savedGroups.map((id) => ({
               match: "all",
               ids: [id],
@@ -147,7 +150,10 @@ export function transformStatsigFeatureGateToGB(
           enabled: true,
           value: ruleValue,
           coverage: rule.passPercentage / 100, // Convert percentage to decimal
-          hashAttribute: mapStatsigAttributeToGB("user_id", skipAttributeMapping), // Default hash attribute for rollouts
+          hashAttribute: mapStatsigAttributeToGB(
+            "user_id",
+            skipAttributeMapping,
+          ), // Default hash attribute for rollouts
           savedGroups: transformedCondition.savedGroups.map((id) => ({
             match: "all",
             ids: [id],
