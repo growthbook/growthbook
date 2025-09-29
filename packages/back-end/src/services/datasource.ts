@@ -15,6 +15,7 @@ import Mixpanel from "back-end/src/integrations/Mixpanel";
 import {
   SourceIntegrationInterface,
   TestQueryRow,
+  UserExperimentExposuresQueryResponseRows,
 } from "back-end/src/types/Integration";
 import {
   DataSourceInterface,
@@ -27,6 +28,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { TemplateVariables } from "back-end/types/sql";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { QueryStatistics } from "back-end/types/query";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string,
@@ -186,54 +188,53 @@ export async function runFreeFormQuery(
   }
 }
 
-// // Validates that the query is valid and returns the required columns
-// // without scanning any data.
-// export async function validateQueryWithLimitZero(
-//   context: ReqContext,
-//   datasource: DataSourceInterface,
-//   query: string,
-//   requiredColumns: string[],
-//   templateVariables?: TemplateVariables,
-// ): Promise<{
-//   isValid: boolean;
-//   sql: string;
-//   duration?: number;
-//   error?: string;
-// }> {
-//   if (!context.permissions.canRunTestQueries(datasource)) {
-//     throw new Error("Permission denied");
-//   }
+export async function runUserExposureQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  unitId: string,
+  userIdType: string,
+  lookbackDays: number,
+): Promise<{
+  rows?: UserExperimentExposuresQueryResponseRows;
+  statistics?: QueryStatistics;
+  error?: string;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
 
-//   const integration = getSourceIntegrationObject(context, datasource);
-//   if (!integration.getTestQuery || !integration.validateQueryColumns) {
-//     throw new Error("Unable to test query.");
-//   }
+  const integration = getSourceIntegrationObject(context, datasource);
 
-//   const sql = integration.getTestQuery({
-//     query,
-//     templateVariables,
-//     testDays: context.org.settings?.testQueryDays,
-//   });
+  // The Mixpanel and GA integrations do not support user exposures queries
+  if (
+    !integration.getUserExperimentExposuresQuery ||
+    !integration.runUserExperimentExposuresQuery
+  ) {
+    throw new Error("Unable to run user exposures query.");
+  }
 
-//   try {
-//     const { isValid, duration, error } = await integration.validateQueryColumns(
-//       sql,
-//       requiredColumns,
-//     );
-//     return {
-//       isValid,
-//       sql,
-//       duration,
-//       error,
-//     };
-//   } catch (e) {
-//     return {
-//       isValid: false,
-//       error: e.message,
-//       sql,
-//     };
-//   }
-// }
+  const sql = integration.getUserExperimentExposuresQuery({
+    unitId,
+    userIdType,
+    lookbackDays,
+  });
+
+  try {
+    const { rows, statistics } =
+      await integration.runUserExperimentExposuresQuery(sql);
+    return {
+      rows,
+      statistics,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
+}
 
 export async function testQuery(
   context: ReqContext,

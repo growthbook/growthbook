@@ -158,6 +158,7 @@ export default function ExperimentMetricBlock({
           noStickyHeader
           key={resultGroup}
           id={blockId}
+          experimentId={experiment.id}
           phase={experiment.phases.length - 1}
           variations={variations}
           variationFilter={variationFilter}
@@ -172,7 +173,7 @@ export default function ExperimentMetricBlock({
           labelHeader={`${
             resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
           } Metrics`}
-          renderLabelColumn={(label) => label}
+          renderLabelColumn={({ label }) => label}
           dateCreated={new Date()}
           statsEngine={statsEngine}
           pValueCorrection={pValueCorrection}

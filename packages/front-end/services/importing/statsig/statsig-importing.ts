@@ -31,6 +31,7 @@ export interface BuildImportedDataOptions {
   existingTags: Set<string>;
   existingExperiments: Set<string>;
   callback: (data: ImportData) => void;
+  skipAttributeMapping?: boolean;
 }
 
 export interface RunImportOptions {
@@ -67,6 +68,7 @@ export interface RunImportOptions {
   itemEnabled?: {
     [category: string]: { [key: string]: boolean };
   };
+  skipAttributeMapping?: boolean;
 }
 
 /**
@@ -517,6 +519,7 @@ export async function runImport(options: RunImportOptions) {
     exposureQueryId,
     categoryEnabled,
     itemEnabled,
+    skipAttributeMapping,
   } = options;
   // We will mutate this shared object and sync it back to the component periodically
   const data = cloneDeep(originalData);
@@ -646,6 +649,7 @@ export async function runImport(options: RunImportOptions) {
             existingAttributeSchema,
             apiCall,
             project,
+            skipAttributeMapping,
           );
 
           const res: { savedGroup: SavedGroupInterface } = await apiCall(
@@ -694,6 +698,7 @@ export async function runImport(options: RunImportOptions) {
             apiCall,
             "featureGate",
             project,
+            skipAttributeMapping,
           );
 
           const res: { feature: FeatureInterface } = await apiCall(
@@ -742,6 +747,7 @@ export async function runImport(options: RunImportOptions) {
             apiCall,
             "dynamicConfig",
             project,
+            skipAttributeMapping,
           );
 
           const res: { feature: FeatureInterface } = await apiCall(
@@ -788,6 +794,7 @@ export async function runImport(options: RunImportOptions) {
           const transformedExperiment = await transformStatsigExperimentToGB(
             exp,
             availableEnvironments,
+            skipAttributeMapping,
           );
 
           // Set project and datasource (will be provided by the importer)
@@ -825,6 +832,7 @@ export async function runImport(options: RunImportOptions) {
               })),
             },
             project,
+            skipAttributeMapping,
           );
 
           // Check for duplicate feature ID and add prefix if needed

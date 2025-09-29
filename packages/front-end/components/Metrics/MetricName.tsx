@@ -7,7 +7,7 @@ import {
 import React from "react";
 import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
-import { PiFolderDuotone } from "react-icons/pi";
+import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -38,30 +38,38 @@ export function OfficialBadge({
   managedBy,
   disableTooltip,
   showOfficialLabel,
+  color,
+  leftGap,
 }: {
   type: string;
-  managedBy?: "" | "config" | "api";
+  managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
+  color?: string;
+  leftGap?: boolean;
 }) {
-  if (!managedBy) return null;
+  if (!managedBy) {
+    if (leftGap)
+      return <div className="d-inline-block ml-1" style={{ width: 17 }} />;
+    return null;
+  }
 
   return (
-    <span className="ml-1 text-purple">
+    <span className="text-purple mr-1">
       <Tooltip
         body={
           disableTooltip ? (
             ""
           ) : (
             <>
-              <h4>
+              <h4 className="pb-1">
                 <HiBadgeCheck
                   style={{
                     fontSize: "1.2em",
                     lineHeight: "1em",
                     marginTop: "-2px",
+                    color: color || "var(--blue-11)",
                   }}
-                  className="text-purple"
                 />{" "}
                 Official{" "}
                 <span
@@ -77,16 +85,25 @@ export function OfficialBadge({
                 <>
                   a <code>config.yml</code> file
                 </>
+              ) : managedBy === "admin" ? (
+                <>admins.</>
               ) : (
-                <>the API</>
+                <>
+                  the API. It is read-only and cannot be modified from within
+                  GrowthBook.
+                </>
               )}
-              . It is read-only and cannot be modified from within GrowthBook.
             </>
           )
         }
       >
         <HiBadgeCheck
-          style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
+          style={{
+            fontSize: "1.2em",
+            lineHeight: "1em",
+            marginTop: "-2px",
+            color: color || "var(--blue-11)",
+          }}
         />
         {showOfficialLabel ? (
           <span className="ml-1 badge badge-purple">Official</span>
@@ -105,6 +122,10 @@ export default function MetricName({
   filterConversionWindowMetrics,
   isGroup,
   metrics,
+  showLink,
+  badgeColor,
+  officialBadgePosition,
+  officialBadgeLeftGap,
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -114,6 +135,10 @@ export default function MetricName({
   filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
+  showLink?: boolean;
+  badgeColor?: string;
+  officialBadgePosition?: "left" | "right";
+  officialBadgeLeftGap?: boolean;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -131,7 +156,10 @@ export default function MetricName({
 
     return (
       <Flex align="center">
-        <PiFolderDuotone size={16} className="mr-1" />
+        <PiFolderDuotone
+          className="mr-1"
+          style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
+        />
         {metricGroup.name}
         <Tooltip
           className={clsx("px-1", {
@@ -214,7 +242,47 @@ export default function MetricName({
 
   return (
     <>
-      {metric.name}
+      <span
+        style={{
+          color: "var(--color-text-high)",
+        }}
+      >
+        {officialBadgePosition === "left" ? (
+          <OfficialBadge
+            type="metric"
+            managedBy={metric.managedBy || ""}
+            disableTooltip={disableTooltip}
+            showOfficialLabel={showOfficialLabel}
+            color={badgeColor}
+            leftGap={officialBadgeLeftGap}
+          />
+        ) : null}
+        {metric.name}
+        {officialBadgePosition === "right" && metric.managedBy ? (
+          <HiBadgeCheck
+            style={{
+              fontSize: "1em",
+              lineHeight: "1em",
+              marginTop: "-2px",
+              marginLeft: "4px",
+              color: "var(--blue-11)",
+            }}
+          />
+        ) : null}
+      </span>
+      {showLink ? (
+        <div className="mt-1 mb-2 small">
+          <a
+            href={`/${isFactMetric(metric) ? "fact-metrics" : "metric"}/${metric.id}`}
+            target="_blank"
+            className="link-purple"
+            rel="noreferrer"
+          >
+            View details
+            <PiArrowSquareOut className="ml-1" />
+          </a>
+        </div>
+      ) : null}
       {showDescription && metric.description ? (
         <span className="text-muted">
           {" "}
@@ -226,12 +294,6 @@ export default function MetricName({
       ) : (
         ""
       )}
-      <OfficialBadge
-        type="metric"
-        managedBy={metric.managedBy}
-        disableTooltip={disableTooltip}
-        showOfficialLabel={showOfficialLabel}
-      />
     </>
   );
 }

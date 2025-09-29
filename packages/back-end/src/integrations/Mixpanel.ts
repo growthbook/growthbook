@@ -47,6 +47,7 @@ import {
   PastExperimentParams,
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
+  UserExperimentExposuresQueryResponse,
 } from "back-end/src/types/Integration";
 import {
   conditionToJavascript,
@@ -222,6 +223,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
     _query: string,
     _setExternalId: ExternalIdCallback,
   ): Promise<ExperimentFactMetricsQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getUserExperimentExposuresQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runUserExperimentExposuresQuery(): Promise<UserExperimentExposuresQueryResponse> {
     throw new Error("Method not implemented.");
   }
   private getMetricAggregationExpression(metric: MetricInterface) {

@@ -18,6 +18,7 @@ import {
   getDelayWindowHours,
   getColumnExpression,
   isCappableMetricType,
+  parseDimensionMetricId,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -106,6 +107,8 @@ import {
   FactMetricQuantileData,
   FactMetricPercentileData,
   FactMetricAggregationMetadata,
+  UserExperimentExposuresQueryParams,
+  UserExperimentExposuresQueryResponse,
 } from "back-end/src/types/Integration";
 import { DimensionInterface } from "back-end/types/dimension";
 import { SegmentInterface } from "back-end/types/segment";
@@ -2454,6 +2457,84 @@ export default abstract class SqlIntegration
     };
   }
 
+  getUserExperimentExposuresQuery(
+    params: UserExperimentExposuresQueryParams,
+  ): string {
+    const { userIdType } = params;
+    // Get all exposure queries that match the specified userIdType
+    const allExposureQueries = (
+      this.datasource.settings.queries?.exposure || []
+    )
+      .map(({ id }) => this.getExposureQuery(id))
+      .filter((query) => query.userIdType === userIdType); // Filter by userIdType
+
+    // Collect all unique dimension names across all exposure queries
+    const allDimensionNames = Array.from(
+      new Set(allExposureQueries.flatMap((query) => query.dimensions || [])),
+    );
+    const startDate = subDays(new Date(), params.lookbackDays);
+
+    return format(
+      `-- User Exposures Query
+      WITH __userExposures AS (
+        ${allExposureQueries
+          .map((exposureQuery, i) => {
+            // Get all available dimensions for this exposure query
+            const availableDimensions = exposureQuery.dimensions || [];
+            const tableAlias = `t${i}`;
+
+            // Create dimension columns for ALL possible dimensions
+            const dimensionSelects = allDimensionNames.map((dim) => {
+              if (availableDimensions.includes(dim)) {
+                return `${this.castToString(`${tableAlias}.${dim}`)} AS ${dim}`;
+              } else {
+                return `${this.castToString("null")} AS ${dim}`;
+              }
+            });
+
+            const dimensionSelectString = dimensionSelects.join(", ");
+
+            return `
+              SELECT timestamp, experiment_id, variation_id, ${dimensionSelectString} FROM (
+                ${compileSqlTemplate(exposureQuery.query, {
+                  startDate: startDate,
+                })}
+              ) ${tableAlias}
+              WHERE ${this.castToString(exposureQuery.userIdType)} = '${params.unitId}' AND timestamp >= ${this.toTimestamp(startDate)}
+            `;
+          })
+          .join("\nUNION ALL\n")}
+      )
+      SELECT * FROM __userExposures 
+      ORDER BY timestamp DESC 
+      LIMIT ${SQL_ROW_LIMIT}
+      `,
+      this.getFormatDialect(),
+    );
+  }
+
+  public async runUserExperimentExposuresQuery(
+    query: string,
+  ): Promise<UserExperimentExposuresQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
+
+    // Check if SQL_ROW_LIMIT was reached
+    const truncated = rows.length === SQL_ROW_LIMIT;
+
+    return {
+      rows: rows.map((row) => {
+        return {
+          timestamp: row.timestamp,
+          experiment_id: row.experiment_id,
+          variation_id: row.variation_id,
+          ...row,
+        };
+      }),
+      statistics,
+      truncated,
+    };
+  }
+
   private getMetricData(
     metric: FactMetricInterface,
     settings: Pick<
@@ -4712,13 +4793,14 @@ export default abstract class SqlIntegration
     factTable,
     column,
     limit = 50,
+    lookbackDays = 14,
   }: ColumnTopValuesParams) {
     if (column.datatype !== "string") {
       throw new Error(`Column ${column.column} is not a string column`);
     }
 
     const start = new Date();
-    start.setDate(start.getDate() - 7);
+    start.setDate(start.getDate() - lookbackDays);
 
     return format(
       `
@@ -4852,11 +4934,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
+      const dimensionInfo = parseDimensionMetricId(m.id);
       const filters = getColumnRefWhereClause(
         factTable,
         m.numerator,
         this.escapeStringLiteral.bind(this),
         this.extractJSONField.bind(this),
+        false,
+        dimensionInfo,
       );
 
       const column =
@@ -4883,11 +4968,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
+        const dimensionInfo = parseDimensionMetricId(m.id);
         const filters = getColumnRefWhereClause(
           factTable,
           m.denominator,
           this.escapeStringLiteral.bind(this),
           this.extractJSONField.bind(this),
+          false,
+          dimensionInfo,
         );
         const column =
           filters.length > 0
@@ -5089,11 +5177,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
+      const dimensionInfo = parseDimensionMetricId(metric.id);
       getColumnRefWhereClause(
         factTable,
         columnRef,
         this.escapeStringLiteral.bind(this),
         this.extractJSONField.bind(this),
+        false,
+        dimensionInfo,
       ).forEach((filterSQL) => {
         where.push(filterSQL);
       });

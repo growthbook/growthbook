@@ -66,7 +66,9 @@ export type CommercialFeature =
   | "metric-correlations"
   | "dashboards"
   | "incremental-refresh"
-  | "precomputed-dimensions";
+  | "precomputed-dimensions"
+  | "metric-dimensions"
+  | "manage-official-resources";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -298,6 +300,8 @@ export const accountFeatures: CommercialFeaturesMap = {
     "dashboards",
     "precomputed-dimensions",
     "incremental-refresh",
+    "metric-dimensions",
+    "manage-official-resources",
   ]),
 };
 

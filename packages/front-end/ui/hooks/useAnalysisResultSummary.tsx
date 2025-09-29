@@ -7,7 +7,7 @@ import {
 } from "back-end/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
 
-export function useAnalysisResultPopover({
+export function useAnalysisResultSummary({
   orderedVariations,
   rows,
   rowsResults,

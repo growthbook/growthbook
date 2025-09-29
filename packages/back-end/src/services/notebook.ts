@@ -6,6 +6,7 @@ import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getReportById } from "back-end/src/models/ReportModel";
 import { Queries } from "back-end/types/query";
@@ -56,9 +57,10 @@ export async function generateReportNotebook(
   if (report.type === "experiment") {
     // Get metrics
     const metricMap = await getMetricMap(context);
+    const factTableMap = await getFactTableMap(context);
 
     const { snapshotSettings, analysisSettings } =
-      getSnapshotSettingsFromReportArgs(report.args, metricMap);
+      getSnapshotSettingsFromReportArgs(report.args, metricMap, factTableMap);
     return generateNotebook({
       context,
       queryPointers: report.queries,

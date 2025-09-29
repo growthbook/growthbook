@@ -35,6 +35,7 @@ import {
   PastExperimentParams,
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
+  UserExperimentExposuresQueryResponse,
 } from "back-end/src/types/Integration";
 import { GoogleAnalyticsParams } from "back-end/types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -246,6 +247,12 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     _query: string,
     _setExternalId: ExternalIdCallback,
   ): Promise<IncrementalWithNoOutputQueryResponse> {
+    throw new Error("Method not implemented.");
+  }
+  getUserExperimentExposuresQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runUserExperimentExposuresQuery(): Promise<UserExperimentExposuresQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
