@@ -54,7 +54,7 @@ export function getPrecomputedDimensions(
   snapshot: ExperimentSnapshotInterface | undefined,
   dimensionless: ExperimentSnapshotInterface | undefined,
 ): string[] {
-  if (snapshot?.type === "standard" && !snapshot?.dimension) {
+  if (!snapshot?.dimension && snapshot?.settings.dimensions) {
     return snapshot?.settings.dimensions.map((d) => d.id) ?? [];
   }
 

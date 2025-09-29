@@ -114,15 +114,14 @@ export default function EditSingleBlock({
     [metricGroups],
   );
 
-  const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
+  const { analysis } = useDashboardSnapshot(block, setBlock);
   const { defaultSnapshot, dimensionless } = useContext(
     DashboardSnapshotContext,
   );
 
-  const dimensionValueOptions =
-    snapshot?.dimension && analysis?.results
-      ? analysis.results.map(({ name }) => ({ value: name, label: name }))
-      : [];
+  const dimensionValueOptions = analysis?.results
+    ? analysis.results.map(({ name }) => ({ value: name, label: name }))
+    : [];
 
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
 
@@ -476,6 +475,7 @@ export default function EditSingleBlock({
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, dimensionId: value })}
                 options={dimensionOptions}
+                sort={false}
               />
             )}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (
