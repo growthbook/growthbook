@@ -69,6 +69,7 @@ interface Props {
   initialDashboardId: string;
   isTabActive: boolean;
   showDashboardView?: boolean;
+  updateTabPath: (path: string) => void;
   switchToExperimentView?: () => void;
   mutateExperiment?: () => void;
 }
@@ -78,6 +79,7 @@ export default function DashboardsTab({
   initialDashboardId,
   isTabActive,
   showDashboardView = false,
+  updateTabPath,
   switchToExperimentView,
   mutateExperiment,
 }: Props) {
@@ -105,6 +107,12 @@ export default function DashboardsTab({
       setDashboardId(defaultDashboard?.id ?? dashboards[0].id);
     }
   }, [dashboardId, dashboards, defaultDashboard]);
+
+  useEffect(() => {
+    if (isTabActive) {
+      updateTabPath(dashboardId);
+    }
+  }, [isTabActive, updateTabPath, dashboardId]);
 
   const {
     userId,

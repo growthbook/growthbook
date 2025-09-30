@@ -163,9 +163,7 @@ export default function TabbedPage({
         const tabPath = tabPathSegments.join("/");
         setTab(tabName);
         setTabPath(tabPath);
-        // Drop the tab path from the URL after reading it into state
       }
-      window.history.replaceState({}, "", `#${tabName}`);
     };
     handler();
     window.addEventListener("hashchange", handler, false);
@@ -193,6 +191,7 @@ export default function TabbedPage({
 
   const setTabAndScroll = (tab: ExperimentTab) => {
     setTab(tab);
+    setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
     if (newUrl === window.location.href) return;
     window.history.pushState("", "", newUrl);
@@ -201,6 +200,17 @@ export default function TabbedPage({
       behavior: "smooth",
     });
   };
+
+  const persistTabPath = useCallback(
+    (path: string) => {
+      setTabPath(path);
+      const newUrl =
+        window.location.href.replace(/#.*/, "") + "#" + tab + "/" + path;
+      if (newUrl === window.location.href) return;
+      window.history.pushState("", "", newUrl);
+    },
+    [tab],
+  );
 
   const handleIncrementHealthNotifications = useCallback(() => {
     setHealthNotificationCount((prev) => prev + 1);
@@ -444,6 +454,7 @@ export default function TabbedPage({
             isTabActive
             showDashboardView
             switchToExperimentView={() => setShowDashboardView(false)}
+            updateTabPath={persistTabPath}
           />
         )}
         <div
@@ -568,6 +579,7 @@ export default function TabbedPage({
           initialDashboardId={tabPath}
           isTabActive={tab === "dashboards"}
           mutateExperiment={mutate}
+          updateTabPath={persistTabPath}
         />
       </div>
       <div
