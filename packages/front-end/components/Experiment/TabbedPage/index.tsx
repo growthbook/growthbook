@@ -111,7 +111,9 @@ export default function TabbedPage({
     `tabbedPageTab__${experiment.id}`,
     "overview",
   );
-  const [tabPath, setTabPath] = useState("");
+  const [tabPath, setTabPath] = useState(
+    window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
+  );
 
   const router = useRouter();
 
