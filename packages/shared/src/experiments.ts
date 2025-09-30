@@ -1611,21 +1611,6 @@ export function getPredefinedDimensionSlicesByExperiment(
   return dimensions;
 }
 
-/**
- * URL-safe encoding for dimension column names and values
- * Handles special characters like =, &, spaces, etc.
- */
-export function encodeDimensionComponent(component: string): string {
-  return encodeURIComponent(component);
-}
-
-/**
- * URL-safe decoding for dimension column names and values
- */
-export function decodeDimensionComponent(encodedComponent: string): string {
-  return decodeURIComponent(encodedComponent);
-}
-
 export function countDimensionLevels(
   dimensionMetadata: { specifiedSlices: string[] }[],
   nVariations: number,
