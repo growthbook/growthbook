@@ -419,7 +419,11 @@ export default function FactTablesPage() {
                 >
                   <td>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
-                    <OfficialBadge type="fact table" managedBy={f.managedBy} />
+                    <OfficialBadge
+                      type="fact table"
+                      managedBy={f.managedBy}
+                      leftGap={true}
+                    />
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>

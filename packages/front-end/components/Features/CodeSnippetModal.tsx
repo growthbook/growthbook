@@ -211,6 +211,7 @@ export default function CodeSnippetModal({
         inline={inline}
         size={"max"}
         header="Implementation Instructions"
+        autoFocusSelector=""
         autoCloseOnSubmit={false}
         submit={
           includeCheck
