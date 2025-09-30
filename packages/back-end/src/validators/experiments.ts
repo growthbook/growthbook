@@ -194,6 +194,8 @@ export const experimentAnalysisSettings = z
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
+    customMetricDimensionLevels: z.array(customMetricDimensionLevel).optional(),
+    pinnedMetricDimensionLevels: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentAnalysisSettings = z.infer<

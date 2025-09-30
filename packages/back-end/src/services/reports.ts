@@ -16,6 +16,7 @@ import {
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
   generateDimensionString,
+  createCustomDimensionMetrics,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
@@ -178,6 +179,7 @@ export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
   metricMap: Map<string, ExperimentMetricInterface>,
   factTableMap?: FactTableMap,
+  experiment?: ExperimentInterface,
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -195,10 +197,18 @@ export function getSnapshotSettingsFromReportArgs(
     const baseMetrics = baseMetricIds
       .map((m) => metricMap.get(m) || null)
       .filter(isDefined);
+    
+    // Generate custom dimension metrics from customMetricDimensionLevels
+    const customDimensionMetrics = experiment ? createCustomDimensionMetrics({
+      experiment: experiment,
+      metricMap,
+    }) : undefined;
+    
     expandDimensionMetricsInMap({
       metricMap,
       factTableMap,
       baseMetrics,
+      customDimensionMetrics,
     });
   }
 

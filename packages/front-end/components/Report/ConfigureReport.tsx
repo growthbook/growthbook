@@ -19,6 +19,7 @@ import Checkbox from "@/ui/Checkbox";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import MetricDimensionsSelector from "@/components/Experiment/MetricDimensionsSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
@@ -443,6 +444,45 @@ export default function ConfigureReport({
                 )
               }
             />
+
+            <div className="mt-4">
+              <MetricDimensionsSelector
+                goalMetrics={
+                  form.watch("experimentAnalysisSettings.goalMetrics") ?? []
+                }
+                secondaryMetrics={
+                  form.watch("experimentAnalysisSettings.secondaryMetrics") ??
+                  []
+                }
+                guardrailMetrics={
+                  form.watch("experimentAnalysisSettings.guardrailMetrics") ??
+                  []
+                }
+                customMetricDimensionLevels={
+                  form.watch(
+                    "experimentAnalysisSettings.customMetricDimensionLevels",
+                  ) ?? []
+                }
+                setCustomMetricDimensionLevels={(levels) =>
+                  form.setValue(
+                    "experimentAnalysisSettings.customMetricDimensionLevels",
+                    levels,
+                  )
+                }
+                pinnedMetricDimensionLevels={
+                  form.watch(
+                    "experimentAnalysisSettings.pinnedMetricDimensionLevels",
+                  ) ?? []
+                }
+                setPinnedMetricDimensionLevels={(levels) =>
+                  form.setValue(
+                    "experimentAnalysisSettings.pinnedMetricDimensionLevels",
+                    levels,
+                  )
+                }
+              />
+            </div>
+
             <hr className="my-4" />
             {datasourceProperties?.separateExperimentResultQueries && (
               <SelectField

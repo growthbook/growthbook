@@ -9,7 +9,8 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import React, { RefObject } from "react";
+import React, { RefObject, useEffect, useState } from "react";
+import { generatePinnedDimensionKey } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -19,6 +20,7 @@ import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
 import ReportAnalysisSettingsBar from "@/components/Report/ReportAnalysisSettingsBar";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { useAuth } from "@/services/auth";
 
 export default function ReportResults({
   report,
@@ -43,6 +45,67 @@ export default function ReportResults({
   runQueriesButtonRef?: RefObject<HTMLButtonElement>;
   showDetails?: boolean;
 }) {
+  const { apiCall } = useAuth();
+
+  const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
+    string[]
+  >(report.experimentAnalysisSettings.pinnedMetricDimensionLevels || []);
+  useEffect(
+    () =>
+      setOptimisticPinnedLevels(
+        report.experimentAnalysisSettings.pinnedMetricDimensionLevels || [],
+      ),
+    [report.experimentAnalysisSettings.pinnedMetricDimensionLevels],
+  );
+
+  const togglePinnedMetricDimensionLevel = async (
+    metricId: string,
+    dimensionLevels: Array<{ dimension: string; levels: string[] }>,
+    location?: "goal" | "secondary" | "guardrail",
+  ) => {
+    if (!canEdit || !mutateReport) return;
+
+    // Use the dimension levels directly since they're already in the correct format
+    const formattedDimensionLevels = dimensionLevels;
+
+    const key = generatePinnedDimensionKey(
+      metricId,
+      formattedDimensionLevels,
+      location || "goal",
+    );
+    const newPinned = optimisticPinnedLevels.includes(key)
+      ? optimisticPinnedLevels.filter((id) => id !== key)
+      : [...optimisticPinnedLevels, key];
+    setOptimisticPinnedLevels(newPinned);
+
+    try {
+      const response = await apiCall<{
+        updatedReport: ExperimentSnapshotReportInterface;
+      }>(`/report/${report.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          experimentAnalysisSettings: {
+            ...report.experimentAnalysisSettings,
+            pinnedMetricDimensionLevels: newPinned,
+          },
+        }),
+      });
+      if (
+        response?.updatedReport?.experimentAnalysisSettings
+          ?.pinnedMetricDimensionLevels
+      ) {
+        setOptimisticPinnedLevels(
+          response.updatedReport.experimentAnalysisSettings
+            .pinnedMetricDimensionLevels,
+        );
+      }
+      mutateReport();
+    } catch (error) {
+      setOptimisticPinnedLevels(
+        report.experimentAnalysisSettings.pinnedMetricDimensionLevels || [],
+      );
+    }
+  };
   const phases = report.experimentMetadata.phases;
   const phase = phases.length - 1;
   const phaseObj = phases[phase];
@@ -265,6 +328,13 @@ export default function ReportResults({
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={!showDetails}
                 disableTimeSeriesButton={true}
+                customMetricDimensionLevels={
+                  report.experimentAnalysisSettings.customMetricDimensionLevels
+                }
+                pinnedMetricDimensionLevels={optimisticPinnedLevels}
+                togglePinnedMetricDimensionLevel={
+                  canEdit ? togglePinnedMetricDimensionLevel : undefined
+                }
               />
             ) : (
               <div className="mx-3 mb-3">

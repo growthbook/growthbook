@@ -388,7 +388,6 @@ const CompactResults: FC<{
             return;
           }
           rows.push(dimensionRow);
-          console.log("DIMENSION ROW", dimensionRow);
         });
       }
 

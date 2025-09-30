@@ -49,6 +49,13 @@ export type ExperimentSnapshotReportArgs = {
   dimension?: string;
   dateStarted?: Date;
   dateEnded?: Date | null;
+  customMetricDimensionLevels?: Array<{
+    dimensionLevels: Array<{
+      dimension: string;
+      levels: string[];
+    }>;
+  }>;
+  pinnedMetricDimensionLevels?: string[];
 };
 
 export interface ExperimentReportMetadata {
