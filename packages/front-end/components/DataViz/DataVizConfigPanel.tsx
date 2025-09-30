@@ -157,6 +157,7 @@ export default function DataVizConfigPanel({
               <SelectItem value="area">Area</SelectItem>
               <SelectItem value="scatter">Scatter</SelectItem>
               <SelectItem value="big-value">Big Value</SelectItem>
+              <SelectItem value="pivot-table">Pivot Table</SelectItem>
             </Select>
 
             <Separator size="4" my={"2"} />

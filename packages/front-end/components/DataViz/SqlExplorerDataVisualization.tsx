@@ -11,6 +11,13 @@ import {
 import { getValidDate } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { requiresXAxis, supportsDimension } from "@/services/dataVizTypeGuards";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import { Panel, PanelGroup, PanelResizeHandle } from "../ResizablePanels";
 import { AreaWithHeader } from "../SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "../SqlExplorer/BigValueChart";
@@ -684,6 +691,55 @@ export function DataVisualizationDisplay({
         label={dataVizConfig.title}
         format={format}
       />
+    );
+  }
+
+  console.log("dataVizConfig", dataVizConfig);
+  console.log("rows", rows);
+  console.log("aggregatedRows", aggregatedRows);
+
+  if (dataVizConfig.chartType === "pivot-table") {
+    return (
+      <div className="pl-4 pr-4">
+        <Flex
+          justify="center"
+          align="center"
+          height="100%"
+          overflowY="auto"
+          direction="column"
+          className="py-2"
+        >
+          <h4>{dataVizConfig.title}</h4>
+          <Table variant="surface">
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader>
+                  {dataVizConfig.xAxis?.fieldName} (
+                  {dataVizConfig.xAxis?.dateAggregationUnit})
+                </TableColumnHeader>
+                {aggregatedRows.map((row, i) => (
+                  <TableColumnHeader key={i}>
+                    {row.x instanceof Date
+                      ? row.x.toLocaleDateString()
+                      : row.x + ""}
+                  </TableColumnHeader>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableRow>
+                <TableCell>
+                  {dataVizConfig.yAxis?.[0]?.fieldName} (
+                  {dataVizConfig.yAxis?.[0]?.aggregation})
+                </TableCell>
+                {aggregatedRows.map((row, i) => (
+                  <TableCell key={i}>{row.y as string}</TableCell>
+                ))}
+              </TableRow>
+            </TableBody>
+          </Table>
+        </Flex>
+      </div>
     );
   }
 
