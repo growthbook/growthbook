@@ -17,6 +17,7 @@ export async function transformStatsigSegmentToSavedGroup(
   ) => Promise<unknown>,
   project?: string,
   skipAttributeMapping: boolean = false,
+  _savedGroupIdMap?: Map<string, string>,
 ): Promise<
   Omit<
     SavedGroupInterface,
@@ -39,6 +40,7 @@ export async function transformStatsigSegmentToSavedGroup(
         const transformed = transformStatsigConditionsToGB(
           rule.conditions,
           skipAttributeMapping,
+          undefined, // Don't resolve saved groups during saved group creation
         );
         if (transformed.condition && transformed.condition !== "{}") {
           ruleConditions.push(transformed.condition);

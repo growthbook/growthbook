@@ -69,6 +69,7 @@ export interface RunImportOptions {
     [category: string]: { [key: string]: boolean };
   };
   skipAttributeMapping?: boolean;
+  existingSavedGroups?: SavedGroupInterface[];
 }
 
 /**
@@ -520,6 +521,7 @@ export async function runImport(options: RunImportOptions) {
     categoryEnabled,
     itemEnabled,
     skipAttributeMapping,
+    existingSavedGroups,
   } = options;
   // We will mutate this shared object and sync it back to the component periodically
   const data = cloneDeep(originalData);
@@ -536,6 +538,16 @@ export async function runImport(options: RunImportOptions) {
 
   data.status = "importing";
   update();
+
+  // Map to track StatSig segment names to GrowthBook saved group IDs
+  const savedGroupIdMap = new Map<string, string>();
+
+  // Build mapping from existing saved group names to IDs
+  if (existingSavedGroups) {
+    existingSavedGroups.forEach((sg: SavedGroupInterface) => {
+      savedGroupIdMap.set(sg.groupName, sg.id);
+    });
+  }
 
   // Helper function to check if an item should be imported
   const shouldImportItem = (
@@ -650,6 +662,7 @@ export async function runImport(options: RunImportOptions) {
             apiCall,
             project,
             skipAttributeMapping,
+            savedGroupIdMap,
           );
 
           const res: { savedGroup: SavedGroupInterface } = await apiCall(
@@ -662,6 +675,9 @@ export async function runImport(options: RunImportOptions) {
 
           segment.status = "completed";
           segment.segment = res.savedGroup as unknown as StatsigSavedGroup;
+
+          // Map Statsig segment name to GrowthBook saved group ID
+          savedGroupIdMap.set(seg.id, res.savedGroup.id);
         } catch (e) {
           segment.status = "failed";
           segment.error = e.message;
@@ -699,6 +715,7 @@ export async function runImport(options: RunImportOptions) {
             "featureGate",
             project,
             skipAttributeMapping,
+            savedGroupIdMap,
           );
 
           const res: { feature: FeatureInterface } = await apiCall(
@@ -748,6 +765,7 @@ export async function runImport(options: RunImportOptions) {
             "dynamicConfig",
             project,
             skipAttributeMapping,
+            savedGroupIdMap,
           );
 
           const res: { feature: FeatureInterface } = await apiCall(
@@ -795,6 +813,7 @@ export async function runImport(options: RunImportOptions) {
             exp,
             availableEnvironments,
             skipAttributeMapping,
+            savedGroupIdMap,
           );
 
           // Set project and datasource (will be provided by the importer)
@@ -833,6 +852,7 @@ export async function runImport(options: RunImportOptions) {
             },
             project,
             skipAttributeMapping,
+            savedGroupIdMap,
           );
 
           // Check for duplicate feature ID and add prefix if needed
@@ -855,7 +875,7 @@ export async function runImport(options: RunImportOptions) {
           experiment.existingExperiment = experimentRes.experiment;
           experiment.existingFeature = featureRes.feature;
         } catch (e) {
-          console.log("import experiment error", e);
+          console.warn("import experiment error", e);
           experiment.status = "failed";
           experiment.error = e.message;
 
