@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  isFactMetric,
+  generateDimensionString,
+} from "shared/experiments";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
@@ -663,9 +667,12 @@ export function expandDimensionMetricsInMap({
 
           // Create a metric for each dimension level
           dimensionLevels.forEach((value: string) => {
+            const dimensionString = generateDimensionString({
+              [col.column]: value,
+            });
             const dimensionMetric: ExperimentMetricInterface = {
               ...metric,
-              id: `${metric.id}?dim:${encodeURIComponent(col.column)}=${encodeURIComponent(value)}`,
+              id: `${metric.id}?${dimensionString}`,
               name: `${metric.name} (${col.name || col.column}: ${value})`,
               description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
             };
@@ -674,9 +681,12 @@ export function expandDimensionMetricsInMap({
 
           // Create an "other" metric for values not in dimensionLevels
           if (dimensionLevels.length > 0) {
+            const dimensionString = generateDimensionString({
+              [col.column]: "",
+            });
             const otherMetric: ExperimentMetricInterface = {
               ...metric,
-              id: `${metric.id}?dim:${encodeURIComponent(col.column)}=`,
+              id: `${metric.id}?${dimensionString}`,
               name: `${metric.name} (${col.name || col.column}: other)`,
               description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = other`,
             };

@@ -2932,9 +2932,9 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
       pinnedMetricDimensionLevels?: (string)[];
-      /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+      /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
       customMetricDimensionLevels?: ({
           dimensionLevels: ({
               dimension: string;
@@ -3268,9 +3268,9 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
       pinnedMetricDimensionLevels?: (string)[];
-      /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+      /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
       customMetricDimensionLevels?: ({
           dimensionLevels: ({
               dimension: string;
@@ -9127,9 +9127,9 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
-                /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+                /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
                 pinnedMetricDimensionLevels?: (string)[];
-                /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+                /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
                 customMetricDimensionLevels?: ({
                     dimensionLevels: ({
                         dimension: string;
@@ -9261,9 +9261,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
-          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
           pinnedMetricDimensionLevels?: (string)[];
-          /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+          /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
           customMetricDimensionLevels?: ({
               dimensionLevels: ({
                   dimension: string;
@@ -9420,9 +9420,9 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
               pinnedMetricDimensionLevels?: (string)[];
-              /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+              /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
               customMetricDimensionLevels?: ({
                   dimensionLevels: ({
                       dimension: string;
@@ -9611,9 +9611,9 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
               pinnedMetricDimensionLevels?: (string)[];
-              /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+              /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
               customMetricDimensionLevels?: ({
                   dimensionLevels: ({
                       dimension: string;
@@ -9749,9 +9749,9 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
-          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
           pinnedMetricDimensionLevels?: (string)[];
-          /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+          /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
           customMetricDimensionLevels?: ({
               dimensionLevels: ({
                   dimension: string;
@@ -9908,9 +9908,9 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
               pinnedMetricDimensionLevels?: (string)[];
-              /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+              /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
               customMetricDimensionLevels?: ({
                   dimensionLevels: ({
                       dimension: string;
@@ -11009,9 +11009,9 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
               pinnedMetricDimensionLevels?: (string)[];
-              /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+              /** @description Custom dimension combinations that apply to ALL applicable metrics in the experiment */
               customMetricDimensionLevels?: ({
                   dimensionLevels: ({
                       dimension: string;

@@ -15,6 +15,7 @@ import {
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
+  generateDimensionString,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
@@ -868,8 +869,11 @@ export async function generateExperimentReportSSRData({
 
             // Create a metric for each dimension level
             dimensionLevels.forEach((value: string) => {
+              const dimensionString = generateDimensionString({
+                [col.column]: value,
+              });
               dimensionMetrics.push({
-                id: `${factMetric.id}?dim:${encodeURIComponent(col.column)}=${encodeURIComponent(value)}`,
+                id: `${factMetric.id}?${dimensionString}`,
                 name: `${factMetric.name} (${col.name || col.column}: ${value})`,
                 description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = ${value}`,
                 parentMetricId: factMetric.id,
@@ -886,8 +890,11 @@ export async function generateExperimentReportSSRData({
 
             // Create an "other" metric for values not in dimensionLevels
             if (dimensionLevels.length > 0) {
+              const dimensionString = generateDimensionString({
+                [col.column]: "",
+              });
               dimensionMetrics.push({
-                id: `${factMetric.id}?dim:${encodeURIComponent(col.column)}=`,
+                id: `${factMetric.id}?${dimensionString}`,
                 name: `${factMetric.name} (${col.name || col.column}: other)`,
                 description: `Dimension analysis of ${factMetric.name} for ${col.name || col.column} = other`,
                 parentMetricId: factMetric.id,

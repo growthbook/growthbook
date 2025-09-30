@@ -319,8 +319,13 @@ const experimentSchema = new mongoose.Schema({
   customMetricDimensionLevels: [
     {
       _id: false,
-      metricId: String,
-      dimensionLevels: [{}],
+      dimensionLevels: [
+        {
+          _id: false,
+          dimension: String,
+          levels: [String],
+        },
+      ],
     },
   ],
 });

@@ -1457,9 +1457,9 @@ Triggered when an experiment is created
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment */
             customMetricDimensionLevels?: {
                 dimensionLevels: {
                     dimension: string;
@@ -1627,9 +1627,9 @@ Triggered when an experiment is updated
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment */
             customMetricDimensionLevels?: {
                 dimensionLevels: {
                     dimension: string;
@@ -1763,9 +1763,9 @@ Triggered when an experiment is updated
             customFields?: ({
                 [x: string]: any;
             } | undefined) | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: (string[] | undefined) | undefined;
-            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment */
             customMetricDimensionLevels?: ({
                 dimensionLevels: {
                     dimension: string;
@@ -1944,9 +1944,9 @@ Triggered when an experiment is deleted
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
+            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
+            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment */
             customMetricDimensionLevels?: {
                 dimensionLevels: {
                     dimension: string;

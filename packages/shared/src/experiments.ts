@@ -1185,8 +1185,9 @@ export function createDimensionMetrics({
 
     // Create a metric for each dimension level
     dimensionLevels.forEach((value) => {
+      const dimensionString = generateDimensionString({ [col.column]: value });
       dimensionMetrics.push({
-        id: `${parentMetric.id}?dim:${encodeURIComponent(col.column)}=${encodeURIComponent(value)}`,
+        id: `${parentMetric.id}?${dimensionString}`,
         name: `${parentMetric.name} (${columnName}: ${value})`,
         description: `Dimension analysis of ${parentMetric.name} for ${columnName} = ${value}`,
         dimensionLevels: [
@@ -1201,8 +1202,9 @@ export function createDimensionMetrics({
 
     // Create an "other" metric for values not in dimensionLevels
     if (includeOther && dimensionLevels.length > 0) {
+      const dimensionString = generateDimensionString({ [col.column]: "" });
       dimensionMetrics.push({
-        id: `${parentMetric.id}?dim:${encodeURIComponent(col.column)}=`,
+        id: `${parentMetric.id}?${dimensionString}`,
         name: `${parentMetric.name} (${columnName}: other)`,
         description: `Dimension analysis of ${parentMetric.name} for ${columnName} (other)`,
         dimensionLevels: [
