@@ -6,7 +6,10 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
 import { ProjectInterface } from "back-end/types/project";
-import { useDefinitions, FactMetricDimension } from "@/services/DefinitionsContext";
+import {
+  useDefinitions,
+  FactMetricDimension,
+} from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";

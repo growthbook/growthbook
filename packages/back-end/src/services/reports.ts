@@ -197,13 +197,15 @@ export function getSnapshotSettingsFromReportArgs(
     const baseMetrics = baseMetricIds
       .map((m) => metricMap.get(m) || null)
       .filter(isDefined);
-    
+
     // Generate custom dimension metrics from customMetricDimensionLevels
-    const customDimensionMetrics = experiment ? createCustomDimensionMetrics({
-      experiment: experiment,
-      metricMap,
-    }) : undefined;
-    
+    const customDimensionMetrics = experiment
+      ? createCustomDimensionMetrics({
+          experiment: experiment,
+          metricMap,
+        })
+      : undefined;
+
     expandDimensionMetricsInMap({
       metricMap,
       factTableMap,

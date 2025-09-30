@@ -1,8 +1,12 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { Box, Text } from "@radix-ui/themes";
+import {
+  FactTableInterface,
+  FactMetricInterface,
+} from "back-end/types/fact-table";
+import { PiLightbulb } from "react-icons/pi";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -29,9 +33,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
-import { Text } from "@radix-ui/themes";
-import { PiLightbulb } from "react-icons/pi";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 export function getMetricsForFactTable(
@@ -74,7 +75,7 @@ export default function FactTablePage() {
     getDatasourceById,
   } = useDefinitions();
   const factTable = getFactTableById(ftid as string);
-  
+
   const metrics = getMetricsForFactTable(factMetrics, factTable?.id || "");
 
   if (!ready) return <LoadingOverlay />;
@@ -332,14 +333,16 @@ export default function FactTablePage() {
         />
       </Frame>
 
-      {numMetrics && !factTable?.columns?.some((col) => col.isDimension && !col.deleted) ? (
+      {numMetrics &&
+      !factTable?.columns?.some((col) => col.isDimension && !col.deleted) ? (
         <Callout my="6" status="info" icon={<PiLightbulb size={15} />}>
           <div className="mb-1">
             <strong>Metric dimensional analysis</strong>
             <PaidFeatureBadge commercialFeature="metric-dimensions" />
           </div>
           <p className="mb-0">
-            Create SQL columns for each dimension and tag them in the column editor to unlock dimensional breakdowns in your experiments.
+            Create SQL columns for each dimension and tag them in the column
+            editor to unlock dimensional breakdowns in your experiments.
           </p>
         </Callout>
       ) : null}

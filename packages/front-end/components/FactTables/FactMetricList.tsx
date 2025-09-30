@@ -24,17 +24,19 @@ import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
-import FactMetricModal from "./FactMetricModal";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
   factTable: FactTableInterface;
   metrics?: FactMetricInterface[];
 }
 
-
-export default function FactMetricList({ factTable, metrics: providedMetrics }: Props) {
+export default function FactMetricList({
+  factTable,
+  metrics: providedMetrics,
+}: Props) {
   const [newOpen, setNewOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
@@ -48,18 +50,20 @@ export default function FactMetricList({ factTable, metrics: providedMetrics }: 
   const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  const metrics = providedMetrics || factMetrics.filter(
-    (m) =>
-      m.numerator.factTableId === factTable.id ||
-      (m.denominator && m.denominator.factTableId === factTable.id),
-  );
+  const metrics =
+    providedMetrics ||
+    factMetrics.filter(
+      (m) =>
+        m.numerator.factTableId === factTable.id ||
+        (m.denominator && m.denominator.factTableId === factTable.id),
+    );
   const hasArchivedMetrics = factMetrics.some((m) => m.archived);
 
   const isMetricDimensionsFeatureEnabled =
     growthbook?.isOn("metric-dimensions");
   const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
-  const shouldShowDimensionAnalysisColumn = 
-    isMetricDimensionsFeatureEnabled && 
+  const shouldShowDimensionAnalysisColumn =
+    isMetricDimensionsFeatureEnabled &&
     factTable.columns.some((col) => col.isDimension && !col.deleted);
 
   const [editMetric, setEditMetric] = useState<
@@ -155,10 +159,7 @@ export default function FactMetricList({ factTable, metrics: providedMetrics }: 
         )}
         {hasArchivedMetrics && (
           <div className="col-auto text-muted">
-            <Switch
-              checked={showArchived}
-              onCheckedChange={setShowArchived}
-            />
+            <Switch checked={showArchived} onCheckedChange={setShowArchived} />
             Show archived
           </div>
         )}
