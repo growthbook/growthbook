@@ -18,6 +18,7 @@ export type TransformedCondition = {
 export function transformStatsigConditionsToGB(
   conditions: StatsigCondition[],
   skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
   const savedGroups: string[] = [];
@@ -54,10 +55,23 @@ export function transformStatsigConditionsToGB(
           prerequisites.push(String(targetValue));
           return;
         case "passes_segment":
-        case "fails_segment":
+        case "fails_segment": {
           // These become saved groups
-          savedGroups.push(String(targetValue));
+          const segmentName = String(targetValue);
+          const savedGroupId = savedGroupIdMap?.get(segmentName);
+          console.log({ segmentName, savedGroupId, savedGroupIdMap });
+          // throw new Error("test");
+          if (savedGroupId) {
+            savedGroups.push(savedGroupId);
+          } else {
+            console.warn(
+              `Saved group ID not found for segment: ${segmentName}`,
+            );
+            // Fallback to using the name if ID not found
+            savedGroups.push(segmentName);
+          }
           return;
+        }
         default:
           // Other null operator conditions go to targeting
           targetingConditions.push(condition);

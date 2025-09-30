@@ -40,6 +40,7 @@ export function transformStatsigExperimentToGB(
   experiment: StatsigExperiment,
   _availableEnvironments: string[],
   skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): Partial<ExperimentInterfaceStringDates> {
   const {
     id,
@@ -101,6 +102,7 @@ export function transformStatsigExperimentToGB(
     const transformedCondition = transformStatsigConditionsToGB(
       conditions,
       skipAttributeMapping,
+      savedGroupIdMap,
     );
     phaseCondition = transformedCondition.condition || "";
     phaseSavedGroups = transformedCondition.savedGroups.map((id) => ({
