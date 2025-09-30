@@ -25,7 +25,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   generatePinnedDimensionKey,
-  generateDimensionStringFromLevels,
+  createCustomDimensionDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -297,27 +297,11 @@ const CompactResults: FC<{
           [];
 
         // Convert custom dimension levels to dimension data format
-        const customDimensionData =
-          customMetricDimensionLevels?.map((group) => {
-            // Sort dimensions alphabetically for consistent ID generation
-            const sortedDimensions = group.dimensionLevels.sort((a, b) =>
-              a.dimension.localeCompare(b.dimension),
-            );
-            const dimensionString =
-              generateDimensionStringFromLevels(sortedDimensions);
-
-            return {
-              id: `${metricId}?${dimensionString}`,
-              name: `${newMetric?.name} (${sortedDimensions.map((combo) => `${combo.dimension}: ${combo.levels[0] || ""}`).join(", ")})`,
-              description: `Custom dimensional analysis of ${newMetric?.name} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.levels[0] || ""}`).join(" and ")}`,
-              parentMetricId: metricId,
-              dimensionLevels: sortedDimensions.map((combo) => ({
-                dimension: combo.dimension,
-                levels: combo.levels,
-              })),
-              allDimensionLevels: [],
-            };
-          }) || [];
+        const customDimensionData = createCustomDimensionDataForMetric({
+          metricId,
+          metricName: newMetric?.name || "",
+          customMetricDimensionLevels: customMetricDimensionLevels || [],
+        });
 
         const dimensionData = [
           ...standardDimensionData,

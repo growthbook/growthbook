@@ -427,7 +427,14 @@ export function createCustomDimensionMetrics({
   experiment,
   metricMap,
 }: {
-  experiment: ExperimentInterface;
+  experiment: Pick<
+    ExperimentInterface,
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "activationMetric"
+    | "customMetricDimensionLevels"
+  >;
   metricMap: Map<string, ExperimentMetricInterface>;
 }): ExperimentMetricInterface[] {
   const customDimensionMetrics: ExperimentMetricInterface[] = [];
@@ -493,40 +500,33 @@ export function parsePinnedDimensionKey(pinnedKey: string): {
   dimensionLevels: Array<{ column: string; level: string | null }>;
   location: "goal" | "secondary" | "guardrail";
 } | null {
-  const locationMatch = pinnedKey.match(
-    /&location=(goal|secondary|guardrail)$/,
-  );
-  if (!locationMatch) return null;
-
-  const location = locationMatch[1] as "goal" | "secondary" | "guardrail";
-  const withoutLocation = pinnedKey.replace(
-    /&location=(goal|secondary|guardrail)$/,
-    "",
-  );
-
-  const questionMarkIndex = withoutLocation.indexOf("?");
+  const questionMarkIndex = pinnedKey.indexOf("?");
   if (questionMarkIndex === -1) return null;
 
-  const metricId = withoutLocation.substring(0, questionMarkIndex);
-  const queryString = withoutLocation.substring(questionMarkIndex + 1);
+  const metricId = pinnedKey.substring(0, questionMarkIndex);
+  const queryString = pinnedKey.substring(questionMarkIndex + 1);
 
-  // Parse query parameters using URLSearchParams
-  const dimensionLevels: Array<{ column: string; level: string | null }> = [];
   const params = new URLSearchParams(queryString);
+  const locationParam = params.get("location");
+  if (
+    locationParam !== "goal" &&
+    locationParam !== "secondary" &&
+    locationParam !== "guardrail"
+  ) {
+    return null;
+  }
+  const location = locationParam as "goal" | "secondary" | "guardrail";
+  params.delete("location");
 
+  const dimensionLevels: Array<{ column: string; level: string | null }> = [];
   for (const [key, value] of params.entries()) {
-    if (key.startsWith("dim:")) {
-      const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
-      const level = value === "" ? null : decodeURIComponent(value);
-      dimensionLevels.push({ column, level });
-    }
+    if (!key.startsWith("dim:")) continue;
+    const column = decodeURIComponent(key.substring(4));
+    const level = value === "" ? null : decodeURIComponent(value);
+    dimensionLevels.push({ column, level });
   }
 
-  return {
-    metricId,
-    dimensionLevels,
-    location,
-  };
+  return { metricId, dimensionLevels, location };
 }
 
 export function getMetricLink(id: string): string {
@@ -1138,9 +1138,7 @@ export function getAllExpandedMetricIdsFromExperiment({
   return Array.from(expandedMetricIds);
 }
 
-/**
- * Creates ephemeral dimension metrics for a fact metric with enableMetricDimensions enabled.
- */
+// Creates ephemeral dimension metrics for a fact metric with enableMetricDimensions enabled
 export function createDimensionMetrics({
   parentMetric,
   factTable,
@@ -1219,6 +1217,68 @@ export function createDimensionMetrics({
   });
 
   return dimensionMetrics;
+}
+
+// Creates dimension data format from custom metric dimension levels for a specific metric
+export function createCustomDimensionDataForMetric({
+  metricId,
+  metricName,
+  customMetricDimensionLevels,
+}: {
+  metricId: string;
+  metricName: string;
+  customMetricDimensionLevels: Array<{
+    dimensionLevels: Array<{
+      dimension: string;
+      levels: string[];
+    }>;
+  }>;
+}): Array<{
+  id: string;
+  name: string;
+  description: string;
+  parentMetricId: string;
+  dimensionLevels: Array<{
+    dimension: string;
+    levels: string[];
+  }>;
+  allDimensionLevels: string[];
+}> {
+  if (!customMetricDimensionLevels?.length) {
+    return [];
+  }
+
+  const customDimensionData: Array<{
+    id: string;
+    name: string;
+    description: string;
+    parentMetricId: string;
+    dimensionLevels: Array<{
+      dimension: string;
+      levels: string[];
+    }>;
+    allDimensionLevels: string[];
+  }> = [];
+
+  customMetricDimensionLevels.forEach((group) => {
+    // Sort dimensions alphabetically for consistent ID generation
+    const sortedDimensions = group.dimensionLevels.sort((a, b) =>
+      a.dimension.localeCompare(b.dimension),
+    );
+    const dimensionString = generateDimensionStringFromLevels(sortedDimensions);
+
+    const customDimensionMetric = {
+      id: `${metricId}?${dimensionString}`,
+      name: `${metricName} (${sortedDimensions.map((combo) => `${combo.dimension}: ${combo.levels[0] || ""}`).join(", ")})`,
+      description: `Dimension analysis of ${metricName} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.levels[0] || ""}`).join(" and ")}`,
+      parentMetricId: metricId,
+      dimensionLevels: sortedDimensions,
+      allDimensionLevels: [],
+    };
+    customDimensionData.push(customDimensionMetric);
+  });
+
+  return customDimensionData;
 }
 
 export function generateDimensionString(
