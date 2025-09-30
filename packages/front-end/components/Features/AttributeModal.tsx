@@ -12,7 +12,6 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useUser } from "@/services/UserContext";
@@ -267,8 +266,7 @@ export default function AttributeModal({ close, attribute }: Props) {
               <>
                 {["secureString", "secureString[]"].includes(datatype) && (
                   <div className="text-muted">
-                    <PremiumTooltip
-                      commercialFeature="hash-secure-attributes"
+                    <Tooltip
                       tipPosition="bottom"
                       body={
                         <>
@@ -297,7 +295,7 @@ export default function AttributeModal({ close, attribute }: Props) {
                       }
                     >
                       How do secure attributes work? <FaInfoCircle />
-                    </PremiumTooltip>
+                    </Tooltip>
                   </div>
                 )}
               </>

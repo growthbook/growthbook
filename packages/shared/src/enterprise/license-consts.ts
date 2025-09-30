@@ -27,7 +27,6 @@ export type CommercialFeature =
   | "archetypes"
   | "simulate"
   | "cloud-proxy"
-  | "hash-secure-attributes"
   | "livechat"
   | "json-validation"
   | "remote-evaluation"
@@ -193,7 +192,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "archetypes",
     "simulate",
     "cloud-proxy",
-    "hash-secure-attributes",
     "livechat",
     "remote-evaluation",
     "sticky-bucketing",
@@ -224,7 +222,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "archetypes",
     "simulate",
     "cloud-proxy",
-    "hash-secure-attributes",
     "livechat",
     "remote-evaluation",
     "sticky-bucketing",
@@ -261,7 +258,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "archetypes",
     "simulate",
     "cloud-proxy",
-    "hash-secure-attributes",
     "json-validation",
     "livechat",
     "remote-evaluation",

@@ -179,17 +179,6 @@ describe("sdk-connections validations", () => {
       }).not.toThrow();
     });
 
-    it("Fails unpurchased features", () => {
-      expect(() => {
-        validatePremiumFeatures(context, {
-          encryptPayload: false,
-          hashSecureAttributes: true,
-        });
-      }).toThrow(
-        "Feature hash-secure-attributes requires premium subscription!",
-      );
-    });
-
     it("Allows available features", () => {
       expect(() => {
         validatePremiumFeatures(context, { encryptPayload: true });

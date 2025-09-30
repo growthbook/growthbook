@@ -104,9 +104,7 @@ export default function SDKConnectionForm({
   const hasEncryptionFeature = hasCommercialFeature(
     "encrypt-features-endpoint",
   );
-  const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes",
-  );
+  const hasSecureAttributesFeature = true;
   const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
@@ -781,8 +779,7 @@ export default function SDKConnectionForm({
                           }
                           disabled={!hasSecureAttributesFeature}
                           label={
-                            <PremiumTooltip
-                              commercialFeature="hash-secure-attributes"
+                            <Tooltip
                               body={
                                 <>
                                   <p>
@@ -809,7 +806,7 @@ export default function SDKConnectionForm({
                               }
                             >
                               Hash secure attributes <FaInfoCircle />
-                            </PremiumTooltip>
+                            </Tooltip>
                           }
                         />
                       </div>

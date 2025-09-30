@@ -297,8 +297,6 @@ export default function UpgradeModal({
       "Simulate how different users would see an experiment or feature flag",
     "cloud-proxy":
       "Use a self-hosted GrowthBook proxy in front of our Cloud CDN",
-    "hash-secure-attributes":
-      "Hash sensitive targeting attributes like email addresses to avoid leaking PII",
     livechat: "Get fast support with in-app chat",
     "remote-evaluation": "Enable remote-evaluation for client-side SDKs",
     "sticky-bucketing": "Ensure consistent experiences with Sticky Bucketing",

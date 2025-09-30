@@ -49,7 +49,6 @@ export default function SetupFlow() {
   const [SDKConnectionModalOpen, setSDKConnectionModalOpen] = useState(false);
   const [skipped, setSkipped] = useState<Set<number>>(() => new Set());
 
-  const { hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
   const { data: sdkConnectionData } = useSDKConnections();
   const { organization, refreshOrganization } = useUser();
@@ -187,7 +186,6 @@ export default function SetupFlow() {
             const canUseUrlRedirects = sdkCapabilities.includes("redirects");
 
             const canUseSecureConnection =
-              hasCommercialFeature("hash-secure-attributes") &&
               sdkCapabilities.includes("encryption");
 
             const languageLabel = languageMapping[value.languages[0]].label;

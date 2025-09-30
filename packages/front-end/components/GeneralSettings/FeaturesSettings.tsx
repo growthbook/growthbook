@@ -5,7 +5,7 @@ import { FaExclamationCircle } from "react-icons/fa";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useEnvironments } from "@/services/features";
@@ -24,9 +24,6 @@ export default function FeaturesSettings() {
   const form = useFormContext();
   const { projects } = useDefinitions();
 
-  const hasSecureAttributesFeature = hasCommercialFeature(
-    "hash-secure-attributes",
-  );
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
   const hasCodeReferencesFeature = hasCommercialFeature("code-references");
@@ -63,8 +60,7 @@ export default function FeaturesSettings() {
           <Box mb="4" width="100%">
             <Field
               label={
-                <PremiumTooltip
-                  commercialFeature="hash-secure-attributes"
+                <Tooltip
                   body={
                     <>
                       <p>
@@ -99,9 +95,8 @@ export default function FeaturesSettings() {
                     Salt string for secure attributes
                   </Text>{" "}
                   <GBInfo />
-                </PremiumTooltip>
+                </Tooltip>
               }
-              disabled={!hasSecureAttributesFeature}
               type="string"
               {...form.register("secureAttributeSalt")}
             />

@@ -29,7 +29,6 @@ type CapabilitiesParams = { [k in CapabilitiesParamKey]?: boolean };
 // This way, free users can still preview the features in a draft.
 const premiumFeatures = [
   ["encrypt-features-endpoint", "encryptPayload"],
-  ["hash-secure-attributes", "hashSecureAttributes"],
   ["remote-evaluation", "remoteEvalEnabled"],
   ["cloud-proxy", "proxyEnabled"],
 ] as const;

@@ -65,10 +65,7 @@ export const postSDKConnection = async (
     encryptPayload = params.encryptPayload;
   }
 
-  let hashSecureAttributes = false;
-  if (orgHasPremiumFeature(org, "hash-secure-attributes")) {
-    hashSecureAttributes = params.hashSecureAttributes;
-  }
+  let hashSecureAttributes = true;
 
   let remoteEvalEnabled = false;
   if (orgHasPremiumFeature(org, "remote-evaluation")) {
@@ -122,10 +119,7 @@ export const putSDKConnection = async (
     encryptPayload = false;
   }
 
-  let hashSecureAttributes = false;
-  if (orgHasPremiumFeature(context.org, "hash-secure-attributes")) {
-    hashSecureAttributes = req.body.hashSecureAttributes || false;
-  }
+  let hashSecureAttributes = true;
 
   let remoteEvalEnabled = false;
   if (orgHasPremiumFeature(context.org, "remote-evaluation")) {
