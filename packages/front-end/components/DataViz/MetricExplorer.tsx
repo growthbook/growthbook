@@ -339,7 +339,11 @@ export function MetricExplorer() {
                 <Text
                   style={{ color: "var(--color-text-mid)", fontWeight: 500 }}
                 >
-                  No cached data available. Refresh to see results.
+                  {metric ? (
+                    <>No cached data available. Refresh to see results.</>
+                  ) : (
+                    <>Select a metric to get started.</>
+                  )}
                 </Text>
               </Box>
             ) : results.status === "error" ? (
