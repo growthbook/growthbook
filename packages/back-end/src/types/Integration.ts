@@ -170,6 +170,7 @@ export type ColumnTopValuesParams = {
   factTable: Pick<FactTableInterface, "sql" | "eventName">;
   column: ColumnInterface;
   limit?: number;
+  lookbackDays?: number;
 };
 export type ColumnTopValuesResponseRow = {
   value: string;
@@ -226,6 +227,12 @@ export interface ExperimentAggregateUnitsQueryParams
 export type DimensionSlicesQueryParams = {
   exposureQueryId: string;
   dimensions: ExperimentDimension[];
+  lookbackDays: number;
+};
+
+export type UserExperimentExposuresQueryParams = {
+  userIdType: string;
+  unitId: string;
   lookbackDays: number;
 };
 
@@ -430,6 +437,13 @@ export type DimensionSlicesQueryResponseRows = {
   total_units: number;
 }[];
 
+export type UserExperimentExposuresQueryResponseRows = {
+  timestamp: string;
+  experiment_id: string;
+  variation_id: string;
+  [key: string]: string | null;
+}[];
+
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
@@ -456,6 +470,10 @@ export type DropTableQueryResponse = QueryResponse;
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
 >;
+export type UserExperimentExposuresQueryResponse =
+  QueryResponse<UserExperimentExposuresQueryResponseRows> & {
+    truncated?: boolean;
+  };
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -644,6 +662,12 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
+  getUserExperimentExposuresQuery(
+    params: UserExperimentExposuresQueryParams,
+  ): string;
+  runUserExperimentExposuresQuery(
+    query: string,
+  ): Promise<UserExperimentExposuresQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,

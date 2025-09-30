@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useEffect } from "react";
+import React, { FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -82,6 +82,48 @@ const Results: FC<{
   holdout,
 }) => {
   const { apiCall } = useAuth();
+
+  const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
+    string[]
+  >(experiment.pinnedMetricDimensionLevels || []);
+  useEffect(
+    () =>
+      setOptimisticPinnedLevels(experiment.pinnedMetricDimensionLevels || []),
+    [experiment.pinnedMetricDimensionLevels],
+  );
+
+  const togglePinnedMetricDimensionLevel = async (
+    metricId: string,
+    dimensionColumn: string,
+    dimensionValue: string | null,
+    location?: "goal" | "secondary" | "guardrail",
+  ) => {
+    if (!editMetrics || !mutateExperiment) return;
+
+    const key = `${metricId}?dim:${dimensionColumn}=${dimensionValue || ""}&location=${location || ""}`;
+    const newPinned = optimisticPinnedLevels.includes(key)
+      ? optimisticPinnedLevels.filter((id) => id !== key)
+      : [...optimisticPinnedLevels, key];
+    setOptimisticPinnedLevels(newPinned);
+
+    try {
+      const response = await apiCall<{ pinnedMetricDimensionLevels: string[] }>(
+        `/experiment/${experiment.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            pinnedMetricDimensionLevels: newPinned,
+          }),
+        },
+      );
+      if (response?.pinnedMetricDimensionLevels) {
+        setOptimisticPinnedLevels(response.pinnedMetricDimensionLevels);
+      }
+      mutateExperiment();
+    } catch (error) {
+      setOptimisticPinnedLevels(experiment.pinnedMetricDimensionLevels || []);
+    }
+  };
 
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
@@ -405,6 +447,8 @@ const Results: FC<{
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
+            pinnedMetricDimensionLevels={optimisticPinnedLevels}
+            togglePinnedMetricDimensionLevel={togglePinnedMetricDimensionLevel}
           />
         </>
       ) : null}

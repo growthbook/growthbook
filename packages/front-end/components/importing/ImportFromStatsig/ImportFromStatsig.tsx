@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
+import { Switch } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
 import { ProjectInterface } from "back-end/types/project";
 import {
@@ -161,6 +162,10 @@ export default function ImportFromStatsig() {
     "statsig_import_project",
     "",
   );
+  const [skipAttributeMapping, setSkipAttributeMapping] = useLocalStorage(
+    "statsig_skip_attribute_mapping",
+    false,
+  );
 
   // Item-level checkbox states (all enabled by default)
   const [itemEnabled, setItemEnabled] = useState<{
@@ -300,6 +305,145 @@ export default function ImportFromStatsig() {
         ...prev[category],
         ...updates,
       },
+    }));
+  };
+
+  // Helper function to get global checkbox state (true/false/indeterminate)
+  const getGlobalCheckboxState = (): boolean | "indeterminate" => {
+    if (data.status !== "ready") return false;
+
+    const allItems: { category: string; items: unknown[] }[] = [];
+
+    if (data.environments)
+      allItems.push({ category: "environments", items: data.environments });
+    if (data.tags) allItems.push({ category: "tags", items: data.tags });
+    if (data.segments)
+      allItems.push({ category: "segments", items: data.segments });
+    if (data.featureGates)
+      allItems.push({ category: "featureGates", items: data.featureGates });
+    if (data.dynamicConfigs)
+      allItems.push({ category: "dynamicConfigs", items: data.dynamicConfigs });
+    if (data.experiments)
+      allItems.push({ category: "experiments", items: data.experiments });
+    if (data.metrics)
+      allItems.push({ category: "metrics", items: data.metrics });
+
+    if (allItems.length === 0) return false;
+
+    let totalItems = 0;
+    let enabledItems = 0;
+
+    allItems.forEach(({ category, items }) => {
+      items.forEach((item, index) => {
+        totalItems++;
+        if (isItemEnabled(category, index, item)) {
+          enabledItems++;
+        }
+      });
+    });
+
+    if (enabledItems === 0) return false;
+    if (enabledItems === totalItems) return true;
+    return "indeterminate";
+  };
+
+  // Helper function to get total selected items count
+  const getSelectedItemsCount = (): number => {
+    if (data.status !== "ready") return 0;
+
+    let count = 0;
+    const allItems: { category: string; items: unknown[] }[] = [];
+
+    if (data.environments)
+      allItems.push({ category: "environments", items: data.environments });
+    if (data.tags) allItems.push({ category: "tags", items: data.tags });
+    if (data.segments)
+      allItems.push({ category: "segments", items: data.segments });
+    if (data.featureGates)
+      allItems.push({ category: "featureGates", items: data.featureGates });
+    if (data.dynamicConfigs)
+      allItems.push({ category: "dynamicConfigs", items: data.dynamicConfigs });
+    if (data.experiments)
+      allItems.push({ category: "experiments", items: data.experiments });
+    if (data.metrics)
+      allItems.push({ category: "metrics", items: data.metrics });
+
+    allItems.forEach(({ category, items }) => {
+      items.forEach((item, index) => {
+        if (isItemEnabled(category, index, item)) {
+          count++;
+        }
+      });
+    });
+
+    return count;
+  };
+
+  // Helper function to toggle all items globally
+  const toggleAllItems = (enabled: boolean) => {
+    if (data.status !== "ready") return;
+
+    const updates: { [category: string]: { [key: string]: boolean } } = {};
+
+    if (data.environments) {
+      updates.environments = {};
+      data.environments.forEach((item, index) => {
+        const key = getItemKey("environments", index, item);
+        updates.environments[key] = enabled;
+      });
+    }
+
+    if (data.tags) {
+      updates.tags = {};
+      data.tags.forEach((item, index) => {
+        const key = getItemKey("tags", index, item);
+        updates.tags[key] = enabled;
+      });
+    }
+
+    if (data.segments) {
+      updates.segments = {};
+      data.segments.forEach((item, index) => {
+        const key = getItemKey("segments", index, item);
+        updates.segments[key] = enabled;
+      });
+    }
+
+    if (data.featureGates) {
+      updates.featureGates = {};
+      data.featureGates.forEach((item, index) => {
+        const key = getItemKey("featureGates", index, item);
+        updates.featureGates[key] = enabled;
+      });
+    }
+
+    if (data.dynamicConfigs) {
+      updates.dynamicConfigs = {};
+      data.dynamicConfigs.forEach((item, index) => {
+        const key = getItemKey("dynamicConfigs", index, item);
+        updates.dynamicConfigs[key] = enabled;
+      });
+    }
+
+    if (data.experiments) {
+      updates.experiments = {};
+      data.experiments.forEach((item, index) => {
+        const key = getItemKey("experiments", index, item);
+        updates.experiments[key] = enabled;
+      });
+    }
+
+    if (data.metrics) {
+      updates.metrics = {};
+      data.metrics.forEach((item, index) => {
+        const key = getItemKey("metrics", index, item);
+        updates.metrics[key] = enabled;
+      });
+    }
+
+    setItemEnabled((prev) => ({
+      ...prev,
+      ...updates,
     }));
   };
 
@@ -496,6 +640,7 @@ export default function ImportFromStatsig() {
                     existingTags,
                     existingExperiments,
                     callback: (d) => setData(d),
+                    skipAttributeMapping,
                   };
                   const featuresMap = await buildImportedData(buildOptions);
                   // Store featuresMap for use in runImport
@@ -535,6 +680,7 @@ export default function ImportFromStatsig() {
                   featuresMap,
                   project: projectId,
                   itemEnabled,
+                  skipAttributeMapping,
                 };
                 await runImport(runOptions);
                 mutateDefinitions();
@@ -553,10 +699,52 @@ export default function ImportFromStatsig() {
           <div className="alert alert-danger">{data.error || "Error"}</div>
         ) : data.status === "init" ? null : (
           <div>
-            <h2>
-              Status: {data.status}{" "}
-              {data.status === "fetching" ? <LoadingSpinner /> : null}
-            </h2>
+            <div className="d-flex justify-content-between mt-3 mb-3">
+              <div>
+                <h3>
+                  Import status: {data.status}{" "}
+                  {data.status === "fetching" ? <LoadingSpinner /> : null}
+                </h3>
+                <div className="p-3">
+                  <div className="d-flex align-items-center">
+                    <Checkbox
+                      value={getGlobalCheckboxState()}
+                      setValue={(enabled) => toggleAllItems(enabled)}
+                      label="Select all items"
+                      size="sm"
+                      containerClassName="mr-3 mb-0"
+                    />
+                    <span className="text-muted">
+                      {getSelectedItemsCount()} item
+                      {getSelectedItemsCount() !== 1 ? "s" : ""} selected
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="d-flex justify-content-end">
+                <div>
+                  <h5>Attribute Mapping</h5>
+                  <div className="d-flex align-items-center mt-1 mr-3">
+                    <Switch
+                      checked={!skipAttributeMapping}
+                      onCheckedChange={(checked) =>
+                        setSkipAttributeMapping(!checked)
+                      }
+                    />
+                    <div className="d-flex flex-column">
+                      <span className="ml-2">
+                        Map Statsig attributes to GrowthBook attributes
+                      </span>
+                      <span className="ml-2 text-muted">
+                        (e.g. user_id → id)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {data.environments ? (
               <div className="appbox mb-4">
                 <ImportHeader
