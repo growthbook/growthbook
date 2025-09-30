@@ -11,6 +11,7 @@ import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Checkbox from "@/ui/Checkbox";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;
@@ -120,19 +121,12 @@ const ArchetypeAttributesModal: FC<{
             </div>
           )}
           <div className="mb-3">
-            <label className="mr-3">
-              Make archetype public?{" "}
-              <Tooltip
-                body={
-                  "Allow other team members to see this archetypal user for testing"
-                }
-              />
-            </label>
-            <Switch
+            <Checkbox
               id="public"
+              label="Make archetype public"
+              description="Allow other team members to see this archetypal user for testing"
               value={form.watch("isPublic")}
-              onChange={(v) => form.setValue("isPublic", v)}
-              label="Public"
+              setValue={(v) => form.setValue("isPublic", v)}
             />
           </div>
           <div>

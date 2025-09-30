@@ -1,4 +1,4 @@
-import { Box, Flex, Grid, Slider, Text } from "@radix-ui/themes";
+import { Box, Flex, Grid, Slider, Text, TextField } from "@radix-ui/themes";
 import React, { useEffect, useState } from "react";
 import { FaDownload, FaExternalLinkAlt } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
@@ -52,6 +52,7 @@ export default function DesignSystemPage() {
     "default" | "warning" | "error"
   >("default");
   const [switchDisabled, setSwitchDisabled] = useState<boolean>(false);
+  const [tooltipMessage, setTooltipMessage] = useState<string>("");
   const [checked, setChecked] = useState<"indeterminate" | boolean>(false);
   const [size, setSize] = useState<Size>("md");
   const [buttonLoadError, setButtonLoadError] = useState<string | null>(null);
@@ -1551,6 +1552,11 @@ export default function DesignSystemPage() {
                 { label: "True", value: "true" },
               ]}
               onChange={(v) => setSwitchDisabled(v === "true")}
+            />
+            Tooltip Message
+            <TextField.Root
+              value={tooltipMessage !== "" ? tooltipMessage : undefined}
+              onChange={(e) => setTooltipMessage(e.currentTarget.value)}
             />
           </Flex>
         </Flex>

@@ -27,6 +27,7 @@ import SelectField from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import { getDefaultMetricOverridesFormValue } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
+import { Flex } from "@radix-ui/themes";
 
 const defaultFieldMap = {
   goalMetrics: "goalMetrics",
@@ -559,15 +560,10 @@ export default function MetricsOverridesSelector({
                       }}
                     >
                       <div className="d-flex my-2 border-bottom"></div>
-                      <div className="form-group mt-1 mb-2 mr-2 form-inline">
-                        <label
-                          className="mr-1 small"
-                          htmlFor={`toggle-properPrior_${i}`}
-                        >
-                          Use proper prior for this metric
-                        </label>
+                      <Flex gap="2">
                         <Switch
                           id={`toggle-properPrior_${i}`}
+                          label="Use proper prior for this metric"
                           value={
                             !!form.watch(
                               `${fieldMap["metricOverrides"]}.${i}.properPriorEnabled`,
@@ -583,13 +579,13 @@ export default function MetricsOverridesSelector({
                         <div className="small">
                           <small className="form-text text-muted">
                             <>
-                              {`(${defaultPriorSource} default: `}
+                              {` (${defaultPriorSource} default: `}
                               {defaultPriorSettings.proper ? "On" : "Off"}
                               {")"}
                             </>
                           </small>
                         </div>
-                      </div>
+                      </Flex>
                       {(defaultPriorSettings.proper &&
                         !form.watch(
                           `${fieldMap["metricOverrides"]}.${i}.properPriorOverride`,
@@ -686,15 +682,11 @@ export default function MetricsOverridesSelector({
                           }}
                         >
                           <div className="d-flex my-2 border-bottom"></div>
-                          <div className="form-group mt-1 mb-2 mr-2 form-inline">
-                            <label
-                              className="small mr-1"
-                              htmlFor={`toggle-regressionAdjustmentEnabled_${i}`}
-                            >
-                              Apply regression adjustment for this metric
-                            </label>
+                          <Flex gap="1">
                             <Switch
                               id={`toggle-regressionAdjustmentEnabled_${i}`}
+                              size="1"
+                              label="Apply regression adjustment for this metric"
                               value={
                                 !!form.watch(
                                   `${fieldMap["metricOverrides"]}.${i}.regressionAdjustmentEnabled`,
@@ -709,7 +701,7 @@ export default function MetricsOverridesSelector({
                               disabled={!hasRegressionAdjustmentFeature}
                             />
                             <div className="small">
-                              <small className="form-text text-muted">
+                              <small className="text-muted">
                                 {metricDefinition?.regressionAdjustmentOverride ? (
                                   <>
                                     (metric default:{" "}
@@ -729,7 +721,7 @@ export default function MetricsOverridesSelector({
                                 )}
                               </small>
                             </div>
-                          </div>
+                          </Flex>
                           <div
                             className="form-group mt-1 mb-1 mr-2"
                             style={{

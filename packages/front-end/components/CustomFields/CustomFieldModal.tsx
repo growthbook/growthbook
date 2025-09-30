@@ -18,6 +18,7 @@ import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
+import Checkbox from "@/ui/Checkbox";
 
 export default function CustomFieldModal({
   existing,
@@ -224,17 +225,15 @@ export default function CustomFieldModal({
             )}
         </>
       ) : (
-        <>
-          <label className="mr-2">Default value</label>
-          <Switch
-            id={"defaultValue"}
-            label="Default value"
-            value={!!form.watch("defaultValue")}
-            onChange={(value) => {
-              form.setValue("defaultValue", value);
-            }}
-          />
-        </>
+        <Checkbox
+          id={"defaultValue"}
+          label="Default value"
+          description="If checked, it defaults to true. Otherwise, it defaults to false."
+          value={!!form.watch("defaultValue")}
+          setValue={(value) => {
+            form.setValue("defaultValue", value);
+          }}
+        />
       )}
       <div className="form-group mb-3 mt-3">
         {projects?.length > 0 && (
@@ -254,34 +253,27 @@ export default function CustomFieldModal({
         )}
       </div>
       <div className="mb-3 mt-3">
-        <Switch
+        <Checkbox
           id={"required"}
           label="Required"
+          description="Make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
           value={!!form.watch("required")}
-          onChange={(value) => {
+          setValue={(value) => {
             form.setValue("required", value);
           }}
-        />{" "}
-        <label htmlFor="required">
-          Field is required on new {section}s{" "}
-          <Tooltip
-            body={
-              "This will make the custom field required when creating or editing experiments. You can also make this field required before starting an experiment from launch checklists."
-            }
-          ></Tooltip>
-        </label>
+        />
       </div>
       {showSearchableToggle && (
         <>
-          <Switch
-            id={"index"}
-            label="Index"
+          <Checkbox
+            id="index"
+            label="Searchable"
+            description="Make the custom field searchable."
             value={!!form.watch("index")}
-            onChange={(value) => {
+            setValue={(value) => {
               form.setValue("index", value);
             }}
-          />{" "}
-          <label htmlFor="index">Make this field searchable</label>
+          />
         </>
       )}
     </Modal>

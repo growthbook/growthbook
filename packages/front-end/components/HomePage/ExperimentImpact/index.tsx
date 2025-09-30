@@ -529,9 +529,8 @@ export default function ExperimentImpact({
           <div className="d-flex pl-3">
             <Switch
               id="adjust-scaled-impact"
-              className="form-check-input"
               disabled={nExpsUsedForAdjustment < 5}
-              disabledMessage={
+              tooltipMessage={
                 "Disabled as there are not enough experiments to shrink estimates"
               }
               onChange={(v) => form.setValue("adjusted", v)}

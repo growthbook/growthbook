@@ -462,19 +462,23 @@ const ImportExperimentList: FC<{
             <div className="col-auto align-self-center">
               <Switch
                 id="hide-imported"
+                label="Hide Imported"
                 value={alreadyImportedFilter}
                 onChange={setAlreadyImportedFilter}
-              />{" "}
-              Hide Imported
+              />
             </div>
             <div className="col-auto align-self-center">
               <Switch
                 id="dedupe-experiments"
+                label={
+                  <>
+                    <span>Group by Experiment Id</span>{" "}
+                    <Tooltip body="How to handle experiments that appear in multiple Assignment Queries. If toggled ON, collapse them into a single row. If OFF, show each one in a separate row." />
+                  </>
+                }
                 value={dedupeFilter}
                 onChange={setDedupeFilter}
-              />{" "}
-              Group by Experiment Id{" "}
-              <Tooltip body="How to handle experiments that appear in multiple Assignment Queries. If toggled ON, collapse them into a single row. If OFF, show each one in a separate row." />
+              />
             </div>
           </div>
           <small>

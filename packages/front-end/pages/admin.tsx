@@ -926,7 +926,7 @@ const EditMember: FC<{
           <Switch
             label="Verified"
             id="verified"
-            ml="2"
+            className=" ml-2"
             value={verified}
             onChange={(e) => setVerified(e)}
           />

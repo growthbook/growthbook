@@ -252,6 +252,7 @@ export default function AnalysisSettingsBar({
                     <GBCuped />
                     <span className="mx-1 font-weight-bold">CUPED</span>
                     <Switch
+                      color="teal"
                       id="toggle-experiment-regression-adjustment"
                       value={!!regressionAdjustmentEnabled}
                       onChange={(value) => {
@@ -264,8 +265,6 @@ export default function AnalysisSettingsBar({
                           });
                         }
                       }}
-                      className={`teal m-0`}
-                      style={{ transform: "scale(0.8)" }}
                       disabled={
                         !hasRegressionAdjustmentFeature ||
                         !canEditAnalysisSettings

@@ -4,6 +4,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Switch from "@/ui/Switch";
+import Checkbox from "@/ui/Checkbox";
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -173,12 +174,11 @@ const EditOrganization: FC<{
           </span>
         </div>
         <div className="mt-3">
-          Auto approve members with email domain
-          <Switch
-            ml="2"
+          <Checkbox
             id="autoApproveMembers"
+            label="Auto approve members with email domain"
             value={autoApproveMembers}
-            onChange={setAutoApproveMembers}
+            setValue={setAutoApproveMembers}
           />
         </div>
         {isCloud() ? (
@@ -210,12 +210,11 @@ const EditOrganization: FC<{
                 </div>
               </div>
               <div className="mt-3">
-                Enable Enterprise
-                <Switch
-                  ml="2"
+                <Checkbox
                   id="legacyEnterpriseToggle"
+                  label="Enable Enterprise"
                   value={legacyEnterprise}
-                  onChange={setLegacyEnterprise}
+                  setValue={setLegacyEnterprise}
                 />
                 <div>
                   <span className="text-muted small">

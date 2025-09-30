@@ -413,17 +413,10 @@ const TopNav: FC<{
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
-          <label className="mr-3">
-            Allow Celebrations{" "}
-            <Tooltip
-              body={
-                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
-              }
-            />
-          </label>
           <Switch
             id="allowCelebration"
             label="Allow celebration"
+            description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
             value={form.watch("enableCelebrations")}
             onChange={(v) => form.setValue("enableCelebrations", v)}
           />

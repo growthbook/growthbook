@@ -642,14 +642,6 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                 </div>
                                 <div className="col">
                                   <div className="float-right mr-2">
-                                    <label
-                                      className="small my-0 mr-2 text-right align-middle"
-                                      htmlFor="toggle-group-by-avg"
-                                    >
-                                      Smoothing
-                                      <br />
-                                      (7 day trailing)
-                                    </label>
                                     <Switch
                                       value={smoothByAvg === "week"}
                                       onChange={() =>
@@ -660,7 +652,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         )
                                       }
                                       id="toggle-group-by-avg"
-                                      className="align-middle"
+                                      label="Smoothing"
+                                      description="7 day trailing"
                                     />
                                   </div>
                                 </div>

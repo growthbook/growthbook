@@ -131,7 +131,6 @@ const NorthStar: FC<{
                       setSmoothBy(smoothBy === "week" ? "day" : "week")
                     }
                     id="toggle-group-smooth-by"
-                    className="align-middle"
                   />
                 </div>
               )}

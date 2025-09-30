@@ -64,6 +64,7 @@ export default function AssignmentTester({
   const { apiCall } = useAuth();
 
   const hasPrerequisites = useMemo(() => {
+    return true;
     if (feature?.prerequisites?.length) return true;
     if (
       Object.values(feature?.environmentSettings ?? {}).some((env) =>
@@ -318,20 +319,12 @@ export default function AssignmentTester({
             <Flex align="center">
               {hasPrerequisites && (
                 <>
-                  <label
-                    className="mr-2 mb-0"
-                    htmlFor="skipRulesWithPrerequisites"
-                  >
-                    <Text size="1" color="gray">
-                      Skip rules with prerequisite targeting
-                    </Text>
-                    <Switch
-                      ml="3"
-                      id="skipRulesWithPrerequisites"
-                      value={skipRulesWithPrerequisites}
-                      onChange={(c) => setSkipRulesWithPrerequisites(c)}
-                    />
-                  </label>
+                  <Switch
+                    label="Skip rules with prerequisite targeting"
+                    id="skipRulesWithPrerequisites"
+                    value={skipRulesWithPrerequisites}
+                    onChange={(c) => setSkipRulesWithPrerequisites(c)}
+                  />
                 </>
               )}
               {hasScheduled && (
