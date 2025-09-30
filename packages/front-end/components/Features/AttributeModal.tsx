@@ -5,7 +5,8 @@ import {
   SDKAttributeType,
 } from "back-end/types/organization";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
-import React from "react";
+import React, { useState } from "react";
+import { Box, Text } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
@@ -38,6 +39,8 @@ const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
 };
 export default function AttributeModal({ close, attribute }: Props) {
   const { projects, project } = useDefinitions();
+  const [containsPii, setContainsPii] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
 
@@ -82,6 +85,29 @@ export default function AttributeModal({ close, attribute }: Props) {
     form.watch("projects") || [],
   );
 
+  const allAttributeTypes = [
+    { value: "boolean", label: "Boolean" },
+    { value: "number", label: "Number" },
+    { value: "string", label: "String" },
+    { value: "enum", label: "Enum" },
+    { value: "secureString", label: "Secure String" },
+    { value: "number[]", label: "Array of Numbers" },
+    { value: "string[]", label: "Array of Strings" },
+    {
+      value: "secureString[]",
+      label: "Array of Secure Strings",
+    },
+  ];
+
+  const secureAttributeTypes = [
+    { value: "boolean", label: "Boolean" },
+    { value: "secureString", label: "Secure String" },
+    {
+      value: "secureString[]",
+      label: "Array of Secure Strings",
+    },
+  ];
+
   return (
     <Modal
       trackingEventModalType=""
@@ -89,6 +115,10 @@ export default function AttributeModal({ close, attribute }: Props) {
       close={close}
       header={title}
       cta="Save"
+      ctaEnabled={containsPii !== ""}
+      disabledMessage={
+        containsPii === "" ? "Please select an option above" : ""
+      }
       submit={form.handleSubmit(async (value) => {
         if (value.datatype !== "string") {
           value.format = "";
@@ -191,134 +221,173 @@ export default function AttributeModal({ close, attribute }: Props) {
           />
         </div>
       )}
-      <SelectField
-        label="Data Type"
-        value={datatype}
-        onChange={(datatype: SDKAttributeType) =>
-          form.setValue("datatype", datatype)
-        }
-        sort={false}
-        options={[
-          { value: "boolean", label: "Boolean" },
-          { value: "number", label: "Number" },
-          { value: "string", label: "String" },
-          { value: "enum", label: "Enum" },
-          { value: "secureString", label: "Secure String" },
-          { value: "number[]", label: "Array of Numbers" },
-          { value: "string[]", label: "Array of Strings" },
-          {
-            value: "secureString[]",
-            label: "Array of Secure Strings",
-          },
-        ]}
-        formatOptionLabel={(value) => {
-          return (
-            <div className="d-flex">
-              <span className="pr-2">{value.label}</span>
-              <span className="ml-auto text-muted">
-                {DATA_TYPE_TO_DESCRIPTION[value.value]}
-              </span>
-            </div>
-          );
-        }}
-        helpText={
-          <>
-            {["secureString", "secureString[]"].includes(datatype) && (
-              <div className="text-muted">
-                <PremiumTooltip
-                  commercialFeature="hash-secure-attributes"
-                  tipPosition="bottom"
-                  body={
-                    <>
-                      <p>
-                        Feature targeting conditions referencing{" "}
-                        <code>secureString</code> attributes will be anonymized
-                        via SHA-256 hashing. When evaluating feature flags in a
-                        public or insecure environment (such as a browser),
-                        hashing provides an additional layer of security through
-                        obfuscation. This allows you to target users based on
-                        sensitive attributes.
-                      </p>
-                      <p>
-                        You must enable this feature in your SDK Connection for
-                        it to take effect.
-                      </p>
-                      <p className="mb-0 text-warning-orange small">
-                        <FaExclamationCircle /> When using an insecure
-                        environment, do not rely exclusively on hashing as a
-                        means of securing highly sensitive data. Hashing is an
-                        obfuscation technique that makes it very difficult, but
-                        not impossible, to extract sensitive data.
-                      </p>
-                    </>
-                  }
-                >
-                  How do secure attributes work? <FaInfoCircle />
-                </PremiumTooltip>
-              </div>
-            )}
-          </>
-        }
-      />
-      {datatype === "string" && (
+      <Box>
+        <SelectField
+          value={containsPii}
+          options={[
+            { value: "no", label: "No" },
+            { value: "yes", label: "Yes" },
+          ]}
+          onChange={(v) => {
+            setContainsPii(v);
+          }}
+          label={
+            <>
+              Will this attribute contain any sensitive information?{" "}
+              <Tooltip
+                body={`Attributes that contain sensitive information should use a secure datatype (e.g. secureString, secureString[]). Secure attribute values are hashed before including in the SDK payload, helping protect user data.`}
+              />
+            </>
+          }
+        />
+      </Box>
+      {containsPii !== "" && (
         <>
           <SelectField
-            label="String Format"
-            value={form.watch(`format`) || ""}
-            onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
-            initialOption="None"
-            options={[
-              { value: "version", label: "Version string" },
-              { value: "date", label: "Date string (ISO)" },
-              { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
-            ]}
+            label="Data Type"
+            value={datatype}
+            onChange={(datatype: SDKAttributeType) =>
+              form.setValue("datatype", datatype)
+            }
             sort={false}
-            helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
+            options={
+              containsPii === "yes" ? secureAttributeTypes : allAttributeTypes
+            }
+            formatOptionLabel={(value) => {
+              return (
+                <div className="d-flex">
+                  <span className="pr-2">{value.label}</span>
+                  <span className="ml-auto text-muted">
+                    {DATA_TYPE_TO_DESCRIPTION[value.value]}
+                  </span>
+                </div>
+              );
+            }}
+            helpText={
+              <>
+                {["secureString", "secureString[]"].includes(datatype) && (
+                  <div className="text-muted">
+                    <PremiumTooltip
+                      commercialFeature="hash-secure-attributes"
+                      tipPosition="bottom"
+                      body={
+                        <>
+                          <p>
+                            Feature targeting conditions referencing{" "}
+                            <code>secureString</code> attributes will be
+                            anonymized via SHA-256 hashing. When evaluating
+                            feature flags in a public or insecure environment
+                            (such as a browser), hashing provides an additional
+                            layer of security through obfuscation. This allows
+                            you to target users based on sensitive attributes.
+                          </p>
+                          <p>
+                            You must enable this feature in your SDK Connection
+                            for it to take effect.
+                          </p>
+                          <p className="mb-0 text-warning-orange small">
+                            <FaExclamationCircle /> When using an insecure
+                            environment, do not rely exclusively on hashing as a
+                            means of securing highly sensitive data. Hashing is
+                            an obfuscation technique that makes it very
+                            difficult, but not impossible, to extract sensitive
+                            data.
+                          </p>
+                        </>
+                      }
+                    >
+                      How do secure attributes work? <FaInfoCircle />
+                    </PremiumTooltip>
+                  </div>
+                )}
+              </>
+            }
           />
-          {form.watch("format") === "version" && (
-            <div className="alert alert-warning">
-              <strong>Warning:</strong> Version string attributes are only
-              supported in{" "}
-              <Tooltip
-                body={<MinSDKVersionsList capability="semverTargeting" />}
-              >
-                <span className="text-primary">some SDK versions</span>
-              </Tooltip>
-              . Do not use this format if you are using an incompatible SDK as
-              it will break any filtering based on the attribute.
-            </div>
-          )}
+          {datatype === "string" && (
+            <>
+              <SelectField
+                label="String Format"
+                value={form.watch(`format`) || ""}
+                onChange={(v) =>
+                  form.setValue(`format`, v as SDKAttributeFormat)
+                }
+                initialOption="None"
+                options={[
+                  { value: "version", label: "Version string" },
+                  { value: "date", label: "Date string (ISO)" },
+                  {
+                    value: "isoCountryCode",
+                    label: "ISO Country Code (2 digit)",
+                  },
+                ]}
+                sort={false}
+                helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
+              />
+              {form.watch("format") === "version" && (
+                <div className="alert alert-warning">
+                  <strong>Warning:</strong> Version string attributes are only
+                  supported in{" "}
+                  <Tooltip
+                    body={<MinSDKVersionsList capability="semverTargeting" />}
+                  >
+                    <span className="text-primary">some SDK versions</span>
+                  </Tooltip>
+                  . Do not use this format if you are using an incompatible SDK
+                  as it will break any filtering based on the attribute.
+                </div>
+              )}
 
-          {!form.watch("format") && (
+              {!form.watch("format") && (
+                <>
+                  <Box mb="3" mt="1">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setShowAdvanced(true);
+                      }}
+                    >
+                      <Text size="1">
+                        {showAdvanced ? "" : "Show Advanced"}
+                      </Text>
+                    </a>
+                    {showAdvanced && (
+                      <div>
+                        <Checkbox
+                          label="Disable Equality Comparisons"
+                          description="Prevents exact string matches; only regex and range comparisons allowed."
+                          value={!!form.watch(`disableEqualityConditions`)}
+                          setValue={(value) =>
+                            form.setValue(`disableEqualityConditions`, value)
+                          }
+                          mb="4"
+                        />
+                      </div>
+                    )}
+                  </Box>
+                </>
+              )}
+            </>
+          )}
+          {datatype === "enum" && (
+            <Field
+              label="Enum Options"
+              textarea
+              minRows={1}
+              required
+              {...form.register(`enum`)}
+              helpText="Comma-separated list of all possible values"
+            />
+          )}
+          {hashAttributeDataTypes.includes(datatype) && (
             <Checkbox
-              label="Disable Equality Comparisons"
-              description="This prevents users from targeting with exact string matches. Only regex and less than/greater than will be allowed. Useful for PII."
-              value={!!form.watch(`disableEqualityConditions`)}
-              setValue={(value) =>
-                form.setValue(`disableEqualityConditions`, value)
-              }
-              mb="4"
+              label="Unique Identifier"
+              description="Allow attribute to be used for experiment assignment."
+              value={!!form.watch(`hashAttribute`)}
+              setValue={(value) => form.setValue(`hashAttribute`, value)}
             />
           )}
         </>
-      )}
-      {datatype === "enum" && (
-        <Field
-          label="Enum Options"
-          textarea
-          minRows={1}
-          required
-          {...form.register(`enum`)}
-          helpText="Comma-separated list of all possible values"
-        />
-      )}
-      {hashAttributeDataTypes.includes(datatype) && (
-        <Checkbox
-          label="Unique Identifier"
-          description="Allow attribute to be used for experiment assignment."
-          value={!!form.watch(`hashAttribute`)}
-          setValue={(value) => form.setValue(`hashAttribute`, value)}
-        />
       )}
     </Modal>
   );
