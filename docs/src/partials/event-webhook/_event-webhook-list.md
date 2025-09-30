@@ -1459,12 +1459,11 @@ Triggered when an experiment is created
             } | undefined;
             /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
             customMetricDimensionLevels?: {
-                metricId: string;
                 dimensionLevels: {
                     dimension: string;
-                    level: string;
+                    levels: string[];
                 }[];
             }[] | undefined;
         };
@@ -1630,12 +1629,11 @@ Triggered when an experiment is updated
             } | undefined;
             /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
             customMetricDimensionLevels?: {
-                metricId: string;
                 dimensionLevels: {
                     dimension: string;
-                    level: string;
+                    levels: string[];
                 }[];
             }[] | undefined;
         };
@@ -1767,12 +1765,11 @@ Triggered when an experiment is updated
             } | undefined) | undefined;
             /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: (string[] | undefined) | undefined;
-            /** Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
             customMetricDimensionLevels?: ({
-                metricId: string;
                 dimensionLevels: {
                     dimension: string;
-                    level: string;
+                    levels: string[];
                 }[];
             }[] | undefined) | undefined;
         };
@@ -1949,12 +1946,11 @@ Triggered when an experiment is deleted
             } | undefined;
             /** Array of pinned metric dimension levels in format `{metricId}?dim:{encodedDimensionColumn}={encodedValue}&location={goal|secondary|guardrail}` (URL-encoded) */
             pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations for metrics. Each entry represents a specific metric with its dimension breakdowns. */
+            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment. Each entry defines dimension breakdowns that will be automatically applied to all metrics that have the required dimension columns. */
             customMetricDimensionLevels?: {
-                metricId: string;
                 dimensionLevels: {
                     dimension: string;
-                    level: string;
+                    levels: string[];
                 }[];
             }[] | undefined;
         };

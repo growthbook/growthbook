@@ -800,9 +800,9 @@ export default function ResultsTable({
                                       i < rows.length - 1 &&
                                       rows[i + 1].isDimensionRow &&
                                       rows[i + 1].dimensionLevels?.[0]
-                                        ?.column !==
+                                        ?.dimension !==
                                         (rows[i]?.dimensionLevels?.[0]
-                                          ?.column || null),
+                                          ?.dimension || null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -860,9 +860,9 @@ export default function ResultsTable({
                                       i < rows.length - 1 &&
                                       rows[i + 1].isDimensionRow &&
                                       rows[i + 1].dimensionLevels?.[0]
-                                        ?.column !==
+                                        ?.dimension !==
                                         (rows[i]?.dimensionLevels?.[0]
-                                          ?.column || null),
+                                          ?.dimension || null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,

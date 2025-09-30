@@ -7,6 +7,18 @@ import {
   savedGroupTargeting,
 } from "./shared";
 
+export const customMetricDimensionLevel = z.object({
+  dimensionLevels: z.array(
+    z.object({
+      dimension: z.string(),
+      levels: z.array(z.string()),
+    }),
+  ),
+});
+export type CustomMetricDimensionLevel = z.infer<
+  typeof customMetricDimensionLevel
+>;
+
 export const experimentResultsType = [
   "dnf",
   "won",
@@ -325,18 +337,7 @@ export const experimentInterface = z
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     pinnedMetricDimensionLevels: z.array(z.string()).optional(),
-    customMetricDimensionLevels: z
-      .array(
-        z.object({
-          dimensionLevels: z.array(
-            z.object({
-              dimension: z.string(),
-              levels: z.array(z.string()),
-            }),
-          ),
-        }),
-      )
-      .optional(),
+    customMetricDimensionLevels: z.array(customMetricDimensionLevel).optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

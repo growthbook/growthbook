@@ -30,6 +30,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import MetricDimensionsSelector from "@/components/Experiment/MetricDimensionsSelector";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
@@ -351,6 +352,24 @@ export default function BanditRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+          />
+
+          <MetricDimensionsSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricDimensionLevels={
+              form.watch("customMetricDimensionLevels") ?? []
+            }
+            setCustomMetricDimensionLevels={(levels) =>
+              form.setValue("customMetricDimensionLevels", levels)
+            }
+            pinnedMetricDimensionLevels={
+              form.watch("pinnedMetricDimensionLevels") ?? []
+            }
+            setPinnedMetricDimensionLevels={(levels) =>
+              form.setValue("pinnedMetricDimensionLevels", levels)
+            }
           />
 
           <hr className="mt-4" />

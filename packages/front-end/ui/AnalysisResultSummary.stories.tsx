@@ -203,9 +203,8 @@ type ARPData = {
   metric: ExperimentMetricInterface;
   metricSnapshotSettings?: MetricSnapshotSettings;
   dimensionLevels?: Array<{
-    column: string;
-    columnName: string;
-    level: string | null;
+    dimension: string;
+    levels: string[];
   }>;
   variation: ExperimentReportVariationWithIndex;
   stats: SnapshotMetric;
@@ -236,9 +235,8 @@ function makeData({
   pValueCorrection?: PValueCorrection | null;
   isGuardrail?: boolean;
   dimensionLevels?: Array<{
-    column: string;
-    columnName: string;
-    level: string | null;
+    dimension: string;
+    levels: string[];
   }>;
   metricSnapshotSettings?: MetricSnapshotSettings;
 }): ARPData {
@@ -508,9 +506,8 @@ export default function AnalysisResultSummaryStories() {
                   statsEngine: "frequentist",
                   dimensionLevels: [
                     {
-                      column: "country",
-                      columnName: "Country",
-                      level: "United States",
+                      dimension: "country",
+                      levels: ["United States"],
                     },
                   ],
                 })}

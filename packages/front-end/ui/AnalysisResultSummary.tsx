@@ -53,9 +53,8 @@ interface AnalysisResultSummaryProps {
     dimensionName?: string;
     dimensionValue?: string;
     dimensionLevels?: Array<{
-      column: string;
-      columnName: string;
-      level: string | null;
+      dimension: string;
+      levels: string[];
     }>;
     variation: ExperimentReportVariationWithIndex;
     stats: SnapshotMetric;

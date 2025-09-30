@@ -123,12 +123,12 @@ export function getColumnRefWhereClause(
     // Apply filters for each dimension level
     dimensionInfo.dimensionLevels.forEach((dimensionLevel) => {
       const dimensionColumn = factTable.columns.find(
-        (col) => col.column === dimensionLevel.column,
+        (col) => col.column === dimensionLevel.dimension,
       );
 
       if (dimensionColumn && !dimensionColumn.deleted) {
         const columnExpr = getColumnExpression(
-          dimensionLevel.column,
+          dimensionLevel.dimension,
           factTable,
           jsonExtract,
         );
@@ -372,7 +372,7 @@ export function getUserIdTypes(
 }
 
 export interface DimensionLevel {
-  column: string;
+  dimension: string;
   levels: string[]; // empty array for "other", single element for now
 }
 
@@ -403,7 +403,7 @@ export function parseDimensionMetricId(metricId: string): DimensionMetricInfo {
     if (key.startsWith("dim:")) {
       const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
       const level = value === "" ? null : decodeURIComponent(value);
-      dimensionLevels.push({ column, levels: level ? [level] : [] });
+      dimensionLevels.push({ dimension: column, levels: level ? [level] : [] });
     }
   }
 
@@ -441,12 +441,7 @@ export function createCustomDimensionMetrics({
     const sortedDimensions = group.dimensionLevels.sort((a, b) =>
       a.dimension.localeCompare(b.dimension),
     );
-    const dimensionString = sortedDimensions
-      .map(
-        (combo) =>
-          `dim:${encodeURIComponent(combo.dimension)}=${encodeURIComponent(combo.levels[0] || "")}`,
-      )
-      .join("&");
+    const dimensionString = generateDimensionStringFromLevels(sortedDimensions);
 
     // Apply this custom dimension combination to ALL applicable metrics in the experiment
     metricMap.forEach((metric, metricId) => {
@@ -486,12 +481,7 @@ export function generatePinnedDimensionKey(
   dimensionLevels: DimensionLevel[],
   location: "goal" | "secondary" | "guardrail",
 ): string {
-  const dimensionKeyParts = dimensionLevels
-    .map(
-      (dl) =>
-        `dim:${encodeURIComponent(dl.column)}=${encodeURIComponent(dl.levels[0] || "")}`,
-    )
-    .join("&");
+  const dimensionKeyParts = generateDimensionStringFromLevels(dimensionLevels);
   return `${metricId}?${dimensionKeyParts}&location=${location}`;
 }
 
@@ -1164,9 +1154,8 @@ export function createDimensionMetrics({
   name: string;
   description: string;
   dimensionLevels: Array<{
-    column: string;
-    columnName: string;
-    level: string | null;
+    dimension: string;
+    levels: string[];
   }>;
   allDimensionLevels: string[];
 }> {
@@ -1179,9 +1168,8 @@ export function createDimensionMetrics({
     name: string;
     description: string;
     dimensionLevels: Array<{
-      column: string;
-      columnName: string;
-      level: string | null;
+      dimension: string;
+      levels: string[];
     }>;
     allDimensionLevels: string[];
   }> = [];
@@ -1203,9 +1191,8 @@ export function createDimensionMetrics({
         description: `Dimension analysis of ${parentMetric.name} for ${columnName} = ${value}`,
         dimensionLevels: [
           {
-            column: col.column,
-            columnName: columnName,
-            level: value,
+            dimension: col.column,
+            levels: [value],
           },
         ],
         allDimensionLevels: dimensionLevels,
@@ -1220,9 +1207,8 @@ export function createDimensionMetrics({
         description: `Dimension analysis of ${parentMetric.name} for ${columnName} (other)`,
         dimensionLevels: [
           {
-            column: col.column,
-            columnName: columnName,
-            level: null,
+            dimension: col.column,
+            levels: [],
           },
         ],
         allDimensionLevels: dimensionLevels,
@@ -1233,13 +1219,6 @@ export function createDimensionMetrics({
   return dimensionMetrics;
 }
 
-// Returns n "equal" decimals rounded to 3 places that add up to 1
-// The sum always adds to 1. In some cases the values are not equal.
-// For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]
-/**
- * Generates a sorted dimension string for ephemeral metric IDs
- * Dimensions are sorted alphabetically for consistent ID generation
- */
 export function generateDimensionString(
   dimensions: Record<string, string>,
 ): string {
@@ -1254,6 +1233,19 @@ export function generateDimensionString(
     .join("&");
 }
 
+export function generateDimensionStringFromLevels(
+  dimensionLevels: DimensionLevel[],
+): string {
+  const dimensions: Record<string, string> = {};
+  dimensionLevels.forEach((dl) => {
+    dimensions[dl.dimension] = dl.levels[0] || "";
+  });
+  return generateDimensionString(dimensions);
+}
+
+// Returns n "equal" decimals rounded to 3 places that add up to 1
+// The sum always adds to 1. In some cases the values are not equal.
+// For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]
 export function getEqualWeights(n: number, precision: number = 4): number[] {
   // The power of 10 we need to manipulate weights to the correct precision
   const multiplier = Math.pow(10, precision);

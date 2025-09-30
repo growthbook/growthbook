@@ -25,6 +25,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   generatePinnedDimensionKey,
+  generateDimensionStringFromLevels,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -95,7 +96,7 @@ const CompactResults: FC<{
   pinnedMetricDimensionLevels?: string[];
   togglePinnedMetricDimensionLevel?: (
     metricId: string,
-    dimensionLevels: Array<{ column: string; levels: string[] }>,
+    dimensionLevels: Array<{ dimension: string; levels: string[] }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => void;
   customMetricDimensionLevels?: Array<{
@@ -302,12 +303,8 @@ const CompactResults: FC<{
             const sortedDimensions = group.dimensionLevels.sort((a, b) =>
               a.dimension.localeCompare(b.dimension),
             );
-            const dimensionString = sortedDimensions
-              .map(
-                (combo) =>
-                  `dim:${encodeURIComponent(combo.dimension)}=${encodeURIComponent(combo.levels[0] || "")}`,
-              )
-              .join("&");
+            const dimensionString =
+              generateDimensionStringFromLevels(sortedDimensions);
 
             return {
               id: `${metricId}?${dimensionString}`,
@@ -315,9 +312,8 @@ const CompactResults: FC<{
               description: `Custom dimensional analysis of ${newMetric?.name} for ${sortedDimensions.map((combo) => `${combo.dimension} = ${combo.levels[0] || ""}`).join(" and ")}`,
               parentMetricId: metricId,
               dimensionLevels: sortedDimensions.map((combo) => ({
-                column: combo.dimension,
-                columnName: combo.dimension,
-                level: combo.levels[0] || null,
+                dimension: combo.dimension,
+                levels: combo.levels,
               })),
               allDimensionLevels: [],
             };
@@ -334,8 +330,8 @@ const CompactResults: FC<{
 
           // Generate pinned key from all dimension levels
           const pinnedDimensionLevels = dimension.dimensionLevels.map((dl) => ({
-            column: dl.column,
-            levels: dl.level ? [dl.level] : [],
+            dimension: dl.dimension,
+            levels: dl.levels,
           }));
           const pinnedKey = generatePinnedDimensionKey(
             metricId,
@@ -350,7 +346,7 @@ const CompactResults: FC<{
 
           // Generate label from dimension levels
           const label = dimension.dimensionLevels
-            .map((dl) => dl.level || "other")
+            .map((dl) => dl.levels[0] || "other")
             .join(" + ");
 
           const dimensionRow: ExperimentTableRow = {
@@ -386,7 +382,7 @@ const CompactResults: FC<{
           // Always add dimension rows to the array, even if hidden by filter
           // Skip "other" dimension rows with no data
           if (
-            dimension.dimensionLevels.every((dl) => dl.level === null) &&
+            dimension.dimensionLevels.every((dl) => dl.levels.length === 0) &&
             dimensionRow.variations.every((v) => v.value === 0)
           ) {
             return;
@@ -711,7 +707,7 @@ export function getRenderLabelColumn({
   pinnedMetricDimensionLevels?: string[];
   togglePinnedMetricDimensionLevel?: (
     metricId: string,
-    dimensionLevels: Array<{ column: string; levels: string[] }>,
+    dimensionLevels: Array<{ dimension: string; levels: string[] }>,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   expandedMetrics?: Record<string, boolean>;
@@ -749,8 +745,8 @@ export function getRenderLabelColumn({
         ? generatePinnedDimensionKey(
             metric.id,
             row.dimensionLevels.map((dl) => ({
-              column: dl.column,
-              levels: dl.level ? [dl.level] : [],
+              dimension: dl.dimension,
+              levels: dl.levels,
             })),
             location || "goal",
           )
@@ -787,8 +783,8 @@ export function getRenderLabelColumn({
                     togglePinnedMetricDimensionLevel(
                       metric.id,
                       row.dimensionLevels.map((dl) => ({
-                        column: dl.column,
-                        levels: dl.level ? [dl.level] : [],
+                        dimension: dl.dimension,
+                        levels: dl.levels,
                       })),
                       location || "goal",
                     );
@@ -810,7 +806,7 @@ export function getRenderLabelColumn({
             {label}
           </div>
           <div className="ml-2 text-muted small">
-            {row?.dimensionLevels?.map((dl) => dl.columnName).join(" + ")}
+            {row?.dimensionLevels?.map((dl) => dl.dimension).join(" + ")}
           </div>
         </div>
       );

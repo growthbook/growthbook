@@ -114,6 +114,10 @@ const TemplateForm: FC<Props> = ({
         prerequisites: initialValue.targeting?.prerequisites || [],
         condition: initialValue.targeting?.condition || "",
       },
+      customMetricDimensionLevels:
+        initialValue?.customMetricDimensionLevels || [],
+      pinnedMetricDimensionLevels:
+        initialValue?.pinnedMetricDimensionLevels || [],
     },
   });
 

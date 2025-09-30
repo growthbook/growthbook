@@ -8,7 +8,11 @@ import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getAdjustedCI,
+  generateDimensionStringFromLevels,
+} from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -35,9 +39,8 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   // Dimension row properties
   isDimensionRow?: boolean;
   dimensionLevels?: Array<{
-    column: string;
-    columnName: string;
-    level: string | null;
+    dimension: string;
+    levels: string[];
   }>;
 }
 
@@ -85,13 +88,9 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   // Construct the correct metric ID for dimensional rows
   const metricId = useMemo(() => {
     if (isDimensionRow && dimensionLevels && dimensionLevels.length > 0) {
-      const dimensionKeyParts = dimensionLevels
-        .map(
-          (dl) =>
-            `${encodeURIComponent(dl.column)}=${encodeURIComponent(dl.level || "")}`,
-        )
-        .join("&");
-      return `${metric.id}?dim:${dimensionKeyParts}`;
+      const dimensionKeyParts =
+        generateDimensionStringFromLevels(dimensionLevels);
+      return `${metric.id}?${dimensionKeyParts}`;
     }
     return metric.id;
   }, [isDimensionRow, dimensionLevels, metric.id]);

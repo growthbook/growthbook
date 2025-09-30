@@ -40,9 +40,8 @@ export interface FactMetricDimension extends FactMetricInterface {
   description: string;
   parentMetricId: string;
   dimensionLevels: Array<{
-    column: string;
-    columnName: string;
-    level: string | null;
+    dimension: string;
+    levels: string[];
   }>;
   allDimensionLevels: string[];
 }

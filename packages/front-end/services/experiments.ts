@@ -71,9 +71,8 @@ export type ExperimentTableRow = {
   isDimensionRow?: boolean;
   parentRowId?: string;
   dimensionLevels?: Array<{
-    column: string;
-    columnName: string;
-    level: string | null;
+    dimension: string;
+    levels: string[];
   }>;
   allDimensionLevels?: string[];
   isHiddenByFilter?: boolean; // True if this row should be hidden due to dimension level filtering

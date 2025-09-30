@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { FaPlusCircle, FaTimes } from "react-icons/fa";
+import { FaTimes, FaPlusCircle } from "react-icons/fa";
 import { PiPencilSimpleFill, PiX } from "react-icons/pi";
 import { Text, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -12,21 +12,19 @@ import {
   FactMetricInterface,
 } from "back-end/types/fact-table";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { CustomMetricDimensionLevel } from "back-end/src/validators/experiments";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
+import HelperText from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface DimensionLevel {
   dimension: string;
   levels: string[]; // single element for now, will support multiple levels in future
-}
-
-export interface MetricDimensionLevels {
-  dimensionLevels: DimensionLevel[];
 }
 
 interface MetricWithDimensions extends FactMetricInterface {
@@ -42,8 +40,10 @@ export interface MetricDimensionsSelectorProps {
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
-  customMetricDimensionLevels: MetricDimensionLevels[];
-  setCustomMetricDimensionLevels: (levels: MetricDimensionLevels[]) => void;
+  customMetricDimensionLevels: CustomMetricDimensionLevel[];
+  setCustomMetricDimensionLevels: (
+    levels: CustomMetricDimensionLevel[],
+  ) => void;
   pinnedMetricDimensionLevels: string[];
   setPinnedMetricDimensionLevels: (levels: string[]) => void;
 }
@@ -109,7 +109,7 @@ export default function MetricDimensionsSelector({
   setPinnedMetricDimensionLevels,
 }: MetricDimensionsSelectorProps) {
   const growthbook = useGrowthBook();
-  const { hasCommercialFeature: _hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   // State for editing
   const [editingIndex, setEditingIndex] = useState<number | null>(null); // null = not editing, -1 = adding new, >=0 = editing existing
@@ -133,38 +133,47 @@ export default function MetricDimensionsSelector({
     return [...new Set(expandedMetricIds)];
   }, [goalMetrics, secondaryMetrics, guardrailMetrics, metricGroups]);
 
-  const metricsWithDimensions = useMemo(() => {
-    const factTableMap = new Map(factTables.map((table) => [table.id, table]));
+  const { metricsWithDimensionColumns, metricsWithDimensionsEnabled } =
+    useMemo(() => {
+      const factTableMap = new Map(
+        factTables.map((table) => [table.id, table]),
+      );
 
-    return allMetricIds
-      .map((id) => factMetrics.find((m) => m.id === id))
-      .filter((metric) => {
-        const factTable = metric
-          ? factTableMap.get(metric.numerator?.factTableId)
-          : null;
-        const hasColumns = !!factTable?.columns;
-        return (
-          !!metric &&
-          isFactMetric(metric) &&
-          !!metric.enableMetricDimensions &&
-          hasColumns
-        );
-      })
-      .map((metric) => {
-        const factTable = factTableMap.get(metric!.numerator?.factTableId);
-        const dimensionColumns = factTable?.columns?.filter(
-          (col) => col.isDimension,
-        );
-        return {
-          ...metric!,
-          dimensionColumns: dimensionColumns || [],
-        };
-      });
-  }, [allMetricIds, factMetrics, factTables]);
+      const allMetrics = allMetricIds
+        .map((id) => factMetrics.find((m) => m.id === id))
+        .filter((metric) => {
+          const factTable = metric
+            ? factTableMap.get(metric.numerator?.factTableId)
+            : null;
+          const hasColumns = !!factTable?.columns;
+          return !!metric && isFactMetric(metric) && hasColumns;
+        })
+        .map((metric) => {
+          const factTable = factTableMap.get(metric!.numerator?.factTableId);
+          const dimensionColumns = factTable?.columns?.filter(
+            (col) => col.isDimension && !col.deleted,
+          );
+          return {
+            ...metric!,
+            dimensionColumns: dimensionColumns || [],
+          };
+        });
+
+      const metricsWithDimensionColumns = allMetrics.filter(
+        (metric) => metric.dimensionColumns.length > 0,
+      );
+
+      const metricsWithDimensionsEnabled = allMetrics.filter(
+        (metric) =>
+          metric.dimensionColumns.length > 0 && !!metric.enableMetricDimensions,
+      );
+
+      return { metricsWithDimensionColumns, metricsWithDimensionsEnabled };
+    }, [allMetricIds, factMetrics, factTables]);
 
   // Update the parent state with new metric dimension levels
   const updateCustomMetricDimensionLevels = (
-    newLevels: MetricDimensionLevels[],
+    newLevels: CustomMetricDimensionLevel[],
   ) => {
     setCustomMetricDimensionLevels(newLevels);
   };
@@ -196,11 +205,11 @@ export default function MetricDimensionsSelector({
     if (editingDimensionLevels.length === 0) return;
 
     const dimensionLevelsFormatted = editingDimensionLevels.map((dl) => ({
-      column: dl.dimension,
+      dimension: dl.dimension,
       levels: dl.levels[0] ? [dl.levels[0]] : [],
     }));
 
-    const newLevels: MetricDimensionLevels = {
+    const newLevels: CustomMetricDimensionLevel = {
       dimensionLevels: editingDimensionLevels,
     };
 
@@ -210,7 +219,7 @@ export default function MetricDimensionsSelector({
       const oldLevels = customMetricDimensionLevels[editingIndex as number];
       const oldDimensionLevelsFormatted = oldLevels.dimensionLevels.map(
         (dl) => ({
-          column: dl.dimension,
+          dimension: dl.dimension,
           levels: dl.levels[0] ? [dl.levels[0]] : [],
         }),
       );
@@ -237,7 +246,7 @@ export default function MetricDimensionsSelector({
     }
 
     // Update the custom dimension levels
-    let updatedLevels: MetricDimensionLevels[];
+    let updatedLevels: CustomMetricDimensionLevel[];
     if (editingIndex === -1) {
       // Adding new entry
       updatedLevels = [...customMetricDimensionLevels, newLevels];
@@ -292,7 +301,7 @@ export default function MetricDimensionsSelector({
     // Auto-unpin custom dimension levels from all applicable metrics
     const dimensionLevelsFormatted = levelsToRemove.dimensionLevels.map(
       (dl) => ({
-        column: dl.dimension,
+        dimension: dl.dimension,
         levels: dl.levels[0] ? [dl.levels[0]] : [],
       }),
     );
@@ -353,6 +362,10 @@ export default function MetricDimensionsSelector({
     return null;
   }
 
+  if (!allMetricIds.length) {
+    return null;
+  }
+
   return (
     <>
       <div className="my-4">
@@ -361,158 +374,143 @@ export default function MetricDimensionsSelector({
           <PaidFeatureBadge commercialFeature="metric-dimensions" />
         </label>
 
-        <Text
-          as="p"
-          className="mb-2"
-          style={{ color: "var(--color-text-mid)" }}
-        >
-          These metrics will be analyzed across all dimensions and levels
-          defined in their fact table.
-        </Text>
-        <StandardDimensionsSection
-          metricsWithDimensions={metricsWithDimensions}
-          factTables={factTables}
-        />
-      </div>
-
-      <div className="my-4">
-        <label className="font-weight-bold mb-1">
-          Additional Metric Dimensions
-        </label>
-
-        <Text
-          as="p"
-          className="mb-2"
-          style={{ color: "var(--color-text-mid)" }}
-        >
-          Define custom dimensions to analyze beyond the standard dimension
-          breakdowns.
-        </Text>
-
-        {!hasMetricDimensionsFeature && (
-          <div className="alert alert-info">
-            Additional metric dimensions require an enterprise license.
-          </div>
-        )}
-
-        {hasMetricDimensionsFeature && metricsWithDimensions.length === 0 && (
-          <div className="alert alert-info">
-            No metrics with dimension analysis enabled found. Enable dimension
-            analysis on your fact metrics first.
-          </div>
-        )}
-
-        {hasMetricDimensionsFeature && metricsWithDimensions.length > 0 && (
+        {metricsWithDimensionsEnabled.length > 0 ? (
           <>
-            {customMetricDimensionLevels.map((levels, levelsIndex) => {
-              const isEditing = editingIndex === levelsIndex;
-
-              return (
-                <div key={levelsIndex} className="appbox px-2 py-1 mb-2">
-                  {isEditing ? (
-                    <EditingInterface
-                      editingDimensionLevels={editingDimensionLevels}
-                      addingDimension={addingDimension}
-                      setAddingDimension={setAddingDimension}
-                      setEditingDimensionLevels={setEditingDimensionLevels}
-                      updateDimensionLevel={updateDimensionLevel}
-                      removeDimensionLevel={removeDimensionLevel}
-                      saveEditing={saveEditing}
-                      cancelEditing={cancelEditing}
-                      metricsWithDimensions={metricsWithDimensions}
-                    />
-                  ) : (
-                    <div className="d-flex align-items-center">
-                      <div className="flex-grow-1">
-                        <Flex gap="2" align="center">
-                          {levels.dimensionLevels.map((combo, comboIndex) => (
-                            <React.Fragment key={comboIndex}>
-                              {comboIndex > 0 && <Text size="1">AND</Text>}
-                              <Badge
-                                label={
-                                  <Text style={{ color: "var(--slate-12)" }}>
-                                    {combo.dimension} = {combo.levels[0]}
-                                  </Text>
-                                }
-                                color="gray"
-                              />
-                            </React.Fragment>
-                          ))}
-                        </Flex>
-                      </div>
-                      <div
-                        className="d-flex align-items-center"
-                        style={{ gap: "0.5rem" }}
-                      >
-                        <IconButton
-                          variant="ghost"
-                          size="1"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            startEditing(levelsIndex);
-                          }}
-                          mr="1"
-                        >
-                          <PiPencilSimpleFill />
-                        </IconButton>
-                        <IconButton
-                          color="red"
-                          variant="ghost"
-                          size="1"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            removeMetricDimensionLevels(levelsIndex);
-                          }}
-                        >
-                          <PiX />
-                        </IconButton>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            {customMetricDimensionLevels.length === 0 &&
-              editingIndex === null && (
-                <div className="font-italic text-muted mr-3">
-                  No custom dimension combinations defined.
-                </div>
-              )}
-
-            {editingIndex === null ? (
-              <div className="mt-3">
-                <a
-                  role="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    startEditing(-1);
-                  }}
-                  className="link-purple font-weight-bold"
-                >
-                  <FaPlusCircle className="mr-1" />
-                  Add dimension breakdown
-                </a>
-              </div>
-            ) : editingIndex === -1 ? (
-              // Adding new entry
-              <div className="appbox px-2 py-1 mb-2">
-                <EditingInterface
-                  editingDimensionLevels={editingDimensionLevels}
-                  addingDimension={addingDimension}
-                  setAddingDimension={setAddingDimension}
-                  setEditingDimensionLevels={setEditingDimensionLevels}
-                  updateDimensionLevel={updateDimensionLevel}
-                  removeDimensionLevel={removeDimensionLevel}
-                  saveEditing={saveEditing}
-                  cancelEditing={cancelEditing}
-                  metricsWithDimensions={metricsWithDimensions}
-                />
-              </div>
-            ) : null}
+            <Text
+              as="p"
+              className="mb-2"
+              style={{ color: "var(--color-text-mid)" }}
+            >
+              These metrics will be analyzed across all dimensions and levels
+              defined in their fact table.
+            </Text>
+            <StandardDimensionsSection
+              metricsWithDimensions={metricsWithDimensionsEnabled}
+              factTables={factTables}
+            />
           </>
+        ) : (
+          <HelperText status="info" mt="1">
+            No metrics with dimension analysis enabled found. Configure
+            dimension for for your metrics&apos; fact tables.
+          </HelperText>
         )}
       </div>
+
+      {hasCommercialFeature("metric-dimensions") &&
+      metricsWithDimensionColumns.length > 0 ? (
+        <div className="my-4">
+          <label className="font-weight-bold mb-1">
+            Additional Metric Dimensions
+          </label>
+
+          <Text
+            as="p"
+            className="mb-2"
+            style={{ color: "var(--color-text-mid)" }}
+          >
+            Define custom dimensions to analyze beyond the standard dimension
+            breakdowns.
+          </Text>
+
+          {customMetricDimensionLevels.map((levels, levelsIndex) => {
+            const isEditing = editingIndex === levelsIndex;
+
+            return (
+              <div key={levelsIndex} className="appbox px-2 py-1 mb-2">
+                {isEditing ? (
+                  <EditingInterface
+                    editingDimensionLevels={editingDimensionLevels}
+                    addingDimension={addingDimension}
+                    setAddingDimension={setAddingDimension}
+                    setEditingDimensionLevels={setEditingDimensionLevels}
+                    updateDimensionLevel={updateDimensionLevel}
+                    removeDimensionLevel={removeDimensionLevel}
+                    saveEditing={saveEditing}
+                    cancelEditing={cancelEditing}
+                    metricsWithDimensions={metricsWithDimensionColumns}
+                  />
+                ) : (
+                  <div className="d-flex align-items-center">
+                    <div className="flex-grow-1">
+                      <Flex gap="2" align="center">
+                        {levels.dimensionLevels.map((combo, comboIndex) => (
+                          <React.Fragment key={comboIndex}>
+                            {comboIndex > 0 && <Text size="1">AND</Text>}
+                            <Badge
+                              label={
+                                <Text style={{ color: "var(--slate-12)" }}>
+                                  {combo.dimension} = {combo.levels[0]}
+                                </Text>
+                              }
+                              color="gray"
+                            />
+                          </React.Fragment>
+                        ))}
+                      </Flex>
+                    </div>
+                    <div
+                      className="d-flex align-items-center"
+                      style={{ gap: "0.5rem" }}
+                    >
+                      <IconButton
+                        variant="ghost"
+                        size="1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          startEditing(levelsIndex);
+                        }}
+                        mr="1"
+                      >
+                        <PiPencilSimpleFill />
+                      </IconButton>
+                      <IconButton
+                        color="red"
+                        variant="ghost"
+                        size="1"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          removeMetricDimensionLevels(levelsIndex);
+                        }}
+                      >
+                        <PiX />
+                      </IconButton>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {editingIndex === null ? (
+            <div className="mt-2">
+              <a
+                role="button"
+                className="d-inline-block link-purple font-weight-bold mt-2"
+                onClick={() => startEditing(-1)}
+              >
+                <FaPlusCircle className="mr-1" />
+                Add dimension breakdown
+              </a>
+            </div>
+          ) : editingIndex === -1 ? (
+            // Adding new entry
+            <div className="appbox px-2 py-1 mb-2">
+              <EditingInterface
+                editingDimensionLevels={editingDimensionLevels}
+                addingDimension={addingDimension}
+                setAddingDimension={setAddingDimension}
+                setEditingDimensionLevels={setEditingDimensionLevels}
+                updateDimensionLevel={updateDimensionLevel}
+                removeDimensionLevel={removeDimensionLevel}
+                saveEditing={saveEditing}
+                cancelEditing={cancelEditing}
+                metricsWithDimensions={metricsWithDimensionColumns}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -603,7 +601,7 @@ function DimensionSelector({
             label: col.name || col.column || "",
             value: col.column || "",
           }))}
-          onBlur={() => setAddingDimension(false)}
+          placeholder="Dimension column"
           className="mb-0"
           autoFocus
         />

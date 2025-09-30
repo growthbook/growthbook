@@ -11,6 +11,7 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { CustomMetricDimensionLevel } from "back-end/src/validators/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -25,6 +26,7 @@ import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+import MetricDimensionsSelector from "./MetricDimensionsSelector";
 
 export interface EditMetricsFormInterface {
   goalMetrics: string[];
@@ -32,6 +34,8 @@ export interface EditMetricsFormInterface {
   guardrailMetrics: string[];
   activationMetric: string;
   metricOverrides: MetricOverride[];
+  customMetricDimensionLevels?: CustomMetricDimensionLevel[];
+  pinnedMetricDimensionLevels?: string[];
 }
 
 export function getDefaultMetricOverridesFormValue(
@@ -253,9 +257,37 @@ const EditMetricsForm: FC<{
             />
           </div>
 
+          <MetricDimensionsSelector
+            goalMetrics={form.watch("goalMetrics")}
+            secondaryMetrics={form.watch("secondaryMetrics")}
+            guardrailMetrics={form.watch("guardrailMetrics")}
+            customMetricDimensionLevels={
+              (form.watch(
+                "customMetricDimensionLevels",
+              ) as CustomMetricDimensionLevel[]) || []
+            }
+            setCustomMetricDimensionLevels={(levels) =>
+              form.setValue(
+                "customMetricDimensionLevels" as keyof EditMetricsFormInterface,
+                levels,
+              )
+            }
+            pinnedMetricDimensionLevels={
+              (form.watch("pinnedMetricDimensionLevels") as string[]) || []
+            }
+            setPinnedMetricDimensionLevels={(levels) =>
+              form.setValue(
+                "pinnedMetricDimensionLevels" as keyof EditMetricsFormInterface,
+                levels,
+              )
+            }
+          />
+
           <div className="form-group mb-2">
             <PremiumTooltip commercialFeature="override-metrics">
-              Metric Overrides (optional)
+              <label className="font-weight-bold mb-1">
+                Metric Overrides (optional)
+              </label>
             </PremiumTooltip>
             <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
               <p className="mb-0">

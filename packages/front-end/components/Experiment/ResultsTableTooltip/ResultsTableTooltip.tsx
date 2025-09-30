@@ -33,9 +33,8 @@ export interface TooltipData {
   metric: ExperimentMetricInterface;
   metricSnapshotSettings?: MetricSnapshotSettings;
   dimensionLevels?: Array<{
-    column: string;
-    columnName: string;
-    level: string | null;
+    dimension: string;
+    levels: string[];
   }>;
   variation: ExperimentReportVariationWithIndex;
   stats: SnapshotMetric;
