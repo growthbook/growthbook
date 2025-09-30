@@ -12,6 +12,8 @@ import { useRouter } from "next/router";
 import Fuse from "fuse.js";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
+import { PiArrowDown, PiArrowUp, PiCaretUpDown } from "react-icons/pi";
+import Link from "@/ui/Link";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -275,20 +277,19 @@ export function useSearch<T>({
             }}
           >
             {children}{" "}
-            <a
-              href="#"
-              className={sort.field === field ? "activesort" : "inactivesort"}
+            <Link
+              className={`sort-arrow ${sort.field === field ? "activesort" : "inactivesort"}`}
             >
               {sort.field === field ? (
                 sort.dir < 0 ? (
-                  <FaSortDown />
+                  <PiArrowDown />
                 ) : (
-                  <FaSortUp />
+                  <PiArrowUp />
                 )
               ) : (
-                <FaSort />
+                <PiCaretUpDown />
               )}
-            </a>
+            </Link>
           </span>
         </th>
       );

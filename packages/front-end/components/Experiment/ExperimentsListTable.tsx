@@ -49,7 +49,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
 
   return (
     <>
-      <table className="appbox table experiment-table gbtable responsive-table">
+      <table className="table gbtable responsive-table">
         <thead>
           <tr>
             <th></th>
