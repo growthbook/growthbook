@@ -12,6 +12,8 @@ import {
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import Collapsible from "react-collapsible";
+import { PiCaretRightFill } from "react-icons/pi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -161,6 +163,8 @@ const EditMetricsForm: FC<{
       guardrailMetrics: experiment.guardrailMetrics || [],
       activationMetric: experiment.activationMetric || "",
       metricOverrides: defaultMetricOverrides,
+      customMetricSlices: experiment.customMetricSlices || [],
+      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
     },
   });
   const { apiCall } = useAuth();
@@ -281,36 +285,50 @@ const EditMetricsForm: FC<{
             }
           />
 
-          <div className="form-group mb-2">
-            <PremiumTooltip commercialFeature="override-metrics">
-              <label className="font-weight-bold mb-1">
-                Metric Overrides (optional)
-              </label>
-            </PremiumTooltip>
-            <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
-              <p className="mb-0">
-                Override metric behaviors within this experiment.
-              </p>
-              <p className="mb-0">
-                Leave any fields empty that you do not want to override.
-              </p>
+          <hr className="mt-4" />
+
+          <Collapsible
+            trigger={
+              <div className="link-purple font-weight-bold mt-4 mb-2">
+                <PiCaretRightFill className="chevron mr-1" />
+                Advanced Settings
+              </div>
+            }
+            transitionTime={100}
+          >
+            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+              <div className="form-group mb-2">
+                <PremiumTooltip commercialFeature="override-metrics">
+                  <label className="font-weight-bold mb-1">
+                    Metric Overrides (optional)
+                  </label>
+                </PremiumTooltip>
+                <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
+                  <p className="mb-0">
+                    Override metric behaviors within this experiment.
+                  </p>
+                  <p className="mb-0">
+                    Leave any fields empty that you do not want to override.
+                  </p>
+                </div>
+                <MetricsOverridesSelector
+                  experiment={experiment}
+                  form={form}
+                  disabled={!hasOverrideMetricsFeature}
+                  setHasMetricOverrideRiskError={(v: boolean) =>
+                    setHasMetricOverrideRiskError(v)
+                  }
+                />
+                {!hasOverrideMetricsFeature && (
+                  <UpgradeMessage
+                    showUpgradeModal={() => setUpgradeModal(true)}
+                    commercialFeature="override-metrics"
+                    upgradeMessage="override metrics"
+                  />
+                )}
+              </div>
             </div>
-            <MetricsOverridesSelector
-              experiment={experiment}
-              form={form}
-              disabled={!hasOverrideMetricsFeature}
-              setHasMetricOverrideRiskError={(v: boolean) =>
-                setHasMetricOverrideRiskError(v)
-              }
-            />
-            {!hasOverrideMetricsFeature && (
-              <UpgradeMessage
-                showUpgradeModal={() => setUpgradeModal(true)}
-                commercialFeature="override-metrics"
-                upgradeMessage="override metrics"
-              />
-            )}
-          </div>
+          </Collapsible>
         </>
       ) : null}
     </Modal>

@@ -322,16 +322,14 @@ export default function MetricSlicesSelector({
       {hasCommercialFeature("metric-slices") &&
       metricsWithDimensionColumns.length > 0 ? (
         <div className="my-4">
-          <label className="font-weight-bold mb-1">
-            Additional Metric Slices
-          </label>
+          <label className="font-weight-bold mb-1">Custom Metric Slices</label>
 
           <Text
             as="p"
             className="mb-2"
             style={{ color: "var(--color-text-mid)" }}
           >
-            Define custom slices to analyze beyond the standard auto slices.
+            Define custom slices to analyze across all experiment metrics.
           </Text>
 
           {customMetricSlices.map((levels, levelsIndex) => {
@@ -406,11 +404,11 @@ export default function MetricSlicesSelector({
           {editingIndex === null ? (
             <a
               role="button"
-              className="d-inline-block link-purple font-weight-bold mt-2"
+              className="d-inline-block link-purple font-weight-bold mt-1"
               onClick={() => startEditing(-1)}
             >
               <FaPlusCircle className="mr-1" />
-              Add metrics slice
+              Add custom slice
             </a>
           ) : editingIndex === -1 ? (
             // Adding new entry

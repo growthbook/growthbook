@@ -488,7 +488,7 @@ export default function ResultsTable({
                         <div className="col d-flex align-items-end px-0">
                           <a
                             role="button"
-                            className="ml-1 cursor-pointer"
+                            className="ml-1 cursor-pointer link-purple"
                             onClick={(e) => {
                               e.preventDefault();
                               editMetrics();
