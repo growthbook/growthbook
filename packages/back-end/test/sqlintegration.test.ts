@@ -676,6 +676,22 @@ describe("full fact metric experiment query - bigquery", () => {
     ],
   });
 
+  const eventsFactTable = factTableFactory.build({
+    id: "events",
+    name: "Events Fact Table",
+    sql: "*",
+    filters: [
+      {
+        id: "events.mobile",
+        dateCreated: new Date("2023-01-01"),
+        dateUpdated: new Date("2023-01-01"),
+        name: "Mobile App Events",
+        description: "Filter for mobile app events",
+        value: "app = 'mobile'",
+      },
+    ],
+  });
+
   const cappingTypes: MetricCappingSettings["type"][] = [
     "",
     "percentile",
@@ -885,6 +901,22 @@ describe("full fact metric experiment query - bigquery", () => {
                       metrics.push(metric);
                     }
                   }
+
+                  // cross cross table ratio with only one denominator/aggregation combo
+                  const metric = createMetric({
+                    metricType: "ratio",
+                    cappingType,
+                    aggregationType,
+                    column,
+                    inlineFilter: undefined,
+                    filter: undefined,
+                    windowSetting,
+                    regressionSetting,
+                    denominatorColumn: "$$count",
+                    denominatorAggregation: undefined,
+                    denominatorFactTableId: "events",
+                  });
+                  metrics.push(metric);
                 }
               }
             }
@@ -953,6 +985,7 @@ describe("full fact metric experiment query - bigquery", () => {
     quantileSetting?: FactMetricInterface["quantileSettings"];
     denominatorColumn?: string;
     denominatorAggregation?: ColumnRef["aggregation"];
+    denominatorFactTableId?: string;
     aggregateFilter?: ColumnRef["aggregateFilter"];
     aggregateFilterColumn?: ColumnRef["aggregateFilterColumn"];
   }): FactMetricInterface {
@@ -970,6 +1003,7 @@ describe("full fact metric experiment query - bigquery", () => {
       denominatorAggregation,
       aggregateFilter,
       aggregateFilterColumn,
+      denominatorFactTableId,
     } = config;
 
     // Generate unique ID based on all settings
@@ -1006,6 +1040,10 @@ describe("full fact metric experiment query - bigquery", () => {
       idParts.push(
         `denom_${denominatorAggregation?.replace(" ", "_")}_${denominatorColumn.replace("$$", "special_")}`,
       );
+    }
+
+    if (denominatorFactTableId) {
+      idParts.push(`denom_facttable_${denominatorFactTableId}`);
     }
 
     const id = idParts.join("__");
@@ -1053,7 +1091,7 @@ describe("full fact metric experiment query - bigquery", () => {
       return factMetricFactory.build({
         ...baseConfig,
         denominator: {
-          factTableId: "orders",
+          factTableId: denominatorFactTableId || "orders",
           column: denominatorColumn || "amount",
           aggregation: denominatorAggregation || "sum",
           filters: [],
@@ -1088,7 +1126,10 @@ describe("full fact metric experiment query - bigquery", () => {
     }
   }
 
-  const factTableMap = new Map([[ordersFactTable.id, ordersFactTable]]);
+  const factTableMap = new Map([
+    [ordersFactTable.id, ordersFactTable],
+    [eventsFactTable.id, eventsFactTable],
+  ]);
 
   const exposureQuery: ExposureQuery = {
     id: "exposure",
