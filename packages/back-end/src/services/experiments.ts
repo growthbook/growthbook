@@ -470,7 +470,6 @@ export function getSnapshotSettings({
   metricGroups,
   reweight,
   datasource,
-  precomputeDimensionsNonStandard,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -485,7 +484,6 @@ export function getSnapshotSettings({
   metricGroups: MetricGroupInterface[];
   reweight?: boolean;
   datasource?: DataSourceInterface;
-  precomputeDimensionsNonStandard?: boolean;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -508,7 +506,7 @@ export function getSnapshotSettings({
   // TODO(dimensions): customize which dimensions to use at experiment level
 
   const precomputeDimensions =
-    (snapshotType === "standard" || precomputeDimensionsNonStandard) &&
+    snapshotType === "standard" &&
     experiment.type !== "multi-armed-bandit" &&
     !dimension &&
     !!datasource &&
@@ -1072,8 +1070,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  precomputeDimensionsNonStandard,
-  startAnalysis,
+  preventStartingAnalysis,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1087,8 +1084,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  precomputeDimensionsNonStandard?: boolean;
-  startAnalysis?: boolean;
+  preventStartingAnalysis?: boolean;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1114,7 +1110,6 @@ export async function createSnapshot({
     metricGroups,
     reweight,
     datasource,
-    precomputeDimensionsNonStandard,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1187,7 +1182,7 @@ export async function createSnapshot({
     integration,
     useCache,
   );
-  if (startAnalysis ?? true) {
+  if (!preventStartingAnalysis) {
     await queryRunner.startAnalysis({
       snapshotType: type,
       snapshotSettings: data.settings,
@@ -1200,7 +1195,10 @@ export async function createSnapshot({
 
   const runningSnapshot = queryRunner.model;
   // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
-  if (runningSnapshot.type === "standard") {
+  if (
+    runningSnapshot.type === "standard" &&
+    runningSnapshot.triggeredBy !== "manual-dashboard"
+  ) {
     updateExperimentDashboards({
       context,
       experiment,

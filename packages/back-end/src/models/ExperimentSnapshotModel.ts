@@ -321,7 +321,8 @@ export async function updateSnapshot({
 
   if (
     experimentSnapshotModel.status === "success" &&
-    // Only use main snapshots or those triggered specifically for dashboards
+    // Only use main snapshots or those triggered automatically for dashboards
+    experimentSnapshotModel.triggeredBy !== "manual-dashboard" &&
     (experimentSnapshotModel.triggeredBy === "update-dashboards" ||
       experimentSnapshotModel.type === "standard")
   ) {

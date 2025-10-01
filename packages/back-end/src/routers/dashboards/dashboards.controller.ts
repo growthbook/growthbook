@@ -194,11 +194,9 @@ export async function refreshDashboardData(
       datasource,
       phase: experiment.phases.length - 1,
       useCache: false,
-      triggeredBy: "manual",
-      // This snapshot uses standard settings but isn't type "standard" to prevent affecting other dashboards
-      type: "exploratory",
-      precomputeDimensionsNonStandard: true,
-      startAnalysis: false,
+      triggeredBy: "manual-dashboard",
+      type: "standard",
+      preventStartingAnalysis: true,
     });
 
   let mainSnapshotUsed = false;
@@ -211,7 +209,7 @@ export async function refreshDashboardData(
   });
   if (mainSnapshotUsed) {
     await queryRunner.startAnalysis({
-      snapshotType: "exploratory",
+      snapshotType: "standard",
       snapshotSettings: mainSnapshot.settings,
       variationNames: experiment.variations.map((v) => v.name),
       metricMap: await getMetricMap(context),
@@ -252,7 +250,7 @@ export async function refreshDashboardData(
       datasource,
       phase: experiment.phases.length - 1,
       useCache: false,
-      triggeredBy: "manual",
+      triggeredBy: "manual-dashboard",
       type: "exploratory",
     });
     newBlocks.forEach((block) => {
