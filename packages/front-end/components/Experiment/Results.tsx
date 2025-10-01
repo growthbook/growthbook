@@ -9,7 +9,7 @@ import {
 } from "shared/constants";
 import {
   ExperimentMetricInterface,
-  generatePinnedDimensionKey,
+  generatePinnedSliceKey,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
@@ -88,26 +88,28 @@ const Results: FC<{
 
   const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
     string[]
-  >(experiment.pinnedMetricDimensionLevels || []);
+  >(experiment.pinnedMetricSlices || []);
   useEffect(
-    () =>
-      setOptimisticPinnedLevels(experiment.pinnedMetricDimensionLevels || []),
-    [experiment.pinnedMetricDimensionLevels],
+    () => setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []),
+    [experiment.pinnedMetricSlices],
   );
 
-  const togglePinnedMetricDimensionLevel = async (
+  const togglePinnedMetricSlice = async (
     metricId: string,
-    dimensionLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => {
     if (!editMetrics || !mutateExperiment) return;
 
-    // Use the dimension levels directly since they're already in the correct format
-    const formattedDimensionLevels = dimensionLevels;
+    // Use the slice levels directly since they're already in the correct format
+    const formattedSliceLevels = sliceLevels.map((dl) => ({
+      column: dl.dimension,
+      levels: dl.levels,
+    }));
 
-    const key = generatePinnedDimensionKey(
+    const key = generatePinnedSliceKey(
       metricId,
-      formattedDimensionLevels,
+      formattedSliceLevels,
       location || "goal",
     );
     const newPinned = optimisticPinnedLevels.includes(key)
@@ -116,21 +118,21 @@ const Results: FC<{
     setOptimisticPinnedLevels(newPinned);
 
     try {
-      const response = await apiCall<{ pinnedMetricDimensionLevels: string[] }>(
+      const response = await apiCall<{ pinnedMetricSlices: string[] }>(
         `/experiment/${experiment.id}`,
         {
           method: "POST",
           body: JSON.stringify({
-            pinnedMetricDimensionLevels: newPinned,
+            pinnedMetricSlices: newPinned,
           }),
         },
       );
-      if (response?.pinnedMetricDimensionLevels) {
-        setOptimisticPinnedLevels(response.pinnedMetricDimensionLevels);
+      if (response?.pinnedMetricSlices) {
+        setOptimisticPinnedLevels(response.pinnedMetricSlices);
       }
       mutateExperiment();
     } catch (error) {
-      setOptimisticPinnedLevels(experiment.pinnedMetricDimensionLevels || []);
+      setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []);
     }
   };
 
@@ -456,9 +458,9 @@ const Results: FC<{
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
-            pinnedMetricDimensionLevels={optimisticPinnedLevels}
-            togglePinnedMetricDimensionLevel={togglePinnedMetricDimensionLevel}
-            customMetricDimensionLevels={experiment.customMetricDimensionLevels}
+            pinnedMetricSlices={optimisticPinnedLevels}
+            togglePinnedMetricSlice={togglePinnedMetricSlice}
+            customMetricSlices={experiment.customMetricSlices}
           />
         </>
       ) : null}

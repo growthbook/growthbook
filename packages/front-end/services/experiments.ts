@@ -66,17 +66,17 @@ export type ExperimentTableRow = {
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
-  numDimensions?: number;
-  // Dimension row properties
-  isDimensionRow?: boolean;
+  numSlices?: number;
+  // Slice row properties
+  isSliceRow?: boolean;
   parentRowId?: string;
-  dimensionLevels?: Array<{
-    dimension: string;
+  sliceLevels?: Array<{
+    column: string;
     levels: string[];
   }>;
-  allDimensionLevels?: string[];
-  isHiddenByFilter?: boolean; // True if this row should be hidden due to dimension level filtering
-  isPinned?: boolean; // True if this dimension level row is pinned
+  allSliceLevels?: string[];
+  isHiddenByFilter?: boolean; // True if this row should be hidden due to slice level filtering
+  isPinned?: boolean; // True if this slice level row is pinned
 };
 
 export function getRisk(

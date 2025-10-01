@@ -159,7 +159,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                           </Avatar>
                         </Tooltip>
                       )}
-                      {col.isDimension && (
+                      {col.isAutoSliceColumn && (
                         <Tooltip body="Auto Slices" tipPosition="left">
                           <Avatar
                             size="sm"

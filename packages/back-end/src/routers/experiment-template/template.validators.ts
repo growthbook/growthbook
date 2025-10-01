@@ -4,7 +4,7 @@ import {
   savedGroupTargeting,
 } from "back-end/src/validators/shared";
 import { statsEngines } from "back-end/src/util/constants";
-import { customMetricDimensionLevel } from "back-end/src/validators/experiments";
+import { customMetricSlice } from "back-end/src/validators/experiments";
 
 export const experimentTemplateInterface = z
   .object({
@@ -49,8 +49,8 @@ export const experimentTemplateInterface = z
       condition: z.string().default("{}"),
     }),
 
-    customMetricDimensionLevels: z.array(customMetricDimensionLevel).optional(),
-    pinnedMetricDimensionLevels: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentTemplateInterface = z.infer<

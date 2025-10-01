@@ -170,7 +170,7 @@ export function useResultsTableTooltip({
         metricSnapshotSettings: row.metricSnapshotSettings,
         dimensionName: _dimension,
         dimensionValue: _dimension ? row.label : undefined,
-        dimensionLevels: row.dimensionLevels,
+        sliceLevels: row.sliceLevels,
         variation,
         stats,
         baseline,

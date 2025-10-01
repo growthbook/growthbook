@@ -6,10 +6,7 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { FactTableInterface } from "back-end/types/fact-table";
 import { DimensionInterface } from "back-end/types/dimension";
 import { ProjectInterface } from "back-end/types/project";
-import {
-  useDefinitions,
-  FactMetricDimension,
-} from "@/services/DefinitionsContext";
+import { useDefinitions, FactMetricLevel } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
@@ -25,7 +22,7 @@ export interface SSRPolyfills {
   metricGroups: MetricGroupInterface[];
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
-  getFactMetricDimensions: (parentId: string) => FactMetricDimension[];
+  getFactMetricLevels: (parentId: string) => FactMetricLevel[];
   useOrgSettings: typeof useOrgSettings;
   getProjectById: (id: string) => null | ProjectInterface;
   useCurrency: typeof useCurrency;
@@ -43,7 +40,7 @@ export default function useSSRPolyfills(
     getExperimentMetricById,
     getMetricGroupById,
     getFactTableById,
-    getFactMetricDimensions,
+    getFactMetricLevels,
     metricGroups,
     dimensions,
     getDimensionById,
@@ -72,10 +69,10 @@ export default function useSSRPolyfills(
     (id: string) => getFactTableById(id) || ssrData?.factTables?.[id] || null,
     [getFactTableById, ssrData?.factTables],
   );
-  const getFactMetricDimensionsSSR = useCallback(
+  const getFactMetricLevelsSSR = useCallback(
     (id: string) =>
-      getFactMetricDimensions(id) || ssrData?.factMetricDimensions?.[id] || [],
-    [getFactMetricDimensions, ssrData?.factMetricDimensions],
+      getFactMetricLevels(id) || ssrData?.factMetricSlices?.[id] || [],
+    [getFactMetricLevels, ssrData?.factMetricSlices],
   );
 
   const useOrgSettingsSSR = () => {
@@ -136,7 +133,7 @@ export default function useSSRPolyfills(
     metricGroups: metricGroupsSSR,
     getMetricGroupById: getMetricGroupByIdSSR,
     getFactTableById: getFactTableByIdSSR,
-    getFactMetricDimensions: getFactMetricDimensionsSSR,
+    getFactMetricLevels: getFactMetricLevelsSSR,
     useOrgSettings: useOrgSettingsSSR,
     getProjectById: getProjectByIdSSR,
     useCurrency: useCurrencySSR,

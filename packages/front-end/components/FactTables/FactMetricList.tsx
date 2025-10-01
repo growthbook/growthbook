@@ -59,12 +59,11 @@ export default function FactMetricList({
     );
   const hasArchivedMetrics = factMetrics.some((m) => m.archived);
 
-  const isMetricDimensionsFeatureEnabled =
-    growthbook?.isOn("metric-dimensions");
-  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
-  const shouldShowDimensionAnalysisColumn =
-    isMetricDimensionsFeatureEnabled &&
-    factTable.columns.some((col) => col.isDimension && !col.deleted);
+  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const shouldShowSliceAnalysisColumn =
+    isMetricSlicesFeatureEnabled &&
+    factTable.columns.some((col) => col.isAutoSliceColumn && !col.deleted);
 
   const [editMetric, setEditMetric] = useState<
     FactMetricInterface | undefined
@@ -190,11 +189,11 @@ export default function FactMetricList({
               <tr className="cursor-pointer">
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="metricType">Type</SortableTH>
-                {shouldShowDimensionAnalysisColumn && (
+                {shouldShowSliceAnalysisColumn && (
                   <th style={{ width: 400 }}>
                     Auto Slices
                     <PaidFeatureBadge
-                      commercialFeature="metric-dimensions"
+                      commercialFeature="metric-slices"
                       premiumText="This is an Enterprise feature"
                       variant="outline"
                       ml="2"
@@ -219,7 +218,7 @@ export default function FactMetricList({
                     </Link>
                   </td>
                   <td>{metric.metricType}</td>
-                  {shouldShowDimensionAnalysisColumn && (
+                  {shouldShowSliceAnalysisColumn && (
                     <td>
                       <FactTableAutoSliceSelector
                         factMetric={metric}
@@ -227,13 +226,13 @@ export default function FactMetricList({
                         canEdit={
                           permissionsUtil.canUpdateFactMetric(metric, {}) &&
                           !metric.managedBy &&
-                          hasMetricDimensionsFeature
+                          hasMetricSlicesFeature
                         }
-                        onUpdate={async (metricAutoDimensions) => {
+                        onUpdate={async (metricAutoSlices) => {
                           await apiCall(`/fact-metrics/${metric.id}`, {
                             method: "PUT",
                             body: JSON.stringify({
-                              metricAutoDimensions,
+                              metricAutoSlices,
                             }),
                           });
                           mutateDefinitions();

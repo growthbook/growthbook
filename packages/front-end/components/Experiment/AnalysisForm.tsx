@@ -36,7 +36,7 @@ import DatePicker from "@/components/DatePicker";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
-import MetricDimensionsSelector from "./MetricDimensionsSelector";
+import MetricSlicesSelector from "./MetricSlicesSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
@@ -148,8 +148,8 @@ const AnalysisForm: FC<{
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
-      customMetricDimensionLevels: experiment.customMetricDimensionLevels || [],
-      pinnedMetricDimensionLevels: experiment.pinnedMetricDimensionLevels || [],
+      customMetricSlices: experiment.customMetricSlices || [],
+      pinnedMetricSlices: experiment.pinnedMetricSlices || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
@@ -791,21 +791,17 @@ const AnalysisForm: FC<{
               goalDisabled={isBandit && experiment.status !== "draft"}
             />
 
-            <MetricDimensionsSelector
+            <MetricSlicesSelector
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}
-              customMetricDimensionLevels={
-                form.watch("customMetricDimensionLevels") || []
+              customMetricSlices={form.watch("customMetricSlices") || []}
+              setCustomMetricSlices={(slices) =>
+                form.setValue("customMetricSlices", slices)
               }
-              setCustomMetricDimensionLevels={(levels) =>
-                form.setValue("customMetricDimensionLevels", levels)
-              }
-              pinnedMetricDimensionLevels={
-                form.watch("pinnedMetricDimensionLevels") || []
-              }
-              setPinnedMetricDimensionLevels={(levels) =>
-                form.setValue("pinnedMetricDimensionLevels", levels)
+              pinnedMetricSlices={form.watch("pinnedMetricSlices") || []}
+              setPinnedMetricSlices={(slices) =>
+                form.setValue("pinnedMetricSlices", slices)
               }
             />
 

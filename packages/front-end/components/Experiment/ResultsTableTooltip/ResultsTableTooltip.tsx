@@ -32,7 +32,7 @@ export interface TooltipData {
   metricRow: number;
   metric: ExperimentMetricInterface;
   metricSnapshotSettings?: MetricSnapshotSettings;
-  dimensionLevels?: Array<{
+  sliceLevels?: Array<{
     dimension: string;
     levels: string[];
   }>;

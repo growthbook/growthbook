@@ -1457,12 +1457,12 @@ Triggered when an experiment is created
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
-            pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment */
-            customMetricDimensionLevels?: {
-                dimensionLevels: {
-                    dimension: string;
+            /** Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+            pinnedMetricSlices?: string[] | undefined;
+            /** Custom slices that apply to ALL applicable metrics in the experiment */
+            customMetricSlices?: {
+                slices: {
+                    column: string;
                     levels: string[];
                 }[];
             }[] | undefined;
@@ -1627,12 +1627,12 @@ Triggered when an experiment is updated
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
-            pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment */
-            customMetricDimensionLevels?: {
-                dimensionLevels: {
-                    dimension: string;
+            /** Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+            pinnedMetricSlices?: string[] | undefined;
+            /** Custom slices that apply to ALL applicable metrics in the experiment */
+            customMetricSlices?: {
+                slices: {
+                    column: string;
                     levels: string[];
                 }[];
             }[] | undefined;
@@ -1763,12 +1763,12 @@ Triggered when an experiment is updated
             customFields?: ({
                 [x: string]: any;
             } | undefined) | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
-            pinnedMetricDimensionLevels?: (string[] | undefined) | undefined;
-            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment */
-            customMetricDimensionLevels?: ({
-                dimensionLevels: {
-                    dimension: string;
+            /** Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+            pinnedMetricSlices?: (string[] | undefined) | undefined;
+            /** Custom slices that apply to ALL applicable metrics in the experiment */
+            customMetricSlices?: ({
+                slices: {
+                    column: string;
                     levels: string[];
                 }[];
             }[] | undefined) | undefined;
@@ -1944,12 +1944,12 @@ Triggered when an experiment is deleted
             customFields?: {
                 [x: string]: any;
             } | undefined;
-            /** Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded) */
-            pinnedMetricDimensionLevels?: string[] | undefined;
-            /** Custom dimension combinations that apply to ALL applicable metrics in the experiment */
-            customMetricDimensionLevels?: {
-                dimensionLevels: {
-                    dimension: string;
+            /** Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+            pinnedMetricSlices?: string[] | undefined;
+            /** Custom slices that apply to ALL applicable metrics in the experiment */
+            customMetricSlices?: {
+                slices: {
+                    column: string;
                     levels: string[];
                 }[];
             }[] | undefined;

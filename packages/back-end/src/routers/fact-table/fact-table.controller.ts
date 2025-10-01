@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
-import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
+import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -192,10 +192,10 @@ export const putFactTable = async (
           column,
         );
 
-        // Constrain top values to MAX_METRIC_DIMENSION_LEVELS
+        // Constrain top values to MAX_METRIC_SLICE_LEVELS
         const constrainedTopValues = topValues.slice(
           0,
-          MAX_METRIC_DIMENSION_LEVELS,
+          MAX_METRIC_SLICE_LEVELS,
         );
 
         // Update the column with new top values
@@ -321,9 +321,9 @@ export const putColumn = async (
   }
 
   // Check enterprise feature access for dimension properties
-  if (data.isDimension) {
-    if (!context.hasPremiumFeature("metric-dimensions")) {
-      throw new Error("Metric dimensions require an enterprise license");
+  if (data.isAutoSliceColumn) {
+    if (!context.hasPremiumFeature("metric-slices")) {
+      throw new Error("Metric slices require an enterprise license");
     }
   }
 

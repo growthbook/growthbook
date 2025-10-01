@@ -53,15 +53,15 @@ properties:
   deleted:
     type: boolean
     default: false
-  isDimension:
+  isAutoSliceColumn:
     type: boolean
     description: "Whether this column can be used for auto slice analysis. This is an enterprise feature."
     default: false
-  dimensionLevels:
+  autoSlices:
     type: array
     items:
       type: string
-    description: "Specific slices to auto-analyze."
+    description: "Specific slices to automatically analyze for this column."
   dateCreated:
     type: string
     format: date-time

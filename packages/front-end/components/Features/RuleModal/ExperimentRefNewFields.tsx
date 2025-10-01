@@ -38,7 +38,7 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
-import MetricDimensionsSelector from "@/components/Experiment/MetricDimensionsSelector";
+import MetricSlicesSelector from "@/components/Experiment/MetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
@@ -522,21 +522,17 @@ export default function ExperimentRefNewFields({
             collapseGuardrail={true}
           />
 
-          <MetricDimensionsSelector
+          <MetricSlicesSelector
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
             guardrailMetrics={form.watch("guardrailMetrics") ?? []}
-            customMetricDimensionLevels={
-              form.watch("customMetricDimensionLevels") ?? []
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
             }
-            setCustomMetricDimensionLevels={(levels) =>
-              form.setValue("customMetricDimensionLevels", levels)
-            }
-            pinnedMetricDimensionLevels={
-              form.watch("pinnedMetricDimensionLevels") ?? []
-            }
-            setPinnedMetricDimensionLevels={(levels) =>
-              form.setValue("pinnedMetricDimensionLevels", levels)
+            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
+            setPinnedMetricSlices={(slices) =>
+              form.setValue("pinnedMetricSlices", slices)
             }
           />
 

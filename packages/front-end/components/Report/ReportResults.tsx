@@ -10,7 +10,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
-import { generatePinnedDimensionKey } from "shared/experiments";
+import { generatePinnedSliceKey } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -49,28 +49,31 @@ export default function ReportResults({
 
   const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
     string[]
-  >(report.experimentAnalysisSettings.pinnedMetricDimensionLevels || []);
+  >(report.experimentAnalysisSettings.pinnedMetricSlices || []);
   useEffect(
     () =>
       setOptimisticPinnedLevels(
-        report.experimentAnalysisSettings.pinnedMetricDimensionLevels || [],
+        report.experimentAnalysisSettings.pinnedMetricSlices || [],
       ),
-    [report.experimentAnalysisSettings.pinnedMetricDimensionLevels],
+    [report.experimentAnalysisSettings.pinnedMetricSlices],
   );
 
-  const togglePinnedMetricDimensionLevel = async (
+  const togglePinnedMetricSlice = async (
     metricId: string,
-    dimensionLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => {
     if (!canEdit || !mutateReport) return;
 
-    // Use the dimension levels directly since they're already in the correct format
-    const formattedDimensionLevels = dimensionLevels;
+    // Use the slice levels directly since they're already in the correct format
+    const formattedSliceLevels = sliceLevels.map((dl) => ({
+      column: dl.dimension,
+      levels: dl.levels,
+    }));
 
-    const key = generatePinnedDimensionKey(
+    const key = generatePinnedSliceKey(
       metricId,
-      formattedDimensionLevels,
+      formattedSliceLevels,
       location || "goal",
     );
     const newPinned = optimisticPinnedLevels.includes(key)
@@ -86,23 +89,21 @@ export default function ReportResults({
         body: JSON.stringify({
           experimentAnalysisSettings: {
             ...report.experimentAnalysisSettings,
-            pinnedMetricDimensionLevels: newPinned,
+            pinnedMetricSlices: newPinned,
           },
         }),
       });
       if (
-        response?.updatedReport?.experimentAnalysisSettings
-          ?.pinnedMetricDimensionLevels
+        response?.updatedReport?.experimentAnalysisSettings?.pinnedMetricSlices
       ) {
         setOptimisticPinnedLevels(
-          response.updatedReport.experimentAnalysisSettings
-            .pinnedMetricDimensionLevels,
+          response.updatedReport.experimentAnalysisSettings.pinnedMetricSlices,
         );
       }
       mutateReport();
     } catch (error) {
       setOptimisticPinnedLevels(
-        report.experimentAnalysisSettings.pinnedMetricDimensionLevels || [],
+        report.experimentAnalysisSettings.pinnedMetricSlices || [],
       );
     }
   };
@@ -328,12 +329,12 @@ export default function ReportResults({
                 ssrPolyfills={ssrPolyfills}
                 hideDetails={!showDetails}
                 disableTimeSeriesButton={true}
-                customMetricDimensionLevels={
-                  report.experimentAnalysisSettings.customMetricDimensionLevels
+                customMetricSlices={
+                  report.experimentAnalysisSettings.customMetricSlices
                 }
-                pinnedMetricDimensionLevels={optimisticPinnedLevels}
-                togglePinnedMetricDimensionLevel={
-                  canEdit ? togglePinnedMetricDimensionLevel : undefined
+                pinnedMetricSlices={optimisticPinnedLevels}
+                togglePinnedMetricSlice={
+                  canEdit ? togglePinnedMetricSlice : undefined
                 }
               />
             ) : (

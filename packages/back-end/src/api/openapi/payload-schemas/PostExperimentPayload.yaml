@@ -252,30 +252,30 @@ properties:
     enum:
       - "days"
       - "hours"
-  pinnedMetricDimensionLevels:
+  pinnedMetricSlices:
     type: array
     items:
       type: string
-    description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded)'
-  customMetricDimensionLevels:
+    description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+  customMetricSlices:
     type: array
     items:
       type: object
       properties:
-        dimensionLevels:
+        slices:
           type: array
           items:
             type: object
             properties:
-              dimension:
+              column:
                 type: string
               levels:
                 type: array
                 items:
                   type: string
             required:
-              - dimension
+              - column
               - levels
       required:
-        - dimensionLevels
-    description: "Custom dimension combinations that apply to ALL applicable metrics in the experiment"
+        - slices
+    description: "Custom slices that apply to ALL applicable metrics in the experiment"

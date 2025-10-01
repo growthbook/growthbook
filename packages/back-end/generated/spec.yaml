@@ -2116,33 +2116,33 @@ paths:
                   enum:
                     - days
                     - hours
-                pinnedMetricDimensionLevels:
+                pinnedMetricSlices:
                   type: array
                   items:
                     type: string
-                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded)'
-                customMetricDimensionLevels:
+                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+                customMetricSlices:
                   type: array
                   items:
                     type: object
                     properties:
-                      dimensionLevels:
+                      slices:
                         type: array
                         items:
                           type: object
                           properties:
-                            dimension:
+                            column:
                               type: string
                             levels:
                               type: array
                               items:
                                 type: string
                           required:
-                            - dimension
+                            - column
                             - levels
                     required:
-                      - dimensionLevels
-                  description: Custom dimension combinations that apply to ALL applicable metrics in the experiment
+                      - slices
+                  description: Custom slices that apply to ALL applicable metrics in the experiment
       responses:
         '200':
           content:
@@ -2479,33 +2479,33 @@ paths:
                   enum:
                     - days
                     - hours
-                pinnedMetricDimensionLevels:
+                pinnedMetricSlices:
                   type: array
                   items:
                     type: string
-                  description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded)'
-                customMetricDimensionLevels:
+                  description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+                customMetricSlices:
                   type: array
                   items:
                     type: object
                     properties:
-                      dimensionLevels:
+                      slices:
                         type: array
                         items:
                           type: object
                           properties:
-                            dimension:
+                            column:
                               type: string
                             levels:
                               type: array
                               items:
                                 type: string
                           required:
-                            - dimension
+                            - column
                             - levels
                     required:
-                      - dimensionLevels
-                  description: Custom dimension combinations that apply to ALL applicable metrics in the experiment
+                      - slices
+                  description: Custom slices that apply to ALL applicable metrics in the experiment
       responses:
         '200':
           content:
@@ -4553,7 +4553,7 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/FactTableColumn'
-                  description: Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Dimension-related properties require an enterprise license.
+                  description: Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license.
                 columnsError:
                   type: string
                   nullable: true
@@ -5077,11 +5077,11 @@ paths:
                   enum:
                     - ''
                     - api
-                metricAutoDimensions:
+                metricAutoSlices:
                   type: array
                   items:
                     type: string
-                  description: Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature.
+                  description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -5377,11 +5377,11 @@ paths:
                     - api
                 archived:
                   type: boolean
-                metricAutoDimensions:
+                metricAutoSlices:
                   type: array
                   items:
                     type: string
-                  description: Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature.
+                  description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -7167,33 +7167,33 @@ components:
         customFields:
           type: object
           additionalProperties: true
-        pinnedMetricDimensionLevels:
+        pinnedMetricSlices:
           type: array
           items:
             type: string
-          description: 'Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={level}&location={goal|secondary|guardrail}` (URL-encoded)'
-        customMetricDimensionLevels:
+          description: 'Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded)'
+        customMetricSlices:
           type: array
           items:
             type: object
             properties:
-              dimensionLevels:
+              slices:
                 type: array
                 items:
                   type: object
                   properties:
-                    dimension:
+                    column:
                       type: string
                     levels:
                       type: array
                       items:
                         type: string
                   required:
-                    - dimension
+                    - column
                     - levels
             required:
-              - dimensionLevels
-          description: Custom dimension combinations that apply to ALL applicable metrics in the experiment
+              - slices
+          description: Custom slices that apply to ALL applicable metrics in the experiment
     ExperimentSnapshot:
       type: object
       required:
@@ -7831,15 +7831,15 @@ components:
         deleted:
           type: boolean
           default: false
-        isDimension:
+        isAutoSliceColumn:
           type: boolean
           description: Whether this column can be used for auto slice analysis. This is an enterprise feature.
           default: false
-        dimensionLevels:
+        autoSlices:
           type: array
           items:
             type: string
-          description: Specific slices to auto-analyze.
+          description: Specific slices to automatically analyze for this column.
         dateCreated:
           type: string
           format: date-time
@@ -8130,11 +8130,11 @@ components:
           format: date-time
         archived:
           type: boolean
-        metricAutoDimensions:
+        metricAutoSlices:
           type: array
           items:
             type: string
-          description: Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature.
+          description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.
     MetricAnalysis:
       type: object
       required:

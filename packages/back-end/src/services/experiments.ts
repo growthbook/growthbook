@@ -31,8 +31,8 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
-  createCustomDimensionMetrics,
-  createDimensionMetrics,
+  createCustomSliceMetrics,
+  createSliceMetrics,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
@@ -40,7 +40,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
-  parseDimensionMetricId,
+  parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -73,7 +73,7 @@ import {
   DimensionForSnapshot,
 } from "back-end/types/experiment-snapshot";
 import {
-  expandDimensionMetricsInMap,
+  expandSliceMetricsInMap,
   getMetricById,
   getMetricMap,
   getMetricsByIds,
@@ -198,10 +198,10 @@ export async function getExperimentMetricById(
   context: Context,
   metricId: string,
 ): Promise<ExperimentMetricInterface | null> {
-  // Handle dimension metric IDs by extracting the parent metric ID
-  const dimensionInfo = parseDimensionMetricId(metricId);
-  const actualMetricId = dimensionInfo.isDimensionMetric
-    ? dimensionInfo.parentMetricId
+  // Handle slice metric IDs by extracting the parent metric ID
+  const sliceInfo = parseSliceMetricId(metricId);
+  const actualMetricId = sliceInfo.isSliceMetric
+    ? sliceInfo.parentMetricId
     : metricId;
 
   if (isFactMetricId(actualMetricId)) {
@@ -583,7 +583,7 @@ export function getSnapshotSettings({
   // Set currentDate in a const to use the same date for all metric settings
   const currentDate = new Date();
 
-  // Expand dimension metrics for fact metrics with enableMetricDimensions
+  // Expand slice metrics for fact metrics with metricAutoDimensions
   const baseMetricIds = getAllMetricIdsFromExperiment(
     experiment,
     false,
@@ -593,18 +593,18 @@ export function getSnapshotSettings({
     .map((m) => metricMap.get(m) || null)
     .filter(isDefined);
 
-  // Generate custom dimension metrics from customMetricDimensionLevels
-  const customDimensionMetrics = createCustomDimensionMetrics({
+  // Generate custom slice metrics from customMetricSlices
+  const customSliceMetrics = createCustomSliceMetrics({
     experiment,
     metricMap,
   });
 
-  // Expand regular dimension metrics and add custom dimension metrics
-  expandDimensionMetricsInMap({
+  // Expand regular slice metrics and add custom slice metrics
+  expandSliceMetricsInMap({
     metricMap,
     factTableMap,
     baseMetrics,
-    customDimensionMetrics,
+    customSliceMetrics,
   });
 
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
@@ -2627,8 +2627,8 @@ export function postExperimentApiPayloadToInterface(
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
-    pinnedMetricDimensionLevels: payload.pinnedMetricDimensionLevels || [],
-    customMetricDimensionLevels: payload.customMetricDimensionLevels || [],
+    pinnedMetricSlices: payload.pinnedMetricSlices || [],
+    customMetricSlices: payload.customMetricSlices || [],
   };
 
   const { settings } = getScopedSettings({
@@ -2696,8 +2696,8 @@ export function updateExperimentApiPayloadToInterface(
     sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
-    pinnedMetricDimensionLevels,
-    customMetricDimensionLevels,
+    pinnedMetricSlices,
+    customMetricSlices,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2794,12 +2794,8 @@ export function updateExperimentApiPayloadToInterface(
         }
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
-    ...(pinnedMetricDimensionLevels !== undefined
-      ? { pinnedMetricDimensionLevels }
-      : {}),
-    ...(customMetricDimensionLevels !== undefined
-      ? { customMetricDimensionLevels }
-      : {}),
+    ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
+    ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -2862,7 +2858,7 @@ export async function getSettingsForSnapshotMetrics(
     .map((id) => metricMap.get(id))
     .filter(isDefined);
 
-  // Expand dimension metrics for fact metrics with enableMetricDimensions
+  // Expand slice metrics for fact metrics with metricAutoDimensions
   const expandedMetrics: ExperimentMetricInterface[] = [];
   for (const metric of allExperimentMetrics) {
     if (!metric) continue;
@@ -2870,22 +2866,22 @@ export async function getSettingsForSnapshotMetrics(
     // Add the original metric
     expandedMetrics.push(metric);
 
-    // If this is a fact metric with dimension analysis enabled, expand it
-    if (isFactMetric(metric) && metric.metricAutoDimensions?.length) {
+    // If this is a fact metric with slice analysis enabled, expand it
+    if (isFactMetric(metric) && metric.metricAutoSlices?.length) {
       const factTable = factTableMap.get(metric.numerator.factTableId);
       if (factTable) {
-        const dimensionMetrics = createDimensionMetrics({
+        const sliceMetrics = createSliceMetrics({
           parentMetric: metric,
           factTable,
           includeOther: true,
         });
 
-        dimensionMetrics.forEach((dimensionMetric) => {
+        sliceMetrics.forEach((sliceMetric) => {
           const expandedMetric: ExperimentMetricInterface = {
             ...metric,
-            id: dimensionMetric.id,
-            name: dimensionMetric.name,
-            description: dimensionMetric.description,
+            id: sliceMetric.id,
+            name: sliceMetric.name,
+            description: sliceMetric.description,
           };
           expandedMetrics.push(expandedMetric);
           metricMap.set(expandedMetric.id, expandedMetric);

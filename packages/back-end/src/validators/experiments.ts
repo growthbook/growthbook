@@ -7,17 +7,15 @@ import {
   savedGroupTargeting,
 } from "./shared";
 
-export const customMetricDimensionLevel = z.object({
-  dimensionLevels: z.array(
+export const customMetricSlice = z.object({
+  slices: z.array(
     z.object({
-      dimension: z.string(),
+      column: z.string(),
       levels: z.array(z.string()),
     }),
   ),
 });
-export type CustomMetricDimensionLevel = z.infer<
-  typeof customMetricDimensionLevel
->;
+export type CustomMetricSlice = z.infer<typeof customMetricSlice>;
 
 export const experimentResultsType = [
   "dnf",
@@ -194,8 +192,8 @@ export const experimentAnalysisSettings = z
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
-    customMetricDimensionLevels: z.array(customMetricDimensionLevel).optional(),
-    pinnedMetricDimensionLevels: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentAnalysisSettings = z.infer<
@@ -338,8 +336,8 @@ export const experimentInterface = z
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
-    pinnedMetricDimensionLevels: z.array(z.string()).optional(),
-    customMetricDimensionLevels: z.array(customMetricDimensionLevel).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

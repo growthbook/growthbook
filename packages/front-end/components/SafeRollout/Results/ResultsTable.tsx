@@ -540,7 +540,19 @@ export default function ResultsTable({
                           sideOffset={-5}
                         >
                           <AnalysisResultSummary
-                            data={tooltipData}
+                            data={
+                              tooltipData
+                                ? {
+                                    ...tooltipData,
+                                    sliceLevels: tooltipData.sliceLevels?.map(
+                                      (dl) => ({
+                                        dimension: dl.column,
+                                        levels: dl.levels,
+                                      }),
+                                    ),
+                                  }
+                                : undefined
+                            }
                             differenceType={differenceType}
                             isBandit={isBandit}
                             ssrPolyfills={ssrPolyfills}

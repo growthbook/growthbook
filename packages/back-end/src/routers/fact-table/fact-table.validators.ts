@@ -44,8 +44,8 @@ export const createColumnPropsValidator = z
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
-    isDimension: z.boolean().optional(),
-    dimensionLevels: z.array(z.string()).optional(),
+    isAutoSliceColumn: z.boolean().optional(),
+    autoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -59,8 +59,8 @@ export const updateColumnPropsValidator = z
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
-    isDimension: z.boolean().optional(),
-    dimensionLevels: z.array(z.string()).optional(),
+    isAutoSliceColumn: z.boolean().optional(),
+    autoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -208,7 +208,7 @@ export const factMetricValidator = z
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),
 
-    metricAutoDimensions: z.array(z.string()).optional(),
+    metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
   })

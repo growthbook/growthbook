@@ -195,10 +195,10 @@ export default function FactMetricPage() {
   const growthbook = useGrowthBook<AppFeatures>();
   const { hasCommercialFeature } = useUser();
 
-  // Feature flag and commercial feature checks for dimension analysis
-  const isMetricDimensionsFeatureEnabled =
-    growthbook?.isOn("metric-dimensions") || false;
-  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
+  // Feature flag and commercial feature checks for slice analysis
+  const isMetricSlicesFeatureEnabled =
+    growthbook?.isOn("metric-slices") || false;
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   if (!ready) return <LoadingOverlay />;
 
@@ -692,12 +692,12 @@ export default function FactMetricPage() {
               </div>
             ) : null}
 
-            {isMetricDimensionsFeatureEnabled && (
+            {isMetricSlicesFeatureEnabled && (
               <div className="appbox p-3 mb-3">
                 <h4>
                   Auto Slices
                   <PaidFeatureBadge
-                    commercialFeature="metric-dimensions"
+                    commercialFeature="metric-slices"
                     premiumText="This is an Enterprise feature"
                     variant="outline"
                     ml="2"
@@ -717,13 +717,13 @@ export default function FactMetricPage() {
                     canEdit={
                       permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
                       !factMetric.managedBy &&
-                      hasMetricDimensionsFeature
+                      hasMetricSlicesFeature
                     }
-                    onUpdate={async (metricAutoDimensions) => {
+                    onUpdate={async (metricAutoSlices) => {
                       await apiCall(`/fact-metrics/${factMetric.id}`, {
                         method: "PUT",
                         body: JSON.stringify({
-                          metricAutoDimensions,
+                          metricAutoSlices,
                         }),
                       });
                       mutateDefinitions();

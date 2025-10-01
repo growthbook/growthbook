@@ -30,7 +30,7 @@ interface MetricWithDimensions extends FactMetricInterface {
   }>;
 }
 
-export interface MetricDimensionsSelectorProps {
+export interface MetricSlicesSelectorProps {
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
@@ -40,7 +40,7 @@ export interface MetricDimensionsSelectorProps {
   setPinnedMetricSlices: (slices: string[]) => void;
 }
 
-export default function MetricDimensionsSelector({
+export default function MetricSlicesSelector({
   goalMetrics,
   secondaryMetrics,
   guardrailMetrics,
@@ -48,7 +48,7 @@ export default function MetricDimensionsSelector({
   setCustomMetricSlices,
   pinnedMetricSlices,
   setPinnedMetricSlices,
-}: MetricDimensionsSelectorProps) {
+}: MetricSlicesSelectorProps) {
   const growthbook = useGrowthBook();
   const { hasCommercialFeature } = useUser();
 

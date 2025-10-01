@@ -11,7 +11,7 @@ import { filterInvalidMetricTimeSeries } from "shared/util";
 import {
   ExperimentMetricInterface,
   getAdjustedCI,
-  generateDimensionStringFromLevels,
+  generateSliceStringFromLevels,
 } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,9 +36,9 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
-  // Dimension row properties
-  isDimensionRow?: boolean;
-  dimensionLevels?: Array<{
+  // Slice row properties
+  isSliceRow?: boolean;
+  sliceLevels?: Array<{
     dimension: string;
     levels: string[];
   }>;
@@ -72,8 +72,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   statsEngine,
   pValueAdjustmentEnabled,
   firstDateToRender,
-  isDimensionRow,
-  dimensionLevels,
+  isSliceRow,
+  sliceLevels,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -87,13 +87,17 @@ function ExperimentMetricTimeSeriesGraphWrapper({
 
   // Construct the correct metric ID for dimensional rows
   const metricId = useMemo(() => {
-    if (isDimensionRow && dimensionLevels && dimensionLevels.length > 0) {
-      const dimensionKeyParts =
-        generateDimensionStringFromLevels(dimensionLevels);
+    if (isSliceRow && sliceLevels && sliceLevels.length > 0) {
+      const dimensionKeyParts = generateSliceStringFromLevels(
+        sliceLevels.map((dl) => ({
+          column: dl.dimension,
+          levels: dl.levels,
+        })),
+      );
       return `${metric.id}?${dimensionKeyParts}`;
     }
     return metric.id;
-  }, [isDimensionRow, dimensionLevels, metric.id]);
+  }, [isSliceRow, sliceLevels, metric.id]);
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
     `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metricId}`,

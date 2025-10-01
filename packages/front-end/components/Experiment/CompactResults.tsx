@@ -24,8 +24,8 @@ import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
-  generatePinnedDimensionKey,
-  createCustomDimensionDataForMetric,
+  generatePinnedSliceKey,
+  createCustomSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -93,15 +93,15 @@ const CompactResults: FC<{
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
   disableTimeSeriesButton?: boolean;
-  pinnedMetricDimensionLevels?: string[];
-  togglePinnedMetricDimensionLevel?: (
+  pinnedMetricSlices?: string[];
+  togglePinnedMetricSlice?: (
     metricId: string,
-    dimensionLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => void;
-  customMetricDimensionLevels?: Array<{
-    dimensionLevels: Array<{
-      dimension: string;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
       levels: string[];
     }>;
   }>;
@@ -142,25 +142,20 @@ const CompactResults: FC<{
   ssrPolyfills,
   hideDetails,
   disableTimeSeriesButton,
-  pinnedMetricDimensionLevels,
-  togglePinnedMetricDimensionLevel,
-  customMetricDimensionLevels,
+  pinnedMetricSlices,
+  togglePinnedMetricSlice,
+  customMetricSlices,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactMetricDimensions,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, getFactMetricLevels, metricGroups, ready } =
+    useDefinitions();
   const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  // Feature flag and commercial feature checks for dimension analysis
-  const isMetricDimensionsFeatureEnabled =
-    growthbook?.isOn("metric-dimensions");
-  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
-  const shouldShowMetricDimensions =
-    isMetricDimensionsFeatureEnabled && hasMetricDimensionsFeature;
+  // Feature flag and commercial feature checks for slice analysis
+  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const shouldShowMetricSlices =
+    isMetricSlicesFeatureEnabled && hasMetricSlicesFeature;
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -255,16 +250,16 @@ const CompactResults: FC<{
           (s) => s.metric === metricId,
         );
       }
-      // Get dimension count for this metric (only if feature is enabled)
-      const standardDimensions =
-        ssrPolyfills?.getFactMetricDimensions?.(metricId)?.length ||
-        getFactMetricDimensions?.(metricId)?.length ||
+      // Get slice count for this metric (only if feature is enabled)
+      const standardSlices =
+        ssrPolyfills?.getFactMetricLevels?.(metricId)?.length ||
+        getFactMetricLevels?.(metricId)?.length ||
         0;
 
-      const customDimensions = customMetricDimensionLevels?.length || 0;
+      const customSlices = customMetricSlices?.length || 0;
 
-      const numDimensions = shouldShowMetricDimensions
-        ? standardDimensions + customDimensions
+      const numSlices = shouldShowMetricSlices
+        ? standardSlices + customSlices
         : 0;
 
       const parentRow: ExperimentTableRow = {
@@ -284,67 +279,63 @@ const CompactResults: FC<{
         }),
         metricSnapshotSettings,
         resultGroup,
-        numDimensions,
+        numSlices,
       };
 
       const rows: ExperimentTableRow[] = [parentRow];
 
-      // Add dimension rows if this metric has dimensions and feature is enabled
-      if (numDimensions > 0 && shouldShowMetricDimensions) {
-        const standardDimensionData =
-          ssrPolyfills?.getFactMetricDimensions?.(metricId) ||
-          getFactMetricDimensions?.(metricId) ||
+      // Add slice rows if this metric has slices and feature is enabled
+      if (numSlices > 0 && shouldShowMetricSlices) {
+        const standardSliceData =
+          ssrPolyfills?.getFactMetricLevels?.(metricId) ||
+          getFactMetricLevels?.(metricId) ||
           [];
 
-        // Convert custom dimension levels to dimension data format
-        const customDimensionData = createCustomDimensionDataForMetric({
+        // Convert custom slice levels to slice data format
+        const customSliceData = createCustomSliceDataForMetric({
           metricId,
           metricName: newMetric?.name || "",
-          customMetricDimensionLevels: customMetricDimensionLevels || [],
+          customMetricSlices: customMetricSlices || [],
         });
 
-        const dimensionData = [
-          ...standardDimensionData,
-          ...customDimensionData,
-        ];
+        const sliceData = [...standardSliceData, ...customSliceData];
 
-        dimensionData.forEach((dimension) => {
+        sliceData.forEach((slice) => {
           const expandedKey = `${metricId}:${resultGroup}`;
           const isExpanded = expandedMetrics[expandedKey] || false;
 
-          // Generate pinned key from all dimension levels
-          const pinnedDimensionLevels = dimension.dimensionLevels.map((dl) => ({
-            dimension: dl.dimension,
+          // Generate pinned key from all slice levels
+          const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
+            column: dl.column,
             levels: dl.levels,
           }));
-          const pinnedKey = generatePinnedDimensionKey(
+          const pinnedKey = generatePinnedSliceKey(
             metricId,
-            pinnedDimensionLevels,
+            pinnedSliceLevels,
             resultGroup,
           );
-          const isPinned =
-            pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
+          const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
 
           // Show level if metric is expanded OR if it's pinned
           const shouldShowLevel = isExpanded || isPinned;
 
-          // Generate label from dimension levels
-          const label = dimension.dimensionLevels
+          // Generate label from slice levels
+          const label = slice.sliceLevels
             .map((dl) => dl.levels[0] || "other")
             .join(" + ");
 
-          const dimensionRow: ExperimentTableRow = {
+          const sliceRow: ExperimentTableRow = {
             label,
             metric: {
               ...newMetric,
-              name: dimension.name, // Use the full dimension metric name
+              name: slice.name, // Use the full slice metric name
             },
             metricOverrideFields: overrideFields,
-            rowClass: `${newMetric?.inverse ? "inverse" : ""} dimension-row`,
+            rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
             variations: results.variations.map((v) => {
-              // Use the dimension metric's data instead of the parent metric's data
+              // Use the slice metric's data instead of the parent metric's data
               return (
-                v.metrics?.[dimension.id] || {
+                v.metrics?.[slice.id] || {
                   users: 0,
                   value: 0,
                   cr: 0,
@@ -354,24 +345,27 @@ const CompactResults: FC<{
             }),
             metricSnapshotSettings,
             resultGroup,
-            numDimensions: 0, // Dimension rows don't have their own dimensions
-            isDimensionRow: true,
+            numSlices: 0, // Slice rows don't have their own slices
+            isSliceRow: true,
             parentRowId: metricId,
-            dimensionLevels: dimension.dimensionLevels,
-            allDimensionLevels: dimension.allDimensionLevels,
+            sliceLevels: slice.sliceLevels.map((dl) => ({
+              column: dl.column,
+              levels: dl.levels,
+            })),
+            allSliceLevels: slice.allSliceLevels,
             isHiddenByFilter: !shouldShowLevel, // Add this property to indicate if row should be hidden
             isPinned: isPinned,
           };
 
-          // Always add dimension rows to the array, even if hidden by filter
-          // Skip "other" dimension rows with no data
+          // Always add slice rows to the array, even if hidden by filter
+          // Skip "other" slice rows with no data
           if (
-            dimension.dimensionLevels.every((dl) => dl.levels.length === 0) &&
-            dimensionRow.variations.every((v) => v.value === 0)
+            slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
+            sliceRow.variations.every((v) => v.value === 0)
           ) {
             return;
           }
-          rows.push(dimensionRow);
+          rows.push(sliceRow);
         });
       }
 
@@ -445,11 +439,11 @@ const CompactResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
-    pinnedMetricDimensionLevels,
+    pinnedMetricSlices,
     expandedMetrics,
-    getFactMetricDimensions,
-    shouldShowMetricDimensions,
-    customMetricDimensionLevels,
+    getFactMetricLevels,
+    shouldShowMetricSlices,
+    customMetricSlices,
   ]);
 
   const isBandit = experimentType === "multi-armed-bandit";
@@ -533,13 +527,13 @@ const CompactResults: FC<{
             statsEngine,
             hideDetails,
             experimentType,
-            pinnedMetricDimensionLevels,
-            togglePinnedMetricDimensionLevel,
+            pinnedMetricSlices,
+            togglePinnedMetricSlice,
             expandedMetrics,
             toggleExpandedMetric,
-            getFactMetricDimensions,
+            getFactMetricLevels,
             ssrPolyfills,
-            shouldShowMetricDimensions,
+            shouldShowMetricSlices,
           })}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
@@ -590,13 +584,13 @@ const CompactResults: FC<{
               statsEngine,
               hideDetails,
               experimentType: undefined,
-              pinnedMetricDimensionLevels,
-              togglePinnedMetricDimensionLevel,
+              pinnedMetricSlices,
+              togglePinnedMetricSlice,
               expandedMetrics,
               toggleExpandedMetric,
-              getFactMetricDimensions,
+              getFactMetricLevels,
               ssrPolyfills,
-              shouldShowMetricDimensions,
+              shouldShowMetricSlices,
             })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -641,13 +635,13 @@ const CompactResults: FC<{
               statsEngine,
               hideDetails,
               experimentType: undefined,
-              pinnedMetricDimensionLevels,
-              togglePinnedMetricDimensionLevel,
+              pinnedMetricSlices,
+              togglePinnedMetricSlice,
               expandedMetrics,
               toggleExpandedMetric,
-              getFactMetricDimensions,
+              getFactMetricLevels,
               ssrPolyfills,
-              shouldShowMetricDimensions,
+              shouldShowMetricSlices,
             })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -674,23 +668,23 @@ export function getRenderLabelColumn({
   statsEngine,
   hideDetails,
   experimentType: _experimentType,
-  pinnedMetricDimensionLevels,
-  togglePinnedMetricDimensionLevel,
+  pinnedMetricSlices,
+  togglePinnedMetricSlice,
   expandedMetrics,
   toggleExpandedMetric,
-  getFactMetricDimensions,
+  getFactMetricLevels,
   ssrPolyfills,
-  shouldShowMetricDimensions,
+  shouldShowMetricSlices,
   className = "pl-3",
 }: {
   regressionAdjustmentEnabled?: boolean;
   statsEngine?: StatsEngine;
   hideDetails?: boolean;
   experimentType?: ExperimentType;
-  pinnedMetricDimensionLevels?: string[];
-  togglePinnedMetricDimensionLevel?: (
+  pinnedMetricSlices?: string[];
+  togglePinnedMetricSlice?: (
     metricId: string,
-    dimensionLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   expandedMetrics?: Record<string, boolean>;
@@ -698,9 +692,9 @@ export function getRenderLabelColumn({
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
-  getFactMetricDimensions?: (metricId: string) => unknown[];
+  getFactMetricLevels?: (metricId: string) => unknown[];
   ssrPolyfills?: SSRPolyfills;
-  shouldShowMetricDimensions?: boolean;
+  shouldShowMetricSlices?: boolean;
   className?: string;
 }) {
   return function renderLabelColumn({
@@ -719,27 +713,26 @@ export function getRenderLabelColumn({
     const expandedKey = `${metric.id}:${location}`;
     const isExpanded = !!expandedMetrics?.[expandedKey];
 
-    const isDimensionRow = !!row?.isDimensionRow;
+    const isSliceRow = !!row?.isSliceRow;
 
-    // Dimension row
-    if (isDimensionRow) {
-      // Generate pinned key from all dimension levels
-      const pinnedKey = row?.dimensionLevels
-        ? generatePinnedDimensionKey(
+    // Slice row
+    if (isSliceRow) {
+      // Generate pinned key from all slice levels
+      const pinnedKey = row?.sliceLevels
+        ? generatePinnedSliceKey(
             metric.id,
-            row.dimensionLevels.map((dl) => ({
-              dimension: dl.dimension,
+            row.sliceLevels.map((dl) => ({
+              column: dl.column,
               levels: dl.levels,
             })),
             location || "goal",
           )
         : "";
-      const isPinned =
-        pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
+      const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
 
       return (
         <div className={className} style={{ position: "relative" }}>
-          {isExpanded && togglePinnedMetricDimensionLevel ? (
+          {isExpanded && togglePinnedMetricSlice ? (
             <Tooltip
               body={
                 isPinned
@@ -759,14 +752,11 @@ export function getRenderLabelColumn({
                 size={14}
                 className={isPinned ? "link-purple" : "text-muted opacity50"}
                 onClick={() => {
-                  if (
-                    togglePinnedMetricDimensionLevel &&
-                    row?.dimensionLevels
-                  ) {
-                    togglePinnedMetricDimensionLevel(
+                  if (togglePinnedMetricSlice && row?.sliceLevels) {
+                    togglePinnedMetricSlice(
                       metric.id,
-                      row.dimensionLevels.map((dl) => ({
-                        dimension: dl.dimension,
+                      row.sliceLevels.map((dl) => ({
+                        dimension: dl.column,
                         levels: dl.levels,
                       })),
                       location || "goal",
@@ -789,20 +779,20 @@ export function getRenderLabelColumn({
             {label}
           </div>
           <div className="ml-2 text-muted small">
-            {row?.dimensionLevels?.map((dl) => dl.dimension).join(" + ")}
+            {row?.sliceLevels?.map((dl) => dl.column).join(" + ")}
           </div>
         </div>
       );
     }
 
-    const hasDimensions =
-      shouldShowMetricDimensions &&
+    const hasSlices =
+      shouldShowMetricSlices &&
       !!(
-        ssrPolyfills?.getFactMetricDimensions?.(metric.id)?.length ||
-        getFactMetricDimensions?.(metric.id)?.length
+        ssrPolyfills?.getFactMetricLevels?.(metric.id)?.length ||
+        getFactMetricLevels?.(metric.id)?.length
       );
 
-    // Render non-dimension metric
+    // Render non-slice metric
     return (
       <div className={className} style={{ position: "relative" }}>
         <span
@@ -818,7 +808,7 @@ export function getRenderLabelColumn({
               : undefined
           }
         >
-          {hasDimensions ? (
+          {hasSlices ? (
             <a
               className="link-purple"
               role="button"

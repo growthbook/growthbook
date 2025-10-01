@@ -49,13 +49,13 @@ export type ExperimentSnapshotReportArgs = {
   dimension?: string;
   dateStarted?: Date;
   dateEnded?: Date | null;
-  customMetricDimensionLevels?: Array<{
-    dimensionLevels: Array<{
-      dimension: string;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
       levels: string[];
     }>;
   }>;
-  pinnedMetricDimensionLevels?: string[];
+  pinnedMetricSlices?: string[];
 };
 
 export interface ExperimentReportMetadata {
@@ -179,19 +179,19 @@ export type ExperimentReportSSRData = {
   metrics: Record<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
   factTables: Record<string, FactTableInterface>;
-  factMetricDimensions: Record<
+  factMetricSlices: Record<
     string,
     Array<{
       id: string;
       name: string;
       description: string;
       parentMetricId: string;
-      dimensionLevels: Array<{
+      sliceLevels: Array<{
         column: string;
         columnName: string;
         level: string | null;
       }>;
-      allDimensionLevels: string[];
+      allSliceLevels: string[];
     }>
   >;
   settings: OrganizationSettings;

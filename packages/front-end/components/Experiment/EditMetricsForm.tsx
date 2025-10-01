@@ -11,7 +11,7 @@ import {
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ExperimentMetricInterface } from "shared/experiments";
-import { CustomMetricDimensionLevel } from "back-end/src/validators/experiments";
+import { CustomMetricSlice } from "back-end/src/validators/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,7 +26,7 @@ import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
-import MetricDimensionsSelector from "./MetricDimensionsSelector";
+import MetricSlicesSelector from "./MetricSlicesSelector";
 
 export interface EditMetricsFormInterface {
   goalMetrics: string[];
@@ -34,8 +34,8 @@ export interface EditMetricsFormInterface {
   guardrailMetrics: string[];
   activationMetric: string;
   metricOverrides: MetricOverride[];
-  customMetricDimensionLevels?: CustomMetricDimensionLevel[];
-  pinnedMetricDimensionLevels?: string[];
+  customMetricSlices?: CustomMetricSlice[];
+  pinnedMetricSlices?: string[];
 }
 
 export function getDefaultMetricOverridesFormValue(
@@ -257,28 +257,26 @@ const EditMetricsForm: FC<{
             />
           </div>
 
-          <MetricDimensionsSelector
+          <MetricSlicesSelector
             goalMetrics={form.watch("goalMetrics")}
             secondaryMetrics={form.watch("secondaryMetrics")}
             guardrailMetrics={form.watch("guardrailMetrics")}
-            customMetricDimensionLevels={
-              (form.watch(
-                "customMetricDimensionLevels",
-              ) as CustomMetricDimensionLevel[]) || []
+            customMetricSlices={
+              (form.watch("customMetricSlices") as CustomMetricSlice[]) || []
             }
-            setCustomMetricDimensionLevels={(levels) =>
+            setCustomMetricSlices={(slices) =>
               form.setValue(
-                "customMetricDimensionLevels" as keyof EditMetricsFormInterface,
-                levels,
+                "customMetricSlices" as keyof EditMetricsFormInterface,
+                slices,
               )
             }
-            pinnedMetricDimensionLevels={
-              (form.watch("pinnedMetricDimensionLevels") as string[]) || []
+            pinnedMetricSlices={
+              (form.watch("pinnedMetricSlices") as string[]) || []
             }
-            setPinnedMetricDimensionLevels={(levels) =>
+            setPinnedMetricSlices={(slices) =>
               form.setValue(
-                "pinnedMetricDimensionLevels" as keyof EditMetricsFormInterface,
-                levels,
+                "pinnedMetricSlices" as keyof EditMetricsFormInterface,
+                slices,
               )
             }
           />

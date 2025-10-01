@@ -45,8 +45,8 @@ const factTableSchema = new mongoose.Schema({
       alwaysInlineFilter: Boolean,
       topValues: [String],
       topValuesDate: Date,
-      isDimension: Boolean,
-      dimensionLevels: [String],
+      isAutoSliceColumn: Boolean,
+      autoSlices: [String],
     },
   ],
   columnsError: String,
@@ -294,9 +294,9 @@ export async function updateColumn(
     dateUpdated: new Date(),
   };
 
-  // If dimension settings changed, reset dimensionLevels to empty array
-  if (updatedColumn.isDimension && !updatedColumn.dimensionLevels) {
-    updatedColumn.dimensionLevels = [];
+  // If auto slice settings changed, reset autoSlices to empty array
+  if (updatedColumn.isAutoSliceColumn && !updatedColumn.autoSlices) {
+    updatedColumn.autoSlices = [];
   }
 
   factTable.columns[columnIndex] = updatedColumn;
@@ -474,7 +474,7 @@ export function toFactTableApiInterface(
     columns: factTable.columns.map((col) => ({
       ...col,
       alwaysInlineFilter: col.alwaysInlineFilter ?? false,
-      isDimension: col.isDimension ?? false,
+      isAutoSliceColumn: col.isAutoSliceColumn ?? false,
       dateCreated: col.dateCreated.toISOString(),
       dateUpdated: col.dateUpdated.toISOString(),
       topValuesDate: col.topValuesDate?.toISOString(),

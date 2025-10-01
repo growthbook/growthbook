@@ -732,7 +732,7 @@ export default function ResultsTable({
                       {/* Render the main results tbody */}
                       <tbody
                         className={clsx("results-group-row", {
-                          "dimension-row": row.isDimensionRow,
+                          "slice-row": row.isSliceRow,
                         })}
                         key={i}
                       >
@@ -790,14 +790,13 @@ export default function ResultsTable({
                                 className: clsx(
                                   "results-variation-row align-items-center error-row",
                                   {
-                                    "last-before-dimension-header":
-                                      !row.isDimensionRow &&
+                                    "last-before-slice-header":
+                                      !row.isSliceRow &&
                                       i < rows.length - 1 &&
-                                      rows[i + 1].isDimensionRow &&
-                                      rows[i + 1].dimensionLevels?.[0]
-                                        ?.dimension !==
-                                        (rows[i]?.dimensionLevels?.[0]
-                                          ?.dimension || null),
+                                      rows[i + 1].isSliceRow &&
+                                      rows[i + 1].sliceLevels?.[0]?.column !==
+                                        (rows[i]?.sliceLevels?.[0]?.column ||
+                                          null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -850,14 +849,13 @@ export default function ResultsTable({
                                 className: clsx(
                                   "results-variation-row align-items-center error-row",
                                   {
-                                    "last-before-dimension-header":
-                                      !row.isDimensionRow &&
+                                    "last-before-slice-header":
+                                      !row.isSliceRow &&
                                       i < rows.length - 1 &&
-                                      rows[i + 1].isDimensionRow &&
-                                      rows[i + 1].dimensionLevels?.[0]
-                                        ?.dimension !==
-                                        (rows[i]?.dimensionLevels?.[0]
-                                          ?.dimension || null),
+                                      rows[i + 1].isSliceRow &&
+                                      rows[i + 1].sliceLevels?.[0]?.column !==
+                                        (rows[i]?.sliceLevels?.[0]?.column ||
+                                          null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -925,15 +923,13 @@ export default function ResultsTable({
                               className={clsx(
                                 "results-variation-row align-items-center",
                                 {
-                                  "last-before-dimension-header":
-                                    !row.isDimensionRow &&
+                                  "last-before-slice-header":
+                                    !row.isSliceRow &&
                                     i < rows.length - 1 &&
-                                    rows[i + 1].isDimensionRow &&
-                                    JSON.stringify(
-                                      rows[i + 1].dimensionLevels,
-                                    ) !==
+                                    rows[i + 1].isSliceRow &&
+                                    JSON.stringify(rows[i + 1].sliceLevels) !==
                                       JSON.stringify(
-                                        rows[i]?.dimensionLevels || [],
+                                        rows[i]?.sliceLevels || [],
                                       ) &&
                                     j === orderedVariations.length - 1,
                                 },
@@ -1193,7 +1189,7 @@ export default function ResultsTable({
                         {visibleTimeSeriesRowIds.includes(rowId) ? (
                           <tr
                             style={
-                              !row.isDimensionRow
+                              !row.isSliceRow
                                 ? { backgroundColor: "var(--slate-a2)" }
                                 : undefined
                             }
@@ -1220,8 +1216,11 @@ export default function ResultsTable({
                                       rows.length > 1
                                     }
                                     firstDateToRender={getValidDate(startDate)}
-                                    isDimensionRow={row.isDimensionRow}
-                                    dimensionLevels={row.dimensionLevels}
+                                    isSliceRow={row.isSliceRow}
+                                    sliceLevels={row.sliceLevels?.map((dl) => ({
+                                      dimension: dl.column,
+                                      levels: dl.levels,
+                                    }))}
                                   />
                                 </div>
                               </div>

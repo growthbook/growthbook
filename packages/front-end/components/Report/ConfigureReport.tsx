@@ -19,7 +19,7 @@ import Checkbox from "@/ui/Checkbox";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
-import MetricDimensionsSelector from "@/components/Experiment/MetricDimensionsSelector";
+import MetricSlicesSelector from "@/components/Experiment/MetricSlicesSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
@@ -446,7 +446,7 @@ export default function ConfigureReport({
             />
 
             <div className="mt-4">
-              <MetricDimensionsSelector
+              <MetricSlicesSelector
                 goalMetrics={
                   form.watch("experimentAnalysisSettings.goalMetrics") ?? []
                 }
@@ -458,26 +458,24 @@ export default function ConfigureReport({
                   form.watch("experimentAnalysisSettings.guardrailMetrics") ??
                   []
                 }
-                customMetricDimensionLevels={
-                  form.watch(
-                    "experimentAnalysisSettings.customMetricDimensionLevels",
-                  ) ?? []
+                customMetricSlices={
+                  form.watch("experimentAnalysisSettings.customMetricSlices") ??
+                  []
                 }
-                setCustomMetricDimensionLevels={(levels) =>
+                setCustomMetricSlices={(slices) =>
                   form.setValue(
-                    "experimentAnalysisSettings.customMetricDimensionLevels",
-                    levels,
+                    "experimentAnalysisSettings.customMetricSlices",
+                    slices,
                   )
                 }
-                pinnedMetricDimensionLevels={
-                  form.watch(
-                    "experimentAnalysisSettings.pinnedMetricDimensionLevels",
-                  ) ?? []
+                pinnedMetricSlices={
+                  form.watch("experimentAnalysisSettings.pinnedMetricSlices") ??
+                  []
                 }
-                setPinnedMetricDimensionLevels={(levels) =>
+                setPinnedMetricSlices={(slices) =>
                   form.setValue(
-                    "experimentAnalysisSettings.pinnedMetricDimensionLevels",
-                    levels,
+                    "experimentAnalysisSettings.pinnedMetricSlices",
+                    slices,
                   )
                 }
               />

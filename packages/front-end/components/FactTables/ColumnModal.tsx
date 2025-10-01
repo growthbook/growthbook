@@ -11,7 +11,7 @@ import React, { useState } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
 import { PiPlus, PiX } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
-import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
+import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { differenceInDays } from "date-fns";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -41,17 +41,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  // Feature flag and commercial feature checks for dimension analysis
-  const isMetricDimensionsFeatureEnabled =
-    growthbook?.isOn("metric-dimensions");
-  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
+  // Feature flag and commercial feature checks for slice analysis
+  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length,
   );
   const [refreshingTopValues, setRefreshingTopValues] = useState(false);
 
-  const [dimensionLevelsWarning, setDimensionLevelsWarning] = useState(false);
+  const [autoSlicesWarning, setAutoSlicesWarning] = useState(false);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -84,8 +83,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       datatype: existing?.datatype || "",
       jsonFields: existing?.jsonFields || {},
       alwaysInlineFilter: existing?.alwaysInlineFilter || false,
-      isDimension: existing?.isDimension || false,
-      dimensionLevels: existing?.dimensionLevels || [],
+      isAutoSliceColumn: existing?.isAutoSliceColumn || false,
+      autoSlices: existing?.autoSlices || [],
     },
   });
 
@@ -95,16 +94,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     (existing?.topValuesDate &&
       differenceInDays(new Date(), new Date(existing.topValuesDate)) > 7);
 
-  // Auto-refresh top values when isDimension is checked (set to true) and topValues are stale
+  // Auto-refresh top values when isAutoSliceColumn is checked (set to true) and topValues are stale
   React.useEffect(
     () => {
-      const isDimension = form.watch("isDimension");
-      const wasDimension = existing?.isDimension;
+      const isAutoSliceColumn = form.watch("isAutoSliceColumn");
+      const wasAutoSliceColumn = existing?.isAutoSliceColumn;
 
-      // Only trigger if isDimension is being set to true (not already true) and topValues are stale
+      // Only trigger if isAutoSliceColumn is being set to true (not already true) and topValues are stale
       if (
-        isDimension &&
-        !wasDimension &&
+        isAutoSliceColumn &&
+        !wasAutoSliceColumn &&
         !refreshingTopValues &&
         isTopValuesStale
       ) {
@@ -112,14 +111,14 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [form.watch("isDimension")],
+    [form.watch("isAutoSliceColumn")],
   );
 
-  // Calculate dimension level options combining topValues with current dimensionLevels
+  // Calculate auto slice options combining topValues with current autoSlices
   const topValues = existing?.topValues || [];
-  const currentLevels = form.watch("dimensionLevels") || [];
+  const currentLevels = form.watch("autoSlices") || [];
   const allValues = new Set([...topValues, ...currentLevels]);
-  const dimensionLevelOptions = Array.from(allValues).map((value) => ({
+  const autoSliceOptions = Array.from(allValues).map((value) => ({
     label: value,
     value: value,
   }));
@@ -159,8 +158,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     datatype: form.watch("datatype"),
     jsonFields: form.watch("jsonFields"),
     alwaysInlineFilter: form.watch("alwaysInlineFilter"),
-    isDimension: form.watch("isDimension"),
-    dimensionLevels: form.watch("dimensionLevels"),
+    isAutoSliceColumn: form.watch("isAutoSliceColumn"),
+    autoSlices: form.watch("autoSlices"),
     deleted: false,
   };
 
@@ -181,12 +180,12 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             numberFormat: value.numberFormat,
             datatype: value.datatype,
             alwaysInlineFilter: value.alwaysInlineFilter,
-            isDimension: value.isDimension,
-            dimensionLevels: value.dimensionLevels,
+            isAutoSliceColumn: value.isAutoSliceColumn,
+            autoSlices: value.autoSlices,
           };
 
-          if (existing.dimensionLevels !== value.dimensionLevels) {
-            track("dimension-levels-changed-for-column");
+          if (existing.autoSlices !== value.autoSlices) {
+            track("auto-slices-changed-for-column");
           }
 
           // If the column can no longer be inline filtered
@@ -442,21 +441,21 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         placeholder={form.watch("column")}
       />
 
-      {isMetricDimensionsFeatureEnabled &&
+      {isMetricSlicesFeatureEnabled &&
         form.watch("datatype") === "string" &&
         !factTable.userIdTypes.includes(form.watch("column")) &&
         form.watch("column") !== "timestamp" && (
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <div className="d-flex align-items-center mb-3">
               <Checkbox
-                value={form.watch("isDimension") ?? false}
-                setValue={(v) => form.setValue("isDimension", v === true)}
+                value={form.watch("isAutoSliceColumn") ?? false}
+                setValue={(v) => form.setValue("isAutoSliceColumn", v === true)}
                 label={
                   <>
                     Enable Auto Slices
-                    {!hasMetricDimensionsFeature ? (
+                    {!hasMetricSlicesFeature ? (
                       <PaidFeatureBadge
-                        commercialFeature="metric-dimensions"
+                        commercialFeature="metric-slices"
                         premiumText="This is an Enterprise feature"
                         variant="outline"
                         ml="2"
@@ -465,11 +464,11 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                   </>
                 }
                 description="Column may be used to automatically slice metrics for analysis"
-                disabled={!hasMetricDimensionsFeature}
+                disabled={!hasMetricSlicesFeature}
               />
             </div>
 
-            {form.watch("isDimension") && hasMetricDimensionsFeature && (
+            {form.watch("isAutoSliceColumn") && hasMetricSlicesFeature && (
               <div className="mb-2">
                 <div className="d-flex justify-content-between mb-1">
                   <label className="form-label mb-0">Slices</label>
@@ -482,26 +481,26 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     Refresh
                   </RadixButton>
                 </div>
-                {dimensionLevelsWarning ||
-                (form.watch("dimensionLevels") || [])?.length >
-                  MAX_METRIC_DIMENSION_LEVELS ? (
+                {autoSlicesWarning ||
+                (form.watch("autoSlices") || [])?.length >
+                  MAX_METRIC_SLICE_LEVELS ? (
                   <HelperText status="warning" mb="1">
-                    Limit {MAX_METRIC_DIMENSION_LEVELS + ""} slices
+                    Limit {MAX_METRIC_SLICE_LEVELS + ""} slices
                   </HelperText>
                 ) : null}
                 <MultiSelectField
-                  value={form.watch("dimensionLevels") || []}
+                  value={form.watch("autoSlices") || []}
                   onChange={(values) => {
-                    if (values.length > MAX_METRIC_DIMENSION_LEVELS) {
-                      values = values.slice(0, MAX_METRIC_DIMENSION_LEVELS);
-                      setDimensionLevelsWarning(true);
+                    if (values.length > MAX_METRIC_SLICE_LEVELS) {
+                      values = values.slice(0, MAX_METRIC_SLICE_LEVELS);
+                      setAutoSlicesWarning(true);
                       setTimeout(() => {
-                        setDimensionLevelsWarning(false);
+                        setAutoSlicesWarning(false);
                       }, 3000);
                     }
-                    form.setValue("dimensionLevels", values);
+                    form.setValue("autoSlices", values);
                   }}
-                  options={dimensionLevelOptions}
+                  options={autoSliceOptions}
                   creatable={true}
                 />
               </div>

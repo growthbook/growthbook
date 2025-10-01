@@ -240,8 +240,8 @@ properties:
       - api
   archived:
     type: boolean
-  metricAutoDimensions:
+  metricAutoSlices:
     type: array
     items:
       type: string
-    description: Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature.
+    description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.

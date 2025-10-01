@@ -104,8 +104,8 @@ export async function postReportFromSnapshot(
       "dimension",
       "dateStarted",
       "dateEnded",
-      "customMetricDimensionLevels",
-      "pinnedMetricDimensionLevels",
+      "customMetricSlices",
+      "pinnedMetricSlices",
     ]),
   } as ExperimentReportAnalysisSettings;
   if (!_experimentAnalysisSettings.dateStarted) {
@@ -479,8 +479,8 @@ export async function putReport(
           "dimension",
           "dateStarted",
           "dateEnded",
-          "customMetricDimensionLevels",
-          "pinnedMetricDimensionLevels",
+          "customMetricSlices",
+          "pinnedMetricSlices",
         ]),
       };
       updates.experimentAnalysisSettings.dateStarted = getValidDate(

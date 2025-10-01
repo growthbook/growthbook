@@ -202,7 +202,7 @@ type ARPData = {
   metricRow: number;
   metric: ExperimentMetricInterface;
   metricSnapshotSettings?: MetricSnapshotSettings;
-  dimensionLevels?: Array<{
+  sliceLevels?: Array<{
     dimension: string;
     levels: string[];
   }>;
@@ -224,7 +224,7 @@ function makeData({
   statsEngine = "frequentist",
   pValueCorrection = null,
   isGuardrail = false,
-  dimensionLevels,
+  sliceLevels,
   metricSnapshotSettings,
 }: {
   metric: ExperimentMetricInterface;
@@ -234,7 +234,7 @@ function makeData({
   statsEngine?: StatsEngine;
   pValueCorrection?: PValueCorrection | null;
   isGuardrail?: boolean;
-  dimensionLevels?: Array<{
+  sliceLevels?: Array<{
     dimension: string;
     levels: string[];
   }>;
@@ -244,7 +244,7 @@ function makeData({
     metricRow: 0,
     metric,
     metricSnapshotSettings,
-    dimensionLevels,
+    sliceLevels,
     variation: variationB,
     stats,
     baseline,
@@ -504,7 +504,7 @@ export default function AnalysisResultSummaryStories() {
                   baseline: baselineMetric,
                   rowResults: rowResultsWin,
                   statsEngine: "frequentist",
-                  dimensionLevels: [
+                  sliceLevels: [
                     {
                       dimension: "country",
                       levels: ["United States"],

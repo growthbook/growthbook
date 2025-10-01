@@ -18,7 +18,7 @@ import {
   setAdjustedPValuesOnResults,
   chanceToWinFlatPrior,
   getPredefinedDimensionSlicesByExperiment,
-  countDimensionLevels,
+  countSliceLevels,
 } from "../src/experiments";
 
 describe("Experiments", () => {
@@ -1042,8 +1042,8 @@ describe("getPredefinedDimensionSlicesByExperiment", () => {
       { specifiedSlices: ["d", "e", "f"] },
     ];
 
-    expect(countDimensionLevels(specifiedSlices, 2)).toEqual(32);
-    expect(countDimensionLevels(specifiedSlices, 100)).toEqual(1600);
-    expect(countDimensionLevels(specifiedSlices, 1000)).toEqual(16000);
+    expect(countSliceLevels(specifiedSlices, 2)).toEqual(32);
+    expect(countSliceLevels(specifiedSlices, 100)).toEqual(1600);
+    expect(countSliceLevels(specifiedSlices, 1000)).toEqual(16000);
   });
 });

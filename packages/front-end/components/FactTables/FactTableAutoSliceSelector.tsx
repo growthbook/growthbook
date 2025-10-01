@@ -14,7 +14,7 @@ interface FactTableAutoSliceSelectorProps {
   factMetric: FactMetricInterface;
   factTableId: string;
   canEdit: boolean;
-  onUpdate: (metricAutoDimensions: string[]) => Promise<void>;
+  onUpdate: (metricAutoSlices: string[]) => Promise<void>;
   compactButtons?: boolean;
 }
 
@@ -30,58 +30,56 @@ export default function FactTableAutoSliceSelector({
 
   // State for editing
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedDimensions, setSelectedDimensions] = useState<string[]>(
-    factMetric.metricAutoDimensions || [],
+  const [selectedSlices, setSelectedSlices] = useState<string[]>(
+    factMetric.metricAutoSlices || [],
   );
 
   const factTable = factTables.find((ft) => ft.id === factTableId);
-  const availableDimensions =
+  const availableSlices =
     factTable?.columns
-      ?.filter((col) => col.isDimension && !col.deleted)
+      ?.filter((col) => col.isAutoSliceColumn && !col.deleted)
       ?.map((col) => ({
         label: col.name || col.column,
         value: col.column,
       })) || [];
 
-  const metricAutoDimensionsWithLevels =
-    factMetric.metricAutoDimensions?.filter((dimension) => {
-      const column = factTable?.columns?.find(
-        (col) => col.column === dimension,
-      );
-      return !!column?.dimensionLevels?.length;
+  const metricAutoSlicesWithLevels =
+    factMetric.metricAutoSlices?.filter((slice) => {
+      const column = factTable?.columns?.find((col) => col.column === slice);
+      return !!column?.autoSlices?.length;
     }) || [];
 
-  const hasPermission = hasCommercialFeature("metric-dimensions");
+  const hasPermission = hasCommercialFeature("metric-slices");
 
   const startEditing = () => {
-    setSelectedDimensions(factMetric.metricAutoDimensions || []);
+    setSelectedSlices(factMetric.metricAutoSlices || []);
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
-    setSelectedDimensions(factMetric.metricAutoDimensions || []);
+    setSelectedSlices(factMetric.metricAutoSlices || []);
     setIsEditing(false);
   };
 
   const saveEditing = async () => {
-    const previousDimensions = factMetric.metricAutoDimensions || [];
+    const previousSlices = factMetric.metricAutoSlices || [];
 
     // Track the change with specific slices and length
     track("metric-auto-slices-updated", {
       metricId: factMetric.id,
-      previousSlices: previousDimensions,
-      newSlices: selectedDimensions,
-      previousCount: previousDimensions.length,
-      newCount: selectedDimensions.length,
-      addedSlices: selectedDimensions.filter(
-        (slice) => !previousDimensions.includes(slice),
+      previousSlices: previousSlices,
+      newSlices: selectedSlices,
+      previousCount: previousSlices.length,
+      newCount: selectedSlices.length,
+      addedSlices: selectedSlices.filter(
+        (slice) => !previousSlices.includes(slice),
       ),
-      removedSlices: previousDimensions.filter(
-        (slice) => !selectedDimensions.includes(slice),
+      removedSlices: previousSlices.filter(
+        (slice) => !selectedSlices.includes(slice),
       ),
     });
 
-    await onUpdate(selectedDimensions);
+    await onUpdate(selectedSlices);
     setIsEditing(false);
   };
 
@@ -89,8 +87,8 @@ export default function FactTableAutoSliceSelector({
     return null;
   }
 
-  // Show message when no dimensions are available, regardless of edit state
-  if (availableDimensions.length === 0) {
+  // Show message when no slices are available, regardless of edit state
+  if (availableSlices.length === 0) {
     return (
       <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
         <div className="flex-grow-1">
@@ -117,9 +115,9 @@ export default function FactTableAutoSliceSelector({
       <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
         <div className="flex-grow-1">
           <MultiSelectField
-            value={selectedDimensions}
-            onChange={setSelectedDimensions}
-            options={availableDimensions}
+            value={selectedSlices}
+            onChange={setSelectedSlices}
+            options={availableSlices}
             placeholder="Auto slice columns..."
             className="mb-0"
             containerStyle={{ width: 275 }}
@@ -146,20 +144,20 @@ export default function FactTableAutoSliceSelector({
   return (
     <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
       <div className="flex-grow-1">
-        {metricAutoDimensionsWithLevels.length ? (
+        {metricAutoSlicesWithLevels.length ? (
           <div className="d-flex flex-wrap" style={{ gap: "0.25rem" }}>
-            {metricAutoDimensionsWithLevels.map((dimension) => {
+            {metricAutoSlicesWithLevels.map((slice) => {
               const column = factTable?.columns?.find(
-                (col) => col.column === dimension,
+                (col) => col.column === slice,
               );
-              const levels = column?.dimensionLevels;
+              const levels = column?.autoSlices;
               return (
-                <Tooltip key={dimension} body={levels?.join(", ") || ""}>
+                <Tooltip key={slice} body={levels?.join(", ") || ""}>
                   <Badge
                     label={
                       <>
                         <PiStackBold />
-                        {column?.name || dimension}
+                        {column?.name || slice}
                       </>
                     }
                     color="violet"

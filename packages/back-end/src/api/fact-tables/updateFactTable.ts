@@ -70,15 +70,15 @@ export const updateFactTable = createApiRequestHandler(
 
   // Handle column property updates only (no creation/deletion of columns)
   if (data.columns) {
-    // Check if any column has dimension properties
-    const hasDimensionProperties = data.columns.some(
-      (col) => col.isDimension || col.dimensionLevels,
+    // Check if any column has auto slice properties
+    const hasAutoSliceProperties = data.columns.some(
+      (col) => col.isAutoSliceColumn || col.autoSlices,
     );
 
-    if (hasDimensionProperties) {
+    if (hasAutoSliceProperties) {
       // Check enterprise feature access
-      if (!req.context.hasPremiumFeature("metric-dimensions")) {
-        throw new Error("Metric dimensions require an enterprise license");
+      if (!req.context.hasPremiumFeature("metric-slices")) {
+        throw new Error("Metric slices require an enterprise license");
       }
     }
 

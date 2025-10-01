@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import {
   ExperimentMetricInterface,
   isFactMetric,
-  generateDimensionString,
+  generateSliceString,
 } from "shared/experiments";
 import {
   InsertMetricProps,
@@ -638,58 +638,58 @@ const getTextForEmbedding = (metric: MetricInterface): string => {
 };
 
 /**
- * Expands dimension metrics for fact metrics with enableMetricDimensions and adds them to the metricMap
+ * Expands slice metrics for fact metrics with metricAutoSlices and adds them to the metricMap
  */
-export function expandDimensionMetricsInMap({
+export function expandSliceMetricsInMap({
   metricMap,
   factTableMap,
   baseMetrics,
-  customDimensionMetrics,
+  customSliceMetrics,
 }: {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   baseMetrics: ExperimentMetricInterface[];
-  customDimensionMetrics?: ExperimentMetricInterface[];
+  customSliceMetrics?: ExperimentMetricInterface[];
 }): void {
   for (const metric of baseMetrics) {
-    if (isFactMetric(metric) && metric.metricAutoDimensions?.length) {
+    if (isFactMetric(metric) && metric.metricAutoSlices?.length) {
       const factTable = factTableMap.get(metric.numerator.factTableId);
       if (factTable) {
-        const dimensionColumns = factTable.columns.filter(
+        const autoSliceColumns = factTable.columns.filter(
           (col) =>
-            col.isDimension &&
+            col.isAutoSliceColumn &&
             !col.deleted &&
-            (col.dimensionLevels?.length || 0) > 0 &&
-            metric.metricAutoDimensions?.includes(col.column),
+            (col.autoSlices?.length || 0) > 0 &&
+            metric.metricAutoSlices?.includes(col.column),
         );
 
-        dimensionColumns.forEach((col) => {
-          const dimensionLevels = col.dimensionLevels || [];
+        autoSliceColumns.forEach((col) => {
+          const autoSlices = col.autoSlices || [];
 
-          // Create a metric for each dimension level
-          dimensionLevels.forEach((value: string) => {
-            const dimensionString = generateDimensionString({
+          // Create a metric for each auto slice
+          autoSlices.forEach((value: string) => {
+            const sliceString = generateSliceString({
               [col.column]: value,
             });
-            const dimensionMetric: ExperimentMetricInterface = {
+            const sliceMetric: ExperimentMetricInterface = {
               ...metric,
-              id: `${metric.id}?${dimensionString}`,
+              id: `${metric.id}?${sliceString}`,
               name: `${metric.name} (${col.name || col.column}: ${value})`,
-              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
+              description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
             };
-            metricMap.set(dimensionMetric.id, dimensionMetric);
+            metricMap.set(sliceMetric.id, sliceMetric);
           });
 
-          // Create an "other" metric for values not in dimensionLevels
-          if (dimensionLevels.length > 0) {
-            const dimensionString = generateDimensionString({
+          // Create an "other" metric for values not in autoSlices
+          if (autoSlices.length > 0) {
+            const sliceString = generateSliceString({
               [col.column]: "",
             });
             const otherMetric: ExperimentMetricInterface = {
               ...metric,
-              id: `${metric.id}?${dimensionString}`,
+              id: `${metric.id}?${sliceString}`,
               name: `${metric.name} (${col.name || col.column}: other)`,
-              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = other`,
+              description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
             };
             metricMap.set(otherMetric.id, otherMetric);
           }
@@ -698,9 +698,9 @@ export function expandDimensionMetricsInMap({
     }
   }
 
-  // Add custom dimension metrics to the map
-  if (customDimensionMetrics) {
-    customDimensionMetrics.forEach((metric) => {
+  // Add custom slice metrics to the map
+  if (customSliceMetrics) {
+    customSliceMetrics.forEach((metric) => {
       metricMap.set(metric.id, metric);
     });
   }

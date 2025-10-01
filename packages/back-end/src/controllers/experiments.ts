@@ -1123,8 +1123,8 @@ export async function postExperiments(
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
     holdoutId: holdoutId || undefined,
-    pinnedMetricDimensionLevels: data.pinnedMetricDimensionLevels,
-    customMetricDimensionLevels: data.customMetricDimensionLevels,
+    pinnedMetricSlices: data.pinnedMetricSlices,
+    customMetricSlices: data.customMetricSlices,
   };
   const { settings } = getScopedSettings({
     organization: org,
@@ -1476,8 +1476,8 @@ export async function postExperiment(
     "dismissedWarnings",
     "holdoutId",
     "defaultDashboardId",
-    "pinnedMetricDimensionLevels",
-    "customMetricDimensionLevels",
+    "pinnedMetricSlices",
+    "customMetricSlices",
   ];
   let changes: Changeset = {};
 
@@ -1495,8 +1495,8 @@ export async function postExperiment(
       key === "metricOverrides" ||
       key === "variations" ||
       key === "customFields" ||
-      key === "pinnedMetricDimensionLevels" ||
-      key === "customMetricDimensionLevels"
+      key === "pinnedMetricSlices" ||
+      key === "customMetricSlices"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);

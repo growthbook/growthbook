@@ -18,7 +18,7 @@ import {
   getDelayWindowHours,
   getColumnExpression,
   isCappableMetricType,
-  parseDimensionMetricId,
+  parseSliceMetricId,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -4832,14 +4832,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
       // Numerator column
       const value = this.getMetricColumns(m, factTableMap, "m", false).value;
-      const dimensionInfo = parseDimensionMetricId(m.id);
+      const sliceInfo = parseSliceMetricId(m.id);
       const filters = getColumnRefWhereClause(
         factTable,
         m.numerator,
         this.escapeStringLiteral.bind(this),
         this.extractJSONField.bind(this),
         false,
-        dimensionInfo,
+        sliceInfo,
       );
 
       const column =
@@ -4866,14 +4866,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         }
 
         const value = this.getMetricColumns(m, factTableMap, "m", true).value;
-        const dimensionInfo = parseDimensionMetricId(m.id);
+        const sliceInfo = parseSliceMetricId(m.id);
         const filters = getColumnRefWhereClause(
           factTable,
           m.denominator,
           this.escapeStringLiteral.bind(this),
           this.extractJSONField.bind(this),
           false,
-          dimensionInfo,
+          sliceInfo,
         );
         const column =
           filters.length > 0
@@ -5075,14 +5075,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
-      const dimensionInfo = parseDimensionMetricId(metric.id);
+      const sliceInfo = parseSliceMetricId(metric.id);
       getColumnRefWhereClause(
         factTable,
         columnRef,
         this.escapeStringLiteral.bind(this),
         this.extractJSONField.bind(this),
         false,
-        dimensionInfo,
+        sliceInfo,
       ).forEach((filterSQL) => {
         where.push(filterSQL);
       });

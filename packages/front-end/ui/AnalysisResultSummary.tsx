@@ -52,7 +52,7 @@ interface AnalysisResultSummaryProps {
     metricSnapshotSettings?: MetricSnapshotSettings;
     dimensionName?: string;
     dimensionValue?: string;
-    dimensionLevels?: Array<{
+    sliceLevels?: Array<{
       dimension: string;
       levels: string[];
     }>;

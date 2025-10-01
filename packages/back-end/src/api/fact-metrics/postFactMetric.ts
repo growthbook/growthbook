@@ -147,7 +147,7 @@ export async function getCreateMetricPropsFromBody(
     regressionAdjustmentEnabled: !!scopedSettings.regressionAdjustmentEnabled,
     numerator: cleanedNumerator,
     denominator: null,
-    metricAutoDimensions: [],
+    metricAutoSlices: [],
     ...otherFields,
   };
 
@@ -203,11 +203,11 @@ export async function getCreateMetricPropsFromBody(
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
     if (
-      req.body.metricAutoDimensions &&
-      req.body.metricAutoDimensions.length > 0 &&
-      !req.context.hasPremiumFeature("metric-dimensions")
+      req.body.metricAutoSlices &&
+      req.body.metricAutoSlices.length > 0 &&
+      !req.context.hasPremiumFeature("metric-slices")
     ) {
-      throw new Error("Metric dimensions require an enterprise license");
+      throw new Error("Metric slices require an enterprise license");
     }
 
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);

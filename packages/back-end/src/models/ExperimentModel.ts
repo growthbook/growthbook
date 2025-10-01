@@ -315,14 +315,14 @@ const experimentSchema = new mongoose.Schema({
   dismissedWarnings: [String],
   holdoutId: String,
   defaultDashboardId: String,
-  pinnedMetricDimensionLevels: [String],
-  customMetricDimensionLevels: [
+  pinnedMetricSlices: [String],
+  customMetricSlices: [
     {
       _id: false,
-      dimensionLevels: [
+      slices: [
         {
           _id: false,
-          dimension: String,
+          column: String,
           levels: [String],
         },
       ],
