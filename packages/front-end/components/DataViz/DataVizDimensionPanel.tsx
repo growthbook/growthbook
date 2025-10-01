@@ -15,10 +15,12 @@ export default function DataVizDimensionPanel({
   dataVizConfig,
   onDataVizConfigChange,
   axisKeys,
+  label = "Dimension",
 }: {
   dataVizConfig: Partial<DataVizConfig>;
   onDataVizConfigChange: (dataVizConfig: Partial<DataVizConfig>) => void;
   axisKeys: string[];
+  label?: string;
 }) {
   if (!supportsDimension(dataVizConfig)) {
     return null;
@@ -61,7 +63,7 @@ export default function DataVizDimensionPanel({
                       }}
                       size={20}
                     />
-                    Dimensions
+                    {label}s
                     <Badge
                       label={dimensions.length.toString()}
                       color="violet"
@@ -103,7 +105,9 @@ export default function DataVizDimensionPanel({
                           key={index}
                           label={
                             <Flex justify="between" align="center">
-                              <Text as="label">Dimension {index + 1}</Text>
+                              <Text as="label">
+                                {label} {index + 1}
+                              </Text>
                               <Box mb="2">
                                 <Button
                                   variant="ghost"
@@ -269,7 +273,7 @@ export default function DataVizDimensionPanel({
                   }}
                 >
                   <FaPlusCircle className="mr-1" />
-                  Add Dimension
+                  Add {label}
                 </a>
               ) : null}
             </Flex>

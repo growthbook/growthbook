@@ -288,6 +288,7 @@ export function DataVisualizationDisplay({
       });
     });
   }, [dataVizConfig.filters, rows]);
+  console.log("filteredRows", filteredRows);
 
   // TODO: Support multiple y-axis and dimension fields
   const xConfig = requiresXAxis(dataVizConfig)
@@ -297,9 +298,11 @@ export function DataVisualizationDisplay({
   const yConfig = dataVizConfig.yAxis?.[0];
   const yField = yConfig?.fieldName;
   const aggregation = yConfig?.aggregation || "sum";
+  // TODO: Support multiple dimensions
   const dimensionConfig = supportsDimension(dataVizConfig)
     ? dataVizConfig.dimension?.[0]
     : undefined;
+  console.log("dimensionConfig", dimensionConfig);
   const dimensionField = dimensionConfig?.fieldName;
 
   const { theme } = useAppearanceUITheme();
@@ -703,6 +706,14 @@ export function DataVisualizationDisplay({
       );
     }
 
+    if (!aggregatedRows.length) {
+      return (
+        <Flex justify="center" align="center" height="100%">
+          No data to visualize.
+        </Flex>
+      );
+    }
+
     const columnHeaders: string[] = [];
     for (const row of aggregatedRows) {
       columnHeaders.push(
@@ -713,7 +724,7 @@ export function DataVisualizationDisplay({
     const rowHeaders = new Set<string>();
     aggregatedRows.forEach((row) => {
       Object.keys(row).forEach((k) => {
-        console.log("k", k);
+        // console.log("k", k);
         if (k === "x") return;
 
         if (k === "y" && dataVizConfig.dimension?.length) return;
@@ -721,7 +732,7 @@ export function DataVisualizationDisplay({
       });
     });
 
-    console.log("rowHeaders", rowHeaders);
+    // console.log("rowHeaders", rowHeaders);
 
     const tableRows: { header: string; values: (string | null)[] }[] =
       Array.from(rowHeaders).map((key) => ({
@@ -734,7 +745,7 @@ export function DataVisualizationDisplay({
         ),
       }));
 
-    console.log("columnHeaders", columnHeaders);
+    // console.log("columnHeaders", columnHeaders);
 
     aggregatedRows.forEach((row) => {
       rows.push({
@@ -778,93 +789,6 @@ export function DataVisualizationDisplay({
               ))}
             </TableBody>
           </Table>
-          {/* <Table variant="surface">
-            <TableHeader>
-              <TableRow>
-                <TableColumnHeader>
-                  {dataVizConfig.xAxis.fieldName} (
-                  {dataVizConfig.xAxis.dateAggregationUnit})
-                </TableColumnHeader> */}
-          {/* {dataVizConfig.dimension?.map((dimension) => (
-                  <TableColumnHeader
-                    key={dimension.fieldName}
-                  ></TableColumnHeader>
-                ))} */}
-          {/* {aggregatedRows.map((row, i) => (
-                  <TableColumnHeader key={i}> */}
-          {/* TODO: If its a date, format the header by the date
-                    aggregation unit */}
-          {/* {row.x instanceof Date
-                      ? row.x.toLocaleDateString()
-                      : row.x + ""}
-                  </TableColumnHeader>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <> */}
-          {/* {aggregatedRows.map((aggregatedRow) => {
-                  for (const index of aggregatedRow) {
-                    return (
-                      <TableRow key={dimension.fieldName}>
-                        <TableCell>{dimension.fieldName}</TableCell>
-                        {aggregatedRows.map((row, i) => (
-                          <TableCell key={i}>{row.y as string}</TableCell>
-                        ))}
-                      </TableRow>
-                    );
-                  }
-                })} */}
-          {/* {dataVizConfig.dimension?.length ? (
-                  <>
-                    {aggregatedRows.map((row) => {
-                      
-                    })} */}
-          {/* <TableRow>
-                      <TableCell>
-                        {dataVizConfig.yAxis?.[0]?.fieldName} (
-                        {dataVizConfig.yAxis?.[0]?.aggregation})
-                      </TableCell>
-                      {dataVizConfig.dimension?.map((dimension) => (
-                        <TableCell key={dimension.fieldName}>
-                          {dimension.fieldName}
-                        </TableCell>
-                      ))}
-                      {aggregatedRows.map((row, i) => (
-                        <TableCell key={i}>{row.y as string}</TableCell>
-                      ))}
-                    </TableRow>
-                    Use the aggregatedRows, dummy */}
-          {/* {dataVizConfig.dimension.map((dimension) => {
-                      return (
-                        <TableRow key={dimension.fieldName}>
-                          <TableCell>{dimension.fieldName}</TableCell>
-                          {aggregatedRows.map((row, i) => (
-                            <TableCell key={i}>{row.y as string}</TableCell>
-                          ))}
-                        </TableRow>
-                      );
-                    })} */}
-          {/* </>
-                ) : (
-                  <TableRow>
-                    <TableCell>
-                      {dataVizConfig.yAxis?.[0]?.fieldName} (
-                      {dataVizConfig.yAxis?.[0]?.aggregation})
-                    </TableCell>
-                    {dataVizConfig.dimension?.map((dimension) => (
-                      <TableCell key={dimension.fieldName}>
-                        {dimension.fieldName}
-                      </TableCell>
-                    ))}
-                    {aggregatedRows.map((row, i) => (
-                      <TableCell key={i}>{row.y as string}</TableCell>
-                    ))}
-                  </TableRow>
-                )} */}
-          {/* </>
-            </TableBody>
-          </Table> */}
         </Flex>
       </div>
     );
