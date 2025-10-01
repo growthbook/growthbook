@@ -3432,11 +3432,11 @@ export interface components {
           /** @default false */
           deleted: boolean;
           /**
-           * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+           * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
            * @default false
            */
           isDimension?: boolean;
-          /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+          /** @description Specific slices to auto-analyze. */
           dimensionLevels?: (string)[];
           /** Format: date-time */
           dateCreated?: string;
@@ -3481,11 +3481,11 @@ export interface components {
       /** @default false */
       deleted: boolean;
       /**
-       * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+       * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
        * @default false
        */
       isDimension?: boolean;
-      /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+      /** @description Specific slices to auto-analyze. */
       dimensionLevels?: (string)[];
       /** Format: date-time */
       dateCreated?: string;
@@ -3605,8 +3605,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       archived?: boolean;
-      /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-      enableMetricDimensions?: boolean;
+      /** @description Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature. */
+      metricAutoDimensions?: (string)[];
     };
     MetricAnalysis: {
       /** @description The ID of the created metric analysis */
@@ -11990,11 +11990,11 @@ export interface operations {
                     /** @default false */
                     deleted: boolean;
                     /**
-                     * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                     * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                      * @default false
                      */
                     isDimension?: boolean;
-                    /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                    /** @description Specific slices to auto-analyze. */
                     dimensionLevels?: (string)[];
                     /** Format: date-time */
                     dateCreated?: string;
@@ -12098,11 +12098,11 @@ export interface operations {
                   /** @default false */
                   deleted: boolean;
                   /**
-                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                    * @default false
                    */
                   isDimension?: boolean;
-                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                  /** @description Specific slices to auto-analyze. */
                   dimensionLevels?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
@@ -12177,11 +12177,11 @@ export interface operations {
                   /** @default false */
                   deleted: boolean;
                   /**
-                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                    * @default false
                    */
                   isDimension?: boolean;
-                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                  /** @description Specific slices to auto-analyze. */
                   dimensionLevels?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
@@ -12258,11 +12258,11 @@ export interface operations {
               /** @default false */
               deleted: boolean;
               /**
-               * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+               * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                * @default false
                */
               isDimension?: boolean;
-              /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+              /** @description Specific slices to auto-analyze. */
               dimensionLevels?: (string)[];
               /** Format: date-time */
               dateCreated?: string;
@@ -12322,11 +12322,11 @@ export interface operations {
                   /** @default false */
                   deleted: boolean;
                   /**
-                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                    * @default false
                    */
                   isDimension?: boolean;
-                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
+                  /** @description Specific slices to auto-analyze. */
                   dimensionLevels?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
@@ -12698,8 +12698,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 archived?: boolean;
-                /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-                enableMetricDimensions?: boolean;
+                /** @description Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature. */
+                metricAutoDimensions?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -12846,8 +12846,8 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api";
-          /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-          enableMetricDimensions?: boolean;
+          /** @description Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature. */
+          metricAutoDimensions?: (string)[];
         };
       };
     };
@@ -12953,8 +12953,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
-              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-              enableMetricDimensions?: boolean;
+              /** @description Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoDimensions?: (string)[];
             };
           };
         };
@@ -13071,8 +13071,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
-              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-              enableMetricDimensions?: boolean;
+              /** @description Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoDimensions?: (string)[];
             };
           };
         };
@@ -13207,8 +13207,8 @@ export interface operations {
            */
           managedBy?: "" | "api";
           archived?: boolean;
-          /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-          enableMetricDimensions?: boolean;
+          /** @description Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature. */
+          metricAutoDimensions?: (string)[];
         };
       };
     };
@@ -13314,8 +13314,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
-              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-              enableMetricDimensions?: boolean;
+              /** @description Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoDimensions?: (string)[];
             };
           };
         };
@@ -13563,8 +13563,8 @@ export interface operations {
                  * @enum {string}
                  */
                 managedBy?: "" | "api";
-                /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-                enableMetricDimensions?: boolean;
+                /** @description Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature. */
+                metricAutoDimensions?: (string)[];
               };
             })[];
         };

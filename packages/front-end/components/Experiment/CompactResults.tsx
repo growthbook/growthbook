@@ -835,8 +835,8 @@ export function getRenderLabelColumn({
                 <Tooltip
                   body={
                     isExpanded
-                      ? "Collapse metric dimensions"
-                      : "Explore metric dimensions"
+                      ? "Collapse metric slices"
+                      : "Explore metric slices"
                   }
                   tipPosition="top"
                 >

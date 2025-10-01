@@ -144,7 +144,8 @@ export const updateFactMetric = createApiRequestHandler(
   }
 
   if (
-    req.body.enableMetricDimensions &&
+    req.body.metricAutoDimensions &&
+    req.body.metricAutoDimensions.length > 0 &&
     !req.context.hasPremiumFeature("metric-dimensions")
   ) {
     throw new Error("Metric dimensions require an enterprise license");

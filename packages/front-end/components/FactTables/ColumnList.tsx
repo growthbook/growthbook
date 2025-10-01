@@ -16,21 +16,17 @@ import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Avatar from "@/ui/Avatar";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ColumnModal from "./ColumnModal";
 
 export interface Props {
   factTable: FactTableInterface;
+  canEdit?: boolean;
 }
 
-export default function ColumnList({ factTable }: Props) {
+export default function ColumnList({ factTable, canEdit = false }: Props) {
   const [editOpen, setEditOpen] = useState("");
-
   const { mutateDefinitions } = useDefinitions();
-
   const { apiCall } = useAuth();
-
-  const permissionsUtil = usePermissionsUtil();
 
   const availableColumns = useMemo(() => {
     return (factTable.columns || []).filter((col) => !col.deleted);
@@ -54,8 +50,6 @@ export default function ColumnList({ factTable }: Props) {
       searchFields: ["name^3", "description", "column^2"],
       pageSize: 10,
     });
-
-  const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
   const existing = editOpen
     ? factTable.columns.find((c) => c.column === editOpen)
@@ -90,24 +84,26 @@ export default function ColumnList({ factTable }: Props) {
             />
           </div>
         )}
-        <div className="col-auto">
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={async () => {
-              await apiCall(
-                `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
-                {
-                  method: "PUT",
-                  body: JSON.stringify({}),
-                },
-              );
-              mutateDefinitions();
-            }}
-          >
-            Refresh
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="col-auto">
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={async () => {
+                await apiCall(
+                  `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
+                  {
+                    method: "PUT",
+                    body: JSON.stringify({}),
+                  },
+                );
+                mutateDefinitions();
+              }}
+            >
+              Refresh
+            </Button>
+          </div>
+        )}
       </div>
       {columns.some((col) => !col.deleted && col.datatype === "") && (
         <div className="alert alert-warning mt-2">
@@ -137,7 +133,7 @@ export default function ColumnList({ factTable }: Props) {
                       style={{ minHeight: 32 }}
                     >
                       {col.identifier && (
-                        <Tooltip body="User Identifier Type">
+                        <Tooltip body="User Identifier Type" tipPosition="left">
                           <Avatar
                             size="sm"
                             color="violet"
@@ -149,7 +145,10 @@ export default function ColumnList({ factTable }: Props) {
                         </Tooltip>
                       )}
                       {col.column === "timestamp" && (
-                        <Tooltip body="Main date field used for sorting and filtering">
+                        <Tooltip
+                          body="Main date field used for sorting and filtering"
+                          tipPosition="left"
+                        >
                           <Avatar
                             size="sm"
                             color="violet"
@@ -161,7 +160,7 @@ export default function ColumnList({ factTable }: Props) {
                         </Tooltip>
                       )}
                       {col.isDimension && (
-                        <Tooltip body="Dimension">
+                        <Tooltip body="Auto Slices" tipPosition="left">
                           <Avatar
                             size="sm"
                             color="violet"
@@ -173,7 +172,10 @@ export default function ColumnList({ factTable }: Props) {
                         </Tooltip>
                       )}
                       {col.alwaysInlineFilter && (
-                        <Tooltip body="Prompt all metrics to filter on this column">
+                        <Tooltip
+                          body="Prompt all metrics to filter on this column"
+                          tipPosition="left"
+                        >
                           <Avatar
                             size="sm"
                             color="violet"

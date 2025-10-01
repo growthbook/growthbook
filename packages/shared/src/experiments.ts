@@ -1138,7 +1138,7 @@ export function getAllExpandedMetricIdsFromExperiment({
   return Array.from(expandedMetricIds);
 }
 
-// Creates ephemeral dimension metrics for a fact metric with enableMetricDimensions enabled
+// Creates ephemeral dimension metrics for a fact metric based on the metric's metricAutoDimensions slices
 export function createDimensionMetrics({
   parentMetric,
   factTable,
@@ -1157,7 +1157,7 @@ export function createDimensionMetrics({
   }>;
   allDimensionLevels: string[];
 }> {
-  if (!parentMetric.enableMetricDimensions) {
+  if (!parentMetric.metricAutoDimensions?.length) {
     return [];
   }
 
@@ -1172,9 +1172,13 @@ export function createDimensionMetrics({
     allDimensionLevels: string[];
   }> = [];
 
-  const dimensionColumns = factTable.columns.filter(
-    (col) =>
-      col.isDimension && !col.deleted && (col.dimensionLevels?.length || 0) > 0,
+  // Get the intersection of metricAutoDimensions with fact table dimension columns
+  const factTableDimensionColumns = factTable.columns.filter(
+    (col) => col.isDimension && !col.deleted && (col.dimensionLevels?.length || 0) > 0
+  );
+  
+  const dimensionColumns = factTableDimensionColumns.filter((col) =>
+    parentMetric.metricAutoDimensions?.includes(col.column)
   );
 
   dimensionColumns.forEach((col) => {

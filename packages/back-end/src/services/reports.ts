@@ -855,12 +855,15 @@ export async function generateExperimentReportSSRData({
     }>
   > = {};
   for (const factMetric of factMetrics) {
-    if (factMetric.enableMetricDimensions) {
+    if (factMetric.metricAutoDimensions?.length) {
       const factTableId = factMetric.numerator.factTableId;
       const factTable = factTableId ? factTableMap[factTableId] : undefined;
       if (factTable) {
         const dimensionColumns = factTable.columns.filter(
-          (col: ColumnInterface) => col.isDimension && !col.deleted,
+          (col: ColumnInterface) =>
+            col.isDimension &&
+            !col.deleted &&
+            factMetric.metricAutoDimensions?.includes(col.column),
         );
         if (dimensionColumns.length > 0) {
           const dimensionMetrics: Array<{

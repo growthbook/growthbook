@@ -5077,9 +5077,11 @@ paths:
                   enum:
                     - ''
                     - api
-                enableMetricDimensions:
-                  type: boolean
-                  description: Whether this metric supports dimension analysis. This is an enterprise feature.
+                metricAutoDimensions:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -5375,9 +5377,11 @@ paths:
                     - api
                 archived:
                   type: boolean
-                enableMetricDimensions:
-                  type: boolean
-                  description: Whether this metric supports dimension analysis. This is an enterprise feature.
+                metricAutoDimensions:
+                  type: array
+                  items:
+                    type: string
+                  description: Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature.
       responses:
         '200':
           content:
@@ -7829,13 +7833,13 @@ components:
           default: false
         isDimension:
           type: boolean
-          description: Whether this column can be used for dimension analysis. This is an enterprise feature.
+          description: Whether this column can be used for auto slice analysis. This is an enterprise feature.
           default: false
         dimensionLevels:
           type: array
           items:
             type: string
-          description: 'Specific values from this dimension column to include in analysis. If empty, all top values will be used.'
+          description: Specific slices to auto-analyze.
         dateCreated:
           type: string
           format: date-time
@@ -8126,9 +8130,11 @@ components:
           format: date-time
         archived:
           type: boolean
-        enableMetricDimensions:
-          type: boolean
-          description: Whether this metric supports dimension analysis. This is an enterprise feature.
+        metricAutoDimensions:
+          type: array
+          items:
+            type: string
+          description: Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature.
     MetricAnalysis:
       type: object
       required:

@@ -13,12 +13,10 @@ import {
 } from "back-end/types/fact-table";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { CustomMetricDimensionLevel } from "back-end/src/validators/experiments";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
-import HelperText from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -53,7 +51,7 @@ interface StandardDimensionsSectionProps {
   factTables: FactTableInterface[];
 }
 
-function StandardDimensionsSection({
+function _StandardDimensionsSection({
   metricsWithDimensions,
   factTables,
 }: StandardDimensionsSectionProps) {
@@ -61,7 +59,7 @@ function StandardDimensionsSection({
   const factTableMap = new Map(factTables.map((table) => [table.id, table]));
 
   const metricsWithEnabledDimensions = metricsWithDimensions.filter(
-    (metric) => metric.enableMetricDimensions,
+    (metric) => metric.metricAutoDimensions?.length,
   );
 
   if (metricsWithEnabledDimensions.length === 0) {
@@ -133,43 +131,35 @@ export default function MetricDimensionsSelector({
     return [...new Set(expandedMetricIds)];
   }, [goalMetrics, secondaryMetrics, guardrailMetrics, metricGroups]);
 
-  const { metricsWithDimensionColumns, metricsWithDimensionsEnabled } =
-    useMemo(() => {
-      const factTableMap = new Map(
-        factTables.map((table) => [table.id, table]),
-      );
+  const { metricsWithDimensionColumns } = useMemo(() => {
+    const factTableMap = new Map(factTables.map((table) => [table.id, table]));
 
-      const allMetrics = allMetricIds
-        .map((id) => factMetrics.find((m) => m.id === id))
-        .filter((metric) => {
-          const factTable = metric
-            ? factTableMap.get(metric.numerator?.factTableId)
-            : null;
-          const hasColumns = !!factTable?.columns;
-          return !!metric && isFactMetric(metric) && hasColumns;
-        })
-        .map((metric) => {
-          const factTable = factTableMap.get(metric!.numerator?.factTableId);
-          const dimensionColumns = factTable?.columns?.filter(
-            (col) => col.isDimension && !col.deleted,
-          );
-          return {
-            ...metric!,
-            dimensionColumns: dimensionColumns || [],
-          };
-        });
+    const allMetrics = allMetricIds
+      .map((id) => factMetrics.find((m) => m.id === id))
+      .filter((metric) => {
+        const factTable = metric
+          ? factTableMap.get(metric.numerator?.factTableId)
+          : null;
+        const hasColumns = !!factTable?.columns;
+        return !!metric && isFactMetric(metric) && hasColumns;
+      })
+      .map((metric) => {
+        const factTable = factTableMap.get(metric!.numerator?.factTableId);
+        const dimensionColumns = factTable?.columns?.filter(
+          (col) => col.isDimension && !col.deleted,
+        );
+        return {
+          ...metric!,
+          dimensionColumns: dimensionColumns || [],
+        };
+      });
 
-      const metricsWithDimensionColumns = allMetrics.filter(
-        (metric) => metric.dimensionColumns.length > 0,
-      );
+    const metricsWithDimensionColumns = allMetrics.filter(
+      (metric) => metric.dimensionColumns.length > 0,
+    );
 
-      const metricsWithDimensionsEnabled = allMetrics.filter(
-        (metric) =>
-          metric.dimensionColumns.length > 0 && !!metric.enableMetricDimensions,
-      );
-
-      return { metricsWithDimensionColumns, metricsWithDimensionsEnabled };
-    }, [allMetricIds, factMetrics, factTables]);
+    return { metricsWithDimensionColumns };
+  }, [allMetricIds, factMetrics, factTables]);
 
   // Update the parent state with new metric dimension levels
   const updateCustomMetricDimensionLevels = (
@@ -368,40 +358,11 @@ export default function MetricDimensionsSelector({
 
   return (
     <>
-      <div className="my-4">
-        <label className="font-weight-bold mb-1">
-          Metric Dimensions
-          <PaidFeatureBadge commercialFeature="metric-dimensions" />
-        </label>
-
-        {metricsWithDimensionsEnabled.length > 0 ? (
-          <>
-            <Text
-              as="p"
-              className="mb-2"
-              style={{ color: "var(--color-text-mid)" }}
-            >
-              These metrics will be analyzed across all dimensions and levels
-              defined in their fact table.
-            </Text>
-            <StandardDimensionsSection
-              metricsWithDimensions={metricsWithDimensionsEnabled}
-              factTables={factTables}
-            />
-          </>
-        ) : (
-          <HelperText status="info" mt="1">
-            No metrics with dimension analysis enabled found. Configure
-            dimension for for your metrics&apos; fact tables.
-          </HelperText>
-        )}
-      </div>
-
       {hasCommercialFeature("metric-dimensions") &&
       metricsWithDimensionColumns.length > 0 ? (
         <div className="my-4">
           <label className="font-weight-bold mb-1">
-            Additional Metric Dimensions
+            Additional Metric Slices
           </label>
 
           <Text
@@ -409,8 +370,7 @@ export default function MetricDimensionsSelector({
             className="mb-2"
             style={{ color: "var(--color-text-mid)" }}
           >
-            Define custom dimensions to analyze beyond the standard dimension
-            breakdowns.
+            Define custom slices to analyze beyond the standard auto slices.
           </Text>
 
           {customMetricDimensionLevels.map((levels, levelsIndex) => {
@@ -483,16 +443,14 @@ export default function MetricDimensionsSelector({
           })}
 
           {editingIndex === null ? (
-            <div className="mt-2">
-              <a
-                role="button"
-                className="d-inline-block link-purple font-weight-bold mt-2"
-                onClick={() => startEditing(-1)}
-              >
-                <FaPlusCircle className="mr-1" />
-                Add dimension breakdown
-              </a>
-            </div>
+            <a
+              role="button"
+              className="d-inline-block link-purple font-weight-bold mt-2"
+              onClick={() => startEditing(-1)}
+            >
+              <FaPlusCircle className="mr-1" />
+              Add metrics slice
+            </a>
           ) : editingIndex === -1 ? (
             // Adding new entry
             <div className="appbox px-2 py-1 mb-2">
@@ -601,7 +559,7 @@ function DimensionSelector({
             label: col.name || col.column || "",
             value: col.column || "",
           }))}
-          placeholder="Dimension column"
+          placeholder="column"
           className="mb-0"
           autoFocus
         />

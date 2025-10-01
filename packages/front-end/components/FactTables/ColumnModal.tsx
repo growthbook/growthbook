@@ -453,7 +453,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                 setValue={(v) => form.setValue("isDimension", v === true)}
                 label={
                   <>
-                    Is Dimension
+                    Enable Auto Slices
                     {!hasMetricDimensionsFeature ? (
                       <PaidFeatureBadge
                         commercialFeature="metric-dimensions"
@@ -464,7 +464,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     ) : null}
                   </>
                 }
-                description="Column represents a dimension that can be applied to metrics"
+                description="Column may be used to automatically slice metrics for analysis"
                 disabled={!hasMetricDimensionsFeature}
               />
             </div>
@@ -472,7 +472,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             {form.watch("isDimension") && hasMetricDimensionsFeature && (
               <div className="mb-2">
                 <div className="d-flex justify-content-between mb-1">
-                  <label className="form-label mb-0">Dimension Levels</label>
+                  <label className="form-label mb-0">Slices</label>
                   <RadixButton
                     size="xs"
                     variant="ghost"
@@ -486,7 +486,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                 (form.watch("dimensionLevels") || [])?.length >
                   MAX_METRIC_DIMENSION_LEVELS ? (
                   <HelperText status="warning" mb="1">
-                    Limit {MAX_METRIC_DIMENSION_LEVELS + ""} dimension levels
+                    Limit {MAX_METRIC_DIMENSION_LEVELS + ""} slices
                   </HelperText>
                 ) : null}
                 <MultiSelectField

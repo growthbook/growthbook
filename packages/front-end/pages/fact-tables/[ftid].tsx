@@ -6,7 +6,6 @@ import {
   FactTableInterface,
   FactMetricInterface,
 } from "back-end/types/fact-table";
-import { PiLightbulb } from "react-icons/pi";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -30,10 +29,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
-import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
-import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -333,20 +330,6 @@ export default function FactTablePage() {
         />
       </Frame>
 
-      {numMetrics &&
-      !factTable?.columns?.some((col) => col.isDimension && !col.deleted) ? (
-        <Callout my="6" status="info" icon={<PiLightbulb size={15} />}>
-          <div className="mb-1">
-            <strong>Metric dimensional analysis</strong>
-            <PaidFeatureBadge commercialFeature="metric-dimensions" />
-          </div>
-          <p className="mb-0">
-            Create SQL columns for each dimension and tag them in the column
-            editor to unlock dimensional breakdowns in your experiments.
-          </p>
-        </Callout>
-      ) : null}
-
       <div className="row mb-4">
         <div className="col col-md-6 d-flex flex-column">
           <h3>SQL Definition</h3>
@@ -381,7 +364,7 @@ export default function FactTablePage() {
         <div className="col col-md-6 d-flex flex-column">
           <h3>Columns</h3>
           <div className="appbox p-3 flex-1 mb-0">
-            <ColumnList factTable={factTable} />
+            <ColumnList factTable={factTable} canEdit={canEdit} />
           </div>
         </div>
       </div>

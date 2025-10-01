@@ -244,6 +244,8 @@ properties:
     enum:
       - ""
       - api
-  enableMetricDimensions:
-    type: boolean
-    description: Whether this metric supports dimension analysis. This is an enterprise feature.
+  metricAutoDimensions:
+    type: array
+    items:
+      type: string
+    description: Array of dimension column names that will be automatically included in metric analysis. This is an enterprise feature.

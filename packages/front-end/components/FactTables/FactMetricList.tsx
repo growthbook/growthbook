@@ -23,10 +23,10 @@ import RecommendedFactMetricsModal, {
 import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import track from "@/services/track";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import FactMetricModal from "./FactMetricModal";
+import FactTableAutoSliceSelector from "./FactTableAutoSliceSelector";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -191,16 +191,14 @@ export default function FactMetricList({
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="metricType">Type</SortableTH>
                 {shouldShowDimensionAnalysisColumn && (
-                  <th>
-                    Enable Dimensions
-                    {!hasMetricDimensionsFeature && (
-                      <PaidFeatureBadge
-                        commercialFeature="metric-dimensions"
-                        premiumText="This is an Enterprise feature"
-                        variant="outline"
-                        ml="2"
-                      />
-                    )}
+                  <th style={{ width: 400 }}>
+                    Auto Slices
+                    <PaidFeatureBadge
+                      commercialFeature="metric-dimensions"
+                      premiumText="This is an Enterprise feature"
+                      variant="outline"
+                      ml="2"
+                    />
                   </th>
                 )}
                 <SortableTH field="tags">Tags</SortableTH>
@@ -223,25 +221,23 @@ export default function FactMetricList({
                   <td>{metric.metricType}</td>
                   {shouldShowDimensionAnalysisColumn && (
                     <td>
-                      <Switch
-                        checked={metric.enableMetricDimensions || false}
-                        onCheckedChange={async (checked) => {
+                      <FactTableAutoSliceSelector
+                        factMetric={metric}
+                        factTableId={factTable.id}
+                        canEdit={
+                          permissionsUtil.canUpdateFactMetric(metric, {}) &&
+                          !metric.managedBy &&
+                          hasMetricDimensionsFeature
+                        }
+                        onUpdate={async (metricAutoDimensions) => {
                           await apiCall(`/fact-metrics/${metric.id}`, {
                             method: "PUT",
                             body: JSON.stringify({
-                              enableMetricDimensions: checked,
+                              metricAutoDimensions,
                             }),
                           });
-                          if (checked) {
-                            track("dimensions-on-for-metric");
-                          } else if (!checked) {
-                            track("dimensions-off-for-metric");
-                          }
                           mutateDefinitions();
                         }}
-                        disabled={
-                          !canEdit(metric) || !hasMetricDimensionsFeature
-                        }
                       />
                     </td>
                   )}

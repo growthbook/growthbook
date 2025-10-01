@@ -652,14 +652,15 @@ export function expandDimensionMetricsInMap({
   customDimensionMetrics?: ExperimentMetricInterface[];
 }): void {
   for (const metric of baseMetrics) {
-    if (isFactMetric(metric) && metric.enableMetricDimensions) {
+    if (isFactMetric(metric) && metric.metricAutoDimensions?.length) {
       const factTable = factTableMap.get(metric.numerator.factTableId);
       if (factTable) {
         const dimensionColumns = factTable.columns.filter(
           (col) =>
             col.isDimension &&
             !col.deleted &&
-            (col.dimensionLevels?.length || 0) > 0,
+            (col.dimensionLevels?.length || 0) > 0 &&
+            metric.metricAutoDimensions?.includes(col.column),
         );
 
         dimensionColumns.forEach((col) => {

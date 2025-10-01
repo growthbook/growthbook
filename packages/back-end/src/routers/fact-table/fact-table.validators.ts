@@ -208,7 +208,7 @@ export const factMetricValidator = z
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),
 
-    enableMetricDimensions: z.boolean().optional(),
+    metricAutoDimensions: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
   })

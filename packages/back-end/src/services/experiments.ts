@@ -2871,7 +2871,7 @@ export async function getSettingsForSnapshotMetrics(
     expandedMetrics.push(metric);
 
     // If this is a fact metric with dimension analysis enabled, expand it
-    if (isFactMetric(metric) && metric.enableMetricDimensions) {
+    if (isFactMetric(metric) && metric.metricAutoDimensions?.length) {
       const factTable = factTableMap.get(metric.numerator.factTableId);
       if (factTable) {
         const dimensionMetrics = createDimensionMetrics({

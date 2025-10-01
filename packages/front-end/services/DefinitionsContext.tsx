@@ -307,7 +307,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       if (!factTable) return [];
 
       // Only generate metric dimensions if the parent has dimension analysis enabled
-      if (!parentMetric.enableMetricDimensions) return [];
+      if (!parentMetric.metricAutoDimensions?.length) return [];
 
       const dimensionMetrics = createDimensionMetrics({
         parentMetric,
