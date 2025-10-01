@@ -48,6 +48,7 @@ import {
   blockHasFieldOfType,
   BlockSnapshotSettings,
   getBlockAnalysisSettings,
+  getBlockSnapshotAnalysis,
   getBlockSnapshotSettings,
   snapshotSatisfiesBlock,
 } from "shared/enterprise";
@@ -3421,9 +3422,14 @@ export async function updateExperimentDashboards({
       throw new Error(
         "Error updating dashboard results, could not find snapshot",
       );
+    const defaultAnalysis = blockSnapshot.analyses[0];
     return [
       getBlockSnapshotSettings(block),
-      getBlockAnalysisSettings(block, blockSnapshot.analyses[0].settings),
+      getBlockAnalysisSettings(
+        block,
+        (getBlockSnapshotAnalysis(blockSnapshot, block) ?? defaultAnalysis)
+          .settings,
+      ),
     ];
   });
 
