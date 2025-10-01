@@ -16,6 +16,8 @@ export async function transformStatsigSegmentToSavedGroup(
     options?: { method: string; body: string },
   ) => Promise<unknown>,
   project?: string,
+  skipAttributeMapping: boolean = false,
+  _savedGroupIdMap?: Map<string, string>,
 ): Promise<
   Omit<
     SavedGroupInterface,
@@ -35,7 +37,11 @@ export async function transformStatsigSegmentToSavedGroup(
     rules.forEach((rule) => {
       if (rule.conditions && rule.conditions.length > 0) {
         // Transform this rule's conditions to GrowthBook format
-        const transformed = transformStatsigConditionsToGB(rule.conditions);
+        const transformed = transformStatsigConditionsToGB(
+          rule.conditions,
+          skipAttributeMapping,
+          undefined, // Don't resolve saved groups during saved group creation
+        );
         if (transformed.condition && transformed.condition !== "{}") {
           ruleConditions.push(transformed.condition);
         }
@@ -59,8 +65,11 @@ export async function transformStatsigSegmentToSavedGroup(
 
   if (segment.type === "id_list") {
     // ID List type - convert to GrowthBook "list" type
-    const statsigAttributeKey = segment.idType || "id";
-    const gbAttributeKey = mapStatsigAttributeToGB(statsigAttributeKey);
+    const statsigAttributeKey = segment.idType || "user_id";
+    const gbAttributeKey = mapStatsigAttributeToGB(
+      statsigAttributeKey,
+      skipAttributeMapping,
+    );
 
     // Ensure the attribute exists before using it
     await ensureAttributeExists(
@@ -87,7 +96,9 @@ export async function transformStatsigSegmentToSavedGroup(
         (rule) => rule.conditions || [],
       );
       const uniqueAttributeNames = new Set(
-        allConditions.map((cond) => mapStatsigAttributeToGB(cond.type)),
+        allConditions.map((cond) =>
+          mapStatsigAttributeToGB(cond.type, skipAttributeMapping),
+        ),
       );
 
       // Ensure all attributes exist

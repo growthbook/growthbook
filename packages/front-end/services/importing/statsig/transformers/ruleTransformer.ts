@@ -17,6 +17,8 @@ export type TransformedCondition = {
  */
 export function transformStatsigConditionsToGB(
   conditions: StatsigCondition[],
+  skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
   const savedGroups: string[] = [];
@@ -53,10 +55,23 @@ export function transformStatsigConditionsToGB(
           prerequisites.push(String(targetValue));
           return;
         case "passes_segment":
-        case "fails_segment":
+        case "fails_segment": {
           // These become saved groups
-          savedGroups.push(String(targetValue));
+          const segmentName = String(targetValue);
+          const savedGroupId = savedGroupIdMap?.get(segmentName);
+          console.log({ segmentName, savedGroupId, savedGroupIdMap });
+          // throw new Error("test");
+          if (savedGroupId) {
+            savedGroups.push(savedGroupId);
+          } else {
+            console.warn(
+              `Saved group ID not found for segment: ${segmentName}`,
+            );
+            // Fallback to using the name if ID not found
+            savedGroups.push(segmentName);
+          }
           return;
+        }
         default:
           // Other null operator conditions go to targeting
           targetingConditions.push(condition);
@@ -71,7 +86,7 @@ export function transformStatsigConditionsToGB(
   // Convert targeting conditions to GrowthBook format
   const conditionString =
     targetingConditions.length > 0
-      ? transformTargetingConditions(targetingConditions)
+      ? transformTargetingConditions(targetingConditions, skipAttributeMapping)
       : "{}";
 
   // Create schedule rules tuple if we have both start and end times
@@ -99,7 +114,10 @@ export function transformStatsigConditionsToGB(
 /**
  * Transform targeting conditions to GrowthBook condition string
  */
-function transformTargetingConditions(conditions: StatsigCondition[]): string {
+function transformTargetingConditions(
+  conditions: StatsigCondition[],
+  skipAttributeMapping: boolean = false,
+): string {
   // Map Statsig operators to GrowthBook operators
   const operatorMap: Record<string, string> = {
     any: "$in",
@@ -122,11 +140,17 @@ function transformTargetingConditions(conditions: StatsigCondition[]): string {
   const conditionObj: ConditionInterface = {};
 
   conditions.forEach((condition) => {
-    const { type, operator, targetValue } = condition;
+    const { type, operator, targetValue, field } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
 
-    // Map Statsig attribute name to GrowthBook attribute name
-    const gbAttributeName = mapStatsigAttributeToGB(type);
+    // For custom_field type, use the field value as the attribute name
+    // Otherwise, use the type as the attribute name
+    const attributeName =
+      type === "custom_field" ? field || "custom_field" : type;
+    const gbAttributeName = mapStatsigAttributeToGB(
+      attributeName,
+      skipAttributeMapping,
+    );
 
     if (operator === "str_contains_none") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];

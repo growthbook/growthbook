@@ -336,7 +336,6 @@ const MetricsSelector: FC<{
               context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
             }
             officialBadgePosition="left"
-            officialBadgeLeftGap={context !== "value"}
           />
         ) : (
           label
