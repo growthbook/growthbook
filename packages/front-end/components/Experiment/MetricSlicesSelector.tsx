@@ -14,6 +14,7 @@ import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
+import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 
 export interface SliceLevel {
@@ -606,21 +607,34 @@ function EditingInterface({
               <span className="px-2 font-weight-medium">
                 {dimensionColumn?.name || sliceLevel.column}:
               </span>
-              <SelectField
-                value={sliceLevel.levels[0] || ""}
-                onChange={(value) =>
-                  updateSliceLevel(levelIndex, "level", value)
-                }
-                options={availableLevels.map((level) => ({
-                  label: level,
-                  value: level,
-                }))}
-                className="mb-0"
-                style={{ minWidth: "120px" }}
-                createable
-                placeholder=""
-                autoFocus={!sliceLevel.levels[0]}
-              />
+              {availableLevels.length > 0 ? (
+                <SelectField
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(value) =>
+                    updateSliceLevel(levelIndex, "level", value)
+                  }
+                  options={availableLevels.map((level) => ({
+                    label: level,
+                    value: level,
+                  }))}
+                  className="mb-0"
+                  style={{ minWidth: "120px" }}
+                  createable
+                  placeholder=""
+                  autoFocus={!sliceLevel.levels[0]}
+                />
+              ) : (
+                <Field
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(e) =>
+                    updateSliceLevel(levelIndex, "level", e.target.value)
+                  }
+                  className="mb-0"
+                  style={{ width: "130px" }}
+                  placeholder="Column value..."
+                  autoFocus={!sliceLevel.levels[0]}
+                />
+              )}
               <button
                 type="button"
                 className="btn btn-link p-0 ml-1 text-muted"
