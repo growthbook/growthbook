@@ -56,13 +56,15 @@ export default function DataVizDimensionPanel({
               <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
                 <Flex justify="between" align="center">
                   <Flex align="center" gap="1">
-                    <PiNetwork
-                      style={{
-                        color: "var(--violet-11)",
-                        transform: "rotate(-90deg)",
-                      }}
-                      size={20}
-                    />
+                    {label === "Dimension" ? (
+                      <PiNetwork
+                        style={{
+                          color: "var(--violet-11)",
+                          transform: "rotate(-90deg)",
+                        }}
+                        size={20}
+                      />
+                    ) : null}
                     {label}s
                     <Badge
                       label={dimensions.length.toString()}
