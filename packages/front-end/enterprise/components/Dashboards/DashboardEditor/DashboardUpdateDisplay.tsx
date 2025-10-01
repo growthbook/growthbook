@@ -20,8 +20,13 @@ function SnapshotStatusSummary({
   const {
     settings: { updateSchedule },
   } = useUser();
-  const { defaultSnapshot, snapshotsMap, refreshError, allQueries } =
-    useContext(DashboardSnapshotContext);
+  const {
+    defaultSnapshot,
+    snapshotsMap,
+    refreshError,
+    allQueries,
+    snapshotError,
+  } = useContext(DashboardSnapshotContext);
   const numFailed = useMemo(
     () => allQueries.filter((q) => q.status === "failed").length,
     [allQueries],
@@ -35,14 +40,17 @@ function SnapshotStatusSummary({
 
   const snapshot = snapshotEntry ? snapshotEntry[1] : defaultSnapshot;
 
-  const textColor = refreshError || numFailed > 0 ? "red" : undefined;
+  const textColor =
+    refreshError || numFailed > 0 || snapshotError ? "red" : undefined;
   const content = refreshError
     ? "Update Failed"
     : numFailed > 0
       ? "One or more queries failed"
-      : snapshot.runStarted
-        ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
-        : "Not started yet";
+      : snapshotError
+        ? "Error running analysis"
+        : snapshot.runStarted
+          ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
+          : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (

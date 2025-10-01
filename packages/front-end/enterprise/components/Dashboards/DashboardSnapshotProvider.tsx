@@ -34,7 +34,8 @@ export const DashboardSnapshotContext = React.createContext<{
   loading?: boolean;
   error?: Error;
   refreshStatus: QueryStatus;
-  refreshError?: string;
+  refreshError?: string; // Error from hitting the backend to start refreshing snapshots
+  snapshotError?: string; // Error from the resulting snapshots after the refresh request succeeded
   allQueries: Queries;
   mutateSnapshot: () => Promise<unknown>;
   mutateSnapshotsMap: () => Promise<unknown>;
@@ -63,7 +64,7 @@ export default function DashboardSnapshotProvider({
   const { apiCall } = useAuth();
   const {
     data: snapshotData,
-    error: snapshotError,
+    error: singleSnapshotError,
     isLoading: snapshotLoading,
     mutate: mutateDefaultSnapshot,
   } = useApi<{
@@ -102,13 +103,17 @@ export default function DashboardSnapshotProvider({
     [allSavedQueries],
   );
 
-  const { status, snapshotsMap, allQueries } = useMemo(() => {
+  const { status, snapshotsMap, allQueries, snapshotError } = useMemo(() => {
     const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
     const allQueries = allSnapshots.flatMap(
       (snapshot) => snapshot.queries || [],
     );
-    const { status } = getQueryStatus(allQueries);
-    return { status, snapshotsMap, allQueries };
+    const snapshotError = snapshotsMap
+      .values()
+      .find((snapshot) => snapshot.error)?.error;
+    const { status } = getQueryStatus(allQueries, snapshotError);
+
+    return { status, snapshotsMap, allQueries, snapshotError };
   }, [allSnapshots]);
 
   useEffect(() => {
@@ -163,10 +168,11 @@ export default function DashboardSnapshotProvider({
         dimensionless: snapshotData?.dimensionless,
         snapshotsMap,
         savedQueriesMap,
-        error: snapshotError || allSnapshotsError,
+        error: singleSnapshotError || allSnapshotsError,
         loading: snapshotLoading || allSnapshotsLoading,
         refreshStatus: status,
         refreshError,
+        snapshotError,
         allQueries,
         mutateSnapshot: mutateDefaultSnapshot,
         mutateSnapshotsMap: mutateAllSnapshots,
