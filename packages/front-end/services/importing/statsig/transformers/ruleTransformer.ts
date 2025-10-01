@@ -59,8 +59,12 @@ export function transformStatsigConditionsToGB(
           // These become saved groups
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
-          console.log({ segmentName, savedGroupId, savedGroupIdMap });
-          // throw new Error("test");
+          console.log({
+            segmentName,
+            savedGroupId,
+            savedGroupIdMap,
+            conditions,
+          });
           if (savedGroupId) {
             savedGroups.push(savedGroupId);
           } else {
@@ -126,6 +130,8 @@ function transformTargetingConditions(
     str_contains_none: "$not",
     lt: "$lt",
     gt: "$gt",
+    lte: "$lte",
+    gte: "$gte",
     version_lt: "$vlt",
     version_gt: "$vgt",
     version_lte: "$vlte",
@@ -152,6 +158,11 @@ function transformTargetingConditions(
       skipAttributeMapping,
     );
 
+    // Initialize the attribute object if it doesn't exist
+    if (!conditionObj[gbAttributeName]) {
+      conditionObj[gbAttributeName] = {};
+    }
+
     if (operator === "str_contains_none") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];
       conditionObj[gbAttributeName] = {
@@ -173,7 +184,9 @@ function transformTargetingConditions(
     } else if (gbOperator === "$not") {
       conditionObj[gbAttributeName] = { $not: targetValue };
     } else {
-      conditionObj[gbAttributeName] = { [gbOperator]: targetValue };
+      // Merge operators for the same attribute
+      (conditionObj[gbAttributeName] as Record<string, unknown>)[gbOperator] =
+        targetValue;
     }
   });
 
