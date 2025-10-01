@@ -69,14 +69,7 @@ export default function FactTableAutoSliceSelector({
       metricId: factMetric.id,
       previousSlices: previousSlices,
       newSlices: selectedSlices,
-      previousCount: previousSlices.length,
-      newCount: selectedSlices.length,
-      addedSlices: selectedSlices.filter(
-        (slice) => !previousSlices.includes(slice),
-      ),
-      removedSlices: previousSlices.filter(
-        (slice) => !selectedSlices.includes(slice),
-      ),
+      sliceCount: selectedSlices.length,
     });
 
     await onUpdate(selectedSlices);

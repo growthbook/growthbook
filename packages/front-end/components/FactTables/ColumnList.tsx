@@ -160,7 +160,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                         </Tooltip>
                       )}
                       {col.isAutoSliceColumn && (
-                        <Tooltip body="Auto Slices" tipPosition="left">
+                        <Tooltip body="Auto Slices enabled" tipPosition="left">
                           <Avatar
                             size="sm"
                             color="violet"

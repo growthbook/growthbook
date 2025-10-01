@@ -3,7 +3,7 @@ import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Box } from "@radix-ui/themes";
+import { Box, Text } from "@radix-ui/themes";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -30,6 +30,7 @@ import {
 } from "shared/experiments";
 import { PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -65,6 +66,7 @@ import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
@@ -1459,7 +1461,11 @@ export default function FactMetricModal({
 
   const { disableLegacyMetricCreation } = settings;
 
+  const growthbook = useGrowthBook();
   const { hasCommercialFeature } = useUser();
+
+  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   // TODO: We may want to hide this from non-technical users in the future
   const showSQLPreview = true;
@@ -1756,6 +1762,18 @@ export default function FactMetricModal({
         };
 
         if (!isNew) {
+          // Track auto slices changes
+          const previousSlices = existing.metricAutoSlices || [];
+          const newSlices = values.metricAutoSlices || [];
+          if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
+            track("metric-auto-slices-updated", {
+              metricId: existing.id,
+              previousSlices: previousSlices,
+              newSlices: newSlices,
+              sliceCount: newSlices.length,
+            });
+          }
+
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);
@@ -1766,6 +1784,15 @@ export default function FactMetricModal({
           track("Edit Fact Metric", trackProps);
           await mutateDefinitions();
         } else {
+          // Track auto slices for new metrics
+          const newSlices = values.metricAutoSlices || [];
+          if (newSlices.length > 0) {
+            track("metric-auto-slices-updated", {
+              newSlices: newSlices,
+              sliceCount: newSlices.length,
+            });
+          }
+
           const createPayload: CreateFactMetricProps = {
             ...values,
             projects:
@@ -2247,6 +2274,70 @@ export default function FactMetricModal({
                   },
                 ]}
               />
+
+              {isMetricSlicesFeatureEnabled &&
+                hasMetricSlicesFeature &&
+                (() => {
+                  const factTableId = form.watch("numerator.factTableId");
+                  const factTable = getFactTableById(factTableId);
+                  const availableSlices =
+                    factTable?.columns?.filter(
+                      (col) => col.isAutoSliceColumn && !col.deleted,
+                    ) || [];
+
+                  return (
+                    <div className="mt-3 mb-4">
+                      <label className="font-weight-bold mb-1">
+                        Auto Slices
+                        <PaidFeatureBadge
+                          commercialFeature="metric-slices"
+                          premiumText="This is an Enterprise feature"
+                          variant="outline"
+                          ml="2"
+                        />
+                      </label>
+                      <Text
+                        as="p"
+                        className="mb-2"
+                        style={{ color: "var(--color-text-mid)" }}
+                      >
+                        Metric will be automatically analyzed across all slices.
+                      </Text>
+                      {hasMetricSlicesFeature && (
+                        <div className="mt-2">
+                          {availableSlices.length > 0 ? (
+                            <MultiSelectField
+                              value={form.watch("metricAutoSlices") || []}
+                              onChange={(metricAutoSlices) => {
+                                form.setValue(
+                                  "metricAutoSlices",
+                                  metricAutoSlices,
+                                );
+                              }}
+                              options={availableSlices.map((col) => ({
+                                label: col.name || col.column,
+                                value: col.column,
+                              }))}
+                              placeholder="Select auto slice columns..."
+                            />
+                          ) : (
+                            <Text
+                              as="span"
+                              style={{
+                                color: "var(--color-text-low)",
+                                fontStyle: "italic",
+                              }}
+                              size="1"
+                            >
+                              No slices available. Configure your fact table to
+                              enable auto slices.
+                            </Text>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
               {!advancedOpen && (
                 <a
