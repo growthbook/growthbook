@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import Decimal from "decimal.js";
@@ -87,6 +87,23 @@ function aggregate(
     case "none":
       return numericValues[0] || 0;
   }
+}
+
+// Tree structure for hierarchical pivot table rows
+type TreeNode = {
+  label: string;
+  fullPath: string[];
+  children: Map<string, TreeNode>;
+  combos: string[]; // Full combo keys that belong to this leaf node
+};
+
+// Recursively collect all descendant combo keys from a tree node
+function getAllDescendantCombos(node: TreeNode): string[] {
+  const combos = [...node.combos];
+  node.children.forEach((child) => {
+    combos.push(...getAllDescendantCombos(child));
+  });
+  return combos;
 }
 
 function roundDate(date: Date, unit: xAxisDateAggregationUnit): Date {
@@ -288,9 +305,8 @@ export function DataVisualizationDisplay({
       });
     });
   }, [dataVizConfig.filters, rows]);
-  console.log("filteredRows", filteredRows);
 
-  // TODO: Support multiple y-axis and dimension fields
+  // TODO: Support multiple y-axis fields
   const xConfig = requiresXAxis(dataVizConfig)
     ? dataVizConfig.xAxis
     : undefined;
@@ -298,61 +314,122 @@ export function DataVisualizationDisplay({
   const yConfig = dataVizConfig.yAxis?.[0];
   const yField = yConfig?.fieldName;
   const aggregation = yConfig?.aggregation || "sum";
-  // TODO: Support multiple dimensions
-  const dimensionConfig = supportsDimension(dataVizConfig)
-    ? dataVizConfig.dimension?.[0]
-    : undefined;
-  console.log("dimensionConfig", dimensionConfig);
-  const dimensionField = dimensionConfig?.fieldName;
+  // Get all dimension configurations
+  const dimensionConfigs = useMemo(
+    () =>
+      supportsDimension(dataVizConfig) ? dataVizConfig.dimension || [] : [],
+    [dataVizConfig],
+  );
+  const dimensionFields = dimensionConfigs.map((d) => d.fieldName);
 
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
 
-  // If using a dimension, get top X dimension values
-  const { dimensionValues, hasOtherDimension } = useMemo(() => {
-    if (!dimensionField) {
-      return { dimensionValues: [], hasOtherDimension: false };
+  // Helper: Create a dimension key from field and value (e.g., "browser: chrome")
+  const createDimensionKey = useCallback(
+    (field: string, value: string): string => {
+      return `${field}: ${value}`;
+    },
+    [],
+  );
+
+  // Helper: Generate all combinations of dimension values across all dimensions
+  const generateAllDimensionCombinations = useCallback(
+    (
+      dimensionValuesByField: Map<
+        string,
+        { values: string[]; hasOther: boolean; maxValues: number }
+      >,
+    ): string[][] => {
+      if (dimensionFields.length === 0) return [];
+
+      let combinations: string[][] = [[]];
+
+      dimensionFields.forEach((field) => {
+        const fieldInfo = dimensionValuesByField.get(field);
+        if (!fieldInfo) return;
+
+        const valuesToUse = [...fieldInfo.values];
+        if (fieldInfo.hasOther) {
+          valuesToUse.push("(other)");
+        }
+
+        const newCombinations: string[][] = [];
+        combinations.forEach((combination) => {
+          valuesToUse.forEach((value) => {
+            newCombinations.push([
+              ...combination,
+              createDimensionKey(field, value),
+            ]);
+          });
+        });
+
+        combinations = newCombinations;
+      });
+
+      return combinations;
+    },
+    [dimensionFields, createDimensionKey],
+  );
+
+  // If using dimensions, get top X dimension values for each dimension
+  const dimensionValuesByField = useMemo(() => {
+    const result: Map<
+      string,
+      { values: string[]; hasOther: boolean; maxValues: number }
+    > = new Map();
+
+    if (dimensionFields.length === 0) {
+      return result;
     }
 
-    // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
-    const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
-    filteredRows.forEach((row) => {
-      const dimensionValue = row[dimensionField] + "";
-      const yValue = parseYValue(row, yField, yConfig?.type || "number");
-      if (yValue !== undefined) {
-        dimensionValueCounts.set(dimensionValue, [
-          ...(dimensionValueCounts.get(dimensionValue) || []),
-          yValue,
-        ]);
+    dimensionConfigs.forEach((config) => {
+      const dimensionField = config.fieldName;
+      const maxValues = config.maxValues || 5;
+
+      // For each dimension value (e.g. "chrome", "firefox"), build a list of all y-values
+      const dimensionValueCounts: Map<string, (number | string)[]> = new Map();
+      filteredRows.forEach((row) => {
+        const dimensionValue = row[dimensionField] + "";
+        const yValue = parseYValue(row, yField, yConfig?.type || "number");
+        if (yValue !== undefined) {
+          dimensionValueCounts.set(dimensionValue, [
+            ...(dimensionValueCounts.get(dimensionValue) || []),
+            yValue,
+          ]);
+        }
+      });
+
+      // Sort the dimension values by their aggregate y-value descending
+      const sortedDimensionValues = Array.from(dimensionValueCounts.entries())
+        .map(([dimensionValue, values]) => ({
+          dimensionValue,
+          value: aggregate(values, aggregation),
+        }))
+        .sort((a, b) => b.value - a.value)
+        .map(({ dimensionValue }) => dimensionValue);
+
+      // If there are at least 2 overflow values, add an "(other)" group
+      if (sortedDimensionValues.length > maxValues + 1) {
+        result.set(dimensionField, {
+          values: sortedDimensionValues.slice(0, maxValues),
+          hasOther: true,
+          maxValues,
+        });
+      } else {
+        result.set(dimensionField, {
+          values: sortedDimensionValues,
+          hasOther: false,
+          maxValues,
+        });
       }
     });
 
-    // Sort the dimension values by their aggregate y-value descending
-    const dimensionValues = Array.from(dimensionValueCounts.entries())
-      .map(([dimensionValue, values]) => ({
-        dimensionValue,
-        value: aggregate(values, aggregation),
-      }))
-      .sort((a, b) => b.value - a.value)
-      .map(({ dimensionValue }) => dimensionValue);
-
-    const maxValues = dimensionConfig?.maxValues || 5;
-    // If there are at least 2 overflow values, add an "(other)" group
-    if (dimensionValues.length > maxValues + 1) {
-      return {
-        dimensionValues: dimensionValues.slice(0, maxValues),
-        hasOtherDimension: true,
-      };
-    }
-
-    return {
-      dimensionValues,
-      hasOtherDimension: false,
-    };
+    return result;
   }, [
-    dimensionField,
+    dimensionFields,
+    dimensionConfigs,
     filteredRows,
-    dimensionConfig?.maxValues,
     yConfig?.type,
     yField,
     aggregation,
@@ -366,6 +443,7 @@ export function DataVisualizationDisplay({
 
     const yType = yConfig?.type || "number";
 
+    // Parse each filtered row into a standardized format
     const parsedRows = filteredRows.map((row) => {
       const newRow: {
         x?: number | Date | string;
@@ -393,16 +471,21 @@ export function DataVisualizationDisplay({
       // Parse yField value based on yType
       newRow.y = parseYValue(row, yField, yType);
 
-      if (dimensionField) {
-        const dimensionValue = row[dimensionField] + "";
-        newRow.dimensions = {
-          [dimensionField]: dimensionValues.includes(dimensionValue)
-            ? dimensionValue
-            : "(other)",
-        };
+      // Handle all dimensions
+      if (dimensionFields.length > 0) {
+        newRow.dimensions = {};
+        dimensionFields.forEach((dimensionField) => {
+          const dimensionValue = row[dimensionField] + "";
+          const fieldInfo = dimensionValuesByField.get(dimensionField);
+          if (fieldInfo) {
+            newRow.dimensions![dimensionField] = fieldInfo.values.includes(
+              dimensionValue,
+            )
+              ? dimensionValue
+              : "(other)";
+          }
+        });
       }
-
-      // TODO: support multiple y-axis and dimension fields
 
       return newRow;
     });
@@ -416,9 +499,12 @@ export function DataVisualizationDisplay({
         y: (string | number)[];
       }
     > = {};
+
+    // Group rows by x-value and collect dimension values
     parsedRows.forEach((row, i) => {
       if (row.x == null || row.y == null) return;
 
+      // Create a unique key for this x-value
       const keyData: unknown[] = [];
       if (aggregation === "none") {
         keyData.push(i);
@@ -429,6 +515,8 @@ export function DataVisualizationDisplay({
       }
 
       const key = JSON.stringify(keyData);
+
+      // Initialize group if it doesn't exist
       if (!groupedRows[key]) {
         groupedRows[key] = {
           x:
@@ -440,18 +528,26 @@ export function DataVisualizationDisplay({
         };
       }
 
-      // Add value to top-level
+      // Add value to top-level y aggregation
       groupedRows[key].y.push(row.y);
 
-      // Add value to dimension
-      Object.entries(row.dimensions || {}).forEach(([k, v]) => {
-        const dimensionKey = k + ": " + v;
+      // Group by dimension combination if dimensions exist
+      if (row.dimensions && Object.keys(row.dimensions).length > 0) {
+        const dimensionKey = dimensionFields
+          .map((field) => createDimensionKey(field, row.dimensions![field]))
+          .join(", ");
+
         if (!groupedRows[key].dimensions[dimensionKey]) {
           groupedRows[key].dimensions[dimensionKey] = [];
         }
         groupedRows[key].dimensions[dimensionKey].push(row.y || 0);
-      });
+      }
     });
+
+    // Generate all possible dimension combinations for this dataset
+    const dimensionCombinations = generateAllDimensionCombinations(
+      dimensionValuesByField,
+    );
 
     // Apply aggregation to each group
     const aggregatedRows = Object.values(groupedRows).map((group) => {
@@ -460,21 +556,15 @@ export function DataVisualizationDisplay({
         y: aggregate(group.y, aggregation || "sum"),
       };
 
-      if (dimensionField) {
-        dimensionValues.forEach((value) => {
-          const dimensionKey = dimensionField + ": " + value;
+      if (dimensionFields.length > 0) {
+        // For each combination of dimension values, add a column
+        dimensionCombinations.forEach((combination) => {
+          const dimensionKey = combination.join(", ");
           row[dimensionKey] =
             dimensionKey in group.dimensions
               ? aggregate(group.dimensions[dimensionKey], aggregation)
               : 0;
         });
-        if (hasOtherDimension) {
-          const otherKey = dimensionField + ": (other)";
-          row[otherKey] =
-            otherKey in group.dimensions
-              ? aggregate(group.dimensions[otherKey], aggregation)
-              : 0;
-        }
       }
 
       return row;
@@ -522,10 +612,11 @@ export function DataVisualizationDisplay({
     aggregation,
     yField,
     yConfig?.type,
-    dimensionField,
-    dimensionValues,
-    hasOtherDimension,
+    dimensionFields,
+    dimensionValuesByField,
     filteredRows,
+    createDimensionKey,
+    generateAllDimensionCombinations,
   ]);
 
   const dataset = useMemo(() => {
@@ -537,7 +628,7 @@ export function DataVisualizationDisplay({
   }, [aggregatedRows]);
 
   const series = useMemo(() => {
-    if (!dimensionField || dimensionValues.length === 0) {
+    if (dimensionFields.length === 0) {
       return [
         {
           name: xField,
@@ -554,42 +645,35 @@ export function DataVisualizationDisplay({
       ];
     }
 
-    const dimensionSeries = dimensionValues.map((value) => {
+    // Generate all combinations of dimension values for series
+    const dimensionCombinations = generateAllDimensionCombinations(
+      dimensionValuesByField,
+    );
+
+    // Use the first dimension's display setting for stacking
+    const shouldStack = dimensionConfigs[0]?.display === "stacked";
+
+    return dimensionCombinations.map((combination) => {
+      const dimensionKey = combination.join(", ");
       return {
-        name: value,
+        name: dimensionKey,
         type:
           dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
         ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
-        stack: dimensionConfig?.display === "stacked" ? "stack" : undefined,
+        stack: shouldStack ? "stack" : undefined,
         encode: {
           x: "x",
-          y: `${dimensionField}: ${value}`,
+          y: dimensionKey,
         },
       };
     });
-
-    if (hasOtherDimension) {
-      dimensionSeries.push({
-        name: "(other)",
-        type:
-          dataVizConfig.chartType === "area" ? "line" : dataVizConfig.chartType,
-        ...(dataVizConfig.chartType === "area" && { areaStyle: {} }),
-        stack: dimensionConfig?.display === "stacked" ? "stack" : undefined,
-        encode: {
-          x: "x",
-          y: `${dimensionField}: (other)`,
-        },
-      });
-    }
-
-    return dimensionSeries;
   }, [
     dataVizConfig.chartType,
     xField,
-    dimensionField,
-    dimensionValues,
-    dimensionConfig?.display,
-    hasOtherDimension,
+    dimensionFields,
+    dimensionValuesByField,
+    dimensionConfigs,
+    generateAllDimensionCombinations,
   ]);
 
   const option = useMemo(() => {
@@ -615,7 +699,7 @@ export function DataVisualizationDisplay({
             },
           }
         : {}),
-      ...(dimensionField
+      ...(dimensionFields.length > 0
         ? {
             legend: {
               textStyle: {
@@ -674,7 +758,7 @@ export function DataVisualizationDisplay({
     xConfig?.type,
     xConfig?.dateAggregationUnit,
     yConfig?.aggregation,
-    dimensionField,
+    dimensionFields,
     dataVizConfig.title,
     textColor,
   ]);
@@ -721,40 +805,131 @@ export function DataVisualizationDisplay({
       );
     }
 
-    const rowHeaders = new Set<string>();
-    aggregatedRows.forEach((row) => {
-      Object.keys(row).forEach((k) => {
-        // console.log("k", k);
-        if (k === "x") return;
+    // Build hierarchical row structure
+    type TableRow = {
+      header: string;
+      values: (string | number | null)[];
+      indent: number;
+      isBold?: boolean;
+    };
 
-        if (k === "y" && dataVizConfig.dimension?.length) return;
-        rowHeaders.add(k);
+    const tableRows: TableRow[] = [];
+
+    if (dimensionFields.length === 0) {
+      // No dimensions - just show the y-axis values
+      const yFieldName = dataVizConfig.yAxis?.[0]?.fieldName;
+      const yAggregation = dataVizConfig.yAxis?.[0]?.aggregation;
+      tableRows.push({
+        header: yFieldName ? `${yFieldName} (${yAggregation})` : "y",
+        values: aggregatedRows.map((row) => row.y as number),
+        indent: 0,
       });
-    });
-
-    // console.log("rowHeaders", rowHeaders);
-
-    const tableRows: { header: string; values: (string | null)[] }[] =
-      Array.from(rowHeaders).map((key) => ({
-        header:
-          key === "y" && dataVizConfig.yAxis?.[0]?.fieldName
-            ? `${dataVizConfig.yAxis?.[0]?.fieldName} (${dataVizConfig.yAxis?.[0]?.aggregation})`
-            : key,
-        values: aggregatedRows.map(
-          (row) => (row[key] !== undefined ? (row[key] as string) : null), // or 0 if you prefer
-        ),
-      }));
-
-    // console.log("columnHeaders", columnHeaders);
-
-    aggregatedRows.forEach((row) => {
-      rows.push({
-        header: row.x instanceof Date ? row.x.toLocaleDateString() : row.x + "",
-        values: Object.values(row).map((value) => value as string),
+    } else if (dimensionFields.length === 1) {
+      // Single dimension - no nesting needed
+      const dimensionCombos = new Set<string>();
+      aggregatedRows.forEach((row) => {
+        Object.keys(row).forEach((k) => {
+          if (k !== "x" && k !== "y") {
+            dimensionCombos.add(k);
+          }
+        });
       });
-    });
 
-    console.log("tableRows", tableRows);
+      Array.from(dimensionCombos)
+        .sort()
+        .forEach((combo) => {
+          tableRows.push({
+            header: combo,
+            values: aggregatedRows.map((row) =>
+              row[combo] !== undefined ? (row[combo] as number) : null,
+            ),
+            indent: 0,
+          });
+        });
+    } else {
+      // Multiple dimensions - build recursive hierarchical structure
+      // Collect all dimension combination keys from aggregatedRows
+      const dimensionCombos = new Set<string>();
+      aggregatedRows.forEach((row) => {
+        Object.keys(row).forEach((k) => {
+          if (k !== "x" && k !== "y") {
+            dimensionCombos.add(k);
+          }
+        });
+      });
+
+      // Build a tree from dimension combinations (e.g., "browser: chrome, country: USA")
+      const root: TreeNode = {
+        label: "",
+        fullPath: [],
+        children: new Map(),
+        combos: [],
+      };
+
+      // Parse each combo and build the tree
+      dimensionCombos.forEach((combo) => {
+        const parts = combo.split(", ");
+        let currentNode = root;
+
+        parts.forEach((part, index) => {
+          if (!currentNode.children.has(part)) {
+            currentNode.children.set(part, {
+              label: part,
+              fullPath: [...currentNode.fullPath, part],
+              children: new Map(),
+              combos: [],
+            });
+          }
+          currentNode = currentNode.children.get(part)!;
+
+          // If this is the last part, this is a leaf node - store the full combo
+          if (index === parts.length - 1) {
+            currentNode.combos.push(combo);
+          }
+        });
+      });
+
+      // Recursively render the tree into table rows
+      const renderTree = (node: TreeNode, depth: number): void => {
+        // Sort children alphabetically
+        const sortedChildren = Array.from(node.children.entries()).sort(
+          ([a], [b]) => a.localeCompare(b),
+        );
+
+        sortedChildren.forEach(([_key, childNode]) => {
+          // Get all combo keys for this node and its descendants
+          const descendantCombos = getAllDescendantCombos(childNode);
+
+          // Calculate aggregated values across all x-axis columns
+          const nodeValues = aggregatedRows.map((row) => {
+            // Sum values from all descendant combinations
+            return descendantCombos.reduce(
+              (total, combo) =>
+                total + (row[combo] !== undefined ? (row[combo] as number) : 0),
+              0,
+            );
+          });
+
+          // Leaf nodes show actual data; parent nodes show aggregated totals
+          const isLeaf =
+            childNode.combos.length > 0 && childNode.children.size === 0;
+
+          tableRows.push({
+            header: childNode.label,
+            values: nodeValues,
+            indent: depth,
+            isBold: !isLeaf, // Non-leaf nodes are bold
+          });
+
+          // Recursively render children
+          if (childNode.children.size > 0) {
+            renderTree(childNode, depth + 1);
+          }
+        });
+      };
+
+      renderTree(root, 0);
+    }
 
     return (
       <div className="pl-4 pr-4">
@@ -779,11 +954,25 @@ export function DataVisualizationDisplay({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tableRows.map((row) => (
-                <TableRow key={row.header}>
-                  <TableCell>{row.header}</TableCell>
+              {tableRows.map((row, rowIndex) => (
+                <TableRow key={`${row.header}-${rowIndex}`}>
+                  <TableCell
+                    style={{
+                      paddingLeft: `${12 + row.indent * 24}px`,
+                      fontWeight: row.isBold ? "bold" : "normal",
+                    }}
+                  >
+                    {row.header}
+                  </TableCell>
                   {row.values.map((value, i) => (
-                    <TableCell key={i}>{value ? value : "-"}</TableCell>
+                    <TableCell
+                      key={i}
+                      style={{
+                        fontWeight: row.isBold ? "bold" : "normal",
+                      }}
+                    >
+                      {value !== null && value !== undefined ? value : "-"}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))}
