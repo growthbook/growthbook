@@ -619,7 +619,7 @@ function EditingInterface({
           // Build the same slice map with unioned levels
           const sliceMap = new Map<
             string,
-            { name: string; levels: string[] }
+            { name: string; levels: Set<string>; column: string }
           >();
 
           metricsWithSlices.forEach((metric) => {
@@ -630,22 +630,19 @@ function EditingInterface({
               if (existing) {
                 // UNION the levels from autoSlices and topValues
                 col.autoSlices?.forEach((level) => {
-                  if (!existing.levels.includes(level)) {
-                    existing.levels.push(level);
-                  }
+                  existing.levels.add(level);
                 });
                 col.topValues?.forEach((level) => {
-                  if (!existing.levels.includes(level)) {
-                    existing.levels.push(level);
-                  }
+                  existing.levels.add(level);
                 });
               } else {
                 // Create new entry with levels from autoSlices and topValues
-                const allLevels = [
+                const allLevels = new Set([
                   ...(col.autoSlices || []),
                   ...(col.topValues || []),
-                ];
+                ]);
                 sliceMap.set(col.column, {
+                  column: col.column,
                   name: col.name || col.column || "",
                   levels: allLevels,
                 });
@@ -654,7 +651,9 @@ function EditingInterface({
           });
 
           const sliceColumn = sliceMap.get(sliceLevel.column);
-          const availableLevels = sliceColumn?.levels.sort() || [];
+          const availableLevels = sliceColumn
+            ? Array.from(sliceColumn.levels).sort()
+            : [];
 
           return (
             <div

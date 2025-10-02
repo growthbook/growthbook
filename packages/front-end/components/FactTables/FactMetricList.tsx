@@ -81,7 +81,22 @@ export default function FactMetricList({
 
   const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
     useSearch({
-      items: showArchived ? metrics : metrics.filter((m) => !m.archived) || [],
+      items: (showArchived
+        ? metrics
+        : metrics.filter((m) => !m.archived) || []
+      ).map((metric) => {
+        // Calculate numAutoSlices for sorting
+        const numAutoSlices = factTable.columns.filter(
+          (col) =>
+            col.isAutoSliceColumn &&
+            !col.deleted &&
+            metric.metricAutoSlices?.includes(col.column),
+        ).length;
+        return {
+          ...metric,
+          numAutoSlices,
+        };
+      }),
       defaultSortField: "name",
       localStorageKey: "factmetrics",
       searchFields: ["name^3", "description"],
@@ -190,7 +205,7 @@ export default function FactMetricList({
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="metricType">Type</SortableTH>
                 {shouldShowSliceAnalysisColumn && (
-                  <th style={{ width: 400 }}>
+                  <SortableTH field="numAutoSlices" style={{}}>
                     Auto Slices
                     <PaidFeatureBadge
                       commercialFeature="metric-slices"
@@ -198,7 +213,7 @@ export default function FactMetricList({
                       variant="outline"
                       ml="2"
                     />
-                  </th>
+                  </SortableTH>
                 )}
                 <SortableTH field="tags">Tags</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -219,7 +234,7 @@ export default function FactMetricList({
                   </td>
                   <td>{metric.metricType}</td>
                   {shouldShowSliceAnalysisColumn && (
-                    <td>
+                    <td style={{ width: 400 }}>
                       <FactTableAutoSliceSelector
                         factMetric={metric}
                         factTableId={factTable.id}
