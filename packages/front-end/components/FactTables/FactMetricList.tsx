@@ -2,10 +2,10 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
-import { Switch } from "@radix-ui/themes";
+import { Switch, Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
@@ -20,13 +20,11 @@ import { useAuth } from "@/services/auth";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
-import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import FactMetricModal from "./FactMetricModal";
-import FactTableAutoSliceSelector from "./FactTableAutoSliceSelector";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -47,7 +45,6 @@ export default function FactMetricList({
     useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
   const metrics =
@@ -60,7 +57,6 @@ export default function FactMetricList({
   const hasArchivedMetrics = factMetrics.some((m) => m.archived);
 
   const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
-  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const shouldShowSliceAnalysisColumn =
     isMetricSlicesFeatureEnabled &&
     factTable.columns.some((col) => col.isAutoSliceColumn && !col.deleted);
@@ -234,25 +230,48 @@ export default function FactMetricList({
                   </td>
                   <td>{metric.metricType}</td>
                   {shouldShowSliceAnalysisColumn && (
-                    <td style={{ width: 400 }}>
-                      <FactTableAutoSliceSelector
-                        factMetric={metric}
-                        factTableId={factTable.id}
-                        canEdit={
-                          permissionsUtil.canUpdateFactMetric(metric, {}) &&
-                          !metric.managedBy &&
-                          hasMetricSlicesFeature
-                        }
-                        onUpdate={async (metricAutoSlices) => {
-                          await apiCall(`/fact-metrics/${metric.id}`, {
-                            method: "PUT",
-                            body: JSON.stringify({
-                              metricAutoSlices,
-                            }),
-                          });
-                          mutateDefinitions();
-                        }}
-                      />
+                    <td>
+                      <div
+                        className="d-flex flex-wrap"
+                        style={{ gap: "0.25rem" }}
+                      >
+                        {metric.metricAutoSlices?.map((slice, i) => {
+                          const column = factTable.columns?.find(
+                            (col) => col.column === slice,
+                          );
+                          const levels = column?.autoSlices;
+                          if (!levels?.length) return null;
+
+                          return (
+                            <span key={slice} style={{ whiteSpace: "nowrap" }}>
+                              <Tooltip body={levels.join(", ")}>
+                                <Text weight="medium" size="1">
+                                  {column?.name || slice}
+                                </Text>
+                              </Tooltip>
+                              {i < metric.metricAutoSlices!.length - 1 && ", "}
+                            </span>
+                          );
+                        })}
+                        {(!metric.metricAutoSlices?.length ||
+                          metric.metricAutoSlices.every((slice) => {
+                            const column = factTable.columns?.find(
+                              (col) => col.column === slice,
+                            );
+                            return !column?.autoSlices?.length;
+                          })) && (
+                          <Text
+                            as="span"
+                            style={{
+                              color: "var(--color-text-low)",
+                              fontStyle: "italic",
+                            }}
+                            size="1"
+                          >
+                            No auto slices
+                          </Text>
+                        )}
+                      </div>
                     </td>
                   )}
                   <td>

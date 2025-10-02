@@ -1598,8 +1598,7 @@ export function expandAllSliceMetricsInMap({
     false,
     metricGroups,
   );
-  const baseMetrics = baseMetricIds
-    .map((m) => metricMap.get(m)!);
+  const baseMetrics = baseMetricIds.map((m) => metricMap.get(m)!);
 
   for (const metric of baseMetrics) {
     if (!isFactMetric(metric)) continue;

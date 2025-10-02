@@ -67,7 +67,7 @@ export default function ResultsDownloadButton({
         result.variations.forEach((variation, index) => {
           const stats = variation.metrics[metricId];
           if (!stats) return;
-          
+
           // Get metric name from the metric ID
           // For slice metrics, extract the base name and slice info
           let metricName = metricId;
@@ -82,7 +82,8 @@ export default function ResultsDownloadButton({
               for (const [key, value] of params.entries()) {
                 if (key.startsWith("dim:")) {
                   const column = decodeURIComponent(key.substring(4));
-                  const level = value === "" ? "other" : decodeURIComponent(value);
+                  const level =
+                    value === "" ? "other" : decodeURIComponent(value);
                   sliceParts.push(`${column}: ${level}`);
                 }
               }
@@ -94,7 +95,7 @@ export default function ResultsDownloadButton({
               metricName = metric.name;
             }
           }
-          
+
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
             metric: metricName,

@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
-import {
-  ExperimentMetricInterface,
-} from "shared/experiments";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
@@ -633,4 +631,3 @@ export async function generateMetricEmbeddings(
 const getTextForEmbedding = (metric: MetricInterface): string => {
   return `Name: ${metric.name}\nDescription: ${metric.description}`;
 };
-
