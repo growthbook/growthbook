@@ -1,11 +1,13 @@
 import importlib.metadata
-from typing import List
+from typing import List, Optional
 
 import packaging.version
 import numpy as np
 from scipy.stats import truncnorm
 from scipy.stats.distributions import chi2  # type: ignore
 from scipy.stats import norm  # type: ignore
+import scipy.linalg as la
+from dataclasses import dataclass
 
 
 def check_gbstats_compatibility(nb_version: str) -> None:
@@ -101,3 +103,72 @@ def isinstance_union(obj, union):
 
 def is_statistically_significant(ci: List[float]) -> bool:
     return ci[0] > 0 or ci[1] < 0
+
+
+# given X ~ multinomial(1, nu), what is the covariance matrix of X?
+def multinomial_covariance(nu: np.ndarray) -> np.ndarray:
+    """
+    Calculate the covariance matrix for a multinomial distribution.
+
+    Args:
+        nu: A numpy array of probabilities that sum to 1
+
+    Returns:
+        A numpy array representing the covariance matrix
+    """
+    return np.diag(nu) - np.outer(nu, nu)
+
+
+@dataclass
+class MatrixInversionResult:
+    """
+    Represents the result of a symmetric matrix inversion operation.
+    """
+
+    success: bool
+    inverse: Optional[np.ndarray] = None
+    error: Optional[str] = None
+
+
+def invert_symmetric_matrix(v: np.ndarray) -> MatrixInversionResult:
+    """
+    Inverts a symmetric positive-definite matrix and returns a dataclass
+    with the result or an error message.
+
+    Args:
+        v: A symmetric positive-definite matrix.
+
+    Returns:
+        A MatrixInversionResult object containing either the inverse and log_det
+        (if successful) or an error message (if unsuccessful).
+    """
+    n = v.shape[0]
+    if v.shape[1] != n:
+        return MatrixInversionResult(
+            success=False, error="Input matrix must be square."
+        )
+
+    try:
+        # Compute the Cholesky factorization of v
+        v_cholesky = la.cholesky(v, lower=True, check_finite=True)
+        # Compute the inverse of v using the Cholesky factorization
+        # cho_solve solves Ax=B for x. Here, A is v (via its Cholesky factor)
+        # and B is the identity matrix, so x will be inv(v).
+        v_inv = la.cho_solve((v_cholesky, True), np.identity(n))
+
+        # Return a success object with the results
+        return MatrixInversionResult(
+            success=True,
+            inverse=v_inv,
+        )
+
+    except la.LinAlgError as e:
+        # Catch the specific error raised by the LAPACK routine for non-positive-definite matrices
+        return MatrixInversionResult(
+            success=False, error=f"Matrix is not positive-definite: {e}"
+        )
+    except Exception as e:
+        # Catch any other unexpected errors during computation
+        return MatrixInversionResult(
+            success=False, error=f"An unexpected error occurred: {e}"
+        )

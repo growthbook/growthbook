@@ -1,13 +1,14 @@
 from abc import ABC, abstractmethod
+from dataclasses import replace
 from typing import Optional, Union, List
-import copy
+
 import numpy as np
 import scipy.stats
 from pydantic.dataclasses import dataclass
 from gbstats.utils import variance_of_ratios
 
 
-@dataclass
+@dataclass(frozen=True)
 class Statistic(ABC):
     n: int
 
@@ -39,7 +40,7 @@ class Statistic(ABC):
         return self.variance <= 0.0
 
 
-@dataclass
+@dataclass(frozen=True)
 class SampleMeanStatistic(Statistic):
     sum: float
     sum_squares: float
@@ -57,8 +58,10 @@ class SampleMeanStatistic(Statistic):
         return self.sum / self.n
 
     def __add__(self, other):
-        if not isinstance(other, SampleMeanStatistic):
-            raise TypeError("Can add only another SampleMeanStatistic instance")
+        if not isinstance(other, Union[ProportionStatistic, SampleMeanStatistic]):
+            raise TypeError(
+                "Can add only another ProportionStatistic or SampleMeanStatistic instance"
+            )
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
@@ -66,7 +69,7 @@ class SampleMeanStatistic(Statistic):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class ProportionStatistic(Statistic):
     sum: float
 
@@ -85,8 +88,11 @@ class ProportionStatistic(Statistic):
         return self.sum / self.n
 
     def __add__(self, other):
-        if not isinstance(other, ProportionStatistic):
-            raise TypeError("Can add only another ProportionStatistic instance")
+        if not isinstance(other, Union[ProportionStatistic, SampleMeanStatistic]):
+            raise TypeError(
+                "Can add only another ProportionStatistic or SampleMeanStatistic instance"
+            )
+
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
@@ -94,7 +100,7 @@ class ProportionStatistic(Statistic):
         )
 
 
-@dataclass
+@dataclass(frozen=True)
 class RatioStatistic(Statistic):
     m_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     d_statistic: Union[SampleMeanStatistic, ProportionStatistic]
@@ -133,8 +139,18 @@ class RatioStatistic(Statistic):
             sum_of_products=self.m_d_sum_of_products,
         )
 
+    def __add__(self, other):
+        if not isinstance(other, RatioStatistic):
+            raise TypeError("Can add only another RatioStatistic instance")
+        return RatioStatistic(
+            n=self.n + other.n,
+            m_statistic=self.m_statistic + other.m_statistic,
+            d_statistic=self.d_statistic + other.d_statistic,
+            m_d_sum_of_products=self.m_d_sum_of_products + other.m_d_sum_of_products,
+        )
 
-@dataclass
+
+@dataclass(frozen=True)
 class RegressionAdjustedStatistic(Statistic):
     post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
@@ -255,7 +271,7 @@ def create_joint_statistic(
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class RegressionAdjustedRatioStatistic(Statistic):
     m_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
     d_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
@@ -494,16 +510,14 @@ def compute_theta_regression_adjusted_ratio(
     a: RegressionAdjustedRatioStatistic, b: RegressionAdjustedRatioStatistic
 ) -> float:
     # set theta equal to 1, so the partial derivatives are unaffected by theta
-    a_one = copy.deepcopy(a)
-    b_one = copy.deepcopy(b)
-    a_one.theta = 1
-    b_one.theta = 1
+    a_one = replace(a, theta=1)
+    b_one = replace(b, theta=1)
     if a_one.var_pre + b_one.var_pre == 0:
         return 0
     return -(a_one.covariance + b_one.covariance) / (a_one.var_pre + b_one.var_pre)
 
 
-@dataclass
+@dataclass(frozen=True)
 class QuantileStatistic(Statistic):
     n: int  # number of events here
     n_star: int  # sample size used when evaluating quantile_lower and quantile_upper
@@ -545,7 +559,7 @@ class QuantileStatistic(Statistic):
             return max(self.variance_init, float(1e-5))
 
 
-@dataclass
+@dataclass(frozen=True)
 class QuantileClusteredStatistic(QuantileStatistic):
     main_sum: float  # numerator sum
     main_sum_squares: float
