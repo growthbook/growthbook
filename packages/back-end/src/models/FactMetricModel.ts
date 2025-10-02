@@ -3,11 +3,11 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import {
   getAggregateFilters,
   getSelectedColumnDatatype,
+  isBinomialMetric,
+  isRatioMetric,
 } from "shared/experiments";
 import {
-  ColumnRef,
   FactMetricInterface,
-  FactMetricType,
   FactTableInterface,
   LegacyFactMetricInterface,
 } from "back-end/types/fact-table";
@@ -34,52 +34,50 @@ const BaseClass = MakeModelClass({
 
 // extra checks on user filter
 function validateUserFilter({
-  metricType,
-  numerator,
+  metric,
   factTable,
 }: {
-  metricType: FactMetricType;
-  numerator: ColumnRef;
+  metric: FactMetricInterface;
   factTable: FactTableInterface;
 }): void {
   // error if one is specified but not the other
-  if (!!numerator.aggregateFilter !== !!numerator.aggregateFilterColumn) {
+  if (
+    !!metric.numerator.aggregateFilter !==
+    !!metric.numerator.aggregateFilterColumn
+  ) {
     throw new Error(
       `Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither.`,
     );
   }
 
   // error if metric type is not retention, proportion, or ratio
-  if (
-    metricType !== "retention" &&
-    metricType !== "proportion" &&
-    metricType !== "ratio"
-  ) {
+  if (!isBinomialMetric(metric) && !isRatioMetric(metric)) {
     throw new Error(
       `Aggregate filter is only supported for retention, proportion, and ratio metrics.`,
     );
   }
 
-  if (numerator.aggregateFilterColumn) {
+  if (metric.numerator.aggregateFilterColumn) {
     // error if column is not numeric or $$count
     const columnType = getSelectedColumnDatatype({
       factTable,
-      column: numerator.aggregateFilterColumn,
+      column: metric.numerator.aggregateFilterColumn,
     });
     if (
       !(
-        columnType === "number" || numerator.aggregateFilterColumn === "$$count"
+        columnType === "number" ||
+        metric.numerator.aggregateFilterColumn === "$$count"
       )
     ) {
       throw new Error(
-        `Aggregate filter column '${numerator.aggregateFilterColumn}' must be a numeric column or "$$count".`,
+        `Aggregate filter column '${metric.numerator.aggregateFilterColumn}' must be a numeric column or "$$count".`,
       );
     }
 
     // error if filter is not valid
     getAggregateFilters({
-      columnRef: numerator,
-      column: numerator.aggregateFilterColumn,
+      columnRef: metric.numerator,
+      column: metric.numerator.aggregateFilterColumn,
       ignoreInvalid: false,
     });
   }
@@ -201,8 +199,7 @@ export class FactMetricModel extends BaseClass {
       data.numerator.aggregateFilter
     ) {
       validateUserFilter({
-        metricType: data.metricType,
-        numerator: data.numerator,
+        metric: data,
         factTable: numeratorFactTable,
       });
     }
@@ -268,9 +265,7 @@ export class FactMetricModel extends BaseClass {
       quantileSettings,
       cappingSettings,
       windowSettings,
-      regressionAdjustmentDays,
-      regressionAdjustmentEnabled,
-      regressionAdjustmentOverride,
+      regressionAdjustmentSettings,
       dateCreated,
       dateUpdated,
       denominator,
@@ -288,7 +283,7 @@ export class FactMetricModel extends BaseClass {
       quantileSettings: quantileSettings || undefined,
       cappingSettings: {
         ...cappingSettings,
-        type: cappingSettings.type || "none",
+        type: cappingSettings?.type || "none",
       },
       windowSettings: {
         ...windowSettings,
@@ -297,15 +292,16 @@ export class FactMetricModel extends BaseClass {
       managedBy: factMetric.managedBy || "",
       denominator: denominator || undefined,
       regressionAdjustmentSettings: {
-        override: regressionAdjustmentOverride || false,
-        ...(regressionAdjustmentOverride
+        override: regressionAdjustmentSettings?.override || false,
+        ...(regressionAdjustmentSettings?.override
           ? {
-              enabled: regressionAdjustmentEnabled || false,
+              enabled: regressionAdjustmentSettings?.enabled || false,
             }
           : null),
-        ...(regressionAdjustmentOverride && regressionAdjustmentEnabled
+        ...(regressionAdjustmentSettings?.override &&
+        regressionAdjustmentSettings?.enabled
           ? {
-              days: regressionAdjustmentDays || 0,
+              days: regressionAdjustmentSettings?.days || 0,
             }
           : null),
       },

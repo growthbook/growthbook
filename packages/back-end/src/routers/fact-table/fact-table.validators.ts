@@ -133,6 +133,12 @@ export const cappingSettingsValidator = z
   })
   .strict();
 
+export const regressionAdjustmentSettingsValidator = z.object({
+  override: z.boolean(),
+  enabled: z.boolean().optional(),
+  days: z.number().optional(),
+});
+
 export const legacyWindowSettingsValidator = z.object({
   type: windowTypeValidator.optional(),
   delayHours: z.coerce.number().optional(),
@@ -191,7 +197,7 @@ export const factMetricValidator = z
     numerator: columnRefValidator,
     denominator: columnRefValidator.nullable(),
 
-    cappingSettings: cappingSettingsValidator,
+    cappingSettings: cappingSettingsValidator.optional(),
     windowSettings: windowSettingsValidator,
     priorSettings: priorSettingsValidator,
 
@@ -204,10 +210,8 @@ export const factMetricValidator = z
     winRisk: z.number(),
     loseRisk: z.number(),
 
-    regressionAdjustmentOverride: z.boolean(),
-    regressionAdjustmentEnabled: z.boolean(),
-    regressionAdjustmentDays: z.number(),
-
+    regressionAdjustmentSettings:
+      regressionAdjustmentSettingsValidator.optional(),
     enableMetricDimensions: z.boolean().optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),

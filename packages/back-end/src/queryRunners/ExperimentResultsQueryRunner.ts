@@ -138,7 +138,7 @@ export function getFactMetricGroups(
 
     // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
     if (
-      (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
+      (m.cappingSettings?.type === "percentile" || quantileMetricType(m)) &&
       !integration.getSourceProperties().hasEfficientPercentiles
     ) {
       return;
