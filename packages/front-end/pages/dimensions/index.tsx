@@ -73,11 +73,8 @@ const DimensionsPage: FC = () => {
     error,
     mutateDefinitions,
   } = useDefinitions();
-
   const permissionsUtil = usePermissionsUtil();
-  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
-  const hasEditDimensionPermission = permissionsUtil.canUpdateDimension();
-  const hasDeleteDimensionPermissions = permissionsUtil.canDeleteDimension();
+  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension("");
   const orgCanCreateDimensions = hasFileConfig()
     ? envAllowsCreatingDimensions()
     : true;
@@ -252,6 +249,18 @@ const DimensionsPage: FC = () => {
                   const datasource = getDatasourceById(s.datasource);
                   const language: Language =
                     datasource?.properties?.queryLanguage || "sql";
+                  let canEditDimension = permissionsUtil.canUpdateDimension(
+                    s.managedBy || "",
+                  );
+                  let canDeleteDimension = permissionsUtil.canDeleteDimension(
+                    s.managedBy || "",
+                  );
+
+                  if (s.managedBy && ["api", "config"].includes(s.managedBy)) {
+                    canEditDimension = false;
+                    canDeleteDimension = false;
+                  }
+
                   return (
                     <tr key={s.id}>
                       <td>
@@ -298,9 +307,9 @@ const DimensionsPage: FC = () => {
                       <td>
                         {s.dateUpdated ? ago(s.dateUpdated) : <span>-</span>}
                       </td>
-                      {!s.managedBy ? (
+                      {canEditDimension || canDeleteDimension ? (
                         <td>
-                          {hasEditDimensionPermission ? (
+                          {canEditDimension ? (
                             <a
                               href="#"
                               className="tr-hover text-primary mr-3"
@@ -313,7 +322,7 @@ const DimensionsPage: FC = () => {
                               <FaPencilAlt />
                             </a>
                           ) : null}
-                          {hasDeleteDimensionPermissions ? (
+                          {canDeleteDimension ? (
                             <DeleteButton
                               link={true}
                               className={"tr-hover text-primary"}
