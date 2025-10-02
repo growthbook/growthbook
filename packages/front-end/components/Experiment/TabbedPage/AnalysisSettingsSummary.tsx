@@ -54,7 +54,6 @@ export interface Props {
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
-  differenceType: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
   reportArgs?: ExperimentSnapshotReportArgs;
 }
@@ -68,7 +67,6 @@ export default function AnalysisSettingsSummary({
   baselineRow,
   setVariationFilter,
   setBaselineRow,
-  differenceType,
   setDifferenceType,
   reportArgs,
 }: Props) {
@@ -538,7 +536,6 @@ export default function AnalysisSettingsSummary({
             <div className="col-auto px-0">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={differenceType}
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={
@@ -588,11 +585,18 @@ export default function AnalysisSettingsSummary({
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
                 metrics={useMemo(() => {
-                  const metricMap = new Map<string, ExperimentMetricInterface>();
+                  const metricMap = new Map<
+                    string,
+                    ExperimentMetricInterface
+                  >();
                   const allBaseMetrics = [...metrics, ...factMetrics];
-                  allBaseMetrics.forEach((metric) => metricMap.set(metric.id, metric));
-                  const factTableMap = new Map(factTables.map((table) => [table.id, table]));
-                  
+                  allBaseMetrics.forEach((metric) =>
+                    metricMap.set(metric.id, metric),
+                  );
+                  const factTableMap = new Map(
+                    factTables.map((table) => [table.id, table]),
+                  );
+
                   // Expand slice metrics and add them to the map
                   expandAllSliceMetricsInMap({
                     metricMap,
@@ -600,14 +604,20 @@ export default function AnalysisSettingsSummary({
                     experiment,
                     metricGroups,
                   });
-                  
+
                   return getAllExpandedMetricIdsFromExperiment({
                     exp: experiment,
                     metricMap,
                     includeActivationMetric: false,
                     metricGroups,
                   });
-                }, [experiment, metrics, factMetrics, factTables, metricGroups])}
+                }, [
+                  experiment,
+                  metrics,
+                  factMetrics,
+                  factTables,
+                  metricGroups,
+                ])}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}

@@ -29,7 +29,6 @@ type CsvRow = {
 
 export default function ResultsDownloadButton({
   results,
-  differenceType,
   metrics,
   variations,
   trackingKey,
@@ -37,7 +36,6 @@ export default function ResultsDownloadButton({
   noIcon,
 }: {
   results: ExperimentReportResultDimension[];
-  differenceType: DifferenceType;
   metrics?: string[];
   variations?: ExperimentReportVariation[];
   trackingKey?: string;

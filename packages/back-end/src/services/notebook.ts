@@ -165,7 +165,7 @@ export async function generateNotebook({
   // Get experiment data to expand slice metrics
   let experiment: ExperimentInterface | null = null;
   if (snapshotSettings.experimentId) {
-    experiment = await context.models.experiments.getById(snapshotSettings.experimentId);
+    experiment = await getExperimentById(context, snapshotSettings.experimentId);
   }
 
   // Expand slice metrics if we have experiment data
