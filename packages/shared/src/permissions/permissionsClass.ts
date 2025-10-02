@@ -225,15 +225,30 @@ export class Permissions {
   };
 
   public canCreateSegment = (
-    segment: Pick<SegmentInterface, "projects">,
+    segment: Pick<SegmentInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (segment.managedBy && ["admin", "api"].includes(segment.managedBy)) {
+      if (!this.canCreateOfficialResources(segment)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(segment, "createSegments");
   };
 
   public canUpdateSegment = (
-    existing: Pick<SegmentInterface, "projects">,
-    updates: Pick<SegmentInterface, "projects">,
+    existing: Pick<SegmentInterface, "projects" | "managedBy">,
+    updates: Pick<SegmentInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (
+      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
+      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
+    ) {
+      if (!this.canUpdateOfficialResources(existing, updates)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterUpdatePermission(
       existing,
       updates,
@@ -242,8 +257,14 @@ export class Permissions {
   };
 
   public canDeleteSegment = (
-    segment: Pick<SegmentInterface, "projects">,
+    segment: Pick<SegmentInterface, "projects" | "managedBy">,
   ): boolean => {
+    if (segment.managedBy && ["admin", "api"].includes(segment.managedBy)) {
+      if (!this.canDeleteOfficialResources(segment)) {
+        return false;
+      }
+    }
+
     return this.checkProjectFilterPermission(segment, "createSegments");
   };
 
