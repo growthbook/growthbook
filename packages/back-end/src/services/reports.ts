@@ -519,6 +519,7 @@ export async function createReportSnapshot({
     factTableMap,
     metricGroups,
     datasource,
+    experiment,
   });
 
   const snapshotType = "report";
@@ -591,6 +592,7 @@ export function getReportSnapshotSettings({
   factTableMap,
   metricGroups,
   datasource,
+  experiment,
 }: {
   report: ExperimentSnapshotReportInterface;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -601,6 +603,7 @@ export function getReportSnapshotSettings({
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
+  experiment?: ExperimentInterface | null;
 }): ExperimentSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -689,6 +692,8 @@ export function getReportSnapshotSettings({
       report?.dateCreated,
     endDate: report.experimentAnalysisSettings.dateEnded || new Date(),
     experimentId: report.experimentAnalysisSettings.trackingKey,
+    phase: phaseIndex + "",
+    customFields: experiment?.customFields,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
