@@ -86,8 +86,8 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
       return metric.denominator?.factTableId
-      ? `${metric.numerator.factTableId} ${metric.denominator.factTableId} (cross-table ratio metrics)`
-      : metric.id;
+        ? `${metric.numerator.factTableId} ${metric.denominator.factTableId} (cross-table ratio metrics)`
+        : metric.id;
     }
   }
 
