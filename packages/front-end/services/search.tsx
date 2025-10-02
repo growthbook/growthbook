@@ -9,7 +9,7 @@ import {
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { useRouter } from "next/router";
-import Fuse from "fuse.js";
+import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
 
@@ -116,21 +116,33 @@ export function useSearch<T>({
 
   const [page, setPage] = useState(1);
 
-  // We only want to re-create the Fuse instance if the fields actually changed
+  // We only want to re-create the MiniSearch instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
   // So, we turn it into a string here to use in the dependency array
-  const fuse = useMemo(() => {
-    const keys: Fuse.FuseOptionKey<T>[] = searchFields.map((f) => {
-      const [key, weight] = (f as string).split("^");
-      return { name: key, weight: weight ? parseFloat(weight) : 1 };
+  const miniSearch = useMemo(() => {
+    const keys: Record<string, number> = Object.fromEntries(
+      searchFields.map((f) => {
+        const [key, weight] = (f as string).split("^");
+        const weightNum = weight ? parseFloat(weight) : 1;
+        return [key, weightNum];
+      }),
+    );
+    const fields = Object.keys(keys);
+    const storeFields = Object.keys(items[0] || {});
+
+    const miniSearchInstance = new MiniSearch({
+      fields,
+      storeFields,
+      searchOptions: {
+        boost: keys,
+        fuzzy: 0.2,
+      },
     });
-    return new Fuse(items, {
-      includeScore: true,
-      useExtendedSearch: true,
-      findAllMatches: true,
-      ignoreLocation: true,
-      keys,
-    });
+
+    // Add items to the index
+    miniSearchInstance.addAll(items);
+
+    return miniSearchInstance;
   }, [items, JSON.stringify(searchFields)]);
 
   const { filtered, syntaxFilters } = useMemo(() => {
@@ -141,8 +153,9 @@ export function useSearch<T>({
 
     let filtered = items;
     if (searchTerm.length > 0) {
-      filtered = fuse.search(searchTerm).map((item) => item.item);
+      filtered = miniSearch.search(searchTerm) as T[];
     }
+    console.log("filteredAfterSearch", filtered);
     if (updateSearchQueryOnChange) {
       const searchParams = new URLSearchParams(window.location.search);
       const currentQ = searchParams.has("q") ? searchParams.get("q") : null;
@@ -193,7 +206,7 @@ export function useSearch<T>({
       filtered = filterResults(filtered);
     }
     return { filtered, syntaxFilters };
-  }, [value, fuse, filterResults, transformQuery]);
+  }, [value, miniSearch, filterResults, transformQuery]);
 
   const isFiltered = value.length > 0;
 
