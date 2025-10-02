@@ -3,11 +3,13 @@ import cloneDeep from "lodash/cloneDeep";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
-  DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE,
+  PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
+  getRequiredColumnsForPipelineSettings,
   type PipelineValidationResults,
 } from "shared/enterprise";
+import { compileSqlTemplate } from "back-end/src/util/sql";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -72,6 +74,7 @@ import {
 } from "back-end/src/services/clickhouse";
 import { FactTableColumnType } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
+import { getFactTablesForDatasource } from "back-end/src/models/FactTableModel";
 import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "../models/ExperimentModel";
 
@@ -566,9 +569,13 @@ export async function postValidatePipelineSettings(
     });
   }
 
-  if (!DATA_SOURCE_TYPES_THAT_SUPPORT_PIPELINE_MODE.includes(datasource.type)) {
+  if (
+    !PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES[pipelineSettings.mode].includes(
+      datasource.type,
+    )
+  ) {
     return res.status(400).json({
-      message: "This data source does not support pipeline mode.",
+      message: `This data source does not support pipeline mode ${pipelineSettings.mode}`,
     });
   }
 
@@ -626,7 +633,7 @@ export async function postValidatePipelineSettings(
   } catch (e) {
     results.create = {
       result: "failed",
-      resultMessage: e instanceof Error ? e.message : String(e),
+      resultMessage: "message" in e ? e.message : String(e),
     };
   }
 
@@ -651,13 +658,145 @@ export async function postValidatePipelineSettings(
       } catch (e) {
         results.drop = {
           result: "failed",
-          resultMessage: e instanceof Error ? e.message : String(e),
+          resultMessage: "message" in e ? e.message : String(e),
         };
       }
     }
   }
 
   res.status(200).json({ tableName: fullTestTablePath, results });
+}
+
+/**
+ * For Incremental to work, the Exposure Queries and Fact Tables
+ * need to return the partition columns.
+ * This validates that they are correct, or returns the missing columns.
+ */
+export async function postValidatePipelineQueries(
+  req: AuthRequest<
+    {
+      queryIds: string[];
+    },
+    { id: string }
+  >,
+  res: Response<
+    | {
+        status: 200;
+        queryResults: {
+          id: string;
+          columnsFound?: string[];
+          missingColumns?: string[];
+          error?: string;
+        }[];
+      }
+    | { status: number; message: string }
+  >,
+): Promise<void> {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({ status: 404, message: "Cannot find data source" });
+    return;
+  }
+
+  if (!context.permissions.canRunPipelineValidationQueries(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (datasource.type !== "presto") {
+    res.status(400).json({
+      status: 400,
+      message:
+        "This endpoint currently supports only Presto/Trino datasources.",
+    });
+  }
+
+  const requiredColumnsFromPipelineSettings = datasource.settings
+    .pipelineSettings
+    ? getRequiredColumnsForPipelineSettings(
+        datasource.settings.pipelineSettings,
+      )
+    : [];
+
+  const { queryIds } = req.body;
+  if (!queryIds || !queryIds.length) {
+    res.status(400).json({ status: 400, message: "No queries provided" });
+    return;
+  }
+
+  const factTables = await getFactTablesForDatasource(context, datasource.id);
+  const integration = getSourceIntegrationObject(context, datasource);
+  if (!(integration instanceof SqlIntegration)) {
+    res.status(400).json({
+      status: 400,
+      message: "This data source does not support ad-hoc validation.",
+    });
+    return;
+  }
+
+  const results = await Promise.all(
+    queryIds.map(async (queryId) => {
+      const exposureQuery = datasource.settings.queries?.exposure?.find(
+        (q) => q.id === queryId,
+      );
+      const factTableQuery = factTables.find((f) => f.id === queryId);
+
+      if (exposureQuery && factTableQuery) {
+        return {
+          id: queryId,
+          error: `Multiple queries with id found`,
+        };
+      }
+
+      if (!exposureQuery && !factTableQuery) {
+        return {
+          id: queryId,
+          error: `Query not found`,
+        };
+      }
+
+      const query = exposureQuery?.query || factTableQuery?.sql;
+      if (!query) {
+        return {
+          id: queryId,
+          error: `Query is in an invalid state`,
+        };
+      }
+
+      const sql = `
+        WITH __rawQuery AS (
+          ${compileSqlTemplate(query, {
+            startDate: new Date(),
+          })}
+        )
+        SELECT * FROM __rawQuery
+        LIMIT 0
+      `;
+
+      try {
+        const response = await integration.runQuery(sql);
+        return {
+          id: queryId,
+          columnsFound: response.columns,
+          missingColumns: requiredColumnsFromPipelineSettings.filter(
+            (c) => !response.columns?.includes(c),
+          ),
+        };
+      } catch (e) {
+        return {
+          id: queryId,
+          error: "message" in e ? e.message : String(e),
+        };
+      }
+    }),
+  );
+
+  res.status(200).json({
+    status: 200,
+    queryResults: results,
+  });
 }
 
 export async function updateExposureQuery(

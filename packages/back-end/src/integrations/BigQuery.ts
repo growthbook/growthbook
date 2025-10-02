@@ -267,6 +267,8 @@ export default class BigQuery extends SqlIntegration {
         return "DATE";
       case "timestamp":
         return "TIMESTAMP";
+      case "hll":
+        return "BYTES";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);

@@ -1,3 +1,4 @@
+import { PartitionSettings } from "../src/types/Integration";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
@@ -138,6 +139,7 @@ export interface DataSourceProperties {
   hasQuantileTesting?: boolean;
   hasEfficientPercentiles?: boolean;
   hasCountDistinctHLL?: boolean;
+  hasIncrementalRefresh?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {
@@ -182,7 +184,7 @@ export type DataSourceEvents = {
   extraUserIdProperty?: string;
 };
 
-export type DataSourcePipelineMode = "ephemeral";
+export type DataSourcePipelineMode = "ephemeral" | "incremental";
 
 export type DataSourcePipelineSettings = {
   /**
@@ -212,6 +214,16 @@ export type DataSourcePipelineSettings = {
    * Controls if we drop the units table when the analysis finishes.
    */
   unitsTableDeletion?: boolean;
+  /**
+   * If the tables are partitioned, this tell us how to query it efficiently.
+   * TODO: Should this live in a Table setting? or what's the right level for it?
+   */
+  partitionSettings?: PartitionSettings;
+  /**
+   * If specified, we will use the configured pipeline mode only for these experiment IDs.
+   * If not specified, we will use the configured pipeline mode for all experiments.
+   */
+  includedExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";
