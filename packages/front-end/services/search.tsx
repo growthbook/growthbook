@@ -135,7 +135,7 @@ export function useSearch<T>({
       storeFields,
       searchOptions: {
         boost: keys,
-        fuzzy: 0.2,
+        fuzzy: 2,
       },
     });
 
