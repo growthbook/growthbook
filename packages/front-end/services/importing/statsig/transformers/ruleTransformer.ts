@@ -212,7 +212,7 @@ function transformTargetingConditions(
           };
         } else {
           // No conflict, merge normally
-          conditionObj[gbAttributeName] = { [gbOperator]: values };
+          conditionObj[gbAttributeName][gbOperator] = values;
         }
       } else {
         conditionObj[gbAttributeName] = { [gbOperator]: values };
