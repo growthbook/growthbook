@@ -3179,13 +3179,15 @@ export default abstract class SqlIntegration
         }
       ${
         banditDates?.length
-          ? // TODO:pass cross fact table ratio to bandit statistics
-            this.getBanditStatisticsCTE({
+          ? this.getBanditStatisticsCTE({
               baseIdType,
               factMetrics: true,
               metricData,
               dimensionCols,
+              someCrossFactTableRatio,
               hasRegressionAdjustment: regressionAdjustedMetrics.length > 0,
+              hasCrossFactTableRegressionAdjustment:
+                regressionAdjustedMetricsCrossTable.length > 0,
               hasCapping: percentileData.length > 0,
             })
           : `
@@ -3841,6 +3843,8 @@ export default abstract class SqlIntegration
           hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
           denominatorIsPercentileCapped,
+          someCrossFactTableRatio: false,
+          hasCrossFactTableRegressionAdjustment: false,
         })
       : `
   -- One row per variation/dimension with aggregations
@@ -3944,7 +3948,9 @@ export default abstract class SqlIntegration
     factMetrics,
     metricData,
     dimensionCols,
+    someCrossFactTableRatio,
     hasRegressionAdjustment,
+    hasCrossFactTableRegressionAdjustment,
     hasCapping,
     ignoreNulls,
     denominatorIsPercentileCapped,
@@ -3953,7 +3959,9 @@ export default abstract class SqlIntegration
     factMetrics: boolean;
     metricData: BanditMetricData[];
     dimensionCols: DimensionColumnData[];
+    someCrossFactTableRatio: boolean;
     hasRegressionAdjustment: boolean;
+    hasCrossFactTableRegressionAdjustment: boolean;
     hasCapping: boolean;
     // legacy metric settings
     ignoreNulls?: boolean;
@@ -4039,6 +4047,23 @@ export default abstract class SqlIntegration
         LEFT JOIN __userCovariateMetric c
         ON (c.${baseIdType} = m.${baseIdType})
         `
+        : ""
+    }
+              ${
+                someCrossFactTableRatio
+                  ? `
+          LEFT JOIN __denominatorMetricAgg m2 ON (
+            m2.${baseIdType} = m.${baseIdType}
+          )
+          `
+                  : ""
+              }
+    ${
+      hasCrossFactTableRegressionAdjustment
+        ? `
+    LEFT JOIN __userCovariateMetricCrossFactTable c2
+    ON (c2.${baseIdType} = m.${baseIdType})
+    `
         : ""
     }
     ${hasCapping ? `CROSS JOIN __capValue cap` : ""}
