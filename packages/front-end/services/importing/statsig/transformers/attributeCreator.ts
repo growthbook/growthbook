@@ -11,7 +11,6 @@ function getAttributeDataTypeAndFormat(
   const hasVersionOperator = operators.some((op) =>
     ["version_gt", "version_lt", "version_gte", "version_lte"].includes(op),
   );
-
   if (hasVersionOperator) {
     return { datatype: "string", format: "version" };
   }
@@ -20,7 +19,6 @@ function getAttributeDataTypeAndFormat(
   const hasDateOperator = operators.some((op) =>
     ["before", "after", "on"].includes(op),
   );
-
   if (hasDateOperator) {
     return { datatype: "string", format: "date" };
   }
