@@ -1,14 +1,38 @@
 import { SDKAttribute } from "back-end/types/organization";
 
 /**
- * Get the appropriate data type for an attribute based on its name
+ * Get the appropriate data type and format for an attribute based on its name and operators used
  */
-function getAttributeDataType(attributeName: string): string {
-  // Special cases, otherwise use string
-  if (attributeName === "time") {
-    return "number";
+function getAttributeDataTypeAndFormat(
+  attributeName: string,
+  operators: string[],
+): { datatype: string; format: string } {
+  // Check for version operators
+  const hasVersionOperator = operators.some((op) =>
+    ["version_gt", "version_lt", "version_gte", "version_lte"].includes(op),
+  );
+
+  if (hasVersionOperator) {
+    return { datatype: "string", format: "version" };
   }
-  return "string";
+
+  // Check for date-like operators
+  const hasDateOperator = operators.some((op) =>
+    ["before", "after", "on"].includes(op),
+  );
+
+  if (hasDateOperator) {
+    return { datatype: "string", format: "date" };
+  }
+
+  // Special cases based on attribute name
+  if (attributeName === "time") {
+    // Statsig time is Unix timestamp in milliseconds (number)
+    return { datatype: "number", format: "" };
+  }
+
+  // Default to string
+  return { datatype: "string", format: "" };
 }
 
 /**
@@ -21,6 +45,7 @@ export async function ensureAttributeExists(
     path: string,
     options?: { method: string; body: string },
   ) => Promise<unknown>,
+  operators: string[] = [],
 ): Promise<void> {
   // Check if attribute already exists
   const existingAttribute = existingAttributeSchema.find(
@@ -32,15 +57,18 @@ export async function ensureAttributeExists(
   }
 
   try {
-    // Create the attribute
-    const datatype = getAttributeDataType(attributeName);
+    // Create the attribute with smart type and format detection
+    const { datatype, format } = getAttributeDataTypeAndFormat(
+      attributeName,
+      operators,
+    );
     await apiCall("/attribute", {
       method: "POST",
       body: JSON.stringify({
         property: attributeName,
         datatype: datatype,
         description: "",
-        format: "",
+        format: format,
         enum: "",
         projects: [], // Empty projects array
       }),
