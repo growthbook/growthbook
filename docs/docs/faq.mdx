@@ -230,6 +230,12 @@ A dimension is a user attribute that can have multiple values. Some examples are
 
 A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.
 
+:::info
+
+We have begun the process of phasing out Segments in favor of `Dimensions`.
+
+:::
+
 Dimensions are used to explore experiment results. For example, you can use a `country` dimension to see which countries had the highest conversion rates. Or an `account_type` dimension to see if there was a significant difference in how free vs paid users behaved. Or a `browser` dimension to detect any browser-specific bugs in your implementation.
 
 Segments can apply a filter to results, usually to compensate for bad data. For example, if your experiment was only visible to premium users, but your database inaccurately shows that free users were also included, you could apply a `premium users` segment to only include those who were actually exposed to the test. Ideally, you could just fix the underlying data, but that's often not feasible so segments provide a quick and dirty alternative.
