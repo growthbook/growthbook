@@ -87,7 +87,6 @@ export type BlockProps<T extends DashboardBlockInterface> = {
 interface Props<DashboardBlock extends DashboardBlockInterface> {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<DashboardBlock>;
-  dashboardExperiment: ExperimentInterfaceStringDates;
   isFocused: boolean;
   isEditing: boolean;
   editingBlock: boolean;

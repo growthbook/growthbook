@@ -34,7 +34,15 @@ export const updateDashboardBody = z
   })
   .strict();
 
-router.get("/", dashboardsController.getAllDashboards);
+router.get(
+  "/",
+  validateRequestMiddleware({
+    query: z
+      .object({ includeExperimentDashboards: z.string().optional() })
+      .strict(),
+  }),
+  dashboardsController.getAllDashboards,
+);
 
 router.get(
   "/by-experiment/:experimentId",
@@ -48,6 +56,12 @@ router.post(
   "/",
   validateRequestMiddleware({ body: createDashboardBody }),
   dashboardsController.createDashboard,
+);
+
+router.get(
+  "/:id",
+  validateRequestMiddleware({ params: dashboardParams }),
+  dashboardsController.getDashboard,
 );
 router.put(
   "/:id",

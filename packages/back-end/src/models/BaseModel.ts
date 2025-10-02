@@ -125,6 +125,7 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
+  baseQuery?: ScopedFilterQuery<T>;
 }
 
 // Global set to track which collections we've updated indexes for already
@@ -298,8 +299,8 @@ export abstract class BaseModel<
 
     return this._find({ id: { $in: ids } });
   }
-  public getAll() {
-    return this._find();
+  public getAll(filter?: ScopedFilterQuery<T>) {
+    return this._find(filter);
   }
   public create(
     props: CreateProps<z.infer<T>>,
@@ -383,7 +384,8 @@ export abstract class BaseModel<
       bypassReadPermissionChecks?: boolean;
     } = {},
   ) {
-    const queryWithOrg = {
+    const fullQuery = {
+      ...this.getBaseQuery(),
       ...query,
       organization: this.context.org.id,
     };
@@ -392,7 +394,7 @@ export abstract class BaseModel<
     if (this.useConfigFile()) {
       const docs =
         this.getConfigDocuments().filter((doc) =>
-          evalCondition(doc, queryWithOrg),
+          evalCondition(doc, fullQuery),
         ) || [];
 
       sort &&
@@ -409,7 +411,7 @@ export abstract class BaseModel<
 
       rawDocs = docs;
     } else {
-      const cursor = this._dangerousGetCollection().find(queryWithOrg);
+      const cursor = this._dangerousGetCollection().find(fullQuery);
       sort &&
         cursor.sort(
           sort as {
@@ -434,14 +436,14 @@ export abstract class BaseModel<
   }
 
   protected async _findOne(query: ScopedFilterQuery<T>) {
+    const fullQuery = {
+      ...this.getBaseQuery(),
+      ...query,
+      organization: this.context.org.id,
+    };
     const doc = this.useConfigFile()
-      ? this.getConfigDocuments().find((doc) =>
-          evalCondition(doc, { ...query, organization: this.context.org.id }),
-        )
-      : await this._dangerousGetCollection().findOne({
-          ...query,
-          organization: this.context.org.id,
-        });
+      ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
+      : await this._dangerousGetCollection().findOne(fullQuery);
     if (!doc) return null;
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
@@ -848,6 +850,10 @@ export abstract class BaseModel<
         throw new Error("Invalid project");
       }
     }
+  }
+
+  private getBaseQuery(): ScopedFilterQuery<T> {
+    return this.config.baseQuery ?? {};
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

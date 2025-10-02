@@ -38,6 +38,10 @@ const BaseClass = MakeModelClass({
   additionalIndexes: [
     { fields: { organization: 1, experimentId: 1 }, unique: false },
   ],
+  baseQuery: {
+    isDefault: false,
+    isDeleted: false,
+  },
 });
 
 export const toInterface: ToInterface<DashboardInterface> = (doc) => {
@@ -51,12 +55,7 @@ export class DashboardModel extends BaseClass {
     experimentId: string,
     additionalFilter: ScopedFilterQuery<typeof dashboardInterface> = {},
   ): Promise<DashboardInterface[]> {
-    return this._find({
-      experimentId,
-      isDeleted: false,
-      isDefault: false,
-      ...additionalFilter,
-    });
+    return this._find({ experimentId, ...additionalFilter });
   }
 
   protected canCreate(doc: DashboardInterface): boolean {
