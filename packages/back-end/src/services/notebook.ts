@@ -58,9 +58,16 @@ export async function generateReportNotebook(
     // Get metrics
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
+    const metricGroups = await context.models.metricGroups.getAll();
 
     const { snapshotSettings, analysisSettings } =
-      getSnapshotSettingsFromReportArgs(report.args, metricMap, factTableMap);
+      getSnapshotSettingsFromReportArgs(
+        report.args,
+        metricMap,
+        factTableMap,
+        undefined,
+        metricGroups,
+      );
     return generateNotebook({
       context,
       queryPointers: report.queries,

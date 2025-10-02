@@ -423,6 +423,7 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
 export function createCustomSliceMetrics({
   experiment,
   metricMap,
+  metricGroups = [],
 }: {
   experiment: Pick<
     ExperimentInterface,
@@ -433,12 +434,27 @@ export function createCustomSliceMetrics({
     | "customMetricSlices"
   >;
   metricMap: Map<string, ExperimentMetricInterface>;
+  metricGroups?: MetricGroupInterface[];
 }): ExperimentMetricInterface[] {
   const customSliceMetrics: ExperimentMetricInterface[] = [];
 
   if (!experiment.customMetricSlices) {
     return customSliceMetrics;
   }
+
+  // Expand metric groups to get all individual metric IDs
+  const expandedGoalMetrics = expandMetricGroups(
+    experiment.goalMetrics || [],
+    metricGroups,
+  );
+  const expandedSecondaryMetrics = expandMetricGroups(
+    experiment.secondaryMetrics || [],
+    metricGroups,
+  );
+  const expandedGuardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics || [],
+    metricGroups,
+  );
 
   experiment.customMetricSlices.forEach((group) => {
     // Sort slices alphabetically for consistent ID generation
@@ -453,11 +469,11 @@ export function createCustomSliceMetrics({
     metricMap.forEach((metric, metricId) => {
       if (!isFactMetric(metric)) return;
 
-      // Check if this metric is actually included in the experiment's metrics
+      // Check if this metric is actually included in the experiment's metrics (including expanded groups)
       const isExperimentMetric =
-        experiment.goalMetrics?.includes(metricId) ||
-        experiment.secondaryMetrics?.includes(metricId) ||
-        experiment.guardrailMetrics?.includes(metricId) ||
+        expandedGoalMetrics.includes(metricId) ||
+        expandedSecondaryMetrics.includes(metricId) ||
+        expandedGuardrailMetrics.includes(metricId) ||
         experiment.activationMetric === metricId;
 
       if (!isExperimentMetric) return;

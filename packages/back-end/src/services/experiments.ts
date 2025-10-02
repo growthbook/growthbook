@@ -597,6 +597,7 @@ export function getSnapshotSettings({
   const customSliceMetrics = createCustomSliceMetrics({
     experiment,
     metricMap,
+    metricGroups,
   });
 
   // Expand regular slice metrics and add custom slice metrics

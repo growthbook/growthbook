@@ -180,6 +180,7 @@ export function getSnapshotSettingsFromReportArgs(
   metricMap: Map<string, ExperimentMetricInterface>,
   factTableMap?: FactTableMap,
   experiment?: ExperimentInterface,
+  metricGroups: MetricGroupInterface[] = [],
 ): {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
@@ -203,6 +204,7 @@ export function getSnapshotSettingsFromReportArgs(
       ? createCustomSliceMetrics({
           experiment: experiment,
           metricMap,
+          metricGroups,
         })
       : undefined;
 
