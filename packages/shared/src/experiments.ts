@@ -419,81 +419,6 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
   };
 }
 
-// Generates slice metrics from experiment's customMetricSlices
-export function createCustomSliceMetrics({
-  experiment,
-  metricMap,
-  metricGroups = [],
-}: {
-  experiment: Pick<
-    ExperimentInterface,
-    | "goalMetrics"
-    | "secondaryMetrics"
-    | "guardrailMetrics"
-    | "activationMetric"
-    | "customMetricSlices"
-  >;
-  metricMap: Map<string, ExperimentMetricInterface>;
-  metricGroups?: MetricGroupInterface[];
-}): ExperimentMetricInterface[] {
-  const customSliceMetrics: ExperimentMetricInterface[] = [];
-
-  if (!experiment.customMetricSlices) {
-    return customSliceMetrics;
-  }
-
-  // Expand metric groups to get all individual metric IDs
-  const expandedGoalMetrics = expandMetricGroups(
-    experiment.goalMetrics || [],
-    metricGroups,
-  );
-  const expandedSecondaryMetrics = expandMetricGroups(
-    experiment.secondaryMetrics || [],
-    metricGroups,
-  );
-  const expandedGuardrailMetrics = expandMetricGroups(
-    experiment.guardrailMetrics || [],
-    metricGroups,
-  );
-
-  experiment.customMetricSlices.forEach((group) => {
-    // Sort slices alphabetically for consistent ID generation
-    const sortedSlices = group.slices.sort((a, b) =>
-      a.column.localeCompare(b.column),
-    );
-    const sliceString = generateSliceStringFromLevels(
-      sortedSlices.map((d) => ({ column: d.column, levels: d.levels })),
-    );
-
-    // Apply this custom slice combination to ALL applicable metrics in the experiment
-    metricMap.forEach((metric, metricId) => {
-      if (!isFactMetric(metric)) return;
-
-      // Check if this metric is actually included in the experiment's metrics (including expanded groups)
-      const isExperimentMetric =
-        expandedGoalMetrics.includes(metricId) ||
-        expandedSecondaryMetrics.includes(metricId) ||
-        expandedGuardrailMetrics.includes(metricId) ||
-        experiment.activationMetric === metricId;
-
-      if (!isExperimentMetric) return;
-
-      // Note: We should ideally check if the fact table has the required slice columns,
-      // but that requires passing factTableMap to this function. For now, we'll apply to all
-      // experiment fact metrics and let the frontend/snapshot generation handle validation.
-
-      const customSliceMetric: ExperimentMetricInterface = {
-        ...metric,
-        id: `${metricId}?${sliceString}`,
-        name: `${metric.name} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
-        description: `Slice analysis of ${metric.name} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-      };
-      customSliceMetrics.push(customSliceMetric);
-    });
-  });
-
-  return customSliceMetrics;
-}
 
 /**
  * Generates a pinned slice key for a metric with slice levels
@@ -1091,6 +1016,7 @@ export function chanceToWinFlatPrior(
   return 1 - ctwInverse;
 }
 
+// get all metric ids from an experiment, excluding ephemeral metrics (slices)
 export function getAllMetricIdsFromExperiment(
   exp: {
     goalMetrics?: string[];
@@ -1647,4 +1573,118 @@ export function countSliceLevels(
   });
 
   return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
+}
+
+export function expandAllSliceMetricsInMap({
+  metricMap,
+  factTableMap,
+  experiment,
+  metricGroups = [],
+}: {
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+  experiment: Pick<
+    ExperimentInterface,
+    | "goalMetrics"
+    | "secondaryMetrics"
+    | "guardrailMetrics"
+    | "activationMetric"
+    | "customMetricSlices"
+  >;
+  metricGroups?: MetricGroupInterface[];
+}): void {
+  // Get base metrics
+  const baseMetricIds = getAllMetricIdsFromExperiment(
+    experiment,
+    false,
+    metricGroups,
+  );
+  const baseMetrics = baseMetricIds
+    .map((m) => metricMap.get(m) || null)
+    .filter(Boolean);
+
+  for (const metric of baseMetrics) {
+    if (!isFactMetric(metric)) continue;
+
+    const factTable = factTableMap.get(metric.numerator.factTableId);
+    if (!factTable) continue;
+
+    // 1. Add auto slice metrics
+    if (metric.metricAutoSlices?.length) {
+      const autoSliceColumns = factTable.columns.filter(
+        (col) =>
+          col.isAutoSliceColumn &&
+          !col.deleted &&
+          (col.autoSlices?.length || 0) > 0 &&
+          metric.metricAutoSlices?.includes(col.column),
+      );
+
+      autoSliceColumns.forEach((col) => {
+        const autoSlices = col.autoSlices || [];
+
+        // Create a metric for each auto slice
+        autoSlices.forEach((value: string) => {
+          const sliceString = generateSliceString({
+            [col.column]: value,
+          });
+          const sliceMetric: ExperimentMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: ${value})`,
+            description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
+          };
+          metricMap.set(sliceMetric.id, sliceMetric);
+        });
+
+        // Create an "other" metric for values not in autoSlices
+        if (autoSlices.length > 0) {
+          const sliceString = generateSliceString({
+            [col.column]: "",
+          });
+          const otherMetric: ExperimentMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${col.name || col.column}: other)`,
+            description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
+          };
+          metricMap.set(otherMetric.id, otherMetric);
+        }
+      });
+    }
+
+    // 2. Add custom slice metrics
+    if (experiment.customMetricSlices) {
+      experiment.customMetricSlices.forEach((customSliceGroup) => {
+        // Sort slices alphabetically for consistent ID generation
+        const sortedSliceGroups = customSliceGroup.slices.sort((a, b) =>
+          a.column.localeCompare(b.column),
+        );
+
+        // Verify all custom slice columns exist and are string type
+        const hasAllRequiredColumns = sortedSliceGroups.every((slice) => {
+          const column = factTable.columns.find((col) => col.column === slice.column);
+          return (
+            column &&
+            !column.deleted &&
+            column.datatype === "string" &&
+            !factTable.userIdTypes.includes(column.column)
+          );
+        });
+
+        if (!hasAllRequiredColumns) return;
+
+        const sliceString = generateSliceStringFromLevels(
+          sortedSliceGroups.map((d) => ({ column: d.column, levels: d.levels })),
+        );
+
+        const customSliceMetric: ExperimentMetricInterface = {
+          ...metric,
+          id: `${metric.id}?${sliceString}`,
+          name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
+          description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
+        };
+        metricMap.set(customSliceMetric.id, customSliceMetric);
+      });
+    }
+  }
 }

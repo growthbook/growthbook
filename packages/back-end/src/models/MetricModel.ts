@@ -1,15 +1,12 @@
 import mongoose from "mongoose";
 import {
   ExperimentMetricInterface,
-  isFactMetric,
-  generateSliceString,
 } from "shared/experiments";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
 } from "back-end/types/metric";
-import { FactTableMap } from "back-end/types/fact-table";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
@@ -637,71 +634,3 @@ const getTextForEmbedding = (metric: MetricInterface): string => {
   return `Name: ${metric.name}\nDescription: ${metric.description}`;
 };
 
-/**
- * Expands slice metrics for fact metrics with metricAutoSlices and adds them to the metricMap
- */
-export function expandSliceMetricsInMap({
-  metricMap,
-  factTableMap,
-  baseMetrics,
-  customSliceMetrics,
-}: {
-  metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
-  baseMetrics: ExperimentMetricInterface[];
-  customSliceMetrics?: ExperimentMetricInterface[];
-}): void {
-  for (const metric of baseMetrics) {
-    if (isFactMetric(metric) && metric.metricAutoSlices?.length) {
-      const factTable = factTableMap.get(metric.numerator.factTableId);
-      if (factTable) {
-        const autoSliceColumns = factTable.columns.filter(
-          (col) =>
-            col.isAutoSliceColumn &&
-            !col.deleted &&
-            (col.autoSlices?.length || 0) > 0 &&
-            metric.metricAutoSlices?.includes(col.column),
-        );
-
-        autoSliceColumns.forEach((col) => {
-          const autoSlices = col.autoSlices || [];
-
-          // Create a metric for each auto slice
-          autoSlices.forEach((value: string) => {
-            const sliceString = generateSliceString({
-              [col.column]: value,
-            });
-            const sliceMetric: ExperimentMetricInterface = {
-              ...metric,
-              id: `${metric.id}?${sliceString}`,
-              name: `${metric.name} (${col.name || col.column}: ${value})`,
-              description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
-            };
-            metricMap.set(sliceMetric.id, sliceMetric);
-          });
-
-          // Create an "other" metric for values not in autoSlices
-          if (autoSlices.length > 0) {
-            const sliceString = generateSliceString({
-              [col.column]: "",
-            });
-            const otherMetric: ExperimentMetricInterface = {
-              ...metric,
-              id: `${metric.id}?${sliceString}`,
-              name: `${metric.name} (${col.name || col.column}: other)`,
-              description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
-            };
-            metricMap.set(otherMetric.id, otherMetric);
-          }
-        });
-      }
-    }
-  }
-
-  // Add custom slice metrics to the map
-  if (customSliceMetrics) {
-    customSliceMetrics.forEach((metric) => {
-      metricMap.set(metric.id, metric);
-    });
-  }
-}

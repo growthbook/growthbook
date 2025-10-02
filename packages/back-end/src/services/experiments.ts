@@ -31,7 +31,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
-  createCustomSliceMetrics,
+  expandAllSliceMetricsInMap,
   createSliceMetrics,
   getEqualWeights,
   getMetricResultStatus,
@@ -73,7 +73,6 @@ import {
   DimensionForSnapshot,
 } from "back-end/types/experiment-snapshot";
 import {
-  expandSliceMetricsInMap,
   getMetricById,
   getMetricMap,
   getMetricsByIds,
@@ -583,29 +582,12 @@ export function getSnapshotSettings({
   // Set currentDate in a const to use the same date for all metric settings
   const currentDate = new Date();
 
-  // Expand slice metrics for fact metrics with metricAutoDimensions
-  const baseMetricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-  const baseMetrics = baseMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined);
-
-  // Generate custom slice metrics from customMetricSlices
-  const customSliceMetrics = createCustomSliceMetrics({
-    experiment,
-    metricMap,
-    metricGroups,
-  });
-
-  // Expand regular slice metrics and add custom slice metrics
-  expandSliceMetricsInMap({
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  expandAllSliceMetricsInMap({
     metricMap,
     factTableMap,
-    baseMetrics,
-    customSliceMetrics,
+    experiment,
+    metricGroups,
   });
 
   const metricSettings = getAllExpandedMetricIdsFromExperiment({

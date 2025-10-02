@@ -11,22 +11,18 @@ import {
   isFactMetric,
   isBinomialMetric,
   ExperimentMetricInterface,
-  getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
   generateSliceString,
-  createCustomSliceMetrics,
+  expandAllSliceMetricsInMap,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import uniqid from "uniqid";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
 import { pick, omit } from "lodash";
-import {
-  expandSliceMetricsInMap,
-  getMetricsByIds,
-} from "back-end/src/models/MetricModel";
+import { getMetricsByIds } from "back-end/src/models/MetricModel";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
@@ -194,26 +190,23 @@ export function getSnapshotSettingsFromReportArgs(
 
   // Expand slice metrics if factTableMap is provided
   if (factTableMap) {
-    const baseMetricIds = getAllMetricIdsFromExperiment(args);
-    const baseMetrics = baseMetricIds
-      .map((m) => metricMap.get(m) || null)
-      .filter(isDefined);
-
-    // Generate custom slice metrics from customMetricSlices
-    const customSliceMetrics = experiment
-      ? createCustomSliceMetrics({
-          experiment: experiment,
-          metricMap,
-          metricGroups,
-        })
-      : undefined;
-
-    expandSliceMetricsInMap({
-      metricMap,
-      factTableMap,
-      baseMetrics,
-      customSliceMetrics,
-    });
+    // Expand all slice metrics (auto and custom) and add them to the metricMap
+    if (experiment) {
+      expandAllSliceMetricsInMap({
+        metricMap,
+        factTableMap,
+        experiment,
+        metricGroups,
+      });
+    } else {
+      // For reports without experiment, just expand auto slices
+      expandAllSliceMetricsInMap({
+        metricMap,
+        factTableMap,
+        experiment: args,
+        metricGroups,
+      });
+    }
   }
 
   const snapshotSettings: ExperimentSnapshotSettings = {
@@ -471,21 +464,12 @@ export async function createReportSnapshot({
 
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // First, expand slice metrics and add them to the metricMap
-  const baseMetricIds = getAllMetricIdsFromExperiment(
-    report.experimentAnalysisSettings,
-    false,
-    metricGroups,
-  );
-  const baseMetrics = baseMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined);
-
-  // Expand slice metrics for fact metrics with metricAutoSlices
-  expandSliceMetricsInMap({
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  expandAllSliceMetricsInMap({
     metricMap,
     factTableMap,
-    baseMetrics,
+    experiment: report.experimentAnalysisSettings,
+    metricGroups,
   });
 
   const metricIds = getAllExpandedMetricIdsFromExperiment({
