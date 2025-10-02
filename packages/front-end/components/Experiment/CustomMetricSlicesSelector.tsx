@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { FaTimes, FaPlusCircle } from "react-icons/fa";
-import { PiPencilSimpleFill, PiX } from "react-icons/pi";
+import { PiPencilSimpleFill, PiX, PiStackBold } from "react-icons/pi";
 import { Text, Flex, IconButton } from "@radix-ui/themes";
 import {
   isFactMetric,
@@ -22,16 +22,17 @@ export interface SliceLevel {
   levels: string[]; // single element for now, will support multiple levels in future
 }
 
-interface MetricWithDimensions extends FactMetricInterface {
-  dimensionColumns: Array<{
+interface MetricWithStringColumns extends FactMetricInterface {
+  stringColumns: Array<{
     column: string;
     name: string;
     isAutoSliceColumn?: boolean;
     autoSlices?: string[];
+    topValues?: string[];
   }>;
 }
 
-export interface MetricSlicesSelectorProps {
+export interface CustomMetricSlicesSelectorProps {
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
@@ -41,7 +42,7 @@ export interface MetricSlicesSelectorProps {
   setPinnedMetricSlices: (slices: string[]) => void;
 }
 
-export default function MetricSlicesSelector({
+export default function CustomMetricSlicesSelector({
   goalMetrics,
   secondaryMetrics,
   guardrailMetrics,
@@ -49,7 +50,7 @@ export default function MetricSlicesSelector({
   setCustomMetricSlices,
   pinnedMetricSlices,
   setPinnedMetricSlices,
-}: MetricSlicesSelectorProps) {
+}: CustomMetricSlicesSelectorProps) {
   const growthbook = useGrowthBook();
   const { hasCommercialFeature } = useUser();
 
@@ -58,7 +59,7 @@ export default function MetricSlicesSelector({
   const [editingSliceLevels, setEditingSliceLevels] = useState<SliceLevel[]>(
     [],
   );
-  const [addingDimension, setAddingDimension] = useState(false);
+  const [addingSlice, setAddingSlice] = useState(false);
 
   // Feature flags
   const hasMetricSlicesFeature = growthbook?.isOn("metric-slices");
@@ -89,7 +90,7 @@ export default function MetricSlicesSelector({
     return [...new Set(rawMetricIds)];
   }, [expandedGoalMetrics, expandedSecondaryMetrics, expandedGuardrailMetrics]);
 
-  const { metricsWithDimensionColumns } = useMemo(() => {
+  const { metricsWithStringColumns } = useMemo(() => {
     const factTableMap = new Map(factTables.map((table) => [table.id, table]));
 
     const allMetrics = allMetricIds
@@ -103,36 +104,47 @@ export default function MetricSlicesSelector({
       })
       .map((metric) => {
         const factTable = factTableMap.get(metric!.numerator?.factTableId);
-        const dimensionColumns = factTable?.columns?.filter(
-          (col) => col.isAutoSliceColumn && !col.deleted,
+        // Filter for string columns that are not identifier types
+        const stringColumns = factTable?.columns?.filter(
+          (col) =>
+            col.datatype === "string" &&
+            !col.deleted &&
+            !factTable.userIdTypes.includes(col.column),
         );
         return {
           ...metric!,
-          dimensionColumns: dimensionColumns || [],
+          stringColumns:
+            stringColumns?.map((col) => ({
+              column: col.column,
+              name: col.name || col.column,
+              isAutoSliceColumn: col.isAutoSliceColumn,
+              autoSlices: col.autoSlices,
+              topValues: col.topValues,
+            })) || [],
         };
       });
 
-    const metricsWithDimensionColumns = allMetrics.filter(
-      (metric) => metric.dimensionColumns.length > 0,
+    const metricsWithStringColumns = allMetrics.filter(
+      (metric) => metric.stringColumns.length > 0,
     );
 
-    return { metricsWithDimensionColumns };
+    return { metricsWithStringColumns };
   }, [allMetricIds, factMetrics, factTables]);
 
   // Start editing (either existing entry or new entry)
   const startEditing = (index: number) => {
     setEditingIndex(index);
     if (index === -1) {
-      // Adding new entry - start with empty dimension-level pair
+      // Adding new entry - start with empty slice-level pair
       setEditingSliceLevels([]);
-      setAddingDimension(true); // Start in adding mode for first dimension
+      setAddingSlice(true); // Start in adding mode for first slice
     } else {
       // Editing existing entry
       const levels = customMetricSlices[index];
       setEditingSliceLevels(
         levels.slices.map((s) => ({ column: s.column, levels: s.levels })),
       );
-      setAddingDimension(false); // Don't show dimension selector initially
+      setAddingSlice(false); // Don't show slice selector initially
     }
   };
 
@@ -140,7 +152,7 @@ export default function MetricSlicesSelector({
   const cancelEditing = () => {
     setEditingIndex(null);
     setEditingSliceLevels([]);
-    setAddingDimension(false);
+    setAddingSlice(false);
   };
 
   // Save editing changes
@@ -168,7 +180,7 @@ export default function MetricSlicesSelector({
         levels: dl.levels[0] ? [dl.levels[0]] : [],
       }));
 
-      // Remove pins for all applicable metrics for the old dimension combination
+      // Remove pins for all applicable metrics for the old slice combination
       [
         ...expandedGoalMetrics,
         ...expandedSecondaryMetrics,
@@ -193,7 +205,7 @@ export default function MetricSlicesSelector({
       });
     }
 
-    // Update the custom dimension levels
+    // Update the custom slice levels
     let updatedLevels: CustomMetricSlice[];
     if (editingIndex === -1) {
       // Adding new entry
@@ -240,7 +252,7 @@ export default function MetricSlicesSelector({
     cancelEditing();
   };
 
-  // Remove a metric dimension levels entry
+  // Remove a metric slice levels entry
   const removeMetricSliceLevels = (levelsIndex: number) => {
     const levelsToRemove = customMetricSlices[levelsIndex];
     const updatedLevels = customMetricSlices.filter(
@@ -248,7 +260,7 @@ export default function MetricSlicesSelector({
     );
     setCustomMetricSlices(updatedLevels);
 
-    // Auto-unpin custom dimension levels from all applicable metrics
+    // Auto-unpin custom slice levels from all applicable metrics
     const sliceLevelsFormatted = levelsToRemove.slices.map((dl) => ({
       column: dl.column,
       levels: dl.levels[0] ? [dl.levels[0]] : [],
@@ -283,7 +295,7 @@ export default function MetricSlicesSelector({
     );
   };
 
-  // Remove a dimension level from the current editing levels
+  // Remove a slice level from the current editing levels
   const removeSliceLevel = (index: number) => {
     const newLevels = editingSliceLevels.filter((_, i) => i !== index);
 
@@ -295,7 +307,7 @@ export default function MetricSlicesSelector({
     }
   };
 
-  // Update a dimension level in the current editing levels
+  // Update a slice level in the current editing levels
   const updateSliceLevel = (
     index: number,
     field: "column" | "level",
@@ -321,7 +333,7 @@ export default function MetricSlicesSelector({
   return (
     <>
       {hasCommercialFeature("metric-slices") &&
-      metricsWithDimensionColumns.length > 0 ? (
+      metricsWithStringColumns.length > 0 ? (
         <div className="my-4">
           <label className="font-weight-bold mb-1">Custom Metric Slices</label>
 
@@ -341,14 +353,14 @@ export default function MetricSlicesSelector({
                 {isEditing ? (
                   <EditingInterface
                     editingSliceLevels={editingSliceLevels}
-                    addingDimension={addingDimension}
-                    setAddingDimension={setAddingDimension}
+                    addingSlice={addingSlice}
+                    setAddingSlice={setAddingSlice}
                     setEditingSliceLevels={setEditingSliceLevels}
                     updateSliceLevel={updateSliceLevel}
                     removeSliceLevel={removeSliceLevel}
                     saveEditing={saveEditing}
                     cancelEditing={cancelEditing}
-                    metricsWithDimensions={metricsWithDimensionColumns}
+                    metricsWithSlices={metricsWithStringColumns}
                   />
                 ) : (
                   <div className="d-flex align-items-center">
@@ -416,14 +428,14 @@ export default function MetricSlicesSelector({
             <div className="appbox px-2 py-1 mb-2">
               <EditingInterface
                 editingSliceLevels={editingSliceLevels}
-                addingDimension={addingDimension}
-                setAddingDimension={setAddingDimension}
+                addingSlice={addingSlice}
+                setAddingSlice={setAddingSlice}
                 setEditingSliceLevels={setEditingSliceLevels}
                 updateSliceLevel={updateSliceLevel}
                 removeSliceLevel={removeSliceLevel}
                 saveEditing={saveEditing}
                 cancelEditing={cancelEditing}
-                metricsWithDimensions={metricsWithDimensionColumns}
+                metricsWithSlices={metricsWithStringColumns}
               />
             </div>
           ) : null}
@@ -433,70 +445,94 @@ export default function MetricSlicesSelector({
   );
 }
 
-// Dimension selector component for adding new dimensions
-function DimensionSelector({
+// Slice selector component for adding new slices
+function SliceSelector({
   editingSliceLevels,
-  addingDimension,
-  setAddingDimension,
+  addingSlice,
+  setAddingSlice,
   setEditingSliceLevels,
-  metricsWithDimensions,
+  metricsWithSlices,
 }: {
   editingSliceLevels: SliceLevel[];
-  addingDimension: boolean;
-  setAddingDimension: (value: boolean) => void;
+  addingSlice: boolean;
+  setAddingSlice: (value: boolean) => void;
   setEditingSliceLevels: (value: SliceLevel[]) => void;
-  metricsWithDimensions: MetricWithDimensions[];
+  metricsWithSlices: MetricWithStringColumns[];
 }) {
-  // Check if the last dimension-level pair is complete before showing + AND
+  // Check if the last slice-level pair is complete before showing + AND
   const lastPairIndex = editingSliceLevels.length - 1;
   const lastPairIsComplete =
     lastPairIndex >= 0 &&
     editingSliceLevels[lastPairIndex].column &&
     editingSliceLevels[lastPairIndex].levels[0];
 
-  // Get all available dimension columns and union their levels
-  const usedDimensions = new Set(editingSliceLevels.map((dl) => dl.column));
+  // Get all available slice columns and union their levels
+  const usedSlices = new Set(editingSliceLevels.map((dl) => dl.column));
 
-  const dimensionMap = new Map<
+  const sliceMap = new Map<
     string,
     { name: string; levels: Set<string>; column: string }
   >();
 
-  metricsWithDimensions.forEach((metric) => {
-    (metric.dimensionColumns || []).forEach((col) => {
-      if (!col.isAutoSliceColumn) return;
-
-      const existing = dimensionMap.get(col.column);
+  metricsWithSlices.forEach((metric) => {
+    (metric.stringColumns || []).forEach((col) => {
+      const existing = sliceMap.get(col.column);
       if (existing) {
-        // UNION the levels from this metric with existing levels
+        // UNION the levels from autoSlices and topValues
         col.autoSlices?.forEach((level) => {
           existing.levels.add(level);
         });
+        col.topValues?.forEach((level) => {
+          existing.levels.add(level);
+        });
       } else {
-        // Create new entry with levels from this metric
-        dimensionMap.set(col.column, {
+        // Create new entry with levels from autoSlices and topValues
+        const allLevels = new Set([
+          ...(col.autoSlices || []),
+          ...(col.topValues || []),
+        ]);
+        sliceMap.set(col.column, {
           column: col.column,
           name: col.name || col.column || "",
-          levels: new Set(col.autoSlices || []),
+          levels: allLevels,
         });
       }
     });
   });
 
-  // Convert to array and filter out used dimensions
-  const uniqueDimensions = Array.from(dimensionMap.values())
-    .filter((dim) => !usedDimensions.has(dim.column))
-    .map((dim) => ({
-      column: dim.column,
-      name: dim.name,
-      slices: Array.from(dim.levels).sort(), // Convert Set back to sorted array
+  // Convert to array and filter out used slices
+  const uniqueSlices = Array.from(sliceMap.values())
+    .filter((slice) => !usedSlices.has(slice.column))
+    .map((slice) => ({
+      column: slice.column,
+      name: slice.name,
+      slices: Array.from(slice.levels).sort(), // Convert Set back to sorted array
+      isAutoSliceColumn: metricsWithSlices.some((metric) =>
+        metric.stringColumns.some(
+          (col) => col.column === slice.column && col.isAutoSliceColumn,
+        ),
+      ),
     }));
 
-  // Only show + AND if there are available dimensions AND the last pair is complete
-  const shouldShowAndButton = uniqueDimensions.length > 0 && lastPairIsComplete;
+  // Sort with isAutoSliceColumn first
+  const sortedSlices = uniqueSlices.sort((a, b) => {
+    if (a.isAutoSliceColumn && !b.isAutoSliceColumn) return -1;
+    if (!a.isAutoSliceColumn && b.isAutoSliceColumn) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
-  return addingDimension ? (
-    uniqueDimensions.length > 0 ? (
+  // Create a map for quick lookup of auto slice columns
+  const autoSliceColumnMap = new Set(
+    sortedSlices
+      .filter((slice) => slice.isAutoSliceColumn)
+      .map((slice) => slice.column),
+  );
+
+  // Only show + AND if there are available slices AND the last pair is complete
+  const shouldShowAndButton = sortedSlices.length > 0 && lastPairIsComplete;
+
+  return addingSlice ? (
+    sortedSlices.length > 0 ? (
       <div className="border rounded d-flex align-items-center bg-white">
         <SelectField
           value=""
@@ -507,13 +543,26 @@ function DimensionSelector({
                 levels: [""], // Start with empty level
               };
               setEditingSliceLevels([...editingSliceLevels, newSliceLevel]);
-              setAddingDimension(false);
+              setAddingSlice(false);
             }
           }}
-          options={uniqueDimensions.map((col) => ({
+          style={{ minWidth: "150px" }}
+          options={sortedSlices.map((col) => ({
             label: col.name || col.column || "",
             value: col.column || "",
           }))}
+          formatOptionLabel={(option) => (
+            <Flex align="center" gap="1">
+              {autoSliceColumnMap.has(option.value) ? (
+                <Text color="purple" size="1">
+                  <PiStackBold />
+                </Text>
+              ) : (
+                <div style={{ width: 13 }} />
+              )}
+              <Text>{option.label}</Text>
+            </Flex>
+          )}
           placeholder="column"
           className="mb-0"
           autoFocus
@@ -525,7 +574,7 @@ function DimensionSelector({
       role="button"
       onClick={(e) => {
         e.preventDefault();
-        setAddingDimension(true);
+        setAddingSlice(true);
       }}
       className="link-purple mx-1"
     >
@@ -537,18 +586,18 @@ function DimensionSelector({
 // Main editing interface component
 function EditingInterface({
   editingSliceLevels,
-  addingDimension,
-  setAddingDimension,
+  addingSlice,
+  setAddingSlice,
   setEditingSliceLevels,
   updateSliceLevel,
   removeSliceLevel,
   saveEditing,
   cancelEditing,
-  metricsWithDimensions,
+  metricsWithSlices,
 }: {
   editingSliceLevels: SliceLevel[];
-  addingDimension: boolean;
-  setAddingDimension: (value: boolean) => void;
+  addingSlice: boolean;
+  setAddingSlice: (value: boolean) => void;
   setEditingSliceLevels: (value: SliceLevel[]) => void;
   updateSliceLevel: (
     index: number,
@@ -558,7 +607,7 @@ function EditingInterface({
   removeSliceLevel: (index: number) => void;
   saveEditing: () => void;
   cancelEditing: () => void;
-  metricsWithDimensions: MetricWithDimensions[];
+  metricsWithSlices: MetricWithStringColumns[];
 }) {
   return (
     <div className="d-flex align-items-top" style={{ gap: "3rem" }}>
@@ -567,37 +616,45 @@ function EditingInterface({
         style={{ gap: "0.5rem", minHeight: "40px" }}
       >
         {editingSliceLevels.map((sliceLevel, levelIndex) => {
-          // Build the same dimension map with unioned levels
-          const dimensionMap = new Map<
+          // Build the same slice map with unioned levels
+          const sliceMap = new Map<
             string,
             { name: string; levels: string[] }
           >();
 
-          metricsWithDimensions.forEach((metric) => {
-            (metric.dimensionColumns || []).forEach((col) => {
-              if (!col.isAutoSliceColumn || col.column !== sliceLevel.column)
-                return;
+          metricsWithSlices.forEach((metric) => {
+            (metric.stringColumns || []).forEach((col) => {
+              if (col.column !== sliceLevel.column) return;
 
-              const existing = dimensionMap.get(col.column);
+              const existing = sliceMap.get(col.column);
               if (existing) {
-                // UNION the levels from this metric with existing levels
+                // UNION the levels from autoSlices and topValues
                 col.autoSlices?.forEach((level) => {
                   if (!existing.levels.includes(level)) {
                     existing.levels.push(level);
                   }
                 });
+                col.topValues?.forEach((level) => {
+                  if (!existing.levels.includes(level)) {
+                    existing.levels.push(level);
+                  }
+                });
               } else {
-                // Create new entry with levels from this metric
-                dimensionMap.set(col.column, {
+                // Create new entry with levels from autoSlices and topValues
+                const allLevels = [
+                  ...(col.autoSlices || []),
+                  ...(col.topValues || []),
+                ];
+                sliceMap.set(col.column, {
                   name: col.name || col.column || "",
-                  levels: [...(col.autoSlices || [])],
+                  levels: allLevels,
                 });
               }
             });
           });
 
-          const dimensionColumn = dimensionMap.get(sliceLevel.column);
-          const availableLevels = dimensionColumn?.levels.sort() || [];
+          const sliceColumn = sliceMap.get(sliceLevel.column);
+          const availableLevels = sliceColumn?.levels.sort() || [];
 
           return (
             <div
@@ -605,7 +662,7 @@ function EditingInterface({
               className="border rounded d-flex align-items-center bg-white"
             >
               <span className="px-2 font-weight-medium">
-                {dimensionColumn?.name || sliceLevel.column}:
+                {sliceColumn?.name || sliceLevel.column}:
               </span>
               {availableLevels.length > 0 ? (
                 <SelectField
@@ -646,12 +703,12 @@ function EditingInterface({
           );
         })}
 
-        <DimensionSelector
+        <SliceSelector
           editingSliceLevels={editingSliceLevels}
-          addingDimension={addingDimension}
-          setAddingDimension={setAddingDimension}
+          addingSlice={addingSlice}
+          setAddingSlice={setAddingSlice}
           setEditingSliceLevels={setEditingSliceLevels}
-          metricsWithDimensions={metricsWithDimensions}
+          metricsWithSlices={metricsWithSlices}
         />
       </div>
 

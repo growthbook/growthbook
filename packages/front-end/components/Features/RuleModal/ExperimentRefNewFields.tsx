@@ -38,7 +38,7 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
-import MetricSlicesSelector from "@/components/Experiment/MetricSlicesSelector";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
@@ -522,7 +522,7 @@ export default function ExperimentRefNewFields({
             collapseGuardrail={true}
           />
 
-          <MetricSlicesSelector
+          <CustomMetricSlicesSelector
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
             guardrailMetrics={form.watch("guardrailMetrics") ?? []}

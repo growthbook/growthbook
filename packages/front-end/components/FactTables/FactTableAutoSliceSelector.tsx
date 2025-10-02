@@ -16,6 +16,7 @@ interface FactTableAutoSliceSelectorProps {
   canEdit: boolean;
   onUpdate: (metricAutoSlices: string[]) => Promise<void>;
   compactButtons?: boolean;
+  containerWidth?: number | "auto";
 }
 
 export default function FactTableAutoSliceSelector({
@@ -24,6 +25,7 @@ export default function FactTableAutoSliceSelector({
   canEdit,
   onUpdate,
   compactButtons = true,
+  containerWidth = "auto",
 }: FactTableAutoSliceSelectorProps) {
   const { hasCommercialFeature } = useUser();
   const { factTables } = useDefinitions();
@@ -113,7 +115,8 @@ export default function FactTableAutoSliceSelector({
             options={availableSlices}
             placeholder="Auto slice columns..."
             className="mb-0"
-            containerStyle={{ width: 275 }}
+            containerStyle={{ width: containerWidth }}
+            containerClassName="mr-2"
           />
         </div>
         <Button

@@ -19,7 +19,7 @@ import Checkbox from "@/ui/Checkbox";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
-import MetricSlicesSelector from "@/components/Experiment/MetricSlicesSelector";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
@@ -446,7 +446,7 @@ export default function ConfigureReport({
             />
 
             <div className="mt-4">
-              <MetricSlicesSelector
+              <CustomMetricSlicesSelector
                 goalMetrics={
                   form.watch("experimentAnalysisSettings.goalMetrics") ?? []
                 }

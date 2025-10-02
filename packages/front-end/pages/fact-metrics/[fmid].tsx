@@ -729,6 +729,7 @@ export default function FactMetricPage() {
                       mutateDefinitions();
                     }}
                     compactButtons={false}
+                    containerWidth="auto"
                   />
                 </div>
               </div>

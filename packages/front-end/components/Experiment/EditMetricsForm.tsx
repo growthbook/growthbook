@@ -28,7 +28,7 @@ import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
-import MetricSlicesSelector from "./MetricSlicesSelector";
+import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
 
 export interface EditMetricsFormInterface {
   goalMetrics: string[];
@@ -261,7 +261,7 @@ const EditMetricsForm: FC<{
             />
           </div>
 
-          <MetricSlicesSelector
+          <CustomMetricSlicesSelector
             goalMetrics={form.watch("goalMetrics")}
             secondaryMetrics={form.watch("secondaryMetrics")}
             guardrailMetrics={form.watch("guardrailMetrics")}

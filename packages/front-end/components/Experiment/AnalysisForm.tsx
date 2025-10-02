@@ -38,7 +38,7 @@ import DatePicker from "@/components/DatePicker";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
-import MetricSlicesSelector from "./MetricSlicesSelector";
+import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
@@ -701,7 +701,7 @@ const AnalysisForm: FC<{
               goalDisabled={isBandit && experiment.status !== "draft"}
             />
 
-            <MetricSlicesSelector
+            <CustomMetricSlicesSelector
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}
