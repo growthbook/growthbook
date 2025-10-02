@@ -18,12 +18,14 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   DataForStatsEngine,
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
 } from "./stats";
+import { expandAllSliceMetricsInMap } from "shared/experiments";
 
 async function getQueryData(
   queries: Queries,
@@ -157,6 +159,24 @@ export async function generateNotebook({
 
   // Get metrics
   const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  // Get experiment data to expand slice metrics
+  let experiment: ExperimentInterface | null = null;
+  if (snapshotSettings.experimentId) {
+    experiment = await context.models.experiments.getById(snapshotSettings.experimentId);
+  }
+
+  // Expand slice metrics if we have experiment data
+  if (experiment) {
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
+  }
 
   // Get queries
   const queries = await getQueryData(queryPointers, context.org.id);

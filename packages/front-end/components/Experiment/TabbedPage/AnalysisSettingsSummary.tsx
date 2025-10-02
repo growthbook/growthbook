@@ -15,8 +15,11 @@ import clsx from "clsx";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   isFactMetric,
   isMetricJoinable,
+  expandAllSliceMetricsInMap,
+  ExperimentMetricInterface,
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -75,6 +78,8 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
     factTables,
     metricGroups,
+    factMetrics,
+    metrics,
   } = useDefinitions();
 
   const datasourceSettings = experiment.datasource
@@ -582,7 +587,27 @@ export default function AnalysisSettingsSummary({
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
-                metrics={getAllMetricIdsFromExperiment(experiment, false)}
+                metrics={useMemo(() => {
+                  const metricMap = new Map<string, ExperimentMetricInterface>();
+                  const allBaseMetrics = [...metrics, ...factMetrics];
+                  allBaseMetrics.forEach((metric) => metricMap.set(metric.id, metric));
+                  const factTableMap = new Map(factTables.map((table) => [table.id, table]));
+                  
+                  // Expand slice metrics and add them to the map
+                  expandAllSliceMetricsInMap({
+                    metricMap,
+                    factTableMap,
+                    experiment,
+                    metricGroups,
+                  });
+                  
+                  return getAllExpandedMetricIdsFromExperiment({
+                    exp: experiment,
+                    metricMap,
+                    includeActivationMetric: false,
+                    metricGroups,
+                  });
+                }, [experiment, metrics, factMetrics, factTables, metricGroups])}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}
