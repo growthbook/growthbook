@@ -583,15 +583,23 @@ export function getSnapshotSettings({
   const currentDate = new Date();
 
   // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
-    metricMap,
-    factTableMap,
-    experiment,
-    metricGroups,
-  });
+  // Skip slice expansion for dimension snapshots
+  if (!dimension) {
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
+  }
 
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
-    exp: experiment,
+    exp: {
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      activationMetric: experiment.activationMetric,
+    },
     metricMap,
     includeActivationMetric: true,
     metricGroups,
