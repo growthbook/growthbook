@@ -278,7 +278,6 @@ export default function DashboardWorkspace({
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <DashboardEditor
             isTabActive={isTabActive}
-            experiment={experiment}
             title={dashboard.title}
             blocks={effectiveBlocks}
             isEditing={true}
