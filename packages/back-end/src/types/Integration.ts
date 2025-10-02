@@ -53,7 +53,7 @@ export type MetricAggregationType = "pre" | "post" | "noWindow";
 export type FactMetricData = {
   alias: string;
   id: string;
-  metric: ExperimentMetricInterface;
+  metric: FactMetricInterface;
   ratioMetric: boolean;
   crossFactTableRatio: boolean;
   funnelMetric: boolean;

@@ -2493,7 +2493,7 @@ export default abstract class SqlIntegration
   }
 
   private getMetricData(
-    metric: ExperimentMetricInterface,
+    metric: FactMetricInterface,
     settings: Pick<
       ExperimentSnapshotSettings,
       "attributionModel" | "regressionAdjustmentEnabled" | "startDate"
@@ -2763,6 +2763,21 @@ export default abstract class SqlIntegration
       (m) => m.crossFactTableRatio,
     );
 
+    let denominatorFactTable: FactTableInterface | undefined;
+    if (someCrossFactTableRatio) {
+      const denominatorFactTableId = metricData.find(
+        (m) => m.crossFactTableRatio,
+      )?.metric?.denominator?.factTableId;
+      if (denominatorFactTableId) {
+        denominatorFactTable = factTableMap.get(denominatorFactTableId);
+      }
+    }
+
+    const queryName =
+      someCrossFactTableRatio && denominatorFactTable
+        ? `Cross-Fact Table Metrics: ${factTable.name} & ${denominatorFactTable.name}`
+        : `Fact Table: ${factTable.name}`;
+
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
       .map((m) => m.raMetricSettings);
@@ -2887,7 +2902,7 @@ export default abstract class SqlIntegration
     );
 
     return format(
-      `-- Fact Table: ${factTable.name}
+      `-- ${queryName}
     WITH
       ${idJoinSQL}
       ${
