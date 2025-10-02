@@ -19,6 +19,7 @@ import {
   getColumnExpression,
   isCappableMetricType,
   parseDimensionMetricId,
+  getFactTableTemplateVariables,
 } from "shared/experiments";
 import {
   AUTOMATIC_DIMENSION_OTHER_NAME,
@@ -838,6 +839,14 @@ export default abstract class SqlIntegration
       "m0",
     );
 
+    const factTable = params.factTableMap.get(
+      metric.numerator?.factTableId || "",
+    );
+    if (!factTable) {
+      throw new Error("Unknown fact table");
+    }
+    // TODO(sql): What happens if ratio metric is cross table?
+
     const createHistogram = metric.metricType === "mean";
 
     const finalDailyValueColumn = this.capCoalesceValue({
@@ -891,9 +900,9 @@ export default abstract class SqlIntegration
         baseIdType,
         idJoinMap,
         metricsWithIndices: [{ ...metric, index: 0 }],
+        factTable,
         endDate: metricData.metricEnd,
         startDate: metricData.metricStart,
-        factTableMap: params.factTableMap,
         addFiltersToWhere: settings.populationType == "metric",
       })})
         , __userMetricDaily AS (
@@ -2503,7 +2512,6 @@ export default abstract class SqlIntegration
   ): FactMetricData {
     const ratioMetric = isRatioMetric(metric);
     const crossFactTableRatio =
-      isFactMetric(metric) &&
       ratioMetric &&
       metric.numerator?.factTableId !== metric.denominator?.factTableId;
 
@@ -2664,57 +2672,118 @@ export default abstract class SqlIntegration
     getCrossFactTableDenominator: boolean;
   }): string {
     return `
-          SELECT 
-            d.variation AS variation
-            ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
-            , d.${baseIdType} AS ${baseIdType}
-            ${regressionAdjustedMetrics
-              .map(
-                (metric) =>
-                  `${
-                    !getCrossFactTableDenominator
-                      ? `, ${this.getAggregateMetricColumn({
-                          metric: metric.metric,
-                          useDenominator: false,
-                          valueColumn: this.ifElse(
-                            `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
-                            `${metric.alias}_value`,
-                            "NULL",
-                          ),
-                        })} as ${metric.alias}_value`
-                      : ""
-                  }
-                    ${
-                      // only get denominator if ratio metric AND either the denominator is in the same table as the numerator OR
-                      // getDenominatorOnly is true
-                      metric.ratioMetric &&
-                      (getCrossFactTableDenominator ||
-                        !metric.crossFactTableRatio)
-                        ? `, ${this.getAggregateMetricColumn({
-                            metric: metric.metric,
-                            useDenominator: true,
-                            valueColumn: this.ifElse(
-                              `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
-                              `${metric.alias}_denominator`,
-                              "NULL",
-                            ),
-                          })} AS ${metric.alias}_denominator`
-                        : ""
-                    }`,
-              )
-              .join("\n")}
-          FROM
-            __distinctUsers d
-          JOIN ${baseMetricTable} m ON (
-            m.${baseIdType} = d.${baseIdType}
+      SELECT 
+        d.variation AS variation
+        ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
+        , d.${baseIdType} AS ${baseIdType}
+        ${regressionAdjustedMetrics
+          .map(
+            (metric) =>
+              `${
+                !getCrossFactTableDenominator
+                  ? `, ${this.getAggregateMetricColumn({
+                      metric: metric.metric,
+                      useDenominator: false,
+                      valueColumn: this.ifElse(
+                        `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                        `${metric.alias}_value`,
+                        "NULL",
+                      ),
+                    })} as ${metric.alias}_value`
+                  : ""
+              }
+                ${
+                  // only get denominator if ratio metric AND either the denominator is in the same table as the numerator OR
+                  // getDenominatorOnly is true
+                  metric.ratioMetric &&
+                  (getCrossFactTableDenominator || !metric.crossFactTableRatio)
+                    ? `, ${this.getAggregateMetricColumn({
+                        metric: metric.metric,
+                        useDenominator: true,
+                        valueColumn: this.ifElse(
+                          `m.timestamp >= d.${metric.alias}_preexposure_start AND m.timestamp < d.${metric.alias}_preexposure_end`,
+                          `${metric.alias}_denominator`,
+                          "NULL",
+                        ),
+                      })} AS ${metric.alias}_denominator`
+                    : ""
+                }`,
           )
-          WHERE 
-            m.timestamp >= d.min_preexposure_start
-            AND m.timestamp < d.max_preexposure_end
-          GROUP BY
-            d.variation
-            ${dimensionCols.map((c) => `, d.${c.alias}`).join("")}
-            , d.${baseIdType}`;
+          .join("\n")}
+      FROM
+        __distinctUsers d
+      JOIN ${baseMetricTable} m ON (
+        m.${baseIdType} = d.${baseIdType}
+      )
+      WHERE 
+        m.timestamp >= d.min_preexposure_start
+        AND m.timestamp < d.max_preexposure_end
+      GROUP BY
+        d.variation
+        ${dimensionCols.map((c) => `, d.${c.alias}`).join("")}
+        , d.${baseIdType}`;
+  }
+
+  getFactTablesForMetrics(
+    metrics: FactMetricInterface[],
+    factTableMap: FactTableMap,
+  ): {
+    mainFactTable: FactTableInterface;
+    additionalDenominatorFactTable: FactTableInterface | undefined;
+  } {
+    let mainFactTable: FactTableInterface | undefined;
+    let additionalDenominatorFactTable: FactTableInterface | undefined;
+
+    metrics.forEach((m) => {
+      if (mainFactTable && mainFactTable.id !== m.numerator?.factTableId) {
+        throw new Error(
+          "Can only combine metrics whose numerators are in the same fact table",
+        );
+      }
+
+      if (!mainFactTable) {
+        const factTable = factTableMap.get(m.numerator?.factTableId || "");
+        if (factTable) {
+          mainFactTable = factTable;
+        } else {
+          throw new Error("Unknown fact table");
+        }
+      }
+
+      // check denominator if it is in a different fact table
+      if (
+        isRatioMetric(m) &&
+        m.denominator?.factTableId &&
+        m.denominator?.factTableId !== mainFactTable?.id
+      ) {
+        if (
+          additionalDenominatorFactTable &&
+          additionalDenominatorFactTable.id !== m.denominator?.factTableId
+        ) {
+          throw new Error(
+            "Can only combine ratio metrics whose denominators are in the same fact table",
+          );
+        }
+
+        if (!additionalDenominatorFactTable) {
+          const factTable = factTableMap.get(m.denominator?.factTableId || "");
+          if (factTable) {
+            additionalDenominatorFactTable = factTable;
+          } else {
+            throw new Error("Unknown fact table");
+          }
+        }
+      }
+    });
+
+    if (!mainFactTable) {
+      throw new Error("No main fact table found");
+    }
+
+    return {
+      mainFactTable,
+      additionalDenominatorFactTable,
+    };
   }
 
   getExperimentFactMetricsQuery(
@@ -2741,16 +2810,18 @@ export default abstract class SqlIntegration
     );
 
     const factTableMap = params.factTableMap;
-    const factTable = factTableMap.get(
-      metricsWithIndices[0].numerator?.factTableId,
+
+    const factTables = this.getFactTablesForMetrics(
+      metricsWithIndices,
+      factTableMap,
     );
-    if (!factTable) {
-      throw new Error("Could not find fact table");
-    }
+    const { mainFactTable: factTable, additionalDenominatorFactTable } =
+      factTables;
 
     const userIdType =
       params.forcedUserIdType ??
       this.getExposureQuery(settings.exposureQueryId || "").userIdType;
+
     const metricData = metricsWithIndices.map((metric) =>
       this.getMetricData(
         metric,
@@ -2759,24 +2830,10 @@ export default abstract class SqlIntegration
         `m${metric.index}`,
       ),
     );
-    const someCrossFactTableRatio = metricData.some(
-      (m) => m.crossFactTableRatio,
-    );
 
-    let denominatorFactTable: FactTableInterface | undefined;
-    if (someCrossFactTableRatio) {
-      const denominatorFactTableId = metricData.find(
-        (m) => m.crossFactTableRatio,
-      )?.metric?.denominator?.factTableId;
-      if (denominatorFactTableId) {
-        denominatorFactTable = factTableMap.get(denominatorFactTableId);
-      }
-    }
-
-    const queryName =
-      someCrossFactTableRatio && denominatorFactTable
-        ? `Cross-Fact Table Metrics: ${factTable.name} & ${denominatorFactTable.name}`
-        : `Fact Table: ${factTable.name}`;
+    const queryName = additionalDenominatorFactTable
+      ? `Cross-Fact Table Metrics: ${factTable.name} & ${additionalDenominatorFactTable.name}`
+      : `Fact Table: ${factTable.name}`;
 
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
@@ -2964,25 +3021,24 @@ export default abstract class SqlIntegration
       , __factTable as (${this.getFactMetricCTE({
         baseIdType,
         idJoinMap,
+        factTable,
         metricsWithIndices,
         endDate: metricEnd,
         startDate: metricStart,
-        factTableMap,
         experimentId: settings.experimentId,
         addFiltersToWhere: true,
       })})
       ${
-        someCrossFactTableRatio
+        additionalDenominatorFactTable
           ? `, __denominatorFactTable AS (${this.getFactMetricCTE({
               baseIdType,
               idJoinMap,
+              factTable: additionalDenominatorFactTable,
               metricsWithIndices,
               endDate: metricEnd,
               startDate: metricStart,
-              factTableMap,
               experimentId: settings.experimentId,
               addFiltersToWhere: true,
-              distinctDenominatorsOnly: true,
             })})
             , __userDenominatorJoin AS (
               SELECT
@@ -3184,7 +3240,8 @@ export default abstract class SqlIntegration
               factMetrics: true,
               metricData,
               dimensionCols,
-              someCrossFactTableRatio,
+              someCrossFactTableRatio:
+                additionalDenominatorFactTable !== undefined,
               hasRegressionAdjustment: regressionAdjustedMetrics.length > 0,
               hasCrossFactTableRegressionAdjustment:
                 regressionAdjustedMetricsCrossTable.length > 0,
@@ -3308,7 +3365,7 @@ export default abstract class SqlIntegration
           : ""
       }
       ${
-        someCrossFactTableRatio
+        additionalDenominatorFactTable
           ? `
           LEFT JOIN __denominatorMetricAgg m2 ON (
             m2.${baseIdType} = m.${baseIdType}
@@ -4049,15 +4106,15 @@ export default abstract class SqlIntegration
         `
         : ""
     }
-              ${
-                someCrossFactTableRatio
-                  ? `
-          LEFT JOIN __denominatorMetricAgg m2 ON (
-            m2.${baseIdType} = m.${baseIdType}
-          )
-          `
-                  : ""
-              }
+    ${
+      someCrossFactTableRatio
+        ? `
+        LEFT JOIN __denominatorMetricAgg m2 ON (
+          m2.${baseIdType} = m.${baseIdType}
+        )
+        `
+        : ""
+    }
     ${
       hasCrossFactTableRegressionAdjustment
         ? `
@@ -4943,58 +5000,23 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   // Get a Fact Table CTE for multiple fact metrics that all share the same fact table
   private getFactMetricCTE({
     metricsWithIndices,
-    factTableMap,
+    factTable,
     baseIdType,
     idJoinMap,
     startDate,
     endDate,
     experimentId,
     addFiltersToWhere,
-    // Get denominators from different table from the numerators
-    distinctDenominatorsOnly,
   }: {
     metricsWithIndices: (FactMetricInterface & { index: number })[];
-    factTableMap: FactTableMap;
+    factTable: FactTableInterface;
     baseIdType: string;
     idJoinMap: Record<string, string>;
     startDate: Date;
     endDate: Date | null;
     experimentId?: string;
     addFiltersToWhere?: boolean;
-    distinctDenominatorsOnly?: boolean;
   }) {
-    let factTable: FactTableInterface | undefined = undefined;
-
-    for (const metric of metricsWithIndices) {
-      if (distinctDenominatorsOnly) {
-        // skip metrics where numerator and denominator are in the same table
-        if (metric.denominator?.factTableId === metric.numerator?.factTableId) {
-          continue;
-        }
-      }
-      const column = distinctDenominatorsOnly
-        ? metric.denominator
-        : metric.numerator;
-
-      const metricFactTable = factTableMap.get(column?.factTableId || "");
-
-      if (!metricFactTable) {
-        throw new Error("Unknown fact table");
-      }
-
-      if (factTable && factTable.id !== metricFactTable.id) {
-        throw new Error(
-          "Can only combine metrics that are in the same fact table",
-        );
-      }
-
-      factTable = metricFactTable;
-    }
-
-    if (!factTable) {
-      throw new Error("No distinct denominators found");
-    }
-
     // Determine if a join is required to match up id types
     let join = "";
     let userIdCol = "";
@@ -5038,9 +5060,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     let numberOfNumeratorsOrDenominatorsWithoutFilters = 0;
 
     metricsWithIndices.forEach((m) => {
-      if (!distinctDenominatorsOnly) {
-        // Numerator column
-        const value = this.getMetricColumns(m, factTableMap, "m", false).value;
+      // get numerator if it matches the fact table
+      if (m.numerator?.factTableId === factTable.id) {
+        const value = this.getFactMetricColumn(
+          m,
+          m.numerator,
+          factTable,
+          "m",
+        ).value;
         const dimensionInfo = parseDimensionMetricId(m.id);
         const filters = getColumnRefWhereClause(
           factTable,
@@ -5066,14 +5093,20 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           filterWhere.add(`(${filters.join("\n AND ")})`);
         }
       }
+
       // Add denominator column if there is one
       if (isRatioMetric(m) && m.denominator) {
-        // only add denominators that match the same table
+        // only add denominators that match the fact table
         if (m.denominator.factTableId !== factTable.id) {
           return;
         }
 
-        const value = this.getMetricColumns(m, factTableMap, "m", true).value;
+        const value = this.getFactMetricColumn(
+          m,
+          m.denominator,
+          factTable,
+          "m",
+        ).value;
         const dimensionInfo = parseDimensionMetricId(m.id);
         const filters = getColumnRefWhereClause(
           factTable,
@@ -5124,11 +5157,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         startDate,
         endDate: endDate || undefined,
         experimentId,
-        templateVariables: getMetricTemplateVariables(
-          metricsWithIndices[0],
-          factTableMap,
-          false,
-        ),
+        templateVariables: getFactTableTemplateVariables(factTable),
       },
     );
   }
@@ -5662,6 +5691,45 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return col;
   }
 
+  private getFactMetricColumn(
+    metric: FactMetricInterface,
+    columnRef: ColumnRef,
+    factTable: FactTableInterface,
+    alias = "m",
+  ): { timestamp: string; value: string } {
+    const hasAggregateFilter =
+      getAggregateFilters({
+        columnRef: columnRef,
+        column: columnRef?.column || "",
+        ignoreInvalid: true,
+      }).length > 0;
+
+    const column = hasAggregateFilter
+      ? columnRef?.aggregateFilterColumn
+      : columnRef?.column;
+
+    const value =
+      (!hasAggregateFilter && isBinomialMetric(metric)) ||
+      !columnRef ||
+      column === "$$distinctUsers" ||
+      column === "$$count"
+        ? "1"
+        : factTable && column
+          ? getColumnExpression(
+              column,
+              factTable,
+              this.extractJSONField.bind(this),
+              alias,
+            )
+          : `${alias}.${column}`;
+
+    return {
+      timestamp: `${alias}.timestamp`,
+      value,
+    };
+  }
+
+  // TODO(sql): refactor to change metric type to legacy only
   private getMetricColumns(
     metric: ExperimentMetricInterface,
     factTableMap: FactTableMap,

@@ -226,6 +226,15 @@ export function getAggregateFilters({
   return filters;
 }
 
+export function getFactTableTemplateVariables(
+  factTable: FactTableInterface,
+): TemplateVariables {
+  return {
+    eventName: factTable.eventName,
+  };
+}
+
+// TODO(sql): refactor to remove factTableMap
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
   factTableMap: FactTableMap,

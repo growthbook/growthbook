@@ -261,13 +261,12 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([[factTable.id, factTable]]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
       metricsWithIndices: [{ ...factMetric, index: 0 }],
-      factTableMap,
+      factTable,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -325,9 +324,6 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([
-      [factTableWithFilters.id, factTableWithFilters],
-    ]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
@@ -336,7 +332,7 @@ describe("bigquery integration", () => {
         ...metric,
         index,
       })),
-      factTableMap,
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -375,7 +371,7 @@ describe("bigquery integration", () => {
       metricsWithIndices: [factMetric, factMetric2, factMetric3].map(
         (metric, index) => ({ ...metric, index }),
       ),
-      factTableMap,
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -434,9 +430,6 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([
-      [factTableWithFilters.id, factTableWithFilters],
-    ]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
@@ -445,7 +438,7 @@ describe("bigquery integration", () => {
         ...metric,
         index,
       })),
-      factTableMap,
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -509,15 +502,12 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([
-      [factTableWithFilters.id, factTableWithFilters],
-    ]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
       metricsWithIndices: [{ ...ratioMetric, index: 0 }],
-      factTableMap,
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -572,15 +562,12 @@ describe("bigquery integration", () => {
       },
     });
 
-    const factTableMap = new Map([
-      [factTableWithFilters.id, factTableWithFilters],
-    ]);
     const startDate = new Date("2023-01-01");
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
       metricsWithIndices: [{ ...ratioMetricWithDenominatorNoFilter, index: 0 }],
-      factTableMap,
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
@@ -624,7 +611,7 @@ describe("bigquery integration", () => {
 
     const result2 = bqIntegration["getFactMetricCTE"]({
       metricsWithIndices: [{ ...ratioMetricWithNumeratorNoFilter, index: 0 }],
-      factTableMap,
+      factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
       startDate,
