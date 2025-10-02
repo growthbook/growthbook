@@ -155,7 +155,6 @@ export function useSearch<T>({
     if (searchTerm.length > 0) {
       filtered = miniSearch.search(searchTerm) as T[];
     }
-    console.log("filteredAfterSearch", filtered);
     if (updateSearchQueryOnChange) {
       const searchParams = new URLSearchParams(window.location.search);
       const currentQ = searchParams.has("q") ? searchParams.get("q") : null;
