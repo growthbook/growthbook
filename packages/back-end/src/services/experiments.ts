@@ -32,7 +32,6 @@ import {
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
   expandAllSliceMetricsInMap,
-  createSliceMetrics,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
@@ -2839,7 +2838,6 @@ export async function getSettingsForSnapshotMetrics(
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
 
   const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
@@ -2849,46 +2847,14 @@ export async function getSettingsForSnapshotMetrics(
     .map((id) => metricMap.get(id))
     .filter(isDefined);
 
-  // Expand slice metrics for fact metrics with metricAutoDimensions
-  const expandedMetrics: ExperimentMetricInterface[] = [];
-  for (const metric of allExperimentMetrics) {
-    if (!metric) continue;
-
-    // Add the original metric
-    expandedMetrics.push(metric);
-
-    // If this is a fact metric with slice analysis enabled, expand it
-    if (isFactMetric(metric) && metric.metricAutoSlices?.length) {
-      const factTable = factTableMap.get(metric.numerator.factTableId);
-      if (factTable) {
-        const sliceMetrics = createSliceMetrics({
-          parentMetric: metric,
-          factTable,
-          includeOther: true,
-        });
-
-        sliceMetrics.forEach((sliceMetric) => {
-          const expandedMetric: ExperimentMetricInterface = {
-            ...metric,
-            id: sliceMetric.id,
-            name: sliceMetric.name,
-            description: sliceMetric.description,
-          };
-          expandedMetrics.push(expandedMetric);
-          metricMap.set(expandedMetric.id, expandedMetric);
-        });
-      }
-    }
-  }
-
-  const denominatorMetrics = expandedMetrics
+  const denominatorMetrics = allExperimentMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)
     .map((m: ExperimentMetricInterface) =>
       metricMap.get(m.denominator as string),
     )
     .filter(Boolean) as MetricInterface[];
 
-  for (const metric of expandedMetrics) {
+  for (const metric of allExperimentMetrics) {
     if (!metric) continue;
     const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,

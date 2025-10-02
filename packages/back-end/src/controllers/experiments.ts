@@ -1620,8 +1620,6 @@ export async function postExperiment(
     }
   }
 
-  // No sorting needed - UI doesn't depend on array ordering for these fields
-
   const updated = await updateExperiment({
     context,
     experiment,
