@@ -4,7 +4,7 @@ import {
   blockHasFieldOfType,
   isPersistedDashboardBlock,
 } from "shared/enterprise";
-import { isDefined, isString } from "shared/util";
+import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
 import {
   AuthRequest,
@@ -36,13 +36,32 @@ interface MultiDashboardResponse {
 }
 
 export async function getAllDashboards(
-  req: AuthRequest<never, never, never>,
+  req: AuthRequest<never, never, { includeExperimentDashboards?: string }>,
   res: ResponseWithStatusAndError<MultiDashboardResponse>,
 ) {
   const context = getContextFromReq(req);
 
-  const dashboards = await context.models.dashboards.getAll();
+  const dashboards = await context.models.dashboards.getAll(
+    stringToBoolean(req.query.includeExperimentDashboards)
+      ? {}
+      : { experimentId: null },
+  );
   return res.status(200).json({ status: 200, dashboards });
+}
+
+export async function getDashboard(
+  req: AuthRequest<never, { id: string }, never>,
+  res: ResponseWithStatusAndError<SingleDashboardResponse>,
+) {
+  const context = getContextFromReq(req);
+
+  const dashboard = await context.models.dashboards.getById(req.params.id);
+  if (!dashboard)
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find dashboard",
+    });
+  return res.status(200).json({ status: 200, dashboard });
 }
 
 export async function getDashboardsForExperiment(

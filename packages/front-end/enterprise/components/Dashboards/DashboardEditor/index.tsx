@@ -1,4 +1,3 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { Fragment, ReactElement, useEffect, useState } from "react";
 import {
   PiCaretDownFill,
@@ -129,7 +128,6 @@ function AddBlockDropdown({
 
 interface Props {
   isTabActive: boolean;
-  experiment: ExperimentInterfaceStringDates;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   isEditing: boolean;
@@ -153,7 +151,6 @@ interface Props {
 
 function DashboardEditor({
   isTabActive,
-  experiment,
   title,
   blocks,
   isEditing,
@@ -195,7 +192,6 @@ function DashboardEditor({
         <DashboardBlock
           isTabActive={isTabActive}
           block={block}
-          dashboardExperiment={experiment}
           isEditing={isEditing}
           isFocused={isFocused}
           editingBlock={isEditingBlock}

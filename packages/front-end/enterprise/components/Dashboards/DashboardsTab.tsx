@@ -26,7 +26,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
-import { useDashboards } from "@/hooks/useDashboards";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -93,7 +93,7 @@ export default function DashboardsTab({
     dashboards,
     mutateDashboards,
     loading: loadingDashboards,
-  } = useDashboards(experiment.id);
+  } = useExperimentDashboards(experiment.id);
   const defaultDashboard = dashboards.find((dash) => dash.isDefault);
   const [dashboardMounted, setDashboardMounted] = useState(false);
 
@@ -584,7 +584,6 @@ export default function DashboardsTab({
                     ) : (
                       <DashboardEditor
                         isTabActive={isTabActive}
-                        experiment={experiment}
                         title={dashboard.title}
                         blocks={blocks}
                         isEditing={false}

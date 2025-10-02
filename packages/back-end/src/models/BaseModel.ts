@@ -122,6 +122,8 @@ export interface ModelConfig<T extends BaseSchema, Entity extends EntityType> {
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
+  // TODO: use filter type from PR once merged
+  baseQuery?: FilterQuery<Omit<z.infer<T>, "organization">>;
 }
 
 // Global set to track which collections we've updated indexes for already
@@ -295,8 +297,9 @@ export abstract class BaseModel<
 
     return this._find({ id: { $in: ids } });
   }
-  public getAll() {
-    return this._find();
+  // TODO: use filter type from PR once merged
+  public getAll(filter?: FilterQuery<Omit<z.infer<T>, "organization">>) {
+    return this._find(filter);
   }
   public create(
     props: CreateProps<z.infer<T>>,
@@ -380,7 +383,8 @@ export abstract class BaseModel<
       bypassReadPermissionChecks?: boolean;
     } = {},
   ) {
-    const queryWithOrg = {
+    const fullQuery = {
+      ...this.getBaseQuery(),
       ...query,
       organization: this.context.org.id,
     };
@@ -389,7 +393,7 @@ export abstract class BaseModel<
     if (this.useConfigFile()) {
       const docs =
         this.getConfigDocuments().filter((doc) =>
-          evalCondition(doc, queryWithOrg),
+          evalCondition(doc, fullQuery),
         ) || [];
 
       sort &&
@@ -406,7 +410,7 @@ export abstract class BaseModel<
 
       rawDocs = docs;
     } else {
-      const cursor = this._dangerousGetCollection().find(queryWithOrg);
+      const cursor = this._dangerousGetCollection().find(fullQuery);
       sort &&
         cursor.sort(
           sort as {
@@ -433,14 +437,14 @@ export abstract class BaseModel<
   protected async _findOne(
     query: FilterQuery<Omit<z.infer<T>, "organization">>,
   ) {
+    const fullQuery = {
+      ...this.getBaseQuery(),
+      ...query,
+      organization: this.context.org.id,
+    };
     const doc = this.useConfigFile()
-      ? this.getConfigDocuments().find((doc) =>
-          evalCondition(doc, { ...query, organization: this.context.org.id }),
-        )
-      : await this._dangerousGetCollection().findOne({
-          ...query,
-          organization: this.context.org.id,
-        });
+      ? this.getConfigDocuments().find((doc) => evalCondition(doc, fullQuery))
+      : await this._dangerousGetCollection().findOne(fullQuery);
     if (!doc) return null;
 
     const migrated = this.migrate(this._removeMongooseFields(doc));
@@ -847,6 +851,11 @@ export abstract class BaseModel<
         throw new Error("Invalid project");
       }
     }
+  }
+
+  // TODO: use filter type from PR once merged
+  private getBaseQuery(): FilterQuery<Omit<z.infer<T>, "organization">> {
+    return this.config.baseQuery ?? {};
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
