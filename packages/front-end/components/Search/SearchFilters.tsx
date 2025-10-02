@@ -194,7 +194,7 @@ export const FilterDropdown: FC<{
 };
 
 // Helper function for checking if a filter exists in the syntax filters
-function doesFilterExistInSearch({
+export function doesFilterExistInSearch({
   syntaxFilters,
   field,
   value,
