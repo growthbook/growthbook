@@ -253,7 +253,6 @@ export default function ImportFromStatsig() {
     enabled: boolean,
   ) => {
     const key = getItemKey(category, index, item);
-    console.log(`Toggling ${category}[${index}] (${key}) to ${enabled}`);
     setItemEnabled((prev) => ({
       ...prev,
       [category]: {
@@ -681,6 +680,7 @@ export default function ImportFromStatsig() {
                   project: projectId,
                   itemEnabled,
                   skipAttributeMapping,
+                  existingSavedGroups: savedGroups,
                 };
                 await runImport(runOptions);
                 mutateDefinitions();

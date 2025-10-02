@@ -26,6 +26,7 @@ export function transformStatsigFeatureGateToGB(
   type: "featureGate" | "dynamicConfig" = "featureGate",
   project?: string,
   skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): Omit<
   FeatureInterface,
   "organization" | "dateCreated" | "dateUpdated" | "version"
@@ -59,6 +60,7 @@ export function transformStatsigFeatureGateToGB(
       const transformedCondition = transformStatsigConditionsToGB(
         rule.conditions,
         skipAttributeMapping,
+        savedGroupIdMap,
       );
 
       // Determine which environments this rule applies to
