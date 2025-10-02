@@ -419,7 +419,6 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
   };
 }
 
-
 /**
  * Generates a pinned slice key for a metric with slice levels
  */
@@ -1067,7 +1066,7 @@ export function getAllExpandedMetricIdsFromExperiment({
   );
   const expandedMetricIds = new Set<string>(baseMetricIds);
 
-  // Add all dimension metrics that are already in the metricMap
+  // Add all slice metrics that are already in the metricMap
   // This includes both standard and custom dimension metrics
   metricMap.forEach((metric, metricId) => {
     // Check if this is a dimension metric (contains dim: parameter)
@@ -1549,20 +1548,20 @@ export function getPredefinedDimensionSlicesByExperiment(
   // remove dimensions that have no slices
   dimensions = dimensions.filter((d) => d.specifiedSlices.length > 0);
 
-  let totalLevels = countSliceLevels(dimensions, nVariations);
+  let totalLevels = countDimensionLevels(dimensions, nVariations);
   const maxLevels = 1000;
   while (totalLevels > maxLevels) {
     dimensions = dimensions.slice(0, -1);
     if (dimensions.length === 0) {
       break;
     }
-    totalLevels = countSliceLevels(dimensions, nVariations);
+    totalLevels = countDimensionLevels(dimensions, nVariations);
   }
 
   return dimensions;
 }
 
-export function countSliceLevels(
+export function countDimensionLevels(
   dimensionMetadata: { specifiedSlices: string[] }[],
   nVariations: number,
 ): number {
@@ -1662,7 +1661,9 @@ export function expandAllSliceMetricsInMap({
 
         // Verify all custom slice columns exist and are string type
         const hasAllRequiredColumns = sortedSliceGroups.every((slice) => {
-          const column = factTable.columns.find((col) => col.column === slice.column);
+          const column = factTable.columns.find(
+            (col) => col.column === slice.column,
+          );
           return (
             column &&
             !column.deleted &&
@@ -1674,7 +1675,10 @@ export function expandAllSliceMetricsInMap({
         if (!hasAllRequiredColumns) return;
 
         const sliceString = generateSliceStringFromLevels(
-          sortedSliceGroups.map((d) => ({ column: d.column, levels: d.levels })),
+          sortedSliceGroups.map((d) => ({
+            column: d.column,
+            levels: d.levels,
+          })),
         );
 
         const customSliceMetric: ExperimentMetricInterface = {
