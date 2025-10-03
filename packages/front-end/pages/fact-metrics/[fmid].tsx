@@ -746,7 +746,7 @@ export default function FactMetricPage() {
                   className="mb-2"
                   style={{ color: "var(--color-text-mid)" }}
                 >
-                  Metric will be automatically analyzed across all slices.
+                  Metric breakdowns automatically run during experiments.
                 </Text>
                 <div className="mt-2">
                   <FactTableAutoSliceSelector

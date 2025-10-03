@@ -2302,7 +2302,7 @@ export default function FactMetricModal({
                         className="mb-2"
                         style={{ color: "var(--color-text-mid)" }}
                       >
-                        Metric will be automatically analyzed across all slices.
+                        Metric breakdowns automatically run during experiments.
                       </Text>
                       {hasMetricSlicesFeature && (
                         <div className="mt-2">
