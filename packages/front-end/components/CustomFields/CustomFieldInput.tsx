@@ -15,7 +15,7 @@ const CustomFieldInput: FC<{
   className?: string;
 }> = ({
   customFields,
-  currentCustomFields,
+  currentCustomFields = {},
   project,
   className,
   section,

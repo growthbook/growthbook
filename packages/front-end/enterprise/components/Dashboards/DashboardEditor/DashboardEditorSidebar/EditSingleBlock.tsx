@@ -32,6 +32,7 @@ import Checkbox from "@/ui/Checkbox";
 import Avatar from "@/ui/Avatar";
 import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "..";
+import MetricExplorerSettings from "./MetricExplorerSettings";
 
 type RequiredField = {
   field: string;
@@ -362,8 +363,7 @@ export default function EditSingleBlock({
                 </Grid>
               </>
             )}
-            {/* Unused since no blocks currently allow a single metric */}
-            {/* {blockHasFieldOfType(block, "metricId", isString) && (
+            {blockHasFieldOfType(block, "metricId", isString) && (
               <SelectField
                 label="Metric"
                 labelClassName="font-weight-bold"
@@ -384,7 +384,7 @@ export default function EditSingleBlock({
                   />
                 )}
               />
-            )} */}
+            )}
             {blockHasFieldOfType(block, "metricSelector", isMetricSelector) && (
               <>
                 <SelectField
@@ -701,6 +701,9 @@ export default function EditSingleBlock({
                   />
                 </>
               ))}
+            {block.type === "metric-explorer" && (
+              <MetricExplorerSettings block={block} setBlock={setBlock} />
+            )}
           </Flex>
           <Flex gap="3" align="center" justify="center">
             <Button
