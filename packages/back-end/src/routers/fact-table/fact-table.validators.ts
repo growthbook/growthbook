@@ -92,7 +92,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
   })
@@ -175,7 +175,7 @@ export const factMetricValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     owner: z.string().default(""),
     datasource: z.string(),
     dateCreated: z.date(),

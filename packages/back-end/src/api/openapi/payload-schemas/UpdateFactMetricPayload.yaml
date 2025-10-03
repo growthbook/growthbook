@@ -238,6 +238,7 @@ properties:
     enum:
       - ""
       - api
+      - admin
   archived:
     type: boolean
   enableMetricDimensions:

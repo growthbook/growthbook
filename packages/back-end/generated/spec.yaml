@@ -5033,6 +5033,7 @@ paths:
                   enum:
                     - ''
                     - api
+                    - admin
                 enableMetricDimensions:
                   type: boolean
                   description: Whether this metric supports dimension analysis. This is an enterprise feature.
@@ -5329,6 +5330,7 @@ paths:
                   enum:
                     - ''
                     - api
+                    - admin
                 archived:
                   type: boolean
                 enableMetricDimensions:
@@ -8052,6 +8054,7 @@ components:
           enum:
             - ''
             - api
+            - admin
         dateCreated:
           type: string
           format: date-time
