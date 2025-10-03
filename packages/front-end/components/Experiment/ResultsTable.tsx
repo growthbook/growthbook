@@ -117,7 +117,7 @@ export type ResultsTableProps = {
 };
 
 const ROW_HEIGHT = 46;
-const METRIC_LABEL_ROW_HEIGHT = 46;
+const METRIC_LABEL_ROW_HEIGHT = 56;
 const SPACER_ROW_HEIGHT = 6;
 
 export const RESULTS_TABLE_COLUMNS = [
@@ -808,7 +808,7 @@ export default function ResultsTable({
                                 label: (
                                   <>
                                     {compactResults ? (
-                                      <div className="mb-1">
+                                      <div className="mb-1 position-relative">
                                         {renderLabelColumn({
                                           label: row.label,
                                           metric: row.metric,
@@ -945,7 +945,7 @@ export default function ResultsTable({
                                 "Metric & Variation Names",
                               ) && (
                                 <td
-                                  className={`variation with-variation-label variation${v.index}`}
+                                  className={`variation with-variation-label variation${v.index} position-relative`}
                                   style={{
                                     width: 220 * tableCellScale,
                                   }}
@@ -1285,7 +1285,11 @@ function drawEmptyRow({
 }) {
   return (
     <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
-      {renderLabel && <td colSpan={labelColSpan}>{label}</td>}
+      {renderLabel && (
+        <td colSpan={labelColSpan} className="position-relative">
+          {label}
+        </td>
+      )}
 
       {renderGraph && (
         <td className="graph-cell">

@@ -446,6 +446,15 @@ const CompactResults: FC<{
     customMetricSlices,
   ]);
 
+  const getChildRowCounts = (metricId: string) => {
+    const childRows = rows.filter((row) => row.parentRowId === metricId);
+    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
+    return {
+      total: childRows.length,
+      pinned: pinnedChildRows.length,
+    };
+  };
+
   const isBandit = experimentType === "multi-armed-bandit";
 
   return (
@@ -534,6 +543,7 @@ const CompactResults: FC<{
             getFactMetricLevels,
             ssrPolyfills,
             shouldShowMetricSlices,
+            getChildRowCounts,
           })}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
@@ -591,6 +601,7 @@ const CompactResults: FC<{
               getFactMetricLevels,
               ssrPolyfills,
               shouldShowMetricSlices,
+              getChildRowCounts,
             })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -642,6 +653,7 @@ const CompactResults: FC<{
               getFactMetricLevels,
               ssrPolyfills,
               shouldShowMetricSlices,
+              getChildRowCounts,
             })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -675,6 +687,7 @@ export function getRenderLabelColumn({
   getFactMetricLevels,
   ssrPolyfills,
   shouldShowMetricSlices,
+  getChildRowCounts,
   className = "pl-3",
 }: {
   regressionAdjustmentEnabled?: boolean;
@@ -695,6 +708,7 @@ export function getRenderLabelColumn({
   getFactMetricLevels?: (metricId: string) => unknown[];
   ssrPolyfills?: SSRPolyfills;
   shouldShowMetricSlices?: boolean;
+  getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
   className?: string;
 }) {
   return function renderLabelColumn({
@@ -792,121 +806,150 @@ export function getRenderLabelColumn({
         getFactMetricLevels?.(metric.id)?.length
       );
 
+    // Get child row counts for pinned indicator
+    const childRowCounts =
+      shouldShowMetricSlices && hasSlices && getChildRowCounts
+        ? getChildRowCounts(metric.id)
+        : { total: 0, pinned: 0 };
+
     // Render non-slice metric
     return (
-      <div className={className} style={{ position: "relative" }}>
-        <span
-          className="ml-2"
-          style={
-            maxRows
-              ? {
-                  display: "-webkit-box",
-                  WebkitLineClamp: maxRows,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }
-              : undefined
-          }
+      <>
+        <div
+          className={className}
+          style={{
+            position: "relative",
+            top: childRowCounts.total > 0 ? -6 : undefined,
+          }}
         >
-          {hasSlices ? (
-            <a
-              className="link-purple"
-              role="button"
-              onClick={() => {
-                if (toggleExpandedMetric) {
-                  toggleExpandedMetric(metric.id, location || "goal");
-                }
-              }}
-              style={{
-                textDecoration: "none",
-              }}
-            >
-              <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
-                <Tooltip
-                  body={
-                    isExpanded
-                      ? "Collapse metric slices"
-                      : "Explore metric slices"
+          <span
+            className="ml-2"
+            style={
+              maxRows
+                ? {
+                    display: "-webkit-box",
+                    WebkitLineClamp: maxRows,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
                   }
-                  tipPosition="top"
-                >
-                  {isExpanded ? (
-                    <PiCaretCircleDown size={16} />
-                  ) : (
-                    <PiCaretCircleRight size={16} />
-                  )}
-                </Tooltip>
-              </div>
-              <span
+                : undefined
+            }
+          >
+            {hasSlices ? (
+              <a
+                className="link-purple"
+                role="button"
+                onClick={() => {
+                  if (toggleExpandedMetric) {
+                    toggleExpandedMetric(metric.id, location || "goal");
+                  }
+                }}
                 style={{
-                  lineHeight: "1.2em",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
-                  color: "var(--color-text-high)",
+                  textDecoration: "none",
                 }}
               >
-                <Tooltip
-                  body={
-                    <MetricTooltipBody
-                      metric={metric}
-                      row={row}
-                      statsEngine={statsEngine}
-                      reportRegressionAdjustmentEnabled={
-                        regressionAdjustmentEnabled
-                      }
-                      hideDetails={hideDetails}
-                    />
-                  }
-                  tipPosition="right"
-                  className="d-inline-block font-weight-bold metric-label"
-                  flipTheme={false}
-                  usePortal={true}
+                <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
+                  <Tooltip
+                    body={
+                      isExpanded
+                        ? "Collapse metric slices"
+                        : "Explore metric slices"
+                    }
+                    tipPosition="top"
+                  >
+                    {isExpanded ? (
+                      <PiCaretCircleDown size={16} />
+                    ) : (
+                      <PiCaretCircleRight size={16} />
+                    )}
+                  </Tooltip>
+                </div>
+                <span
+                  style={{
+                    lineHeight: "1.1em",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    color: "var(--color-text-high)",
+                  }}
+                >
+                  <Tooltip
+                    body={
+                      <MetricTooltipBody
+                        metric={metric}
+                        row={row}
+                        statsEngine={statsEngine}
+                        reportRegressionAdjustmentEnabled={
+                          regressionAdjustmentEnabled
+                        }
+                        hideDetails={hideDetails}
+                      />
+                    }
+                    tipPosition="right"
+                    className="d-inline-block font-weight-bold metric-label"
+                    flipTheme={false}
+                    usePortal={true}
+                  >
+                    {label}
+                    {metric.managedBy ? (
+                      <HiBadgeCheck
+                        style={{
+                          marginTop: "-2px",
+                          marginLeft: "2px",
+                          color: "var(--blue-11)",
+                        }}
+                      />
+                    ) : null}
+                  </Tooltip>
+                </span>
+              </a>
+            ) : (
+              <Tooltip
+                body={
+                  <MetricTooltipBody
+                    metric={metric}
+                    row={row}
+                    statsEngine={statsEngine}
+                    reportRegressionAdjustmentEnabled={
+                      regressionAdjustmentEnabled
+                    }
+                    hideDetails={hideDetails}
+                  />
+                }
+                tipPosition="right"
+                className="d-inline-block font-weight-bold metric-label"
+                flipTheme={false}
+                usePortal={true}
+              >
+                <span
+                  style={{
+                    lineHeight: "1.1em",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    color: "var(--color-text-high)",
+                  }}
                 >
                   {label}
-                  {metric.managedBy ? (
-                    <HiBadgeCheck
-                      style={{
-                        marginTop: "-2px",
-                        marginLeft: "2px",
-                        color: "var(--blue-11)",
-                      }}
-                    />
-                  ) : null}
-                </Tooltip>
-              </span>
-            </a>
-          ) : (
-            <Tooltip
-              body={
-                <MetricTooltipBody
-                  metric={metric}
-                  row={row}
-                  statsEngine={statsEngine}
-                  reportRegressionAdjustmentEnabled={
-                    regressionAdjustmentEnabled
-                  }
-                  hideDetails={hideDetails}
-                />
-              }
-              tipPosition="right"
-              className="d-inline-block font-weight-bold metric-label"
-              flipTheme={false}
-              usePortal={true}
-            >
-              <span
-                style={{
-                  lineHeight: "1.2em",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
-                  color: "var(--color-text-high)",
-                }}
-              >
-                {label}
-              </span>
-            </Tooltip>
-          )}
-        </span>
-      </div>
+                </span>
+              </Tooltip>
+            )}
+          </span>
+        </div>
+
+        {childRowCounts.total > 0 && (
+          <div
+            className="text-muted small"
+            style={{
+              position: "absolute",
+              bottom: "8%",
+              left: 28,
+              width: "100%",
+              fontStyle: "italic",
+            }}
+          >
+            {childRowCounts.pinned} of {childRowCounts.total} pinned
+          </div>
+        )}
+      </>
     );
   };
 }
