@@ -607,7 +607,7 @@ export default function AnalysisSettingsSummary({
 
                   return getAllExpandedMetricIdsFromExperiment({
                     exp: experiment,
-                    metricMap,
+                    expandedMetricMap: metricMap,
                     includeActivationMetric: false,
                     metricGroups,
                   });

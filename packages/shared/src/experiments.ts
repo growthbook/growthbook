@@ -1043,9 +1043,11 @@ export function getAllMetricIdsFromExperiment(
   );
 }
 
+// Extracts all metric ids from an experiment, excluding ephemeral metrics (slices)
+// NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
 export function getAllExpandedMetricIdsFromExperiment({
   exp,
-  metricMap,
+  expandedMetricMap,
   includeActivationMetric = true,
   metricGroups = [],
 }: {
@@ -1055,7 +1057,7 @@ export function getAllExpandedMetricIdsFromExperiment({
     guardrailMetrics?: string[];
     activationMetric?: string | null;
   };
-  metricMap: Map<string, ExperimentMetricInterface>;
+  expandedMetricMap: Map<string, ExperimentMetricInterface>;
   includeActivationMetric?: boolean;
   metricGroups?: MetricGroupInterface[];
 }): string[] {
@@ -1066,9 +1068,9 @@ export function getAllExpandedMetricIdsFromExperiment({
   );
   const expandedMetricIds = new Set<string>(baseMetricIds);
 
-  // Add all slice metrics that are already in the metricMap
+  // Add all slice metrics that are already in the expandedMetricMap
   // This includes both standard and custom dimension metrics
-  metricMap.forEach((metric, metricId) => {
+  expandedMetricMap.forEach((metric, metricId) => {
     // Check if this is a dimension metric (contains dim: parameter)
     if (/[?&]dim:/.test(metricId)) {
       expandedMetricIds.add(metricId);

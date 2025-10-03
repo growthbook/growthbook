@@ -599,7 +599,7 @@ export function getSnapshotSettings({
       guardrailMetrics,
       activationMetric: experiment.activationMetric,
     },
-    metricMap,
+    expandedMetricMap: metricMap,
     includeActivationMetric: true,
     metricGroups,
   })

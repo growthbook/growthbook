@@ -191,28 +191,18 @@ export function getSnapshotSettingsFromReportArgs(
   // Expand slice metrics if factTableMap is provided
   if (factTableMap) {
     // Expand all slice metrics (auto and custom) and add them to the metricMap
-    if (experiment) {
-      expandAllSliceMetricsInMap({
-        metricMap,
-        factTableMap,
-        experiment,
-        metricGroups,
-      });
-    } else {
-      // For reports without experiment, just expand auto slices
-      expandAllSliceMetricsInMap({
-        metricMap,
-        factTableMap,
-        experiment: args,
-        metricGroups,
-      });
-    }
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment: experiment ?? args,
+      metricGroups,
+    });
   }
 
   const snapshotSettings: ExperimentSnapshotSettings = {
     metricSettings: getAllExpandedMetricIdsFromExperiment({
       exp: args,
-      metricMap,
+      expandedMetricMap: metricMap,
       includeActivationMetric: true,
       metricGroups: [],
     })
@@ -474,7 +464,7 @@ export async function createReportSnapshot({
 
   const metricIds = getAllExpandedMetricIdsFromExperiment({
     exp: report.experimentAnalysisSettings,
-    metricMap,
+    expandedMetricMap: metricMap,
     includeActivationMetric: false,
     metricGroups,
   });
@@ -659,7 +649,7 @@ export function getReportSnapshotSettings({
 
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
     exp: report.experimentAnalysisSettings,
-    metricMap,
+    expandedMetricMap: metricMap,
     includeActivationMetric: true,
     metricGroups,
   })
