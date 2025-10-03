@@ -93,11 +93,12 @@ export const updateFactTable = createApiRequestHandler(
         );
       }
 
-      await updateColumn(
+      await updateColumn({
+        context: req.context,
         factTable,
-        columnUpdate.column,
-        omit(columnUpdate, ["dateCreated", "dateUpdated"]),
-      );
+        column: columnUpdate.column,
+        changes: omit(columnUpdate, ["dateCreated", "dateUpdated"]),
+      });
     }
 
     // Remove columns from the main update since we handled them individually

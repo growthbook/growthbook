@@ -53,7 +53,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     updates.columnsError = e.message;
   }
 
-  await updateFactTableColumns(factTable, updates);
+  await updateFactTableColumns(factTable, updates, context);
 };
 
 export async function runColumnTopValuesQuery(
