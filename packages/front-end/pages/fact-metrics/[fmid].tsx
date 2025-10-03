@@ -56,6 +56,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
@@ -172,6 +173,8 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
+  const { hasCommercialFeature } = useUser();
+
   const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
@@ -196,7 +199,6 @@ export default function FactMetricPage() {
     getDatasourceById,
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
-  const { hasCommercialFeature } = useUser();
 
   // Feature flag and commercial feature checks for dimension analysis
   const isMetricDimensionsFeatureEnabled =
