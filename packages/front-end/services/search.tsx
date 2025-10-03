@@ -42,7 +42,7 @@ export type SyntaxFilter = {
 
 export type SearchTermFilterOperator = (typeof searchTermOperators)[number];
 
-export interface SearchProps<T> {
+export interface SearchProps<T extends { id: string }> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
@@ -91,7 +91,7 @@ export interface SearchReturn<T> {
   pagination: ReactNode;
 }
 
-export function useSearch<T>({
+export function useSearch<T extends { id: string }>({
   items,
   searchFields,
   filterResults,
@@ -119,7 +119,7 @@ export function useSearch<T>({
   // We only want to re-create the MiniSearch instance if the fields actually changed
   // It's really easy to forget to add `useMemo` around the fields declaration
   // So, we turn it into a string here to use in the dependency array
-  const miniSearch = useMemo(() => {
+  const { miniSearch, itemMap } = useMemo(() => {
     const keys: Record<string, number> = Object.fromEntries(
       searchFields.map((f) => {
         const [key, weight] = (f as string).split("^");
@@ -128,11 +128,16 @@ export function useSearch<T>({
       }),
     );
     const fields = Object.keys(keys);
-    const storeFields = Object.keys(items[0] || {});
+
+    // Create a Map of item ID to item to use for lookups
+    // after a search is performed
+    const itemMap = new Map<string, T>();
+    items.forEach((item) => {
+      itemMap.set(item.id, item);
+    });
 
     const miniSearchInstance = new MiniSearch({
       fields,
-      storeFields,
       searchOptions: {
         boost: keys,
         fuzzy: true,
@@ -143,7 +148,7 @@ export function useSearch<T>({
     // Add items to the index
     miniSearchInstance.addAll(items);
 
-    return miniSearchInstance;
+    return { miniSearch: miniSearchInstance, itemMap };
   }, [items, JSON.stringify(searchFields)]);
 
   const { filtered, syntaxFilters } = useMemo(() => {
@@ -154,7 +159,8 @@ export function useSearch<T>({
 
     let filtered = items;
     if (searchTerm.length > 0) {
-      filtered = miniSearch.search(searchTerm) as T[];
+      const searchResults = miniSearch.search(searchTerm);
+      filtered = searchResults.map((result) => itemMap.get(result.id) as T);
     }
     if (updateSearchQueryOnChange) {
       const searchParams = new URLSearchParams(window.location.search);
