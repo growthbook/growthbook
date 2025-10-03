@@ -49,6 +49,11 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   lockUntil: Date,
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
+dataSourceSchema.index({
+  "settings.queries.exposure.dimensionSlicesId": 1,
+  "settings.queries.exposure.dimensionMetadata.customSlices": 1,
+});
+
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
 const DataSourceModel = mongoose.model<DataSourceInterface>(
@@ -108,6 +113,21 @@ export async function _dangerourslyGetAllDatasourcesByOrganizations(
 export async function _dangerousGetAllGrowthbookClickhouseDataSources() {
   const docs: DataSourceDocument[] = await DataSourceModel.find({
     type: "growthbook_clickhouse",
+  });
+  return docs.map(toInterface);
+}
+
+export async function _dangerousGetAllDatasourcesWithExposureQueriesWithAutomaticDimensionSlices() {
+  const docs: Array<DataSourceDocument> = await DataSourceModel.find({
+    "settings.queries.exposure.dimensionMetadata": {
+      $elemMatch: {
+        customSlices: false,
+      },
+    },
+    "settings.queries.exposure.dimensionSlicesId": {
+      $exists: true,
+      $ne: "",
+    },
   });
   return docs.map(toInterface);
 }
