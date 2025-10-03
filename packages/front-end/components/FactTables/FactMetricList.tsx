@@ -68,12 +68,26 @@ export default function FactMetricList({
     FactMetricInterface | undefined
   >();
 
-  const canEdit = (factMetric: FactMetricInterface) =>
-    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-    !factMetric.managedBy;
-
-  const canDelete = (factMetric: FactMetricInterface) =>
-    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
+  const canEdit = (factMetric: FactMetricInterface) => {
+    let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
+    if (
+      factMetric.managedBy &&
+      ["api", "config"].includes(factMetric.managedBy)
+    ) {
+      canEdit = false;
+    }
+    return canEdit;
+  };
+  const canDelete = (factMetric: FactMetricInterface) => {
+    let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
+    if (
+      factMetric.managedBy &&
+      ["api", "config"].includes(factMetric.managedBy)
+    ) {
+      canDelete = false;
+    }
+    return canDelete;
+  };
 
   const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
     useSearch({
@@ -297,6 +311,13 @@ export default function FactMetricList({
                             setDuplicateMetric({
                               ...metric,
                               name: `${metric.name} (Copy)`,
+                              managedBy:
+                                metric.managedBy === "admin" &&
+                                permissionsUtil.canCreateOfficialResources(
+                                  metric,
+                                )
+                                  ? "admin"
+                                  : "",
                             })
                           }
                         >

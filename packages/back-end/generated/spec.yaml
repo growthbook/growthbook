@@ -5077,6 +5077,7 @@ paths:
                   enum:
                     - ''
                     - api
+                    - admin
                 metricAutoSlices:
                   type: array
                   items:
@@ -5375,6 +5376,7 @@ paths:
                   enum:
                     - ''
                     - api
+                    - admin
                 archived:
                   type: boolean
                 metricAutoSlices:
@@ -8122,6 +8124,7 @@ components:
           enum:
             - ''
             - api
+            - admin
         dateCreated:
           type: string
           format: date-time

@@ -244,6 +244,7 @@ properties:
     enum:
       - ""
       - api
+      - admin
   metricAutoSlices:
     type: array
     items:
