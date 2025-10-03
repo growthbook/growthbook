@@ -37,7 +37,7 @@
   ],
   "dependencies": {
     "dd-trace": "^5.46.0",
-    "patch-package": "^8.0.0",
+    "patch-package": "^8.0.1",
     "wsrun": "^5.2.4"
   },
   "devDependencies": {
