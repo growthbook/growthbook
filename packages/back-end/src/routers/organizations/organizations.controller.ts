@@ -148,6 +148,7 @@ import { logger } from "back-end/src/util/logger";
 import { AgreementType } from "back-end/src/validators/agreements";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
+  console.log("getDefinitions was called");
   const context = getContextFromReq(req);
   const orgId = context.org.id;
   if (!orgId) {
