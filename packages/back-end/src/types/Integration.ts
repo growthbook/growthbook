@@ -55,7 +55,6 @@ export type FactMetricData = {
   id: string;
   metric: FactMetricInterface;
   ratioMetric: boolean;
-  crossFactTableRatio: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
   metricQuantileSettings: MetricQuantileSettings;
@@ -63,6 +62,8 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   isPercentileCapped: boolean;
+  numeratorSourceIndex: number;
+  denominatorSourceIndex: number;
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;

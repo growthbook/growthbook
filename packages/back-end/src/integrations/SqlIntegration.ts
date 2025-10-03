@@ -827,6 +827,14 @@ export default abstract class SqlIntegration
       to: settings.endDate ?? undefined,
       forcedBaseIdType: settings.userIdType,
     });
+
+    const factTable = params.factTableMap.get(
+      metric.numerator?.factTableId || "",
+    );
+    if (!factTable) {
+      throw new Error("Unknown fact table");
+    }
+
     const metricData = this.getMetricData(
       metric,
       {
@@ -836,15 +844,10 @@ export default abstract class SqlIntegration
         endDate: settings.endDate ?? undefined,
       },
       null,
+      [{ factTable, index: 0 }],
       "m0",
     );
 
-    const factTable = params.factTableMap.get(
-      metric.numerator?.factTableId || "",
-    );
-    if (!factTable) {
-      throw new Error("Unknown fact table");
-    }
     // TODO(sql): What happens if ratio metric is cross table?
 
     const createHistogram = metric.metricType === "mean";
@@ -2508,13 +2511,10 @@ export default abstract class SqlIntegration
       "attributionModel" | "regressionAdjustmentEnabled" | "startDate"
     > & { endDate?: Date },
     activationMetric: ExperimentMetricInterface | null,
+    factTablesWithIndices: { factTable: FactTableInterface; index: number }[],
     alias: string,
   ): FactMetricData {
     const ratioMetric = isRatioMetric(metric);
-    const crossFactTableRatio =
-      ratioMetric &&
-      metric.numerator?.factTableId !== metric.denominator?.factTableId;
-
     const funnelMetric = isFunnelMetric(metric);
     const quantileMetric = quantileMetricType(metric);
     const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
@@ -2541,33 +2541,43 @@ export default abstract class SqlIntegration
       metric.cappingSettings.value < 1 &&
       isCappableMetricType(metric);
 
+    const numeratorSourceIndex =
+      factTablesWithIndices.find(
+        (f) => f.factTable.id === metric.numerator?.factTableId,
+      )?.index ?? 0;
+    const denominatorSourceIndex =
+      factTablesWithIndices.find(
+        (f) => f.factTable.id === metric.denominator?.factTableId,
+      )?.index ?? 0;
+    const numeratorAlias = `${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`;
+    const denominatorAlias = `${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`;
     const capCoalesceMetric = this.capCoalesceValue({
-      valueCol: `m.${alias}_value`,
+      valueCol: `m${numeratorAlias}.${alias}_value`,
       metric,
       capTablePrefix: "cap",
       capValueCol: `${alias}_value_cap`,
-      columnRef: isFactMetric(metric) ? metric.numerator : null,
+      columnRef: metric.numerator,
     });
     const capCoalesceDenominator = this.capCoalesceValue({
-      valueCol: `${crossFactTableRatio ? "m2" : "m"}.${alias}_denominator`,
+      valueCol: `m${denominatorAlias}.${alias}_denominator`,
       metric,
       capTablePrefix: "cap",
       capValueCol: `${alias}_denominator_cap`,
-      columnRef: isFactMetric(metric) ? metric.denominator : null,
+      columnRef: metric.denominator,
     });
     const capCoalesceCovariate = this.capCoalesceValue({
-      valueCol: `c.${alias}_value`,
+      valueCol: `c${numeratorAlias}.${alias}_value`,
       metric,
       capTablePrefix: "cap",
       capValueCol: `${alias}_value_cap`,
-      columnRef: isFactMetric(metric) ? metric.numerator : null,
+      columnRef: metric.numerator,
     });
     const capCoalesceDenominatorCovariate = this.capCoalesceValue({
-      valueCol: `${crossFactTableRatio ? "c2" : "c"}.${alias}_denominator`,
+      valueCol: `c${denominatorAlias}.${alias}_denominator`,
       metric,
       capTablePrefix: "cap",
       capValueCol: `${alias}_denominator_cap`,
-      columnRef: isFactMetric(metric) ? metric.denominator : null,
+      columnRef: metric.denominator,
     });
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = (activationMetric ? [activationMetric] : []).concat([
@@ -2601,7 +2611,6 @@ export default abstract class SqlIntegration
       id: metric.id,
       metric,
       ratioMetric,
-      crossFactTableRatio,
       funnelMetric,
       quantileMetric,
       metricQuantileSettings,
@@ -2609,6 +2618,8 @@ export default abstract class SqlIntegration
       regressionAdjustmentHours,
       overrideConversionWindows,
       isPercentileCapped,
+      numeratorSourceIndex,
+      denominatorSourceIndex,
       capCoalesceMetric,
       capCoalesceDenominator,
       capCoalesceCovariate,
@@ -2662,15 +2673,14 @@ export default abstract class SqlIntegration
     dimensionCols,
     baseIdType,
     regressionAdjustedMetrics,
-    baseMetricTable,
-    getCrossFactTableDenominator,
+    sourceIndex,
   }: {
     dimensionCols: DimensionColumnData[];
     baseIdType: string;
     regressionAdjustedMetrics: FactMetricData[];
-    baseMetricTable: string;
-    getCrossFactTableDenominator: boolean;
+    sourceIndex: number;
   }): string {
+    const suffix = `${sourceIndex === 0 ? "" : sourceIndex}`;
     return `
       SELECT 
         d.variation AS variation
@@ -2680,7 +2690,7 @@ export default abstract class SqlIntegration
           .map(
             (metric) =>
               `${
-                !getCrossFactTableDenominator
+                metric.numeratorSourceIndex === sourceIndex
                   ? `, ${this.getAggregateMetricColumn({
                       metric: metric.metric,
                       useDenominator: false,
@@ -2693,10 +2703,8 @@ export default abstract class SqlIntegration
                   : ""
               }
                 ${
-                  // only get denominator if ratio metric AND either the denominator is in the same table as the numerator OR
-                  // getDenominatorOnly is true
                   metric.ratioMetric &&
-                  (getCrossFactTableDenominator || !metric.crossFactTableRatio)
+                  metric.denominatorSourceIndex === sourceIndex
                     ? `, ${this.getAggregateMetricColumn({
                         metric: metric.metric,
                         useDenominator: true,
@@ -2712,7 +2720,7 @@ export default abstract class SqlIntegration
           .join("\n")}
       FROM
         __distinctUsers d
-      JOIN ${baseMetricTable} m ON (
+      JOIN __factTable${suffix} m ON (
         m.${baseIdType} = d.${baseIdType}
       )
       WHERE 
@@ -2727,63 +2735,50 @@ export default abstract class SqlIntegration
   getFactTablesForMetrics(
     metrics: FactMetricInterface[],
     factTableMap: FactTableMap,
-  ): {
-    mainFactTable: FactTableInterface;
-    additionalDenominatorFactTable: FactTableInterface | undefined;
-  } {
-    let mainFactTable: FactTableInterface | undefined;
-    let additionalDenominatorFactTable: FactTableInterface | undefined;
+  ): { factTable: FactTableInterface; index: number }[] {
+    const factTables: Set<FactTableInterface> = new Set();
 
     metrics.forEach((m) => {
-      if (mainFactTable && mainFactTable.id !== m.numerator?.factTableId) {
-        throw new Error(
-          "Can only combine metrics whose numerators are in the same fact table",
-        );
+      const numeratorFactTable = factTableMap.get(
+        m.numerator?.factTableId || "",
+      );
+
+      if (!numeratorFactTable) {
+        throw new Error("Unknown fact table");
       }
 
-      if (!mainFactTable) {
-        const factTable = factTableMap.get(m.numerator?.factTableId || "");
-        if (factTable) {
-          mainFactTable = factTable;
-        } else {
-          throw new Error("Unknown fact table");
-        }
-      }
+      factTables.add(numeratorFactTable);
 
-      // check denominator if it is in a different fact table
       if (
         isRatioMetric(m) &&
         m.denominator?.factTableId &&
-        m.denominator?.factTableId !== mainFactTable?.id
+        // only need to check if denominator is in a different table from the numerator
+        m.denominator?.factTableId !== m.numerator?.factTableId
       ) {
-        if (
-          additionalDenominatorFactTable &&
-          additionalDenominatorFactTable.id !== m.denominator?.factTableId
-        ) {
-          throw new Error(
-            "Can only combine ratio metrics whose denominators are in the same fact table",
-          );
+        const denominatorFactTable = factTableMap.get(
+          m.denominator?.factTableId || "",
+        );
+        if (!denominatorFactTable) {
+          throw new Error("Unknown fact table");
         }
 
-        if (!additionalDenominatorFactTable) {
-          const factTable = factTableMap.get(m.denominator?.factTableId || "");
-          if (factTable) {
-            additionalDenominatorFactTable = factTable;
-          } else {
-            throw new Error("Unknown fact table");
-          }
-        }
+        factTables.add(denominatorFactTable);
       }
     });
 
-    if (!mainFactTable) {
-      throw new Error("No main fact table found");
+    if (factTables.size === 0) {
+      throw new Error("No fact tables found");
+    }
+    if (factTables.size > 2) {
+      throw new Error(
+        "Only two fact tables at a time are supported at the moment",
+      );
     }
 
-    return {
-      mainFactTable,
-      additionalDenominatorFactTable,
-    };
+    return Array.from(factTables).map((f, i) => ({
+      factTable: f,
+      index: i,
+    }));
   }
 
   getExperimentFactMetricsQuery(
@@ -2811,12 +2806,19 @@ export default abstract class SqlIntegration
 
     const factTableMap = params.factTableMap;
 
-    const factTables = this.getFactTablesForMetrics(
+    const factTablesWithIndices = this.getFactTablesForMetrics(
       metricsWithIndices,
       factTableMap,
     );
-    const { mainFactTable: factTable, additionalDenominatorFactTable } =
-      factTables;
+
+    const factTable = factTablesWithIndices[0]?.factTable;
+    const additionalFactTables = factTablesWithIndices
+      .slice(1)
+      .map((f) => f.factTable);
+
+    if (!factTable) {
+      throw new Error("No main fact table found");
+    }
 
     const userIdType =
       params.forcedUserIdType ??
@@ -2827,14 +2829,17 @@ export default abstract class SqlIntegration
         metric,
         settings,
         activationMetric,
+        factTablesWithIndices,
         `m${metric.index}`,
       ),
     );
 
-    const queryName = additionalDenominatorFactTable
-      ? `Cross-Fact Table Metrics: ${factTable.name} & ${additionalDenominatorFactTable.name}`
-      : `Fact Table: ${factTable.name}`;
+    const queryName =
+      additionalFactTables.length > 0
+        ? `Cross-Fact Table Metrics: ${factTable.name} & ${additionalFactTables.map((f) => f.name).join(" & ")}`
+        : `Fact Table: ${factTable.name}`;
 
+    // TODO(sql): Separate metric start by fact table
     const raMetricSettings = metricData
       .filter((m) => m.regressionAdjusted)
       .map((m) => m.raMetricSettings);
@@ -2912,6 +2917,8 @@ export default abstract class SqlIntegration
       );
     }
 
+    // TODO(sql): refactor so this is a property of the source table itself
+    const percentileTableIndices = new Set<number>();
     const percentileData: {
       valueCol: string;
       outputCol: string;
@@ -2927,6 +2934,7 @@ export default abstract class SqlIntegration
           percentile: m.metric.cappingSettings.value ?? 1,
           ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
         });
+        percentileTableIndices.add(m.numeratorSourceIndex);
         if (m.ratioMetric) {
           percentileData.push({
             valueCol: `${m.alias}_denominator`,
@@ -2934,6 +2942,7 @@ export default abstract class SqlIntegration
             percentile: m.metric.cappingSettings.value ?? 1,
             ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
           });
+          percentileTableIndices.add(m.denominatorSourceIndex);
         }
       });
 
@@ -2941,6 +2950,7 @@ export default abstract class SqlIntegration
       metricData,
       "event",
     );
+    // TODO(sql): error if event quantiles have two tables
 
     if (
       params.dimensions.length > 1 &&
@@ -2954,9 +2964,17 @@ export default abstract class SqlIntegration
     const regressionAdjustedMetrics = metricData.filter(
       (m) => m.regressionAdjusted,
     );
-    const regressionAdjustedMetricsCrossTable = metricData.filter(
-      (m) => m.regressionAdjusted && m.crossFactTableRatio,
-    );
+    // TODO(sql): refactor so this is a property of the source table itself
+    const regressionAdjustedTableIndices = new Set<number>();
+    regressionAdjustedMetrics.forEach((m) => {
+      regressionAdjustedTableIndices.add(m.numeratorSourceIndex);
+      if (
+        m.ratioMetric &&
+        m.denominatorSourceIndex !== m.numeratorSourceIndex
+      ) {
+        regressionAdjustedTableIndices.add(m.denominatorSourceIndex);
+      }
+    });
 
     return format(
       `-- ${queryName}
@@ -3018,124 +3036,66 @@ export default abstract class SqlIntegration
             : ""
         }
       )
-      , __factTable as (${this.getFactMetricCTE({
-        baseIdType,
-        idJoinMap,
-        factTable,
-        metricsWithIndices,
-        endDate: metricEnd,
-        startDate: metricStart,
-        experimentId: settings.experimentId,
-        addFiltersToWhere: true,
-      })})
-      ${
-        additionalDenominatorFactTable
-          ? `, __denominatorFactTable AS (${this.getFactMetricCTE({
-              baseIdType,
-              idJoinMap,
-              factTable: additionalDenominatorFactTable,
-              metricsWithIndices,
-              endDate: metricEnd,
-              startDate: metricStart,
-              experimentId: settings.experimentId,
-              addFiltersToWhere: true,
-            })})
-            , __userDenominatorJoin AS (
-              SELECT
-                d.variation AS variation
-                ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
-                ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
-                , d.${baseIdType} AS ${baseIdType}
-                ${metricData
-                  .filter((data) => data.crossFactTableRatio)
-                  .map((data) =>
-                    data.ratioMetric
+      ${[factTable, ...additionalFactTables]
+        .map(
+          (f, i) =>
+            `, __factTable${i === 0 ? "" : i} as (
+          ${this.getFactMetricCTE({
+            baseIdType,
+            idJoinMap,
+            factTable: f,
+            metricsWithIndices,
+            endDate: metricEnd,
+            startDate: metricStart,
+            experimentId: settings.experimentId,
+            addFiltersToWhere: true,
+          })}
+        )
+        , __userMetricJoin${i === 0 ? "" : i} as (
+          SELECT
+            d.variation AS variation
+            ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
+            ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
+            , d.${baseIdType} AS ${baseIdType}
+            ${metricData
+              .map(
+                (data) =>
+                  `${
+                    data.numeratorSourceIndex === i
+                      ? `, ${this.addCaseWhenTimeFilter(
+                          `m.${data.alias}_value`,
+                          data.metric,
+                          data.overrideConversionWindows,
+                          settings.endDate,
+                          data.quantileMetric
+                            ? data.metricQuantileSettings
+                            : undefined,
+                        )} as ${data.alias}_value`
+                      : ""
+                  }
+                  ${
+                    data.ratioMetric && data.denominatorSourceIndex === i
                       ? `, ${this.addCaseWhenTimeFilter(
                           `m.${data.alias}_denominator`,
                           data.metric,
                           data.overrideConversionWindows,
                           settings.endDate,
                         )} as ${data.alias}_denominator`
-                      : "",
-                  )
-                  .filter((sql) => sql !== "")
-                  .join("\n")}
-                FROM
-                  __distinctUsers d
-                LEFT JOIN __denominatorFactTable m ON (
-                  m.${baseIdType} = d.${baseIdType}
-                )
-            )
-            , __denominatorMetricAgg AS (
-              SELECT
-                udj.variation
-                ${dimensionCols.map((c) => `, ${c.value} AS ${c.alias}`).join("")}
-                ${banditDates?.length ? `, udj.bandit_period AS bandit_period` : ""}
-                , udj.${baseIdType} AS ${baseIdType}
-                ${metricData
-                  .filter((data) => data.crossFactTableRatio)
-                  .map((data) =>
-                    data.ratioMetric
-                      ? `, ${this.getAggregateMetricColumn({
-                          metric: data.metric,
-                          useDenominator: true,
-                          valueColumn: `udj.${data.alias}_denominator`,
-                          quantileColumn: `qm.${data.alias}_quantile`,
-                        })} AS ${data.alias}_denominator`
-                      : "",
-                  )
-                  .filter((sql) => sql !== "")
-                  .join("\n")}
-              FROM
-                __userDenominatorJoin udj
-              GROUP BY
-                udj.variation
-                ${dimensionCols.map((c) => `, udj.${c.alias}`).join("")}
-                ${banditDates?.length ? `, udj.bandit_period` : ""}
-                , udj.${baseIdType}
-            )
-                `
-          : ""
-      }
-      , __userMetricJoin as (
-        SELECT
-          d.variation AS variation
-          ${dimensionCols.map((c) => `, d.${c.alias} AS ${c.alias}`).join("")}
-          ${banditDates?.length ? `, d.bandit_period AS bandit_period` : ""}
-          , d.${baseIdType} AS ${baseIdType}
-          ${metricData
-            .map(
-              (data) =>
-                `, ${this.addCaseWhenTimeFilter(
-                  `m.${data.alias}_value`,
-                  data.metric,
-                  data.overrideConversionWindows,
-                  settings.endDate,
-                  data.quantileMetric ? data.metricQuantileSettings : undefined,
-                )} as ${data.alias}_value
-                ${
-                  data.ratioMetric && !data.crossFactTableRatio
-                    ? `, ${this.addCaseWhenTimeFilter(
-                        `m.${data.alias}_denominator`,
-                        data.metric,
-                        data.overrideConversionWindows,
-                        settings.endDate,
-                      )} as ${data.alias}_denominator`
-                    : ""
-                }
-                `,
-            )
-            .join("\n")}
-        FROM
-          __distinctUsers d
-        LEFT JOIN __factTable m ON (
-          m.${baseIdType} = d.${baseIdType}
+                      : ""
+                  }
+                  `,
+              )
+              .join("\n")}
+          FROM
+            __distinctUsers d
+          LEFT JOIN __factTable${i === 0 ? "" : i} m ON (
+            m.${baseIdType} = d.${baseIdType}
+          )
         )
-      )
       ${
         eventQuantileData.length
           ? `
-        , __eventQuantileMetric AS (
+        , __eventQuantileMetric${i === 0 ? "" : i} AS (
           SELECT
           m.variation AS variation
           ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
@@ -3148,14 +3108,14 @@ export default abstract class SqlIntegration
             )
             .join("\n")}
         FROM
-          __userMetricJoin m
+          __userMetricJoin${i === 0 ? "" : i} m
         GROUP BY
           m.variation
           ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
         )`
           : ""
       }
-      , __userMetricAgg as (
+      , __userMetricAgg${i === 0 ? "" : i} as (
         -- Add in the aggregate metric value for each user
         SELECT
           umj.variation
@@ -3165,14 +3125,18 @@ export default abstract class SqlIntegration
           ${metricData
             .map(
               (data) =>
-                `, ${this.getAggregateMetricColumn({
-                  metric: data.metric,
-                  useDenominator: false,
-                  valueColumn: `umj.${data.alias}_value`,
-                  quantileColumn: `qm.${data.alias}_quantile`,
-                })} AS ${data.alias}_value
+                `${
+                  data.numeratorSourceIndex === i
+                    ? `, ${this.getAggregateMetricColumn({
+                        metric: data.metric,
+                        useDenominator: false,
+                        valueColumn: `umj.${data.alias}_value`,
+                        quantileColumn: `qm.${data.alias}_quantile`,
+                      })} AS ${data.alias}_value`
+                    : ""
+                }
                 ${
-                  data.ratioMetric && !data.crossFactTableRatio
+                  data.ratioMetric && data.denominatorSourceIndex === i
                     ? `, ${this.getAggregateMetricColumn({
                         metric: data.metric,
                         useDenominator: true,
@@ -3190,11 +3154,11 @@ export default abstract class SqlIntegration
             )
             .join("\n")}
         FROM
-          __userMetricJoin umj
+          __userMetricJoin${i === 0 ? "" : i} umj
         ${
           eventQuantileData.length
             ? `
-        LEFT JOIN __eventQuantileMetric qm
+        LEFT JOIN __eventQuantileMetric${i === 0 ? "" : i} qm
         ON (qm.variation = umj.variation ${dimensionCols
           .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
           .join("\n")})`
@@ -3207,32 +3171,25 @@ export default abstract class SqlIntegration
           , umj.${baseIdType}
       )
       ${
-        percentileData.length > 0
+        percentileTableIndices.has(i)
           ? `
-        , __capValue AS (
-            ${this.percentileCapSelectClause(percentileData, "__userMetricAgg")}
+        , __capValue${i === 0 ? "" : i} AS (
+            ${this.percentileCapSelectClause(percentileData, `__userMetricAgg${i === 0 ? "" : i}`)}
         )
         `
           : ""
       }
       ${
-        regressionAdjustedMetrics.length > 0
+        regressionAdjustedTableIndices.has(i)
           ? `
-        , __userCovariateMetric as (
-          ${this.getCovariateMetricCTE({ dimensionCols, baseIdType, regressionAdjustedMetrics, baseMetricTable: "__factTable", getCrossFactTableDenominator: false })}
+        , __userCovariateMetric${i === 0 ? "" : i} as (
+          ${this.getCovariateMetricCTE({ dimensionCols, baseIdType, regressionAdjustedMetrics, sourceIndex: i })}
         )
         `
           : ""
-      }
-        ${
-          regressionAdjustedMetricsCrossTable.length > 0
-            ? `
-        , __userCovariateMetricCrossFactTable AS (
-          ${this.getCovariateMetricCTE({ dimensionCols, baseIdType, regressionAdjustedMetrics, baseMetricTable: "__denominatorFactTable", getCrossFactTableDenominator: true })}
+      }`,
         )
-        `
-            : ""
-        }
+        .join("\n")}    
       ${
         banditDates?.length
           ? this.getBanditStatisticsCTE({
@@ -3240,12 +3197,9 @@ export default abstract class SqlIntegration
               factMetrics: true,
               metricData,
               dimensionCols,
-              someCrossFactTableRatio:
-                additionalDenominatorFactTable !== undefined,
-              hasRegressionAdjustment: regressionAdjustedMetrics.length > 0,
-              hasCrossFactTableRegressionAdjustment:
-                regressionAdjustedMetricsCrossTable.length > 0,
-              hasCapping: percentileData.length > 0,
+              factTablesWithIndices,
+              regressionAdjustedTableIndices,
+              percentileTableIndices,
             })
           : `
       -- One row per variation/dimension with aggregations
@@ -3255,11 +3209,13 @@ export default abstract class SqlIntegration
         , COUNT(*) AS users
         ${metricData
           .map((data) => {
+            //TODO test numerator suffix capping
+            const numeratorSuffix = `${data.numeratorSourceIndex === 0 ? "" : data.numeratorSourceIndex}`;
             return `
            , ${this.castToString(`'${data.id}'`)} as ${data.alias}_id
             ${
               data.isPercentileCapped
-                ? `, MAX(COALESCE(cap.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
+                ? `, MAX(COALESCE(cap${numeratorSuffix}.${data.alias}_value_cap, 0)) as ${data.alias}_main_cap_value`
                 : ""
             }
             , SUM(${data.capCoalesceMetric}) AS ${data.alias}_main_sum
@@ -3347,7 +3303,7 @@ export default abstract class SqlIntegration
       FROM
         __userMetricAgg m
         ${
-          eventQuantileData.length
+          eventQuantileData.length // TODO(sql): error if event quantiles have two tables
             ? `LEFT JOIN __eventQuantileMetric qm ON (
           qm.variation = m.variation 
           ${dimensionCols
@@ -3356,32 +3312,36 @@ export default abstract class SqlIntegration
             )`
             : ""
         }
-      ${
-        regressionAdjustedMetrics.length > 0
-          ? `
-          LEFT JOIN __userCovariateMetric c
-          ON (c.${baseIdType} = m.${baseIdType})
-          `
-          : ""
-      }
-      ${
-        additionalDenominatorFactTable
-          ? `
-          LEFT JOIN __denominatorMetricAgg m2 ON (
-            m2.${baseIdType} = m.${baseIdType}
+      ${factTablesWithIndices
+        .map(({ factTable: _, index }) => {
+          const suffix = `${index === 0 ? "" : index}`;
+          return `
+        ${
+          index === 0
+            ? ""
+            : `LEFT JOIN __userMetricAgg${suffix} m${suffix} ON (
+          m${suffix}.${baseIdType} = m.${baseIdType}
+        )`
+        }
+        ${
+          regressionAdjustedTableIndices.has(index)
+            ? `
+          LEFT JOIN __userCovariateMetric${suffix} c${suffix} ON (
+            c${suffix}.${baseIdType} = m${suffix}.${baseIdType}
           )
-          `
-          : ""
-      }
-      ${
-        regressionAdjustedMetricsCrossTable.length > 0
-          ? `
-          LEFT JOIN __userCovariateMetricCrossFactTable c2
-          ON (c2.${baseIdType} = m.${baseIdType})
-          `
-          : ""
-      }
-      ${percentileData.length > 0 ? `CROSS JOIN __capValue cap` : ""}
+        `
+            : ""
+        }
+        ${
+          percentileTableIndices.has(index)
+            ? `
+          CROSS JOIN __capValue${suffix} cap${suffix}
+        `
+            : ""
+        }
+        `;
+        })
+        .join("\n")}
       GROUP BY
         m.variation
         ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
@@ -3896,12 +3856,16 @@ export default abstract class SqlIntegration
             },
           ],
           dimensionCols,
-          hasRegressionAdjustment: regressionAdjusted,
-          hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
+          regressionAdjustedTableIndices: regressionAdjusted
+            ? new Set([0])
+            : new Set(),
+          percentileTableIndices:
+            isPercentileCapped || denominatorIsPercentileCapped
+              ? new Set([0])
+              : new Set(),
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
           denominatorIsPercentileCapped,
-          someCrossFactTableRatio: false,
-          hasCrossFactTableRegressionAdjustment: false,
+          factTablesWithIndices: [],
         })
       : `
   -- One row per variation/dimension with aggregations
@@ -4000,15 +3964,15 @@ export default abstract class SqlIntegration
     );
   }
 
+  // TODO IN THIS PR - fix bandit statistics cte
   getBanditStatisticsCTE({
     baseIdType,
     factMetrics,
     metricData,
     dimensionCols,
-    someCrossFactTableRatio,
-    hasRegressionAdjustment,
-    hasCrossFactTableRegressionAdjustment,
-    hasCapping,
+    factTablesWithIndices,
+    regressionAdjustedTableIndices,
+    percentileTableIndices,
     ignoreNulls,
     denominatorIsPercentileCapped,
   }: {
@@ -4016,16 +3980,15 @@ export default abstract class SqlIntegration
     factMetrics: boolean;
     metricData: BanditMetricData[];
     dimensionCols: DimensionColumnData[];
-    someCrossFactTableRatio: boolean;
-    hasRegressionAdjustment: boolean;
-    hasCrossFactTableRegressionAdjustment: boolean;
-    hasCapping: boolean;
+    factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
+    regressionAdjustedTableIndices: Set<number>;
+    percentileTableIndices: Set<number>;
     // legacy metric settings
     ignoreNulls?: boolean;
     denominatorIsPercentileCapped?: boolean;
   }): string {
-    return `-- One row per variation/dimension with aggregations
-  , __banditPeriodStatistics AS (
+    const banditPeriodStatisticsCTE = factMetrics
+      ? `
     SELECT
       m.variation AS variation
       ${dimensionCols.map((d) => `, m.${d.alias} AS ${d.alias}`).join("")}
@@ -4033,7 +3996,93 @@ export default abstract class SqlIntegration
       , ${this.ensureFloat(`COUNT(*)`)} AS users
       ${metricData
         .map((data) => {
-          const alias = data.alias + (factMetrics ? "_" : "");
+          const alias = data.alias;
+          return `
+        ${
+          data.isPercentileCapped
+            ? `, MAX(COALESCE(cap.${alias}value_cap, 0)) AS ${alias}main_cap_value`
+            : ""
+        }
+        , ${this.ensureFloat(
+          `SUM(${data.capCoalesceMetric})`,
+        )} AS ${alias}main_sum
+        , ${this.ensureFloat(
+          `SUM(POWER(${data.capCoalesceMetric}, 2))`,
+        )} AS ${alias}main_sum_squares
+        ${
+          data.ratioMetric
+            ? `
+          ${
+            denominatorIsPercentileCapped
+              ? `, MAX(COALESCE(capd.${alias}value_cap, 0)) as ${alias}denominator_cap_value`
+              : ""
+          }
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceDenominator})`,
+          )} AS ${alias}denominator_sum
+          , ${this.ensureFloat(
+            `SUM(POWER(${data.capCoalesceDenominator}, 2))`,
+          )} AS ${alias}denominator_sum_squares
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceDenominator} * ${data.capCoalesceMetric})`,
+          )} AS ${alias}main_denominator_sum_product
+        `
+            : ""
+        }
+        ${
+          data.regressionAdjusted
+            ? `
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceCovariate})`,
+          )} AS ${alias}covariate_sum
+          , ${this.ensureFloat(
+            `SUM(POWER(${data.capCoalesceCovariate}, 2))`,
+          )} AS ${alias}covariate_sum_squares
+          , ${this.ensureFloat(
+            `SUM(${data.capCoalesceMetric} * ${data.capCoalesceCovariate})`,
+          )} AS ${alias}main_covariate_sum_product
+          `
+            : ""
+        }`;
+        })
+        .join("\n")}
+    FROM
+      __userMetricAgg m
+    ${
+      !factMetrics && metricData[0]?.ratioMetric
+        ? `LEFT JOIN __userDenominatorAgg d ON (
+            d.${baseIdType} = m.${baseIdType}
+          )
+          ${
+            denominatorIsPercentileCapped
+              ? "CROSS JOIN __capValueDenominator capd"
+              : ""
+          }`
+        : ""
+    }
+    ${
+      regressionAdjustedTableIndices.has(0)
+        ? `
+        LEFT JOIN __userCovariateMetric c
+        ON (c.${baseIdType} = m.${baseIdType})
+        `
+        : ""
+    }
+    ${percentileTableIndices.has(0) ? `CROSS JOIN __capValue cap` : ""}
+    ${ignoreNulls ? `WHERE m.value != 0` : ""}
+    GROUP BY
+      m.variation
+      , m.bandit_period
+      ${dimensionCols.map((d) => `, m.${d.alias}`).join("")}`
+      : `
+    SELECT
+      m.variation AS variation
+      ${dimensionCols.map((d) => `, m.${d.alias} AS ${d.alias}`).join("")}
+      , m.bandit_period AS bandit_period
+      , ${this.ensureFloat(`COUNT(*)`)} AS users
+      ${metricData
+        .map((data) => {
+          const alias = `${data.alias}_`;
           return `
         ${
           data.isPercentileCapped
@@ -4086,49 +4135,44 @@ export default abstract class SqlIntegration
         .join("\n")}
     FROM
       __userMetricAgg m
-    ${
-      !factMetrics && metricData[0]?.ratioMetric
-        ? `LEFT JOIN __userDenominatorAgg d ON (
-            d.${baseIdType} = m.${baseIdType}
+      ${factTablesWithIndices
+        .map(({ factTable: _, index }) => {
+          const suffix = `${index === 0 ? "" : index}`;
+          return `
+        ${
+          index === 0
+            ? ""
+            : `LEFT JOIN __userMetricAgg${suffix} m${suffix} ON (
+          m${suffix}.${baseIdType} = m.${baseIdType}
+        )`
+        }
+        ${
+          regressionAdjustedTableIndices.has(index)
+            ? `
+          LEFT JOIN __userCovariateMetric${suffix} c${suffix} ON (
+            c${suffix}.${baseIdType} = m${suffix}.${baseIdType}
           )
-          ${
-            denominatorIsPercentileCapped
-              ? "CROSS JOIN __capValueDenominator capd"
-              : ""
-          }`
-        : ""
-    }
-    ${
-      hasRegressionAdjustment
-        ? `
-        LEFT JOIN __userCovariateMetric c
-        ON (c.${baseIdType} = m.${baseIdType})
         `
-        : ""
-    }
-    ${
-      someCrossFactTableRatio
-        ? `
-        LEFT JOIN __denominatorMetricAgg m2 ON (
-          m2.${baseIdType} = m.${baseIdType}
-        )
+            : ""
+        }
+        ${
+          percentileTableIndices.has(index)
+            ? `
+          CROSS JOIN __capValue${suffix} cap${suffix}
         `
-        : ""
-    }
-    ${
-      hasCrossFactTableRegressionAdjustment
-        ? `
-    LEFT JOIN __userCovariateMetricCrossFactTable c2
-    ON (c2.${baseIdType} = m.${baseIdType})
-    `
-        : ""
-    }
-    ${hasCapping ? `CROSS JOIN __capValue cap` : ""}
-    ${!factMetrics && ignoreNulls ? `WHERE m.value != 0` : ""}
+            : ""
+        }
+        `;
+        })
+        .join("\n")}
     GROUP BY
       m.variation
       , m.bandit_period
-      ${dimensionCols.map((d) => `, m.${d.alias}`).join("")}
+      ${dimensionCols.map((d) => `, m.${d.alias}`).join("")}`;
+    return `
+  -- One row per variation/dimension with aggregations
+  , __banditPeriodStatistics AS (
+  ${banditPeriodStatisticsCTE}
   ),
   __dimensionTotals AS (
     SELECT
@@ -4183,7 +4227,7 @@ export default abstract class SqlIntegration
       ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
   )
   ${
-    hasRegressionAdjustment
+    regressionAdjustedTableIndices.size > 0
       ? `
       , __theta AS (
       SELECT
@@ -4311,7 +4355,7 @@ export default abstract class SqlIntegration
         .join("\n")}
     )
   ${
-    hasRegressionAdjustment
+    regressionAdjustedTableIndices.size > 0
       ? `
     LEFT JOIN
       __theta t

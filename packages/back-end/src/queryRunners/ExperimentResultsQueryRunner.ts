@@ -85,8 +85,13 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      return metric.denominator?.factTableId
-        ? `${metric.numerator.factTableId} ${metric.denominator.factTableId} (cross-table ratio metrics)`
+      // TODO: smarter logic to make fewer groupings work
+      const tableIds = [
+        metric.numerator.factTableId,
+        metric.denominator?.factTableId,
+      ].sort((a, b) => a?.localeCompare(b ?? "") ?? 0);
+      return tableIds.length >= 2
+        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)`
         : metric.id;
     }
   }
