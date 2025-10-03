@@ -60,7 +60,6 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
-import OfficialResourceModal from "@/components/OfficialResourceModal";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
