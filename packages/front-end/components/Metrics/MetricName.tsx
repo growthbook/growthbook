@@ -7,7 +7,7 @@ import {
 import React from "react";
 import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import clsx from "clsx";
-import { PiFolderDuotone } from "react-icons/pi";
+import { PiArrowSquareOut, PiFolderDuotone } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -39,17 +39,23 @@ export function OfficialBadge({
   disableTooltip,
   showOfficialLabel,
   color,
+  leftGap,
 }: {
   type: string;
   managedBy?: "" | "config" | "api" | "admin";
   disableTooltip?: boolean;
   showOfficialLabel?: boolean;
   color?: string;
+  leftGap?: boolean;
 }) {
-  if (!managedBy) return null;
+  if (!managedBy) {
+    if (leftGap)
+      return <div className="d-inline-block ml-1" style={{ width: 17 }} />;
+    return null;
+  }
 
   return (
-    <span className="ml-1 text-purple">
+    <span className="text-purple mr-1">
       <Tooltip
         body={
           disableTooltip ? (
@@ -93,9 +99,10 @@ export function OfficialBadge({
       >
         <HiBadgeCheck
           style={{
-            fontSize: "1.2em",
+            fontSize: "1em",
             lineHeight: "1em",
             marginTop: "-2px",
+            marginLeft: leftGap ? "4px" : "0px",
             color: color || "var(--blue-11)",
           }}
         />
@@ -116,7 +123,9 @@ export default function MetricName({
   filterConversionWindowMetrics,
   isGroup,
   metrics,
+  showLink,
   badgeColor,
+  officialBadgePosition = "right",
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -126,7 +135,9 @@ export default function MetricName({
   filterConversionWindowMetrics?: boolean;
   isGroup?: boolean;
   metrics?: { metric: ExperimentMetricInterface | null; joinable: boolean }[];
+  showLink?: boolean;
   badgeColor?: string;
+  officialBadgePosition?: "left" | "right";
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -143,7 +154,7 @@ export default function MetricName({
     );
 
     return (
-      <Flex align="center" className="ml-1">
+      <Flex align="center">
         <PiFolderDuotone
           className="mr-1"
           style={{ fontSize: "1.2em", lineHeight: "1em", marginTop: "-2px" }}
@@ -230,8 +241,12 @@ export default function MetricName({
 
   return (
     <>
-      <span className="mr-1">
-        {metric.managedBy && (
+      <span
+        style={{
+          color: "var(--color-text-high)",
+        }}
+      >
+        {officialBadgePosition === "left" ? (
           <OfficialBadge
             type="metric"
             managedBy={metric.managedBy || ""}
@@ -239,9 +254,32 @@ export default function MetricName({
             showOfficialLabel={showOfficialLabel}
             color={badgeColor}
           />
-        )}
+        ) : null}
+        {metric.name}
+        {officialBadgePosition === "right" ? (
+          <OfficialBadge
+            type="metric"
+            managedBy={metric.managedBy || ""}
+            disableTooltip={disableTooltip}
+            showOfficialLabel={showOfficialLabel}
+            color={badgeColor}
+            leftGap={true}
+          />
+        ) : null}
       </span>
-      {metric.name}
+      {showLink ? (
+        <div className="mt-1 mb-2 small">
+          <a
+            href={`/${isFactMetric(metric) ? "fact-metrics" : "metric"}/${metric.id}`}
+            target="_blank"
+            className="link-purple"
+            rel="noreferrer"
+          >
+            View details
+            <PiArrowSquareOut className="ml-1" />
+          </a>
+        </div>
+      ) : null}
       {showDescription && metric.description ? (
         <span className="text-muted">
           {" "}

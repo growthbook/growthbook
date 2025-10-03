@@ -558,7 +558,7 @@ const MetricsList = (): React.ReactElement => {
                       metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
                   >
-                    <MetricName id={metric.id} />
+                    <MetricName id={metric.id} officialBadgePosition="left" />
                   </Link>
                 </td>
                 <td>{metric.type}</td>

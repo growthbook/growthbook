@@ -315,6 +315,7 @@ const experimentSchema = new mongoose.Schema({
   dismissedWarnings: [String],
   holdoutId: String,
   defaultDashboardId: String,
+  pinnedMetricDimensionLevels: [String],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

@@ -5,6 +5,8 @@ import {
 import { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
+import { Switch } from "@radix-ui/themes";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,10 +18,14 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
-import Toggle from "@/components/Forms/Toggle";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
+import { useUser } from "@/services/UserContext";
+import { AppFeatures } from "@/types/app-features";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import Toggle from "@/components/Forms/Toggle";
+import track from "@/services/track";
 import FactMetricModal from "./FactMetricModal";
 
 export interface Props {
@@ -48,9 +54,16 @@ export default function FactMetricList({ factTable }: Props) {
     useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const metrics = getMetricsForFactTable(factMetrics, factTable.id);
   const hasArchivedMetrics = factMetrics.some((m) => m.archived);
+
+  const isMetricDimensionsFeatureEnabled =
+    growthbook?.isOn("metric-dimensions");
+  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
+  const shouldShowDimensionAnalysisColumn = isMetricDimensionsFeatureEnabled;
 
   const [editMetric, setEditMetric] = useState<
     FactMetricInterface | undefined
@@ -197,6 +210,19 @@ export default function FactMetricList({ factTable }: Props) {
               <tr className="cursor-pointer">
                 <SortableTH field="name">Name</SortableTH>
                 <SortableTH field="metricType">Type</SortableTH>
+                {shouldShowDimensionAnalysisColumn && (
+                  <th>
+                    Enable Dimensions
+                    {!hasMetricDimensionsFeature && (
+                      <PaidFeatureBadge
+                        commercialFeature="metric-dimensions"
+                        premiumText="This is an Enterprise feature"
+                        variant="outline"
+                        ml="2"
+                      />
+                    )}
+                  </th>
+                )}
                 <SortableTH field="tags">Tags</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
                 <th style={{ width: 30 }} />
@@ -215,6 +241,30 @@ export default function FactMetricList({ factTable }: Props) {
                     </Link>
                   </td>
                   <td>{metric.metricType}</td>
+                  {shouldShowDimensionAnalysisColumn && (
+                    <td>
+                      <Switch
+                        checked={metric.enableMetricDimensions || false}
+                        onCheckedChange={async (checked) => {
+                          await apiCall(`/fact-metrics/${metric.id}`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              enableMetricDimensions: checked,
+                            }),
+                          });
+                          if (checked) {
+                            track("dimensions-on-for-metric");
+                          } else if (!checked) {
+                            track("dimensions-off-for-metric");
+                          }
+                          mutateDefinitions();
+                        }}
+                        disabled={
+                          !canEdit(metric) || !hasMetricDimensionsFeature
+                        }
+                      />
+                    </td>
+                  )}
                   <td>
                     <SortedTags tags={metric.tags} useFlex={true} />
                   </td>

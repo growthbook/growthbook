@@ -108,6 +108,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Segments",
         href: "/segments",
         path: /^segment/,
+        filter: ({ segments }) => segments.length > 0,
       },
       {
         name: "Dimensions",
@@ -227,6 +228,11 @@ const navlinks: SidebarLinkProps[] = [
         name: "Archetypes",
         href: "/archetypes",
         path: /^archetypes/,
+      },
+      {
+        name: "Exposures Debugger",
+        href: "/exposure-debugger",
+        path: /^exposure-debugger/,
       },
     ],
   },
