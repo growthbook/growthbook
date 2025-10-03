@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
 import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import { cloneDeep } from "lodash";
 import { ReqContext } from "back-end/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -25,6 +26,7 @@ import {
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
+  cleanupAutoSlicesFromMetrics,
 } from "back-end/src/models/FactTableModel";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -167,6 +169,7 @@ export const putFactTable = async (
 
   // Update the columns
   if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
+    const originalColumns = cloneDeep(factTable.columns || []);
     data.columns = await runRefreshColumnsQuery(context, datasource, {
       ...factTable,
       ...data,
@@ -175,6 +178,34 @@ export const putFactTable = async (
 
     if (!data.columns.some((col) => !col.deleted)) {
       throw new Error("SQL did not return any rows");
+    }
+
+    // Check for removed columns and trigger cleanup
+    const originalColumnNames = new Set(originalColumns.map((c) => c.column));
+    const newColumnNames = new Set(data.columns.map((c) => c.column));
+    const removedColumns = Array.from(originalColumnNames).filter(
+      (name) => !newColumnNames.has(name),
+    );
+
+    // Also check for columns that are marked as deleted
+    const deletedColumns = data.columns
+      .filter(
+        (col) =>
+          col.deleted &&
+          originalColumns.some(
+            (orig) => orig.column === col.column && !orig.deleted,
+          ),
+      )
+      .map((col) => col.column);
+
+    const allRemovedColumns = [...removedColumns, ...deletedColumns];
+
+    if (allRemovedColumns.length > 0) {
+      await cleanupAutoSlicesFromMetrics({
+        context,
+        factTableId: factTable.id,
+        removedColumns: allRemovedColumns,
+      });
     }
   }
 
