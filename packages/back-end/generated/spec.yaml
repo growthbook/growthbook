@@ -4421,6 +4421,7 @@ paths:
                   enum:
                     - ''
                     - api
+                    - admin
       responses:
         '200':
           content:
@@ -4520,6 +4521,7 @@ paths:
                   enum:
                     - ''
                     - api
+                    - admin
                 archived:
                   type: boolean
       responses:
@@ -7701,6 +7703,7 @@ components:
           enum:
             - ''
             - api
+            - admin
         dateCreated:
           type: string
           format: date-time

@@ -174,6 +174,7 @@ export class FactMetricModel extends BaseClass {
   }
 
   protected async beforeUpdate(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error(
         "Cannot update fact metric managed by API if the request isn't from the API.",
@@ -182,6 +183,7 @@ export class FactMetricModel extends BaseClass {
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
       throw new Error(
         "Cannot delete fact metric managed by API if the request isn't from the API.",
