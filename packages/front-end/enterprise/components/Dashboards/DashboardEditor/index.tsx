@@ -62,6 +62,10 @@ export const BLOCK_TYPE_INFO: Record<
     name: "SQL Explorer",
     icon: <PiFileSqlDuotone />,
   },
+  "metric-explorer": {
+    name: "Metric Explorer",
+    icon: <PiFileSqlDuotone />,
+  },
 };
 
 export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
@@ -70,7 +74,7 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     ["experiment-metric", "experiment-dimension", "experiment-time-series"],
   ],
   ["Experiment Info", ["experiment-metadata", "experiment-traffic"]],
-  ["Other", ["markdown", "sql-explorer"]],
+  ["Other", ["markdown", "sql-explorer", "metric-explorer"]],
 ];
 
 function AddBlockDropdown({

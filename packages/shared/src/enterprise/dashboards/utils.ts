@@ -220,6 +220,24 @@ export const CREATE_BLOCK_TYPE: {
     dataVizConfigIndex: -1,
     ...(initialValues || {}),
   }),
+  "metric-explorer": ({ initialValues }) => ({
+    type: "metric-explorer",
+    title: "",
+    description: "",
+    metricId: "",
+    analysisSettings: {
+      lookbackDays: 30,
+      startDate: new Date(Date.now() - 30 * 24 * 3600 * 1000),
+      endDate: new Date(),
+      populationId: "",
+      populationType: "factTable",
+      userIdType: "",
+    },
+    visualizationType: "timeseries",
+    valueType: "avg",
+    metricAnalysisId: "",
+    ...(initialValues || {}),
+  }),
 };
 
 export function createDashboardBlocksFromTemplate(

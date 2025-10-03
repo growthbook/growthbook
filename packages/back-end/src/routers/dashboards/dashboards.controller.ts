@@ -7,6 +7,7 @@ import {
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
+import { getValidDate } from "shared/dates";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -161,11 +162,19 @@ export async function updateDashboard(
     }
 
     const createdBlocks = await Promise.all(
-      updates.blocks.map((blockData) =>
-        isPersistedDashboardBlock(blockData)
+      updates.blocks.map((blockData) => {
+        if (blockData.type === "metric-explorer") {
+          blockData.analysisSettings.startDate = getValidDate(
+            blockData.analysisSettings.startDate,
+          );
+          blockData.analysisSettings.endDate = getValidDate(
+            blockData.analysisSettings.endDate,
+          );
+        }
+        return isPersistedDashboardBlock(blockData as DashboardBlockInterface)
           ? blockData
-          : createDashboardBlock(context.org.id, blockData),
-      ),
+          : createDashboardBlock(context.org.id, blockData);
+      }),
     );
     updates.blocks = createdBlocks;
   }

@@ -111,6 +111,21 @@ const sqlExplorerBlockSchema = new mongoose.Schema({
   dataVizConfigIndex: Number,
 });
 
+const metricExplorerBlockSchema = new mongoose.Schema({
+  metricId: String,
+  analysisSettings: {
+    userIdType: String,
+    startDate: Date,
+    endDate: Date,
+    lookbackDays: Number,
+    populationType: String,
+    populationId: String,
+  },
+  visualizationType: String,
+  valueType: String,
+  metricAnalysisId: String,
+});
+
 dashboardBlockSchema.index({
   uid: 1,
 });
@@ -162,6 +177,7 @@ DashboardBlockModel.discriminator(
   experimentTrafficBlockSchema,
 );
 DashboardBlockModel.discriminator("sql-explorer", sqlExplorerBlockSchema);
+DashboardBlockModel.discriminator("metric-explorer", metricExplorerBlockSchema);
 
 export const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {
   return removeMongooseFields<DashboardBlockInterface>(doc);

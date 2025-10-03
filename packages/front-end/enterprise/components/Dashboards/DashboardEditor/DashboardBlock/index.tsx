@@ -25,6 +25,7 @@ import {
 } from "shared/experiments";
 import { ErrorBoundary } from "@sentry/react";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,
@@ -55,12 +56,14 @@ import {
   BlockObjectMissing,
   BlockRenderError,
 } from "./BlockErrorStates";
+import MetricExplorerBlock from "./MetricExplorerBlock";
 
 // Typescript helpers for passing objects to the block components based on id fields
 interface BlockIdFieldToObjectMap {
   experimentId: ExperimentInterfaceStringDates;
   metricIds: ExperimentMetricInterface[];
   savedQueryId: SavedQuery;
+  metricAnalysisId: MetricAnalysisInterface;
 }
 type ObjectProps<Block> = {
   [K in keyof BlockIdFieldToObjectMap as K extends keyof Block
@@ -112,6 +115,7 @@ const BLOCK_COMPONENTS: {
   "experiment-time-series": ExperimentTimeSeriesBlock,
   "experiment-traffic": ExperimentTrafficBlock,
   "sql-explorer": SqlExplorerBlock,
+  "metric-explorer": MetricExplorerBlock,
 };
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
@@ -156,13 +160,13 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   const [editTitle, setEditTitle] = useState(false);
 
   // Use the API directly when the saved query hasn't been attached to the dashboard yet (when editing)
-  const shouldRun = () =>
+  const shouldFetchSavedQuery = () =>
     blockHasSavedQuery && !savedQueriesMap.has(block.savedQueryId);
   const { data: savedQueryData, isLoading: savedQueryLoading } = useApi<{
     status: number;
     savedQuery: SavedQuery;
   }>(`/saved-queries/${blockHasSavedQuery ? block.savedQueryId : ""}`, {
-    shouldRun,
+    shouldRun: shouldFetchSavedQuery,
   });
 
   const BlockComponent = BLOCK_COMPONENTS[block.type] as React.FC<
