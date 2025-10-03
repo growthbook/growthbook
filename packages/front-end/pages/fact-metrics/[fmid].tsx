@@ -488,7 +488,7 @@ export default function FactMetricPage() {
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
-            <MetricName id={factMetric.id} />
+            <MetricName id={factMetric.id} officialBadgePosition="right" />
           </h1>
         </div>
         <div className="ml-auto mr-2">

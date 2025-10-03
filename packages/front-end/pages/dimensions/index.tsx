@@ -260,7 +260,7 @@ const DimensionsPage: FC = () => {
                           <OfficialBadge
                             type="Dimension"
                             managedBy={s.managedBy}
-                          />{" "}
+                          />
                           {s.name}{" "}
                           {s.description ? (
                             <Tooltip body={s.description} />
