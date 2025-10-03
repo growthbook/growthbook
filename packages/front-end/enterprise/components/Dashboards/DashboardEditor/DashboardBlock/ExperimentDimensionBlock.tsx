@@ -140,6 +140,9 @@ export default function ExperimentDimensionBlock({
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
       renderMetricName={(metric) => metric.name}
+      showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
+        d.startsWith("precomputed:"),
+      )}
     />
   );
 }

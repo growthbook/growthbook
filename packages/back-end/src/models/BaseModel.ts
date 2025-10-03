@@ -40,6 +40,9 @@ export type CreateProps<T extends object> = Omit<
   T,
   "id" | "organization" | "dateCreated" | "dateUpdated"
 > & { id?: string };
+export type ScopedFilterQuery<T extends BaseSchema> = FilterQuery<
+  Omit<z.infer<T>, "organization">
+>;
 
 export type CreateRawShape<T extends z.ZodRawShape> = {
   [k in keyof Omit<
@@ -365,7 +368,7 @@ export abstract class BaseModel<
     return uniqid(this.config.idPrefix);
   }
   protected async _find(
-    query: FilterQuery<Omit<z.infer<T>, "organization">> = {},
+    query: ScopedFilterQuery<T> = {},
     {
       sort,
       limit,
@@ -430,9 +433,7 @@ export abstract class BaseModel<
     return filtered.slice(skip || 0, limit ? (skip || 0) + limit : undefined);
   }
 
-  protected async _findOne(
-    query: FilterQuery<Omit<z.infer<T>, "organization">>,
-  ) {
+  protected async _findOne(query: ScopedFilterQuery<T>) {
     const doc = this.useConfigFile()
       ? this.getConfigDocuments().find((doc) =>
           evalCondition(doc, { ...query, organization: this.context.org.id }),

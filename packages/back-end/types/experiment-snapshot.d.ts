@@ -137,7 +137,11 @@ export interface ExperimentSnapshotAnalysisSettings {
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
-export type SnapshotTriggeredBy = "schedule" | "manual";
+export type SnapshotTriggeredBy =
+  | "schedule"
+  | "manual"
+  | "manual-dashboard"
+  | "update-dashboards";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
