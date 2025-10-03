@@ -207,7 +207,6 @@ export default function FactTablePage() {
             <OfficialBadge type="Fact Table" managedBy={factTable.managedBy} />
           </h1>
         </div>
-        {/* {canEdit && ( */}
         <div className="ml-auto">
           <MoreMenu>
             {canEdit && (
@@ -289,7 +288,6 @@ export default function FactTablePage() {
             )}
           </MoreMenu>
         </div>
-        {/* )} */}
       </div>
       <div className="row mb-3">
         {projects.length > 0 ? (
