@@ -6,8 +6,7 @@ import { formatCurrency } from "@/services/metrics";
 
 type Props = {
   value: number;
-  format?: BigValueFormat;
-  formatter?: (value: number) => string;
+  format: BigValueFormat;
   label?: string;
 };
 
@@ -36,12 +35,7 @@ function formatValue(value: number, format: BigValueFormat, currency: string) {
   }
 }
 
-export default function BigValueChart({
-  value,
-  label,
-  format,
-  formatter,
-}: Props) {
+export default function BigValueChart({ value, label, format }: Props) {
   const currency = useCurrency();
   if (value === undefined || value === null) {
     return <div style={{ textAlign: "center", color: "#888" }}>No data</div>;
@@ -56,9 +50,7 @@ export default function BigValueChart({
       pb="2"
     >
       <Heading as="h1" size="9">
-        {formatter
-          ? formatter(value)
-          : formatValue(value, format ?? "longNumber", currency)}
+        {formatValue(value, format, currency)}
       </Heading>
       {label && (
         <Text as="div" size="3" color="gray">

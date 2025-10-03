@@ -9,21 +9,19 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 
 export interface Props {
   value: string;
-  setValue: (
-    value: MetricAnalysisPopulationType,
-    populationId: string | null,
-  ) => void;
+  setValue: (value: MetricAnalysisPopulationType) => void;
+  setPopulationValue: (value: string | null) => void;
+
   userIdType: string;
   datasourceId: string;
-  newStyle?: boolean;
 }
 
 export default function PopulationChooser({
   value,
   setValue,
+  setPopulationValue,
   userIdType,
   datasourceId,
-  newStyle,
 }: Props) {
   const { getDatasourceById, segments } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -55,22 +53,18 @@ export default function PopulationChooser({
 
   return (
     <div>
-      {!newStyle && (
-        <div className="uppercase-title text-muted">
-          Population{" "}
-          <Tooltip
-            body={`The metric values will only come from units in this population.
+      <div className="uppercase-title text-muted">
+        Population{" "}
+        <Tooltip
+          body={`The metric values will only come from units in this population. 
             For experiment assignment tables, any unit exposed to an
             experiment in the selected date window is in the population.`}
-          >
-            <FaQuestionCircle />
-          </Tooltip>
-        </div>
-      )}
+        >
+          <FaQuestionCircle />
+        </Tooltip>
+      </div>
       <SelectField
-        label={newStyle ? "Population" : undefined}
-        labelClassName="font-weight-bold"
-        containerClassName={newStyle ? "mb-0" : "select-dropdown-underline"}
+        containerClassName={"select-dropdown-underline"}
         options={[
           {
             label: "Fact Table",
@@ -106,13 +100,16 @@ export default function PopulationChooser({
         onChange={(v) => {
           if (v === value) return;
           if (v.startsWith("experiment")) {
+            setValue("exposureQuery");
             const exposureQueryId = v.match(/experiment_(.*)/)?.[1];
-            setValue("exposureQuery", exposureQueryId ?? null);
+            setPopulationValue(exposureQueryId ?? null);
           } else if (v.startsWith("segment")) {
+            setValue("segment");
             const segmentId = v.match(/segment_(.*)/)?.[1];
-            setValue("segment", segmentId ?? null);
+            setPopulationValue(segmentId ?? null);
           } else {
-            setValue(v as MetricAnalysisPopulationType, null);
+            setValue(v as MetricAnalysisPopulationType);
+            setPopulationValue(null);
           }
         }}
       />
