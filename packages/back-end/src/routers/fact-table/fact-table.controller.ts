@@ -1,5 +1,6 @@
 import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
+import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -133,7 +134,7 @@ export const putFactTable = async (
   req: AuthRequest<
     UpdateFactTableProps,
     { id: string },
-    { forceColumnRefresh?: string }
+    { forceColumnRefresh?: string; dim?: string }
   >,
   res: Response<{ status: 200 }>,
 ) => {
@@ -166,6 +167,38 @@ export const putFactTable = async (
 
     if (!data.columns.some((col) => !col.deleted)) {
       throw new Error("SQL did not return any rows");
+    }
+  }
+
+  // If dim parameter is provided, refresh top values for that specific column
+  if (req.query?.dim) {
+    const columnName = req.query.dim;
+    const column = factTable.columns.find((col) => col.column === columnName);
+
+    if (column && canInlineFilterColumn(factTable, column.column)) {
+      try {
+        const topValues = await runColumnTopValuesQuery(
+          context,
+          datasource,
+          factTable,
+          column,
+        );
+
+        // Constrain top values to MAX_METRIC_DIMENSION_LEVELS
+        const constrainedTopValues = topValues.slice(
+          0,
+          MAX_METRIC_DIMENSION_LEVELS,
+        );
+
+        // Update the column with new top values
+        await updateColumn(factTable, column.column, {
+          topValues: constrainedTopValues,
+        });
+      } catch (e) {
+        logger.error(e, "Error running top values query for specific column", {
+          column: columnName,
+        });
+      }
     }
   }
 
@@ -270,6 +303,17 @@ export const putColumn = async (
   const col = factTable.columns.find((c) => c.column === req.params.column);
   if (!col) {
     throw new Error("Could not find column");
+  }
+
+  if (!data.name) {
+    data.name = col.column;
+  }
+
+  // Check enterprise feature access for dimension properties
+  if (data.isDimension) {
+    if (!context.hasPremiumFeature("metric-dimensions")) {
+      throw new Error("Metric dimensions require an enterprise license");
+    }
   }
 
   const updatedCol = { ...col, ...data };

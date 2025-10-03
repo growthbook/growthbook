@@ -291,6 +291,8 @@ export function getColumnFormatter(
       return formatBytes;
     case "memory:kilobytes":
       return formatKilobytes;
+    default:
+      return formatNumber;
   }
 }
 

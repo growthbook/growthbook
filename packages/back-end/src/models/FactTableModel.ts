@@ -45,6 +45,8 @@ const factTableSchema = new mongoose.Schema({
       alwaysInlineFilter: Boolean,
       topValues: [String],
       topValuesDate: Date,
+      isDimension: Boolean,
+      dimensionLevels: [String],
     },
   ],
   columnsError: String,
@@ -93,6 +95,9 @@ function createPropsToInterface(
     ? props.columns.map((column) => {
         return {
           ...column,
+          name: column.name ?? column.column,
+          description: column.description ?? "",
+          numberFormat: column.numberFormat ?? "",
           dateCreated: new Date(),
           dateUpdated: new Date(),
           deleted: false,
@@ -295,12 +300,19 @@ export async function updateColumn(
     throw new Error("Only string columns are eligible for inline filtering");
   }
 
-  factTable.columns[columnIndex] = {
+  const updatedColumn = {
     ...factTable.columns[columnIndex],
     ...changes,
     ...(changes.topValues ? { topValuesDate: new Date() } : {}),
     dateUpdated: new Date(),
   };
+
+  // If dimension settings changed, reset dimensionLevels to empty array
+  if (updatedColumn.isDimension && !updatedColumn.dimensionLevels) {
+    updatedColumn.dimensionLevels = [];
+  }
+
+  factTable.columns[columnIndex] = updatedColumn;
 
   await FactTableModel.updateOne(
     {
@@ -474,11 +486,18 @@ export function toFactTableApiInterface(
   return {
     ...omit(factTable, [
       "organization",
-      "columns",
       "filters",
       "dateCreated",
       "dateUpdated",
     ]),
+    columns: factTable.columns.map((col) => ({
+      ...col,
+      alwaysInlineFilter: col.alwaysInlineFilter ?? false,
+      isDimension: col.isDimension ?? false,
+      dateCreated: col.dateCreated.toISOString(),
+      dateUpdated: col.dateUpdated.toISOString(),
+      topValuesDate: col.topValuesDate?.toISOString(),
+    })),
     managedBy: factTable.managedBy || "",
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",

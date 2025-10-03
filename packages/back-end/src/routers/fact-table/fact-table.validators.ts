@@ -36,14 +36,16 @@ export const jsonColumnFieldsValidator = z.record(
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
-    name: z.string(),
-    description: z.string(),
-    numberFormat: numberFormatValidator,
+    name: z.string().optional(),
+    description: z.string().optional(),
+    numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator,
     jsonFields: jsonColumnFieldsValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
+    isDimension: z.boolean().optional(),
+    dimensionLevels: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -57,6 +59,8 @@ export const updateColumnPropsValidator = z
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
+    isDimension: z.boolean().optional(),
+    dimensionLevels: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -72,7 +76,7 @@ export const createFactTablePropsValidator = z
     userIdTypes: z.array(z.string()),
     sql: z.string(),
     eventName: z.string(),
-    columns: z.array(createColumnPropsValidator),
+    columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
   })
   .strict();
@@ -203,6 +207,8 @@ export const factMetricValidator = z
     regressionAdjustmentOverride: z.boolean(),
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),
+
+    enableMetricDimensions: z.boolean().optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
   })

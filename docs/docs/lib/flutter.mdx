@@ -99,7 +99,7 @@ Attributes define the current user and request "context" used for targeting rule
 - `loggedIn` (bool)
 - `appVersion` (string, supports semver targeting)
 
-Use `setAttributes()` method to set the user context. 
+Use `setAttributes()` method to set the user context.
 
 ```dart
 sdk.setAttributes({
@@ -159,7 +159,7 @@ await sdk.refreshForRemoteEval();
 
 ## Experimentation (A/B Testing)
 
- To run the experiements with `GrowthBook`, use `run` method, which takes a `GBExperiment` object as an argument and returns a `GBExperimentResult` object:
+To run the experiements with `GrowthBook`, use `run` method, which takes a `GBExperiment` object as an argument and returns a `GBExperimentResult` object:
 
 ```dart
 var exp = GBExperiment()
@@ -191,7 +191,6 @@ The `GBExperimentResult` object returns the following properties:
 - **value** (`dynamic`) - The value of the assigned variation
 - **hashAttribute** (`String`) - The user attribute used to assign a variation
 - **hashValue** (`String`) - The value of the attribute used to assign a variation
-
 
 ### Tracking & Subscriptions
 
@@ -236,9 +235,10 @@ await sub.cancel();
 
 :::note
 When subscriptions fire vs. don’t fire
+
 - Fire: on first assignment per experiment key and after assignments change due to attribute updates or payload changes.
 - Don’t fire: repeated reads of the same assignment that hasn’t changed.
-:::
+  :::
 
 #### Efficient subscription patterns
 
@@ -281,7 +281,6 @@ await sdk.setPayload({
 });
 ```
 
-
 ## Caching
 
 The SDK persists downloaded feature payloads and related metadata. Configure TTL to control how long cached features are considered fresh before a background refresh.
@@ -304,7 +303,6 @@ final sdk = await GBSDKBuilderApp(
 await sdk.refreshCache();
 ```
 
-
 - Identity or environment switch:
 
 ```dart
@@ -315,6 +313,7 @@ await sdk.refreshCache();
 // If you store sticky assignments yourself, clear the old user's keys
 await myStickyStorage.clearForUser("old-user");
 ```
+
 #### Web-specific caching considerations
 
 - For Flutter Web, ensure your CDN respects cache-control headers for GrowthBook endpoints.
@@ -348,7 +347,6 @@ final sdk = await GBSDKBuilderApp(
 ).initialize();
 ```
 
-
 You can also add custom headers for secure requests:
 
 ```dart
@@ -364,7 +362,6 @@ final sdk = await GBSDKBuilderApp(
   backgroundSync: true,
 ).initialize();
 ```
-
 
 ### Network failures and reconnection
 
@@ -383,7 +380,6 @@ await storage.write(key: 'gb_last_event_id', value: lastEventId);
 - Prefer streaming when you need near real-time flag updates (admin toggles, ops tooling).
 - Prefer polling/manual refresh when updates are infrequent or the app is latency- or battery-sensitive.
 - Background sync opens a single lightweight SSE connection; avoid running multiple SDK instances with streaming in the same app.
-
 
 ## Remote Evaluation
 
@@ -454,7 +450,7 @@ final sdk = await GBSDKBuilderApp(
 
 ## Sticky Bucketing
 
-Sticky bucketing ensures users see the same experiment variant across sessions. Read more about [Sticky Bucketing Feature](https://docs.growthbook.io/app/sticky-bucketing) 
+Sticky bucketing ensures users see the same experiment variant across sessions. Read more about [Sticky Bucketing Feature](https://docs.growthbook.io/app/sticky-bucketing)
 
 - Enable Sticky Bucketing on the experiment or feature rule in GrowthBook.
 - Provide a stable identity in attributes (e.g., `id`) after login; use a device-scoped fallback when logged out.
@@ -464,7 +460,7 @@ Sticky bucketing ensures users see the same experiment variant across sessions. 
 - Use a globally unique `id` for logged-in users; avoid mutable identifiers.
 - For logged-out sessions, use a device/install identifier and switch to `id` on login.
 - When identity changes (login/logout), update attributes immediately to avoid cross-user assignment mixing.
-:::
+  :::
 
 Implement a `GBStickyBucketService` to persist assignments. Attach your `GBStickyBucketService` when building the SDK to persist assignments across sessions.
 

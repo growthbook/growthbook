@@ -13,7 +13,6 @@ import { postFactTableValidator } from "back-end/src/validators/openapi";
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req): Promise<PostFactTableResponse> => {
     const data: CreateFactTableProps = {
-      columns: [],
       eventName: "",
       id: "",
       description: "",

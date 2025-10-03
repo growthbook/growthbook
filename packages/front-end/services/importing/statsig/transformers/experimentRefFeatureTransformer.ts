@@ -37,6 +37,8 @@ export function transformStatsigExperimentToFeature(
   availableEnvironments: string[],
   gbExperiment: { id: string; variations: Array<{ id: string; key: string }> },
   project?: string,
+  skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): Omit<
   FeatureInterface,
   "organization" | "dateCreated" | "dateUpdated" | "version"
@@ -85,7 +87,11 @@ export function transformStatsigExperimentToFeature(
         field: undefined,
         customID: undefined,
       }));
-      const transformedCondition = transformStatsigConditionsToGB(conditions);
+      const transformedCondition = transformStatsigConditionsToGB(
+        conditions,
+        skipAttributeMapping,
+        savedGroupIdMap,
+      );
 
       // Determine which environments this rule applies to
       const targetEnvironments =
