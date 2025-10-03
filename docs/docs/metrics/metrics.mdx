@@ -280,30 +280,25 @@ Metric dimensions are enabled for Fact Metrics by setting a string column in a F
 </MaxWidthImage>
 
 2. With your column (`product_type`) in the Fact Table SQL, you now edit the column property in the "Columns" table. Click the edit icon next to your dimension column, check the "Enable Auto Slices" checkbox in the window that pops up, and add the dimension levels you want to split your metric by. We run a query to populate the top values for you, and you can update the values found in the data by clicking the "Refresh" button. Dimension Levels here could be "apparel", "equipment", and more.
-
-<MaxWidthImage maxWidth={350}>
-  <img src="/images/metrics/metric-dim-levels.png" alt="Configuring dimension levels" />
+   <MaxWidthImage maxWidth={350}>
+<img src="/images/metrics/metric-dim-levels.png" alt="Configuring dimension levels" />
 </MaxWidthImage>
-
 3. Scroll down to the list of Fact Metrics, or navigate to a Fact Metric from this Fact Table.
 4. Click "Edit" and select your slices.
 5. If there are slices you want run for every experiment (e.g., "I want revenue breakdowns by product type for every experiment"), please continue reading, otherwise, skip to the next step. Go to your metric page. Add the slices that will be analyzed for every experiment including this metric.
    <MaxWidthImage maxWidth={700}>
   <img src="/images/metrics/auto-slices.png" alt="Adding auto slices" />
-</MaxWidthImage>
-6. If there are custom slices you want run for a single experiment (e.g., "For this experiment, I want to see how treatment will affect apparel revenue in EU"), please continue reading, otherwise, skip to the next step.  
-   When setting up your experiment, add custom slices after selecting your metrics.
-   These slices will be run for all metrics in this experiment, but for this experiment only.
-   Note that with custom slices you can create combinations from different slices (e.g., apparel revenue in EU"), but not in auto-slices.
+  </MaxWidthImage>
+    6. If there are custom slices you want run for a single experiment (e.g., "For this experiment, I want to see how treatment will affect apparel revenue in EU"), please continue reading, otherwise, skip to the next step.  
+  When setting up your experiment, add custom slices after selecting your metrics.
+  These slices will be run for all metrics in this experiment, but for this experiment only.
+  Note that with custom slices you can create combinations from different slices (e.g., apparel revenue in EU"), but not in auto-slices.
    <MaxWidthImage maxWidth={700}>
   <img src="/images/metrics/custom-slices.png" alt="Adding custom slices" />
 </MaxWidthImage>
-7. After setting up your slices, run the experiment and you will see the results.
-
 When you run an experiment, you will now have the option to split revenue by product type.
 If you click the arrow next to "revenue" on the results page, you will see results split by product type.
 You can also pin an auto-dimension result so that it stays in the results table even when the metric is collapsed or you return to the page.
-
 <MaxWidthImage maxWidth={800}>
   <img src="/images/metrics/metric-dim-results.png" alt="Metric dimension results" />
 </MaxWidthImage>
