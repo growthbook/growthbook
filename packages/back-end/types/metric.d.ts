@@ -77,9 +77,7 @@ export interface MetricInterface {
   minSampleSize?: number;
   targetMDE?: number;
 
-  regressionAdjustmentOverride?: boolean;
-  regressionAdjustmentEnabled?: boolean;
-  regressionAdjustmentDays?: number;
+  regressionAdjustmentSettings?: RegressionAdjustmentSettings;
 
   // metric analysis fields
   queries: Queries;

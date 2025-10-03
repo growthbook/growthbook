@@ -743,19 +743,19 @@ describe("full fact metric experiment query - bigquery", () => {
       windowUnit: "days",
     },
   ];
-  const regressionAdjustmentSettings: {
-    regressionAdjustmentEnabled: boolean;
-    regressionAdjustmentDays: number;
-  }[] = [
-    {
-      regressionAdjustmentEnabled: false,
-      regressionAdjustmentDays: 0,
-    },
-    {
-      regressionAdjustmentEnabled: true,
-      regressionAdjustmentDays: 4,
-    },
-  ];
+  const regressionAdjustmentSettings: FactMetricInterface["regressionAdjustmentSettings"][] =
+    [
+      {
+        override: false,
+        enabled: false,
+        days: 0,
+      },
+      {
+        override: true,
+        enabled: true,
+        days: 4,
+      },
+    ];
 
   function generateFactMetrics(): FactMetricInterface[] {
     const metrics: FactMetricInterface[] = [];
@@ -938,10 +938,7 @@ describe("full fact metric experiment query - bigquery", () => {
     inlineFilter?: ColumnRef["inlineFilters"];
     filter?: ColumnRef["filters"];
     windowSetting?: FactMetricInterface["windowSettings"];
-    regressionSetting?: {
-      regressionAdjustmentEnabled: boolean;
-      regressionAdjustmentDays: number;
-    };
+    regressionSetting?: FactMetricInterface["regressionAdjustmentSettings"];
     quantileSetting?: FactMetricInterface["quantileSettings"];
     denominatorColumn?: string;
     denominatorAggregation?: ColumnRef["aggregation"];
@@ -975,8 +972,8 @@ describe("full fact metric experiment query - bigquery", () => {
         ? `filter_${filter[0].split(".")[1]}`
         : "filter_none",
       windowSetting?.type ? `window_${windowSetting.type}` : "window_none",
-      regressionSetting?.regressionAdjustmentEnabled
-        ? `regadj_${regressionSetting.regressionAdjustmentDays}d`
+      regressionSetting?.override && regressionSetting?.enabled
+        ? `regadj_${regressionSetting.days || 0}d`
         : "regadj_none",
       aggregateFilter
         ? `aggfilter_${aggregateFilter.replace(/[<>=\s]/g, "_")}`
@@ -1033,10 +1030,11 @@ describe("full fact metric experiment query - bigquery", () => {
         windowValue: 0,
         windowUnit: "hours",
       },
-      regressionAdjustmentEnabled:
-        regressionSetting?.regressionAdjustmentEnabled || false,
-      regressionAdjustmentDays:
-        regressionSetting?.regressionAdjustmentDays || 0,
+      regressionAdjustmentSettings: regressionSetting || {
+        override: false,
+        enabled: false,
+        days: 0,
+      },
     };
 
     // Handle metric type specific configurations

@@ -292,8 +292,8 @@ export function isRegressionAdjusted(
   const isLegacyRatioMetric: boolean =
     isRatioMetric(m, denominatorMetric) && !isFactMetric(m);
   return (
-    (m.regressionAdjustmentDays ?? 0) > 0 &&
-    !!m.regressionAdjustmentEnabled &&
+    (m.regressionAdjustmentSettings?.days ?? 0) > 0 &&
+    !!m.regressionAdjustmentSettings?.enabled &&
     !isLegacyRatioMetric &&
     !quantileMetricType(m)
   );
@@ -440,10 +440,12 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   }
 
   // get RA settings from metric
-  if (metric?.regressionAdjustmentOverride) {
-    regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
+  if (isFactMetric(metric) && metric?.regressionAdjustmentSettings?.override) {
+    regressionAdjustmentEnabled =
+      !!metric?.regressionAdjustmentSettings?.enabled;
     regressionAdjustmentDays =
-      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+      metric?.regressionAdjustmentSettings?.days ??
+      DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       regressionAdjustmentAvailable = false;
       regressionAdjustmentReason = "disabled in metric settings";
@@ -493,7 +495,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
         metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
         regressionAdjustmentAvailable = false;
-        if (!metric.regressionAdjustmentEnabled) {
+        if (!metric.regressionAdjustmentSettings?.enabled) {
           regressionAdjustmentReason =
             "disabled in metric settings and metric override";
         } else {
@@ -547,8 +549,13 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
     ? regressionAdjustmentDays
     : 0;
 
-  newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
-  newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
+  if (isFactMetric(newMetric)) {
+    newMetric.regressionAdjustmentSettings = {
+      override: false,
+      enabled: regressionAdjustmentEnabled,
+      days: regressionAdjustmentDays,
+    };
+  }
 
   return {
     newMetric,

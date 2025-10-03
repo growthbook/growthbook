@@ -141,10 +141,11 @@ export async function getCreateMetricPropsFromBody(
       mean: 0,
       stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     },
-    regressionAdjustmentOverride: false,
-    regressionAdjustmentDays:
-      scopedSettings.regressionAdjustmentDays.value || 0,
-    regressionAdjustmentEnabled: !!scopedSettings.regressionAdjustmentEnabled,
+    regressionAdjustmentSettings: {
+      override: false,
+      enabled: !!scopedSettings.regressionAdjustmentEnabled,
+      days: scopedSettings.regressionAdjustmentDays.value || 0,
+    },
     numerator: cleanedNumerator,
     denominator: null,
     enableMetricDimensions: false,
@@ -172,7 +173,11 @@ export async function getCreateMetricPropsFromBody(
     });
   }
 
-  if (cappingSettings?.type && cappingSettings?.type !== "none") {
+  if (
+    cappingSettings &&
+    data.cappingSettings?.type &&
+    cappingSettings?.type !== "none"
+  ) {
     data.cappingSettings.type = cappingSettings.type;
     data.cappingSettings.value = cappingSettings.value || 0;
   }
@@ -187,13 +192,18 @@ export async function getCreateMetricPropsFromBody(
     }
   }
 
-  if (regressionAdjustmentSettings?.override) {
-    data.regressionAdjustmentOverride = true;
+  if (
+    regressionAdjustmentSettings &&
+    regressionAdjustmentSettings?.override &&
+    data.regressionAdjustmentSettings
+  ) {
+    data.regressionAdjustmentSettings.override = true;
     if (regressionAdjustmentSettings.enabled) {
-      data.regressionAdjustmentEnabled = true;
+      data.regressionAdjustmentSettings.enabled = true;
     }
     if (regressionAdjustmentSettings.days) {
-      data.regressionAdjustmentDays = regressionAdjustmentSettings.days;
+      data.regressionAdjustmentSettings.days =
+        regressionAdjustmentSettings.days;
     }
   }
 
