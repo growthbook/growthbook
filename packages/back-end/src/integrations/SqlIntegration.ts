@@ -2764,15 +2764,15 @@ export default abstract class SqlIntegration
         percentileData.push({
           valueCol: `${m.alias}_value`,
           outputCol: `${m.alias}_value_cap`,
-          percentile: m.metric.cappingSettings.value ?? 1,
-          ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+          percentile: m.metric.cappingSettings?.value ?? 1,
+          ignoreZeros: m.metric.cappingSettings?.ignoreZeros ?? false,
         });
         if (m.ratioMetric) {
           percentileData.push({
             valueCol: `${m.alias}_denominator`,
             outputCol: `${m.alias}_denominator_cap`,
-            percentile: m.metric.cappingSettings.value ?? 1,
-            ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+            percentile: m.metric.cappingSettings?.value ?? 1,
+            ignoreZeros: m.metric.cappingSettings?.ignoreZeros ?? false,
           });
         }
       });
@@ -3295,8 +3295,8 @@ export default abstract class SqlIntegration
 
     const denominatorIsPercentileCapped =
       denominator &&
-      denominator.cappingSettings.type === "percentile" &&
-      !!denominator.cappingSettings.value &&
+      denominator.cappingSettings?.type === "percentile" &&
+      !!denominator.cappingSettings?.value &&
       denominator.cappingSettings.value < 1 &&
       isCappableMetricType(denominator);
     const capCoalesceMetric = this.capCoalesceValue({
@@ -3556,13 +3556,13 @@ export default abstract class SqlIntegration
                 {
                   valueCol: "value",
                   outputCol: "value_cap",
-                  percentile: metric.cappingSettings.value ?? 1,
-                  ignoreZeros: metric.cappingSettings.ignoreZeros ?? false,
+                  percentile: metric.cappingSettings?.value ?? 1,
+                  ignoreZeros: metric.cappingSettings?.ignoreZeros ?? false,
                 },
               ],
               "__userMetricAgg",
               `WHERE value IS NOT NULL${
-                metric.cappingSettings.ignoreZeros ? " AND value != 0" : ""
+                metric.cappingSettings?.ignoreZeros ? " AND value != 0" : ""
               }`,
             )}
         )
@@ -3615,14 +3615,14 @@ export default abstract class SqlIntegration
                     {
                       valueCol: "value",
                       outputCol: "value_cap",
-                      percentile: denominator.cappingSettings.value ?? 1,
+                      percentile: denominator.cappingSettings?.value ?? 1,
                       ignoreZeros:
-                        denominator.cappingSettings.ignoreZeros ?? false,
+                        denominator.cappingSettings?.ignoreZeros ?? false,
                     },
                   ],
                   "__userDenominatorAgg",
                   `WHERE value IS NOT NULL${
-                    denominator.cappingSettings.ignoreZeros
+                    denominator.cappingSettings?.ignoreZeros
                       ? " AND value != 0"
                       : ""
                   }`,
@@ -4152,7 +4152,7 @@ export default abstract class SqlIntegration
     // Assumes cappable metrics do not have aggregate filters
     // which is true for now
     if (
-      metric?.cappingSettings.type === "absolute" &&
+      metric?.cappingSettings?.type === "absolute" &&
       metric.cappingSettings.value &&
       isCappableMetricType(metric)
     ) {
@@ -4162,9 +4162,9 @@ export default abstract class SqlIntegration
       )`;
     }
     if (
-      metric?.cappingSettings.type === "percentile" &&
-      metric.cappingSettings.value &&
-      metric.cappingSettings.value < 1 &&
+      metric?.cappingSettings?.type === "percentile" &&
+      metric.cappingSettings?.value &&
+      metric.cappingSettings?.value < 1 &&
       isCappableMetricType(metric)
     ) {
       return `LEAST(
