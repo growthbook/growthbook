@@ -54,7 +54,7 @@ export default function DashboardSnapshotProvider({
   mutateDefinitions,
   children,
 }: {
-  experiment: ExperimentInterfaceStringDates;
+  experiment?: ExperimentInterfaceStringDates;
   dashboard?: DashboardInterface;
   mutateDefinitions: () => void;
   children: ReactNode;
@@ -67,7 +67,12 @@ export default function DashboardSnapshotProvider({
     mutate: mutateDefaultSnapshot,
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
-  }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
+  }>(
+    `/experiment/${experiment?.id}/snapshot/${(experiment?.phases.length ?? 0) - 1}`,
+    {
+      shouldRun: () => !!experiment?.id,
+    },
+  );
   const [refreshError, setRefreshError] = useState<string | undefined>(
     undefined,
   );
