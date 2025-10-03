@@ -26,7 +26,8 @@ import {
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
-  cleanupAutoSlicesFromMetrics,
+  cleanupMetricAutoSlices,
+  detectRemovedColumns,
 } from "back-end/src/models/FactTableModel";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -181,30 +182,13 @@ export const putFactTable = async (
     }
 
     // Check for removed columns and trigger cleanup
-    const originalColumnNames = new Set(originalColumns.map((c) => c.column));
-    const newColumnNames = new Set(data.columns.map((c) => c.column));
-    const removedColumns = Array.from(originalColumnNames).filter(
-      (name) => !newColumnNames.has(name),
-    );
+    const removedColumns = detectRemovedColumns(originalColumns, data.columns);
 
-    // Also check for columns that are marked as deleted
-    const deletedColumns = data.columns
-      .filter(
-        (col) =>
-          col.deleted &&
-          originalColumns.some(
-            (orig) => orig.column === col.column && !orig.deleted,
-          ),
-      )
-      .map((col) => col.column);
-
-    const allRemovedColumns = [...removedColumns, ...deletedColumns];
-
-    if (allRemovedColumns.length > 0) {
-      await cleanupAutoSlicesFromMetrics({
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
         context,
         factTableId: factTable.id,
-        removedColumns: allRemovedColumns,
+        removedColumns,
       });
     }
   }

@@ -446,7 +446,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         !factTable.userIdTypes.includes(form.watch("column")) &&
         form.watch("column") !== "timestamp" && (
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
-            <div className="d-flex align-items-center mb-3">
+            <div className="d-flex align-items-center mb-2">
               <Checkbox
                 value={form.watch("isAutoSliceColumn") ?? false}
                 setValue={(v) => form.setValue("isAutoSliceColumn", v === true)}
@@ -463,7 +463,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     ) : null}
                   </>
                 }
-                description="Column may be used to automatically slice metrics for analysis"
+                description="Column may be used to automatically slice metrics during experiment analysis"
                 disabled={!hasMetricSlicesFeature}
               />
             </div>

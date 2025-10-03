@@ -243,35 +243,13 @@ export async function updateFactTable(
 
   // Clean up auto slices from metrics if columns were deleted or modified
   if (changes.columns) {
-    const originalColumns = factTable.columns || [];
-    const newColumns = changes.columns;
-
-    // Find columns that were deleted (existed before but don't exist now)
-    const deletedColumns = originalColumns
-      .filter((col) => !col.deleted)
-      .map((col) => col.column)
-      .filter(
-        (columnName) =>
-          !newColumns.some(
-            (newCol) => newCol.column === columnName && !newCol.deleted,
-          ),
-      );
-
-    // Find columns where isAutoSliceColumn was disabled
-    const disabledAutoSliceColumns = originalColumns
-      .filter((col) => col.isAutoSliceColumn && !col.deleted)
-      .map((col) => col.column)
-      .filter((columnName) => {
-        const newCol = newColumns.find(
-          (newCol) => newCol.column === columnName,
-        );
-        return newCol && !newCol.isAutoSliceColumn;
-      });
-
-    const removedColumns = [...deletedColumns, ...disabledAutoSliceColumns];
+    const removedColumns = detectRemovedColumns(
+      factTable.columns || [],
+      changes.columns,
+    );
 
     if (removedColumns.length > 0) {
-      await cleanupAutoSlicesFromMetrics({
+      await cleanupMetricAutoSlices({
         context,
         factTableId: factTable.id,
         removedColumns,
@@ -312,32 +290,59 @@ export async function updateFactTableColumns(
 
   // Clean up auto slices from metrics if columns were refreshed and some were deleted
   if (context && changes.columns) {
-    const originalColumns = factTable.columns || [];
-    const newColumns = changes.columns;
+    const removedColumns = detectRemovedColumns(
+      factTable.columns || [],
+      changes.columns,
+    );
 
-    // Find columns that were deleted (existed before but don't exist now)
-    const deletedColumns = originalColumns
-      .filter((col) => !col.deleted)
-      .map((col) => col.column)
-      .filter(
-        (columnName) =>
-          !newColumns.some(
-            (newCol) => newCol.column === columnName && !newCol.deleted,
-          ),
-      );
-
-    if (deletedColumns.length > 0) {
-      await cleanupAutoSlicesFromMetrics({
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
         context,
         factTableId: factTable.id,
-        removedColumns: deletedColumns,
+        removedColumns,
       });
     }
   }
 }
 
-// Clean up auto slices from fact metrics when columns are deleted or disabled
-export async function cleanupAutoSlicesFromMetrics({
+// Detect columns that were removed or had auto slice disabled
+export function detectRemovedColumns(
+  originalColumns: Array<{
+    column: string;
+    deleted?: boolean;
+    isAutoSliceColumn?: boolean;
+  }>,
+  newColumns: Array<{
+    column: string;
+    deleted?: boolean;
+    isAutoSliceColumn?: boolean;
+  }>,
+): string[] {
+  // Find columns that were deleted (existed before but don't exist now)
+  const deletedColumns = originalColumns
+    .filter((col) => !col.deleted)
+    .map((col) => col.column)
+    .filter(
+      (columnName) =>
+        !newColumns.some(
+          (newCol) => newCol.column === columnName && !newCol.deleted,
+        ),
+    );
+
+  // Find columns where isAutoSliceColumn was disabled
+  const disabledAutoSliceColumns = originalColumns
+    .filter((col) => col.isAutoSliceColumn && !col.deleted)
+    .map((col) => col.column)
+    .filter((columnName) => {
+      const newCol = newColumns.find((newCol) => newCol.column === columnName);
+      return newCol && !newCol.isAutoSliceColumn;
+    });
+
+  return [...deletedColumns, ...disabledAutoSliceColumns];
+}
+
+// Clean up auto slices from fact metrics when columns are "deleted" or dropped
+export async function cleanupMetricAutoSlices({
   context,
   factTableId,
   removedColumns,
@@ -425,7 +430,7 @@ export async function updateColumn({
     (updatedColumn.deleted ||
       (!updatedColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn))
   ) {
-    await cleanupAutoSlicesFromMetrics({
+    await cleanupMetricAutoSlices({
       context,
       factTableId: factTable.id,
       removedColumns: [column],
