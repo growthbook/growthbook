@@ -2515,7 +2515,7 @@ export default abstract class SqlIntegration
     const regressionAdjusted =
       settings.regressionAdjustmentEnabled && isRegressionAdjusted(metric);
     const regressionAdjustmentHours = regressionAdjusted
-      ? (metric.regressionAdjustmentDays ?? 0) * 24
+      ? (metric.regressionAdjustmentSettings?.days ?? 0) * 24
       : 0;
 
     const overrideConversionWindows =
@@ -2523,8 +2523,8 @@ export default abstract class SqlIntegration
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
-      metric.cappingSettings.type === "percentile" &&
-      !!metric.cappingSettings.value &&
+      metric.cappingSettings?.type === "percentile" &&
+      !!metric.cappingSettings?.value &&
       metric.cappingSettings.value < 1 &&
       isCappableMetricType(metric);
 
@@ -3280,7 +3280,7 @@ export default abstract class SqlIntegration
       !isRatioMetric(metric, denominator);
 
     const regressionAdjustmentHours = regressionAdjusted
-      ? (metric.regressionAdjustmentDays ?? 0) * 24
+      ? (metric.regressionAdjustmentSettings?.days ?? 0) * 24
       : 0;
 
     const overrideConversionWindows =
@@ -3288,8 +3288,8 @@ export default abstract class SqlIntegration
 
     // Get capping settings and final coalesce statement
     const isPercentileCapped =
-      metric.cappingSettings.type === "percentile" &&
-      !!metric.cappingSettings.value &&
+      metric.cappingSettings?.type === "percentile" &&
+      !!metric.cappingSettings?.value &&
       metric.cappingSettings.value < 1 &&
       isCappableMetricType(metric);
 
