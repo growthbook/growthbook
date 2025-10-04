@@ -146,7 +146,11 @@ export function useSearch<T extends { id: string }>({
     });
 
     // Add items to the index
-    miniSearchInstance.addAll(items);
+    try {
+      miniSearchInstance.addAll(items);
+    } catch (error) {
+      console.error("Error adding items to search index:", error);
+    }
 
     return { miniSearch: miniSearchInstance, itemMap };
   }, [items, JSON.stringify(searchFields)]);
