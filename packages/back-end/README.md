@@ -620,3 +620,28 @@ There are a lot more metrics you can define with the sample data besides just "P
 - Session Duration
 - Pages per Session
 - Sessions with Searches
+
+
+
+## Troubleshooting (Local Dev)
+
+- **`GET /health` returns 401**  
+  This is expected when unauthenticated. It means the API is running. Log in via the front-end or use a valid token for protected endpoints.
+
+- **`Cannot find module './dist/util'` (from `packages/shared/util.js`)**  
+  The `shared` package build outputs may be missing/out of sync. Rebuild `shared`:
+  ```bash
+  cd packages/shared
+  rm -rf dist
+  npx swc src -d dist || (yarn add -D @swc/cli @swc/core && npx swc src -d dist)
+  cd ../../
+  ```
+  Then restart the back-end dev server.
+
+- **Mongo not reachable**  
+  Ensure MongoDB is running locally and env vars are set:
+  ```bash
+  export MONGODB_URI="mongodb://localhost:27017/growthbook"
+  export PORT="3100"
+  yarn dev
+  ```
