@@ -6,7 +6,6 @@ import {
 } from "back-end/types/report";
 import React from "react";
 import { useRouter } from "next/router";
-import { DifferenceType } from "back-end/types/stats";
 import { useAuth } from "@/services/auth";
 import ResultsDownloadButton from "@/components/Experiment/ResultsDownloadButton";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
@@ -25,7 +24,6 @@ export default function ReportResultMoreMenu({
   results,
   metrics,
   variations,
-  differenceType,
   trackingKey,
   dimension,
   canDelete,
@@ -41,7 +39,6 @@ export default function ReportResultMoreMenu({
   results?: ExperimentReportResultDimension[];
   metrics?: string[];
   variations?: ExperimentReportVariation[];
-  differenceType: DifferenceType;
   trackingKey?: string;
   dimension?: string;
   canDelete?: boolean;
@@ -108,7 +105,6 @@ export default function ReportResultMoreMenu({
       {results && (
         <ResultsDownloadButton
           results={results}
-          differenceType={differenceType}
           metrics={metrics}
           variations={variations}
           trackingKey={trackingKey || ""}

@@ -2,6 +2,7 @@ import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
+  expandAllSliceMetricsInMap,
 } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -56,13 +57,19 @@ export async function updateExperimentTimeSeries({
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
 
-  const allMetricIds = getAllExpandedMetricIdsFromExperiment(
-    experimentSnapshot.settings,
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  expandAllSliceMetricsInMap({
     metricMap,
     factTableMap,
-    false,
+    experiment,
     metricGroups,
-  );
+  });
+
+  const allMetricIds = getAllExpandedMetricIdsFromExperiment({
+    exp: experimentSnapshot.settings,
+    expandedMetricMap: metricMap,
+    metricGroups,
+  });
   const relativeAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "relative" &&

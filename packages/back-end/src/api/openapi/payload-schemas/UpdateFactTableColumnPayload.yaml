@@ -51,12 +51,12 @@ properties:
   deleted:
     type: boolean
     default: false
-  isDimension:
+  isAutoSliceColumn:
     type: boolean
-    description: "Whether this column can be used for dimension analysis. This is an enterprise feature."
+    description: "Whether this column can be used for auto slice analysis. This is an enterprise feature."
     default: false
-  dimensionLevels:
+  autoSlices:
     type: array
     items:
       type: string
-    description: "Specific values from this dimension column to include in analysis. If empty, all top values will be used."
+    description: "Specific values from this auto slice column to include in analysis. If empty, all top values will be used."

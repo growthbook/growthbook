@@ -2,6 +2,7 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
+import { expandAllSliceMetricsInMap } from "shared/experiments";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -18,6 +19,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   DataForStatsEngine,
@@ -58,9 +60,16 @@ export async function generateReportNotebook(
     // Get metrics
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);
+    const metricGroups = await context.models.metricGroups.getAll();
 
     const { snapshotSettings, analysisSettings } =
-      getSnapshotSettingsFromReportArgs(report.args, metricMap, factTableMap);
+      getSnapshotSettingsFromReportArgs(
+        report.args,
+        metricMap,
+        factTableMap,
+        undefined,
+        metricGroups,
+      );
     return generateNotebook({
       context,
       queryPointers: report.queries,
@@ -150,6 +159,27 @@ export async function generateNotebook({
 
   // Get metrics
   const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+  const metricGroups = await context.models.metricGroups.getAll();
+
+  // Get experiment data to expand slice metrics
+  let experiment: ExperimentInterface | null = null;
+  if (snapshotSettings.experimentId) {
+    experiment = await getExperimentById(
+      context,
+      snapshotSettings.experimentId,
+    );
+  }
+
+  // Expand slice metrics if we have experiment data
+  if (experiment) {
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
+  }
 
   // Get queries
   const queries = await getQueryData(queryPointers, context.org.id);

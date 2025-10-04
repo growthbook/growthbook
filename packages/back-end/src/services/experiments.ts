@@ -31,7 +31,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
-  createDimensionMetrics,
+  expandAllSliceMetricsInMap,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
@@ -39,7 +39,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
-  parseDimensionMetricId,
+  parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -72,7 +72,6 @@ import {
   DimensionForSnapshot,
 } from "back-end/types/experiment-snapshot";
 import {
-  expandDimensionMetricsInMap,
   getMetricById,
   getMetricMap,
   getMetricsByIds,
@@ -197,10 +196,10 @@ export async function getExperimentMetricById(
   context: Context,
   metricId: string,
 ): Promise<ExperimentMetricInterface | null> {
-  // Handle dimension metric IDs by extracting the parent metric ID
-  const dimensionInfo = parseDimensionMetricId(metricId);
-  const actualMetricId = dimensionInfo.isDimensionMetric
-    ? dimensionInfo.parentMetricId
+  // Handle slice metric IDs by extracting the parent metric ID
+  const sliceInfo = parseSliceMetricId(metricId);
+  const actualMetricId = sliceInfo.isSliceMetric
+    ? sliceInfo.parentMetricId
     : metricId;
 
   if (isFactMetricId(actualMetricId)) {
@@ -582,24 +581,28 @@ export function getSnapshotSettings({
   // Set currentDate in a const to use the same date for all metric settings
   const currentDate = new Date();
 
-  // Expand dimension metrics for fact metrics with enableMetricDimensions
-  const baseMetricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-  const baseMetrics = baseMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined);
-  expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  // Skip slice expansion for dimension snapshots
+  if (!dimension) {
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
+  }
 
-  const metricSettings = getAllExpandedMetricIdsFromExperiment(
-    experiment,
-    metricMap,
-    factTableMap,
-    true,
+  const metricSettings = getAllExpandedMetricIdsFromExperiment({
+    exp: {
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      activationMetric: experiment.activationMetric,
+    },
+    expandedMetricMap: metricMap,
+    includeActivationMetric: true,
     metricGroups,
-  )
+  })
     .map((m) =>
       getMetricForSnapshot({
         id: m,
@@ -2614,7 +2617,8 @@ export function postExperimentApiPayloadToInterface(
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
-    pinnedMetricDimensionLevels: payload.pinnedMetricDimensionLevels || [],
+    pinnedMetricSlices: payload.pinnedMetricSlices || [],
+    customMetricSlices: payload.customMetricSlices || [],
   };
 
   const { settings } = getScopedSettings({
@@ -2682,7 +2686,8 @@ export function updateExperimentApiPayloadToInterface(
     sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
-    pinnedMetricDimensionLevels,
+    pinnedMetricSlices,
+    customMetricSlices,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2779,9 +2784,8 @@ export function updateExperimentApiPayloadToInterface(
         }
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
-    ...(pinnedMetricDimensionLevels !== undefined
-      ? { pinnedMetricDimensionLevels }
-      : {}),
+    ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
+    ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -2834,7 +2838,6 @@ export async function getSettingsForSnapshotMetrics(
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
 
   const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
@@ -2844,46 +2847,14 @@ export async function getSettingsForSnapshotMetrics(
     .map((id) => metricMap.get(id))
     .filter(isDefined);
 
-  // Expand dimension metrics for fact metrics with enableMetricDimensions
-  const expandedMetrics: ExperimentMetricInterface[] = [];
-  for (const metric of allExperimentMetrics) {
-    if (!metric) continue;
-
-    // Add the original metric
-    expandedMetrics.push(metric);
-
-    // If this is a fact metric with dimension analysis enabled, expand it
-    if (isFactMetric(metric) && metric.enableMetricDimensions) {
-      const factTable = factTableMap.get(metric.numerator.factTableId);
-      if (factTable) {
-        const dimensionMetrics = createDimensionMetrics({
-          parentMetric: metric,
-          factTable,
-          includeOther: true,
-        });
-
-        dimensionMetrics.forEach((dimensionMetric) => {
-          const expandedMetric: ExperimentMetricInterface = {
-            ...metric,
-            id: dimensionMetric.id,
-            name: dimensionMetric.name,
-            description: dimensionMetric.description,
-          };
-          expandedMetrics.push(expandedMetric);
-          metricMap.set(expandedMetric.id, expandedMetric);
-        });
-      }
-    }
-  }
-
-  const denominatorMetrics = expandedMetrics
+  const denominatorMetrics = allExperimentMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)
     .map((m: ExperimentMetricInterface) =>
       metricMap.get(m.denominator as string),
     )
     .filter(Boolean) as MetricInterface[];
 
-  for (const metric of expandedMetrics) {
+  for (const metric of allExperimentMetrics) {
     if (!metric) continue;
     const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,

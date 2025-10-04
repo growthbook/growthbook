@@ -117,7 +117,7 @@ export type ResultsTableProps = {
 };
 
 const ROW_HEIGHT = 46;
-const METRIC_LABEL_ROW_HEIGHT = 46;
+const METRIC_LABEL_ROW_HEIGHT = 56;
 const SPACER_ROW_HEIGHT = 6;
 
 export const RESULTS_TABLE_COLUMNS = [
@@ -488,7 +488,7 @@ export default function ResultsTable({
                         <div className="col d-flex align-items-end px-0">
                           <a
                             role="button"
-                            className="ml-1 cursor-pointer"
+                            className="ml-1 cursor-pointer link-purple"
                             onClick={(e) => {
                               e.preventDefault();
                               editMetrics();
@@ -732,7 +732,7 @@ export default function ResultsTable({
                       {/* Render the main results tbody */}
                       <tbody
                         className={clsx("results-group-row", {
-                          "dimension-row": row.isDimensionRow,
+                          "slice-row": row.isSliceRow,
                         })}
                         key={i}
                       >
@@ -790,12 +790,13 @@ export default function ResultsTable({
                                 className: clsx(
                                   "results-variation-row align-items-center error-row",
                                   {
-                                    "last-before-dimension-header":
-                                      !row.isDimensionRow &&
+                                    "last-before-slice-header":
+                                      !row.isSliceRow &&
                                       i < rows.length - 1 &&
-                                      rows[i + 1].isDimensionRow &&
-                                      rows[i + 1].dimensionColumn !==
-                                        (rows[i]?.dimensionColumn || null),
+                                      rows[i + 1].isSliceRow &&
+                                      rows[i + 1].sliceLevels?.[0]?.column !==
+                                        (rows[i]?.sliceLevels?.[0]?.column ||
+                                          null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -807,7 +808,7 @@ export default function ResultsTable({
                                 label: (
                                   <>
                                     {compactResults ? (
-                                      <div className="mb-1">
+                                      <div className="mb-1 position-relative">
                                         {renderLabelColumn({
                                           label: row.label,
                                           metric: row.metric,
@@ -848,12 +849,13 @@ export default function ResultsTable({
                                 className: clsx(
                                   "results-variation-row align-items-center error-row",
                                   {
-                                    "last-before-dimension-header":
-                                      !row.isDimensionRow &&
+                                    "last-before-slice-header":
+                                      !row.isSliceRow &&
                                       i < rows.length - 1 &&
-                                      rows[i + 1].isDimensionRow &&
-                                      rows[i + 1].dimensionColumn !==
-                                        (rows[i]?.dimensionColumn || null),
+                                      rows[i + 1].isSliceRow &&
+                                      rows[i + 1].sliceLevels?.[0]?.column !==
+                                        (rows[i]?.sliceLevels?.[0]?.column ||
+                                          null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -921,12 +923,14 @@ export default function ResultsTable({
                               className={clsx(
                                 "results-variation-row align-items-center",
                                 {
-                                  "last-before-dimension-header":
-                                    !row.isDimensionRow &&
+                                  "last-before-slice-header":
+                                    !row.isSliceRow &&
                                     i < rows.length - 1 &&
-                                    rows[i + 1].isDimensionRow &&
-                                    rows[i + 1].dimensionColumn !==
-                                      (rows[i]?.dimensionColumn || null) &&
+                                    rows[i + 1].isSliceRow &&
+                                    JSON.stringify(rows[i + 1].sliceLevels) !==
+                                      JSON.stringify(
+                                        rows[i]?.sliceLevels || [],
+                                      ) &&
                                     j === orderedVariations.length - 1,
                                 },
                               )}
@@ -941,7 +945,7 @@ export default function ResultsTable({
                                 "Metric & Variation Names",
                               ) && (
                                 <td
-                                  className={`variation with-variation-label variation${v.index}`}
+                                  className={`variation with-variation-label variation${v.index} position-relative`}
                                   style={{
                                     width: 220 * tableCellScale,
                                   }}
@@ -1185,7 +1189,7 @@ export default function ResultsTable({
                         {visibleTimeSeriesRowIds.includes(rowId) ? (
                           <tr
                             style={
-                              !row.isDimensionRow
+                              !row.isSliceRow
                                 ? { backgroundColor: "var(--slate-a2)" }
                                 : undefined
                             }
@@ -1212,9 +1216,11 @@ export default function ResultsTable({
                                       rows.length > 1
                                     }
                                     firstDateToRender={getValidDate(startDate)}
-                                    isDimensionRow={row.isDimensionRow}
-                                    dimensionColumn={row.dimensionColumn}
-                                    dimensionValue={row.dimensionValue}
+                                    isSliceRow={row.isSliceRow}
+                                    sliceLevels={row.sliceLevels?.map((dl) => ({
+                                      dimension: dl.column,
+                                      levels: dl.levels,
+                                    }))}
                                   />
                                 </div>
                               </div>
@@ -1279,7 +1285,11 @@ function drawEmptyRow({
 }) {
   return (
     <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
-      {renderLabel && <td colSpan={labelColSpan}>{label}</td>}
+      {renderLabel && (
+        <td colSpan={labelColSpan} className="position-relative">
+          {label}
+        </td>
+      )}
 
       {renderGraph && (
         <td className="graph-cell">

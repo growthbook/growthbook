@@ -19,6 +19,7 @@ import Checkbox from "@/ui/Checkbox";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
@@ -443,6 +444,43 @@ export default function ConfigureReport({
                 )
               }
             />
+
+            <div className="mt-4">
+              <CustomMetricSlicesSelector
+                goalMetrics={
+                  form.watch("experimentAnalysisSettings.goalMetrics") ?? []
+                }
+                secondaryMetrics={
+                  form.watch("experimentAnalysisSettings.secondaryMetrics") ??
+                  []
+                }
+                guardrailMetrics={
+                  form.watch("experimentAnalysisSettings.guardrailMetrics") ??
+                  []
+                }
+                customMetricSlices={
+                  form.watch("experimentAnalysisSettings.customMetricSlices") ??
+                  []
+                }
+                setCustomMetricSlices={(slices) =>
+                  form.setValue(
+                    "experimentAnalysisSettings.customMetricSlices",
+                    slices,
+                  )
+                }
+                pinnedMetricSlices={
+                  form.watch("experimentAnalysisSettings.pinnedMetricSlices") ??
+                  []
+                }
+                setPinnedMetricSlices={(slices) =>
+                  form.setValue(
+                    "experimentAnalysisSettings.pinnedMetricSlices",
+                    slices,
+                  )
+                }
+              />
+            </div>
+
             <hr className="my-4" />
             {datasourceProperties?.separateExperimentResultQueries && (
               <SelectField

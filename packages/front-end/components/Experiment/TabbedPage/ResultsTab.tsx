@@ -228,7 +228,6 @@ export default function ResultsTab({
                 differenceType: d,
               })
             }
-            differenceType={analysisBarSettings.differenceType}
             reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (

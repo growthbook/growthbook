@@ -38,6 +38,7 @@ import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetrics
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricSelector from "@/components/Experiment/MetricSelector";
 import { MetricsSelectorTooltip } from "@/components/Experiment/MetricsSelector";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import { useTemplates } from "@/hooks/useTemplates";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { convertTemplateToExperimentRule } from "@/services/experiments";
@@ -519,6 +520,20 @@ export default function ExperimentRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+          />
+
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
+            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
+            setPinnedMetricSlices={(slices) =>
+              form.setValue("pinnedMetricSlices", slices)
+            }
           />
 
           <hr className="mt-4" />
