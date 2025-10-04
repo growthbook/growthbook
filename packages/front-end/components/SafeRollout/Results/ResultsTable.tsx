@@ -293,7 +293,7 @@ export default function ResultsTable({
   const changeTitle = getEffectLabel(differenceType);
 
   const urlFormattedMetricIds = rows
-    .map((row) => row.metric.id)
+    .map((row) => encodeURIComponent(row.metric.id))
     .join("&metricIds[]=");
   const { data: metricTimeSeries, mutate: mutateMetricTimeSeries } = useApi<{
     status: number;

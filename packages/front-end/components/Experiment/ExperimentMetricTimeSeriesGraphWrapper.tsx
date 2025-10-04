@@ -100,7 +100,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   }, [isSliceRow, sliceLevels, metric.id]);
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
-    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${metricId}`,
+    `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}`,
   );
 
   const filteredMetricTimeSeries = useMemo(() => {
