@@ -24,6 +24,7 @@ import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 type ExperimentDimensionItem = {
+  id: string;
   dimension: string;
   datasourceName: string;
   datasourceId: string;
@@ -42,6 +43,7 @@ function getExperimentDimensions(
         const key = `${d}-${ds.id}`;
         if (!collapsedExperimentDimensions[key]) {
           collapsedExperimentDimensions[key] = {
+            id: key,
             dimension: d,
             datasourceName: ds.name,
             datasourceId: ds.id,

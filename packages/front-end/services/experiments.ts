@@ -366,20 +366,7 @@ export function useExperimentSearch({
     defaultSortField,
     defaultSortDir,
     updateSearchQueryOnChange: true,
-    searchFields: [
-      "name^3",
-      "trackingKey^2",
-      "id",
-      "hypothesis^2",
-      "description",
-      "tags",
-      "status",
-      "ownerName",
-      "metricNames",
-      "results",
-      "analysis",
-      "isWatched",
-    ],
+    searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [];

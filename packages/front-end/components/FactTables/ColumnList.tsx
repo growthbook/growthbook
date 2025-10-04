@@ -35,6 +35,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
   const columns = useAddComputedFields(availableColumns, (column) => ({
     ...column,
     name: column.name || column.column,
+    id: column.name || column.column,
     identifier: factTable.userIdTypes.includes(column.column),
     type:
       column.datatype === "number"
