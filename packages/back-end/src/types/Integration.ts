@@ -53,7 +53,7 @@ export type MetricAggregationType = "pre" | "post" | "noWindow";
 export type FactMetricData = {
   alias: string;
   id: string;
-  metric: ExperimentMetricInterface;
+  metric: FactMetricInterface;
   ratioMetric: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
@@ -62,6 +62,8 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   isPercentileCapped: boolean;
+  numeratorSourceIndex: number;
+  denominatorSourceIndex: number;
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
