@@ -1168,7 +1168,7 @@ export function createSliceMetrics({
   return sliceMetrics;
 }
 
-// Creates slice data format from custom metric dimension levels for a specific metric
+// Creates slice data format from custom metric slice levels for a specific metric
 export function createCustomSliceDataForMetric({
   metricId,
   metricName,
