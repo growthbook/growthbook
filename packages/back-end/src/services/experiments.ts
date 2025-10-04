@@ -518,7 +518,9 @@ export function getSnapshotSettings({
   if (precomputeDimensions) {
     // if standard snapshot with no dimension set, we should pre-compute dimensions
     const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      exposureQuery.dimensionMetadata ?? [],
+      (exposureQuery.dimensionMetadata ?? []).filter((d) =>
+        exposureQuery.dimensions.includes(d.dimension),
+      ),
       experiment.variations.length,
     );
     dimensions =
