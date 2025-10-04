@@ -28,7 +28,7 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
-import { PiPlus } from "react-icons/pi";
+import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -71,6 +71,7 @@ import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
+import { DocLink } from "../DocLink";
 
 export interface Props {
   close?: () => void;
@@ -2302,7 +2303,11 @@ export default function FactMetricModal({
                         className="mb-2"
                         style={{ color: "var(--color-text-mid)" }}
                       >
-                        Metric breakdowns automatically run during experiments.
+                        Choose metric breakdowns to automatically analyze in
+                        your experiments.{" "}
+                        <DocLink docSection="autoSlices">
+                          Learn More <PiArrowSquareOut />
+                        </DocLink>
                       </Text>
                       {hasMetricSlicesFeature && (
                         <div className="mt-2">

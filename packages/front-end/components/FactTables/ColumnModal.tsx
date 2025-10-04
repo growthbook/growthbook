@@ -9,7 +9,7 @@ import {
 import { useForm } from "react-hook-form";
 import React, { useState } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
-import { PiPlus, PiX } from "react-icons/pi";
+import { PiPlus, PiX, PiArrowSquareOut } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
 import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { differenceInDays } from "date-fns";
@@ -29,6 +29,7 @@ import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import track from "@/services/track";
+import { DocLink } from "../DocLink";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -463,7 +464,15 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                     ) : null}
                   </>
                 }
-                description="Column may be used to automatically slice metrics during experiment analysis"
+                description={
+                  <>
+                    Column may be used to automatically slice metrics during
+                    experiment analysis.{" "}
+                    <DocLink docSection="autoSlices">
+                      Learn More <PiArrowSquareOut />
+                    </DocLink>
+                  </>
+                }
                 disabled={!hasMetricSlicesFeature}
               />
             </div>

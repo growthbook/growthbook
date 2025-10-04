@@ -17,6 +17,7 @@ import {
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -60,6 +61,7 @@ import {
 import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { DocLink } from "@/components/DocLink";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -746,7 +748,11 @@ export default function FactMetricPage() {
                   className="mb-2"
                   style={{ color: "var(--color-text-mid)" }}
                 >
-                  Metric breakdowns automatically run during experiments.
+                  Choose metric breakdowns to automatically analyze in your
+                  experiments.{" "}
+                  <DocLink docSection="autoSlices">
+                    Learn More <PiArrowSquareOut />
+                  </DocLink>
                 </Text>
                 <div className="mt-2">
                   <FactTableAutoSliceSelector

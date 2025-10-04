@@ -269,9 +269,15 @@ Metric slices are available for Enterprise customers only.
 Many metrics are easily decomposed, and you may want to learn about the different elements.
 For example, you may want to see revenue across different product types (e.g. "apparel", "equipment").
 
-Rather than creating and maintaining a separate revenue metric for each product type, metric slices permit you to automatically create distinct revenue metrics for each product type.
+Rather than creating and maintaining a separate revenue metric for each product type, metric slices permit you to automatically create distinct revenue metrics for each product type. These drilldown metrics are also sometimes referred to as "metric dimenensions" in the experimentation community.
 
-Metric slices are enabled for Fact Metrics. Here are step-by-step instructions:
+Metric slices are enabled for Fact Metrics. We offer two key ways to slice your metrics: Auto Slices and Custom Slices.
+
+### Auto Slices
+
+These metric slices are defined in your [Fact Table](#fact-tables) and can be selectively enabled per each Fact Metric. When using auto slices in your Fact Metric, each slice analysis (a dimension + value pair) will materialize across **all** experiments which use the metric. This allows for a standardized deep-dive analyses across your experiments.
+
+To set up Auto Slices:
 
 1. Navigate to your Fact Table that has the right columns. Ensure the Fact Table SQL is returning the relevant column. If it isn't you can click "Edit SQL" on the Fact Table page, add your column (e.g. `product_type`) to the SELECT statement, and then press "Confirm Changes". Only string columns can be used.
 
@@ -294,25 +300,33 @@ Metric slices are enabled for Fact Metrics. Here are step-by-step instructions:
   <img src="/images/metrics/auto-slices.png" alt="Adding auto slices" />
 </MaxWidthImage>
 
-6. If there are custom slices you want run for a single experiment (e.g., "For this experiment, I want to see how treatment will affect apparel revenue in EU"), please continue reading, otherwise, skip to the next step.  
-   When setting up your experiment, add custom slices after selecting your metrics.
-   These slices will be run for all metrics in this experiment, but for this experiment only.
-   Note that with custom slices you can create combinations from different slices (e.g., apparel revenue in EU"), but not in auto-slices.
-   Finally, custom slices can be created using any string column in your Fact Table that is not an identifier; they are not limited to just the auto-slices columns.
+### Custom Slices
+
+We also allow you to perform custom metric breakdowns across all of your experiment metrics for a single experiment. For example: "For this experiment, I want to see how treatment will affect apparel revenue and average order value in EU". Unlike auto slices, custom slices allow you to create filtering combinations from different columns (e.g., `product_type = 'apparel' and location = 'EU'`).
+
+You can add custom slices when setting up your experiment after selecting your metrics, or at any point afterwards. These slices will be run for all metrics in your experiment, but for that experiment only.
+
+Custom slices can be created using any string column in your Fact Table which is not an identifier; custom slicing is not limited to auto-slices columns.
 
 <MaxWidthImage maxWidth={700}>
   <img src="/images/metrics/custom-slices.png" alt="Adding custom slices" />
 </MaxWidthImage>
 
-When you run an experiment, you will now have the option to split revenue by product type.
-If you click the arrow next to "revenue" on the results page, you will see results split by product type.
-You can also pin an auto-sliced result so that it stays in the results table even when the metric is collapsed or you return to the page.
+### Viewing and pinning metric slices
+
+Using our revenue metric as an example, when you run an experiment you will now have the option to split revenue by product type (auto slice) and/or by "apparel and EU" (custom slice).
+
+If you click the arrow icon next to "revenue" on the experiment results table, you will see these slices expand under the base metric row (revenue), each slice materialized as its own sub-row.
+
+You may "pin" these metric slice rows so that they always render on the results table, even when the metric is collapsed or you return to the page.
 
 <MaxWidthImage maxWidth={800}>
   <img src="/images/metrics/metric-dim-results.png" alt="Metric slice results" />
 </MaxWidthImage>
 
-:::note
+<br />
+
+:::note Note: Dimensions versus Slices
 
 Unit dimensions and experiment dimensions are attributes specific to an experimental unit (e.g. user).
 In contrast, metric slices are an attribute specific to a metric.
@@ -322,8 +336,7 @@ In a dimension analysis (i.e. a unit dimension analysis), all of Romain's spend 
 In a metric slice analysis, only the French products purchased will be attributed to French revenue, and only the German products purchased will be attributed to German revenue.
 So one user will always be mapped to a single user dimension, but can contribute to multiple metric slices.
 
-All users contribute to a metric slice.  
-This provides the most accurate inference, as trying to filter down the denominator can cause bias issues if you allow users to switch between different dimension levels.
+All users (units) contribute to a metric slice. This provides the most accurate inference, as trying to filter down the denominator can cause bias issues if you allow users to switch between different dimension levels.
 
 :::
 

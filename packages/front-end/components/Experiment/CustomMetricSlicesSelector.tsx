@@ -1,6 +1,11 @@
 import React, { useState, useMemo } from "react";
 import { FaTimes, FaPlusCircle } from "react-icons/fa";
-import { PiPencilSimpleFill, PiX, PiStackBold } from "react-icons/pi";
+import {
+  PiPencilSimpleFill,
+  PiX,
+  PiStackBold,
+  PiArrowSquareOut,
+} from "react-icons/pi";
 import { Text, Flex, IconButton } from "@radix-ui/themes";
 import {
   isFactMetric,
@@ -16,6 +21,7 @@ import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import { DocLink } from "../DocLink";
 
 export interface SliceLevel {
   column: string;
@@ -52,22 +58,18 @@ export default function CustomMetricSlicesSelector({
   setPinnedMetricSlices,
 }: CustomMetricSlicesSelectorProps) {
   const growthbook = useGrowthBook();
+  const hasMetricSlicesFeature = growthbook?.isOn("metric-slices");
+
   const { hasCommercialFeature } = useUser();
 
-  // State for editing
-  const [editingIndex, setEditingIndex] = useState<number | null>(null); // null = not editing, -1 = adding new, >=0 = editing existing
+  const [editState, setEditState] = useState<"adding" | "editing" | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingSliceLevels, setEditingSliceLevels] = useState<SliceLevel[]>(
     [],
   );
   const [addingSlice, setAddingSlice] = useState(false);
 
-  // Feature flags
-  const hasMetricSlicesFeature = growthbook?.isOn("metric-slices");
-
-  // Get all metrics and fact tables with slice analysis enabled
   const { factMetrics, metricGroups, factTables } = useDefinitions();
-
-  // Expand metric groups to individual metrics for all operations
   const expandedGoalMetrics = useMemo(
     () => expandMetricGroups(goalMetrics, metricGroups),
     [goalMetrics, metricGroups],
@@ -90,10 +92,10 @@ export default function CustomMetricSlicesSelector({
     return [...new Set(rawMetricIds)];
   }, [expandedGoalMetrics, expandedSecondaryMetrics, expandedGuardrailMetrics]);
 
-  const { metricsWithStringColumns } = useMemo(() => {
+  const metricsWithStringColumns = useMemo(() => {
     const factTableMap = new Map(factTables.map((table) => [table.id, table]));
 
-    const allMetrics = allMetricIds
+    const applicableMetrics = allMetricIds
       .map((id) => factMetrics.find((m) => m.id === id))
       .filter((metric) => {
         const factTable = metric
@@ -104,7 +106,6 @@ export default function CustomMetricSlicesSelector({
       })
       .map((metric) => {
         const factTable = factTableMap.get(metric!.numerator?.factTableId);
-        // Filter for string columns that are not identifier types
         const stringColumns = factTable?.columns?.filter(
           (col) =>
             col.datatype === "string" &&
@@ -124,38 +125,35 @@ export default function CustomMetricSlicesSelector({
         };
       });
 
-    const metricsWithStringColumns = allMetrics.filter(
+    return applicableMetrics.filter(
       (metric) => metric.stringColumns.length > 0,
     );
-
-    return { metricsWithStringColumns };
   }, [allMetricIds, factMetrics, factTables]);
 
-  // Start editing (either existing entry or new entry)
   const startEditing = (index: number) => {
     setEditingIndex(index);
+    setEditState(index === -1 ? "adding" : "editing");
     if (index === -1) {
       // Adding new entry - start with empty slice-level pair
       setEditingSliceLevels([]);
-      setAddingSlice(true); // Start in adding mode for first slice
+      setAddingSlice(true);
     } else {
       // Editing existing entry
       const levels = customMetricSlices[index];
       setEditingSliceLevels(
         levels.slices.map((s) => ({ column: s.column, levels: s.levels })),
       );
-      setAddingSlice(false); // Don't show slice selector initially
+      setAddingSlice(false);
     }
   };
 
-  // Cancel editing
   const cancelEditing = () => {
+    setEditState(null);
     setEditingIndex(null);
     setEditingSliceLevels([]);
     setAddingSlice(false);
   };
 
-  // Save editing changes
   const saveEditing = () => {
     if (editingSliceLevels.length === 0) return;
 
@@ -173,7 +171,7 @@ export default function CustomMetricSlicesSelector({
 
     // Remove old pinned keys if editing existing entry
     const keysToRemove: string[] = [];
-    if (editingIndex !== null && editingIndex >= 0) {
+    if (editState === "editing" && editingIndex !== null) {
       const oldLevels = customMetricSlices[editingIndex as number];
       const oldSliceLevelsFormatted = oldLevels.slices.map((dl) => ({
         column: dl.column,
@@ -207,7 +205,7 @@ export default function CustomMetricSlicesSelector({
 
     // Update the custom slice levels
     let updatedLevels: CustomMetricSlice[];
-    if (editingIndex === -1) {
+    if (editState === "adding") {
       // Adding new entry
       updatedLevels = [...customMetricSlices, newLevels];
     } else {
@@ -342,11 +340,15 @@ export default function CustomMetricSlicesSelector({
             className="mb-2"
             style={{ color: "var(--color-text-mid)" }}
           >
-            Define custom slices to analyze across all experiment metrics.
+            Define custom slices to analyze across all experiment metrics.{" "}
+            <DocLink docSection="customSlices">
+              Learn More <PiArrowSquareOut />
+            </DocLink>
           </Text>
 
           {customMetricSlices.map((levels, levelsIndex) => {
-            const isEditing = editingIndex === levelsIndex;
+            const isEditing =
+              editState === "editing" && editingIndex === levelsIndex;
 
             return (
               <div key={levelsIndex} className="appbox px-2 py-1 mb-2">
@@ -414,7 +416,7 @@ export default function CustomMetricSlicesSelector({
             );
           })}
 
-          {editingIndex === null ? (
+          {editState === null ? (
             <a
               role="button"
               className="d-inline-block link-purple font-weight-bold mt-1"
@@ -423,7 +425,7 @@ export default function CustomMetricSlicesSelector({
               <FaPlusCircle className="mr-1" />
               Add custom slice
             </a>
-          ) : editingIndex === -1 ? (
+          ) : editState === "adding" ? (
             // Adding new entry
             <div className="appbox px-2 py-1 mb-2">
               <EditingInterface
