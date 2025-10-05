@@ -240,7 +240,8 @@ const NeedingAttention = (): React.ReactElement | null => {
         break;
     }
     return {
-      id: revision.feature?.id,
+      // Need a unique id for each item
+      id: revision.feature?.id + ":::" + revision?.version,
       tags: revision.feature?.tags,
       status: revision?.status,
       version: revision?.version,
