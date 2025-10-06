@@ -197,7 +197,7 @@ function DashboardsTab({
       dashboard={dashboard}
       mutateDefinitions={mutateDashboards}
     >
-      {isEditing && dashboard ? (
+      {canEdit && isEditing && dashboard ? (
         <DashboardWorkspace
           experiment={experiment}
           dashboard={dashboard}

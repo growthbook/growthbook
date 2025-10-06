@@ -3437,7 +3437,9 @@ export async function updateExperimentDashboards({
     .filter((block) => blockHasFieldOfType(block, "snapshotId", isString))
     .filter((block) => block.experimentId === experiment.id);
   const blocksNeedingSnapshot = blocksWithSnapshots.filter(
-    (block) => !snapshotSatisfiesBlock(mainSnapshot, block),
+    (block) =>
+      block.snapshotId.length > 0 &&
+      !snapshotSatisfiesBlock(mainSnapshot, block),
   );
   const previousSnapshotIds = [
     ...new Set(blocksNeedingSnapshot.map((block) => block.snapshotId)),
@@ -3454,9 +3456,13 @@ export async function updateExperimentDashboards({
     [BlockSnapshotSettings, ExperimentSnapshotAnalysisSettings]
   >((block) => {
     const blockSnapshot = previousSnapshotMap.get(block.snapshotId);
-    if (!blockSnapshot || !blockSnapshot.analyses[0])
+    if (!blockSnapshot)
       throw new Error(
         "Error updating dashboard results, could not find snapshot",
+      );
+    if (!blockSnapshot.analyses[0])
+      throw new Error(
+        "Error updating dashboard results, referenced snapshot missing analysis",
       );
     const defaultAnalysis = blockSnapshot.analyses[0];
     return [
