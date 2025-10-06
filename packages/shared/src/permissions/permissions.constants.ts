@@ -46,6 +46,7 @@ export const POLICIES = [
   "SqlExplorerFullAccess",
   "HoldoutsFullAccess",
   "ManageOfficialResources",
+  "GeneralDashboardsFullAccess",
 ] as const;
 
 export type Policy = (typeof POLICIES)[number];
@@ -126,6 +127,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   CustomRolesFullAccess: ["readData", "manageTeam", "manageCustomRoles"],
   CustomFieldsFullAccess: ["readData", "manageCustomFields"],
   TemplatesFullAccess: ["readData", "manageTemplates"],
+  GeneralDashboardsFullAccess: ["readData", "manageGeneralDashboards"],
   SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
   HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
   ManageOfficialResources: [
@@ -396,6 +398,11 @@ export const POLICY_METADATA_MAP: Record<
     description:
       "Create, edit, and delete official resources. For example: Manage resources like Fact Tables, Metrics, Segments, etc that have been marked as 'Official'.",
   },
+  GeneralDashboardsFullAccess: {
+    displayName: "General Dashboards Full Access",
+    description:
+      "Create, edit, and delete general dashboards used for building Product Analytics dashboards.",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -552,6 +559,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",
+  "manageGeneralDashboards",
   "manageOfficialResources",
 ] as const;
 
