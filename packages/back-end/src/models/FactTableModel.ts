@@ -203,12 +203,6 @@ export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps,
 ) {
-  if (data.managedBy === "api" && !context.isApiRequest) {
-    throw new Error(
-      "Cannot create fact table managed by API if the request isn't from the API.",
-    );
-  }
-
   if (
     data.managedBy === "admin" &&
     !context.hasPremiumFeature("manage-official-resources")
