@@ -1,30 +1,32 @@
 import { FactTableInterface } from "back-end/types/fact-table";
 import { useMemo, useState } from "react";
-import { FaClock, FaFilter, FaUser, FaLayerGroup } from "react-icons/fa";
-import { BsArrowRepeat } from "react-icons/bs";
+import {
+  PiUserBold,
+  PiClockBold,
+  PiStackBold,
+  PiFunnelBold,
+  PiPencilSimpleFill,
+} from "react-icons/pi";
 import { FaTriangleExclamation } from "react-icons/fa6";
+import { IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Button";
-import { GBEdit } from "@/components/Icons";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
+import Avatar from "@/ui/Avatar";
 import ColumnModal from "./ColumnModal";
 
 export interface Props {
   factTable: FactTableInterface;
+  canEdit?: boolean;
 }
 
-export default function ColumnList({ factTable }: Props) {
+export default function ColumnList({ factTable, canEdit = false }: Props) {
   const [editOpen, setEditOpen] = useState("");
-
   const { mutateDefinitions } = useDefinitions();
-
   const { apiCall } = useAuth();
-
-  const permissionsUtil = usePermissionsUtil();
 
   const availableColumns = useMemo(() => {
     return (factTable.columns || []).filter((col) => !col.deleted);
@@ -49,8 +51,6 @@ export default function ColumnList({ factTable }: Props) {
       searchFields: ["name^3", "description", "column^2"],
       pageSize: 10,
     });
-
-  const canEdit = permissionsUtil.canViewEditFactTableModal(factTable);
 
   const existing = editOpen
     ? factTable.columns.find((c) => c.column === editOpen)
@@ -85,23 +85,26 @@ export default function ColumnList({ factTable }: Props) {
             />
           </div>
         )}
-        <div className="col-auto">
-          <Button
-            color="link"
-            onClick={async () => {
-              await apiCall(
-                `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
-                {
-                  method: "PUT",
-                  body: JSON.stringify({}),
-                },
-              );
-              mutateDefinitions();
-            }}
-          >
-            <BsArrowRepeat style={{ marginTop: -1 }} /> Refresh
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="col-auto">
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={async () => {
+                await apiCall(
+                  `/fact-tables/${factTable.id}?forceColumnRefresh=1`,
+                  {
+                    method: "PUT",
+                    body: JSON.stringify({}),
+                  },
+                );
+                mutateDefinitions();
+              }}
+            >
+              Refresh
+            </Button>
+          </div>
+        )}
       </div>
       {columns.some((col) => !col.deleted && col.datatype === "") && (
         <div className="alert alert-warning mt-2">
@@ -126,34 +129,65 @@ export default function ColumnList({ factTable }: Props) {
               {items.map((col) => (
                 <tr key={col.column}>
                   <td>
-                    {col.identifier && (
-                      <Tooltip body="User Identifier Type">
-                        <span className="badge badge-purple">
-                          <FaUser />
-                        </span>
-                      </Tooltip>
-                    )}
-                    {col.column === "timestamp" && (
-                      <Tooltip body="Main date field used for sorting and filtering">
-                        <span className="badge badge-purple">
-                          <FaClock />
-                        </span>
-                      </Tooltip>
-                    )}
-                    {col.isDimension && (
-                      <Tooltip body="Dimension">
-                        <span className="badge badge-purple">
-                          <FaLayerGroup />
-                        </span>
-                      </Tooltip>
-                    )}
-                    {col.alwaysInlineFilter && (
-                      <Tooltip body="Prompt all metrics to filter on this column">
-                        <span className="badge badge-purple">
-                          <FaFilter />
-                        </span>
-                      </Tooltip>
-                    )}
+                    <div
+                      className="d-flex align-items-center"
+                      style={{ minHeight: 32 }}
+                    >
+                      {col.identifier && (
+                        <Tooltip body="User Identifier Type" tipPosition="left">
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiUserBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.column === "timestamp" && (
+                        <Tooltip
+                          body="Main date field used for sorting and filtering"
+                          tipPosition="left"
+                        >
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiClockBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.isAutoSliceColumn && (
+                        <Tooltip body="Auto Slices enabled" tipPosition="left">
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiStackBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                      {col.alwaysInlineFilter && (
+                        <Tooltip
+                          body="Prompt all metrics to filter on this column"
+                          tipPosition="left"
+                        >
+                          <Avatar
+                            size="sm"
+                            color="violet"
+                            variant="soft"
+                            radius="small"
+                          >
+                            <PiFunnelBold size={14} />
+                          </Avatar>
+                        </Tooltip>
+                      )}
+                    </div>
                   </td>
                   <td>{col.column}</td>
                   <td>{col.name !== col.column ? `"${col.name}"` : ""}</td>
@@ -169,17 +203,19 @@ export default function ColumnList({ factTable }: Props) {
                     )}
                   </td>
                   <td>
-                    {canEdit && (
-                      <button
-                        className="btn btn-link btn-sm"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditOpen(col.column);
-                        }}
-                      >
-                        <GBEdit />
-                      </button>
-                    )}
+                    <div className="d-flex align-items-center px-1">
+                      {canEdit && (
+                        <IconButton
+                          size="2"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditOpen(col.column);
+                          }}
+                        >
+                          <PiPencilSimpleFill size={14} />
+                        </IconButton>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

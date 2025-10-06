@@ -1,8 +1,11 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { Box } from "@radix-ui/themes";
-import { FactTableInterface } from "back-end/types/fact-table";
+import { Box, Text } from "@radix-ui/themes";
+import {
+  FactTableInterface,
+  FactMetricInterface,
+} from "back-end/types/fact-table";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -18,9 +21,7 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import SortedTags from "@/components/Tags/SortedTags";
-import FactMetricList, {
-  getMetricsForFactTable,
-} from "@/components/FactTables/FactMetricList";
+import FactMetricList from "@/components/FactTables/FactMetricList";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
@@ -32,6 +33,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
+
+export function getMetricsForFactTable(
+  factMetrics: FactMetricInterface[],
+  factTable: string,
+) {
+  return factMetrics.filter(
+    (m) =>
+      m.numerator.factTableId === factTable ||
+      (m.denominator && m.denominator.factTableId === factTable),
+  );
+}
 
 export default function FactTablePage() {
   const router = useRouter();
@@ -66,6 +78,8 @@ export default function FactTablePage() {
   } = useDefinitions();
   const factTable = getFactTableById(ftid as string);
 
+  const metrics = getMetricsForFactTable(factMetrics, factTable?.id || "");
+
   if (!ready) return <LoadingOverlay />;
 
   if (!factTable) {
@@ -88,7 +102,7 @@ export default function FactTablePage() {
     canDelete = false;
   }
 
-  const numMetrics = getMetricsForFactTable(factMetrics, factTable.id).length;
+  const numMetrics = metrics.length;
   const numFilters = factTable.filters.length;
 
   return (
@@ -350,7 +364,7 @@ export default function FactTablePage() {
         </div>
       </div>
 
-      <Frame>
+      <Frame px="5" pt="3" pb="4">
         <MarkdownInlineEdit
           canEdit={canEdit}
           canCreate={canEdit}
@@ -366,6 +380,7 @@ export default function FactTablePage() {
           }}
         />
       </Frame>
+
       <div className="row mb-4">
         <div className="col col-md-6 d-flex flex-column">
           <h3>SQL Definition</h3>
@@ -400,7 +415,7 @@ export default function FactTablePage() {
         <div className="col col-md-6 d-flex flex-column">
           <h3>Columns</h3>
           <div className="appbox p-3 flex-1 mb-0">
-            <ColumnList factTable={factTable} />
+            <ColumnList factTable={factTable} canEdit={canEdit} />
           </div>
         </div>
       </div>
@@ -431,24 +446,25 @@ export default function FactTablePage() {
           <TabsContent value="metrics">
             <h3>Metrics</h3>
             <div className="mb-5">
-              <div className="mb-1">
+              <Text as="div" mb="2" color="gray">
                 Metrics are built on top of Columns and Filters. These are what
                 you use as Goals and Guardrails in experiments. This page only
                 shows metrics tied to this Fact Table.{" "}
                 <Link href="/metrics">View all Metrics</Link>
-              </div>
+              </Text>
               <div className="appbox p-3">
-                <FactMetricList factTable={factTable} />
+                <FactMetricList factTable={factTable} metrics={metrics} />
               </div>
             </div>
           </TabsContent>
+
           <TabsContent value="filters">
             <h3>Row Filters</h3>
-            <div className="mb-1">
+            <Text as="div" mb="2" color="gray">
               Row Filters let you write SQL to limit the rows that are included
               in a metric. Save commonly used filters here and resue them across
               multiple metrics.
-            </div>
+            </Text>
             <div className="appbox p-3 flex-1">
               <FactFilterList factTable={factTable} />
             </div>

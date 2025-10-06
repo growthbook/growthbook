@@ -43,8 +43,8 @@ export interface ColumnInterface {
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;
   deleted: boolean;
-  isDimension?: boolean;
-  dimensionLevels?: string[];
+  isAutoSliceColumn?: boolean;
+  autoSlices?: string[];
 }
 
 export interface FactFilterInterface {

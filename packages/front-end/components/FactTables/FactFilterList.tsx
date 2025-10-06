@@ -5,12 +5,12 @@ import { useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBAddCircle } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 import FactFilterModal from "./FactFilterModal";
 
 export interface Props {
@@ -73,17 +73,15 @@ export default function FactFilterList({ factTable }: Props) {
                 : `You don't have permission to edit this fact table`
             }
           >
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
+            <Button
+              onClick={() => {
                 if (!canAddAndEdit) return;
                 setNewOpen(true);
               }}
               disabled={!canAddAndEdit}
             >
-              <GBAddCircle /> Add Filter
-            </button>
+              Add Filter
+            </Button>
           </Tooltip>
         </div>
       </div>
@@ -125,7 +123,7 @@ export default function FactFilterList({ factTable }: Props) {
                       {canDelete && !filter.managedBy ? (
                         <DeleteButton
                           displayName="Filter"
-                          className="dropdown-item"
+                          className="dropdown-item text-danger"
                           useIcon={false}
                           text="Delete"
                           additionalMessage={

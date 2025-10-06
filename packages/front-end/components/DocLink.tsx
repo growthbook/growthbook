@@ -100,6 +100,8 @@ const docSections = {
   devTools: "/tools/chrome-extension",
   pipelineMode: "/app/data-pipeline",
   holdouts: "/app/holdouts",
+  autoSlices: "/app/metrics#auto-slices",
+  customSlices: "/app/metrics#custom-slices",
 };
 
 export type DocSection = keyof typeof docSections;
