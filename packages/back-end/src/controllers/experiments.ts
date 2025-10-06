@@ -2759,6 +2759,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  preventStartingAnalysis,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2769,6 +2770,7 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  preventStartingAnalysis?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentResultsQueryRunner;
@@ -2845,6 +2847,7 @@ export async function createExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
+    preventStartingAnalysis,
   });
   const snapshot = queryRunner.model;
 

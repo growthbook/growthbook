@@ -39,11 +39,25 @@ import {
 } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import LinkButton from "@/ui/LinkButton";
+import styles from "./NeedingAttention.module.scss";
+
 type FeaturesAndRevisions = FeatureRevisionInterface & {
   feature: FeatureInterface;
   safeRollout: SafeRolloutInterface | undefined;
 };
-import styles from "./NeedingAttention.module.scss";
+
+type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
+  id: string;
+  tags: string[] | undefined;
+  status: string;
+  version: number;
+  dateCreated: Date;
+  dateUpdated: Date;
+  project: string | undefined;
+  creator: string | undefined;
+  comment: string;
+  dateAndStatus: number;
+};
 
 const NeedingAttention = (): React.ReactElement | null => {
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
@@ -81,7 +95,7 @@ const NeedingAttention = (): React.ReactElement | null => {
     filterResults,
   });
   const filterResultsFeatureFlags = useCallback(
-    (items: FeaturesAndRevisions[]) => {
+    (items: ComputedFeaturesAndRevisions[]) => {
       return items.filter((item) => {
         let safeRolloutDecisionStatus;
         let hasDaysLeft = true;
@@ -226,7 +240,8 @@ const NeedingAttention = (): React.ReactElement | null => {
         break;
     }
     return {
-      id: revision.feature?.id,
+      // Need a unique id for each item
+      id: revision.feature?.id + ":::" + revision?.version,
       tags: revision.feature?.tags,
       status: revision?.status,
       version: revision?.version,
@@ -241,7 +256,7 @@ const NeedingAttention = (): React.ReactElement | null => {
   const {
     items: featureFlagsNeedingAttention,
     SortableTH: SortableTHFeatureFlags,
-  } = useSearch({
+  } = useSearch<ComputedFeaturesAndRevisions>({
     items: revisions,
     localStorageKey: "featureFlagsNeedingAttention",
     defaultSortDir: -1,

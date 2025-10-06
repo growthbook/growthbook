@@ -274,7 +274,6 @@ export async function postGenerateSQL(
   let isGA = false;
   const shardedTables = new Map();
   const dbSchemas = new Map();
-  const errors = [];
 
   // check how many tables there are in the information schema:
   const tablesInfo = informationSchema.databases
@@ -447,8 +446,8 @@ export async function postGenerateSQL(
             tableName: table.tableName,
           });
           dbSchemas.set(table.id, tableSchemaData);
-        } catch (error) {
-          errors.push(error);
+        } catch {
+          // Ignoring errors
         }
       } else {
         dbSchemas.set(table.id, tableSchema);
