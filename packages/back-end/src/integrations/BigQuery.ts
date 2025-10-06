@@ -284,7 +284,7 @@ export default class BigQuery extends SqlIntegration {
     bqQueryResultsResponse: QueryResultsResponse,
   ): QueryResponseColumnData[] | undefined {
     const mapField = (field: bq.TableField): QueryResponseColumnData => {
-      let childFields = undefined;
+      let childFields: QueryResponseColumnData[] | undefined = undefined;
       if (field.type === "RECORD" || field.type === "STRUCT") {
         childFields = field.fields
           ?.filter((f) => f.name !== undefined)
