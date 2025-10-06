@@ -58,6 +58,7 @@ export function isMetricGroupId(id: string): boolean {
 export function isFactMetric(
   m: ExperimentMetricInterface,
 ): m is FactMetricInterface {
+  if (!m || typeof m !== "object") return false;
   return "metricType" in m;
 }
 
@@ -1603,6 +1604,7 @@ export function expandAllSliceMetricsInMap({
   const baseMetrics = baseMetricIds.map((m) => metricMap.get(m)!);
 
   for (const metric of baseMetrics) {
+    if (!metric) continue;
     if (!isFactMetric(metric)) continue;
 
     const factTable = factTableMap.get(metric.numerator.factTableId);
