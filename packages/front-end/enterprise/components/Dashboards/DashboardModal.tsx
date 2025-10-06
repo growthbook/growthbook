@@ -23,16 +23,22 @@ export default function DashboardModal({
   initial,
   close,
   submit,
+  type = "experiment",
 }: {
   mode: "create" | "edit" | "duplicate";
   initial?: CreateDashboardArgs["data"];
   close: () => void;
   submit: (data: CreateDashboardArgs["data"]) => void;
+  type?: "general" | "experiment";
 }) {
   const defaultRefreshInterval = getExperimentRefreshFrequency();
   const {
     settings: { updateSchedule },
+    hasCommercialFeature,
   } = useUser();
+
+  // For general dashboards, auto-updates don't make sense since there's no experiment to update from
+  const isGeneralDashboard = type === "general";
 
   const refreshInterval = useMemo(() => {
     if (!updateSchedule) return `every ${defaultRefreshInterval} hours`;
@@ -54,12 +60,26 @@ export default function DashboardModal({
     editLevel: "organization" | "private";
     enableAutoUpdates: boolean;
   }>({
-    defaultValues: initial ?? defaultFormInit,
+    defaultValues: initial ?? {
+      ...defaultFormInit,
+      // For general dashboards, disable auto-updates by default
+      enableAutoUpdates: isGeneralDashboard
+        ? false
+        : defaultFormInit.enableAutoUpdates,
+    },
   });
 
   useEffect(() => {
-    form.reset(initial || defaultFormInit);
-  }, [form, initial]);
+    form.reset(
+      initial || {
+        ...defaultFormInit,
+        // For general dashboards, disable auto-updates by default
+        enableAutoUpdates: isGeneralDashboard
+          ? false
+          : defaultFormInit.enableAutoUpdates,
+      },
+    );
+  }, [form, initial, isGeneralDashboard]);
 
   return (
     <Modal
@@ -85,7 +105,7 @@ export default function DashboardModal({
           placeholder="Dashboard name"
           {...form.register("title")}
         />
-        {refreshInterval && (
+        {refreshInterval && !isGeneralDashboard && (
           <Checkbox
             label="Auto-update dashboard data"
             description={`An automatic data refresh will occur ${refreshInterval}.`}
@@ -96,9 +116,11 @@ export default function DashboardModal({
           />
         )}
 
+        {/* //MKTODO: Make this a premium feature? */}
         <Checkbox
           label="Allow organization members to edit"
           description="Anyone with edit access to this Project can edit this dashboard."
+          disabled={!hasCommercialFeature("dashboards")}
           value={form.watch("editLevel") === "organization"}
           setValue={(checked) => {
             form.setValue("editLevel", checked ? "organization" : "private");

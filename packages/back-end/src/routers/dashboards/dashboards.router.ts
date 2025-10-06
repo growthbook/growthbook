@@ -15,11 +15,12 @@ const dashboardsController = wrapController(rawDashboardsController);
 const dashboardParams = z.object({ id: z.string() }).strict();
 export const createDashboardBody = z
   .object({
-    experimentId: z.string(),
+    experimentId: z.string().optional(),
     title: z.string(),
     editLevel: dashboardEditLevel,
     enableAutoUpdates: z.boolean(),
     blocks: z.array(createDashboardBlockInterface),
+    projects: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -28,6 +29,7 @@ export const updateDashboardBody = z
     title: z.string().optional(),
     editLevel: dashboardEditLevel.optional(),
     enableAutoUpdates: z.boolean().optional(),
+    projects: z.array(z.string()).optional(),
     blocks: z
       .array(z.union([createDashboardBlockInterface, dashboardBlockInterface]))
       .optional(),

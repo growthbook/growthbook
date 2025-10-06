@@ -20,8 +20,28 @@ import {
   DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING,
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
+import Button from "@/ui/Button";
 import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO } from "..";
 import EditSingleBlock from "./EditSingleBlock";
+
+// Block types that are allowed in general dashboards (non-experiment specific)
+const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
+  "markdown",
+  "sql-explorer",
+  "metric-explorer",
+];
+
+// Helper function to check if a block type is allowed for the given dashboard type
+const isBlockTypeAllowed = (
+  blockType: DashboardBlockType,
+  isGeneralDashboard: boolean,
+): boolean => {
+  if (isGeneralDashboard) {
+    return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
+  } else {
+    return true; // All block types are allowed for experiment dashboards
+  }
+};
 
 function moveBlocks<T>(
   blocks: Array<T>,
@@ -37,7 +57,8 @@ function moveBlocks<T>(
 }
 
 interface Props {
-  experiment: ExperimentInterfaceStringDates;
+  experiment: ExperimentInterfaceStringDates | null;
+  isGeneralDashboard?: boolean;
   open: boolean;
   cancel: () => void;
   submit: () => void;
@@ -60,6 +81,7 @@ interface Props {
 
 export default function DashboardEditorSidebar({
   experiment,
+  isGeneralDashboard = false,
   open,
   cancel,
   submit,
@@ -105,67 +127,79 @@ export default function DashboardEditorSidebar({
       <Text style={{ color: "var(--color-text-mid)" }}>
         Click to add blocks.
       </Text>
-      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
-        <Flex
-          direction="column"
-          gap="2"
-          align="start"
-          key={`${subgroup}-${i}`}
-          width="100%"
-        >
-          <Text
-            weight="medium"
-            size="1"
-            style={{
-              color: "var(--color-text-high)",
-              textTransform: "uppercase",
-            }}
+      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
+        // Filter block types based on dashboard type
+        const allowedBlockTypes = blockTypes.filter((bType) =>
+          isBlockTypeAllowed(bType, isGeneralDashboard),
+        );
+
+        // Don't render the subgroup if no block types are allowed
+        if (allowedBlockTypes.length === 0) {
+          return null;
+        }
+
+        return (
+          <Flex
+            direction="column"
+            gap="2"
+            align="start"
+            key={`${subgroup}-${i}`}
+            width="100%"
           >
-            {subgroup}
-          </Text>
-          {blockTypes.map((bType) => (
-            <a
-              href="#"
-              key={bType}
-              onClick={(e) => {
-                e.preventDefault();
-                addBlockType(bType);
-              }}
+            <Text
+              weight="medium"
+              size="1"
               style={{
-                display: "block",
-                padding: "5px",
-                margin: "0 -5px",
-                width: "100%",
-                borderRadius: "6px",
+                color: "var(--color-text-high)",
+                textTransform: "uppercase",
               }}
-              className="hover-show no-underline hover-border-violet"
             >
-              <Flex align="center">
-                <Avatar
-                  radius="small"
-                  color="indigo"
-                  variant="soft"
-                  mr="2"
-                  size="sm"
-                >
-                  {BLOCK_TYPE_INFO[bType].icon}
-                </Avatar>
-                <Text
-                  size="2"
-                  weight="regular"
-                  style={{ color: "var(--color-text-high" }}
-                >
-                  {BLOCK_TYPE_INFO[bType].name}
-                </Text>
-                <div style={{ flex: 1 }} />
-                <Text color="violet" className="ml-auto show-target instant">
-                  <PiPlusCircle /> Add
-                </Text>
-              </Flex>
-            </a>
-          ))}
-        </Flex>
-      ))}
+              {subgroup}
+            </Text>
+            {allowedBlockTypes.map((bType) => (
+              <a
+                href="#"
+                key={bType}
+                onClick={(e) => {
+                  e.preventDefault();
+                  addBlockType(bType);
+                }}
+                style={{
+                  display: "block",
+                  padding: "5px",
+                  margin: "0 -5px",
+                  width: "100%",
+                  borderRadius: "6px",
+                }}
+                className="hover-show no-underline hover-border-violet"
+              >
+                <Flex align="center">
+                  <Avatar
+                    radius="small"
+                    color="indigo"
+                    variant="soft"
+                    mr="2"
+                    size="sm"
+                  >
+                    {BLOCK_TYPE_INFO[bType].icon}
+                  </Avatar>
+                  <Text
+                    size="2"
+                    weight="regular"
+                    style={{ color: "var(--color-text-high" }}
+                  >
+                    {BLOCK_TYPE_INFO[bType].name}
+                  </Text>
+                  <div style={{ flex: 1 }} />
+                  <Text color="violet" className="ml-auto show-target instant">
+                    <PiPlusCircle /> Add
+                  </Text>
+                </Flex>
+              </a>
+            ))}
+          </Flex>
+        );
+      })}
     </Flex>
   );
 
@@ -198,13 +232,24 @@ export default function DashboardEditorSidebar({
         }}
       >
         {isDefined(stagedBlock) ? (
-          <EditSingleBlock
-            experiment={experiment}
-            cancel={cancel}
-            submit={submit}
-            block={stagedBlock}
-            setBlock={setStagedBlock}
-          />
+          // Only render EditSingleBlock if we have an experiment or if it's a general dashboard block
+          experiment ||
+          GENERAL_DASHBOARD_BLOCK_TYPES.includes(stagedBlock.type) ? (
+            <EditSingleBlock
+              experiment={experiment}
+              cancel={cancel}
+              submit={submit}
+              block={stagedBlock}
+              setBlock={setStagedBlock}
+            />
+          ) : (
+            <div style={{ width: "440px", padding: "20px" }}>
+              <Text>This block type requires an experiment to edit.</Text>
+              <Button onClick={cancel} style={{ marginTop: "10px" }}>
+                Cancel
+              </Button>
+            </div>
+          )
         ) : !blockNavigatorEnabled ? (
           <div style={{ width: "440px" }}>
             <Box px="4" pt="4">

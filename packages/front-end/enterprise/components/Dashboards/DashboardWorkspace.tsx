@@ -17,6 +17,34 @@ import clsx from "clsx";
 import { cloneDeep, pick } from "lodash";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
+
+// Block types that are allowed in general dashboards (non-experiment specific)
+const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
+  "markdown",
+  "sql-explorer",
+  "metric-explorer",
+];
+
+// Block types that are only allowed in experiment dashboards
+const EXPERIMENT_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
+  "experiment-metadata",
+  "experiment-metric",
+  "experiment-dimension",
+  "experiment-time-series",
+  "experiment-traffic",
+];
+
+// Helper function to check if a block type is allowed for the given dashboard type
+const isBlockTypeAllowed = (
+  blockType: DashboardBlockType,
+  isGeneralDashboard: boolean,
+): boolean => {
+  if (isGeneralDashboard) {
+    return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
+  } else {
+    return true; // All block types are allowed for experiment dashboards
+  }
+};
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -30,7 +58,7 @@ export const DASHBOARD_WORKSPACE_NAV_BOTTOM_PADDING = "12px";
 
 interface Props {
   isTabActive: boolean;
-  experiment: ExperimentInterfaceStringDates;
+  experiment: ExperimentInterfaceStringDates | null;
   dashboard: DashboardInterface;
   mutate: () => void;
   submitDashboard: SubmitDashboard<UpdateDashboardArgs>;
@@ -44,6 +72,8 @@ export default function DashboardWorkspace({
   submitDashboard,
   close,
 }: Props) {
+  // Determine if this is a general dashboard (no experiment linked)
+  const isGeneralDashboard = !experiment || dashboard.experimentId === "";
   useEffect(() => {
     const bodyElements = window.document.getElementsByTagName("body");
     for (const element of bodyElements) {
@@ -136,13 +166,31 @@ export default function DashboardWorkspace({
   );
 
   const addBlockType = (bType: DashboardBlockType, index?: number) => {
+    // Validate that the block type is allowed for this dashboard type
+    if (!isBlockTypeAllowed(bType, isGeneralDashboard)) {
+      console.warn(
+        `Block type ${bType} is not allowed for ${isGeneralDashboard ? "general" : "experiment"} dashboards`,
+      );
+      return;
+    }
+
     index = index ?? blocks.length;
-    setStagedAddBlock(
-      CREATE_BLOCK_TYPE[bType]({
-        experiment,
-        metricGroups,
-      }),
-    );
+
+    // For general dashboards, only allow blocks that don't require experiment
+    if (isGeneralDashboard && !GENERAL_DASHBOARD_BLOCK_TYPES.includes(bType)) {
+      console.warn(
+        `Block type ${bType} requires an experiment and cannot be used in general dashboards`,
+      );
+      return;
+    }
+
+    // Create the block with appropriate parameters
+    const blockData = CREATE_BLOCK_TYPE[bType]({
+      experiment: experiment!,
+      metricGroups,
+    });
+
+    setStagedAddBlock(blockData);
     setAddBlockIndex(index);
     setEditSidebarDirty(true);
   };
@@ -282,7 +330,7 @@ export default function DashboardWorkspace({
             blocks={effectiveBlocks}
             isEditing={true}
             enableAutoUpdates={dashboard.enableAutoUpdates}
-            nextUpdate={experiment.nextSnapshotAttempt}
+            nextUpdate={experiment ? experiment.nextSnapshotAttempt : undefined}
             editSidebarDirty={editSidebarDirty}
             focusedBlockIndex={focusedBlockIndex}
             stagedBlockIndex={addBlockIndex ?? editingBlockIndex}
@@ -356,6 +404,7 @@ export default function DashboardWorkspace({
 
           <DashboardEditorSidebar
             experiment={experiment}
+            isGeneralDashboard={isGeneralDashboard}
             open={editSidebarExpanded}
             cancel={clearEditingState}
             submit={() => {

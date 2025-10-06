@@ -80,7 +80,7 @@ const metricSelectorLabels: {
 };
 
 interface Props {
-  experiment: ExperimentInterfaceStringDates;
+  experiment: ExperimentInterfaceStringDates | null;
   cancel: () => void;
   submit: () => void;
   block?: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
@@ -134,6 +134,11 @@ export default function EditSingleBlock({
   );
 
   const metricOptions = useMemo(() => {
+    // For general dashboards without experiment, return empty options
+    if (!experiment) {
+      return [];
+    }
+
     const getMetrics = (metricOrGroupIds: string[]) => {
       const metricIds = expandMetricGroups(metricOrGroupIds, metricGroups);
       return metricIds.map(getExperimentMetricById).filter(isDefined);
@@ -197,6 +202,11 @@ export default function EditSingleBlock({
   }, [experiment, getExperimentMetricById, metricGroups, metricGroupMap]);
 
   const dimensionOptions = useMemo(() => {
+    // For general dashboards without experiment, return empty options
+    if (!experiment) {
+      return [];
+    }
+
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
       precomputedDimensions: getPrecomputedDimensions(
@@ -244,17 +254,19 @@ export default function EditSingleBlock({
   const baselineIndex = blockHasFieldOfType(block, "baselineRow", isNumber)
     ? block.baselineRow
     : 0;
-  const baselineVariation =
-    experiment.variations.find((_, i) => i === baselineIndex) ||
-    experiment.variations[0];
-  const variationOptions = (
-    requireBaselineVariation
-      ? experiment.variations.filter((_, i) => i !== baselineIndex)
-      : experiment.variations
-  ).map((variation) => ({
-    label: variation.name,
-    value: variation.id,
-  }));
+  const baselineVariation = experiment
+    ? experiment.variations.find((_, i) => i === baselineIndex) ||
+      experiment.variations[0]
+    : null;
+  const variationOptions = experiment
+    ? (requireBaselineVariation
+        ? experiment.variations.filter((_, i) => i !== baselineIndex)
+        : experiment.variations
+      ).map((variation) => ({
+        label: variation.name,
+        value: variation.id,
+      }))
+    : [];
   const setVariations = (
     block: Extract<
       DashboardBlockInterfaceOrData<DashboardBlockInterface>,
@@ -516,10 +528,14 @@ export default function EditSingleBlock({
                 onChange={(value) =>
                   setBlock({ ...block, baselineRow: parseInt(value) })
                 }
-                options={experiment.variations.map((variation, i) => ({
-                  label: variation.name,
-                  value: i.toString(),
-                }))}
+                options={
+                  experiment
+                    ? experiment.variations.map((variation, i) => ({
+                        label: variation.name,
+                        value: i.toString(),
+                      }))
+                    : []
+                }
                 formatOptionLabel={({ value, label }) => (
                   <div
                     className={`variation variation${value} with-variation-label d-flex align-items-center`}
@@ -554,9 +570,9 @@ export default function EditSingleBlock({
                 disabled={variationOptions.length < 2}
                 options={variationOptions}
                 formatOptionLabel={({ value, label }) => {
-                  const varIndex = experiment.variations.findIndex(
-                    ({ id }) => id === value,
-                  );
+                  const varIndex = experiment
+                    ? experiment.variations.findIndex(({ id }) => id === value)
+                    : -1;
                   return (
                     <div
                       className={`variation variation${varIndex} with-variation-label d-flex align-items-center`}

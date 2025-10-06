@@ -8,7 +8,7 @@ export const dashboardInterface = z
     id: z.string(),
     uid: z.string(), // Enables sharing/linking to dashboards in future
     organization: z.string(),
-    experimentId: z.string(),
+    experimentId: z.string().optional(), // If an empty string, it's a general dashboard
     isDefault: z.boolean(), // Deprecated
     isDeleted: z.boolean(), // For soft-deletes (currently unused)
     userId: z.string(),
@@ -16,6 +16,7 @@ export const dashboardInterface = z
     enableAutoUpdates: z.boolean(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
+    projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
