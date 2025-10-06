@@ -26,11 +26,13 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { usesEventName } from "@/components/Metrics/MetricForm";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
+import { useUser } from "@/services/UserContext";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -50,6 +52,8 @@ export default function FactTablePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editSQLOpen, setEditSQLOpen] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
@@ -61,6 +65,7 @@ export default function FactTablePage() {
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature } = useUser();
 
   const {
     getFactTableById,
@@ -85,10 +90,17 @@ export default function FactTablePage() {
       </div>
     );
   }
+  const canDuplicate = permissionsUtil.canCreateFactTable({
+    projects: factTable.projects,
+  });
 
-  const canEdit =
-    !factTable.managedBy &&
-    permissionsUtil.canViewEditFactTableModal(factTable);
+  let canEdit = permissionsUtil.canUpdateFactTable(factTable, {});
+  let canDelete = permissionsUtil.canDeleteFactTable(factTable);
+
+  if (factTable.managedBy && ["api", "config"].includes(factTable.managedBy)) {
+    canEdit = false;
+    canDelete = false;
+  }
 
   const numMetrics = metrics.length;
   const numFilters = factTable.filters.length;
@@ -175,6 +187,20 @@ export default function FactTablePage() {
           source="ftid"
         />
       )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          close={() => setShowConvertToOfficialModal(false)}
+          resourceType="Fact Table"
+          onSubmit={async () => {
+            await apiCall(`/fact-tables/${factTable.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ managedBy: "admin" }),
+            });
+            await mutateDefinitions();
+          }}
+          source="fact-table-page"
+        />
+      )}
       <PageHead
         breadcrumb={[
           { display: "Fact Tables", href: "/fact-tables" },
@@ -195,9 +221,9 @@ export default function FactTablePage() {
             <OfficialBadge type="Fact Table" managedBy={factTable.managedBy} />
           </h1>
         </div>
-        {canEdit && (
-          <div className="ml-auto">
-            <MoreMenu>
+        <div className="ml-auto">
+          <MoreMenu>
+            {canEdit && (
               <button
                 className="dropdown-item"
                 onClick={(e) => {
@@ -207,6 +233,22 @@ export default function FactTablePage() {
               >
                 Edit Fact Table
               </button>
+            )}
+            {!factTable.managedBy &&
+            canEdit &&
+            permissionsUtil.canCreateOfficialResources(factTable) &&
+            hasCommercialFeature("manage-official-resources") ? (
+              <button
+                className="dropdown-item"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setShowConvertToOfficialModal(true);
+                }}
+              >
+                Convert to Official Fact Table
+              </button>
+            ) : null}
+            {canDuplicate && (
               <button
                 className="dropdown-item"
                 onClick={(e) => {
@@ -214,11 +256,18 @@ export default function FactTablePage() {
                   setDuplicateFactTable({
                     ...factTable,
                     name: `${factTable.name} (Copy)`,
+                    managedBy:
+                      factTable.managedBy === "admin" &&
+                      permissionsUtil.canCreateOfficialResources(factTable)
+                        ? "admin"
+                        : "",
                   });
                 }}
               >
                 Duplicate Fact Table
               </button>
+            )}
+            {canEdit && (
               <button
                 className="dropdown-item"
                 onClick={async () => {
@@ -235,6 +284,8 @@ export default function FactTablePage() {
               >
                 {factTable.archived ? "Unarchive" : "Archive"} Fact Table
               </button>
+            )}
+            {canDelete && (
               <DeleteButton
                 className="dropdown-item"
                 displayName="Fact Table"
@@ -248,9 +299,9 @@ export default function FactTablePage() {
                   router.push("/fact-tables");
                 }}
               />
-            </MoreMenu>
-          </div>
-        )}
+            )}
+          </MoreMenu>
+        </div>
       </div>
       <div className="row mb-3">
         {projects.length > 0 ? (

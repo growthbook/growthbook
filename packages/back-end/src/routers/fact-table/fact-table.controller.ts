@@ -102,10 +102,6 @@ export const postFactTable = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateFactTable(data)) {
-    context.permissions.throwPermissionError();
-  }
-
   if (!data.datasource) {
     throw new Error("Must specify a data source for this fact table");
   }
@@ -151,10 +147,6 @@ export const putFactTable = async (
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
-  }
-
-  if (!context.permissions.canUpdateFactTable(factTable, data)) {
-    context.permissions.throwPermissionError();
   }
 
   const datasource = await getDataSourceById(context, factTable.datasource);
@@ -291,9 +283,6 @@ export const deleteFactTable = async (
   const factTable = await getFactTable(context, req.params.id);
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
-  }
-  if (!context.permissions.canDeleteFactTable(factTable)) {
-    context.permissions.throwPermissionError();
   }
 
   // check if for fact segments using this before deleting
