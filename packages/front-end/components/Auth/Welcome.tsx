@@ -32,6 +32,21 @@ export default function Welcome({
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
   const { pathname } = useRouter();
 
+  // -------------------------------
+  // Remember-me logic
+  // -------------------------------
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // Prefill saved email if available
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("gb_saved_email");
+    if (savedEmail) {
+      form.setValue("email", savedEmail);
+      setRememberMe(true);
+    }
+  }, [form]);
+  // -------------------------------
+
   useEffect(() => {
     if (pathname === "/invitation") {
       setState("register");
@@ -85,6 +100,15 @@ export default function Welcome({
           if (state === "forgot") {
             setState("forgotSuccess");
           } else {
+            // Save or clear remembered email
+            if (state === "login") {
+              if (rememberMe) {
+                localStorage.setItem("gb_saved_email", data.email);
+              } else {
+                localStorage.removeItem("gb_saved_email");
+              }
+            }
+
             onSuccess(json.token, json.projectId);
           }
         });
@@ -266,7 +290,6 @@ export default function Welcome({
             state === "firsttime") && (
             <div className="mb-3">
               <label className="form-label">Password</label>
-
               <PasswordInput
                 {...form.register("password", { required: true, minLength: 8 })}
                 autoComplete={
@@ -289,6 +312,22 @@ export default function Welcome({
                   </a>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Remember Me (login only) */}
+          {state === "login" && (
+            <div className="form-check mt-2 mb-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="rememberMe"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <label className="form-check-label" htmlFor="rememberMe">
+                Remember me
+              </label>
             </div>
           )}
 
