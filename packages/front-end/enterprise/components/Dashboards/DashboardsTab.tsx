@@ -1,11 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
@@ -14,7 +8,7 @@ import {
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Container, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
-import { dashboardCanAutoUpdate, getBlockData } from "shared/enterprise";
+import { getBlockData } from "shared/enterprise";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -62,8 +56,7 @@ export type SubmitDashboard<
 > = (args: T) => Promise<void>;
 
 export const autoUpdateDisabledMessage =
-  "Automatic updates are disabled for dashboards with Dimension Analyses or SQL Explorer blocks, or when experiment updates are disabled";
-
+  "Your organization settings have disabled automatic refreshing of experiment results";
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
@@ -195,15 +188,6 @@ export default function DashboardsTab({
     [apiCall, experiment.id, mutateDashboards],
   );
 
-  const autoUpdateDisabled = useMemo(
-    () =>
-      dashboard &&
-      (!experiment.autoSnapshots ||
-        !dashboardCanAutoUpdate(dashboard) ||
-        updateSchedule?.type === "never"),
-    [experiment, updateSchedule, dashboard],
-  );
-
   if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
   return (
     <DashboardSnapshotProvider
@@ -248,7 +232,6 @@ export default function DashboardsTab({
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: dashboard.title,
               }}
-              disableAutoUpdate={autoUpdateDisabled}
               submit={async (data) => {
                 await submitDashboard({
                   method: "PUT",
@@ -267,7 +250,6 @@ export default function DashboardsTab({
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: `Copy of ${dashboard.title}`,
               }}
-              disableAutoUpdate={autoUpdateDisabled}
               submit={async (data) => {
                 await submitDashboard({
                   method: "POST",
@@ -457,11 +439,11 @@ export default function DashboardsTab({
                           {canManage && hasDashboardFeature && (
                             <Tooltip
                               body={autoUpdateDisabledMessage}
-                              shouldDisplay={autoUpdateDisabled}
+                              shouldDisplay={updateSchedule?.type === "never"}
                             >
                               <Button
                                 className="dropdown-item"
-                                disabled={autoUpdateDisabled}
+                                disabled={updateSchedule?.type === "never"}
                                 onClick={() =>
                                   submitDashboard({
                                     method: "PUT",
@@ -474,8 +456,7 @@ export default function DashboardsTab({
                                 }
                               >
                                 <Text weight="regular">{`${
-                                  dashboard.enableAutoUpdates &&
-                                  !autoUpdateDisabled
+                                  dashboard.enableAutoUpdates
                                     ? "Disable"
                                     : "Enable"
                                 } Auto-update`}</Text>
@@ -590,6 +571,7 @@ export default function DashboardsTab({
                         isEditing={false}
                         scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
+                        nextUpdate={experiment.nextSnapshotAttempt}
                         setBlock={(i, block) => {
                           const newBlocks = [
                             ...blocks.slice(0, i),

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import {
   blockHasFieldOfType,
   isPersistedDashboardBlock,
+  snapshotSatisfiesBlock,
 } from "shared/enterprise";
 import { isDefined, isString } from "shared/util";
 import { groupBy } from "lodash";
@@ -21,9 +22,14 @@ import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
-import { findSnapshotsByIds } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  deleteSnapshotById,
+  findSnapshotsByIds,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -180,27 +186,50 @@ export async function refreshDashboardData(
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) throw new Error("Failed to find connected datasource");
 
-  const { snapshot: mainSnapshot } = await createExperimentSnapshot({
-    context,
-    experiment,
-    dimension: undefined,
-    datasource,
-    phase: experiment.phases.length - 1,
-    useCache: false,
-    triggeredBy: "manual",
-  });
+  const { snapshot: mainSnapshot, queryRunner } =
+    await createExperimentSnapshot({
+      context,
+      experiment,
+      dimension: undefined,
+      datasource,
+      phase: experiment.phases.length - 1,
+      useCache: false,
+      triggeredBy: "manual-dashboard",
+      type: "standard",
+      preventStartingAnalysis: true,
+    });
 
+  let mainSnapshotUsed = false;
   // Copy the blocks of the dashboard to overwrite their snapshot IDs
-  const newBlocks = dashboard.blocks.map((block) =>
-    blockHasFieldOfType(block, "snapshotId", isString)
-      ? { ...block, snapshotId: mainSnapshot.id }
-      : { ...block },
-  );
+  const newBlocks = dashboard.blocks.map((block) => {
+    if (!blockHasFieldOfType(block, "snapshotId", isString)) return block;
+    if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
+    mainSnapshotUsed = true;
+    return { ...block, snapshotId: mainSnapshot.id };
+  });
+  if (mainSnapshotUsed) {
+    await queryRunner.startAnalysis({
+      snapshotType: "standard",
+      snapshotSettings: mainSnapshot.settings,
+      variationNames: experiment.variations.map((v) => v.name),
+      metricMap: await getMetricMap(context),
+      queryParentId: mainSnapshot.id,
+      factTableMap: await getFactTableMap(context),
+    });
+  } else {
+    await deleteSnapshotById(context.org.id, mainSnapshot.id);
+  }
 
   const dimensionBlockPairs = dashboard.blocks
-    .map<
-      [string, string] | undefined
-    >((block) => (blockHasFieldOfType(block, "dimensionId", isString) ? [block.dimensionId, block.id] : undefined))
+    .map<[string, string] | undefined>((block) => {
+      if (
+        blockHasFieldOfType(block, "dimensionId", isString) &&
+        !snapshotSatisfiesBlock(mainSnapshot, block)
+      ) {
+        return [block.dimensionId, block.id];
+      }
+      return undefined;
+    })
     .filter(isDefined);
 
   // Create a map from dimension -> list of block IDs that use that dimension
@@ -221,7 +250,8 @@ export async function refreshDashboardData(
       datasource,
       phase: experiment.phases.length - 1,
       useCache: false,
-      triggeredBy: "manual",
+      triggeredBy: "manual-dashboard",
+      type: "exploratory",
     });
     newBlocks.forEach((block) => {
       if (blockIds.includes(block.id)) {
@@ -243,7 +273,13 @@ export async function refreshDashboardData(
   ]);
 
   for (const savedQuery of savedQueries) {
-    executeAndSaveQuery(context, savedQuery, datasource);
+    const datasource = await getDataSourceById(
+      context,
+      savedQuery.datasourceId,
+    );
+    if (datasource) {
+      executeAndSaveQuery(context, savedQuery, datasource);
+    }
   }
 
   return res.status(200).json({ status: 200 });
