@@ -203,7 +203,12 @@ export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps,
 ) {
-  if (data.managedBy === "api" && !context.isApiRequest) {
+  if (
+    data.managedBy === "api" &&
+    !context.isApiRequest &&
+    // For managed warehouses, we allow managedBy to be set to "api" when we're creating them for the org
+    data.id !== "ch_events"
+  ) {
     throw new Error(
       "Cannot create fact table managed by API if the request isn't from the API.",
     );
