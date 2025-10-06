@@ -211,7 +211,7 @@ export type SqlExplorerBlockInterface = z.infer<
 const metricExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("metric-explorer"),
-    metricId: z.string(),
+    factMetricId: z.string(),
     analysisSettings: z.union([
       metricAnalysisSettingsValidator,
       metricAnalysisSettingsStringDatesValidator,

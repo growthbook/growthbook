@@ -26,6 +26,7 @@ import {
 import { ErrorBoundary } from "@sentry/react";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
   DropdownMenu,
@@ -62,6 +63,7 @@ import MetricExplorerBlock from "./MetricExplorerBlock";
 interface BlockIdFieldToObjectMap {
   experimentId: ExperimentInterfaceStringDates;
   metricIds: ExperimentMetricInterface[];
+  factMetricId: FactMetricInterface;
   savedQueryId: SavedQuery;
   metricAnalysisId: MetricAnalysisInterface;
 }
@@ -139,6 +141,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   const {
     getExperimentMetricById,
     metricGroups,
+    getFactMetricById,
     ready: definitionsReady,
   } = useDefinitions();
   const [moveBlockOpen, setMoveBlockOpen] = useState(false);
@@ -148,9 +151,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     analysis,
     loading: dashboardSnapshotLoading,
   } = useDashboardSnapshot(block, setBlock);
-  const { savedQueriesMap, loading: dashboardContextLoading } = useContext(
-    DashboardSnapshotContext,
-  );
+  const {
+    metricAnalysesMap,
+    savedQueriesMap,
+    loading: dashboardContextLoading,
+  } = useContext(DashboardSnapshotContext);
   const blockHasSavedQuery = blockHasFieldOfType(
     block,
     "savedQueryId",
@@ -168,6 +173,25 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   }>(`/saved-queries/${blockHasSavedQuery ? block.savedQueryId : ""}`, {
     shouldRun: shouldFetchSavedQuery,
   });
+
+  const blockHasMetricAnalysis = blockHasFieldOfType(
+    block,
+    "metricAnalysisId",
+    isString,
+  );
+  // Use the API directly when the metric analysis hasn't been attached to the dashboard yet (when editing)
+  const shouldFetchMetricAnalysis = () =>
+    blockHasMetricAnalysis && !metricAnalysesMap.has(block.metricAnalysisId);
+  const { data: metricAnalysisData, isLoading: metricAnalysisLoading } =
+    useApi<{
+      status: number;
+      metricAnalysis: MetricAnalysisInterface;
+    }>(
+      `/metric-analysis/${blockHasMetricAnalysis ? block.metricAnalysisId : ""}`,
+      {
+        shouldRun: shouldFetchMetricAnalysis,
+      },
+    );
 
   const BlockComponent = BLOCK_COMPONENTS[block.type] as React.FC<
     BlockProps<T>
@@ -224,6 +248,32 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     };
   }
 
+  const blockMetricAnalysis = blockHasMetricAnalysis
+    ? (metricAnalysesMap.get(block.metricAnalysisId) ??
+      metricAnalysisData?.metricAnalysis)
+    : undefined;
+  if (blockHasMetricAnalysis) {
+    objectProps = {
+      ...objectProps,
+      metricAnalysis: blockMetricAnalysis,
+    };
+  }
+
+  const blockHasFactMetric = blockHasFieldOfType(
+    block,
+    "factMetricId",
+    isString,
+  );
+  const blockFactMetric = blockHasFactMetric
+    ? getFactMetricById(block.factMetricId)
+    : undefined;
+  if (blockHasFactMetric) {
+    objectProps = {
+      ...objectProps,
+      factMetric: blockFactMetric,
+    };
+  }
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollToBlock = () => {
     if (scrollRef.current && scrollAreaRef && scrollAreaRef.current) {
@@ -250,7 +300,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       (block.savedQueryId.length === 0 || !blockSavedQuery)) ||
     (blockHasFieldOfType(block, "dataVizConfigIndex", isNumber) &&
       (block.dataVizConfigIndex === -1 ||
-        !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]));
+        !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex])) ||
+    (blockHasFactMetric &&
+      (block.factMetricId.length === 0 || !blockFactMetric)) ||
+    (blockHasMetricAnalysis &&
+      (block.metricAnalysisId.length === 0 || !blockMetricAnalysis));
 
   const blockMissingHealthCheck =
     block.type === "experiment-traffic" &&
@@ -462,7 +516,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       experimentsLoading ||
       dashboardSnapshotLoading ||
       dashboardContextLoading ||
-      (blockHasSavedQuery && savedQueryLoading) ? (
+      (blockHasSavedQuery && savedQueryLoading) ||
+      (blockHasMetricAnalysis && metricAnalysisLoading) ? (
         <BlockLoadingSnapshot />
       ) : blockNeedsConfiguration ? (
         <BlockNeedsConfiguration block={block} />

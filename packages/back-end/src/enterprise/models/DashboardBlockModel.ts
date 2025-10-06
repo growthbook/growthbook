@@ -112,7 +112,7 @@ const sqlExplorerBlockSchema = new mongoose.Schema({
 });
 
 const metricExplorerBlockSchema = new mongoose.Schema({
-  metricId: String,
+  factMetricId: String,
   analysisSettings: {
     userIdType: String,
     startDate: Date,

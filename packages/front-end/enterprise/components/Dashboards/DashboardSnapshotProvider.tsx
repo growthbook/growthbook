@@ -21,6 +21,7 @@ import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
+import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -31,6 +32,7 @@ export const DashboardSnapshotContext = React.createContext<{
   dimensionless?: ExperimentSnapshotInterface;
   snapshotsMap: Map<string, ExperimentSnapshotInterface>;
   savedQueriesMap: Map<string, SavedQuery>;
+  metricAnalysesMap: Map<string, MetricAnalysisInterface>;
   loading?: boolean;
   error?: Error;
   refreshStatus: QueryStatus;
@@ -44,6 +46,7 @@ export const DashboardSnapshotContext = React.createContext<{
   refreshStatus: "succeeded",
   snapshotsMap: new Map(),
   savedQueriesMap: new Map(),
+  metricAnalysesMap: new Map(),
   allQueries: [],
   mutateSnapshot: async () => {},
   mutateSnapshotsMap: async () => {},
@@ -88,16 +91,18 @@ export default function DashboardSnapshotProvider({
   } = useApi<{
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
+    metricAnalyses: MetricAnalysisInterface[];
   }>(`/dashboards/${dashboard?.id}/snapshots`, {
     shouldRun: () => !!dashboard?.id,
   });
 
   const { mutate: mutateSavedQueries } = useApi(`/saved-queries/`);
 
-  const [allSnapshots, allSavedQueries] = useMemo(
+  const [allSnapshots, allSavedQueries, allMetricAnalyses] = useMemo(
     () => [
       allSnapshotsData?.snapshots || [],
       allSnapshotsData?.savedQueries || [],
+      allSnapshotsData?.metricAnalyses || [],
     ],
     [allSnapshotsData],
   );
@@ -106,6 +111,17 @@ export default function DashboardSnapshotProvider({
     () =>
       new Map(allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery])),
     [allSavedQueries],
+  );
+
+  const metricAnalysesMap = useMemo(
+    () =>
+      new Map(
+        allMetricAnalyses.map((metricAnalysis) => [
+          metricAnalysis.id,
+          metricAnalysis,
+        ]),
+      ),
+    [allMetricAnalyses],
   );
 
   const { status, snapshotsMap, allQueries, snapshotError } = useMemo(() => {
@@ -173,6 +189,7 @@ export default function DashboardSnapshotProvider({
         dimensionless: snapshotData?.dimensionless,
         snapshotsMap,
         savedQueriesMap,
+        metricAnalysesMap,
         error: singleSnapshotError || allSnapshotsError,
         loading: snapshotLoading || allSnapshotsLoading,
         refreshStatus: status,

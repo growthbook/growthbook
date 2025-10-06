@@ -31,6 +31,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -318,6 +319,7 @@ export async function getDashboardSnapshots(
   res: ResponseWithStatusAndError<{
     snapshots: ExperimentSnapshotInterface[];
     savedQueries: SavedQuery[];
+    metricAnalyses: MetricAnalysisInterface[];
   }>,
 ) {
   const context = getContextFromReq(req);
@@ -350,5 +352,23 @@ export async function getDashboardSnapshots(
         .map((block) => block.savedQueryId),
     ),
   ]);
-  return res.status(200).json({ status: 200, snapshots, savedQueries });
+  const metricAnalyses = await context.models.metricAnalysis.getByIds([
+    ...new Set(
+      dashboard.blocks
+        .filter(
+          (
+            block,
+          ): block is Extract<
+            DashboardBlockInterface,
+            { metricAnalysisId: string }
+          > =>
+            blockHasFieldOfType(block, "metricAnalysisId", isString) &&
+            block.metricAnalysisId.length > 0,
+        )
+        .map((block) => block.metricAnalysisId),
+    ),
+  ]);
+  return res
+    .status(200)
+    .json({ status: 200, snapshots, savedQueries, metricAnalyses });
 }

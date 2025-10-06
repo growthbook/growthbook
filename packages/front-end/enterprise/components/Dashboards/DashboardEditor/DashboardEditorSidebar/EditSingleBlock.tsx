@@ -100,6 +100,7 @@ export default function EditSingleBlock({
     metricGroups,
     getExperimentMetricById,
     getDatasourceById,
+    factMetrics,
   } = useDefinitions();
   const {
     data: savedQueriesData,
@@ -125,6 +126,12 @@ export default function EditSingleBlock({
     : [];
 
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
+
+  // TODO: does this need to handle metric groups
+  const factMetricOptions = useMemo(
+    () => factMetrics.map((m) => ({ label: m.name, value: m.id })),
+    [factMetrics],
+  );
 
   const metricOptions = useMemo(() => {
     const getMetrics = (metricOrGroupIds: string[]) => {
@@ -379,19 +386,16 @@ export default function EditSingleBlock({
                 </Grid>
               </>
             )}
-            {blockHasFieldOfType(block, "metricId", isString) && (
+            {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
                 label="Metric"
                 labelClassName="font-weight-bold"
-                value={block.metricId}
+                value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {
-                  setBlock({ ...block, metricId: value });
+                  setBlock({ ...block, factMetricId: value });
                 }}
-                // Can't select metric groups for a single metric block
-                options={metricOptions.filter(
-                  ({ label }) => label !== "Metric Groups",
-                )}
+                options={factMetricOptions}
                 formatOptionLabel={({ value }, { context }) => (
                   <MetricName
                     id={value}

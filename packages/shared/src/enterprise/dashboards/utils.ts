@@ -224,7 +224,7 @@ export const CREATE_BLOCK_TYPE: {
     type: "metric-explorer",
     title: "",
     description: "",
-    metricId: "",
+    factMetricId: "",
     analysisSettings: {
       lookbackDays: 30,
       startDate: new Date(Date.now() - 30 * 24 * 3600 * 1000),
