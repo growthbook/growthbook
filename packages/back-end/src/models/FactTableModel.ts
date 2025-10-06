@@ -204,17 +204,6 @@ export async function createFactTable(
   data: CreateFactTableProps,
 ) {
   if (
-    data.managedBy === "api" &&
-    !context.isApiRequest &&
-    // For managed warehouses, we allow managedBy to be set to "api" when we're creating them for the org
-    data.id !== "ch_events"
-  ) {
-    throw new Error(
-      "Cannot create fact table managed by API if the request isn't from the API.",
-    );
-  }
-
-  if (
     data.managedBy === "admin" &&
     !context.hasPremiumFeature("manage-official-resources")
   ) {
