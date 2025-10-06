@@ -108,9 +108,9 @@ export default function DashboardSnapshotProvider({
     const allQueries = allSnapshots.flatMap(
       (snapshot) => snapshot.queries || [],
     );
-    const snapshotError = snapshotsMap
-      .values()
-      .find((snapshot) => snapshot.error)?.error;
+    const snapshotError = allSnapshots.find(
+      (snapshot) => snapshot.error,
+    )?.error;
     const { status } = getQueryStatus(allQueries, snapshotError);
 
     return { status, snapshotsMap, allQueries, snapshotError };
