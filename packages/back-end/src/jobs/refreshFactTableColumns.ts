@@ -168,18 +168,15 @@ export async function runRefreshColumnsQuery(
     }
   });
 
-  // Remove columns that we already know the type of from the first result
-  // so we can determine the types of the remaining columns
-  const resultWithoutKnownColumns = result.results?.[0];
-  if (resultWithoutKnownColumns) {
-    for (const col of Object.keys(resultWithoutKnownColumns)) {
-      if (typeMap.has(col)) {
-        delete resultWithoutKnownColumns[col];
-      }
+  const resultsWithoutKnownColumns = result.results.map((row) => {
+    const filteredRow: Record<string, unknown> = {};
+    for (const columnName in row) {
+      if (!typeMap.has(columnName)) filteredRow[columnName] = row[columnName];
     }
-  }
+    return filteredRow;
+  });
 
-  determineColumnTypes([resultWithoutKnownColumns]).forEach((col) => {
+  determineColumnTypes(resultsWithoutKnownColumns).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
       jsonMap.set(col.column, col.jsonFields);
