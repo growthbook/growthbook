@@ -203,24 +203,31 @@ export async function createFactTable(
   context: ReqContext | ApiReqContext,
   data: CreateFactTableProps,
 ) {
+  if (data.managedBy === "api" && !context.isApiRequest) {
+    throw new Error(
+      "Cannot create fact table managed by API if the request isn't from the API.",
+    );
+  }
+
+  if (
+    data.managedBy === "admin" &&
+    !context.hasPremiumFeature("manage-official-resources")
+  ) {
+    throw new Error(
+      "Your organization's plan does not support creating official fact tables.",
+    );
+  }
+
+  if (!context.permissions.canCreateFactTable(data)) {
+    context.permissions.throwPermissionError();
+  }
+
   const doc = await FactTableModel.create(
     createPropsToInterface(context, data),
   );
 
   const factTable = toInterface(doc);
   return factTable;
-}
-
-export async function createFactTables(
-  context: ReqContext,
-  factTables: Omit<CreateFactTableProps, "datasource">[],
-  datasource: string,
-): Promise<FactTableInterface[]> {
-  const factTablesToCreate = factTables.map((factTable) =>
-    createPropsToInterface(context, { ...factTable, datasource }),
-  );
-
-  return (await FactTableModel.insertMany(factTablesToCreate)).map(toInterface);
 }
 
 export async function updateFactTable(
@@ -238,7 +245,13 @@ export async function updateFactTable(
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
-    throw new Error("This fact table is managed by the API");
+    throw new Error(
+      "Cannot update fact table managed by API if the request isn't from the API.",
+    );
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, changes)) {
+    context.permissions.throwPermissionError();
   }
 
   await FactTableModel.updateOne(
@@ -417,7 +430,13 @@ export async function deleteFactTable(
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
   ) {
-    throw new Error("This fact table is managed by the API");
+    throw new Error(
+      "Cannot delete fact table managed by API if the request isn't from the API.",
+    );
+  }
+
+  if (!context.permissions.canDeleteFactTable(factTable)) {
+    context.permissions.throwPermissionError();
   }
 
   await FactTableModel.deleteOne({
