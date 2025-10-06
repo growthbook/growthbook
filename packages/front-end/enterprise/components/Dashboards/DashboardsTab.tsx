@@ -9,6 +9,7 @@ import {
 import { Container, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import { getBlockData } from "shared/enterprise";
+import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -25,6 +26,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Callout from "@/ui/Callout";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
@@ -67,7 +69,7 @@ interface Props {
   mutateExperiment?: () => void;
 }
 
-export default function DashboardsTab({
+function DashboardsTab({
   experiment,
   initialDashboardId,
   isTabActive,
@@ -610,3 +612,7 @@ export default function DashboardsTab({
     </DashboardSnapshotProvider>
   );
 }
+
+export default withErrorBoundary(DashboardsTab, {
+  fallback: <Callout status="error">Failed to load dashboards</Callout>,
+});
