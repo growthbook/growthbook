@@ -89,6 +89,8 @@ export type BanditMetricData = Pick<
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"
+  | "numeratorSourceIndex"
+  | "denominatorSourceIndex"
 >;
 
 export type VariationPeriodWeight = {
