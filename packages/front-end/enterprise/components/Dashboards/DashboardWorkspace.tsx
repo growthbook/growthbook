@@ -329,6 +329,7 @@ export default function DashboardWorkspace({
             title={dashboard.title}
             blocks={effectiveBlocks}
             isEditing={true}
+            isGeneralDashboard={isGeneralDashboard}
             enableAutoUpdates={dashboard.enableAutoUpdates}
             nextUpdate={experiment ? experiment.nextSnapshotAttempt : undefined}
             editSidebarDirty={editSidebarDirty}

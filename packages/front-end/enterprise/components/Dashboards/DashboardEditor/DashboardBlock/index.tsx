@@ -296,6 +296,19 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
 
   const canEditTitle = isEditing && disableBlock === "none" && !isFocused;
 
+  // Only experiment-result blocks require experiment snapshots/analysis.
+  // Non-experiment blocks (e.g., markdown, experiment-metadata) should not show
+  // "No data yet" just because there's no snapshot.
+  const experimentResultBlockTypes = [
+    "experiment-metric",
+    "experiment-dimension",
+    "experiment-time-series",
+    "experiment-traffic",
+  ] as const;
+  const requiresSnapshot = (
+    experimentResultBlockTypes as readonly string[]
+  ).includes(block.type as string);
+
   return (
     <Flex
       ref={scrollRef}
@@ -329,7 +342,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           }}
         ></div>
       )}
-
       {isEditing && (
         <DropdownMenu
           open={moveBlockOpen}
@@ -493,7 +505,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         )}
       </Flex>
       <Text>{block.description}</Text>
-
       {/* Check for possible error states to ensure block component has all necessary data */}
       {!definitionsReady ||
       experimentsLoading ||
@@ -505,7 +516,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         <BlockLoadingSnapshot />
       ) : blockNeedsConfiguration ? (
         <BlockNeedsConfiguration block={block} />
-      ) : !snapshot || !analysis || !analysis.results[0] ? (
+      ) : requiresSnapshot &&
+        (!snapshot || !analysis || !analysis.results[0]) ? (
         <BlockMissingData />
       ) : blockMissingHealthCheck ? (
         <BlockMissingHealthCheck />
@@ -523,8 +535,16 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             block={block}
             setBlock={setBlock}
             isEditing={isEditing}
-            snapshot={snapshot}
-            analysis={analysis}
+            snapshot={
+              requiresSnapshot
+                ? (snapshot as ExperimentSnapshotInterface)
+                : ({} as ExperimentSnapshotInterface)
+            }
+            analysis={
+              requiresSnapshot
+                ? (analysis as ExperimentSnapshotAnalysis)
+                : ({} as ExperimentSnapshotAnalysis)
+            }
             mutate={mutate}
             // objectProps should be validated above to actually contain all the keys and not be Partial
             {...(objectProps as unknown as ObjectProps<T>)}

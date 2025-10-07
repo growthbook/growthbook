@@ -96,8 +96,6 @@ export default function DashboardsPage() {
     [apiCall, mutateDashboards, project],
   );
 
-  // if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
-
   if (loading) return <LoadingOverlay />;
 
   return (

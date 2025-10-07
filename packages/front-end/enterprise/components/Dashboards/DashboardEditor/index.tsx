@@ -7,6 +7,7 @@ import {
   PiFileSqlDuotone,
   PiListDashesDuotone,
   PiArticleMediumDuotone,
+  PiPencilSimpleFill,
 } from "react-icons/pi";
 import {
   DashboardBlockInterfaceOrData,
@@ -152,6 +153,9 @@ interface Props {
   deleteBlock: (index: number) => void;
   mutate: () => void;
   switchToExperimentView?: () => void;
+  isGeneralDashboard: boolean;
+  setIsEditing?: (v: boolean) => void;
+  canShare?: boolean;
 }
 
 function DashboardEditor({
@@ -173,6 +177,9 @@ function DashboardEditor({
   deleteBlock,
   mutate,
   switchToExperimentView,
+  isGeneralDashboard = false,
+  setIsEditing,
+  canShare = false,
 }: Props) {
   const renderSingleBlock = ({
     i,
@@ -304,6 +311,29 @@ function DashboardEditor({
           disabled={editSidebarDirty}
           isEditing={isEditing}
         />
+        {isGeneralDashboard && setIsEditing && !isEditing ? (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {}}
+              disabled={!canShare}
+              className="mx-4"
+            >
+              {/* //MKTODO: Wire this up and disable if the org doesn't have the
+          commercial feature */}
+              Share
+            </Button>
+            <Button
+              variant="solid"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+            >
+              <PiPencilSimpleFill className="mr-2" />
+              Edit
+            </Button>
+          </>
+        ) : null}
       </Flex>
       <div>
         <div>
