@@ -52,6 +52,7 @@ import {
 } from "@/components/Experiment/PreLaunchChecklist";
 import { SafeRolloutRuleCreateFields } from "@/components/Features/RuleModal";
 import { useDefinitions } from "./DefinitionsContext";
+import { getScopedSettings } from "shared/settings";
 
 export { generateVariationId } from "shared/util";
 
@@ -1408,6 +1409,8 @@ export function useFeatureExperimentChecklists({
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }) {
   const allEnvironments = useEnvironments();
+  const { organization } = useUser();
+  const { getProjectById } = useDefinitions();
 
   const { data: checklistData } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
@@ -1441,6 +1444,16 @@ export function useFeatureExperimentChecklists({
           connection.projects.includes(exp.project || ""),
       );
 
+
+      const pid = exp.project;
+      const project = exp.project ? getProjectById(exp.project) : null;
+
+      const { settings: scopedSettings } = getScopedSettings({
+        organization,
+        project: project ?? undefined,
+        experiment: exp,
+      });
+
       const checklist = getChecklistItems({
         experiment: exp,
         linkedFeatures: [],
@@ -1449,6 +1462,7 @@ export function useFeatureExperimentChecklists({
         usingStickyBucketing: orgStickyBucketing && !exp.disableStickyBucketing,
         checkLinkedChanges: false,
         connections: projectConnections,
+        scopedSettings,
       });
 
       const failedRequired = checklist.some(

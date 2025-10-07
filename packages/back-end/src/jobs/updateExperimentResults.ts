@@ -149,6 +149,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       experiment.statsEngine || scopedSettings.statsEngine.value,
       experiment,
       organization,
+      scopedSettings,
       regressionAdjustmentEnabled,
     );
 

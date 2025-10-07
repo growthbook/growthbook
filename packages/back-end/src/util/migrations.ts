@@ -445,6 +445,17 @@ export function upgradeOrganizationDoc(
     delete org.settings.implementationTypes;
   }
 
+  // TODO: add unit tests for migration
+  // Change old `sequentialTestingEnabled` field to new `sequentialTestingSettings` field
+  if (org.settings.sequentialTestingEnabled) {
+    org.settings.sequentialTestingSettings = {
+      type: "standard",
+      tuningParameter: org.settings.sequentialTestingTuningParameter || DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    };
+    delete org.settings.sequentialTestingEnabled;
+    delete org.settings.sequentialTestingTuningParameter;
+  }
+
   // Add a default role if one doesn't exist
   if (!org.settings.defaultRole) {
     org.settings.defaultRole = getDefaultRole(org);
@@ -602,6 +613,25 @@ export function upgradeExperimentDoc(
   if (!experiment.description && experiment.observations) {
     experiment.description = experiment.observations;
   }
+
+  // Upgrade sequential testing settings
+  if (experiment.sequentialTestingSettingsOverride === undefined) {
+    if (experiment.sequentialTestingEnabled === true) {
+      experiment.sequentialTestingSettingsOverride = false;
+      experiment.sequentialTestingSettings = {
+        type: "standard",
+        tuningParameter: experiment.sequentialTestingTuningParameter || DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      };
+    } else if (experiment.sequentialTestingEnabled === false) {
+      experiment.sequentialTestingSettingsOverride = true;
+      experiment.sequentialTestingSettings = {
+        type: "disabled",
+      };
+    }
+    experiment.sequentialTestingSettingsOverride = false;
+  }
+  delete experiment.sequentialTestingEnabled;
+  delete experiment.sequentialTestingTuningParameter;
 
   // metric overrides
   if (experiment.metricOverrides) {

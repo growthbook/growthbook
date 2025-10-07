@@ -8,11 +8,12 @@ import {
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
 import { PiCaretRightFill } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { DEFAULT_SEQUENTIAL_TESTING_RESERVED_ALPHA_PROPORTION, DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
@@ -46,6 +47,76 @@ import {
 } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+import SequentialTestingSettingsOverrideSelector from "@/components/Settings/forms/SequentialTestingSettingsOverrideSelector";
+import { CustomMetricSlice, MetricOverride, SequentialTestingSettings } from "back-end/src/validators/experiments";
+import SequentialTestingSettingsSelector from "@/components/Settings/forms/SequentialTestingSettingsSelector";
+
+export type AnalysisFormValues = {
+  trackingKey: string;
+    datasource: string;
+    exposureQueryId: string;
+    activationMetric: string;
+    segment: string;
+    queryFilter: string;
+    skipPartialData: string;
+    attributionModel: "firstExposure" | "experimentDuration";
+    dateStarted: string;
+    dateEnded: string;
+    variations: {
+        id: string;
+        name: string;
+        key: string;
+        screenshots: {
+            path: string;
+            width?: number | undefined;
+            height?: number | undefined;
+            description?: string | undefined;
+        }[];
+        description?: string | undefined;
+    }[];
+    phases: ExperimentPhaseStringDates[];
+    sequentialTestingSettingsOverride: boolean;
+    // Unvalidated SequentialTestingSettings
+    sequentialTestingSettings: {
+      type: "disabled" | "standard" | "hybrid";
+      tuningParameter?: number;
+      reservedAlphaProportion?: number;
+    };
+    regressionAdjustmentEnabled: boolean;
+    goalMetrics: string[];
+    guardrailMetrics: string[];
+    secondaryMetrics: string[];
+    customMetricSlices: CustomMetricSlice[] | undefined;
+    pinnedMetricSlices: string[];
+    metricOverrides: MetricOverride[];
+    statsEngine: "frequentist" | "bayesian";
+    type: "standard" | "multi-armed-bandit" | "holdout";
+    banditScheduleValue: number;
+    banditScheduleUnit: "hours" | "days";
+    banditBurnInValue: number;
+    banditBurnInUnit: "hours" | "days";
+    targetDurationDays?: number;
+}
+
+function cleanSequentialTestingSettings(settings: AnalysisFormValues["sequentialTestingSettings"]): SequentialTestingSettings {
+  switch (settings?.type) {
+    case "standard":
+      return {
+        type: "standard",
+        tuningParameter: settings.tuningParameter ?? DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      }
+    case "hybrid":
+      return {
+        type: "hybrid",
+        tuningParameter: settings.tuningParameter ?? DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+        reservedAlphaProportion: settings.reservedAlphaProportion ?? DEFAULT_SEQUENTIAL_TESTING_RESERVED_ALPHA_PROPORTION,
+      }
+    case "disabled":
+      return {
+        type: "disabled",
+      }
+  }
+}
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -94,7 +165,9 @@ const AnalysisForm: FC<{
   const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
+    experiment,
   });
+  console.log(scopedSettings.sequentialTestingSettings);
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
@@ -111,7 +184,7 @@ const AnalysisForm: FC<{
 
   const phaseObj = experiment.phases[phase];
 
-  const form = useForm({
+  const form = useForm<AnalysisFormValues>({
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
       datasource: experiment.datasource || "",
@@ -137,16 +210,8 @@ const AnalysisForm: FC<{
         .substr(0, 16),
       variations: experiment.variations || [],
       phases: experiment.phases || [],
-      sequentialTestingEnabled:
-        hasSequentialTestingFeature &&
-        experiment.sequentialTestingEnabled !== undefined
-          ? experiment.sequentialTestingEnabled
-          : !!orgSettings.sequentialTestingEnabled,
-      sequentialTestingTuningParameter:
-        experiment.sequentialTestingEnabled !== undefined
-          ? experiment.sequentialTestingTuningParameter
-          : (orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER),
+      sequentialTestingSettingsOverride: experiment.sequentialTestingSettingsOverride,
+      sequentialTestingSettings: experiment.sequentialTestingSettings,
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
@@ -170,33 +235,9 @@ const AnalysisForm: FC<{
         experiment.banditBurnInValue ?? scopedSettings.banditBurnInValue.value,
       banditBurnInUnit:
         experiment.banditBurnInUnit ?? scopedSettings.banditBurnInUnit.value,
+      targetDurationDays: experiment.targetDurationDays
     },
   });
-
-  const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
-    useState(experiment.sequentialTestingEnabled === undefined);
-  const setSequentialTestingToDefault = useCallback(
-    (enable: boolean) => {
-      if (enable) {
-        form.setValue(
-          "sequentialTestingEnabled",
-          !!orgSettings.sequentialTestingEnabled,
-        );
-        form.setValue(
-          "sequentialTestingTuningParameter",
-          orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-        );
-      }
-      setUsingSequentialTestingDefault(enable);
-    },
-    [
-      form,
-      setUsingSequentialTestingDefault,
-      orgSettings.sequentialTestingEnabled,
-      orgSettings.sequentialTestingTuningParameter,
-    ],
-  );
 
   const { apiCall } = useAuth();
 
@@ -236,15 +277,6 @@ const AnalysisForm: FC<{
     form.watch("guardrailMetrics").length > 0 ||
     form.watch("secondaryMetrics").length > 0;
 
-  // Check if any advanced settings should be shown
-  const hasAdvancedSettings =
-    !isBandit &&
-    !isHoldout &&
-    (datasourceProperties?.experimentSegments ||
-      datasourceProperties?.separateExperimentResultQueries ||
-      datasourceProperties?.queryLanguage === "sql" ||
-      hasMetrics);
-
   return (
     <Modal
       trackingEventModalType="analysis-form"
@@ -255,7 +287,7 @@ const AnalysisForm: FC<{
       size="lg"
       ctaEnabled={!editMetrics || !hasMetricOverrideRiskError}
       submit={form.handleSubmit(async (value) => {
-        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
+        const { dateStarted, dateEnded, skipPartialData, sequentialTestingSettings, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -273,13 +305,13 @@ const AnalysisForm: FC<{
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
         }
-        if (usingSequentialTestingDefault) {
-          // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled =
-            !!orgSettings.sequentialTestingEnabled;
-          body.sequentialTestingTuningParameter =
-            orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+
+        // validate sequential testing settings
+        if (!experiment.sequentialTestingSettingsOverride) {
+          // If no override, delete settings
+          body.sequentialTestingSettings = undefined;
+        } else {
+          body.sequentialTestingSettings = cleanSequentialTestingSettings(sequentialTestingSettings);
         }
 
         // bandits
@@ -522,6 +554,23 @@ const AnalysisForm: FC<{
             )}
           </div>
         )}
+
+      {scopedSettings.sequentialTestingSettings.value.type === "hybrid" && (
+        <Field
+          label="Target Experiment Duration"
+          labelClassName="font-weight-bold"
+          append="days"
+          {...form.register("targetDurationDays",
+            {
+              valueAsNumber: true,
+              validate: (v) => {
+                v = v || 0;
+                return !(v <= 0);
+              },
+            },
+          )}
+        />
+      )}
         {!!datasource && !isBandit && !isHoldout && (
           <MetricSelector
             datasource={form.watch("datasource")}
@@ -541,139 +590,6 @@ const AnalysisForm: FC<{
             helpText="Users must convert on this metric before being included"
           />
         )}
-        <StatsEngineSelect
-          label={
-            isBandit ? (
-              <>
-                <div>Statistics Engine</div>
-                <div className="small text-muted">
-                  Only <strong>Bayesian</strong> is available for Bandit
-                  Experiments.
-                </div>
-              </>
-            ) : undefined
-          }
-          value={form.watch("statsEngine")}
-          onChange={(v) => {
-            form.setValue("statsEngine", v);
-          }}
-          parentSettings={scopedSettings}
-          allowUndefined={!isBandit}
-          disabled={isBandit}
-        />
-        {isBandit && (
-          <SelectField
-            label={
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPED)
-              </PremiumTooltip>
-            }
-            style={{ width: 200 }}
-            labelClassName="font-weight-bold"
-            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-            onChange={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v === "on");
-            }}
-            options={[
-              {
-                label: "On",
-                value: "on",
-              },
-              {
-                label: "Off",
-                value: "off",
-              },
-            ]}
-            disabled={
-              !hasRegressionAdjustmentFeature ||
-              (isBandit && experiment.status !== "draft")
-            }
-          />
-        )}
-        {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
-          "frequentist" &&
-          !isBandit &&
-          !isHoldout && (
-            <div className="d-flex flex-row no-gutters align-items-top">
-              <div className="col-5">
-                <SelectField
-                  label={
-                    <PremiumTooltip commercialFeature="sequential-testing">
-                      <GBSequential /> Use Sequential Testing
-                    </PremiumTooltip>
-                  }
-                  labelClassName="font-weight-bold"
-                  value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
-                  onChange={(v) => {
-                    form.setValue("sequentialTestingEnabled", v === "on");
-                  }}
-                  options={[
-                    {
-                      label: "On",
-                      value: "on",
-                    },
-                    {
-                      label: "Off",
-                      value: "off",
-                    },
-                  ]}
-                  helpText="Only applicable to frequentist analyses"
-                  disabled={
-                    !hasSequentialTestingFeature ||
-                    usingSequentialTestingDefault
-                  }
-                />
-              </div>
-              <div
-                className="col-3 pl-4"
-                style={{
-                  opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
-                }}
-              >
-                <Field
-                  label="Tuning parameter"
-                  type="number"
-                  containerClassName="mb-0"
-                  min="0"
-                  disabled={
-                    usingSequentialTestingDefault ||
-                    !hasSequentialTestingFeature ||
-                    hasFileConfig()
-                  }
-                  helpText={
-                    <>
-                      <span className="ml-2">
-                        (
-                        {orgSettings.sequentialTestingTuningParameter ??
-                          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                        is default)
-                      </span>
-                    </>
-                  }
-                  {...form.register("sequentialTestingTuningParameter", {
-                    valueAsNumber: true,
-                    validate: (v) => {
-                      return !((v ?? 0) <= 0);
-                    },
-                  })}
-                />
-              </div>
-              <div className="col align-self-center">
-                <label className="ml-5">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={usingSequentialTestingDefault}
-                    disabled={!hasSequentialTestingFeature}
-                    onChange={(e) =>
-                      setSequentialTestingToDefault(e.target.checked)
-                    }
-                  />
-                  Reset to Organization Default
-                </label>
-              </div>
-            </div>
-          )}
         {editMetrics && (
           <>
             <ExperimentMetricsSelector
@@ -715,8 +631,99 @@ const AnalysisForm: FC<{
               }
             />
 
-            {hasAdvancedSettings && (
-              <>
+            <StatsEngineSelect
+                label={
+                  isBandit ? (
+                    <>
+                      <div>Statistics Engine</div>
+                      <div className="small text-muted">
+                        Only <strong>Bayesian</strong> is available for Bandit
+                        Experiments.
+                      </div>
+                    </>
+                  ) : undefined
+                }
+                value={form.watch("statsEngine")}
+                onChange={(v) => {
+                  form.setValue("statsEngine", v);
+                }}
+                parentSettings={scopedSettings}
+                allowUndefined={!isBandit}
+                disabled={isBandit}
+              />
+              {isBandit && (
+                <SelectField
+                  label={
+                    <PremiumTooltip commercialFeature="regression-adjustment">
+                      <GBCuped /> Use Regression Adjustment (CUPED)
+                    </PremiumTooltip>
+                  }
+                  style={{ width: 200 }}
+                  labelClassName="font-weight-bold"
+                  value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+                  onChange={(v) => {
+                    form.setValue("regressionAdjustmentEnabled", v === "on");
+                  }}
+                  options={[
+                    {
+                      label: "On",
+                      value: "on",
+                    },
+                    {
+                      label: "Off",
+                      value: "off",
+                    },
+                  ]}
+                  disabled={
+                    !hasRegressionAdjustmentFeature ||
+                    (isBandit && experiment.status !== "draft")
+                  }
+                />
+              )}
+              {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
+                "frequentist" &&
+                !isBandit &&
+                !isHoldout && (<>
+                  <SequentialTestingSettingsOverrideSelector
+                    value={!form.watch("sequentialTestingSettingsOverride") ? "parent" : form.watch("sequentialTestingSettings")?.type ?? "parent"}
+                    onChange={(v) => {
+                      const currentSettings = form.watch("sequentialTestingSettings")
+                      if (v === "parent") {                            
+                        const parentSettings = scopedSettings.sequentialTestingSettings.value;
+                        form.setValue("sequentialTestingSettingsOverride", false);
+                        form.setValue("sequentialTestingSettings", {
+                          ...parentSettings,
+                        })
+                      } else {
+                        form.setValue("sequentialTestingSettingsOverride", true);
+                        if (v === "standard") {
+                          form.setValue("sequentialTestingSettings", {
+                            tuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+                            ...currentSettings,
+                            type: v,
+                            });
+                        } else if (v === "hybrid") {
+                          form.setValue("sequentialTestingSettings", {
+                            tuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+                            reservedAlphaProportion: DEFAULT_SEQUENTIAL_TESTING_RESERVED_ALPHA_PROPORTION,
+                            ...currentSettings,
+                            type: v,
+                          });
+                        } else if (v === "disabled") {
+                          form.setValue("sequentialTestingSettings", {
+                            type: v,
+                          })
+                        }
+                      }
+                    }}
+                    parentSettings={scopedSettings}
+                  />
+                  <SequentialTestingSettingsSelector
+                    form={form}
+                    parentSettings={scopedSettings}
+                    disabled={!form.watch("sequentialTestingSettingsOverride")}
+                  /></>
+                )}
                 <hr className="mt-4" />
 
                 <Collapsible
@@ -877,8 +884,6 @@ const AnalysisForm: FC<{
                 </Collapsible>
               </>
             )}
-          </>
-        )}
       </div>
     </Modal>
   );

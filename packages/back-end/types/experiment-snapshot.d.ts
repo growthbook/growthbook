@@ -1,5 +1,5 @@
 import { MidExperimentPowerCalculationResult } from "shared/enterprise";
-import { BanditResult } from "back-end/src/validators/experiments";
+import { BanditResult, SequentialTestingSettings } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
@@ -118,12 +118,12 @@ export interface DimensionForSnapshot {
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
 }
 
+
+
 export interface ExperimentSnapshotAnalysisSettings {
   dimensions: string[];
   statsEngine: StatsEngine;
   regressionAdjusted?: boolean;
-  sequentialTesting?: boolean;
-  sequentialTestingTuningParameter?: number;
   differenceType: DifferenceType;
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
@@ -134,6 +134,12 @@ export interface ExperimentSnapshotAnalysisSettings {
     start: Date;
     end: Date;
   };
+  sequentialTestingSettings?: SequentialTestingSettings;
+  pastMaxDuration?: boolean;
+  /** @deprecated */
+  sequentialTesting?: boolean;
+  /** @deprecated */
+  sequentialTestingTuningParameter?: number;
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";

@@ -173,6 +173,25 @@ export type ExperimentDecisionFrameworkSettings = z.infer<
   typeof experimentDecisionFrameworkSettings
 >;
 
+export const sequentialTestingSettings = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("disabled"),
+  }),
+  z.object({
+    type: z.literal("standard"),
+    tuningParameter: z.number().optional(),
+  }),
+  z.object({
+    type: z.literal("hybrid"),
+    tuningParameter: z.number().optional(),
+    // The percent of the total alpha to reserve for the final test
+    // fixed-sample test (e.g. 0.8 would reserve 0.04 of 0.05)
+    reservedAlphaProportion: z.number().optional(),
+  }),
+]);
+
+export type SequentialTestingSettings = z.infer<typeof sequentialTestingSettings>;
+
 export const experimentAnalysisSettings = z
   .object({
     trackingKey: z.string(),
@@ -184,13 +203,14 @@ export const experimentAnalysisSettings = z
     activationMetric: z.string().optional(),
     metricOverrides: z.array(metricOverride).optional(),
     decisionFrameworkSettings: experimentDecisionFrameworkSettings,
+    targetDurationDays: z.number().optional(),
     segment: z.string().optional(),
     queryFilter: z.string().optional(),
     skipPartialData: z.boolean().optional(),
     attributionModel: z.enum(attributionModel).optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
-    sequentialTestingEnabled: z.boolean().optional(),
-    sequentialTestingTuningParameter: z.number().optional(),
+    sequentialTestingSettingsOverride: z.boolean(),
+    sequentialTestingSettings: sequentialTestingSettings.optional(),
     statsEngine: z.enum(statsEngines).optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
     pinnedMetricSlices: z.array(z.string()).optional(),

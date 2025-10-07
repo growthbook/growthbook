@@ -10,8 +10,7 @@ import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_SEQUENTIAL_TESTING_TYPE,
   DEFAULT_STATS_ENGINE,
   DEFAULT_TARGET_MDE,
   DEFAULT_WIN_RISK_THRESHOLD,
@@ -60,6 +59,8 @@ export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
   },
 };
 
+// TODO: ensure works with projects
+
 export default function genDefaultSettings(): Settings {
   return {
     confidenceLevel: DEFAULT_CONFIDENCE_LEVEL,
@@ -73,9 +74,9 @@ export default function genDefaultSettings(): Settings {
     pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
     regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-    sequentialTestingEnabled: DEFAULT_SEQUENTIAL_TESTING_ENABLED,
-    sequentialTestingTuningParameter:
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingSettings: {
+      type: DEFAULT_SEQUENTIAL_TESTING_TYPE,
+    },
     sdkInstructionsViewed: DEFAULT_SDK_INSTRUCTIONS_VIEWED,
     statsEngine: DEFAULT_STATS_ENGINE,
     updateSchedule: DEFAULT_UPDATE_SCHEDULE,

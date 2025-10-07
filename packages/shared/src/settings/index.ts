@@ -74,17 +74,10 @@ export const resolvers: Record<
   }),
   regressionAdjustmentEnabled: regressionAdjustmentResolver("enabled"),
   regressionAdjustmentDays: regressionAdjustmentResolver("days"),
-  sequentialTestingEnabled: genDefaultResolver("sequentialTestingEnabled", {
+  sequentialTestingSettings: genDefaultResolver("sequentialTestingSettings", {
     experiment: true,
     report: true,
   }),
-  sequentialTestingTuningParameter: genDefaultResolver(
-    "sequentialTestingTuningParameter",
-    {
-      experiment: true,
-      report: true,
-    },
-  ),
   attributionModel: genDefaultResolver("attributionModel", {
     project: "settings.attributionModel",
     experiment: true,

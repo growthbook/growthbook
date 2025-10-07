@@ -64,6 +64,7 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   GoalMetricResult,
   ExperimentInterfaceExcludingHoldouts,
+  SequentialTestingSettings,
 } from "back-end/src/validators/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -384,6 +385,8 @@ export function getDefaultExperimentAnalysisSettings(
   statsEngine: StatsEngine,
   experiment: ExperimentInterface | ExperimentReportAnalysisSettings,
   organization: OrganizationInterface,
+  scopedSettings: ScopedSettings,
+  phaseIndex: number,
   regressionAdjustmentEnabled?: boolean,
   dimension?: string,
 ): ExperimentSnapshotAnalysisSettings {
@@ -393,6 +396,27 @@ export function getDefaultExperimentAnalysisSettings(
   const hasSequentialTestingFeature = organization
     ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
+
+  let sequentialTestingSettings: SequentialTestingSettings = {
+    type: "disabled",
+  }
+  if (hasSequentialTestingFeature) {
+    if (experiment.sequentialTestingSettingsOverride) {
+      sequentialTestingSettings = experiment.sequentialTestingSettings ?? scopedSettings.sequentialTestingSettings.value;
+    } else {
+      sequentialTestingSettings = scopedSettings.sequentialTestingSettings.value;
+    }
+  }
+  // TODO reports
+  let phaseLengthDays = 0;
+  if ("phases" in experiment) {
+    const phase = experiment.phases[phaseIndex];
+    phaseLengthDays = hoursBetween(phase.dateStarted, phase.dateEnded ?? new Date()) / 24;
+  } else if ("dateEnded" in experiment && "dateStarted" in experiment && experiment.dateStarted) {
+    phaseLengthDays = hoursBetween(experiment.dateStarted, experiment.dateEnded ?? new Date()) / 24;
+  }
+  const pastMaxDuration = !!experiment.targetDurationDays && phaseLengthDays > experiment.targetDurationDays;
+
   return {
     statsEngine,
     dimensions: dimension ? [dimension] : [],
@@ -401,15 +425,8 @@ export function getDefaultExperimentAnalysisSettings(
       (regressionAdjustmentEnabled !== undefined
         ? regressionAdjustmentEnabled
         : (organization.settings?.regressionAdjustmentEnabled ?? false)),
-    sequentialTesting:
-      hasSequentialTestingFeature &&
-      statsEngine === "frequentist" &&
-      (experiment?.sequentialTestingEnabled ??
-        !!organization.settings?.sequentialTestingEnabled),
-    sequentialTestingTuningParameter:
-      experiment?.sequentialTestingTuningParameter ??
-      organization.settings?.sequentialTestingTuningParameter ??
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    sequentialTestingSettings: sequentialTestingSettings,
+    pastMaxDuration,
     baselineVariationIndex: 0,
     differenceType: "relative",
     pValueThreshold:
@@ -3482,6 +3499,17 @@ export async function updateExperimentDashboards({
     isEqual,
   );
 
+  const organization = context.org;
+  let project: ProjectInterface | null = null;
+  if (experiment.project) {
+    project = await context.models.projects.getById(experiment.project);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    experiment,
+  });
+
   for (const snapshotSettings of uniqueSnapshotSettings) {
     const additionalAnalysisSettings =
       uniqWith<ExperimentSnapshotAnalysisSettings>(
@@ -3497,6 +3525,9 @@ export async function updateExperimentDashboards({
       statsEngine,
       experiment,
       context.org,
+      scopedSettings,
+      // TODO always latest phase?
+      experiment.phases.length - 1,
       regressionAdjustmentEnabled,
       snapshotSettings.dimensionId,
     );

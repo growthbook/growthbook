@@ -170,6 +170,8 @@ export interface LegacyExperimentInterface
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
   decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

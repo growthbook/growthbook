@@ -22,6 +22,8 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Frame from "@/ui/Frame";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getScopedSettings, ScopedSettings } from "shared/settings";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -45,6 +47,7 @@ export function getChecklistItems({
   usingStickyBucketing,
   checklist,
   checkLinkedChanges,
+  scopedSettings,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -58,6 +61,7 @@ export function getChecklistItems({
   usingStickyBucketing?: boolean;
   checklist?: ExperimentLaunchChecklistInterface;
   checkLinkedChanges: boolean;
+  scopedSettings: ScopedSettings;
 }) {
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -218,6 +222,31 @@ export function getChecklistItems({
         required: false,
       });
     }
+  }
+
+  console.log(scopedSettings.sequentialTestingSettings.value);
+  if (scopedSettings.sequentialTestingSettings.value.type === "hybrid") {
+    items.push({
+      display: (
+        <>
+         {
+          setAnalysisModal ? (<>Set an {" "}
+            <a
+              className="a link-purple"
+              role="button"
+              onClick={() => setAnalysisModal(true)}
+            >
+              experiment duration
+            </a>{" "}to get more precise results upon completion.
+          </>) : (
+            "Set an experiment duration to get more precise results upon completion."
+          )}{" "}
+        </>
+      ),
+      status: experiment.durationDays ? "complete" : "incomplete",
+      type: "auto",
+      required: true,
+    });
   }
 
   // Experiment has phases
@@ -601,6 +630,8 @@ export function PreLaunchChecklist({
   className?: string;
   envs: string[];
 }) {
+  const { organization } = useUser();
+  const { getProjectById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const canEditExperiment =
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
@@ -608,6 +639,15 @@ export function PreLaunchChecklist({
   const { data } = useApi<{ checklist: ExperimentLaunchChecklistInterface }>(
     `/experiment/${experiment.id}/launch-checklist`,
   );
+
+  const pid = experiment?.project;
+  const project = pid ? getProjectById(pid) : null;
+
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    experiment,
+  });
 
   const [showSdkForm, setShowSdkForm] = useState(false);
 
@@ -627,6 +667,7 @@ export function PreLaunchChecklist({
       usingStickyBucketing,
       checklist: data?.checklist,
       setAnalysisModal: canEditExperiment ? setAnalysisModal : undefined,
+      scopedSettings,
       editTargeting,
       openSetupTab,
       checkLinkedChanges: true,
@@ -640,6 +681,7 @@ export function PreLaunchChecklist({
     linkedFeatures,
     openSetupTab,
     visualChangesets,
+    scopedSettings,
     usingStickyBucketing,
     canEditExperiment,
     connections,

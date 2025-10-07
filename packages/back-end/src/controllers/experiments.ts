@@ -1296,6 +1296,7 @@ export async function postExperiment(
     });
     return;
   }
+  console.log(data);
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
@@ -1460,8 +1461,8 @@ export async function postExperiment(
     "regressionAdjustmentEnabled",
     "hasVisualChangesets",
     "hasURLRedirects",
-    "sequentialTestingEnabled",
-    "sequentialTestingTuningParameter",
+    "sequentialTestingSettingsOverride",
+    "sequentialTestingSettings",
     "statsEngine",
     "type",
     "banditStage",
@@ -2830,10 +2831,13 @@ export async function createExperimentSnapshot({
       hasRegressionAdjustmentFeature: true,
     });
 
+  console.log("settings", settings);
   const analysisSettings = getDefaultExperimentAnalysisSettings(
     statsEngine,
     experiment,
     org,
+    settings,
+    phase,
     regressionAdjustmentEnabled,
     dimension,
   );
@@ -2917,6 +2921,8 @@ export async function postSnapshot(
       statsEngine,
       experiment,
       org,
+      settings,
+      phase,
       false,
       dimension,
     );

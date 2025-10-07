@@ -19,6 +19,7 @@ import { ProjectInterface } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
 import { MetricWindowSettings } from "back-end/types/fact-table";
 import { ExperimentMetricInterface } from "../experiments";
+import { SequentialTestingSettings } from "back-end/src/validators/experiments";
 
 interface SettingMetadata {
   scopeApplied?: keyof ScopeDefinition | "organization";
@@ -78,8 +79,7 @@ interface BaseSettings {
   pValueThreshold: number;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
-  sequentialTestingEnabled: boolean;
-  sequentialTestingTuningParameter: number;
+  sequentialTestingSettings: SequentialTestingSettings;
   attributionModel: AttributionModel;
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;

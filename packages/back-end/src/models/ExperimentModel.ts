@@ -257,8 +257,16 @@ const experimentSchema = new mongoose.Schema({
   hasVisualChangesets: Boolean,
   hasURLRedirects: Boolean,
   linkedFeatures: [String],
-  sequentialTestingEnabled: Boolean,
-  sequentialTestingTuningParameter: Number,
+  sequentialTestingSettingsOverride: Boolean,
+  sequentialTestingSettings: {
+    type: {
+      type: String,
+      enum: ["disabled", "standard", "hybrid"],
+    },
+    tuningParameter: Number,
+    reservedAlphaProportion: Number,
+  },
+  targetDurationDays: Number,
   statsEngine: String,
   manualLaunchChecklist: [
     {

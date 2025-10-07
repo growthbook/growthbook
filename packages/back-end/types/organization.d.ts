@@ -28,6 +28,7 @@ import {
   MetricPriorSettings,
   MetricWindowSettings,
 } from "./fact-table";
+import { SequentialTestingSettings } from "back-end/src/validators/experiments";
 
 export type EnvScopedPermission = (typeof ENV_SCOPED_PERMISSIONS)[number];
 export type ProjectScopedPermission =
@@ -220,7 +221,11 @@ export interface OrganizationSettings {
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
+  sequentialTestingSettings?: SequentialTestingSettings;
+  // TODO migrate
+  /** @deprecated */
   sequentialTestingEnabled?: boolean;
+  /** @deprecated */
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
   secureAttributeSalt?: string;

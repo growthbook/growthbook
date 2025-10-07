@@ -495,8 +495,8 @@ const Results: FC<{
                   <GBSequential size={13} /> Sequential:
                 </span>{" "}
                 <span>
-                  {analysis?.settings?.sequentialTesting
-                    ? "Enabled"
+                  {analysis?.settings?.sequentialTesting || analysis?.settings?.sequentialTestingSettings?.type !== "disabled"
+                    ? `Enabled ${analysis?.settings?.sequentialTestingSettings?.type === "hybrid" ? `(hybrid)` : ""}`
                     : "Disabled"}
                 </span>
               </div>

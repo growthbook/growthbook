@@ -4,7 +4,7 @@ import {
   isFactMetricId,
   expandAllSliceMetricsInMap,
 } from "shared/experiments";
-import { ReqContext } from "back-end/types/organization";
+import { ReqContext, SequentialTestingSettings } from "back-end/types/organization";
 import {
   ExperimentAnalysisSummary,
   ExperimentAnalysisSummaryResultsStatus,
@@ -203,6 +203,21 @@ function getExperimentSettingsHash(
   snapshotSettings: ExperimentSnapshotSettings,
   snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings,
 ): string {
+
+  // migrate sequential settings backwards to keep hash from changing
+
+  let sequentialSettings: SequentialTestingSettings | Pick<ExperimentSnapshotAnalysisSettings, "sequentialTesting" | "sequentialTestingTuningParameter"> = {};
+  if (snapshotAnalysisSettings.sequentialTestingSettings?.type === "standard") {
+    sequentialSettings = {
+      type: "standard",
+      tuningParameter: snapshotAnalysisSettings.sequentialTestingSettings.tuningParameter,
+    };
+  } else if (snapshotAnalysisSettings.sequentialTestingSettings?.type === "hybrid") {
+    sequentialSettings = snapshotAnalysisSettings.sequentialTestingSettings;
+  } else {
+  }
+
+  // TODO: add unit tests for migration
   return hashObject({
     // snapshotSettings
     activationMetric: snapshotSettings.activationMetric,
@@ -220,9 +235,7 @@ function getExperimentSettingsHash(
     dimensions: snapshotAnalysisSettings.dimensions,
     statsEngine: snapshotAnalysisSettings.statsEngine,
     regressionAdjusted: snapshotAnalysisSettings.regressionAdjusted,
-    sequentialTesting: snapshotAnalysisSettings.sequentialTesting,
-    sequentialTestingTuningParameter:
-      snapshotAnalysisSettings.sequentialTestingTuningParameter,
+    ...sequentialSettings,
     baselineVariationIndex: snapshotAnalysisSettings.baselineVariationIndex,
     pValueCorrection: snapshotAnalysisSettings.pValueCorrection,
   });

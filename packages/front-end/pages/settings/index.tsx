@@ -117,9 +117,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       statsEngine: DEFAULT_STATS_ENGINE,
       regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-      sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter:
-        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      sequentialTestingSettings: undefined,
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
