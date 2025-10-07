@@ -559,6 +559,37 @@ describe("Experiments", () => {
           `(${column.column} NOT IN (\n  's1',\n  's2',\n  's3'\n))`,
         ]);
       });
+      it("combines multiple types of filters", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [filter.id],
+              inlineFilters: {
+                [boolColumn.column]: ["false"],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              sliceLevels: [
+                {
+                  column: column.column,
+                  levels: ["l1"],
+                },
+              ],
+            },
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'l1')`,
+          `(${boolColumn.column} IS FALSE)`,
+          `(${filter.value})`,
+        ]);
+      });
     });
     describe("getAggregateFilter", () => {
       it("returns empty array for empty input", () => {
