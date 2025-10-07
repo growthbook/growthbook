@@ -35,7 +35,6 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
-
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
@@ -57,35 +56,35 @@ export const compareRowsBySignificance = (
 ) => {
   const { statsEngine, variationFilter, metricDefaults } = options;
 
-  const aFiltered = a.variations.filter(
-    (_, index) => !variationFilter.includes(index),
-  );
-  const bFiltered = b.variations.filter(
-    (_, index) => !variationFilter.includes(index),
-  );
+  const aFiltered =
+    a?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+  const bFiltered =
+    b?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
 
   const aHasData = aFiltered.some((v) => v && v.value != null && v.value > 0);
   const bHasData = bFiltered.some((v) => v && v.value != null && v.value > 0);
-  const aBaseline = a.variations[0];
-  const bBaseline = b.variations[0];
+  const aBaseline = a?.variations?.[0];
+  const bBaseline = b?.variations?.[0];
   const aHasEnoughData =
     aBaseline &&
     aFiltered.some(
-      (v) => v && hasEnoughData(aBaseline, v, a.metric, metricDefaults),
+      (v) => v && hasEnoughData(aBaseline, v, a?.metric, metricDefaults),
     );
   const bHasEnoughData =
     bBaseline &&
     bFiltered.some(
-      (v) => v && hasEnoughData(bBaseline, v, b.metric, metricDefaults),
+      (v) => v && hasEnoughData(bBaseline, v, b?.metric, metricDefaults),
     );
 
   if (!aHasData || !aHasEnoughData || !bHasData || !bHasEnoughData) return 0;
 
   const aValues = aFiltered.map((v) =>
-    statsEngine === "frequentist" ? (v.pValue ?? 1) : (v.chanceToWin ?? 0),
+    statsEngine === "frequentist" ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0),
   );
   const bValues = bFiltered.map((v) =>
-    statsEngine === "frequentist" ? (v.pValue ?? 1) : (v.chanceToWin ?? 0),
+    statsEngine === "frequentist" ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0),
   );
 
   if (aValues.length === 0 && bValues.length === 0) return 0;

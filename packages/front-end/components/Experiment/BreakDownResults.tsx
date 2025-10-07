@@ -327,7 +327,7 @@ const BreakDownResults: FC<{
       .filter((table) => table?.metric) as TableDef[];
 
     // Sort rows within each table by significance if sortBy is "significance"
-    if (sortBy === "significance") {
+    if (sortBy === "significance" && metricDefaults) {
       const sortOptions = {
         statsEngine,
         variationFilter:

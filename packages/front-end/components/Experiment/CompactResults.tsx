@@ -438,7 +438,7 @@ const CompactResults: FC<{
     );
 
     // Sort by significance if sortBy is "significance"
-    if (sortBy === "significance") {
+    if (sortBy === "significance" && metricDefaults) {
       const sortOptions = {
         statsEngine,
         variationFilter:
