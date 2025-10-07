@@ -130,10 +130,9 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
       >
         <SelectItem value="bigNumber">Big Number</SelectItem>
         <SelectItem value="timeseries">Timeseries</SelectItem>
-        {/* TODO: plumb metric type */}
-        {/* {metric?.metricType === "mean" && (
+        {metric?.metricType === "mean" && (
           <SelectItem value="histogram">Histogram</SelectItem>
-        )} */}
+        )}
       </Select>
     </>
   );

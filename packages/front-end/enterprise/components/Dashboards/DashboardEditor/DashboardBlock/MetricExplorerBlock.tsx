@@ -10,8 +10,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
@@ -186,16 +184,6 @@ export default function MetricExplorerBlock({
           >
             Refresh
           </Button>
-          <MoreMenu>
-            {metricAnalysis?.queries?.length ? (
-              <ViewAsyncQueriesButton
-                queries={metricAnalysis.queries.map((q) => q.query)}
-                color={metricAnalysis?.status === "error" ? "danger" : "info"}
-                error={metricAnalysis?.error}
-                className="dropdown-item py-2"
-              />
-            ) : null}
-          </MoreMenu>
         </Flex>
       }
     >

@@ -104,22 +104,21 @@ export default function DashboardSnapshotProvider({
 
   const { mutate: mutateSavedQueries } = useApi(`/saved-queries/`);
 
-  const [allSnapshots, allSavedQueries, allMetricAnalyses] = useMemo(
-    () => [
-      allSnapshotsData?.snapshots || [],
-      allSnapshotsData?.savedQueries || [],
-      allSnapshotsData?.metricAnalyses || [],
-    ],
-    [allSnapshotsData],
-  );
-
-  const savedQueriesMap = useMemo(
-    () =>
-      new Map(allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery])),
-    [allSavedQueries],
-  );
-
-  const { metricAnalysesMap, runningMetricAnalyses } = useMemo(() => {
+  const {
+    savedQueriesMap,
+    metricAnalysesMap,
+    runningMetricAnalyses,
+    status,
+    snapshotsMap,
+    allQueries,
+    snapshotError,
+  } = useMemo(() => {
+    const allSnapshots = allSnapshotsData?.snapshots || [];
+    const allSavedQueries = allSnapshotsData?.savedQueries || [];
+    const allMetricAnalyses = allSnapshotsData?.metricAnalyses || [];
+    const savedQueriesMap = new Map(
+      allSavedQueries.map((savedQuery) => [savedQuery.id, savedQuery]),
+    );
     const metricAnalysesMap = new Map(
       allMetricAnalyses.map((metricAnalysis) => [
         metricAnalysis.id,
@@ -129,21 +128,34 @@ export default function DashboardSnapshotProvider({
     const runningMetricAnalyses = allMetricAnalyses.filter((metricAnalysis) =>
       ["running", "queued"].includes(metricAnalysis.status),
     );
-    return { metricAnalysesMap, runningMetricAnalyses };
-  }, [allMetricAnalyses]);
-
-  const { status, snapshotsMap, allQueries, snapshotError } = useMemo(() => {
     const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
-    const allQueries = allSnapshots.flatMap(
-      (snapshot) => snapshot.queries || [],
-    );
+    const allQueries = allSnapshots
+      .filter(
+        (snap) =>
+          !dashboard ||
+          dashboard.blocks.some((block) => block.snapshotId === snap.id),
+      )
+      .flatMap((snapshot) => snapshot.queries || [])
+      .concat(
+        allMetricAnalyses.flatMap(
+          (metricAnalysis) => metricAnalysis.queries || [],
+        ),
+      );
     const snapshotError = allSnapshots.find(
       (snapshot) => snapshot.error,
     )?.error;
     const { status } = getQueryStatus(allQueries, snapshotError);
 
-    return { status, snapshotsMap, allQueries, snapshotError };
-  }, [allSnapshots]);
+    return {
+      savedQueriesMap,
+      metricAnalysesMap,
+      runningMetricAnalyses,
+      status,
+      snapshotsMap,
+      allQueries,
+      snapshotError,
+    };
+  }, [allSnapshotsData, dashboard]);
 
   useEffect(() => {
     const dashboardSnapshotIds = [
