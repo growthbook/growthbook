@@ -11,6 +11,7 @@ import DashboardEditor from "@/enterprise/components/Dashboards/DashboardEditor"
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import { useAuth } from "@/services/auth";
 import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
+import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 
 export default function SingleDashboardPage() {
@@ -93,6 +94,12 @@ export default function SingleDashboardPage() {
 
   return (
     <div className="p-3 container-fluid pagecontents">
+      <PageHead
+        breadcrumb={[
+          { display: "Dashboards", href: "/dashboards" },
+          { display: dashboard.title },
+        ]}
+      />
       <DashboardSnapshotProvider
         dashboard={dashboard}
         mutateDefinitions={mutate}

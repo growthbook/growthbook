@@ -6,6 +6,8 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
+import { Flex, Text } from "@radix-ui/themes";
+import { FaArrowRight } from "react-icons/fa";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSearch } from "@/services/search";
@@ -24,9 +26,15 @@ import {
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { DocLink } from "@/components/DocLink";
+import EmptyState from "@/components/EmptyState";
+import ProjectBadges from "@/components/ProjectBadges";
+import UserAvatar from "@/components/Avatar/UserAvatar";
+import { useUser } from "@/services/UserContext";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
+  const { getUserDisplay } = useUser();
   const { project } = useDefinitions();
   const { apiCall } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -121,103 +129,161 @@ export default function DashboardsPage() {
         />
       )}
       <div className="p-3 container-fluid pagecontents">
-        <div className="row">
-          <div className="col">
-            <h1>Dashboards</h1>
-          </div>
-        </div>
-
-        {error ? (
-          <div className="alert alert-danger">
-            There was an error loading the list of dashboards.
+        <Flex justify="between" align="center">
+          <h1>Dashboards</h1>
+          {dashboards.length ? (
+            <Button
+              onClick={() => setShowCreateModal(true)}
+              disabled={!canCreate}
+            >
+              Create Dashboard
+            </Button>
+          ) : null}
+        </Flex>
+        {!dashboards.length ? (
+          <div className="mt-4">
+            <EmptyState
+              title="Explore & Share Custom Analyses"
+              description="Create curated dashboards to visualize key metrics and track performance."
+              leftButton={
+                <Button onClick={() => setShowCreateModal(true)}>
+                  Create Dashboard
+                </Button>
+              }
+              rightButton={null}
+            />
           </div>
         ) : (
           <>
-            <div className="row mb-4 align-items-center justify-content-between">
-              <div className="col-auto">
-                <Field
-                  prepend={<FaMagnifyingGlass />}
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
-                />
+            <p>
+              Create curated dashboards to visualize key metrics and track
+              performance.{" "}
+              <DocLink docSection="dashboards" useRadix={true}>
+                View Docs <FaArrowRight size={10} />
+              </DocLink>
+            </p>
+
+            {error ? (
+              <div className="alert alert-danger">
+                There was an error loading the list of dashboards.
               </div>
-              <Button
-                onClick={() => setShowCreateModal(true)}
-                disabled={!canCreate}
-              >
-                Create Dashboard
-              </Button>
-            </div>
-            <div className="row mb-0">
-              <div className="col-12">
-                <table className="table gbtable">
-                  <thead>
-                    <tr>
-                      <SortableTH field={"title"}>Title</SortableTH>
-                      <th>Owner</th>
-                      <SortableTH field={"dateCreated"}>
-                        Date Created
-                      </SortableTH>
-                      <SortableTH field={"dateUpdated"}>
-                        Date Updated
-                      </SortableTH>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((d) => {
-                      const canEdit =
-                        permissionsUtil.canUpdateGeneralDashboards(d, {});
-                      const canDelete =
-                        permissionsUtil.canDeleteGeneralDashboards(d);
-                      return (
-                        <tr key={d.id}>
-                          <td>
-                            <Link
-                              className="text-color-primary"
-                              key={d.id}
-                              href={`/dashboards/${d.id}`}
-                            >
-                              {d.title}
-                            </Link>
-                          </td>
-                          <td>{d.userId}</td>
-                          <td>{ago(d.dateCreated)}</td>
-                          <td>{ago(d.dateUpdated)}</td>
-                          <td style={{ width: 30 }}>
-                            <MoreMenu>
-                              {canDelete ? (
-                                <DeleteButton
-                                  displayName="Dashboard"
-                                  className="dropdown-item text-danger"
-                                  text="Delete"
-                                  useIcon={false}
-                                  title="Delete this dashboard"
-                                  onClick={async () => {
-                                    await apiCall(`/dashboards/${d.id}`, {
-                                      method: "DELETE",
-                                    });
-                                    mutateDashboards();
-                                  }}
-                                />
-                              ) : null}
-                            </MoreMenu>
-                          </td>
+            ) : (
+              <>
+                <div className="row mb-4 align-items-center justify-content-between">
+                  <div className="col-auto mr-auto">
+                    <Field
+                      prepend={<FaMagnifyingGlass />}
+                      placeholder="Search..."
+                      type="search"
+                      {...searchInputProps}
+                    />
+                  </div>
+                </div>
+                <div className="row mb-0">
+                  <div className="col-12">
+                    <table className="table gbtable">
+                      <thead>
+                        <tr>
+                          <SortableTH field={"title"}>
+                            Dashboard Name
+                          </SortableTH>
+                          <th>Projects</th>
+                          <th>Owner</th>
+                          <SortableTH field={"dateUpdated"}>
+                            Last Updated
+                          </SortableTH>
+                          <th />
                         </tr>
-                      );
-                    })}
-                    {!items.length && isFiltered && (
-                      <tr>
-                        <td colSpan={5} align={"center"}>
-                          No matching dashboards
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {items.map((d) => {
+                          const ownerName = getUserDisplay(d.userId);
+                          const canEdit =
+                            permissionsUtil.canUpdateGeneralDashboards(d, {});
+                          const canDelete =
+                            permissionsUtil.canDeleteGeneralDashboards(d);
+                          return (
+                            <tr key={d.id}>
+                              <td>
+                                <Link
+                                  className="text-color-primary"
+                                  key={d.id}
+                                  href={`/dashboards/${d.id}`}
+                                >
+                                  {d.title}
+                                </Link>
+                              </td>
+                              <td>
+                                {d && (d.projects || []).length > 0 ? (
+                                  <ProjectBadges
+                                    resourceType="dashboard"
+                                    projectIds={d.projects || []}
+                                  />
+                                ) : (
+                                  <ProjectBadges resourceType="dashboard" />
+                                )}
+                              </td>
+                              <td>
+                                <>
+                                  {ownerName !== "" && (
+                                    <UserAvatar
+                                      name={ownerName}
+                                      size="sm"
+                                      variant="soft"
+                                    />
+                                  )}
+                                  <Text ml="1">
+                                    {ownerName === "" ? "None" : ownerName}
+                                  </Text>
+                                </>
+                              </td>
+                              <td>{ago(d.dateUpdated)}</td>
+                              <td style={{ width: 30 }}>
+                                <MoreMenu>
+                                  {canEdit ? (
+                                    <button
+                                      className="dropdown-item"
+                                      onClick={() => {
+                                        //MKTODO: This isn't wired up correctly yet
+                                        setIsEditing(true);
+                                      }}
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : null}
+                                  {canDelete ? (
+                                    <DeleteButton
+                                      displayName="Dashboard"
+                                      className="dropdown-item text-danger"
+                                      text="Delete"
+                                      useIcon={false}
+                                      title="Delete this dashboard"
+                                      onClick={async () => {
+                                        await apiCall(`/dashboards/${d.id}`, {
+                                          method: "DELETE",
+                                        });
+                                        mutateDashboards();
+                                      }}
+                                    />
+                                  ) : null}
+                                </MoreMenu>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {!items.length && isFiltered && (
+                          <tr>
+                            <td colSpan={5} align={"center"}>
+                              No matching dashboards
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
