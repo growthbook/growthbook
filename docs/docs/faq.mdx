@@ -226,6 +226,12 @@ const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000
 
 ### What is the difference between a Dimension and a Segment?
 
+:::info
+
+We recommend using Dimensions instead of Segments for new implementations. While Segments remain fully supported, we plan to deprecate them in a future release.
+
+:::
+
 A dimension is a user attribute that can have multiple values. Some examples are `country`, `account_type`, and `browser`.
 
 A segment is a specific group of users. Some examples are `visitors in the US`, `premium users`, and `chrome users`.

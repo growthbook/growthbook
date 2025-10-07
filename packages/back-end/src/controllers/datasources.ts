@@ -30,6 +30,7 @@ import {
   testQuery,
   getIntegrationFromDatasourceId,
   runFreeFormQuery,
+  runUserExposureQuery,
 } from "back-end/src/services/datasource";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
@@ -72,6 +73,7 @@ import {
 import { FactTableColumnType } from "back-end/types/fact-table";
 import { factTableColumnTypes } from "back-end/src/routers/fact-table/fact-table.validators";
 import { UNITS_TABLE_PREFIX } from "../queryRunners/ExperimentResultsQueryRunner";
+import { getExperimentsByTrackingKeys } from "../models/ExperimentModel";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -857,6 +859,58 @@ export async function runQuery(
     results,
     sql,
     error,
+  });
+}
+
+export async function runUserExperimentExposuresQuery(
+  req: AuthRequest<{
+    unitId: string;
+    userIdType: string;
+    lookbackDays: number;
+    datasourceId: string;
+  }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { unitId, userIdType, lookbackDays, datasourceId } = req.body;
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  const { rows, statistics, error, sql } = await runUserExposureQuery(
+    context,
+    datasource,
+    unitId,
+    userIdType,
+    lookbackDays,
+  );
+
+  // If there are rows, construct a map of experiment_id (which is really the experiment tracking key) to the experiment id
+  let experimentMap = new Map<string, string>();
+  if (rows) {
+    const experimentTrackingKeys = rows.map((row) => row.experiment_id);
+    const uniqueExperimentTrackingKeys = new Set(experimentTrackingKeys);
+    const experiments = await getExperimentsByTrackingKeys(
+      context,
+      Array.from(uniqueExperimentTrackingKeys),
+    );
+    experimentMap = new Map(
+      experiments.map((experiment) => [experiment.trackingKey, experiment.id]),
+    );
+  }
+
+  res.status(200).json({
+    status: 200,
+    rows,
+    experimentMap: Object.fromEntries(experimentMap),
+    statistics,
+    error,
+    sql,
   });
 }
 

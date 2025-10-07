@@ -39,6 +39,8 @@ function parseInlineTargetingRules(inlineTargetingRulesJSON: string): Array<{
 export function transformStatsigExperimentToGB(
   experiment: StatsigExperiment,
   _availableEnvironments: string[],
+  skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): Partial<ExperimentInterfaceStringDates> {
   const {
     id,
@@ -58,7 +60,10 @@ export function transformStatsigExperimentToGB(
   } = experiment;
 
   // Map Statsig idType to GrowthBook hashAttribute
-  const hashAttribute = mapStatsigAttributeToGB(experiment.idType || "userID");
+  const hashAttribute = mapStatsigAttributeToGB(
+    experiment.idType || "user_id",
+    skipAttributeMapping,
+  );
 
   // Convert groups to variations
   const variations: Variation[] = groups.map((group, index) => ({
@@ -94,7 +99,11 @@ export function transformStatsigExperimentToGB(
       field: undefined,
       customID: undefined,
     }));
-    const transformedCondition = transformStatsigConditionsToGB(conditions);
+    const transformedCondition = transformStatsigConditionsToGB(
+      conditions,
+      skipAttributeMapping,
+      savedGroupIdMap,
+    );
     phaseCondition = transformedCondition.condition || "";
     phaseSavedGroups = transformedCondition.savedGroups.map((id) => ({
       match: "all" as const,
@@ -106,9 +115,14 @@ export function transformStatsigExperimentToGB(
         condition: JSON.stringify({ value: true }),
       })) || [];
   }
-
+  const toGbStatusMap = {
+    setup: "draft",
+    active: "running",
+    decision_made: "stopped",
+    abandoned: "stopped",
+  };
   // Map status
-  const gbStatus = status === "setup" ? "draft" : status;
+  const gbStatus = toGbStatusMap[status] || "draft";
 
   // Map stats engine
   const statsEngine = analyticsType === "bayesian" ? "bayesian" : "frequentist";

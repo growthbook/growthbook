@@ -8,6 +8,7 @@ import {
   getAllCodeRefsForOrg,
 } from "back-end/src/models/FeatureCodeRefs";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
+import { promiseAllChunks } from "back-end/src/util/promise";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req): Promise<PostCodeRefsResponse> => {
@@ -41,30 +42,36 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
       );
 
       // Remove references for features not in the request by setting empty refs
-      await Promise.all(
-        featuresToRemove.map(async (feature) => {
-          await upsertFeatureCodeRefs({
-            feature,
-            repo,
-            branch,
-            codeRefs: [], // Empty array will replace all existing refs
-            organization: req.context.org,
-          });
-        }),
+      await promiseAllChunks(
+        featuresToRemove.map(
+          (feature) => async () => {
+            await upsertFeatureCodeRefs({
+              feature,
+              repo,
+              branch,
+              codeRefs: [], // Empty array will replace all existing refs
+              organization: req.context.org,
+            });
+          },
+          5,
+        ),
       );
     }
 
     // Update references for features in the request
-    await Promise.all(
-      values(refsByFeature).map(async (refs) => {
-        await upsertFeatureCodeRefs({
-          feature: refs[0].flagKey,
-          repo,
-          branch,
-          codeRefs: refs,
-          organization: req.context.org,
-        });
-      }),
+    await promiseAllChunks(
+      values(refsByFeature).map(
+        (refs) => async () => {
+          await upsertFeatureCodeRefs({
+            feature: refs[0].flagKey,
+            repo,
+            branch,
+            codeRefs: refs,
+            organization: req.context.org,
+          });
+        },
+        5,
+      ),
     );
 
     // Get all features that were updated (both added/updated and removed)

@@ -728,6 +728,12 @@ export async function updateMaterializedColumns({
     const ft = factTables.find((ft) => ft.id === "ch_events");
     if (ft) {
       const newColumns = [...ft.columns];
+      newColumns.forEach((col) => {
+        if (col.numberFormat === undefined) {
+          col.numberFormat = "";
+        }
+      });
+
       columnsToAdd.forEach((col) => {
         if (!newColumns.find((c) => c.column === col.columnName)) {
           newColumns.push({
