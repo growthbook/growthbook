@@ -168,15 +168,8 @@ export async function runRefreshColumnsQuery(
     }
   });
 
-  const resultsWithoutKnownColumns = result.results.map((row) => {
-    const filteredRow: Record<string, unknown> = {};
-    for (const columnName in row) {
-      if (!typeMap.has(columnName)) filteredRow[columnName] = row[columnName];
-    }
-    return filteredRow;
-  });
-
-  determineColumnTypes(resultsWithoutKnownColumns).forEach((col) => {
+  const columnsToSkip = new Set(typeMap.keys());
+  determineColumnTypes(result.results, columnsToSkip).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
       jsonMap.set(col.column, col.jsonFields);

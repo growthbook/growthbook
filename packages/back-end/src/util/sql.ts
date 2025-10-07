@@ -246,13 +246,16 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
   return fields;
 }
 
-export function determineColumnTypes(rows: Record<string, unknown>[]): {
+export function determineColumnTypes(
+  rows: Record<string, unknown>[],
+  columnsToSkip?: Set<string>,
+): {
   column: string;
   datatype: FactTableColumnType;
   jsonFields?: JSONColumnFields;
 }[] {
   if (!rows || !rows[0]) return [];
-  const cols = Object.keys(rows[0]);
+  const cols = Object.keys(rows[0]).filter((col) => !columnsToSkip?.has(col));
 
   const columns: {
     column: string;
