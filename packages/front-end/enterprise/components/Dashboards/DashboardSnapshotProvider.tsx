@@ -1,5 +1,6 @@
 import React, {
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -21,7 +22,12 @@ import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
+import {
+  CreateMetricAnalysisProps,
+  MetricAnalysisInterface,
+} from "back-end/types/metric-analysis";
+import { getValidDate } from "shared/dates";
+import { isEqual } from "lodash";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
@@ -113,16 +119,18 @@ export default function DashboardSnapshotProvider({
     [allSavedQueries],
   );
 
-  const metricAnalysesMap = useMemo(
-    () =>
-      new Map(
-        allMetricAnalyses.map((metricAnalysis) => [
-          metricAnalysis.id,
-          metricAnalysis,
-        ]),
-      ),
-    [allMetricAnalyses],
-  );
+  const { metricAnalysesMap, runningMetricAnalyses } = useMemo(() => {
+    const metricAnalysesMap = new Map(
+      allMetricAnalyses.map((metricAnalysis) => [
+        metricAnalysis.id,
+        metricAnalysis,
+      ]),
+    );
+    const runningMetricAnalyses = allMetricAnalyses.filter((metricAnalysis) =>
+      ["running", "queued"].includes(metricAnalysis.status),
+    );
+    return { metricAnalysesMap, runningMetricAnalyses };
+  }, [allMetricAnalyses]);
 
   const { status, snapshotsMap, allQueries, snapshotError } = useMemo(() => {
     const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
@@ -152,8 +160,16 @@ export default function DashboardSnapshotProvider({
 
   // Periodically check for the status of all snapshots
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const intervalId = setInterval(async () => {
       if (status === "running") {
+        mutateAllSnapshots();
+      } else if (runningMetricAnalyses.length > 0) {
+        // Refresh the query status of all analyses before mutating
+        for (const m of runningMetricAnalyses) {
+          await apiCall(`/metric-analysis/${m.id}/refreshStatus`, {
+            method: "POST",
+          });
+        }
         mutateAllSnapshots();
       } else {
         clearInterval(intervalId);
@@ -162,7 +178,7 @@ export default function DashboardSnapshotProvider({
     return () => {
       clearInterval(intervalId);
     };
-  }, [mutateAllSnapshots, status]);
+  }, [mutateAllSnapshots, status, runningMetricAnalyses, apiCall]);
 
   const updateAllSnapshots = async () => {
     if (!dashboard) return;
@@ -331,5 +347,118 @@ export function useDashboardSnapshot(
       snapshot?.status === "running",
     error: snapshotsError,
     mutateSnapshot,
+  };
+}
+
+export function useDashboardMetricAnalysis(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  setBlock: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  >,
+) {
+  const {
+    loading: contextLoading,
+    error: contextError,
+    mutateSnapshotsMap: mutateAnalysesMap,
+    metricAnalysesMap,
+  } = useContext(DashboardSnapshotContext);
+  const { apiCall } = useAuth();
+  const [postError, setPostError] = useState<string | undefined>(undefined);
+  const [postLoading, setPostLoading] = useState(false);
+
+  const blockHasMetricAnalysis = blockHasFieldOfType(
+    block,
+    "metricAnalysisId",
+    isString,
+  );
+
+  const metricAnalysisFromMap = useMemo(
+    () =>
+      blockHasMetricAnalysis
+        ? metricAnalysesMap.get(block.metricAnalysisId)
+        : undefined,
+    [blockHasMetricAnalysis, block, metricAnalysesMap],
+  );
+
+  const shouldFetchMetricAnalysis = () =>
+    blockHasMetricAnalysis && !metricAnalysisFromMap;
+  const {
+    data: existingMetricAnalysisData,
+    error: existingMetricAnalysisError,
+    isLoading: getMetricAnalysisLoading,
+    mutate: mutateSingleAnalysis,
+  } = useApi<{
+    status: number;
+    metricAnalysis: MetricAnalysisInterface;
+  }>(
+    `/metric-analysis/${blockHasMetricAnalysis ? block.metricAnalysisId : ""}`,
+    {
+      shouldRun: shouldFetchMetricAnalysis,
+    },
+  );
+
+  const metricAnalysis = useMemo(
+    () => metricAnalysisFromMap ?? existingMetricAnalysisData?.metricAnalysis,
+    [metricAnalysisFromMap, existingMetricAnalysisData],
+  );
+
+  // Create a hook for refreshing, either due to settings changes or based on manual interaction
+  const refreshAnalysis = useCallback(async () => {
+    if (
+      !blockHasMetricAnalysis ||
+      !block.factMetricId ||
+      !block.analysisSettings.userIdType
+    )
+      return;
+    const body: CreateMetricAnalysisProps = {
+      id: block.factMetricId,
+      userIdType: block.analysisSettings.userIdType,
+      lookbackDays: block.analysisSettings.lookbackDays,
+      startDate: getValidDate(block.analysisSettings.startDate).toISOString(),
+      endDate: getValidDate(block.analysisSettings.endDate).toISOString(),
+      populationType: block.analysisSettings.populationType,
+      populationId: block.analysisSettings.populationId || null,
+      source: "metric",
+    };
+
+    setPostError(undefined);
+    setPostLoading(true);
+    try {
+      const response = await apiCall<{
+        metricAnalysis: MetricAnalysisInterface;
+      }>(`/metric-analysis`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+
+      setBlock({ ...block, metricAnalysisId: response.metricAnalysis.id });
+    } catch (e) {
+      setPostError(e.message);
+    } finally {
+      setPostLoading(false);
+    }
+  }, [apiCall, block, blockHasMetricAnalysis, setBlock]);
+
+  useEffect(() => {
+    if (!blockHasMetricAnalysis || postLoading) return;
+    // TODO: handle date stringification
+    if (isEqual(block.analysisSettings, metricAnalysis?.settings)) return;
+    // refreshAnalysis();
+  }, [
+    block,
+    blockHasMetricAnalysis,
+    metricAnalysis,
+    postLoading,
+    refreshAnalysis,
+  ]);
+
+  return {
+    metricAnalysis,
+    refreshAnalysis,
+    loading: getMetricAnalysisLoading || contextLoading || postLoading,
+    error: contextError || existingMetricAnalysisError || postError,
+    mutate: shouldFetchMetricAnalysis()
+      ? mutateSingleAnalysis
+      : mutateAnalysesMap,
   };
 }

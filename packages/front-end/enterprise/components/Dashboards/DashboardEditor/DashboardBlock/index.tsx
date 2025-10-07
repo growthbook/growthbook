@@ -36,6 +36,7 @@ import {
 import { useExperiments } from "@/hooks/useExperiments";
 import {
   DashboardSnapshotContext,
+  useDashboardMetricAnalysis,
   useDashboardSnapshot,
 } from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -151,11 +152,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     analysis,
     loading: dashboardSnapshotLoading,
   } = useDashboardSnapshot(block, setBlock);
-  const {
-    metricAnalysesMap,
-    savedQueriesMap,
-    loading: dashboardContextLoading,
-  } = useContext(DashboardSnapshotContext);
+  const { savedQueriesMap, loading: dashboardContextLoading } = useContext(
+    DashboardSnapshotContext,
+  );
+  const { metricAnalysis, loading: metricAnalysisLoading } =
+    useDashboardMetricAnalysis(block, setBlock);
   const blockHasSavedQuery = blockHasFieldOfType(
     block,
     "savedQueryId",
@@ -179,20 +180,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     "metricAnalysisId",
     isString,
   );
-  // Use the API directly when the metric analysis hasn't been attached to the dashboard yet (when editing)
-  const shouldFetchMetricAnalysis = () =>
-    blockHasMetricAnalysis && !metricAnalysesMap.has(block.metricAnalysisId);
-  const { data: metricAnalysisData, isLoading: metricAnalysisLoading } =
-    useApi<{
-      status: number;
-      metricAnalysis: MetricAnalysisInterface;
-    }>(
-      `/metric-analysis/${blockHasMetricAnalysis ? block.metricAnalysisId : ""}`,
-      {
-        shouldRun: shouldFetchMetricAnalysis,
-      },
-    );
-
   const BlockComponent = BLOCK_COMPONENTS[block.type] as React.FC<
     BlockProps<T>
   >;
@@ -248,14 +235,10 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     };
   }
 
-  const blockMetricAnalysis = blockHasMetricAnalysis
-    ? (metricAnalysesMap.get(block.metricAnalysisId) ??
-      metricAnalysisData?.metricAnalysis)
-    : undefined;
   if (blockHasMetricAnalysis) {
     objectProps = {
       ...objectProps,
-      metricAnalysis: blockMetricAnalysis,
+      metricAnalysis,
     };
   }
 
@@ -304,7 +287,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     (blockHasFactMetric &&
       (block.factMetricId.length === 0 || !blockFactMetric)) ||
     (blockHasMetricAnalysis &&
-      (block.metricAnalysisId.length === 0 || !blockMetricAnalysis));
+      (block.metricAnalysisId.length === 0 || !metricAnalysis));
 
   const blockMissingHealthCheck =
     block.type === "experiment-traffic" &&
@@ -515,6 +498,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       {!definitionsReady ||
       experimentsLoading ||
       dashboardSnapshotLoading ||
+      metricAnalysisLoading ||
       dashboardContextLoading ||
       (blockHasSavedQuery && savedQueryLoading) ||
       (blockHasMetricAnalysis && metricAnalysisLoading) ? (

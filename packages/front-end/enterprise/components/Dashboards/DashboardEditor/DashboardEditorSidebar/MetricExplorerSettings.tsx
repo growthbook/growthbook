@@ -15,7 +15,7 @@ interface Props {
 }
 export default function MetricExplorerSettings({ block, setBlock }: Props) {
   const { getFactMetricById, getFactTableById } = useDefinitions();
-  const metric = getFactMetricById(block.metricId);
+  const metric = getFactMetricById(block.factMetricId);
   const factTable = getFactTableById(metric?.numerator?.factTableId || "");
 
   // TODO: reset invalid values when metric changes
