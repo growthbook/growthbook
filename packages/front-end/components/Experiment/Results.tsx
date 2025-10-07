@@ -61,8 +61,10 @@ const Results: FC<{
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
-  sortBy?: "metric-tags" | "significance" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | null) => void;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
   experiment,
   envs,
@@ -87,6 +89,8 @@ const Results: FC<{
   holdout,
   sortBy,
   setSortBy,
+  sortDirection,
+  setSortDirection,
 }) => {
   const { apiCall } = useAuth();
 
@@ -421,6 +425,8 @@ const Results: FC<{
           experimentType={experiment.type}
           sortBy={sortBy}
           setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
           analysisBarSettings={analysisBarSettings}
         />
       ) : showCompactResults ? (
@@ -470,6 +476,8 @@ const Results: FC<{
             customMetricSlices={experiment.customMetricSlices}
             sortBy={sortBy}
             setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
             analysisBarSettings={analysisBarSettings}
           />
         </>

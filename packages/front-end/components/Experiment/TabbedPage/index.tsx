@@ -150,20 +150,27 @@ export default function TabbedPage({
     },
   );
   const [sortBy, setSortBy] = useLocalStorage<
-    "metric-tags" | "significance" | null
+    "metric-tags" | "significance" | "change" | null
   >(`experiment-page__${experiment.id}__sort_by`, null);
+  const [sortDirection, setSortDirection] = useLocalStorage<
+    "asc" | "desc" | null
+  >(`experiment-page__${experiment.id}__sort_direction`, null);
 
   const setSortByWithPriority = (
-    newSortBy: "metric-tags" | "significance" | null,
+    newSortBy: "metric-tags" | "significance" | "change" | null,
   ) => {
-    if (newSortBy === "significance") {
-      // When sorting by significance, clear tag order to avoid conflicts
+    if (newSortBy === "significance" || newSortBy === "change") {
+      // When sorting by significance or change, clear tag order to avoid conflicts
       setMetricFilter((prev) => ({
         ...(prev || {}),
         tagOrder: [],
       }));
     }
     setSortBy(newSortBy);
+  };
+
+  const setSortDirectionDirect = (direction: "asc" | "desc" | null) => {
+    setSortDirection(direction);
   };
 
   const setMetricFilterWithPriority = (
@@ -605,6 +612,8 @@ export default function TabbedPage({
           setMetricFilter={setMetricFilterWithPriority}
           sortBy={sortBy}
           setSortBy={setSortByWithPriority}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirectionDirect}
         />
       </div>
       <div

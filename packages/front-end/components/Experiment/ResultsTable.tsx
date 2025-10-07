@@ -119,8 +119,10 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
-  sortBy?: "metric-tags" | "significance" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | null) => void;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 };
 
 const ROW_HEIGHT = 46;
@@ -182,41 +184,90 @@ export default function ResultsTable({
   isHoldout,
   sortBy,
   setSortBy,
+  sortDirection,
+  setSortDirection,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
 
-  const sortFilter = setSortBy ? (
-    <Tooltip
-      usePortal={true}
-      innerClassName={"text-left"}
-      body={
-        sortBy === "significance"
-          ? "Sorted by significance"
-          : "Sort by significance"
-      }
-    >
-      <a
-        role="button"
-        className={sortBy === "significance" ? "link-purple" : "text-muted"}
-        onClick={() =>
-          setSortBy(sortBy === "significance" ? null : "significance")
+  const SortButton = ({ column }: { column: "significance" | "change" }) => {
+    if (!setSortBy || !setSortDirection) return null;
+
+    const isActive = sortBy === column;
+
+    const handleClick = () => {
+      if (!isActive) {
+        // Not currently sorting by this column, set to default direction
+        setSortBy(column);
+        if (column === "change") {
+          // Change: desc, asc, null
+          setSortDirection("desc");
+        } else if (column === "significance") {
+          // Significance: frequentist (asc, desc, null), bayesian (desc, asc, null)
+          setSortDirection(statsEngine === "frequentist" ? "asc" : "desc");
         }
-        style={{ marginLeft: "2px" }}
+      } else {
+        // Currently sorting by this column, cycle through directions
+        if (column === "change") {
+          // Change: desc -> asc -> null
+          if (sortDirection === "desc") {
+            setSortDirection("asc");
+          } else if (sortDirection === "asc") {
+            setSortBy(null);
+          }
+        } else if (column === "significance") {
+          // Significance: frequentist (asc -> desc -> null), bayesian (desc -> asc -> null)
+          if (statsEngine === "frequentist") {
+            if (sortDirection === "asc") {
+              setSortDirection("desc");
+            } else if (sortDirection === "desc") {
+              setSortBy(null);
+            }
+          } else {
+            if (sortDirection === "desc") {
+              setSortDirection("asc");
+            } else if (sortDirection === "asc") {
+              setSortBy(null);
+            }
+          }
+        }
+      }
+    };
+
+    const getTooltipText = () => {
+      if (isActive) {
+        return `Sorted by ${column} ${sortDirection === "desc" ? "(desc)" : "(asc)"}`;
+      }
+      return `Sort by ${column}`;
+    };
+
+    const getIcon = () => {
+      if (!isActive) return <FaSort size={16} />;
+      return sortDirection === "desc" ? (
+        <FaSortDown size={16} />
+      ) : (
+        <FaSortUp size={16} />
+      );
+    };
+
+    return (
+      <Tooltip
+        usePortal={true}
+        innerClassName={"text-left"}
+        body={getTooltipText()}
       >
-        {sortBy === "significance" ? (
-          statsEngine === "frequentist" ? (
-            <FaSortDown size={16} />
-          ) : (
-            <FaSortUp size={16} />
-          )
-        ) : (
-          <FaSort size={16} />
-        )}
-      </a>
-    </Tooltip>
-  ) : null;
+        <a
+          role="button"
+          className={isActive ? "link-purple" : "text-muted"}
+          onClick={handleClick}
+          style={{ marginLeft: "2px" }}
+        >
+          {getIcon()}
+        </a>
+      </Tooltip>
+    );
+  };
   const columnsToDisplay = columnsFilter?.length
     ? columnsFilter
     : RESULTS_TABLE_COLUMNS;
@@ -643,7 +694,7 @@ export default function ResultsTable({
                               <span className="nowrap">to Win</span>
                             </div>
                             <div style={{ top: -2, position: "relative" }}>
-                              {sortFilter}
+                              <SortButton column="significance" />
                             </div>
                           </div>
                         ) : sequentialTestingEnabled ||
@@ -665,12 +716,12 @@ export default function ResultsTable({
                           >
                             {appliedPValueCorrection ? "Adj. " : ""}P-value{" "}
                             <RxInfoCircled />
-                            {sortFilter}
+                            <SortButton column="significance" />
                           </Tooltip>
                         ) : (
                           <>
                             P-value
-                            {sortFilter}
+                            <SortButton column="significance" />
                           </>
                         )}
                       </th>
@@ -731,6 +782,7 @@ export default function ResultsTable({
                           >
                             {changeTitle} <RxInfoCircled />
                           </Tooltip>
+                          <SortButton column="change" />
                         </div>
                       </th>
                     )}

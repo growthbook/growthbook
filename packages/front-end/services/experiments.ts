@@ -45,6 +45,71 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
+export const compareRowsByChange = (
+  a: ExperimentTableRow,
+  b: ExperimentTableRow,
+  options: {
+    variationFilter: number[];
+    metricDefaults: MetricDefaults;
+    sortDirection: "asc" | "desc";
+  },
+) => {
+  const { variationFilter, metricDefaults, sortDirection } = options;
+
+  const aBaseline = a?.variations?.[0];
+  const bBaseline = b?.variations?.[0];
+  const aFiltered =
+    a?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+  const bFiltered =
+    b?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+
+  const aHasData =
+    aFiltered.some((v) => v && v.value != null && v.value > 0) &&
+    aBaseline &&
+    aBaseline.value != null &&
+    aBaseline.value > 0;
+  const bHasData =
+    bFiltered.some((v) => v && v.value != null && v.value > 0) &&
+    bBaseline &&
+    bBaseline.value != null &&
+    bBaseline.value > 0;
+  const aHasEnoughData =
+    aBaseline &&
+    aFiltered.some(
+      (v) => v && hasEnoughData(aBaseline, v, a?.metric, metricDefaults),
+    );
+  const bHasEnoughData =
+    bBaseline &&
+    bFiltered.some(
+      (v) => v && hasEnoughData(bBaseline, v, b?.metric, metricDefaults),
+    );
+
+  if (!aHasData || !aHasEnoughData || !bHasData || !bHasEnoughData) return 0;
+
+  // Calculate percentage change for each variation
+  const aChanges = aFiltered.map((v) => {
+    if (!v || !aBaseline || aBaseline.value === 0) return 0;
+    return ((v.value - aBaseline.value) / aBaseline.value) * 100;
+  });
+  const bChanges = bFiltered.map((v) => {
+    if (!v || !bBaseline || bBaseline.value === 0) return 0;
+    return ((v.value - bBaseline.value) / bBaseline.value) * 100;
+  });
+
+  if (aChanges.length === 0 && bChanges.length === 0) return 0;
+  if (aChanges.length === 0) return 1;
+  if (bChanges.length === 0) return -1;
+
+  // Use the maximum absolute change for comparison
+  const aMaxChange = Math.max(...aChanges.map(Math.abs));
+  const bMaxChange = Math.max(...bChanges.map(Math.abs));
+
+  const result = aMaxChange - bMaxChange;
+  return sortDirection === "desc" ? -result : result;
+};
+
 export const compareRowsBySignificance = (
   a: ExperimentTableRow,
   b: ExperimentTableRow,

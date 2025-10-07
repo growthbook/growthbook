@@ -29,6 +29,7 @@ import {
   applyMetricOverrides,
   ExperimentTableRow,
   compareRowsBySignificance,
+  compareRowsByChange,
 } from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -115,8 +116,10 @@ const BreakDownResults: FC<{
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
-  sortBy?: "metric-tags" | "significance" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | null) => void;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
   analysisBarSettings?: {
     variationFilter: number[];
   };
@@ -158,6 +161,8 @@ const BreakDownResults: FC<{
   noStickyHeader,
   sortBy,
   setSortBy,
+  sortDirection,
+  setSortDirection,
   analysisBarSettings,
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
@@ -342,6 +347,22 @@ const BreakDownResults: FC<{
       }));
     }
 
+    // Sort rows within each table by change if sortBy is "change"
+    if (sortBy === "change" && metricDefaults && sortDirection) {
+      const sortOptions = {
+        variationFilter:
+          analysisBarSettings?.variationFilter ?? variationFilter ?? [],
+        metricDefaults,
+        sortDirection,
+      };
+      return tables.map((table) => ({
+        ...table,
+        rows: [...table.rows].sort((a, b) =>
+          compareRowsByChange(a, b, sortOptions),
+        ),
+      }));
+    }
+
     return tables;
   }, [
     results,
@@ -360,6 +381,7 @@ const BreakDownResults: FC<{
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
     sortBy,
+    sortDirection,
     analysisBarSettings?.variationFilter,
     metricDefaults,
     variationFilter,
@@ -505,6 +527,8 @@ const BreakDownResults: FC<{
               isHoldout={isHoldout}
               sortBy={sortBy}
               setSortBy={setSortBy}
+              sortDirection={sortDirection}
+              setSortDirection={setSortDirection}
             />
             <div className="mb-5" />
           </>

@@ -37,6 +37,7 @@ import {
   applyMetricOverrides,
   ExperimentTableRow,
   compareRowsBySignificance,
+  compareRowsByChange,
 } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import {
@@ -107,8 +108,10 @@ const CompactResults: FC<{
       levels: string[];
     }>;
   }>;
-  sortBy?: "metric-tags" | "significance" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | null) => void;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
   analysisBarSettings?: {
     variationFilter: number[];
   };
@@ -154,6 +157,8 @@ const CompactResults: FC<{
   customMetricSlices,
   sortBy,
   setSortBy,
+  sortDirection,
+  setSortDirection,
   analysisBarSettings,
 }) => {
   const { getExperimentMetricById, getFactMetricLevels, metricGroups, ready } =
@@ -474,6 +479,43 @@ const CompactResults: FC<{
       ];
     }
 
+    // Sort by change if sortBy is "change"
+    if (sortBy === "change" && metricDefaults && sortDirection) {
+      const sortOptions = {
+        variationFilter:
+          analysisBarSettings?.variationFilter ?? variationFilter ?? [],
+        metricDefaults,
+        sortDirection,
+      };
+
+      const sortRows = (rows: ExperimentTableRow[]) => {
+        const parentRows = rows.filter((row) => !row.parentRowId);
+        const sortedParents = [...parentRows].sort((a, b) =>
+          compareRowsByChange(a, b, sortOptions),
+        );
+
+        const newRows: ExperimentTableRow[] = [];
+        sortedParents.forEach((parent) => {
+          newRows.push(parent);
+          const childRows = rows.filter(
+            (row) => row.parentRowId === parent.metric?.id,
+          );
+          const sortedChildren = [...childRows].sort((a, b) =>
+            compareRowsByChange(a, b, sortOptions),
+          );
+          newRows.push(...sortedChildren);
+        });
+
+        return newRows;
+      };
+
+      return [
+        ...sortRows(retMetrics),
+        ...sortRows(retSecondary),
+        ...sortRows(retGuardrails),
+      ];
+    }
+
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
@@ -495,6 +537,7 @@ const CompactResults: FC<{
     shouldShowMetricSlices,
     customMetricSlices,
     sortBy,
+    sortDirection,
     analysisBarSettings?.variationFilter,
     metricDefaults,
     variationFilter,
@@ -618,6 +661,8 @@ const CompactResults: FC<{
           isHoldout={experimentType === "holdout"}
           sortBy={sortBy}
           setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
         />
       ) : null}
 
@@ -671,6 +716,8 @@ const CompactResults: FC<{
             isHoldout={experimentType === "holdout"}
             sortBy={sortBy}
             setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
           />
         </div>
       ) : null}
@@ -725,6 +772,8 @@ const CompactResults: FC<{
             isHoldout={experimentType === "holdout"}
             sortBy={sortBy}
             setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
           />
         </div>
       ) : (
