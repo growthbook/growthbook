@@ -45,19 +45,18 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
-export const compareRowsByChange = (
+export const compareRows = (
   a: ExperimentTableRow,
   b: ExperimentTableRow,
   options: {
+    sortBy: "significance" | "change";
     variationFilter: number[];
     metricDefaults: MetricDefaults;
     sortDirection: "asc" | "desc";
   },
 ) => {
-  const { variationFilter, metricDefaults, sortDirection } = options;
+  const { sortBy, variationFilter, metricDefaults, sortDirection } = options;
 
-  const aBaseline = a?.variations?.[0];
-  const bBaseline = b?.variations?.[0];
   const aFiltered =
     a?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
     [];
@@ -65,16 +64,16 @@ export const compareRowsByChange = (
     b?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
     [];
 
-  const aHasData =
-    aFiltered.some((v) => v && v.value != null && v.value > 0) &&
-    aBaseline &&
-    aBaseline.value != null &&
-    aBaseline.value > 0;
-  const bHasData =
-    bFiltered.some((v) => v && v.value != null && v.value > 0) &&
-    bBaseline &&
-    bBaseline.value != null &&
-    bBaseline.value > 0;
+  const aBaseline = a?.variations?.[0];
+  const bBaseline = b?.variations?.[0];
+
+  const aHasData = aFiltered.some((v) => v?.value != null && v?.value > 0);
+  const bHasData = bFiltered.some((v) => v?.value != null && v?.value > 0);
+
+  if (!aHasData && !bHasData) return 0;
+  if (!aHasData) return 1;
+  if (!bHasData) return -1;
+
   const aHasEnoughData =
     aBaseline &&
     aFiltered.some(
@@ -86,82 +85,54 @@ export const compareRowsByChange = (
       (v) => v && hasEnoughData(bBaseline, v, b?.metric, metricDefaults),
     );
 
-  if (!aHasData || !aHasEnoughData || !bHasData || !bHasEnoughData) return 0;
+  if (!aHasEnoughData || !bHasEnoughData) return 0;
 
-  // Calculate percentage change for each variation
-  const aChanges = aFiltered.map((v) => {
-    if (!v || !aBaseline || aBaseline.value === 0) return 0;
-    return ((v.value - aBaseline.value) / aBaseline.value) * 100;
+  const aValues = aFiltered.map((v) => {
+    if (sortBy === "change") {
+      return v?.expected ?? 0;
+    } else {
+      const usePValue =
+        aFiltered.some((v) => v?.pValue != null) ||
+        bFiltered.some((v) => v?.pValue != null);
+      return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
+    }
   });
-  const bChanges = bFiltered.map((v) => {
-    if (!v || !bBaseline || bBaseline.value === 0) return 0;
-    return ((v.value - bBaseline.value) / bBaseline.value) * 100;
+  const bValues = bFiltered.map((v) => {
+    if (sortBy === "change") {
+      return v?.expected ?? 0;
+    } else {
+      const usePValue =
+        aFiltered.some((v) => v?.pValue != null) ||
+        bFiltered.some((v) => v?.pValue != null);
+      return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
+    }
   });
-
-  if (aChanges.length === 0 && bChanges.length === 0) return 0;
-  if (aChanges.length === 0) return 1;
-  if (bChanges.length === 0) return -1;
-
-  // Use the maximum absolute change for comparison
-  const aMaxChange = Math.max(...aChanges.map(Math.abs));
-  const bMaxChange = Math.max(...bChanges.map(Math.abs));
-
-  const result = aMaxChange - bMaxChange;
-  return sortDirection === "desc" ? -result : result;
-};
-
-export const compareRowsBySignificance = (
-  a: ExperimentTableRow,
-  b: ExperimentTableRow,
-  options: {
-    statsEngine: StatsEngine;
-    variationFilter: number[];
-    metricDefaults: MetricDefaults;
-  },
-) => {
-  const { statsEngine, variationFilter, metricDefaults } = options;
-
-  const aFiltered =
-    a?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
-    [];
-  const bFiltered =
-    b?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
-    [];
-
-  const aHasData = aFiltered.some((v) => v && v.value != null && v.value > 0);
-  const bHasData = bFiltered.some((v) => v && v.value != null && v.value > 0);
-  const aBaseline = a?.variations?.[0];
-  const bBaseline = b?.variations?.[0];
-  const aHasEnoughData =
-    aBaseline &&
-    aFiltered.some(
-      (v) => v && hasEnoughData(aBaseline, v, a?.metric, metricDefaults),
-    );
-  const bHasEnoughData =
-    bBaseline &&
-    bFiltered.some(
-      (v) => v && hasEnoughData(bBaseline, v, b?.metric, metricDefaults),
-    );
-
-  if (!aHasData || !aHasEnoughData || !bHasData || !bHasEnoughData) return 0;
-
-  const aValues = aFiltered.map((v) =>
-    statsEngine === "frequentist" ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0),
-  );
-  const bValues = bFiltered.map((v) =>
-    statsEngine === "frequentist" ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0),
-  );
 
   if (aValues.length === 0 && bValues.length === 0) return 0;
   if (aValues.length === 0) return 1;
   if (bValues.length === 0) return -1;
 
   const aValue =
-    statsEngine === "frequentist" ? Math.min(...aValues) : Math.max(...aValues);
+    sortBy === "change"
+      ? Math.max(...aValues)
+      : aFiltered.some((v) => v?.pValue != null)
+        ? Math.min(...aValues)
+        : Math.max(...aValues);
   const bValue =
-    statsEngine === "frequentist" ? Math.min(...bValues) : Math.max(...bValues);
+    sortBy === "change"
+      ? Math.max(...bValues)
+      : bFiltered.some((v) => v?.pValue != null)
+        ? Math.min(...bValues)
+        : Math.max(...bValues);
 
-  return statsEngine === "frequentist" ? aValue - bValue : bValue - aValue;
+  const result =
+    sortBy === "change"
+      ? aValue - bValue
+      : aFiltered.some((v) => v?.pValue != null)
+        ? aValue - bValue
+        : bValue - aValue;
+
+  return sortDirection === "desc" ? -result : result;
 };
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {

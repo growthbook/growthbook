@@ -28,8 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  compareRowsBySignificance,
-  compareRowsByChange,
+  compareRows,
 } from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -331,25 +330,14 @@ const BreakDownResults: FC<{
       })
       .filter((table) => table?.metric) as TableDef[];
 
-    // Sort rows within each table by significance if sortBy is "significance"
-    if (sortBy === "significance" && metricDefaults) {
+    // Sort rows within each table by significance or change if sortBy is set
+    if (
+      (sortBy === "significance" || sortBy === "change") &&
+      metricDefaults &&
+      sortDirection
+    ) {
       const sortOptions = {
-        statsEngine,
-        variationFilter:
-          analysisBarSettings?.variationFilter ?? variationFilter ?? [],
-        metricDefaults,
-      };
-      return tables.map((table) => ({
-        ...table,
-        rows: [...table.rows].sort((a, b) =>
-          compareRowsBySignificance(a, b, sortOptions),
-        ),
-      }));
-    }
-
-    // Sort rows within each table by change if sortBy is "change"
-    if (sortBy === "change" && metricDefaults && sortDirection) {
-      const sortOptions = {
+        sortBy,
         variationFilter:
           analysisBarSettings?.variationFilter ?? variationFilter ?? [],
         metricDefaults,
@@ -357,9 +345,7 @@ const BreakDownResults: FC<{
       };
       return tables.map((table) => ({
         ...table,
-        rows: [...table.rows].sort((a, b) =>
-          compareRowsByChange(a, b, sortOptions),
-        ),
+        rows: [...table.rows].sort((a, b) => compareRows(a, b, sortOptions)),
       }));
     }
 

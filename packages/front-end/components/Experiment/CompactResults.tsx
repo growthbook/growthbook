@@ -36,8 +36,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
-  compareRowsBySignificance,
-  compareRowsByChange,
+  compareRows,
 } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import {
@@ -442,46 +441,14 @@ const CompactResults: FC<{
       getRow(metricId, "guardrail"),
     );
 
-    // Sort by significance if sortBy is "significance"
-    if (sortBy === "significance" && metricDefaults) {
+    // Sort by significance or change if sortBy is set
+    if (
+      (sortBy === "significance" || sortBy === "change") &&
+      metricDefaults &&
+      sortDirection
+    ) {
       const sortOptions = {
-        statsEngine,
-        variationFilter:
-          analysisBarSettings?.variationFilter ?? variationFilter ?? [],
-        metricDefaults,
-      };
-
-      const sortRows = (rows: ExperimentTableRow[]) => {
-        const parentRows = rows.filter((row) => !row.parentRowId);
-        const sortedParents = [...parentRows].sort((a, b) =>
-          compareRowsBySignificance(a, b, sortOptions),
-        );
-
-        const newRows: ExperimentTableRow[] = [];
-        sortedParents.forEach((parent) => {
-          newRows.push(parent);
-          const childRows = rows.filter(
-            (row) => row.parentRowId === parent.metric?.id,
-          );
-          const sortedChildren = [...childRows].sort((a, b) =>
-            compareRowsBySignificance(a, b, sortOptions),
-          );
-          newRows.push(...sortedChildren);
-        });
-
-        return newRows;
-      };
-
-      return [
-        ...sortRows(retMetrics),
-        ...sortRows(retSecondary),
-        ...sortRows(retGuardrails),
-      ];
-    }
-
-    // Sort by change if sortBy is "change"
-    if (sortBy === "change" && metricDefaults && sortDirection) {
-      const sortOptions = {
+        sortBy,
         variationFilter:
           analysisBarSettings?.variationFilter ?? variationFilter ?? [],
         metricDefaults,
@@ -491,7 +458,7 @@ const CompactResults: FC<{
       const sortRows = (rows: ExperimentTableRow[]) => {
         const parentRows = rows.filter((row) => !row.parentRowId);
         const sortedParents = [...parentRows].sort((a, b) =>
-          compareRowsByChange(a, b, sortOptions),
+          compareRows(a, b, sortOptions),
         );
 
         const newRows: ExperimentTableRow[] = [];
@@ -501,7 +468,7 @@ const CompactResults: FC<{
             (row) => row.parentRowId === parent.metric?.id,
           );
           const sortedChildren = [...childRows].sort((a, b) =>
-            compareRowsByChange(a, b, sortOptions),
+            compareRows(a, b, sortOptions),
           );
           newRows.push(...sortedChildren);
         });

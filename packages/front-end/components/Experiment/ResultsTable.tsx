@@ -204,8 +204,8 @@ export default function ResultsTable({
           // Change: desc, asc, null
           setSortDirection("desc");
         } else if (column === "significance") {
-          // Significance: frequentist (asc, desc, null), bayesian (desc, asc, null)
-          setSortDirection(statsEngine === "frequentist" ? "asc" : "desc");
+          // Significance: frequentist (desc, asc, null), bayesian (asc, desc, null)
+          setSortDirection(statsEngine === "frequentist" ? "desc" : "asc");
         }
       } else {
         // Currently sorting by this column, cycle through directions
@@ -217,17 +217,17 @@ export default function ResultsTable({
             setSortBy(null);
           }
         } else if (column === "significance") {
-          // Significance: frequentist (asc -> desc -> null), bayesian (desc -> asc -> null)
+          // Significance: frequentist (desc -> asc -> null), bayesian (asc -> desc -> null)
           if (statsEngine === "frequentist") {
-            if (sortDirection === "asc") {
-              setSortDirection("desc");
-            } else if (sortDirection === "desc") {
-              setSortBy(null);
-            }
-          } else {
             if (sortDirection === "desc") {
               setSortDirection("asc");
             } else if (sortDirection === "asc") {
+              setSortBy(null);
+            }
+          } else {
+            if (sortDirection === "asc") {
+              setSortDirection("desc");
+            } else if (sortDirection === "desc") {
               setSortBy(null);
             }
           }
@@ -259,9 +259,12 @@ export default function ResultsTable({
       >
         <a
           role="button"
-          className={isActive ? "link-purple" : "text-muted"}
           onClick={handleClick}
-          style={{ marginLeft: "2px" }}
+          style={{
+            marginLeft: "2px",
+            color: isActive ? "var(--blue-10)" : "var(--gray-a8)",
+            userSelect: "none",
+          }}
         >
           {getIcon()}
         </a>
