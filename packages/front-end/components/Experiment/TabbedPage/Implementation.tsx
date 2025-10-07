@@ -16,14 +16,14 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
-import Callout from "@/components/Radix/Callout";
-import Button from "@/components/Radix/Button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/Radix/Tabs";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
-import Link from "@/components/Radix/Link";
-import Badge from "@/components/Radix/Badge";
+import Link from "@/ui/Link";
+import Badge from "@/ui/Badge";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {

@@ -9,10 +9,10 @@ import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
+import Callout from "@/ui/Callout";
 import ExperimentStatusIndicator from "../Experiment/TabbedPage/ExperimentStatusIndicator";
-import Callout from "../Radix/Callout";
 import HoldoutSummary from "./HoldoutSummary";
 import ConditionDisplay from "./ConditionDisplay";
 
@@ -68,7 +68,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 bottom: 0,
                 width: "4px",
                 backgroundColor: isInactive
-                  ? "var(--orange-7)"
+                  ? "var(--amber-7)"
                   : "var(--green-9)",
               }}
             ></div>
@@ -108,7 +108,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }}>
                   {holdoutExperiment.status === "stopped" && (
                     <Callout status="info">
-                      This Holdout is stopped and and this rule will be skipped.{" "}
+                      This Holdout is stopped and this rule will be skipped.{" "}
                       <Link href={`/holdout/${holdout.id}#results`}>
                         View Results
                       </Link>

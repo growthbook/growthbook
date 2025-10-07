@@ -17,6 +17,7 @@ import {
 import { getScopedSettings } from "shared/settings";
 import { v4 as uuidv4 } from "uuid";
 import uniq from "lodash/uniq";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 import { DataSourceInterface } from "back-end/types/datasource";
 import {
   AuthRequest,
@@ -91,7 +92,6 @@ import {
   ExperimentType,
   Variation,
 } from "back-end/types/experiment";
-import { getMetricMap } from "back-end/src/models/MetricModel";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { IdeaInterface } from "back-end/types/idea";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -1123,6 +1123,8 @@ export async function postExperiments(
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
     holdoutId: holdoutId || undefined,
+    pinnedMetricSlices: data.pinnedMetricSlices,
+    customMetricSlices: data.customMetricSlices,
   };
   const { settings } = getScopedSettings({
     organization: org,
@@ -1405,6 +1407,19 @@ export async function postExperiment(
     });
   }
 
+  if (data.defaultDashboardId) {
+    const dashboard = await context.models.dashboards.getById(
+      data.defaultDashboardId,
+    );
+    if (!dashboard) {
+      res.status(403).json({
+        status: 403,
+        message: "Invalid dashboard: " + data.defaultDashboardId,
+      });
+      return;
+    }
+  }
+
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
@@ -1460,6 +1475,9 @@ export async function postExperiment(
     "analysisSummary",
     "dismissedWarnings",
     "holdoutId",
+    "defaultDashboardId",
+    "pinnedMetricSlices",
+    "customMetricSlices",
   ];
   let changes: Changeset = {};
 
@@ -1476,7 +1494,9 @@ export async function postExperiment(
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
       key === "variations" ||
-      key === "customFields"
+      key === "customFields" ||
+      key === "pinnedMetricSlices" ||
+      key === "customMetricSlices"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
@@ -2744,6 +2764,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  preventStartingAnalysis,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2754,6 +2775,7 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  preventStartingAnalysis?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentResultsQueryRunner;
@@ -2782,9 +2804,12 @@ export async function createExperimentSnapshot({
   const statsEngine = settings.statsEngine.value;
 
   const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+
   const metricIds = getAllMetricIdsFromExperiment(experiment, false);
 
   const allExperimentMetrics = metricIds.map((m) => metricMap.get(m) || null);
+
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
@@ -2813,8 +2838,6 @@ export async function createExperimentSnapshot({
     dimension,
   );
 
-  const factTableMap = await getFactTableMap(context);
-
   const queryRunner = await createSnapshot({
     experiment,
     context,
@@ -2829,6 +2852,7 @@ export async function createExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
+    preventStartingAnalysis,
   });
   const snapshot = queryRunner.model;
 

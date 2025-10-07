@@ -1,6 +1,7 @@
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import {
   Condition,
+  ManagedBy,
   MetricInterface,
   MetricType,
   Operator,
@@ -48,14 +49,19 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { MetricPriorSettingsForm } from "@/components/Metrics/MetricForm/MetricPriorSettingsForm";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Callout from "@/components/Radix/Callout";
+import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { MetricWindowSettingsForm } from "./MetricWindowSettingsForm";
 import { MetricCappingSettingsForm } from "./MetricCappingSettingsForm";
 import { MetricDelaySettings } from "./MetricDelaySettings";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
+
+// ManagedBy constants to avoid type assertions
+export const MANAGED_BY_ADMIN: ManagedBy = "admin";
+const MANAGED_BY_EMPTY: ManagedBy = "";
 
 export type MetricFormProps = {
   initialStep?: number;
@@ -356,6 +362,7 @@ const MetricForm: FC<MetricFormProps> = ({
           mean: 0,
           stddev: DEFAULT_PROPER_PRIOR_STDDEV,
         }),
+      managedBy: current.managedBy || MANAGED_BY_EMPTY,
     },
   });
 
@@ -1457,6 +1464,25 @@ const MetricForm: FC<MetricFormProps> = ({
                   </div>
                 )}
               </div>
+              {permissionsUtil.canUpdateOfficialResources(
+                { projects: form.watch("projects") },
+                {},
+              ) && hasCommercialFeature("manage-official-resources") ? (
+                <Checkbox
+                  label="Mark as Official Metric"
+                  disabled={form.watch("managedBy") === "api"}
+                  disabledMessage="This metric is managed by the API, so it can not be edited in the UI."
+                  description="Official Metrics can only be modified by Admins or users
+                      with the ManageOfficialResources policy."
+                  value={form.watch("managedBy") === MANAGED_BY_ADMIN}
+                  setValue={(value) => {
+                    form.setValue(
+                      "managedBy",
+                      value ? MANAGED_BY_ADMIN : MANAGED_BY_EMPTY,
+                    );
+                  }}
+                />
+              ) : null}
             </>
           )}
         </Page>

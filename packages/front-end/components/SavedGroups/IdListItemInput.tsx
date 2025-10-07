@@ -9,8 +9,8 @@ import clsx from "clsx";
 import { Container, Text } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
-import RadioGroup from "@/components/Radix/RadioGroup";
-import Link from "@/components/Radix/Link";
+import RadioGroup from "@/ui/RadioGroup";
+import Link from "@/ui/Link";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";

@@ -10,8 +10,9 @@ import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const imageCache = {};
 
@@ -132,6 +133,8 @@ export function VariationBox({
   percent?: number;
   minWidth?: string | number;
 }) {
+  const { blockFileUploads } = useOrgSettings();
+
   return (
     <Box
       key={i}
@@ -178,7 +181,7 @@ export function VariationBox({
                 />
               ) : (
                 <>
-                  {canEdit ? (
+                  {canEdit && !blockFileUploads ? (
                     <>
                       <ScreenshotUpload
                         variation={i}
@@ -214,7 +217,7 @@ export function VariationBox({
                     {v.screenshots.length > 1 ? "s" : ""}
                   </Text>
                 ) : null}
-                {canEdit && (
+                {canEdit && !blockFileUploads && (
                   <div>
                     <ScreenshotUpload
                       variation={i}

@@ -6,6 +6,7 @@ import {
   ExperimentReportResults,
 } from "back-end/types/report";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
@@ -24,6 +25,7 @@ export type SnapshotResult = {
 export type ReportQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  metricGroups: MetricGroupInterface[];
 };
 
 export class ExperimentReportQueryRunner extends QueryRunner<
@@ -32,6 +34,8 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   ExperimentReportResults
 > {
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private factTableMap: FactTableMap = new Map();
+  private metricGroups: MetricGroupInterface[] = [];
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -41,10 +45,15 @@ export class ExperimentReportQueryRunner extends QueryRunner<
 
   async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
+    this.factTableMap = params.factTableMap;
+    this.metricGroups = params.metricGroups;
 
     const { snapshotSettings } = getSnapshotSettingsFromReportArgs(
       this.model.args,
       params.metricMap,
+      params.factTableMap,
+      undefined,
+      params.metricGroups,
     );
 
     const experimentParams: ExperimentResultsQueryParams = {
@@ -66,7 +75,13 @@ export class ExperimentReportQueryRunner extends QueryRunner<
   async runAnalysis(queryMap: QueryMap): Promise<ExperimentReportResults> {
     if (this.model.type === "experiment") {
       const { snapshotSettings, analysisSettings } =
-        getSnapshotSettingsFromReportArgs(this.model.args, this.metricMap);
+        getSnapshotSettingsFromReportArgs(
+          this.model.args,
+          this.metricMap,
+          this.factTableMap,
+          undefined,
+          this.metricGroups,
+        );
 
       // todo: bandits? (probably not needed)
       const { results } = await analyzeExperimentResults({

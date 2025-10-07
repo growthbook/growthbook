@@ -21,10 +21,10 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Toggle from "@/components/Forms/Toggle";
-import Button from "@/components/Radix/Button";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import {
   createInitialResources,
   getInitialDatasourceResources,
@@ -116,11 +116,15 @@ export default function FactTablesPage() {
     (table) => {
       const sortedUserIdTypes = [...table.userIdTypes];
       sortedUserIdTypes.sort();
+      const numAutoSlices = table.columns.filter(
+        (col) => col.isAutoSliceColumn && !col.deleted,
+      ).length;
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
         numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
+        numAutoSlices,
         userIdTypes: sortedUserIdTypes,
       };
     },
@@ -397,6 +401,7 @@ export default function FactTablesPage() {
                 <th>Projects</th>
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
                 <SortableTH field="numMetrics">Metrics</SortableTH>
+                <SortableTH field="numAutoSlices">Auto Slices</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="owner">Owner</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -414,7 +419,11 @@ export default function FactTablesPage() {
                 >
                   <td>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
-                    <OfficialBadge type="fact table" managedBy={f.managedBy} />
+                    <OfficialBadge
+                      type="fact table"
+                      managedBy={f.managedBy}
+                      leftGap={true}
+                    />
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>
@@ -438,6 +447,7 @@ export default function FactTablesPage() {
                     ))}
                   </td>
                   <td>{f.numMetrics}</td>
+                  <td>{f.numAutoSlices}</td>
                   <td>{f.numFilters}</td>
                   <td>{f.owner}</td>
                   <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>
@@ -446,7 +456,7 @@ export default function FactTablesPage() {
 
               {!items.length && isFiltered && (
                 <tr>
-                  <td colSpan={6} align={"center"}>
+                  <td colSpan={10} align={"center"}>
                     No matching fact tables.{" "}
                     <a
                       href="#"

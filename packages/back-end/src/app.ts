@@ -15,6 +15,7 @@ import { AuthRequest } from "./types/AuthRequest";
 import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
+  DISABLE_API_ROOT_PATH,
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
@@ -199,17 +200,21 @@ app.get("/robots.txt", (_req, res) => {
 app.use(compression());
 
 app.get("/", (req, res) => {
-  res.json({
-    name: "GrowthBook API",
-    production: ENVIRONMENT === "production",
-    api_host:
-      process.env.API_HOST ||
-      req.protocol + "://" + req.hostname + ":" + app.get("port"),
-    app_origin: APP_ORIGIN,
-    config_source: usingFileConfig() ? "file" : "db",
-    email_enabled: isEmailEnabled(),
-    build: getBuild(),
-  });
+  if (DISABLE_API_ROOT_PATH) {
+    res.json({ status: 200 });
+  } else {
+    res.json({
+      name: "GrowthBook API",
+      production: ENVIRONMENT === "production",
+      api_host:
+        process.env.API_HOST ||
+        req.protocol + "://" + req.hostname + ":" + app.get("port"),
+      app_origin: APP_ORIGIN,
+      config_source: usingFileConfig() ? "file" : "db",
+      email_enabled: isEmailEnabled(),
+      build: getBuild(),
+    });
+  }
 });
 
 app.use(httpLogger);
@@ -487,6 +492,10 @@ app.post(
 app.get("/queries/:ids", datasourcesController.getQueries);
 app.post("/query/test", datasourcesController.testLimitedQuery);
 app.post("/query/run", datasourcesController.runQuery);
+app.post(
+  "/query/user-exposures",
+  datasourcesController.runUserExperimentExposuresQuery,
+);
 app.post("/dimension-slices", datasourcesController.postDimensionSlices);
 app.get("/dimension-slices/:id", datasourcesController.getDimensionSlices);
 app.post(
@@ -652,7 +661,15 @@ app.put(
 );
 app.get(
   "/experiments/launch-checklist",
-  experimentLaunchChecklistController.getExperimentCheckListByOrg,
+  experimentLaunchChecklistController.getExperimentCheckList,
+);
+app.get(
+  "/experiment/:id/launch-checklist/",
+  experimentLaunchChecklistController.getExperimentCheckListByExperiment,
+);
+app.delete(
+  "/experiments/launch-checklist/:checklistId",
+  experimentLaunchChecklistController.deleteProjectScopedExperimentLaunchChecklist,
 );
 app.put(
   "/experiment/:id/launch-checklist",
@@ -831,6 +848,11 @@ if (IS_CLOUD) {
     datasourcesController.postManagedWarehouse,
   );
 }
+
+app.post(
+  "/datasource/:id/pipeline/validate",
+  datasourcesController.postValidatePipelineSettings,
+);
 
 // Information Schemas
 app.get(

@@ -153,6 +153,28 @@ export async function getDataSourceById(
     : null;
 }
 
+export async function getDataSourcesByIds(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+) {
+  if (usingFileConfig()) {
+    return getConfigDatasources(context.org.id).filter((d) =>
+      ids.includes(d.id),
+    );
+  }
+
+  const docs: DataSourceDocument[] = await DataSourceModel.find({
+    id: { $in: ids },
+    organization: context.org.id,
+  });
+
+  return docs
+    .map(toInterface)
+    .filter((datasource) =>
+      context.permissions.canReadMultiProjectResource(datasource.projects),
+    );
+}
+
 export async function removeProjectFromDatasources(
   project: string,
   organization: string,

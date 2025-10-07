@@ -23,7 +23,7 @@ import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 import { hasFileConfig, isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import {
   OrganizationSettingsWithMetricDefaults,
   useOrganizationMetricDefaults,
@@ -40,15 +40,10 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import { AppFeatures } from "@/types/app-features";
-import {
-  StickyTabsList,
-  Tabs,
-  TabsContent,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Frame from "@/components/Radix/Frame";
+import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
+import Frame from "@/ui/Frame";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -167,11 +162,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      blockFileUploads: settings.blockFileUploads ?? false,
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      disableLegacyMetricCreation:
+        settings.disableLegacyMetricCreation ?? false,
     },
   });
   const { apiCall } = useAuth();
@@ -218,6 +216,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
     openAIDefaultModel: form.watch("openAIDefaultModel"),
+    disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";

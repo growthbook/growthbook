@@ -17,18 +17,13 @@ import RuleList from "@/components/Features/RuleList";
 import track from "@/services/track";
 import { getRules, useEnvironmentState } from "@/services/features";
 import CopyRuleModal from "@/components/Features/CopyRuleModal";
-import Button from "@/components/Radix/Button";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
-import Badge from "@/components/Radix/Badge";
-import Link from "@/components/Radix/Link";
-import Callout from "@/components/Radix/Callout";
+import Button from "@/ui/Button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
+import PremiumCallout from "@/ui/PremiumCallout";
 import EnvironmentDropdown from "../Environments/EnvironmentDropdown";
 import CompareEnvironmentsModal from "./CompareEnvironmentsModal";
 import HoldoutValueModal from "./HoldoutValueModal";
@@ -284,6 +279,8 @@ export default function FeatureRules({
                         mt="5"
                         status="info"
                         icon={<Badge label="NEW!" />}
+                        dismissible
+                        id="safe-rollout-promo"
                       >
                         Use <strong>Safe Rollouts</strong> to test for guardrail
                         errors while releasing a new value. Click &lsquo;Add

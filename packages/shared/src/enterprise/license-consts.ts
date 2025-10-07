@@ -66,7 +66,9 @@ export type CommercialFeature =
   | "metric-correlations"
   | "dashboards"
   | "precomputed-dimensions"
-  | "custom-hooks";
+  | "custom-hooks"
+  | "metric-slices"
+  | "manage-official-resources";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -298,6 +300,8 @@ export const accountFeatures: CommercialFeaturesMap = {
     "dashboards",
     "precomputed-dimensions",
     "custom-hooks",
+    "metric-slices",
+    "manage-official-resources",
   ]),
 };
 
