@@ -1463,7 +1463,7 @@ export default abstract class SqlIntegration
       });
     }
 
-    return { results: results.rows, duration };
+    return { results: results.rows, columns: results.columns, duration };
   }
 
   getDropUnitsTableQuery(params: DropTableQueryParams): string {
