@@ -451,14 +451,14 @@ function ColumnRefSelector({
       factTable ? canInlineFilterColumn(factTable, option.value) : false,
     );
 
-  const unfilteredStringColumns = eligibleColumns.filter(
+  const unfilteredEligibleColumns = eligibleColumns.filter(
     (c) => !value.inlineFilters?.[c.value]?.length,
   );
 
-  if (unfilteredStringColumns.length > 0) {
+  if (unfilteredEligibleColumns.length > 0) {
     addFilterOptions.push({
       label: "Filter by Column",
-      options: unfilteredStringColumns.map((o) => ({
+      options: unfilteredEligibleColumns.map((o) => ({
         label: o.label,
         value: `col::${o.value}`,
       })),
@@ -653,7 +653,18 @@ function ColumnRefSelector({
                           {colAlert}
                         </span>
                       )}
-                      {col?.topValues?.length ? (
+                      {col?.datatype === "boolean" ? (
+                        <SelectField
+                          value={v?.[0] + ""}
+                          onChange={(val) => onValuesChange(val ? [val] : [])}
+                          options={[
+                            { label: "Any", value: "" },
+                            { label: "Is True", value: "true" },
+                            { label: "Is False", value: "false" },
+                          ]}
+                          autoFocus
+                        />
+                      ) : col?.topValues?.length ? (
                         <MultiSelectField
                           value={v}
                           onChange={onValuesChange}
@@ -885,14 +896,15 @@ function getWHERE({
 }) {
   const whereParts =
     factTable && columnRef
-      ? getColumnRefWhereClause(
+      ? getColumnRefWhereClause({
           factTable,
           columnRef,
-          (s) => s.replace(/'/g, "''"),
+          escapeStringLiteral: (s) => s.replace(/'/g, "''"),
           // This isn't real SQL syntax, but it should get the point across
-          (jsonCol, path) => `${jsonCol}.${path}`,
-          true,
-        )
+          extractJSONField: (jsonCol, path) => `${jsonCol}.${path}`,
+          evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+          showSourceComment: true,
+        })
       : [];
 
   if (type === "retention") {
@@ -1234,7 +1246,10 @@ function FieldMappingModal({
 
   const stringColumnOptions =
     factTable?.columns
-      ?.filter((c) => canInlineFilterColumn(factTable, c.column))
+      ?.filter(
+        (c) =>
+          canInlineFilterColumn(factTable, c.column) && c.datatype === "string",
+      )
       .map((c) => ({
         label: c.name || c.column,
         value: c.column,

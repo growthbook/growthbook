@@ -190,7 +190,11 @@ export const putFactTable = async (
     const columnName = req.query.dim;
     const column = factTable.columns.find((col) => col.column === columnName);
 
-    if (column && canInlineFilterColumn(factTable, column.column)) {
+    if (
+      column &&
+      canInlineFilterColumn(factTable, column.column) &&
+      column.datatype === "string"
+    ) {
       try {
         const topValues = await runColumnTopValuesQuery(
           context,
@@ -341,7 +345,8 @@ export const putColumn = async (
   if (
     !col.alwaysInlineFilter &&
     data.alwaysInlineFilter &&
-    canInlineFilterColumn(factTable, updatedCol.column)
+    canInlineFilterColumn(factTable, updatedCol.column) &&
+    updatedCol.datatype === "string"
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {

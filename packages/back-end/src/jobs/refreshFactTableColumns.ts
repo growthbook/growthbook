@@ -213,7 +213,8 @@ export async function runRefreshColumnsQuery(
 
     if (
       (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
-      canInlineFilterColumn(factTable, col.column)
+      canInlineFilterColumn(factTable, col.column) &&
+      col.datatype === "string"
     ) {
       try {
         const topValues = await runColumnTopValuesQuery(
