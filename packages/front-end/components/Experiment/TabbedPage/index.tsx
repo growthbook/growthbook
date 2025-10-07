@@ -153,7 +153,6 @@ export default function TabbedPage({
     "metric-tags" | "significance" | null
   >(`experiment-page__${experiment.id}__sort_by`, null);
 
-  // Smart setters that handle mutual exclusivity between sorting methods
   const setSortByWithPriority = (
     newSortBy: "metric-tags" | "significance" | null,
   ) => {
