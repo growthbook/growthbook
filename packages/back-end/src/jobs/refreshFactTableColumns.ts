@@ -168,8 +168,7 @@ export async function runRefreshColumnsQuery(
     }
   });
 
-  const columnsToSkip = new Set(typeMap.keys());
-  determineColumnTypes(result.results, columnsToSkip).forEach((col) => {
+  determineColumnTypes(result.results, typeMap).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
       jsonMap.set(col.column, col.jsonFields);
