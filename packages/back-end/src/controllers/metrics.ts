@@ -1067,11 +1067,10 @@ export async function postSimilarMetrics(
   const newMetric = `Name: ${name}\nDescription: ${description || ""}`;
 
   // Generate embeddings for the new metric
-  const newMetricEmbeddingResponse = await generateEmbeddings({
-    context,
+  const newMetricEmbeddingResponse = await generateEmbeddings(context, {
     input: [newMetric],
   });
-  const newEmbedding = newMetricEmbeddingResponse.data[0].embedding;
+  const newEmbedding = newMetricEmbeddingResponse[0];
   // Call to calculate cosine similarity between the new metric and existing metrics: cosineSimilarity
   const similarities = metricsToSearch
     .map((mv) => {

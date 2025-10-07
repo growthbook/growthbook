@@ -481,11 +481,10 @@ export async function postSimilarExperiments(
   }`;
 
   // Generate embeddings for the new experiment
-  const newExperimentEmbeddingResponse = await generateEmbeddings({
-    context,
+  const newExperimentEmbeddingResponse = await generateEmbeddings(context, {
     input: [newExperimentText],
   });
-  const newEmbedding = newExperimentEmbeddingResponse.data[0].embedding;
+  const newEmbedding = newExperimentEmbeddingResponse[0];
   // Call to calculate cosine similarity between the new experiment and existing experiments: cosineSimilarity
   const similarities = experimentsToSearch
     .map((exp) => {

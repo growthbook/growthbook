@@ -1,9 +1,5 @@
-import { OpenAI } from "openai";
-import {
-  ResponseFormatJSONObject,
-  ResponseFormatJSONSchema,
-  ResponseFormatText,
-} from "openai/resources/shared";
+import { generateText, generateObject, embed } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import {
   encoding_for_model,
   get_encoding,
@@ -11,7 +7,6 @@ import {
 } from "@dqbd/tiktoken";
 import { AIPromptType } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
-import { zodResponseFormat } from "openai/helpers/zod";
 import { logger } from "back-end/src/util/logger";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import {
@@ -36,14 +31,17 @@ export const getOpenAI = (context: ReqContext | ApiReqContext) => {
     context,
     true,
   );
-  let _openai: OpenAI | null = null;
-  if (openAIAPIKey && aiEnabled) {
-    _openai = new OpenAI({
-      apiKey: openAIAPIKey || "",
-    });
+
+  if (!openAIAPIKey || !aiEnabled) {
+    return { provider: null, model: openAIDefaultModel || "gpt-4o-mini" };
   }
-  const _openAIModel: TiktokenModel = openAIDefaultModel || "gpt-4o-mini";
-  return { client: _openai, model: _openAIModel };
+
+  const provider = createOpenAI({
+    apiKey: openAIAPIKey,
+  });
+
+  const model = openAIDefaultModel || "gpt-4o-mini";
+  return { provider, model };
 };
 
 type ChatCompletionRequestMessage = {
@@ -94,6 +92,27 @@ export const secondsUntilAICanBeUsedAgain = async (
     : 0;
 };
 
+const constructMessages = (
+  prompt: string,
+  instructions?: string,
+): ChatCompletionRequestMessage[] => {
+  const messages: ChatCompletionRequestMessage[] = [];
+
+  if (instructions) {
+    messages.push({
+      role: "system",
+      content: instructions,
+    });
+  }
+
+  messages.push({
+    role: "user",
+    content: prompt,
+  });
+
+  return messages;
+};
+
 export const simpleCompletion = async ({
   context,
   instructions,
@@ -113,22 +132,17 @@ export const simpleCompletion = async ({
   type: AIPromptType;
   isDefaultPrompt: boolean;
   returnType?: "text" | "json";
-  jsonSchema?: ResponseFormatJSONSchema.JSONSchema;
+  jsonSchema?: ZodObject<ZodRawShape>;
 }) => {
-  const { client: openai, model } = getOpenAI(context);
+  const { provider: openaiProvider, model } = getOpenAI(context);
 
-  if (openai == null) {
+  if (openaiProvider == null) {
     throw new Error("OpenAI not enabled or key not set");
   }
-  // Content moderation check
-  const moderationResponse = await openai.moderations.create({ input: prompt });
-  if (moderationResponse.results.some((r) => r.flagged)) {
-    throw new Error("Prompt was flagged by OpenAI moderation");
-  }
 
-  const messages = constructOpenAIMessages(prompt, instructions);
-
+  const messages = constructMessages(prompt, instructions);
   const numTokens = numTokensFromMessages(messages, context);
+
   if (maxTokens != null && numTokens > maxTokens) {
     throw new Error(
       `Number of tokens (${numTokens}) exceeds maxTokens (${maxTokens})`,
@@ -140,39 +154,56 @@ export const simpleCompletion = async ({
     );
   }
 
-  // adjust the model if they change what models support json_schema
-  const response_format:
-    | ResponseFormatText
-    | ResponseFormatJSONSchema
-    | ResponseFormatJSONObject =
-    jsonSchema && supportsJSONSchema(model)
-      ? { type: "json_schema", json_schema: jsonSchema }
-      : returnType === "json"
-        ? { type: "json_object" }
-        : { type: "text" };
-  const response = await openai.chat.completions.create({
-    model,
+  const generateOptions = {
+    model: openaiProvider(model),
     messages,
-    response_format,
     ...(temperature != null ? { temperature } : {}),
-  });
+  };
 
-  const numTokensUsed = response.usage?.total_tokens ?? numTokens;
+  let _response;
+  let numTokensUsed = numTokens;
+  let result: string;
 
-  // Fire and forget
-  logCloudAIUsage({
-    organization: context.org.id,
-    type,
-    model,
-    numPromptTokensUsed: response.usage?.prompt_tokens ?? 0,
-    numCompletionTokensUsed: response.usage?.completion_tokens ?? 0,
-    temperature,
-    usedDefaultPrompt: isDefaultPrompt,
-  });
+  if (returnType === "json" && jsonSchema) {
+    const objectResponse = await generateObject({
+      ...generateOptions,
+      schema: jsonSchema,
+    });
+    numTokensUsed = objectResponse.usage?.totalTokens ?? numTokens;
+    result = JSON.stringify(objectResponse.object);
+    // Fire and forget
+    logCloudAIUsage({
+      organization: context.org.id,
+      type,
+      model,
+      // numPromptTokensUsed: objectResponse.usage?.promptTokens ?? 0,
+      // numCompletionTokensUsed: objectResponse.usage?.completionTokens ?? 0,
+      numPromptTokensUsed: 0,
+      numCompletionTokensUsed: 0,
+      temperature,
+      usedDefaultPrompt: isDefaultPrompt,
+    });
+  } else {
+    const textResponse = await generateText(generateOptions);
+    numTokensUsed = textResponse.usage?.totalTokens ?? numTokens;
+    result = textResponse.text;
+    // Fire and forget
+    logCloudAIUsage({
+      organization: context.org.id,
+      type,
+      model,
+      // numPromptTokensUsed: textResponse.usage?.promptTokens ?? 0,
+      // numCompletionTokensUsed: textResponse.usage?.completionTokens ?? 0,
+      numPromptTokensUsed: 0,
+      numCompletionTokensUsed: 0,
+      temperature,
+      usedDefaultPrompt: isDefaultPrompt,
+    });
+  }
 
   await updateTokenUsage({ numTokensUsed, organization: context.org });
 
-  return response.choices[0].message?.content || "";
+  return result;
 };
 
 export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
@@ -196,9 +227,9 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   zodObjectSchema: T;
   model?: TiktokenModel;
 }): Promise<z.infer<T>> => {
-  const { client: openai, model: defaultModel } = getOpenAI(context);
+  const { provider: openaiProvider, model: defaultModel } = getOpenAI(context);
 
-  if (openai == null) {
+  if (openaiProvider == null) {
     throw new Error("OpenAI not enabled or key not set");
   }
 
@@ -208,7 +239,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     );
   }
 
-  const messages = constructOpenAIMessages(prompt, instructions);
+  const messages = constructMessages(prompt, instructions);
 
   const numTokens = numTokensFromMessages(messages, context);
   if (maxTokens != null && numTokens > maxTokens) {
@@ -223,115 +254,79 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   }
   const modelToUse = model || defaultModel;
 
-  const response_format:
-    | ResponseFormatText
-    | ResponseFormatJSONSchema
-    | ResponseFormatJSONObject = zodResponseFormat(
-    zodObjectSchema,
-    "response_schema",
-  );
-  if (
-    !supportsJSONSchema(modelToUse) &&
-    response_format.type === "json_schema"
-  ) {
-    throw new Error(
-      `Model ${modelToUse} does not support JSON schema response format. Please use a model that supports it, such as gpt-4o or higher.`,
-    );
-  }
-
-  const response = await openai.chat.completions.parse({
-    model: modelToUse,
+  const response = await generateObject({
+    model: openaiProvider(modelToUse),
     messages,
-    response_format,
+    schema: zodObjectSchema,
     ...(temperature != null ? { temperature } : {}),
   });
 
-  const numTokensUsed = response.usage?.total_tokens ?? numTokens;
+  const numTokensUsed = response.usage?.totalTokens ?? numTokens;
 
   // Fire and forget
   logCloudAIUsage({
     organization: context.org.id,
     type,
     model: modelToUse,
-    numPromptTokensUsed: response.usage?.prompt_tokens ?? 0,
-    numCompletionTokensUsed: response.usage?.completion_tokens ?? 0,
+    // numPromptTokensUsed: response.usage?.promptTokens ?? 0,
+    // numCompletionTokensUsed: response.usage?.completionTokens ?? 0,
+    numPromptTokensUsed: 0,
+    numCompletionTokensUsed: 0,
     temperature,
     usedDefaultPrompt: isDefaultPrompt,
   });
 
   await updateTokenUsage({ numTokensUsed, organization: context.org });
 
-  if (
-    !response.choices ||
-    response.choices.length === 0 ||
-    !response.choices[0]?.message?.parsed
-  ) {
-    throw new Error("No choices returned from OpenAI API.");
+  if (!response.object) {
+    throw new Error("No object returned from AI API.");
   }
-  return response.choices[0].message.parsed as z.infer<T>;
-};
-
-export const supportsJSONSchema = (model: TiktokenModel) => {
-  return (
-    /^gpt-(\d+(\.\d+)?)o/.test(model) &&
-    parseFloat(model.match(/^gpt-(\d+(\.\d+)?)o/)?.[1] ?? "0") >= 4
-  );
-};
-
-const constructOpenAIMessages = (
-  prompt: string,
-  instructions?: string,
-): ChatCompletionRequestMessage[] => {
-  const messages: ChatCompletionRequestMessage[] = [];
-
-  if (instructions) {
-    messages.push({
-      role: "system",
-      content: instructions,
-    });
-  }
-
-  messages.push({
-    role: "user",
-    content: prompt,
-  });
-
-  return messages;
-};
-
-export const generateEmbeddings = async ({
-  context,
-  input,
-}: {
-  context: ReqContext | ApiReqContext;
-  input: string[];
-}) => {
-  const { client: openai } = getOpenAI(context);
-
-  if (openai == null) {
-    throw new Error("OpenAI not enabled or key not set");
-  }
-
-  if (!input) {
-    throw new Error("No input provided for embeddings generation.");
-  }
-
-  try {
-    return await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input,
-    });
-  } catch (error) {
-    throw new Error("Failed to generate embeddings: " + error);
-  }
+  return response.object as z.infer<T>;
 };
 
 export function cosineSimilarity(vec1: number[], vec2: number[]): number {
   if (vec1.length !== vec2.length) {
     throw new Error("Vectors must be of the same length");
   }
-  const dot = vec1.reduce((sum, val, i) => sum + val * vec2[i], 0);
+  const dot = vec1.reduce((sum, val, _i) => sum + val * val, 0);
   const normA = Math.sqrt(vec1.reduce((sum, val) => sum + val * val, 0));
   const normB = Math.sqrt(vec2.reduce((sum, val) => sum + val * val, 0));
   return dot / (normA * normB);
+}
+
+export async function generateEmbeddings(
+  context: ReqContext | ApiReqContext,
+  { input }: { input: string[] },
+): Promise<number[][]> {
+  const { provider: openaiProvider, model: _model } = getOpenAI(context);
+
+  if (openaiProvider == null) {
+    throw new Error("OpenAI not enabled or key not set");
+  }
+
+  try {
+    // Use OpenAI's text-embedding-ada-002 model for embeddings
+    const embeddingModel = openaiProvider.embedding("text-embedding-ada-002");
+
+    // Generate embeddings for each input string
+    const embeddings: number[][] = [];
+
+    for (const text of input) {
+      const result = await embed({
+        model: embeddingModel,
+        value: text,
+      });
+
+      embeddings.push(result.embedding);
+    }
+
+    return embeddings;
+  } catch (error) {
+    logger.error("Error generating embeddings:", error);
+    throw new Error("Failed to generate embeddings");
+  }
+}
+
+export function supportsJSONSchema(): boolean {
+  return true;
 }

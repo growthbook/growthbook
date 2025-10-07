@@ -252,7 +252,8 @@ export async function postGenerateSQL(
 ) {
   const { input, datasourceId } = req.body;
   const context = getContextFromReq(req);
-  const { aiEnabled, openAIDefaultModel } = getAISettingsForOrg(context);
+  const { aiEnabled, openAIDefaultModel: _openAIDefaultModel } =
+    getAISettingsForOrg(context);
 
   if (!orgHasPremiumFeature(context.org, "ai-suggestions")) {
     throw new Error(
@@ -376,7 +377,7 @@ export async function postGenerateSQL(
     });
     try {
       // only certain models support json_schema:
-      if (supportsJSONSchema(openAIDefaultModel)) {
+      if (supportsJSONSchema()) {
         const aiResultsTables = await parsePrompt({
           context,
           instructions,
@@ -528,7 +529,7 @@ export async function postGenerateSQL(
       ),
   });
   try {
-    if (supportsJSONSchema(openAIDefaultModel)) {
+    if (supportsJSONSchema()) {
       const aiResults = await parsePrompt({
         context,
         instructions,

@@ -28,6 +28,7 @@
     "generate-api-types": "yarn generate-api-models && swagger-cli bundle -t yaml src/api/openapi/openapi.tmp.yaml -o generated/spec.yaml && node src/scripts/generate-openapi.mjs"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.44",
     "@aws-sdk/client-athena": "^3.564.0",
     "@aws-sdk/client-sts": "^3.567.0",
     "@clickhouse/client": "^1.0.1",
@@ -53,6 +54,7 @@
     "@stdlib/stats": "^0.1.1",
     "@types/handlebars": "^4.1.0",
     "agenda": "^5.0.0",
+    "ai": "^5.0.60",
     "asn1.js": "^5.4.1",
     "async": "^3.1.0",
     "async-lock": "^1.4.0",
