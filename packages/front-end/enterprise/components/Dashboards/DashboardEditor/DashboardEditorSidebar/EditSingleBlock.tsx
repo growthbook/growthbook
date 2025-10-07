@@ -254,18 +254,17 @@ export default function EditSingleBlock({
   const baselineIndex = blockHasFieldOfType(block, "baselineRow", isNumber)
     ? block.baselineRow
     : 0;
-  const baselineVariation = experiment
+  // Only compute baseline/variation options when the block type depends on an experiment
+  const hasExperimentContext = !!experiment && requireBaselineVariation;
+  const baselineVariation = hasExperimentContext
     ? experiment.variations.find((_, i) => i === baselineIndex) ||
       experiment.variations[0]
     : null;
-  const variationOptions = experiment
+  const variationOptions = hasExperimentContext
     ? (requireBaselineVariation
         ? experiment.variations.filter((_, i) => i !== baselineIndex)
         : experiment.variations
-      ).map((variation) => ({
-        label: variation.name,
-        value: variation.id,
-      }))
+      ).map((variation) => ({ label: variation.name, value: variation.id }))
     : [];
   const setVariations = (
     block: Extract<
@@ -277,7 +276,7 @@ export default function EditSingleBlock({
     setBlock({
       ...block,
       variationIds:
-        requireBaselineVariation && value.length > 0
+        requireBaselineVariation && value.length > 0 && baselineVariation?.id
           ? [...value, baselineVariation.id]
           : value,
     });

@@ -23,6 +23,7 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
@@ -72,7 +73,7 @@ export default function DashboardsPage() {
                 title: data.title,
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
-                projects: [project], //MKTODO: Should probably allow users to specify multiple projects in the modal?
+                projects: project ? [project] : [],
               }
             : {
                 blocks: data.blocks ?? [],
@@ -80,7 +81,7 @@ export default function DashboardsPage() {
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 experimentId: "",
-                projects: [project], //MKTODO: Should probably allow users to specify multiple projects in the modal?
+                projects: project ? [project] : [],
               },
         ),
       });
@@ -187,7 +188,23 @@ export default function DashboardsPage() {
                           <td>{ago(d.dateCreated)}</td>
                           <td>{ago(d.dateUpdated)}</td>
                           <td style={{ width: 30 }}>
-                            <MoreMenu>Hi</MoreMenu>
+                            <MoreMenu>
+                              {canDelete ? (
+                                <DeleteButton
+                                  displayName="Dashboard"
+                                  className="dropdown-item text-danger"
+                                  text="Delete"
+                                  useIcon={false}
+                                  title="Delete this dashboard"
+                                  onClick={async () => {
+                                    await apiCall(`/dashboards/${d.id}`, {
+                                      method: "DELETE",
+                                    });
+                                    mutateDashboards();
+                                  }}
+                                />
+                              ) : null}
+                            </MoreMenu>
                           </td>
                         </tr>
                       );
