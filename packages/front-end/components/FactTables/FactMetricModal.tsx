@@ -619,12 +619,12 @@ function ColumnRefSelector({
                       className="border rounded mr-1 d-flex align-items-center bg-white"
                       key={k}
                     >
-                      {colAlert && unfilteredStringColumns.length > 0 ? (
+                      {colAlert && unfilteredEligibleColumns.length > 0 ? (
                         <SelectField
                           value={k}
                           options={[
                             { label: col?.name || k, value: k },
-                            ...unfilteredStringColumns,
+                            ...unfilteredEligibleColumns,
                           ]}
                           onChange={(newKey) => {
                             if (k === newKey || !value.inlineFilters) return;
