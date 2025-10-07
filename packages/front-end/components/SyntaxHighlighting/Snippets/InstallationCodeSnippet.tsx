@@ -41,7 +41,7 @@ export default function InstallationCodeSnippet({
       `.trim()
       : `
 <script async
-  data-api-host=${JSON.stringify(apiHost)}
+  data-api-host=${JSON.stringify(apiHost)}${eventTracker === "growthbook" ? `\n  data-tracking="growthbook"` : ""}
   data-client-key=${JSON.stringify(apiKey)}${
     encryptionKey
       ? `\n  data-decryption-key=${JSON.stringify(encryptionKey)}`

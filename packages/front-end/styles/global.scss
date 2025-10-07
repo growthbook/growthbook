@@ -316,6 +316,10 @@ pre {
   }
 }
 
+.opacity50 {
+  opacity: 0.5;
+}
+
 .experiment-row-tooltip-wrapper {
   z-index: 820;
   &.tooltip-animate-appear .experiment-row-tooltip {
@@ -340,10 +344,6 @@ pre {
   color: var(--text-color-table);
   pointer-events: all;
   transition: 250ms all;
-
-  .opacity50 {
-    opacity: 0.5;
-  }
 
   .arrow {
     position: absolute;
@@ -651,7 +651,7 @@ pre {
   }
 }
 
-.dimension-header-label {
+.slice-header-label {
   margin-top: 30px;
   padding: 0 10px;
 }
@@ -666,17 +666,40 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    tr:not(.noborder) {
-      box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
-
-      &:last-of-type {
-        box-shadow: rgba(102, 102, 102, 0.125) 0 -2px inset;
+    &.slice-row {
+      background-color: var(--slate-a2);
+    }
+    tr {
+      &:not(.slice-header-row) {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
       }
 
-      &:not(.results-label-row) {
-        td:not(.graph-cell):not(:last-child) {
-          box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
+      &.slice-collapsed {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.last-slice-header {
+          box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
         }
+      }
+      &.slice-expanded {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+      }
+
+      &:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
+        box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+      }
+
+      &.last-before-slice-header {
+        box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+      }
+
+      &:not(.results-label-row):not(.slice-header-row) {
+        td:not(.graph-cell):not(:last-child) {
+          box-shadow: rgba(102, 102, 102, 0.05) -1px 0 inset;
+        }
+      }
+
+      td:first-of-type {
+        padding-left: var(--space-1);
       }
     }
   }
@@ -743,10 +766,9 @@ pre {
     font-size: 14px;
   }
   .result-number-sub {
-    font-size: 12px;
-    //font-style: italic;
-    line-height: 14px;
-    margin-top: 3px;
+    font-size: 11px;
+    line-height: 13px;
+    margin-top: 2px;
   }
   .plusminus {
     font-size: 12px;

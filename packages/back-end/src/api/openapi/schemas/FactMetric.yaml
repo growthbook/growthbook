@@ -240,6 +240,7 @@ properties:
     enum:
       - ""
       - api
+      - admin
   dateCreated:
     type: string
     format: date-time
@@ -248,3 +249,8 @@ properties:
     format: date-time
   archived:
     type: boolean
+  metricAutoSlices:
+    type: array
+    items:
+      type: string
+    description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.

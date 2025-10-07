@@ -238,5 +238,11 @@ properties:
     enum:
       - ""
       - api
+      - admin
   archived:
     type: boolean
+  metricAutoSlices:
+    type: array
+    items:
+      type: string
+    description: Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature.

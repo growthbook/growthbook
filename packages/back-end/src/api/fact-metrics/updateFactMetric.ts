@@ -142,6 +142,15 @@ export const updateFactMetric = createApiRequestHandler(
   if (!factMetric) {
     throw new Error("Could not find factMetric with that id");
   }
+
+  if (
+    req.body.metricAutoSlices &&
+    req.body.metricAutoSlices.length > 0 &&
+    !req.context.hasPremiumFeature("metric-slices")
+  ) {
+    throw new Error("Metric slices require an enterprise license");
+  }
+
   const lookupFactTable = async (id: string) => getFactTable(req.context, id);
   const updates = await getUpdateFactMetricPropsFromBody(
     req.body,

@@ -1,5 +1,6 @@
 import { useContext } from "react";
 import { Flex, Text, TextProps } from "@radix-ui/themes";
+import { FaExclamationTriangle } from "react-icons/fa";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Badge from "@/ui/Badge";
 import Button, { Props as ButtonProps } from "@/ui/Button";
@@ -20,29 +21,44 @@ export default function DashboardViewQueriesButton({
   buttonProps = {},
   hideQueryCount = false,
 }: Props) {
-  const { allQueries } = useContext(DashboardSnapshotContext);
+  const { allQueries, snapshotError, refreshStatus } = useContext(
+    DashboardSnapshotContext,
+  );
   const count = (allQueries ?? []).length;
   return (
     <ViewAsyncQueriesButton
       ctaComponent={(onClick) => (
-        <Button onClick={onClick} className={className} {...buttonProps}>
+        <Button
+          onClick={onClick}
+          className={className}
+          style={{
+            color: refreshStatus === "failed" ? "red" : undefined,
+          }}
+          {...buttonProps}
+        >
           <Flex align="center" justify="between">
             <Text weight={weight} size={size}>
-              View queries
+              {refreshStatus === "failed"
+                ? "View failed queries"
+                : "View queries"}
             </Text>
-            {!hideQueryCount && (
+            {refreshStatus === "failed" ? (
+              <FaExclamationTriangle />
+            ) : !hideQueryCount ? (
               <Badge
                 ml="1"
                 label={count.toString()}
                 variant="soft"
                 radius="full"
               />
-            )}
+            ) : null}
           </Flex>
         </Button>
       )}
+      error={snapshotError}
       queries={allQueries.map((q) => q.query) ?? []}
       icon={null}
+      status={refreshStatus}
       hideQueryCount
     />
   );
