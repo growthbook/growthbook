@@ -149,6 +149,34 @@ export default function TabbedPage({
       filterByTag: false,
     },
   );
+  const [sortBy, setSortBy] = useLocalStorage<"metric-tags" | "significance" | null>(
+    `experiment-page__${experiment.id}__sort_by`,
+    null,
+  );
+
+  // Smart setters that handle mutual exclusivity between sorting methods
+  const setSortByWithPriority = (newSortBy: "metric-tags" | "significance" | null) => {
+    if (newSortBy === "significance") {
+      // When sorting by significance, clear tag order to avoid conflicts
+      setMetricFilter(prev => ({
+        ...prev,
+        tagOrder: [],
+      }));
+    }
+    setSortBy(newSortBy);
+  };
+
+  const setMetricFilterWithPriority = (newMetricFilter: ResultsMetricFilters) => {
+    // If tagOrder has items and we're not already sorting by metric-tags, switch to metric-tags
+    if ((newMetricFilter.tagOrder?.length ?? 0) > 0 && sortBy !== "metric-tags") {
+      setSortBy("metric-tags");
+    }
+    // If tagOrder is empty and we're sorting by metric-tags, switch to null
+    else if ((newMetricFilter.tagOrder?.length ?? 0) === 0 && sortBy === "metric-tags") {
+      setSortBy(null);
+    }
+    setMetricFilter(newMetricFilter);
+  };
 
   useEffect(() => {
     const handler = () => {
@@ -566,7 +594,9 @@ export default function TabbedPage({
           metricFilter={metricFilter}
           analysisBarSettings={analysisBarSettings}
           setAnalysisBarSettings={setAnalysisBarSettings}
-          setMetricFilter={setMetricFilter}
+          setMetricFilter={setMetricFilterWithPriority}
+          sortBy={sortBy}
+          setSortBy={setSortByWithPriority}
         />
       </div>
       <div

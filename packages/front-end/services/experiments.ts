@@ -35,6 +35,7 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
@@ -44,6 +45,60 @@ import { useUser } from "@/services/UserContext";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
+
+export const compareRowsBySignificance = (
+  a: ExperimentTableRow,
+  b: ExperimentTableRow,
+  options: {
+    statsEngine: StatsEngine;
+    variationFilter: number[];
+    metricDefaults: MetricDefaults;
+  },
+) => {
+  const { statsEngine, variationFilter, metricDefaults } = options;
+
+  const aFiltered = a.variations.filter(
+    (_, index) => !variationFilter.includes(index),
+  );
+  const bFiltered = b.variations.filter(
+    (_, index) => !variationFilter.includes(index),
+  );
+
+  const aHasData = aFiltered.some((v) => v && v.value != null && v.value > 0);
+  const bHasData = bFiltered.some((v) => v && v.value != null && v.value > 0);
+  const aBaseline = a.variations[0];
+  const bBaseline = b.variations[0];
+  const aHasEnoughData =
+    aBaseline &&
+    aFiltered.some(
+      (v) => v && hasEnoughData(aBaseline, v, a.metric, metricDefaults),
+    );
+  const bHasEnoughData =
+    bBaseline &&
+    bFiltered.some(
+      (v) => v && hasEnoughData(bBaseline, v, b.metric, metricDefaults),
+    );
+
+  if (!aHasData || !aHasEnoughData || !bHasData || !bHasEnoughData) return 0;
+
+  const aValues = aFiltered.map((v) =>
+    statsEngine === "frequentist" ? (v.pValue ?? 1) : (v.chanceToWin ?? 0),
+  );
+  const bValues = bFiltered.map((v) =>
+    statsEngine === "frequentist" ? (v.pValue ?? 1) : (v.chanceToWin ?? 0),
+  );
+
+  if (aValues.length === 0 && bValues.length === 0) return 0;
+  if (aValues.length === 0) return 1;
+  if (bValues.length === 0) return -1;
+
+  const aValue =
+    statsEngine === "frequentist" ? Math.min(...aValues) : Math.max(...aValues);
+  const bValue =
+    statsEngine === "frequentist" ? Math.min(...bValues) : Math.max(...bValues);
+
+  return statsEngine === "frequentist" ? aValue - bValue : bValue - aValue;
+};
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (

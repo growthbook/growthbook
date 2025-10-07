@@ -11,6 +11,7 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
+import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   ExperimentReportVariation,
@@ -114,6 +115,8 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
+  sortBy?: "metric-tags" | "significance" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | null) => void;
 };
 
 const ROW_HEIGHT = 46;
@@ -173,11 +176,26 @@ export default function ResultsTable({
   disableTimeSeriesButton,
   columnsFilter,
   isHoldout,
+  sortBy,
+  setSortBy,
 }: ResultsTableProps) {
-  // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
+
+  const sortFilter = setSortBy ? (
+    <a
+      role="button"
+      className={sortBy === "significance" ? "link-purple" : "text-muted"}
+      onClick={() => setSortBy(sortBy === "significance" ? null : "significance")}
+      style={{ marginLeft: "2px" }}
+    >
+      {sortBy === "significance" 
+        ? (statsEngine === "frequentist" ? <FaSortDown size={16} /> : <FaSortUp size={16} />)
+        : <FaSort size={16} />
+      }
+    </a>
+  ) : null;
   const columnsToDisplay = columnsFilter?.length
     ? columnsFilter
     : RESULTS_TABLE_COLUMNS;
@@ -590,14 +608,19 @@ export default function ResultsTable({
                         className={clsx("axis-col label", { noStickyHeader })}
                       >
                         {statsEngine === "bayesian" ? (
-                          <div
-                            style={{
-                              lineHeight: "15px",
-                              marginBottom: 2,
-                            }}
-                          >
-                            <span className="nowrap">Chance</span>{" "}
-                            <span className="nowrap">to Win</span>
+                          <div className="d-flex align-items-end" style={{ width: 44 }}>
+                            <div
+                              style={{
+                                lineHeight: "15px",
+                                marginBottom: 2,
+                              }}
+                            >
+                              <span className="nowrap">Chance</span>{" "}
+                              <span className="nowrap">to Win</span>
+                            </div>
+                            <div style={{ top: -2, position: "relative" }}>
+                            {sortFilter}
+                            </div>
                           </div>
                         ) : sequentialTestingEnabled ||
                           appliedPValueCorrection ? (
@@ -618,9 +641,13 @@ export default function ResultsTable({
                           >
                             {appliedPValueCorrection ? "Adj. " : ""}P-value{" "}
                             <RxInfoCircled />
+                            {sortFilter}
                           </Tooltip>
                         ) : (
-                          <>P-value</>
+                          <>
+                            P-value
+                            {sortFilter}
+                          </>
                         )}
                       </th>
                     )}

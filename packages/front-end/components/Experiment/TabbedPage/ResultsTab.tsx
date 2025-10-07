@@ -51,6 +51,8 @@ export interface Props {
   setMetricFilter: (m: ResultsMetricFilters) => void;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  sortBy: "metric-tags" | "significance" | null;
+  setSortBy: (s: "metric-tags" | "significance" | null) => void;
 }
 
 export default function ResultsTab({
@@ -67,6 +69,8 @@ export default function ResultsTab({
   setAnalysisBarSettings,
   metricFilter,
   setMetricFilter,
+  sortBy,
+  setSortBy,
 }: Props) {
   const {
     getDatasourceById,
@@ -310,6 +314,8 @@ export default function ResultsTab({
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
                   setTab={setTab}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
                 />
               )}
             </>
