@@ -848,7 +848,16 @@ export default abstract class SqlIntegration
       "m0",
     );
 
-    // TODO(sql): What happens if ratio metric is cross table?
+    // TODO(sql): Support analyses for cross-table ratio metrics
+    if (
+      isRatioMetric(metric) &&
+      metric.denominator &&
+      metric.denominator.factTableId !== factTable.id
+    ) {
+      throw new Error(
+        "Metric analyses for cross-table ratio metrics are not supported yet",
+      );
+    }
 
     const createHistogram = metric.metricType === "mean";
 
