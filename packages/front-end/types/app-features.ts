@@ -98,5 +98,5 @@ export type AppFeatures = {
   asdf: boolean;
   "experiment-dashboards-enabled": boolean;
   holdouts_feature: boolean;
-  "metric-dimensions": boolean;
+  "metric-slices": boolean;
 };

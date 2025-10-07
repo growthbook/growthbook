@@ -1123,6 +1123,8 @@ export async function postExperiments(
     shareLevel: data.shareLevel || "organization",
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
     holdoutId: holdoutId || undefined,
+    pinnedMetricSlices: data.pinnedMetricSlices,
+    customMetricSlices: data.customMetricSlices,
   };
   const { settings } = getScopedSettings({
     organization: org,
@@ -1474,7 +1476,8 @@ export async function postExperiment(
     "dismissedWarnings",
     "holdoutId",
     "defaultDashboardId",
-    "pinnedMetricDimensionLevels",
+    "pinnedMetricSlices",
+    "customMetricSlices",
   ];
   let changes: Changeset = {};
 
@@ -1491,7 +1494,9 @@ export async function postExperiment(
       key === "guardrailMetrics" ||
       key === "metricOverrides" ||
       key === "variations" ||
-      key === "customFields"
+      key === "customFields" ||
+      key === "pinnedMetricSlices" ||
+      key === "customMetricSlices"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
@@ -2759,6 +2764,7 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
+  preventStartingAnalysis,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -2769,6 +2775,7 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
+  preventStartingAnalysis?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentResultsQueryRunner;
@@ -2845,6 +2852,7 @@ export async function createExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
+    preventStartingAnalysis,
   });
   const snapshot = queryRunner.model;
 

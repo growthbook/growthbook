@@ -21,7 +21,7 @@ import {
 import {
   ExperimentMetricInterface,
   isFactMetricId,
-  createDimensionMetrics,
+  createSliceMetrics,
 } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
@@ -34,15 +34,16 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
 
-export interface FactMetricDimension extends FactMetricInterface {
-  id: string; // Format: `${parentId}?dim:${columnId}=${value}` or `${parentId}?dim:${columnId}=` for "other"
+export interface FactMetricLevel extends FactMetricInterface {
+  id: string; // Format: `${parentId}?dim:${encodedColumnId}=${encodedValue}` or `${parentId}?dim:${encodedColumnId}=` for "other"
   name: string; // Format: `${parentName} (${columnName}: ${value})` or `${parentName} (${columnName}: other)`
   description: string;
   parentMetricId: string;
-  dimensionColumn: string;
-  dimensionColumnName: string;
-  dimensionValue: string | null;
-  dimensionLevels: string[];
+  sliceLevels: Array<{
+    column: string;
+    levels: string[];
+  }>;
+  allSliceLevels: string[];
 }
 
 type Definitions = {
@@ -80,7 +81,7 @@ type DefinitionContextValue = Definitions & {
   getTagById: (id: string) => null | TagInterface;
   getFactTableById: (id: string) => null | FactTableInterface;
   getFactMetricById: (id: string) => null | FactMetricInterface;
-  getFactMetricDimensions: (parentId: string) => FactMetricDimension[];
+  getFactMetricLevels: (parentId: string) => FactMetricLevel[];
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
   getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
@@ -123,7 +124,7 @@ const defaultValue: DefinitionContextValue = {
   getTagById: () => null,
   getFactTableById: () => null,
   getFactMetricById: () => null,
-  getFactMetricDimensions: () => [],
+  getFactMetricLevels: () => [],
   getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
   getDecisionCriteriaById: () => null,
@@ -295,8 +296,8 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
 
-  const getFactMetricDimensions = useCallback(
-    (parentId: string): FactMetricDimension[] => {
+  const getFactMetricLevels = useCallback(
+    (parentId: string): FactMetricLevel[] => {
       const parentMetric = data?.factMetrics?.find((m) => m.id === parentId);
       if (!parentMetric) return [];
 
@@ -305,28 +306,26 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       );
       if (!factTable) return [];
 
-      // Only generate metric dimensions if the parent has dimension analysis enabled
-      if (!parentMetric.enableMetricDimensions) return [];
+      // Only generate metric slices if the parent has slice analysis enabled
+      if (!parentMetric.metricAutoSlices?.length) return [];
 
-      const dimensionMetrics = createDimensionMetrics({
+      const sliceMetrics = createSliceMetrics({
         parentMetric,
         factTable,
         includeOther: true,
       });
 
-      return dimensionMetrics.map(
-        (dimensionMetric) =>
+      return sliceMetrics.map(
+        (sliceMetric) =>
           ({
             ...parentMetric,
-            id: dimensionMetric.id,
-            name: dimensionMetric.name,
-            description: dimensionMetric.description,
+            id: sliceMetric.id,
+            name: sliceMetric.name,
+            description: sliceMetric.description,
             parentMetricId: parentId,
-            dimensionColumn: dimensionMetric.dimensionColumn,
-            dimensionColumnName: dimensionMetric.dimensionColumnName,
-            dimensionValue: dimensionMetric.dimensionValue,
-            dimensionLevels: dimensionMetric.dimensionLevels,
-          }) as FactMetricDimension,
+            sliceLevels: sliceMetric.sliceLevels,
+            allSliceLevels: sliceMetric.allSliceLevels,
+          }) as FactMetricLevel,
       );
     },
     [data?.factMetrics, data?.factTables],
@@ -384,7 +383,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getTagById,
       getFactTableById,
       getFactMetricById,
-      getFactMetricDimensions,
+      getFactMetricLevels,
       getExperimentMetricById,
       getMetricGroupById,
       getDecisionCriteriaById,

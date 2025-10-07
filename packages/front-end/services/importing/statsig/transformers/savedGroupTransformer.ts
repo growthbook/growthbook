@@ -17,6 +17,7 @@ export async function transformStatsigSegmentToSavedGroup(
   ) => Promise<unknown>,
   project?: string,
   skipAttributeMapping: boolean = false,
+  _savedGroupIdMap?: Map<string, string>,
 ): Promise<
   Omit<
     SavedGroupInterface,
@@ -39,6 +40,7 @@ export async function transformStatsigSegmentToSavedGroup(
         const transformed = transformStatsigConditionsToGB(
           rule.conditions,
           skipAttributeMapping,
+          undefined, // Don't resolve saved groups during saved group creation
         );
         if (transformed.condition && transformed.condition !== "{}") {
           ruleConditions.push(transformed.condition);
@@ -74,6 +76,7 @@ export async function transformStatsigSegmentToSavedGroup(
       gbAttributeKey,
       existingAttributeSchema,
       apiCall,
+      [], // No operators for id_list type
     );
 
     return {
@@ -88,23 +91,46 @@ export async function transformStatsigSegmentToSavedGroup(
   } else if (segment.type === "rule_based") {
     const condition = transformStatsigRulesToCondition(segment.rules);
 
-    // Extract attribute names from the condition and ensure they exist
+    // Extract attribute names and operators from the condition and ensure they exist
     if (segment.rules) {
       const allConditions = segment.rules.flatMap(
         (rule) => rule.conditions || [],
       );
-      const uniqueAttributeNames = new Set(
-        allConditions.map((cond) =>
-          mapStatsigAttributeToGB(cond.type, skipAttributeMapping),
-        ),
-      );
 
-      // Ensure all attributes exist
-      for (const attributeName of uniqueAttributeNames) {
+      // Group conditions by attribute name to collect operators
+      const attributeOperatorMap = new Map<
+        string,
+        { attributeName: string; operators: string[] }
+      >();
+
+      allConditions.forEach((cond) => {
+        const attributeName = mapStatsigAttributeToGB(
+          cond.type,
+          skipAttributeMapping,
+        );
+        if (!attributeOperatorMap.has(attributeName)) {
+          attributeOperatorMap.set(attributeName, {
+            attributeName,
+            operators: [],
+          });
+        }
+        if (cond.operator) {
+          attributeOperatorMap
+            .get(attributeName)!
+            .operators.push(cond.operator);
+        }
+      });
+
+      // Ensure all attributes exist with their operators
+      for (const {
+        attributeName,
+        operators,
+      } of attributeOperatorMap.values()) {
         await ensureAttributeExists(
           attributeName,
           existingAttributeSchema,
           apiCall,
+          operators,
         );
       }
     }
