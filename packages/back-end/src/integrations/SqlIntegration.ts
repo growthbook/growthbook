@@ -4841,7 +4841,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         factTable,
         columnRef: m.numerator,
         escapeStringLiteral: this.escapeStringLiteral.bind(this),
-        extractJSONField: this.extractJSONField.bind(this),
+        jsonExtract: this.extractJSONField.bind(this),
         evalBoolean: this.evalBoolean.bind(this),
         sliceInfo,
       });
@@ -4875,7 +4875,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           factTable,
           columnRef: m.denominator,
           escapeStringLiteral: this.escapeStringLiteral.bind(this),
-          extractJSONField: this.extractJSONField.bind(this),
+          jsonExtract: this.extractJSONField.bind(this),
           evalBoolean: this.evalBoolean.bind(this),
           sliceInfo,
         });
@@ -5084,7 +5084,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         factTable,
         columnRef,
         escapeStringLiteral: this.escapeStringLiteral.bind(this),
-        extractJSONField: this.extractJSONField.bind(this),
+        jsonExtract: this.extractJSONField.bind(this),
         evalBoolean: this.evalBoolean.bind(this),
         sliceInfo,
       }).forEach((filterSQL) => {

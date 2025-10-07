@@ -900,8 +900,8 @@ function getWHERE({
           factTable,
           columnRef,
           escapeStringLiteral: (s) => s.replace(/'/g, "''"),
-          // This isn't real SQL syntax, but it should get the point across
-          extractJSONField: (jsonCol, path) => `${jsonCol}.${path}`,
+          // This isn't real SQL syntax for most dialects, but it should get the point across
+          jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
           evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
           showSourceComment: true,
         })
