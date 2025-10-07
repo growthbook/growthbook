@@ -76,6 +76,7 @@ type TableDef = {
 };
 
 const BreakDownResults: FC<{
+  experimentId: string;
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
@@ -113,6 +114,7 @@ const BreakDownResults: FC<{
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
 }> = ({
+  experimentId,
   dimensionId,
   dimensionValuesFilter,
   results,
@@ -394,6 +396,7 @@ const BreakDownResults: FC<{
             </h5>
             <ResultsTable
               key={i}
+              experimentId={experimentId}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               phase={phase}
@@ -414,12 +417,18 @@ const BreakDownResults: FC<{
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
-                    {getRenderLabelColumn(
-                      !!regressionAdjustmentEnabled,
+                    {getRenderLabelColumn({
+                      regressionAdjustmentEnabled:
+                        !!regressionAdjustmentEnabled,
                       statsEngine,
                       hideDetails,
                       experimentType,
-                    )(table.metric.name, table.metric, table.rows[0])}
+                      className: "",
+                    })({
+                      label: table.metric.name,
+                      metric: table.metric,
+                      row: table.rows[0],
+                    })}
                   </div>
                 )
               }
@@ -428,26 +437,27 @@ const BreakDownResults: FC<{
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
-              renderLabelColumn={(label) => (
-                <>
+              renderLabelColumn={({ label }) => (
+                <div
+                  className="pl-3 font-weight-bold"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 1,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    color: "var(--color-text-mid)",
+                  }}
+                >
                   {label ? (
                     label === "__NULL_DIMENSION" ? (
                       <em>NULL (unset)</em>
                     ) : (
-                      <span
-                        style={{
-                          lineHeight: "1.2em",
-                          wordBreak: "break-word",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {label}
-                      </span>
+                      label
                     )
                   ) : (
                     <em>unknown</em>
                   )}
-                </>
+                </div>
               )}
               metricFilter={metricFilter}
               isTabActive={true}

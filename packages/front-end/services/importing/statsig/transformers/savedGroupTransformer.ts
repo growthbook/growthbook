@@ -1,9 +1,6 @@
 import { SavedGroupInterface } from "shared/src/types";
 import { SDKAttribute } from "back-end/types/organization";
-import {
-  StatsigSavedGroup,
-  StatsigCondition,
-} from "@/services/importing/statsig/types";
+import { StatsigSavedGroup } from "@/services/importing/statsig/types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
 import { mapStatsigAttributeToGB } from "./attributeMapper";
 import { ensureAttributeExists } from "./attributeCreator";
@@ -19,6 +16,8 @@ export async function transformStatsigSegmentToSavedGroup(
     options?: { method: string; body: string },
   ) => Promise<unknown>,
   project?: string,
+  skipAttributeMapping: boolean = false,
+  _savedGroupIdMap?: Map<string, string>,
 ): Promise<
   Omit<
     SavedGroupInterface,
@@ -32,33 +31,52 @@ export async function transformStatsigSegmentToSavedGroup(
       return "{}";
     }
 
-    // Collect all conditions from all rules
-    const allConditions: StatsigCondition[] = [];
+    // Transform each rule's conditions separately
+    const ruleConditions: string[] = [];
+
     rules.forEach((rule) => {
       if (rule.conditions && rule.conditions.length > 0) {
-        allConditions.push(...rule.conditions);
+        // Transform this rule's conditions to GrowthBook format
+        const transformed = transformStatsigConditionsToGB(
+          rule.conditions,
+          skipAttributeMapping,
+          undefined, // Don't resolve saved groups during saved group creation
+        );
+        if (transformed.condition && transformed.condition !== "{}") {
+          ruleConditions.push(transformed.condition);
+        }
       }
     });
 
-    if (allConditions.length === 0) {
+    if (ruleConditions.length === 0) {
       return "{}";
     }
 
-    // Transform all conditions to GrowthBook format
-    const transformed = transformStatsigConditionsToGB(allConditions);
-    return transformed.condition;
+    // If only one rule, return its condition directly
+    if (ruleConditions.length === 1) {
+      return ruleConditions[0];
+    }
+
+    // Multiple rules - OR them together
+    return JSON.stringify({
+      $or: ruleConditions.map((cond) => JSON.parse(cond)),
+    });
   }
 
   if (segment.type === "id_list") {
     // ID List type - convert to GrowthBook "list" type
-    const statsigAttributeKey = segment.idType || "id";
-    const gbAttributeKey = mapStatsigAttributeToGB(statsigAttributeKey);
+    const statsigAttributeKey = segment.idType || "user_id";
+    const gbAttributeKey = mapStatsigAttributeToGB(
+      statsigAttributeKey,
+      skipAttributeMapping,
+    );
 
     // Ensure the attribute exists before using it
     await ensureAttributeExists(
       gbAttributeKey,
       existingAttributeSchema,
       apiCall,
+      [], // No operators for id_list type
     );
 
     return {
@@ -73,21 +91,46 @@ export async function transformStatsigSegmentToSavedGroup(
   } else if (segment.type === "rule_based") {
     const condition = transformStatsigRulesToCondition(segment.rules);
 
-    // Extract attribute names from the condition and ensure they exist
+    // Extract attribute names and operators from the condition and ensure they exist
     if (segment.rules) {
       const allConditions = segment.rules.flatMap(
         (rule) => rule.conditions || [],
       );
-      const uniqueAttributeNames = new Set(
-        allConditions.map((cond) => mapStatsigAttributeToGB(cond.type)),
-      );
 
-      // Ensure all attributes exist
-      for (const attributeName of uniqueAttributeNames) {
+      // Group conditions by attribute name to collect operators
+      const attributeOperatorMap = new Map<
+        string,
+        { attributeName: string; operators: string[] }
+      >();
+
+      allConditions.forEach((cond) => {
+        const attributeName = mapStatsigAttributeToGB(
+          cond.type,
+          skipAttributeMapping,
+        );
+        if (!attributeOperatorMap.has(attributeName)) {
+          attributeOperatorMap.set(attributeName, {
+            attributeName,
+            operators: [],
+          });
+        }
+        if (cond.operator) {
+          attributeOperatorMap
+            .get(attributeName)!
+            .operators.push(cond.operator);
+        }
+      });
+
+      // Ensure all attributes exist with their operators
+      for (const {
+        attributeName,
+        operators,
+      } of attributeOperatorMap.values()) {
         await ensureAttributeExists(
           attributeName,
           existingAttributeSchema,
           apiCall,
+          operators,
         );
       }
     }

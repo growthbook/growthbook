@@ -127,8 +127,8 @@ export default function FeaturesHeader({
           )}
 
           <Flex align="center" justify="between">
-            <Flex align="center">
-              <Heading size="7" as="h1">
+            <Flex align="center" mb="2">
+              <Heading size="7" as="h1" mb="0">
                 {feature.id}
               </Heading>
               {stale && (

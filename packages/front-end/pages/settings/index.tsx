@@ -162,11 +162,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      blockFileUploads: settings.blockFileUploads ?? false,
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      disableLegacyMetricCreation:
+        settings.disableLegacyMetricCreation ?? false,
     },
   });
   const { apiCall } = useAuth();
@@ -213,6 +216,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
     openAIDefaultModel: form.watch("openAIDefaultModel"),
+    disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";

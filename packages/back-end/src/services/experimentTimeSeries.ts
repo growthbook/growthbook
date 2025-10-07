@@ -1,7 +1,8 @@
 import md5 from "md5";
 import {
-  getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
+  expandAllSliceMetricsInMap,
 } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -28,6 +29,7 @@ import {
   FactTableInterface,
 } from "back-end/types/fact-table";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
 
 export async function updateExperimentTimeSeries({
   context,
@@ -52,11 +54,22 @@ export async function updateExperimentTimeSeries({
   }
 
   const metricGroups = await context.models.metricGroups.getAll();
-  const metricsIds = getAllMetricIdsFromExperiment(
-    experimentSnapshot.settings,
-    false,
+  const metricMap = await getMetricMap(context);
+  const factTableMap = await getFactTableMap(context);
+
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  expandAllSliceMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
     metricGroups,
-  );
+  });
+
+  const allMetricIds = getAllExpandedMetricIdsFromExperiment({
+    exp: experimentSnapshot.settings,
+    expandedMetricMap: metricMap,
+    metricGroups,
+  });
   const relativeAnalysis = experimentSnapshot.analyses.find(
     (analysis) =>
       analysis.settings.differenceType === "relative" &&
@@ -84,14 +97,12 @@ export async function updateExperimentTimeSeries({
   }
 
   let factMetrics: FactMetricInterface[] | undefined = undefined;
-  let factTableMap: Map<string, FactTableInterface> | undefined = undefined;
-  const factMetricsIds: string[] = metricsIds.filter(isFactMetricId);
+  const factMetricsIds: string[] = allMetricIds.filter(isFactMetricId);
   if (factMetricsIds.length > 0) {
     factMetrics = await context.models.factMetrics.getByIds(factMetricsIds);
-    factTableMap = await getFactTableMap(context);
   }
 
-  const timeSeriesVariationsPerMetricId = metricsIds.reduce(
+  const timeSeriesVariationsPerMetricId = allMetricIds.reduce(
     (acc, metricId) => {
       acc[metricId] = variations.map((_, variationIndex) => ({
         id: experiment.variations[variationIndex].id,
@@ -135,7 +146,7 @@ export async function updateExperimentTimeSeries({
   );
 
   const metricTimeSeriesSingleDataPoints: CreateMetricTimeSeriesSingleDataPoint[] =
-    metricsIds.map((metricId) => ({
+    allMetricIds.map((metricId) => ({
       source: "experiment",
       sourceId: experiment.id,
       sourcePhase: experimentSnapshot.phase,

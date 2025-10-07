@@ -64,6 +64,7 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
 import { MetricModal } from "@/components/FactTables/NewMetricModal";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -80,8 +81,10 @@ const MetricPage: FC = () => {
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
-  const { organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
 
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState<boolean>(false);
   const [editTags, setEditTags] = useState(false);
@@ -133,11 +136,18 @@ const MetricPage: FC = () => {
   }
 
   const metric = data.metric;
-  const canDuplicateMetric = permissionsUtil.canCreateMetric(metric);
-  const canEditMetric =
-    permissionsUtil.canUpdateMetric(metric, {}) && !metric.managedBy;
-  const canDeleteMetric =
-    permissionsUtil.canDeleteMetric(metric) && !metric.managedBy;
+  const canDuplicateMetric = permissionsUtil.canCreateMetric({
+    // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
+    projects: metric.projects,
+  });
+  let canEditMetric = permissionsUtil.canUpdateMetric(metric, {});
+  let canDeleteMetric = permissionsUtil.canDeleteMetric(metric);
+
+  // Additional check if managed by api or config
+  if (metric.managedBy && ["api", "config"].includes(metric.managedBy)) {
+    canEditMetric = false;
+    canDeleteMetric = false;
+  }
   const datasource = metric.datasource
     ? getDatasourceById(metric.datasource)
     : null;
@@ -311,9 +321,31 @@ const MetricPage: FC = () => {
           currentMetric={{
             ...metric,
             name: metric.name + " (copy)",
+            // If managedBy is admin, only copy that over if the user has the ManageOfficialResources policy
+            managedBy:
+              metric.managedBy === "admin" &&
+              permissionsUtil.canCreateOfficialResources(metric)
+                ? "admin"
+                : "",
           }}
           close={() => setDuplicateModalOpen(false)}
           source="metrics-detail"
+        />
+      )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          resourceType="Metric"
+          source="metric-page"
+          close={() => setShowConvertToOfficialModal(false)}
+          onSubmit={async () => {
+            await apiCall(`/metric/${metric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "admin",
+              }),
+            });
+            await mutateDefinitions();
+          }}
         />
       )}
       {editTags && (
@@ -445,6 +477,18 @@ const MetricPage: FC = () => {
                 onClick={() => setEditModalOpen(true)}
               >
                 Edit metric
+              </Button>
+            ) : null}
+            {!metric.managedBy &&
+            canEditMetric &&
+            permissionsUtil.canCreateOfficialResources(metric) &&
+            hasCommercialFeature("manage-official-resources") ? (
+              <Button
+                className="btn dropdown-item py-2"
+                color=""
+                onClick={() => setShowConvertToOfficialModal(true)}
+              >
+                Convert to Official Metric
               </Button>
             ) : null}
             {canDuplicateMetric ? (
