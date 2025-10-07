@@ -9,6 +9,7 @@ import React, { useMemo, useState } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
+  filterEnvironmentsByFeature,
   generateVariationId,
   isFeatureCyclic,
   isProjectListValidForProject,
@@ -36,6 +37,7 @@ import {
   getFeatureDefaultValue,
   getRules,
   useAttributeSchema,
+  useEnvironments,
   useFeaturesList,
   validateFeatureRule,
 } from "@/services/features";
@@ -65,6 +67,7 @@ import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/ui/HelperText";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
+import EnvironmentSelect from "../FeatureModal/EnvironmentSelect";
 
 export interface Props {
   close: () => void;
@@ -129,6 +132,8 @@ export default function RuleModal({
   const { datasources, project: currentProject } = useDefinitions();
   const { experimentsMap, mutateExperiments } = useExperiments();
   const { templates: allTemplates } = useTemplates();
+  const allEnvironments = useEnvironments();
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
@@ -182,6 +187,12 @@ export default function RuleModal({
   >({
     defaultValues,
   });
+
+  const [selectedEnvironments, setSelectedEnvironments] = useState<string[]>(
+    settings.defaultFeatureRulesInAllEnvs
+      ? environments.map((env) => env.id)
+      : [environment],
+  );
 
   const defaultHasSchedule = (defaultValues.scheduleRules || []).some(
     (scheduleRule) => scheduleRule.timestamp !== null,
@@ -684,7 +695,10 @@ export default function RuleModal({
             method: "POST",
             body: JSON.stringify({
               rule: values,
-              environment,
+              environments:
+                values.type === "safe-rollout"
+                  ? [environment]
+                  : selectedEnvironments,
               safeRolloutFields,
             } as PostFeatureRuleBody),
           },
@@ -725,9 +739,9 @@ export default function RuleModal({
             <PiCaretRight className="position-relative" style={{ top: -1 }} />
           </>
         }
-        ctaEnabled={!!overviewRuleType}
+        ctaEnabled={!!overviewRuleType && selectedEnvironments.length > 0}
         bodyClassName="px-4"
-        header={`New Rule in ${environment}`}
+        header={`New Rule`}
         subHeader="You will have a chance to review new rules as a draft before publishing changes."
         submit={submitOverview}
         autoCloseOnSubmit={false}
@@ -860,6 +874,7 @@ export default function RuleModal({
             }}
           />
         </div>
+
         {overviewRadioSelectorRuleType === "experiment" && (
           <>
             <h5>Add Experiment</h5>
@@ -876,6 +891,7 @@ export default function RuleModal({
               ]}
               value={overviewRuleType}
               setValue={(v: OverviewRuleType) => setOverviewRuleType(v)}
+              mb="4"
             />
           </>
         )}
@@ -895,8 +911,33 @@ export default function RuleModal({
               ]}
               value={overviewRuleType}
               setValue={(v: OverviewRuleType) => setOverviewRuleType(v)}
+              mb="4"
             />
           </>
+        )}
+
+        {environments.length > 1 && overviewRuleType !== "safe-rollout" && (
+          <EnvironmentSelect
+            environments={environments}
+            environmentSettings={Object.fromEntries(
+              environments.map((env) => [
+                env.id,
+                { enabled: selectedEnvironments.includes(env.id) },
+              ]),
+            )}
+            setValue={(env, enabled) => {
+              if (enabled) {
+                setSelectedEnvironments((prev) => [
+                  ...new Set([...prev, env.id]),
+                ]);
+              } else {
+                setSelectedEnvironments((prev) =>
+                  prev.filter((id) => id !== env.id),
+                );
+              }
+            }}
+            label="Create Rule in Environments"
+          />
         )}
       </Modal>
     );
@@ -924,7 +965,14 @@ export default function RuleModal({
               ? "Safe Rollout Rule"
               : "Rule";
   const trackingEventModalType = kebabCase(headerText);
-  headerText += ` in ${environment}`;
+  headerText +=
+    ruleType === "safe-rollout"
+      ? ` in ${environment}`
+      : ` in ${selectedEnvironments[0]}${
+          selectedEnvironments.length > 1
+            ? ` + ${selectedEnvironments.length - 1} more`
+            : ""
+        }`;
 
   return (
     <FormProvider {...form}>
