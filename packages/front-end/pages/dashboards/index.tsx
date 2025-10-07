@@ -6,12 +6,12 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { Flex, Text } from "@radix-ui/themes";
+import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSearch } from "@/services/search";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -25,12 +25,17 @@ import {
 } from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useAuth } from "@/services/auth";
 import DashboardWorkspace from "@/enterprise/components/Dashboards/DashboardWorkspace";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { DocLink } from "@/components/DocLink";
 import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useUser } from "@/services/UserContext";
+import EditDashboardNameModal from "@/enterprise/components/Dashboards/DashboardEditor/EditDashboardNameModal";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
@@ -39,6 +44,9 @@ export default function DashboardsPage() {
   const { apiCall } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editDashboard, setEditDashboard] = useState<
+    DashboardInterface | undefined
+  >(undefined);
   const [dashboardId, setDashboardId] = useState("");
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
@@ -116,6 +124,17 @@ export default function DashboardsPage() {
           mutate={mutateDashboards}
           close={() => setIsEditing(false)}
           isTabActive={true} // MK: This doesn't really make sense for general dashboards
+        />
+      )}
+      {editDashboard && (
+        <EditDashboardNameModal
+          trackingEventModalType="edit-dashboard-name"
+          trackingEventModalSource="dashboards-index-page-table"
+          dashboard={editDashboard}
+          close={() => {
+            setEditDashboard(undefined);
+            mutateDashboards();
+          }}
         />
       )}
       {showCreateModal && (
@@ -239,34 +258,51 @@ export default function DashboardsPage() {
                               </td>
                               <td>{ago(d.dateUpdated)}</td>
                               <td style={{ width: 30 }}>
-                                <MoreMenu>
-                                  {canEdit ? (
-                                    <button
-                                      className="dropdown-item"
-                                      onClick={() => {
-                                        //MKTODO: This isn't wired up correctly yet
-                                        setIsEditing(true);
-                                      }}
+                                <DropdownMenu
+                                  trigger={
+                                    <IconButton
+                                      variant="ghost"
+                                      color="gray"
+                                      radius="full"
+                                      size="3"
+                                      highContrast
                                     >
-                                      Edit
-                                    </button>
+                                      <BsThreeDotsVertical />
+                                    </IconButton>
+                                  }
+                                >
+                                  {canEdit ? (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setDashboardId(d.id);
+                                          setIsEditing(true);
+                                        }}
+                                      >
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => setEditDashboard(d)}
+                                      >
+                                        Rename dashboard
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                    </>
                                   ) : null}
                                   {canDelete ? (
-                                    <DeleteButton
-                                      displayName="Dashboard"
-                                      className="dropdown-item text-danger"
-                                      text="Delete"
-                                      useIcon={false}
-                                      title="Delete this dashboard"
+                                    <DropdownMenuItem
+                                      color="red"
                                       onClick={async () => {
                                         await apiCall(`/dashboards/${d.id}`, {
                                           method: "DELETE",
                                         });
                                         mutateDashboards();
                                       }}
-                                    />
+                                    >
+                                      Delete
+                                    </DropdownMenuItem>
                                   ) : null}
-                                </MoreMenu>
+                                </DropdownMenu>
                               </td>
                             </tr>
                           );
