@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import z from "zod";
+import { z } from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { isEqual } from "lodash";

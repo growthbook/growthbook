@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "zod";
 import { getScopedSettings } from "shared/settings";
 import {
   DEFAULT_FACT_METRIC_WINDOW,

@@ -1,4 +1,4 @@
-import { SafeParseError } from "zod";
+import { z } from "zod";
 
 /**
  * Given a Zod SafeParseError, will return an error string
@@ -6,9 +6,10 @@ import { SafeParseError } from "zod";
  * @param safeParseResult
  * @returns null | string
  */
-export const errorStringFromZodResult = (
-  safeParseResult: SafeParseError<unknown>,
-): string =>
+export const errorStringFromZodResult = (safeParseResult: {
+  success: false;
+  error: z.ZodError;
+}): string =>
   safeParseResult.error.issues
     .map((i) => "[" + i.path.join(".") + "] " + i.message)
     .join(", ");
