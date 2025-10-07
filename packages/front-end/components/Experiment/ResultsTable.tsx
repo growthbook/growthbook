@@ -11,7 +11,12 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
-import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
+import {
+  FaSortUp,
+  FaSortDown,
+  FaSort,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   ExperimentReportVariation,
@@ -28,7 +33,6 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -184,17 +188,34 @@ export default function ResultsTable({
   }
 
   const sortFilter = setSortBy ? (
-    <a
-      role="button"
-      className={sortBy === "significance" ? "link-purple" : "text-muted"}
-      onClick={() => setSortBy(sortBy === "significance" ? null : "significance")}
-      style={{ marginLeft: "2px" }}
-    >
-      {sortBy === "significance" 
-        ? (statsEngine === "frequentist" ? <FaSortDown size={16} /> : <FaSortUp size={16} />)
-        : <FaSort size={16} />
+    <Tooltip
+      usePortal={true}
+      innerClassName={"text-left"}
+      body={
+        sortBy === "significance"
+          ? "Sorted by significance"
+          : "Sort by significance"
       }
-    </a>
+    >
+      <a
+        role="button"
+        className={sortBy === "significance" ? "link-purple" : "text-muted"}
+        onClick={() =>
+          setSortBy(sortBy === "significance" ? null : "significance")
+        }
+        style={{ marginLeft: "2px" }}
+      >
+        {sortBy === "significance" ? (
+          statsEngine === "frequentist" ? (
+            <FaSortDown size={16} />
+          ) : (
+            <FaSortUp size={16} />
+          )
+        ) : (
+          <FaSort size={16} />
+        )}
+      </a>
+    </Tooltip>
   ) : null;
   const columnsToDisplay = columnsFilter?.length
     ? columnsFilter
@@ -608,7 +629,10 @@ export default function ResultsTable({
                         className={clsx("axis-col label", { noStickyHeader })}
                       >
                         {statsEngine === "bayesian" ? (
-                          <div className="d-flex align-items-end" style={{ width: 44 }}>
+                          <div
+                            className="d-flex align-items-end"
+                            style={{ width: 44 }}
+                          >
                             <div
                               style={{
                                 lineHeight: "15px",
@@ -619,7 +643,7 @@ export default function ResultsTable({
                               <span className="nowrap">to Win</span>
                             </div>
                             <div style={{ top: -2, position: "relative" }}>
-                            {sortFilter}
+                              {sortFilter}
                             </div>
                           </div>
                         ) : sequentialTestingEnabled ||
