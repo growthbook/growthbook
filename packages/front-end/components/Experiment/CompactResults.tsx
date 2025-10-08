@@ -24,6 +24,8 @@ import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
+  generatePinnedSliceKey,
+  createCustomSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
 } from "shared/experiments";
@@ -91,13 +93,18 @@ const CompactResults: FC<{
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
   disableTimeSeriesButton?: boolean;
-  pinnedMetricDimensionLevels?: string[];
-  togglePinnedMetricDimensionLevel?: (
+  pinnedMetricSlices?: string[];
+  togglePinnedMetricSlice?: (
     metricId: string,
-    dimensionColumn: string,
-    dimensionValue: string | null,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => void;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
 }> = ({
   experimentId,
   editMetrics,
@@ -135,24 +142,20 @@ const CompactResults: FC<{
   ssrPolyfills,
   hideDetails,
   disableTimeSeriesButton,
-  pinnedMetricDimensionLevels,
-  togglePinnedMetricDimensionLevel,
+  pinnedMetricSlices,
+  togglePinnedMetricSlice,
+  customMetricSlices,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactMetricDimensions,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, getFactMetricLevels, metricGroups, ready } =
+    useDefinitions();
   const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  // Feature flag and commercial feature checks for dimension analysis
-  const isMetricDimensionsFeatureEnabled =
-    growthbook?.isOn("metric-dimensions");
-  const hasMetricDimensionsFeature = hasCommercialFeature("metric-dimensions");
-  const shouldShowMetricDimensions =
-    isMetricDimensionsFeatureEnabled && hasMetricDimensionsFeature;
+  // Feature flag and commercial feature checks for slice analysis
+  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const shouldShowMetricSlices =
+    isMetricSlicesFeatureEnabled && hasMetricSlicesFeature;
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -247,11 +250,16 @@ const CompactResults: FC<{
           (s) => s.metric === metricId,
         );
       }
-      // Get dimension count for this metric (only if feature is enabled)
-      const numDimensions = shouldShowMetricDimensions
-        ? ssrPolyfills?.getFactMetricDimensions?.(metricId)?.length ||
-          getFactMetricDimensions?.(metricId)?.length ||
-          0
+      // Get slice count for this metric (only if feature is enabled)
+      const standardSlices =
+        ssrPolyfills?.getFactMetricLevels?.(metricId)?.length ||
+        getFactMetricLevels?.(metricId)?.length ||
+        0;
+
+      const customSlices = customMetricSlices?.length || 0;
+
+      const numSlices = shouldShowMetricSlices
+        ? standardSlices + customSlices
         : 0;
 
       const parentRow: ExperimentTableRow = {
@@ -271,41 +279,63 @@ const CompactResults: FC<{
         }),
         metricSnapshotSettings,
         resultGroup,
-        numDimensions,
+        numSlices,
       };
 
       const rows: ExperimentTableRow[] = [parentRow];
 
-      // Add dimension rows if this metric has dimensions and feature is enabled
-      if (numDimensions > 0 && shouldShowMetricDimensions) {
-        const dimensionData =
-          ssrPolyfills?.getFactMetricDimensions?.(metricId) ||
-          getFactMetricDimensions?.(metricId) ||
+      // Add slice rows if this metric has slices and feature is enabled
+      if (numSlices > 0 && shouldShowMetricSlices) {
+        const standardSliceData =
+          ssrPolyfills?.getFactMetricLevels?.(metricId) ||
+          getFactMetricLevels?.(metricId) ||
           [];
 
-        dimensionData.forEach((dimension) => {
-          const dimensionValue = dimension.dimensionValue;
+        // Convert custom slice levels to slice data format
+        const customSliceData = createCustomSliceDataForMetric({
+          metricId,
+          metricName: newMetric?.name || "",
+          customMetricSlices: customMetricSlices || [],
+        });
+
+        const sliceData = [...standardSliceData, ...customSliceData];
+
+        sliceData.forEach((slice) => {
           const expandedKey = `${metricId}:${resultGroup}`;
           const isExpanded = expandedMetrics[expandedKey] || false;
-          const pinnedKey = `${metricId}?dim:${dimension.dimensionColumn}=${dimensionValue || ""}&location=${resultGroup}`;
-          const isPinned =
-            pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
+
+          // Generate pinned key from all slice levels
+          const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
+            column: dl.column,
+            levels: dl.levels,
+          }));
+          const pinnedKey = generatePinnedSliceKey(
+            metricId,
+            pinnedSliceLevels,
+            resultGroup,
+          );
+          const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
 
           // Show level if metric is expanded OR if it's pinned
           const shouldShowLevel = isExpanded || isPinned;
 
-          const dimensionRow: ExperimentTableRow = {
-            label: dimensionValue || "other",
+          // Generate label from slice levels
+          const label = slice.sliceLevels
+            .map((dl) => dl.levels[0] || "other")
+            .join(" + ");
+
+          const sliceRow: ExperimentTableRow = {
+            label,
             metric: {
               ...newMetric,
-              name: dimension.name, // Use the full dimension metric name
+              name: slice.name, // Use the full slice metric name
             },
             metricOverrideFields: overrideFields,
-            rowClass: `${newMetric?.inverse ? "inverse" : ""} dimension-row`,
+            rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
             variations: results.variations.map((v) => {
-              // Use the dimension metric's data instead of the parent metric's data
+              // Use the slice metric's data instead of the parent metric's data
               return (
-                v.metrics?.[dimension.id] || {
+                v.metrics?.[slice.id] || {
                   users: 0,
                   value: 0,
                   cr: 0,
@@ -315,26 +345,27 @@ const CompactResults: FC<{
             }),
             metricSnapshotSettings,
             resultGroup,
-            numDimensions: 0, // Dimension rows don't have their own dimensions
-            isDimensionRow: true,
+            numSlices: 0, // Slice rows don't have their own slices
+            isSliceRow: true,
             parentRowId: metricId,
-            dimensionColumn: dimension.dimensionColumn,
-            dimensionColumnName: dimension.dimensionColumnName,
-            dimensionValue: dimension.dimensionValue,
-            dimensionLevels: dimension.dimensionLevels,
+            sliceLevels: slice.sliceLevels.map((dl) => ({
+              column: dl.column,
+              levels: dl.levels,
+            })),
+            allSliceLevels: slice.allSliceLevels,
             isHiddenByFilter: !shouldShowLevel, // Add this property to indicate if row should be hidden
             isPinned: isPinned,
           };
 
-          // Always add dimension rows to the array, even if hidden by filter
-          // Skip "other" dimension rows with no data
+          // Always add slice rows to the array, even if hidden by filter
+          // Skip "other" slice rows with no data
           if (
-            dimensionValue === null &&
-            dimensionRow.variations.every((v) => v.value === 0)
+            slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
+            sliceRow.variations.every((v) => v.value === 0)
           ) {
             return;
           }
-          rows.push(dimensionRow);
+          rows.push(sliceRow);
         });
       }
 
@@ -408,11 +439,21 @@ const CompactResults: FC<{
     ssrPolyfills,
     getExperimentMetricById,
     metricFilter,
-    pinnedMetricDimensionLevels,
+    pinnedMetricSlices,
     expandedMetrics,
-    getFactMetricDimensions,
-    shouldShowMetricDimensions,
+    getFactMetricLevels,
+    shouldShowMetricSlices,
+    customMetricSlices,
   ]);
+
+  const getChildRowCounts = (metricId: string) => {
+    const childRows = rows.filter((row) => row.parentRowId === metricId);
+    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
+    return {
+      total: childRows.length,
+      pinned: pinnedChildRows.length,
+    };
+  };
 
   const isBandit = experimentType === "multi-armed-bandit";
 
@@ -495,13 +536,14 @@ const CompactResults: FC<{
             statsEngine,
             hideDetails,
             experimentType,
-            pinnedMetricDimensionLevels,
-            togglePinnedMetricDimensionLevel,
+            pinnedMetricSlices,
+            togglePinnedMetricSlice,
             expandedMetrics,
             toggleExpandedMetric,
-            getFactMetricDimensions,
+            getFactMetricLevels,
             ssrPolyfills,
-            shouldShowMetricDimensions,
+            shouldShowMetricSlices,
+            getChildRowCounts,
           })}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
@@ -552,13 +594,14 @@ const CompactResults: FC<{
               statsEngine,
               hideDetails,
               experimentType: undefined,
-              pinnedMetricDimensionLevels,
-              togglePinnedMetricDimensionLevel,
+              pinnedMetricSlices,
+              togglePinnedMetricSlice,
               expandedMetrics,
               toggleExpandedMetric,
-              getFactMetricDimensions,
+              getFactMetricLevels,
               ssrPolyfills,
-              shouldShowMetricDimensions,
+              shouldShowMetricSlices,
+              getChildRowCounts,
             })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -603,13 +646,14 @@ const CompactResults: FC<{
               statsEngine,
               hideDetails,
               experimentType: undefined,
-              pinnedMetricDimensionLevels,
-              togglePinnedMetricDimensionLevel,
+              pinnedMetricSlices,
+              togglePinnedMetricSlice,
               expandedMetrics,
               toggleExpandedMetric,
-              getFactMetricDimensions,
+              getFactMetricLevels,
               ssrPolyfills,
-              shouldShowMetricDimensions,
+              shouldShowMetricSlices,
+              getChildRowCounts,
             })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
@@ -636,24 +680,24 @@ export function getRenderLabelColumn({
   statsEngine,
   hideDetails,
   experimentType: _experimentType,
-  pinnedMetricDimensionLevels,
-  togglePinnedMetricDimensionLevel,
+  pinnedMetricSlices,
+  togglePinnedMetricSlice,
   expandedMetrics,
   toggleExpandedMetric,
-  getFactMetricDimensions,
+  getFactMetricLevels,
   ssrPolyfills,
-  shouldShowMetricDimensions,
+  shouldShowMetricSlices,
+  getChildRowCounts,
   className = "pl-3",
 }: {
   regressionAdjustmentEnabled?: boolean;
   statsEngine?: StatsEngine;
   hideDetails?: boolean;
   experimentType?: ExperimentType;
-  pinnedMetricDimensionLevels?: string[];
-  togglePinnedMetricDimensionLevel?: (
+  pinnedMetricSlices?: string[];
+  togglePinnedMetricSlice?: (
     metricId: string,
-    dimensionColumn: string,
-    dimensionValue: string,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   expandedMetrics?: Record<string, boolean>;
@@ -661,9 +705,10 @@ export function getRenderLabelColumn({
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
-  getFactMetricDimensions?: (metricId: string) => unknown[];
+  getFactMetricLevels?: (metricId: string) => unknown[];
   ssrPolyfills?: SSRPolyfills;
-  shouldShowMetricDimensions?: boolean;
+  shouldShowMetricSlices?: boolean;
+  getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
   className?: string;
 }) {
   return function renderLabelColumn({
@@ -682,17 +727,26 @@ export function getRenderLabelColumn({
     const expandedKey = `${metric.id}:${location}`;
     const isExpanded = !!expandedMetrics?.[expandedKey];
 
-    const isDimensionRow = !!row?.isDimensionRow;
+    const isSliceRow = !!row?.isSliceRow;
 
-    // Dimension row
-    if (isDimensionRow) {
-      const pinnedKey = `${metric.id}?dim:${row?.dimensionColumn}=${row?.dimensionValue || ""}&location=${location || ""}`;
-      const isPinned =
-        pinnedMetricDimensionLevels?.includes(pinnedKey) || false;
+    // Slice row
+    if (isSliceRow) {
+      // Generate pinned key from all slice levels
+      const pinnedKey = row?.sliceLevels
+        ? generatePinnedSliceKey(
+            metric.id,
+            row.sliceLevels.map((dl) => ({
+              column: dl.column,
+              levels: dl.levels,
+            })),
+            location || "goal",
+          )
+        : "";
+      const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
 
       return (
         <div className={className} style={{ position: "relative" }}>
-          {isExpanded && togglePinnedMetricDimensionLevel ? (
+          {isExpanded && togglePinnedMetricSlice ? (
             <Tooltip
               body={
                 isPinned
@@ -712,15 +766,13 @@ export function getRenderLabelColumn({
                 size={14}
                 className={isPinned ? "link-purple" : "text-muted opacity50"}
                 onClick={() => {
-                  if (
-                    togglePinnedMetricDimensionLevel &&
-                    row?.dimensionColumn &&
-                    row?.dimensionValue
-                  ) {
-                    togglePinnedMetricDimensionLevel(
+                  if (togglePinnedMetricSlice && row?.sliceLevels) {
+                    togglePinnedMetricSlice(
                       metric.id,
-                      row.dimensionColumn,
-                      row.dimensionValue,
+                      row.sliceLevels.map((dl) => ({
+                        dimension: dl.column,
+                        levels: dl.levels,
+                      })),
                       location || "goal",
                     );
                   }
@@ -741,134 +793,163 @@ export function getRenderLabelColumn({
             {label}
           </div>
           <div className="ml-2 text-muted small">
-            {row?.dimensionColumnName}
+            {row?.sliceLevels?.map((dl) => dl.column).join(" + ")}
           </div>
         </div>
       );
     }
 
-    const hasDimensions =
-      shouldShowMetricDimensions &&
+    const hasSlices =
+      shouldShowMetricSlices &&
       !!(
-        ssrPolyfills?.getFactMetricDimensions?.(metric.id)?.length ||
-        getFactMetricDimensions?.(metric.id)?.length
+        ssrPolyfills?.getFactMetricLevels?.(metric.id)?.length ||
+        getFactMetricLevels?.(metric.id)?.length
       );
 
-    // Render non-dimension metric
+    // Get child row counts for pinned indicator
+    const childRowCounts =
+      shouldShowMetricSlices && hasSlices && getChildRowCounts
+        ? getChildRowCounts(metric.id)
+        : { total: 0, pinned: 0 };
+
+    // Render non-slice metric
     return (
-      <div className={className} style={{ position: "relative" }}>
-        <span
-          className="ml-2"
-          style={
-            maxRows
-              ? {
-                  display: "-webkit-box",
-                  WebkitLineClamp: maxRows,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }
-              : undefined
-          }
+      <>
+        <div
+          className={className}
+          style={{
+            position: "relative",
+            top: childRowCounts.total > 0 ? -6 : undefined,
+          }}
         >
-          {hasDimensions ? (
-            <a
-              className="link-purple"
-              role="button"
-              onClick={() => {
-                if (toggleExpandedMetric) {
-                  toggleExpandedMetric(metric.id, location || "goal");
-                }
-              }}
-              style={{
-                textDecoration: "none",
-              }}
-            >
-              <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
-                <Tooltip
-                  body={
-                    isExpanded
-                      ? "Collapse metric dimensions"
-                      : "Explore metric dimensions"
+          <span
+            className="ml-2"
+            style={
+              maxRows
+                ? {
+                    display: "-webkit-box",
+                    WebkitLineClamp: maxRows,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
                   }
-                  tipPosition="top"
-                >
-                  {isExpanded ? (
-                    <PiCaretCircleDown size={16} />
-                  ) : (
-                    <PiCaretCircleRight size={16} />
-                  )}
-                </Tooltip>
-              </div>
-              <span
+                : undefined
+            }
+          >
+            {hasSlices ? (
+              <a
+                className="link-purple"
+                role="button"
+                onClick={() => {
+                  if (toggleExpandedMetric) {
+                    toggleExpandedMetric(metric.id, location || "goal");
+                  }
+                }}
                 style={{
-                  lineHeight: "1.2em",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
-                  color: "var(--color-text-high)",
+                  textDecoration: "none",
                 }}
               >
-                <Tooltip
-                  body={
-                    <MetricTooltipBody
-                      metric={metric}
-                      row={row}
-                      statsEngine={statsEngine}
-                      reportRegressionAdjustmentEnabled={
-                        regressionAdjustmentEnabled
-                      }
-                      hideDetails={hideDetails}
-                    />
-                  }
-                  tipPosition="right"
-                  className="d-inline-block font-weight-bold metric-label"
-                  flipTheme={false}
-                  usePortal={true}
+                <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
+                  <Tooltip
+                    body={
+                      isExpanded
+                        ? "Collapse metric slices"
+                        : "Explore metric slices"
+                    }
+                    tipPosition="top"
+                  >
+                    {isExpanded ? (
+                      <PiCaretCircleDown size={16} />
+                    ) : (
+                      <PiCaretCircleRight size={16} />
+                    )}
+                  </Tooltip>
+                </div>
+                <span
+                  style={{
+                    lineHeight: "1.1em",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    color: "var(--color-text-high)",
+                  }}
+                >
+                  <Tooltip
+                    body={
+                      <MetricTooltipBody
+                        metric={metric}
+                        row={row}
+                        statsEngine={statsEngine}
+                        reportRegressionAdjustmentEnabled={
+                          regressionAdjustmentEnabled
+                        }
+                        hideDetails={hideDetails}
+                      />
+                    }
+                    tipPosition="right"
+                    className="d-inline-block font-weight-bold metric-label"
+                    flipTheme={false}
+                    usePortal={true}
+                  >
+                    {label}
+                    {metric.managedBy ? (
+                      <HiBadgeCheck
+                        style={{
+                          marginTop: "-2px",
+                          marginLeft: "2px",
+                          color: "var(--blue-11)",
+                        }}
+                      />
+                    ) : null}
+                  </Tooltip>
+                </span>
+              </a>
+            ) : (
+              <Tooltip
+                body={
+                  <MetricTooltipBody
+                    metric={metric}
+                    row={row}
+                    statsEngine={statsEngine}
+                    reportRegressionAdjustmentEnabled={
+                      regressionAdjustmentEnabled
+                    }
+                    hideDetails={hideDetails}
+                  />
+                }
+                tipPosition="right"
+                className="d-inline-block font-weight-bold metric-label"
+                flipTheme={false}
+                usePortal={true}
+              >
+                <span
+                  style={{
+                    lineHeight: "1.1em",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    color: "var(--color-text-high)",
+                  }}
                 >
                   {label}
-                  {metric.managedBy ? (
-                    <HiBadgeCheck
-                      style={{
-                        marginTop: "-2px",
-                        marginLeft: "2px",
-                        color: "var(--blue-11)",
-                      }}
-                    />
-                  ) : null}
-                </Tooltip>
-              </span>
-            </a>
-          ) : (
-            <Tooltip
-              body={
-                <MetricTooltipBody
-                  metric={metric}
-                  row={row}
-                  statsEngine={statsEngine}
-                  reportRegressionAdjustmentEnabled={
-                    regressionAdjustmentEnabled
-                  }
-                  hideDetails={hideDetails}
-                />
-              }
-              tipPosition="right"
-              className="d-inline-block font-weight-bold metric-label"
-              flipTheme={false}
-              usePortal={true}
-            >
-              <span
-                style={{
-                  lineHeight: "1.2em",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
-                  color: "var(--color-text-high)",
-                }}
-              >
-                {label}
-              </span>
-            </Tooltip>
-          )}
-        </span>
-      </div>
+                </span>
+              </Tooltip>
+            )}
+          </span>
+        </div>
+
+        {childRowCounts.total > 0 && (
+          <div
+            className="text-muted small"
+            style={{
+              position: "absolute",
+              bottom: "8%",
+              left: 28,
+              width: "100%",
+              fontStyle: "italic",
+            }}
+          >
+            {childRowCounts.pinned} of {childRowCounts.total} pinned
+          </div>
+        )}
+      </>
     );
   };
 }

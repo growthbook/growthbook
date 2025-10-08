@@ -40,6 +40,7 @@ export function transformStatsigExperimentToGB(
   experiment: StatsigExperiment,
   _availableEnvironments: string[],
   skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): Partial<ExperimentInterfaceStringDates> {
   const {
     id,
@@ -84,7 +85,10 @@ export function transformStatsigExperimentToGB(
 
   // Determine phase condition based on targeting rules
   let phaseCondition = "";
-  let phaseSavedGroups: Array<{ match: "all" | "any"; ids: string[] }> = [];
+  let phaseSavedGroups: Array<{
+    match: "all" | "any" | "none";
+    ids: string[];
+  }> = [];
   let phasePrerequisites: Array<{ id: string; condition: string }> = [];
 
   if (targetingRules.length === 1) {
@@ -101,17 +105,11 @@ export function transformStatsigExperimentToGB(
     const transformedCondition = transformStatsigConditionsToGB(
       conditions,
       skipAttributeMapping,
+      savedGroupIdMap,
     );
     phaseCondition = transformedCondition.condition || "";
-    phaseSavedGroups = transformedCondition.savedGroups.map((id) => ({
-      match: "all" as const,
-      ids: [id],
-    }));
-    phasePrerequisites =
-      transformedCondition.prerequisites?.map((id) => ({
-        id,
-        condition: JSON.stringify({ value: true }),
-      })) || [];
+    phaseSavedGroups = transformedCondition.savedGroups;
+    phasePrerequisites = transformedCondition.prerequisites || [];
   }
   const toGbStatusMap = {
     setup: "draft",

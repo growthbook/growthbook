@@ -99,9 +99,10 @@ export function OfficialBadge({
       >
         <HiBadgeCheck
           style={{
-            fontSize: "1.2em",
+            fontSize: "1em",
             lineHeight: "1em",
             marginTop: "-2px",
+            marginLeft: leftGap ? "4px" : "0px",
             color: color || "var(--blue-11)",
           }}
         />
@@ -124,8 +125,7 @@ export default function MetricName({
   metrics,
   showLink,
   badgeColor,
-  officialBadgePosition,
-  officialBadgeLeftGap,
+  officialBadgePosition = "right",
 }: {
   id?: string;
   metric?: ExperimentMetricInterface;
@@ -138,7 +138,6 @@ export default function MetricName({
   showLink?: boolean;
   badgeColor?: string;
   officialBadgePosition?: "left" | "right";
-  officialBadgeLeftGap?: boolean;
 }) {
   const { getExperimentMetricById, getMetricGroupById } = useDefinitions();
   const metric = _metric ?? getExperimentMetricById(id ?? "");
@@ -254,19 +253,17 @@ export default function MetricName({
             disableTooltip={disableTooltip}
             showOfficialLabel={showOfficialLabel}
             color={badgeColor}
-            leftGap={officialBadgeLeftGap}
           />
         ) : null}
         {metric.name}
-        {officialBadgePosition === "right" && metric.managedBy ? (
-          <HiBadgeCheck
-            style={{
-              fontSize: "1em",
-              lineHeight: "1em",
-              marginTop: "-2px",
-              marginLeft: "4px",
-              color: "var(--blue-11)",
-            }}
+        {officialBadgePosition === "right" ? (
+          <OfficialBadge
+            type="metric"
+            managedBy={metric.managedBy || ""}
+            disableTooltip={disableTooltip}
+            showOfficialLabel={showOfficialLabel}
+            color={badgeColor}
+            leftGap={true}
           />
         ) : null}
       </span>

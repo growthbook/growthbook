@@ -19,6 +19,7 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
   ColumnInterface,
   FactMetricInterface,
+  FactTableColumnType,
   FactTableInterface,
   MetricQuantileSettings,
 } from "back-end/types/fact-table";
@@ -563,10 +564,16 @@ export type UserExperimentExposuresQueryResponseRows = {
   [key: string]: string | null;
 }[];
 
+export type QueryResponseColumnData = {
+  name: string;
+  dataType?: FactTableColumnType;
+  fields?: QueryResponseColumnData[];
+};
+
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
-  columns?: string[];
+  columns?: QueryResponseColumnData[];
   statistics?: QueryStatistics;
 };
 
@@ -605,6 +612,7 @@ export interface TestQueryRow {
 
 export interface TestQueryResult {
   results: TestQueryRow[];
+  columns?: QueryResponseColumnData[];
   duration: number;
 }
 

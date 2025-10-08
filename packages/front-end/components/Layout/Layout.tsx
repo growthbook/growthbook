@@ -108,6 +108,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Segments",
         href: "/segments",
         path: /^segment/,
+        filter: ({ segments }) => segments.length > 0,
       },
       {
         name: "Dimensions",

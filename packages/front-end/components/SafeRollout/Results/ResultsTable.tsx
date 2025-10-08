@@ -293,7 +293,7 @@ export default function ResultsTable({
   const changeTitle = getEffectLabel(differenceType);
 
   const urlFormattedMetricIds = rows
-    .map((row) => row.metric.id)
+    .map((row) => encodeURIComponent(row.metric.id))
     .join("&metricIds[]=");
   const { data: metricTimeSeries, mutate: mutateMetricTimeSeries } = useApi<{
     status: number;
@@ -540,7 +540,19 @@ export default function ResultsTable({
                           sideOffset={-5}
                         >
                           <AnalysisResultSummary
-                            data={tooltipData}
+                            data={
+                              tooltipData
+                                ? {
+                                    ...tooltipData,
+                                    sliceLevels: tooltipData.sliceLevels?.map(
+                                      (dl) => ({
+                                        dimension: dl.column,
+                                        levels: dl.levels,
+                                      }),
+                                    ),
+                                  }
+                                : undefined
+                            }
                             differenceType={differenceType}
                             isBandit={isBandit}
                             ssrPolyfills={ssrPolyfills}

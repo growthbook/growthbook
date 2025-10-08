@@ -392,9 +392,6 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={
-                  analysis?.settings?.differenceType ?? "relative"
-                }
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {
