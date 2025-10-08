@@ -4326,7 +4326,7 @@ export default abstract class SqlIntegration
               ? `
             ${
               data.isPercentileCapped
-                ? `, MAX(COALESCE(cap${denominatorSourceSuffix}.${alias}value_cap, 0)) as ${alias}denominator_cap_value`
+                ? `, MAX(COALESCE(cap${denominatorSourceSuffix}.${alias}denominator_cap, 0)) as ${alias}denominator_cap_value`
                 : ""
             }
             , ${this.ensureFloat(
