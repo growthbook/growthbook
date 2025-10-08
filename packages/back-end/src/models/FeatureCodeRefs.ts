@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
 import {
   ToInterface,
+  getCollection,
   removeMongooseFields,
 } from "back-end/src/util/mongo.util";
 import { ApiCodeRef } from "back-end/types/openapi";
@@ -43,6 +44,8 @@ const FeatureCodeRefsModel = mongoose.model<FeatureCodeRefsInterface>(
   "FeatureCodeRefs",
   featureCodeRefsSchema,
 );
+
+const COLLECTION = "featurecoderefs";
 
 const toInterface: ToInterface<FeatureCodeRefsInterface> = (doc) =>
   removeMongooseFields(doc);
@@ -94,12 +97,16 @@ export const upsertFeatureCodeRefs = async ({
     { upsert: true },
   );
 
-  return await FeatureCodeRefsModel.find({
-    feature,
-    repo,
-    branch,
-    organization: organization.id,
-  }).then((docs) => docs.map(toInterface));
+  const docs = await getCollection(COLLECTION)
+    .find({
+      feature,
+      repo,
+      branch,
+      organization: organization.id,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 };
 
 export const getFeatureCodeRefsByFeatures = async ({
@@ -113,12 +120,16 @@ export const getFeatureCodeRefsByFeatures = async ({
   features: string[];
   organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  return await FeatureCodeRefsModel.find({
-    repo,
-    branch,
-    feature: { $in: features },
-    organization: organization.id,
-  }).then((docs) => docs.map(toInterface));
+  const docs = await getCollection(COLLECTION)
+    .find({
+      repo,
+      branch,
+      feature: { $in: features },
+      organization: organization.id,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 };
 
 export const getAllCodeRefsForFeature = async ({
@@ -128,10 +139,14 @@ export const getAllCodeRefsForFeature = async ({
   feature: string;
   organization: OrganizationInterface;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  return await FeatureCodeRefsModel.find({
-    feature,
-    organization: organization.id,
-  }).then((docs) => docs.map(toInterface));
+  const docs = await getCollection(COLLECTION)
+    .find({
+      feature,
+      organization: organization.id,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 };
 
 export const getAllCodeRefsForOrg = async ({
@@ -139,7 +154,11 @@ export const getAllCodeRefsForOrg = async ({
 }: {
   context: ReqContext | ApiReqContext;
 }): Promise<FeatureCodeRefsInterface[]> => {
-  return await FeatureCodeRefsModel.find({
-    organization: context.org.id,
-  }).then((docs) => docs.map(toInterface));
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+    })
+    .toArray();
+
+  return docs.map((d) => toInterface(d));
 };
