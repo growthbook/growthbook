@@ -177,6 +177,7 @@ function getColumnOptions({
   includeNumericColumns = true,
   includeStringColumns = false,
   includeJSONFields = false,
+  includeBooleanColumns = false,
   showColumnsAsSums = false,
   excludeColumns,
   groupPrefix = "",
@@ -187,6 +188,7 @@ function getColumnOptions({
   includeCountDistinct?: boolean;
   includeNumericColumns?: boolean;
   includeStringColumns?: boolean;
+  includeBooleanColumns?: boolean;
   includeJSONFields?: boolean;
   showColumnsAsSums?: boolean;
   excludeColumns?: Set<string>;
@@ -220,6 +222,19 @@ function getColumnOptions({
   if (stringColumns) {
     stringColumnOptions.push(
       ...stringColumns.map((col) => ({
+        label: col.name,
+        value: col.column,
+      })),
+    );
+  }
+
+  const booleanColumnOptions: SingleValue[] = [];
+  const booleanColumns = factTable?.columns.filter(
+    (col) => col.datatype === "boolean" && !col.deleted,
+  );
+  if (booleanColumns) {
+    booleanColumnOptions.push(
+      ...booleanColumns.map((col) => ({
         label: col.name,
         value: col.column,
       })),
@@ -281,6 +296,14 @@ function getColumnOptions({
     ret.push({
       label: `${groupPrefix}String Columns`,
       options: stringColumnOptions.filter((v) => !excludeColumns?.has(v.value)),
+    });
+  }
+  if (includeBooleanColumns && booleanColumnOptions.length > 0) {
+    ret.push({
+      label: `${groupPrefix}Boolean Columns`,
+      options: booleanColumnOptions.filter(
+        (v) => !excludeColumns?.has(v.value),
+      ),
     });
   }
   return ret;
@@ -442,6 +465,7 @@ function ColumnRefSelector({
     includeCountDistinct: false,
     includeNumericColumns: false,
     includeStringColumns: true,
+    includeBooleanColumns: true,
     includeJSONFields: true,
     showColumnsAsSums: false,
     excludeColumns: new Set([...(factTable?.userIdTypes || [])]),
@@ -658,10 +682,11 @@ function ColumnRefSelector({
                           value={v?.[0] + ""}
                           onChange={(val) => onValuesChange(val ? [val] : [])}
                           options={[
-                            { label: "Any", value: "" },
+                            { label: "Remove", value: "" },
                             { label: "Is True", value: "true" },
                             { label: "Is False", value: "false" },
                           ]}
+                          sort={false}
                           autoFocus
                         />
                       ) : col?.topValues?.length ? (
@@ -704,11 +729,19 @@ function ColumnRefSelector({
                         onChange={(v) => {
                           if (v) {
                             if (v.startsWith("col::")) {
+                              const column = v.replace("col::", "");
+                              const dataType = getSelectedColumnDatatype({
+                                factTable,
+                                column,
+                              });
+
                               setValue({
                                 ...value,
                                 inlineFilters: {
                                   ...value.inlineFilters,
-                                  [v.replace("col::", "")]: [""],
+                                  [column]: [
+                                    dataType === "boolean" ? "true" : "",
+                                  ],
                                 },
                               });
                             } else {
