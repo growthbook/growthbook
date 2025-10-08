@@ -339,6 +339,10 @@ export default abstract class SqlIntegration
     return isNumeric ? this.ensureFloat(raw) : raw;
   }
 
+  evalBoolean(col: string, value: boolean): string {
+    return `${col} IS ${value ? "TRUE" : "FALSE"}`;
+  }
+
   private getExposureQuery(
     exposureQueryId: string,
     userIdType?: "anonymous" | "user",
@@ -5338,14 +5342,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ).value;
 
         const sliceInfo = parseSliceMetricId(m.id);
-        const filters = getColumnRefWhereClause(
+        const filters = getColumnRefWhereClause({
           factTable,
-          m.numerator,
-          this.escapeStringLiteral.bind(this),
-          this.extractJSONField.bind(this),
-          false,
+          columnRef: m.numerator,
+          escapeStringLiteral: this.escapeStringLiteral.bind(this),
+          jsonExtract: this.extractJSONField.bind(this),
+          evalBoolean: this.evalBoolean.bind(this),
           sliceInfo,
-        );
+        });
 
         const column =
           filters.length > 0
@@ -5378,14 +5382,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ).value;
 
         const sliceInfo = parseSliceMetricId(m.id);
-        const filters = getColumnRefWhereClause(
+        const filters = getColumnRefWhereClause({
           factTable,
-          m.denominator,
-          this.escapeStringLiteral.bind(this),
-          this.extractJSONField.bind(this),
-          false,
+          columnRef: m.denominator,
+          escapeStringLiteral: this.escapeStringLiteral.bind(this),
+          jsonExtract: this.extractJSONField.bind(this),
+          evalBoolean: this.evalBoolean.bind(this),
           sliceInfo,
-        );
+        });
         const column =
           filters.length > 0
             ? `CASE WHEN (${filters.join(" AND ")}) THEN ${value} ELSE NULL END`
@@ -5583,14 +5587,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     // Add filters from the Metric
     if (isFact && factTable && columnRef) {
       const sliceInfo = parseSliceMetricId(metric.id);
-      getColumnRefWhereClause(
+      getColumnRefWhereClause({
         factTable,
         columnRef,
-        this.escapeStringLiteral.bind(this),
-        this.extractJSONField.bind(this),
-        false,
+        escapeStringLiteral: this.escapeStringLiteral.bind(this),
+        jsonExtract: this.extractJSONField.bind(this),
+        evalBoolean: this.evalBoolean.bind(this),
         sliceInfo,
-      ).forEach((filterSQL) => {
+      }).forEach((filterSQL) => {
         where.push(filterSQL);
       });
 
