@@ -942,7 +942,7 @@ export default function RuleModal({
   }
 
   let headerText =
-    mode === "deuplicate" ? "Duplicate " : mode === "create" ? "Add " : "Edit ";
+    mode === "duplicate" ? "Duplicate " : mode === "create" ? "Add " : "Edit ";
   headerText +=
     ruleType === "force"
       ? `${mode === "create" ? "new " : ""}Force Value Rule`
