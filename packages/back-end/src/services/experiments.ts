@@ -1551,7 +1551,12 @@ export async function toExperimentApiInterface(
       namespace: p.namespace?.enabled
         ? {
             namespaceId: p.namespace.name,
-            range: p.namespace.range,
+            range:
+              "range" in p.namespace
+                ? p.namespace.range
+                : "ranges" in p.namespace && p.namespace.ranges?.length
+                  ? p.namespace.ranges[0]
+                  : [0, 1],
           }
         : undefined,
     })),
