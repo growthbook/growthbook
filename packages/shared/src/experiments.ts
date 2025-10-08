@@ -1099,13 +1099,17 @@ export function createAutoSliceDataForMetric({
   factTable,
   includeOther = true,
 }: {
-  parentMetric: FactMetricInterface;
-  factTable: FactTableInterface;
+  parentMetric: ExperimentMetricInterface | null | undefined;
+  factTable: FactTableInterface | null | undefined;
   includeOther?: boolean;
 }): SliceDataForMetric[] {
-  if (!parentMetric.metricAutoSlices?.length) {
-    return [];
-  }
+  // Sanity checks
+  if (!parentMetric || !isFactMetric(parentMetric)) return [];
+  if (!factTable) return [];
+
+  // Cast to FactMetricInterface after type check
+  const factMetric = parentMetric as FactMetricInterface;
+  if (!factMetric.metricAutoSlices?.length) return [];
 
   const sliceData: SliceDataForMetric[] = [];
 
@@ -1118,7 +1122,7 @@ export function createAutoSliceDataForMetric({
   );
 
   const autoSliceColumns = factTableAutoSliceColumns.filter((col) =>
-    parentMetric.metricAutoSlices?.includes(col.column),
+    factMetric.metricAutoSlices?.includes(col.column),
   );
 
   autoSliceColumns.forEach((col) => {
@@ -1129,9 +1133,9 @@ export function createAutoSliceDataForMetric({
     autoSlices.forEach((value) => {
       const sliceString = generateSliceString({ [col.column]: value });
       sliceData.push({
-        id: `${parentMetric.id}?${sliceString}`,
-        name: `${parentMetric.name} (${columnName}: ${value})`,
-        description: `Slice analysis of ${parentMetric.name} for ${columnName} = ${value}`,
+        id: `${factMetric.id}?${sliceString}`,
+        name: `${factMetric.name} (${columnName}: ${value})`,
+        description: `Slice analysis of ${factMetric.name} for ${columnName} = ${value}`,
         sliceLevels: [
           {
             column: col.column,
@@ -1146,9 +1150,9 @@ export function createAutoSliceDataForMetric({
     if (includeOther && autoSlices.length > 0) {
       const sliceString = generateSliceString({ [col.column]: "" });
       sliceData.push({
-        id: `${parentMetric.id}?${sliceString}`,
-        name: `${parentMetric.name} (${columnName}: other)`,
-        description: `Slice analysis of ${parentMetric.name} for ${columnName} (other)`,
+        id: `${factMetric.id}?${sliceString}`,
+        name: `${factMetric.name} (${columnName}: other)`,
+        description: `Slice analysis of ${factMetric.name} for ${columnName} (other)`,
         sliceLevels: [
           {
             column: col.column,
@@ -1171,16 +1175,18 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices: Array<{
-    slices: Array<{
-      column: string;
-      levels: string[];
-    }>;
-  }>;
+  customMetricSlices:
+    | Array<{
+        slices: Array<{
+          column: string;
+          levels: string[];
+        }>;
+      }>
+    | null
+    | undefined;
 }): SliceDataForMetric[] {
-  if (!customMetricSlices?.length) {
-    return [];
-  }
+  // Sanity checks
+  if (!customMetricSlices?.length) return [];
 
   const customSliceData: SliceDataForMetric[] = [];
 
