@@ -83,7 +83,7 @@ router.use(
     windowMs: 60 * 1000, // 1 minute window
     max: (req: Request & ApiRequestLocals) => {
       return (
-        req.context.org.apiRateLimit ||
+        req.context.org?.apiRateLimit ||
         Number(process.env.API_RATE_LIMIT_MAX) ||
         60
       );
@@ -94,7 +94,7 @@ router.use(
     message: (req: Request & ApiRequestLocals) => {
       const rateLimitForWarning = IS_CLOUD
         ? 60
-        : req.context.org.apiRateLimit ||
+        : req.context.org?.apiRateLimit ||
           Number(process.env.API_RATE_LIMIT_MAX) ||
           60;
       return {
