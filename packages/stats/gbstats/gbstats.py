@@ -251,12 +251,60 @@ def get_configured_test(
     stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
     stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
 
-    base_config = {
+    base_config_without_difference_type = {
         "total_users": row["total_users"],
         "traffic_percentage": analysis.traffic_percentage,
         "phase_length_days": analysis.phase_length_days,
+    }
+    base_config = base_config_without_difference_type | {
         "difference_type": analysis.difference_type,
     }
+    if analysis.use_covariate_as_response:
+        num_variations = len(analysis.var_names)
+        # if there are no goal metrics, just use 1 as the number of tests
+        num_tests = max(1, (num_variations - 1) * analysis.num_goal_metrics)
+        config = FrequentistConfig(
+            **base_config_without_difference_type,
+            difference_type="absolute",
+            alpha=analysis.alpha / num_tests,
+        )
+        if isinstance(stat_a, RegressionAdjustedStatistic) and isinstance(
+            stat_b, RegressionAdjustedStatistic
+        ):
+            pre_stat_a = SampleMeanStatistic(
+                n=stat_a.n,
+                sum=stat_a.pre_statistic.sum,
+                sum_squares=stat_a.pre_statistic.sum_squares,
+            )
+            pre_stat_b = SampleMeanStatistic(
+                n=stat_b.n,
+                sum=stat_b.pre_statistic.sum,
+                sum_squares=stat_b.pre_statistic.sum_squares,
+            )
+        elif isinstance(stat_a, RegressionAdjustedRatioStatistic) and isinstance(
+            stat_b, RegressionAdjustedRatioStatistic
+        ):
+            pre_stat_a = RatioStatistic(
+                n=stat_a.n,
+                m_statistic=stat_a.m_statistic_pre,
+                d_statistic=stat_a.d_statistic_pre,
+                m_d_sum_of_products=stat_a.m_pre_d_pre_sum_of_products,
+            )
+            pre_stat_b = RatioStatistic(
+                n=stat_b.n,
+                m_statistic=stat_b.m_statistic_pre,
+                d_statistic=stat_b.d_statistic_pre,
+                m_d_sum_of_products=stat_b.m_pre_d_pre_sum_of_products,
+            )
+        else:
+            stat_empty = SampleMeanStatistic(
+                n=0,
+                sum=0,
+                sum_squares=0,
+            )
+            pre_stat_a = stat_empty
+            pre_stat_b = stat_empty
+        return TwoSidedTTest([(pre_stat_a, pre_stat_b)], config)
     if analysis.stats_engine == "frequentist":
         if analysis.sequential_testing_enabled:
             sequential_config = SequentialConfig(
