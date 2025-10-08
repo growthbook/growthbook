@@ -1251,7 +1251,7 @@ export async function postFeatureRule(
   const { org } = context;
   const { id, version } = req.params;
   const {
-    environments: selectedEnvironments,
+    environments: selectedEnvironments = [],
     rule,
     safeRolloutFields,
   } = req.body;
@@ -1265,15 +1265,24 @@ export async function postFeatureRule(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
+  if (!selectedEnvironments.length) {
+    // Temporary so this new back-end continues to work with old front-end
+    if (
+      "environment" in req.body &&
+      typeof req.body.environment === "string" &&
+      req.body.environment
+    ) {
+      selectedEnvironments.push(req.body.environment);
+    } else {
+      throw new Error("Must select at least one environment");
+    }
+  }
+
   selectedEnvironments.forEach((env) => {
     if (!environmentIds.includes(env)) {
       throw new Error("Invalid environment");
     }
   });
-
-  if (!selectedEnvironments.length) {
-    throw new Error("Must select at least one environment");
-  }
 
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||

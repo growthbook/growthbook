@@ -67,7 +67,7 @@ import { useIncrementer } from "@/hooks/useIncrementer";
 import HelperText from "@/ui/HelperText";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
-import EnvironmentSelect from "../FeatureModal/EnvironmentSelect";
+import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 
 export interface Props {
   close: () => void;
@@ -79,7 +79,7 @@ export interface Props {
   environment: string;
   defaultType?: string;
   revisions?: FeatureRevisionInterface[];
-  duplicate?: boolean;
+  mode: "create" | "edit" | "duplicate";
   safeRolloutsMap?: Map<string, SafeRolloutInterface>;
 }
 
@@ -112,7 +112,7 @@ export default function RuleModal({
   version,
   setVersion,
   revisions,
-  duplicate,
+  mode,
   safeRolloutsMap,
 }: Props) {
   const growthbook = useGrowthBook<AppFeatures>();
@@ -123,7 +123,6 @@ export default function RuleModal({
 
   const rules = getRules(feature, environment);
   const rule: (typeof rules)[number] | undefined = rules[i];
-  const isNewRule = !rule;
   const safeRollout =
     rule?.type === "safe-rollout"
       ? safeRolloutsMap?.get(rule?.safeRolloutId)
@@ -169,8 +168,9 @@ export default function RuleModal({
   };
 
   // Overview Page
-  const [newRuleOverviewPage, setNewRuleOverviewPage] =
-    useState<boolean>(isNewRule);
+  const [newRuleOverviewPage, setNewRuleOverviewPage] = useState<boolean>(
+    mode === "create",
+  );
   const [overviewRadioSelectorRuleType, setOverviewRadioSelectorRuleType] =
     useState<RadioSelectorRuleType | "">("");
   const [overviewRuleType, setOverviewRuleType] = useState<
@@ -351,11 +351,7 @@ export default function RuleModal({
   };
 
   const submit = form.handleSubmit(async (values) => {
-    const ruleAction = duplicate
-      ? "duplicate"
-      : i === rules.length
-        ? "add"
-        : "edit";
+    const ruleAction = mode === "create" ? "add" : mode;
 
     // If the user built a schedule, but disabled the toggle, we ignore the schedule
     if (!scheduleToggleEnabled) {
@@ -363,7 +359,7 @@ export default function RuleModal({
     }
 
     // unset the ID if we're duplicating the rule.
-    if (duplicate) {
+    if (mode === "duplicate") {
       values.id = "";
     }
 
@@ -622,7 +618,7 @@ export default function RuleModal({
         delete (values as any).value; //saferollout uses controlValue so we want to remove the value
         // eslint-disable-next-line
         delete (values as any).trackingKey;
-        if (duplicate && !values.sameSeed) {
+        if (mode === "duplicate" && !values.sameSeed) {
           // eslint-disable-next-line
           delete (values as any).seed;
         }
@@ -658,10 +654,11 @@ export default function RuleModal({
         hasSavedGroups: !!values.savedGroups?.length,
         hasPrerequisites: !!values.prerequisites?.length,
         hasDescription: values.description && values.description.length > 0,
+        numEnvironments: selectedEnvironments.length,
       });
       let res: { version: number } | undefined;
 
-      if (!duplicate && i !== rules.length) {
+      if (mode === "edit") {
         if (values.type === "safe-rollout") {
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
@@ -714,6 +711,7 @@ export default function RuleModal({
         source: ruleAction,
         ruleIndex: i,
         environment,
+        numEnvironments: selectedEnvironments.length,
         type: values.type,
         hasCondition: values.condition && values.condition.length > 2,
         hasSavedGroups: !!values.savedGroups?.length,
@@ -943,12 +941,13 @@ export default function RuleModal({
     );
   }
 
-  let headerText = duplicate ? "Duplicate " : isNewRule ? "Add " : "Edit ";
+  let headerText =
+    mode === "deuplicate" ? "Duplicate " : mode === "create" ? "Add " : "Edit ";
   headerText +=
     ruleType === "force"
-      ? `${isNewRule ? "new " : ""}Force Value Rule`
+      ? `${mode === "create" ? "new " : ""}Force Value Rule`
       : ruleType === "rollout"
-        ? `${isNewRule ? "new " : ""}Percentage Rollout Rule`
+        ? `${mode === "create" ? "new " : ""}Percentage Rollout Rule`
         : ["experiment-ref", "experiment-ref-new", "experiment"].includes(
               ruleType ?? "",
             ) && experimentType === "bandit"
@@ -994,14 +993,14 @@ export default function RuleModal({
         hideNav={ruleType !== "experiment-ref-new" && ruleType !== "experiment"}
         backButton={true}
         onBackFirstStep={
-          isNewRule ? () => setNewRuleOverviewPage(true) : undefined
+          mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
         }
         submit={submit}
       >
         {ruleType === "force" && (
           <ForceValueFields
             feature={feature}
-            environment={environment}
+            environments={selectedEnvironments}
             defaultValues={defaultValues}
             version={version}
             revisions={revisions}
@@ -1019,7 +1018,7 @@ export default function RuleModal({
         {ruleType === "rollout" && (
           <RolloutFields
             feature={feature}
-            environment={environment}
+            environments={selectedEnvironments}
             defaultValues={defaultValues}
             version={version}
             revisions={revisions}
@@ -1049,9 +1048,8 @@ export default function RuleModal({
             conditionKey={conditionKey}
             scheduleToggleEnabled={scheduleToggleEnabled}
             setScheduleToggleEnabled={setScheduleToggleEnabled}
-            isNewRule={isNewRule}
+            mode={mode}
             isDraft={!safeRollout?.startedAt}
-            duplicate={!!duplicate}
           />
         )}
 
@@ -1059,8 +1057,7 @@ export default function RuleModal({
         experimentType === "experiment" ? (
           <ExperimentRefFields
             feature={feature}
-            environment={environment}
-            i={i}
+            existingRule={mode === "edit"}
             defaultValues={defaultValues}
             changeRuleType={changeRuleType}
             noSchedule={!defaultHasSchedule}
@@ -1073,8 +1070,7 @@ export default function RuleModal({
         experimentType === "bandit" ? (
           <BanditRefFields
             feature={feature}
-            environment={environment}
-            i={i}
+            existingRule={mode === "edit"}
             changeRuleType={changeRuleType}
           />
         ) : null}
@@ -1089,7 +1085,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environment={environment}
+                  environments={selectedEnvironments}
                   defaultValues={defaultValues}
                   version={version}
                   revisions={revisions}
@@ -1155,7 +1151,7 @@ export default function RuleModal({
                   source="rule"
                   feature={feature}
                   project={feature.project}
-                  environment={environment}
+                  environments={selectedEnvironments}
                   version={version}
                   revisions={revisions}
                   prerequisiteValue={form.watch("prerequisites") || []}
