@@ -686,7 +686,9 @@ export function getReportSnapshotSettings({
       report?.dateCreated,
     endDate: report.experimentAnalysisSettings.dateEnded || new Date(),
     experimentId: report.experimentAnalysisSettings.trackingKey,
-    phase: phaseIndex + "",
+    phase: {
+      index: phaseIndex + "",
+    },
     customFields: experiment?.customFields,
     goalMetrics,
     secondaryMetrics,

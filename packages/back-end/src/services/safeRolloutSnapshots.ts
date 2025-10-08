@@ -318,7 +318,9 @@ function getSafeRolloutSnapshotSettings({
   return {
     queryFilter: "",
     experimentId: safeRolloutRule.trackingKey,
-    phase: "0",
+    phase: {
+      index: "0",
+    },
     customFields,
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),

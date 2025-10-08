@@ -105,7 +105,7 @@ import {
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "back-end/types/experiment-snapshot";
-import { SQLVars, TemplateVariables } from "back-end/types/sql";
+import { PhaseSQLVar, SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -4787,7 +4787,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     endDate: Date | null;
     experimentId?: string;
     addFiltersToWhere?: boolean;
-    phase?: string;
+    phase?: PhaseSQLVar;
     customFields?: Record<string, unknown>;
   }) {
     const factTable = factTableMap.get(
@@ -5025,7 +5025,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     startDate: Date;
     endDate: Date | null;
     experimentId?: string;
-    phase?: string;
+    phase?: PhaseSQLVar;
     customFields?: Record<string, unknown>;
     factTableMap: FactTableMap;
     useDenominator?: boolean;

@@ -99,7 +99,7 @@ export function compileSqlTemplate(
   const replacements: Record<string, unknown> = {
     ...templateVariables,
     customFields: customFields || {},
-    phase: phase || "",
+    phase: phase || {},
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),

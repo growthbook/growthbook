@@ -28,20 +28,18 @@ describe("backend", () => {
     it("replaces valueColumn and eventName and phase", () => {
       expect(
         compileSqlTemplate(
-          `SELECT {{valueColumn}} as value from db.{{eventName}} where phase = '{{phase}}'`,
+          `SELECT {{valueColumn}} as value from db.{{eventName}} where phase = '{{phase.index}}'`,
           {
             startDate,
             endDate,
-            phase: "testing",
+            phase: { index: "0" },
             templateVariables: {
               eventName: "purchase",
               valueColumn: "amount",
             },
           },
         ),
-      ).toEqual(
-        "SELECT amount as value from db.purchase where phase = 'testing'",
-      );
+      ).toEqual("SELECT amount as value from db.purchase where phase = '0'");
     });
 
     it("replaces nested template variables", () => {
