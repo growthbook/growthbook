@@ -5326,21 +5326,21 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           "m",
         ).value;
 
-      const sliceInfo = parseSliceMetricId(m.id);
-      const filters = getColumnRefWhereClause(
-        factTable,
-        m.numerator,
-        this.escapeStringLiteral.bind(this),
-        this.extractJSONField.bind(this),
-        false,
-        sliceInfo,
-      );
+        const sliceInfo = parseSliceMetricId(m.id);
+        const filters = getColumnRefWhereClause(
+          factTable,
+          m.numerator,
+          this.escapeStringLiteral.bind(this),
+          this.extractJSONField.bind(this),
+          false,
+          sliceInfo,
+        );
 
-      const column =
-      filters.length > 0
-        ? `CASE WHEN (${filters.join("\n AND ")}) THEN ${value} ELSE NULL END`
-        : value;
-      
+        const column =
+          filters.length > 0
+            ? `CASE WHEN (${filters.join("\n AND ")}) THEN ${value} ELSE NULL END`
+            : value;
+
         metricCols.push(`-- ${m.name}
         ${column} as m${index}_value`);
 
