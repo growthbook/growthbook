@@ -184,7 +184,7 @@ const DataSourcesPage: FC = () => {
           <Button
             onClick={async () => {
               try {
-                await apiCall("/demo-datasource-project", {
+                await apiCall("/demo-datasource-project/new", {
                   method: "POST",
                 });
                 track("Create Sample Project", {

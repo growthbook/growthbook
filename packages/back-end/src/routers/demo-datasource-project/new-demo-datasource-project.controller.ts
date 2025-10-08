@@ -267,6 +267,10 @@ export const postDemoDatasourceProject = async (
           projects: [project.id],
           tags: DEMO_TAGS,
           inverse: false,
+          numerator: {
+            ...m.numerator,
+            factTableId: demoFactTableId,
+          },
           denominator: null,
           winRisk: 0.0025,
           loseRisk: 0.0125,
@@ -300,6 +304,14 @@ export const postDemoDatasourceProject = async (
       projects: [project.id],
       tags: DEMO_TAGS,
       inverse: false,
+      numerator: {
+        ...DEMO_RATIO_METRIC.numerator,
+        factTableId: demoFactTableId,
+      },
+      denominator: {
+        ...DEMO_RATIO_METRIC.denominator!,
+        factTableId: demoFactTableId,
+      },
       winRisk: 0.0025,
       loseRisk: 0.0125,
       regressionAdjustmentOverride: false,
