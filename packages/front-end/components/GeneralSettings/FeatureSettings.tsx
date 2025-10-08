@@ -292,10 +292,9 @@ export default function FeatureSettings() {
                   }
                   return option.label;
                 }}
-                onChange={(v: string) => {
-                  if (!v) form.setValue("preferredEnvironment", undefined);
-                  else form.setValue("preferredEnvironment", v);
-                }}
+                onChange={(v: string) =>
+                  form.setValue("preferredEnvironment", v)
+                }
                 sort={false}
               />
             </Flex>

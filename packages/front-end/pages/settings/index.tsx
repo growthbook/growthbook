@@ -172,7 +172,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
         settings.defaultFeatureRulesInAllEnvs ?? false,
-      preferredEnvironment: settings.preferredEnvironment || null,
+      preferredEnvironment: settings.preferredEnvironment || "",
     },
   });
   const { apiCall } = useAuth();
