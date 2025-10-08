@@ -265,7 +265,7 @@ describe("bigquery integration", () => {
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
-      metricsWithIndices: [{ ...factMetric, index: 0 }],
+      metricsWithIndices: [{ metric: factMetric, index: 0 }],
       factTable,
       baseIdType: "user_id",
       idJoinMap: {},
@@ -329,7 +329,7 @@ describe("bigquery integration", () => {
 
     const result = bqIntegration["getFactMetricCTE"]({
       metricsWithIndices: [factMetric, factMetric2].map((metric, index) => ({
-        ...metric,
+        metric,
         index,
       })),
       factTable: factTableWithFilters,
@@ -369,7 +369,7 @@ describe("bigquery integration", () => {
 
     const result2 = bqIntegration["getFactMetricCTE"]({
       metricsWithIndices: [factMetric, factMetric2, factMetric3].map(
-        (metric, index) => ({ ...metric, index }),
+        (metric, index) => ({ metric, index }),
       ),
       factTable: factTableWithFilters,
       baseIdType: "user_id",
@@ -435,7 +435,7 @@ describe("bigquery integration", () => {
 
     const result = bqIntegration["getFactMetricCTE"]({
       metricsWithIndices: [factMetric1, factMetric2].map((metric, index) => ({
-        ...metric,
+        metric,
         index,
       })),
       factTable: factTableWithFilters,
@@ -506,7 +506,7 @@ describe("bigquery integration", () => {
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
-      metricsWithIndices: [{ ...ratioMetric, index: 0 }],
+      metricsWithIndices: [{ metric: ratioMetric, index: 0 }],
       factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
@@ -566,7 +566,9 @@ describe("bigquery integration", () => {
     const endDate = new Date("2023-01-31");
 
     const result = bqIntegration["getFactMetricCTE"]({
-      metricsWithIndices: [{ ...ratioMetricWithDenominatorNoFilter, index: 0 }],
+      metricsWithIndices: [
+        { metric: ratioMetricWithDenominatorNoFilter, index: 0 },
+      ],
       factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
@@ -610,7 +612,9 @@ describe("bigquery integration", () => {
     });
 
     const result2 = bqIntegration["getFactMetricCTE"]({
-      metricsWithIndices: [{ ...ratioMetricWithNumeratorNoFilter, index: 0 }],
+      metricsWithIndices: [
+        { metric: ratioMetricWithNumeratorNoFilter, index: 0 },
+      ],
       factTable: factTableWithFilters,
       baseIdType: "user_id",
       idJoinMap: {},
