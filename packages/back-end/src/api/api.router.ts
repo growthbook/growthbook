@@ -7,7 +7,7 @@ import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
-import { IS_CLOUD, SENTRY_DSN } from "../util/secrets";
+import { SENTRY_DSN } from "../util/secrets";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import snapshotsRouter from "./snapshots/snapshots.router";
@@ -91,16 +91,7 @@ router.use(
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request & ApiRequestLocals) => req.apiKey,
-    message: (req: Request & ApiRequestLocals) => {
-      const rateLimitForWarning = IS_CLOUD
-        ? 60
-        : req.context.org?.apiRateLimit ||
-          Number(process.env.API_RATE_LIMIT_MAX) ||
-          60;
-      return {
-        message: `Too many requests, limit to ${rateLimitForWarning} per minute`,
-      };
-    },
+    message: { message: `Too many requests per minute` },
   }),
 );
 
