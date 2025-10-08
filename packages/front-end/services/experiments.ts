@@ -57,82 +57,92 @@ export const compareRows = (
 ) => {
   const { sortBy, variationFilter, metricDefaults, sortDirection } = options;
 
-  const aFiltered =
+  const aVisibleVariations =
     a?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
     [];
-  const bFiltered =
+  const bVisibleVariations =
     b?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
     [];
 
   const aBaseline = a?.variations?.[0];
   const bBaseline = b?.variations?.[0];
 
-  const aHasData = aFiltered.some((v) => v?.value != null && v?.value > 0);
-  const bHasData = bFiltered.some((v) => v?.value != null && v?.value > 0);
-
-  if (!aHasData && !bHasData) return 0;
-  if (!aHasData) return 1;
-  if (!bHasData) return -1;
-
-  const aHasEnoughData =
-    aBaseline &&
-    aFiltered.some(
-      (v) => v && hasEnoughData(aBaseline, v, a?.metric, metricDefaults),
+  const aVariationsWithEnoughData = aVisibleVariations.filter((v) => {
+    const originalIndex = a?.variations?.indexOf(v) ?? -1;
+    return (
+      originalIndex > 0 &&
+      v &&
+      v.value != null &&
+      v.value > 0 &&
+      hasEnoughData(aBaseline, v, a?.metric, metricDefaults)
     );
-  const bHasEnoughData =
-    bBaseline &&
-    bFiltered.some(
-      (v) => v && hasEnoughData(bBaseline, v, b?.metric, metricDefaults),
+  });
+  const bVariationsWithEnoughData = bVisibleVariations.filter((v) => {
+    const originalIndex = b?.variations?.indexOf(v) ?? -1;
+    return (
+      originalIndex > 0 &&
+      v &&
+      v.value != null &&
+      v.value > 0 &&
+      hasEnoughData(bBaseline, v, b?.metric, metricDefaults)
     );
+  });
 
-  if (!aHasEnoughData || !bHasEnoughData) return 0;
+  if (
+    aVariationsWithEnoughData.length === 0 &&
+    bVariationsWithEnoughData.length === 0
+  )
+    return 0;
+  if (aVariationsWithEnoughData.length === 0) return 1;
+  if (bVariationsWithEnoughData.length === 0) return -1;
 
-  const aValues = aFiltered.map((v) => {
+  const aSignificanceValues = aVariationsWithEnoughData.map((v) => {
     if (sortBy === "change") {
       return v?.expected ?? 0;
     } else {
       const usePValue =
-        aFiltered.some((v) => v?.pValue != null) ||
-        bFiltered.some((v) => v?.pValue != null);
+        aVariationsWithEnoughData.some((v) => v?.pValue != null) ||
+        bVariationsWithEnoughData.some((v) => v?.pValue != null);
       return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
     }
   });
-  const bValues = bFiltered.map((v) => {
+  const bSignificanceValues = bVariationsWithEnoughData.map((v) => {
     if (sortBy === "change") {
       return v?.expected ?? 0;
     } else {
       const usePValue =
-        aFiltered.some((v) => v?.pValue != null) ||
-        bFiltered.some((v) => v?.pValue != null);
+        aVariationsWithEnoughData.some((v) => v?.pValue != null) ||
+        bVariationsWithEnoughData.some((v) => v?.pValue != null);
       return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
     }
   });
 
-  if (aValues.length === 0 && bValues.length === 0) return 0;
-  if (aValues.length === 0) return 1;
-  if (bValues.length === 0) return -1;
+  if (aSignificanceValues.length === 0 && bSignificanceValues.length === 0)
+    return 0;
+  if (aSignificanceValues.length === 0) return 1;
+  if (bSignificanceValues.length === 0) return -1;
 
-  const aValue =
+  const aAggregatedValue =
     sortBy === "change"
-      ? Math.max(...aValues)
-      : aFiltered.some((v) => v?.pValue != null)
-        ? Math.min(...aValues)
-        : Math.max(...aValues);
-  const bValue =
+      ? Math.max(...aSignificanceValues)
+      : aVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? Math.min(...aSignificanceValues)
+        : Math.max(...aSignificanceValues);
+  const bAggregatedValue =
     sortBy === "change"
-      ? Math.max(...bValues)
-      : bFiltered.some((v) => v?.pValue != null)
-        ? Math.min(...bValues)
-        : Math.max(...bValues);
+      ? Math.max(...bSignificanceValues)
+      : bVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? Math.min(...bSignificanceValues)
+        : Math.max(...bSignificanceValues);
 
-  const result =
+  const comparisonResult =
     sortBy === "change"
-      ? aValue - bValue
-      : aFiltered.some((v) => v?.pValue != null)
-        ? aValue - bValue
-        : bValue - aValue;
+      ? bAggregatedValue - aAggregatedValue
+      : aVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? aAggregatedValue - bAggregatedValue
+        : bAggregatedValue - aAggregatedValue;
 
-  return sortDirection === "desc" ? -result : result;
+  return sortDirection === "desc" ? -comparisonResult : comparisonResult;
 };
 
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
