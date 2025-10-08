@@ -1,7 +1,6 @@
 import type { Response } from "express";
 import {
   getDemoDatasourceFactTableIdForOrganization,
-  getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
 import {
@@ -146,6 +145,8 @@ const DEMO_RATIO_METRIC: Pick<
   },
   windowSettings: CONVERSION_WINDOW_SETTINGS,
 };
+
+const DEMO_DATA_FEATURE_ID = "add-to-cart-cta";
 
 // endregion Constants for Demo Datasource
 
@@ -362,8 +363,8 @@ export const postDemoDatasourceProject = async (
       | "variations"
       | "phases"
     > = {
-      name: getDemoDataSourceFeatureId(),
-      trackingKey: getDemoDataSourceFeatureId(),
+      name: DEMO_DATA_FEATURE_ID,
+      trackingKey: DEMO_DATA_FEATURE_ID,
       description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
 
 Experiment to test impact of checkout cart design.
@@ -420,7 +421,7 @@ spacing and headings.`,
 
     // Create feature
     const featureToCreate: FeatureInterface = {
-      id: getDemoDataSourceFeatureId(),
+      id: DEMO_DATA_FEATURE_ID,
       version: 1,
       project: project.id,
       organization: org.id,
@@ -442,7 +443,7 @@ spacing and headings.`,
           {
             type: "force",
             description: "",
-            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
+            id: `${DEMO_DATA_FEATURE_ID}-employee-force-rule`,
             value: "dev",
             condition: `{"is_employee":true}`,
             enabled: true,
@@ -450,9 +451,9 @@ spacing and headings.`,
           {
             type: "experiment-ref",
             description: "",
-            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
+            id: `${DEMO_DATA_FEATURE_ID}-exp-rule`,
             enabled: true,
-            experimentId: getDemoDataSourceFeatureId(), // This value is replaced below after the experiment is created.
+            experimentId: DEMO_DATA_FEATURE_ID, // This value is replaced below after the experiment is created.
             variations: [
               {
                 variationId: "v0",

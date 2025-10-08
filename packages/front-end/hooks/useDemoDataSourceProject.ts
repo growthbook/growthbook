@@ -44,6 +44,7 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
 
   const currentProjectIsDemo = currentProjectId === demoProjectId;
 
+  // TODO: Check feature flag to determine the demo feature id
   const demoFeatureId = getDemoDataSourceFeatureId();
 
   // We assume the demo datasource is the one that has only one project and it's the demo datasource project
