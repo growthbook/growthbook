@@ -85,7 +85,10 @@ export function transformStatsigExperimentToGB(
 
   // Determine phase condition based on targeting rules
   let phaseCondition = "";
-  let phaseSavedGroups: Array<{ match: "all" | "any"; ids: string[] }> = [];
+  let phaseSavedGroups: Array<{
+    match: "all" | "any" | "none";
+    ids: string[];
+  }> = [];
   let phasePrerequisites: Array<{ id: string; condition: string }> = [];
 
   if (targetingRules.length === 1) {
