@@ -2565,28 +2565,28 @@ export default abstract class SqlIntegration
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: `m${numeratorAlias}.${alias}_value`,
       metric,
-      capTablePrefix: `cap${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`,
+      capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
     const capCoalesceDenominator = this.capCoalesceValue({
       valueCol: `m${denominatorAlias}.${alias}_denominator`,
       metric,
-      capTablePrefix: `cap${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`,
+      capTablePrefix: `cap${denominatorAlias}`,
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
     const capCoalesceCovariate = this.capCoalesceValue({
       valueCol: `c${numeratorAlias}.${alias}_value`,
       metric,
-      capTablePrefix: `cap${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`,
+      capTablePrefix: `cap${numeratorAlias}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
     const capCoalesceDenominatorCovariate = this.capCoalesceValue({
       valueCol: `c${denominatorAlias}.${alias}_denominator`,
       metric,
-      capTablePrefix: `cap${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`,
+      capTablePrefix: `cap${denominatorAlias}`,
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
