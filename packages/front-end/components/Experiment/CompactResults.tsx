@@ -14,6 +14,7 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
+import { FactTableInterface } from "back-end/types/fact-table";
 import { FaAngleRight, FaUsers } from "react-icons/fa";
 import {
   PiCaretCircleRight,
@@ -26,8 +27,11 @@ import {
   ExperimentMetricInterface,
   generatePinnedSliceKey,
   createCustomSliceDataForMetric,
+  createAutoSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  deduplicateEphemeralMetrics,
+  isFactMetric,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -146,7 +150,7 @@ const CompactResults: FC<{
   togglePinnedMetricSlice,
   customMetricSlices,
 }) => {
-  const { getExperimentMetricById, getFactMetricLevels, metricGroups, ready } =
+  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
@@ -251,10 +255,23 @@ const CompactResults: FC<{
         );
       }
       // Get slice count for this metric (only if feature is enabled)
-      const standardSlices =
-        ssrPolyfills?.getFactMetricLevels?.(metricId)?.length ||
-        getFactMetricLevels?.(metricId)?.length ||
-        0;
+      const standardSlices = shouldShowMetricSlices
+        ? (() => {
+            const parentMetric = getExperimentMetricById(metricId);
+            if (!parentMetric || !isFactMetric(parentMetric)) return 0;
+
+            const factTable = getFactTableById(
+              parentMetric.numerator.factTableId,
+            );
+            if (!factTable) return 0;
+
+            return createAutoSliceDataForMetric({
+              parentMetric,
+              factTable,
+              includeOther: true,
+            }).length;
+          })()
+        : 0;
 
       const customSlices = customMetricSlices?.length || 0;
 
@@ -286,10 +303,23 @@ const CompactResults: FC<{
 
       // Add slice rows if this metric has slices and feature is enabled
       if (numSlices > 0 && shouldShowMetricSlices) {
-        const standardSliceData =
-          ssrPolyfills?.getFactMetricLevels?.(metricId) ||
-          getFactMetricLevels?.(metricId) ||
-          [];
+        const standardSliceData = shouldShowMetricSlices
+          ? (() => {
+              const parentMetric = getExperimentMetricById(metricId);
+              if (!parentMetric || !isFactMetric(parentMetric)) return [];
+
+              const factTable = getFactTableById(
+                parentMetric.numerator.factTableId,
+              );
+              if (!factTable) return [];
+
+              return createAutoSliceDataForMetric({
+                parentMetric,
+                factTable,
+                includeOther: true,
+              });
+            })()
+          : [];
 
         // Convert custom slice levels to slice data format
         const customSliceData = createCustomSliceDataForMetric({
@@ -298,7 +328,11 @@ const CompactResults: FC<{
           customMetricSlices: customMetricSlices || [],
         });
 
-        const sliceData = [...standardSliceData, ...customSliceData];
+        // Deduplicate slices
+        const sliceData = deduplicateEphemeralMetrics([
+          ...standardSliceData,
+          ...customSliceData,
+        ]);
 
         sliceData.forEach((slice) => {
           const expandedKey = `${metricId}:${resultGroup}`;
@@ -438,10 +472,10 @@ const CompactResults: FC<{
     ready,
     ssrPolyfills,
     getExperimentMetricById,
+    getFactTableById,
     metricFilter,
     pinnedMetricSlices,
     expandedMetrics,
-    getFactMetricLevels,
     shouldShowMetricSlices,
     customMetricSlices,
   ]);
@@ -540,8 +574,8 @@ const CompactResults: FC<{
             togglePinnedMetricSlice,
             expandedMetrics,
             toggleExpandedMetric,
-            getFactMetricLevels,
-            ssrPolyfills,
+            getExperimentMetricById,
+            getFactTableById,
             shouldShowMetricSlices,
             getChildRowCounts,
           })}
@@ -598,8 +632,8 @@ const CompactResults: FC<{
               togglePinnedMetricSlice,
               expandedMetrics,
               toggleExpandedMetric,
-              getFactMetricLevels,
-              ssrPolyfills,
+              getExperimentMetricById,
+              getFactTableById,
               shouldShowMetricSlices,
               getChildRowCounts,
             })}
@@ -650,8 +684,8 @@ const CompactResults: FC<{
               togglePinnedMetricSlice,
               expandedMetrics,
               toggleExpandedMetric,
-              getFactMetricLevels,
-              ssrPolyfills,
+              getExperimentMetricById,
+              getFactTableById,
               shouldShowMetricSlices,
               getChildRowCounts,
             })}
@@ -684,8 +718,8 @@ export function getRenderLabelColumn({
   togglePinnedMetricSlice,
   expandedMetrics,
   toggleExpandedMetric,
-  getFactMetricLevels,
-  ssrPolyfills,
+  getExperimentMetricById,
+  getFactTableById,
   shouldShowMetricSlices,
   getChildRowCounts,
   className = "pl-3",
@@ -705,8 +739,8 @@ export function getRenderLabelColumn({
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
-  getFactMetricLevels?: (metricId: string) => unknown[];
-  ssrPolyfills?: SSRPolyfills;
+  getExperimentMetricById?: (id: string) => null | ExperimentMetricInterface;
+  getFactTableById?: (id: string) => null | FactTableInterface;
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
   className?: string;
@@ -801,10 +835,21 @@ export function getRenderLabelColumn({
 
     const hasSlices =
       shouldShowMetricSlices &&
-      !!(
-        ssrPolyfills?.getFactMetricLevels?.(metric.id)?.length ||
-        getFactMetricLevels?.(metric.id)?.length
-      );
+      !!(() => {
+        const parentMetric = getExperimentMetricById?.(metric.id);
+        if (!parentMetric || !isFactMetric(parentMetric)) return 0;
+
+        const factTable = getFactTableById?.(
+          parentMetric.numerator.factTableId,
+        );
+        if (!factTable) return 0;
+
+        return createAutoSliceDataForMetric({
+          parentMetric,
+          factTable,
+          includeOther: true,
+        }).length;
+      })();
 
     // Get child row counts for pinned indicator
     const childRowCounts =

@@ -1081,8 +1081,20 @@ export function getAllExpandedMetricIdsFromExperiment({
   return Array.from(expandedMetricIds);
 }
 
-// Creates ephemeral slice metrics for a fact metric based on the metric's metricAutoSlices slices
-export function createSliceMetrics({
+// For building slice metric rows (FE)
+export interface SliceDataForMetric {
+  id: string; // Format: `${parentId}?dim:${encodedColumnId}=${encodedValue}` or `${parentId}?dim:${encodedColumnId}=` for "other"
+  name: string; // Format: `${parentName} (${columnName}: ${value})` or `${parentName} (${columnName}: other)`
+  description: string;
+  sliceLevels: Array<{
+    column: string;
+    levels: string[];
+  }>;
+  allSliceLevels: string[];
+}
+
+// Creates auto slice data for a fact metric based on the metric's metricAutoSlices
+export function createAutoSliceDataForMetric({
   parentMetric,
   factTable,
   includeOther = true,
@@ -1090,30 +1102,12 @@ export function createSliceMetrics({
   parentMetric: FactMetricInterface;
   factTable: FactTableInterface;
   includeOther?: boolean;
-}): Array<{
-  id: string;
-  name: string;
-  description: string;
-  sliceLevels: Array<{
-    column: string;
-    levels: string[];
-  }>;
-  allSliceLevels: string[];
-}> {
+}): SliceDataForMetric[] {
   if (!parentMetric.metricAutoSlices?.length) {
     return [];
   }
 
-  const sliceMetrics: Array<{
-    id: string;
-    name: string;
-    description: string;
-    sliceLevels: Array<{
-      column: string;
-      levels: string[];
-    }>;
-    allSliceLevels: string[];
-  }> = [];
+  const sliceData: SliceDataForMetric[] = [];
 
   // Get the intersection of metricAutoSlices with fact table auto slice columns
   const factTableAutoSliceColumns = factTable.columns.filter(
@@ -1131,10 +1125,10 @@ export function createSliceMetrics({
     const autoSlices = col.autoSlices || [];
     const columnName = col.name || col.column;
 
-    // Create a metric for each auto slice
+    // Create slice data for each auto slice
     autoSlices.forEach((value) => {
       const sliceString = generateSliceString({ [col.column]: value });
-      sliceMetrics.push({
+      sliceData.push({
         id: `${parentMetric.id}?${sliceString}`,
         name: `${parentMetric.name} (${columnName}: ${value})`,
         description: `Slice analysis of ${parentMetric.name} for ${columnName} = ${value}`,
@@ -1148,10 +1142,10 @@ export function createSliceMetrics({
       });
     });
 
-    // Create an "other" metric for values not in autoSlices
+    // Create an "other" slice data for values not in autoSlices
     if (includeOther && autoSlices.length > 0) {
       const sliceString = generateSliceString({ [col.column]: "" });
-      sliceMetrics.push({
+      sliceData.push({
         id: `${parentMetric.id}?${sliceString}`,
         name: `${parentMetric.name} (${columnName}: other)`,
         description: `Slice analysis of ${parentMetric.name} for ${columnName} (other)`,
@@ -1166,10 +1160,10 @@ export function createSliceMetrics({
     }
   });
 
-  return sliceMetrics;
+  return sliceData;
 }
 
-// Creates slice data format from custom metric slice levels for a specific metric
+// Creates custom slice data for a fact metric by using the experiment's customMetricSlices
 export function createCustomSliceDataForMetric({
   metricId,
   metricName,
@@ -1183,32 +1177,12 @@ export function createCustomSliceDataForMetric({
       levels: string[];
     }>;
   }>;
-}): Array<{
-  id: string;
-  name: string;
-  description: string;
-  parentMetricId: string;
-  sliceLevels: Array<{
-    column: string;
-    levels: string[];
-  }>;
-  allSliceLevels: string[];
-}> {
+}): SliceDataForMetric[] {
   if (!customMetricSlices?.length) {
     return [];
   }
 
-  const customSliceData: Array<{
-    id: string;
-    name: string;
-    description: string;
-    parentMetricId: string;
-    sliceLevels: Array<{
-      column: string;
-      levels: string[];
-    }>;
-    allSliceLevels: string[];
-  }> = [];
+  const customSliceData: SliceDataForMetric[] = [];
 
   customMetricSlices.forEach((group) => {
     // Sort slices alphabetically for consistent ID generation
@@ -1223,12 +1197,11 @@ export function createCustomSliceDataForMetric({
       id: `${metricId}?${sliceString}`,
       name: `${metricName} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
       description: `Slice analysis of ${metricName} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-      parentMetricId: metricId,
       sliceLevels: sortedSlices.map((d) => ({
         column: d.column,
         levels: d.levels,
       })),
-      allSliceLevels: [],
+      allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
     };
     customSliceData.push(customSliceMetric);
   });
@@ -1575,6 +1548,20 @@ export function countDimensionLevels(
   });
 
   return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
+}
+
+// Deduplicates ephemeral metrics by their ID, keeping the first occurrence
+export function deduplicateEphemeralMetrics<T extends { id: string }>(
+  metrics: T[],
+): T[] {
+  const seen = new Set<string>();
+  return metrics.filter((metric) => {
+    if (seen.has(metric.id)) {
+      return false;
+    }
+    seen.add(metric.id);
+    return true;
+  });
 }
 
 export function expandAllSliceMetricsInMap({
