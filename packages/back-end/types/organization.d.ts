@@ -244,6 +244,7 @@ export interface OrganizationSettings {
   experimentPageMarkdown?: string;
   metricListMarkdown?: string;
   metricPageMarkdown?: string;
+  preferredEnvironment?: string; // empty means "remember previous environment"
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;
