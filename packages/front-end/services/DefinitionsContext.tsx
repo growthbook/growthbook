@@ -18,10 +18,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "back-end/types/fact-table";
-import {
-  ExperimentMetricInterface,
-  isFactMetricId,
-} from "shared/experiments";
+import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { CustomField } from "back-end/types/custom-fields";
@@ -32,7 +29,6 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
 import { useUser } from "./UserContext";
-
 
 type Definitions = {
   metrics: MetricInterface[];
