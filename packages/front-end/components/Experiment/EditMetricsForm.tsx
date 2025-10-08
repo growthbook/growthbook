@@ -24,6 +24,7 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
+import Callout from "@/ui/Callout";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
@@ -145,7 +146,7 @@ const EditMetricsForm: FC<{
   const { hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { getExperimentMetricById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById } = useDefinitions();
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
@@ -155,6 +156,16 @@ const EditMetricsForm: FC<{
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+
+  const datasource = getDatasourceById(experiment.datasource);
+  const isPipelineIncrementalEnabledForDatasource =
+    datasource?.settings.pipelineSettings?.mode === "incremental";
+  const isExperimentIncludedInIncrementalRefresh =
+    isPipelineIncrementalEnabledForDatasource &&
+    (datasource?.settings.pipelineSettings?.includedExperimentIds?.includes(
+      experiment.id,
+    ) ??
+      true);
 
   const form = useForm<EditMetricsFormInterface>({
     defaultValues: {
@@ -203,6 +214,8 @@ const EditMetricsForm: FC<{
       cta="Save"
     >
       <ExperimentMetricsSelector
+        noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+        excludeQuantiles={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         project={experiment.project}
@@ -314,7 +327,10 @@ const EditMetricsForm: FC<{
                 <MetricsOverridesSelector
                   experiment={experiment}
                   form={form}
-                  disabled={!hasOverrideMetricsFeature}
+                  disabled={
+                    !hasOverrideMetricsFeature ||
+                    isExperimentIncludedInIncrementalRefresh
+                  }
                   setHasMetricOverrideRiskError={(v: boolean) =>
                     setHasMetricOverrideRiskError(v)
                   }

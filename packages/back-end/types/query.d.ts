@@ -19,6 +19,7 @@ export type QueryStatistics = {
   bytesBilled?: number;
   warehouseCachedResult?: boolean;
   partitionsUsed?: boolean;
+  physicalWrittenBytes?: number;
 };
 
 export type QueryType =
@@ -33,10 +34,23 @@ export type QueryType =
   | "experimentTraffic"
   | "experimentMultiMetric"
   | "populationMetric"
-  | "populationMultiMetric";
+  | "populationMultiMetric"
+  | "experimentIncrementalRefreshDropUnitsTable"
+  | "experimentIncrementalRefreshDropTempUnitsTable"
+  | "experimentIncrementalRefreshCreateUnitsTable"
+  | "experimentIncrementalRefreshUpdateUnitsTable"
+  | "experimentIncrementalRefreshAlterUnitsTable"
+  | "experimentIncrementalRefreshMaxTimestampUnitsTable"
+  | "experimentIncrementalRefreshMaxTimestampMetricsSource"
+  | "experimentIncrementalRefreshStatistics"
+  | "experimentIncrementalRefreshCreateMetricsSourceTable"
+  | "experimentIncrementalRefreshInsertMetricsSourceData"
+  | "experimentIncrementalRefreshHealth";
 
 export interface QueryInterface {
   id: string;
+  // user facing title for use in modal
+  title?: string;
   organization: string;
   datasource: string;
   language: QueryLanguage;

@@ -52,6 +52,7 @@ declare module "presto-client" {
     wallTimeMillis: number;
     cpuTimeMillis: number;
     userTimeMillis: number;
+    physicalWrittenBytes: number;
     state: PrestoClientQueryStates;
     scheduled: boolean;
     nodes: number;

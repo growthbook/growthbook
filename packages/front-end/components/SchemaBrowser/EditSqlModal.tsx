@@ -59,6 +59,7 @@ export interface Props {
     eventName?: string;
     valueColumn?: string;
   };
+  disableTestQueryBeforeSaving?: boolean;
 }
 
 export default function EditSqlModal({
@@ -71,6 +72,7 @@ export default function EditSqlModal({
   validateResponseOverride,
   templateVariables,
   setTemplateVariables,
+  disableTestQueryBeforeSaving = false,
 }: Props) {
   const [testQueryResults, setTestQueryResults] =
     useState<TestQueryResults | null>(null);
@@ -243,8 +245,9 @@ export default function EditSqlModal({
   };
 
   useEffect(() => {
-    if (!canRunQueries) setTestQueryBeforeSaving(false);
-  }, [canRunQueries]);
+    if (!canRunQueries || disableTestQueryBeforeSaving)
+      setTestQueryBeforeSaving(false);
+  }, [canRunQueries, disableTestQueryBeforeSaving]);
 
   return (
     <Modal
@@ -252,7 +255,7 @@ export default function EditSqlModal({
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
-        if (testQueryBeforeSaving) {
+        if (testQueryBeforeSaving && !disableTestQueryBeforeSaving) {
           let res: TestQueryResults;
           try {
             res = await runTestQuery(value.sql);
@@ -279,22 +282,24 @@ export default function EditSqlModal({
       cta="Confirm Changes"
       closeCta="Back"
       secondaryCTA={
-        <Tooltip
-          body="You do not have permission to run test queries"
-          shouldDisplay={!canRunQueries}
-          tipPosition="top"
-        >
-          <label className="mx-4 mb-0">
-            <input
-              type="checkbox"
-              disabled={!canRunQueries}
-              className="form-check-input"
-              checked={testQueryBeforeSaving}
-              onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
-            />
-            Test query before confirming
-          </label>
-        </Tooltip>
+        disableTestQueryBeforeSaving ? undefined : (
+          <Tooltip
+            body="You do not have permission to run test queries"
+            shouldDisplay={!canRunQueries}
+            tipPosition="top"
+          >
+            <label className="mx-4 mb-0">
+              <input
+                type="checkbox"
+                disabled={!canRunQueries}
+                className="form-check-input"
+                checked={testQueryBeforeSaving}
+                onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
+              />
+              Test query before confirming
+            </label>
+          </Tooltip>
+        )
       }
     >
       <Box p="2" style={{ height: "calc(93vh - 140px)" }}>
@@ -318,22 +323,24 @@ export default function EditSqlModal({
                           </Tooltip>
                         )}
 
-                        <Tooltip
-                          className="pt-1"
-                          shouldDisplay={!!canRunQueries}
-                          body={`If unchecked, GrowthBook will automatically apply a ${SQL_ROW_LIMIT} row limit for optimal performance.`}
-                        >
-                          <Checkbox
-                            label="Limit 5"
-                            weight="regular"
-                            disabled={!canRunQueries}
-                            value={apply5RowLimit}
-                            setValue={(v) => {
-                              setApply5RowLimit(v);
-                            }}
-                            mb="0"
-                          />
-                        </Tooltip>
+                        {!disableTestQueryBeforeSaving && (
+                          <Tooltip
+                            className="pt-1"
+                            shouldDisplay={!!canRunQueries}
+                            body={`If unchecked, GrowthBook will automatically apply a ${SQL_ROW_LIMIT} row limit for optimal performance.`}
+                          >
+                            <Checkbox
+                              label="Limit 5"
+                              weight="regular"
+                              disabled={!canRunQueries}
+                              value={apply5RowLimit}
+                              setValue={(v) => {
+                                setApply5RowLimit(v);
+                              }}
+                              mb="0"
+                            />
+                          </Tooltip>
+                        )}
                         {canFormat ? (
                           <RadixButton
                             size="sm"
@@ -344,24 +351,26 @@ export default function EditSqlModal({
                             Format
                           </RadixButton>
                         ) : null}
-                        <Tooltip
-                          body="You do not have permission to run test queries"
-                          shouldDisplay={!canRunQueries}
-                        >
-                          <Button
-                            color="primary"
-                            className="btn-sm"
-                            onClick={handleTestQuery}
-                            loading={testingQuery}
-                            disabled={!canRunQueries}
-                            type="button"
+                        {!disableTestQueryBeforeSaving && (
+                          <Tooltip
+                            body="You do not have permission to run test queries"
+                            shouldDisplay={!canRunQueries}
                           >
-                            <span className="pr-2">
-                              <FaPlay />
-                            </span>
-                            Test Query
-                          </Button>
-                        </Tooltip>
+                            <Button
+                              color="primary"
+                              className="btn-sm"
+                              onClick={handleTestQuery}
+                              loading={testingQuery}
+                              disabled={!canRunQueries}
+                              type="button"
+                            >
+                              <span className="pr-2">
+                                <FaPlay />
+                              </span>
+                              Test Query
+                            </Button>
+                          </Tooltip>
+                        )}
                         <DropdownMenu
                           trigger={
                             <IconButton
@@ -439,7 +448,11 @@ export default function EditSqlModal({
                                 })
                               }
                               onKeyDown={(e) => {
-                                if (e.key === "Enter" && e.ctrlKey) {
+                                if (
+                                  e.key === "Enter" &&
+                                  e.ctrlKey &&
+                                  !disableTestQueryBeforeSaving
+                                ) {
                                   handleTestQuery();
                                 }
                               }}
@@ -457,7 +470,11 @@ export default function EditSqlModal({
                                 })
                               }
                               onKeyDown={(e) => {
-                                if (e.key === "Enter" && e.ctrlKey) {
+                                if (
+                                  e.key === "Enter" &&
+                                  e.ctrlKey &&
+                                  !disableTestQueryBeforeSaving
+                                ) {
                                   handleTestQuery();
                                 }
                               }}
@@ -482,7 +499,12 @@ export default function EditSqlModal({
                       helpText={""}
                       fullHeight
                       setCursorData={setCursorData}
-                      onCtrlEnter={handleTestQuery}
+                      // Disable Ctrl+Enter when testing is disabled
+                      onCtrlEnter={
+                        !disableTestQueryBeforeSaving && canRunQueries
+                          ? handleTestQuery
+                          : undefined
+                      }
                       completions={autoCompletions}
                     />
                   </Box>
