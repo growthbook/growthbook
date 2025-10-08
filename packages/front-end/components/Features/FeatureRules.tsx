@@ -64,7 +64,7 @@ export default function FeatureRules({
     i: number;
     environment: string;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   } | null>(null);
   const [copyRuleModal, setCopyRuleModal] = useState<{
     environment: string;
@@ -250,6 +250,7 @@ export default function FeatureRules({
                           setRuleModal({
                             environment: env,
                             i: getRules(feature, env).length,
+                            mode: "create",
                           });
                           track("Viewed Rule Modal", {
                             source: "add-rule",
@@ -306,7 +307,7 @@ export default function FeatureRules({
           version={currentVersion}
           setVersion={setVersion}
           revisions={revisions}
-          duplicate={ruleModal?.duplicate || false}
+          mode={ruleModal.mode}
         />
       )}
       {copyRuleModal !== null && (

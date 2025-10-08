@@ -12,7 +12,7 @@ import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTarget
 
 export default function ForceValueFields({
   feature,
-  environment,
+  environments,
   defaultValues,
   version,
   revisions,
@@ -24,7 +24,7 @@ export default function ForceValueFields({
   setScheduleToggleEnabled,
 }: {
   feature: FeatureInterface;
-  environment: string;
+  environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
   version: number;
   revisions?: FeatureRevisionInterface[];
@@ -88,7 +88,7 @@ export default function ForceValueFields({
         feature={feature}
         revisions={revisions}
         version={version}
-        environments={[environment]}
+        environments={environments}
         setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
       />
       {isCyclic && (

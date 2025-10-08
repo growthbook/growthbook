@@ -222,6 +222,46 @@ export default function FeaturesSettings() {
             </Box>
           )}
 
+          <Box mb="6" width="100%">
+            <Flex align="start" justify="start" gap="3">
+              <Box>
+                <Checkbox
+                  id="toggle-defaultFeatureRulesInAllEnvs"
+                  value={!!form.watch("defaultFeatureRulesInAllEnvs")}
+                  setValue={(value) => {
+                    form.setValue("defaultFeatureRulesInAllEnvs", value, {
+                      shouldDirty: true,
+                    });
+                  }}
+                  mt="1"
+                />
+              </Box>
+              <Flex
+                direction="column"
+                justify="start"
+                style={{ marginTop: "1px" }}
+              >
+                <Box>
+                  <Text
+                    size="3"
+                    className="font-weight-semibold"
+                    htmlFor="toggle-defaultFeatureRulesInAllEnvs"
+                    as="label"
+                    mb="2"
+                  >
+                    Create rules in all environments by default
+                  </Text>
+                </Box>
+                <Box>
+                  <Text size="2" color="gray">
+                    If enabled, new feature rules will be created in all
+                    environments by default.
+                  </Text>
+                </Box>
+              </Flex>
+            </Flex>
+          </Box>
+
           {hasRequireApprovals && (
             <>
               <Box mb="6" width="100%">
