@@ -4,8 +4,14 @@ import { mapStatsigAttributeToGB } from "./attributeMapper";
 
 export type TransformedCondition = {
   condition: string; // JSON string for targeting conditions
-  savedGroups: string[]; // Array of saved group IDs
-  prerequisites?: string[]; // Array of prerequisite feature IDs
+  savedGroups: Array<{
+    ids: string[];
+    match: "all" | "any" | "none";
+  }>; // Array of saved group targeting
+  prerequisites?: Array<{
+    id: string;
+    condition: string;
+  }>; // Array of prerequisite feature conditions
   scheduleRules?: [
     start: { timestamp: string; enabled: boolean },
     end: { timestamp: string; enabled: boolean },
@@ -21,8 +27,9 @@ export function transformStatsigConditionsToGB(
   savedGroupIdMap?: Map<string, string>,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
-  const savedGroups: string[] = [];
-  const prerequisites: string[] = [];
+  const savedGroups: Array<{ ids: string[]; match: "all" | "any" | "none" }> =
+    [];
+  const prerequisites: Array<{ id: string; condition: string }> = [];
   let startTime: string | null = null;
   let endTime: string | null = null;
 
@@ -50,29 +57,46 @@ export function transformStatsigConditionsToGB(
     if (operator === null || operator === undefined) {
       switch (type) {
         case "passes_gate":
-        case "fails_gate":
-          // These become prerequisites
-          prerequisites.push(String(targetValue));
+          // These become prerequisites with exists (live) condition
+          prerequisites.push({
+            id: String(targetValue),
+            condition: JSON.stringify({ value: { $exists: true } }),
+          });
           return;
-        case "passes_segment":
-        case "fails_segment": {
-          // These become saved groups
+        case "fails_gate":
+          // These become prerequisites with not exists (not live)condition
+          prerequisites.push({
+            id: String(targetValue),
+            condition: JSON.stringify({ value: { $exists: false } }),
+          });
+          return;
+        case "passes_segment": {
+          // These become saved groups with inclusion
           const segmentName = String(targetValue);
           const savedGroupId = savedGroupIdMap?.get(segmentName);
-          console.log({
-            segmentName,
-            savedGroupId,
-            savedGroupIdMap,
-            conditions,
-          });
           if (savedGroupId) {
-            savedGroups.push(savedGroupId);
+            savedGroups.push({ ids: [savedGroupId], match: "all" });
           } else {
             console.warn(
               `Saved group ID not found for segment: ${segmentName}`,
             );
             // Fallback to using the name if ID not found
-            savedGroups.push(segmentName);
+            savedGroups.push({ ids: [segmentName], match: "all" });
+          }
+          return;
+        }
+        case "fails_segment": {
+          // These become saved groups with exclusion
+          const segmentName = String(targetValue);
+          const savedGroupId = savedGroupIdMap?.get(segmentName);
+          if (savedGroupId) {
+            savedGroups.push({ ids: [savedGroupId], match: "none" });
+          } else {
+            console.warn(
+              `Saved group ID not found for segment: ${segmentName}`,
+            );
+            // Fallback to using the name if ID not found
+            savedGroups.push({ ids: [segmentName], match: "none" });
           }
           return;
         }

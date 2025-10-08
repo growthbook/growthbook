@@ -1,4 +1,5 @@
 import * as bq from "@google-cloud/bigquery";
+import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
 import { bigQueryCreateTableOptions } from "shared/enterprise";
 import { FormatDialect } from "shared/src/types";
 import { format } from "shared/sql";
@@ -11,9 +12,14 @@ import {
   QueryResponse,
   RawInformationSchema,
   DataType,
+  QueryResponseColumnData,
 } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
+import {
+  BigQueryDataType,
+  getFactTableTypeFromBigQueryType,
+} from "../services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -94,9 +100,9 @@ export default class BigQuery extends SqlIntegration {
           : undefined,
     };
 
-    const columns = queryResultsResponse?.schema?.fields
-      ?.map((field) => field.name?.toLowerCase())
-      .filter((field) => field !== undefined);
+    const columns = queryResultsResponse
+      ? this.getQueryResultResponseColumns(queryResultsResponse)
+      : undefined;
 
     // BigQuery dates are stored nested in an object, so need to extract the value
     for (const row of rows) {
@@ -272,5 +278,32 @@ export default class BigQuery extends SqlIntegration {
         throw new Error(`Unsupported data type: ${dataType}`);
       }
     }
+  }
+
+  getQueryResultResponseColumns(
+    bqQueryResultsResponse: QueryResultsResponse,
+  ): QueryResponseColumnData[] | undefined {
+    const mapField = (field: bq.TableField): QueryResponseColumnData => {
+      let childFields: QueryResponseColumnData[] | undefined = undefined;
+      if (field.type === "RECORD" || field.type === "STRUCT") {
+        childFields = field.fields
+          ?.filter((f) => f.name !== undefined)
+          .map((f) => mapField(f));
+      }
+
+      const dataType = field.type
+        ? getFactTableTypeFromBigQueryType(field.type as BigQueryDataType)
+        : undefined;
+
+      return {
+        name: field.name!.toLowerCase(),
+        ...(dataType && { dataType }),
+        ...(childFields && { fields: childFields }),
+      };
+    };
+
+    return bqQueryResultsResponse.schema?.fields
+      ?.filter((field) => field.name !== undefined)
+      .map((field) => mapField(field));
   }
 }

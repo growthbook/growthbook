@@ -170,6 +170,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
+      defaultFeatureRulesInAllEnvs:
+        settings.defaultFeatureRulesInAllEnvs ?? false,
     },
   });
   const { apiCall } = useAuth();
@@ -217,6 +219,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiEnabled: form.watch("aiEnabled"),
     openAIDefaultModel: form.watch("openAIDefaultModel"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
+    defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";

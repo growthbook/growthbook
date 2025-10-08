@@ -93,14 +93,8 @@ export function transformStatsigFeatureGateToGB(
               "user_id",
               skipAttributeMapping,
             ),
-            savedGroups: transformedCondition.savedGroups.map((id) => ({
-              match: "all",
-              ids: [id],
-            })),
-            prerequisites: transformedCondition.prerequisites?.map((id) => ({
-              id,
-              condition: JSON.stringify({ value: true }),
-            })),
+            savedGroups: transformedCondition.savedGroups,
+            prerequisites: transformedCondition.prerequisites,
             scheduleRules: transformedCondition.scheduleRules || [],
           };
 
@@ -132,14 +126,8 @@ export function transformStatsigFeatureGateToGB(
           condition: transformedCondition.condition,
           enabled: true,
           value: ruleValue,
-          savedGroups: transformedCondition.savedGroups.map((id) => ({
-            match: "all",
-            ids: [id],
-          })),
-          prerequisites: transformedCondition.prerequisites?.map((id) => ({
-            id,
-            condition: JSON.stringify({ value: true }), // Prerequisite must be true
-          })),
+          savedGroups: transformedCondition.savedGroups,
+          prerequisites: transformedCondition.prerequisites,
           scheduleRules: transformedCondition.scheduleRules || [],
         };
       } else {
@@ -156,14 +144,8 @@ export function transformStatsigFeatureGateToGB(
             "user_id",
             skipAttributeMapping,
           ), // Default hash attribute for rollouts
-          savedGroups: transformedCondition.savedGroups.map((id) => ({
-            match: "all",
-            ids: [id],
-          })),
-          prerequisites: transformedCondition.prerequisites?.map((id) => ({
-            id,
-            condition: JSON.stringify({ value: true }), // Prerequisite must be true
-          })),
+          savedGroups: transformedCondition.savedGroups,
+          prerequisites: transformedCondition.prerequisites,
           scheduleRules: transformedCondition.scheduleRules || [],
         };
       }

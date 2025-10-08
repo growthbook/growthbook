@@ -138,7 +138,37 @@ export async function runRefreshColumnsQuery(
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();
-  determineColumnTypes(result.results).forEach((col) => {
+
+  result.columns?.forEach((col) => {
+    // If the underlying SQL engine returned the datatype, use it
+    if (col.dataType !== undefined) {
+      // For JSON, only return if we have the field information, otherwise skip
+      // so we can infer from the returned data
+      if (
+        col.dataType === "json" &&
+        col.fields !== undefined &&
+        col.fields.length > 0
+      ) {
+        typeMap.set(col.name, "json");
+        jsonMap.set(
+          col.name,
+          col.fields.reduce(
+            (acc, field) => ({
+              ...acc,
+              [field.name]: {
+                datatype: field.dataType,
+              },
+            }),
+            {},
+          ),
+        );
+      } else if (col.dataType !== "json") {
+        typeMap.set(col.name, col.dataType);
+      }
+    }
+  });
+
+  determineColumnTypes(result.results, typeMap).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
       jsonMap.set(col.column, col.jsonFields);
