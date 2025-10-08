@@ -1556,10 +1556,9 @@ export function countDimensionLevels(
   return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
 }
 
-// Deduplicates ephemeral metrics by their ID, keeping the first occurrence
-export function deduplicateEphemeralMetrics<T extends { id: string }>(
-  metrics: T[],
-): T[] {
+export function dedupeSliceMetrics(
+  metrics: SliceDataForMetric[],
+): SliceDataForMetric[] {
   const seen = new Set<string>();
   return metrics.filter((metric) => {
     if (seen.has(metric.id)) {

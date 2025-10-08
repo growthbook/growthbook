@@ -33,7 +33,7 @@ import {
   createAutoSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
-  deduplicateEphemeralMetrics,
+  dedupeSliceMetrics,
   SliceDataForMetric,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
@@ -278,8 +278,8 @@ const CompactResults: FC<{
           customMetricSlices: customMetricSlices || [],
         });
 
-        // Deduplicate slice data by ID to prevent overlapping auto and custom slices
-        sliceData = deduplicateEphemeralMetrics([
+        // Dedupe (auto and custom slices sometimes overlap)
+        sliceData = dedupeSliceMetrics([
           ...standardSliceData,
           ...customSliceData,
         ]);
