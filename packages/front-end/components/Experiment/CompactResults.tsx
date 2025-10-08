@@ -36,6 +36,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  compareRows,
 } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import {
@@ -48,6 +49,7 @@ import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -105,6 +107,13 @@ const CompactResults: FC<{
       levels: string[];
     }>;
   }>;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
+  analysisBarSettings?: {
+    variationFilter: number[];
+  };
 }> = ({
   experimentId,
   editMetrics,
@@ -145,11 +154,17 @@ const CompactResults: FC<{
   pinnedMetricSlices,
   togglePinnedMetricSlice,
   customMetricSlices,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
+  analysisBarSettings,
 }) => {
   const { getExperimentMetricById, getFactMetricLevels, metricGroups, ready } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
+  const { metricDefaults } = useOrganizationMetricDefaults();
 
   // Feature flag and commercial feature checks for slice analysis
   const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
@@ -386,10 +401,11 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
-      metricDefs,
-      metricFilter,
-    );
+    // Only use tag-based sorting when sortBy is "metric-tags"
+    const sortedFilteredMetrics =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(metricDefs, metricFilter)
+        : metricDefs.map((m) => m.id);
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -398,10 +414,10 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredSecondary = sortAndFilterMetricsByTags(
-      secondaryDefs,
-      metricFilter,
-    );
+    const sortedFilteredSecondary =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(secondaryDefs, metricFilter)
+        : secondaryDefs.map((m) => m.id);
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -410,10 +426,10 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
-      guardrailDefs,
-      metricFilter,
-    );
+    const sortedFilteredGuardrails =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(guardrailDefs, metricFilter)
+        : guardrailDefs.map((m) => m.id);
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRow(metricId, "goal"),
@@ -424,6 +440,49 @@ const CompactResults: FC<{
     const retGuardrails = sortedFilteredGuardrails.flatMap((metricId) =>
       getRow(metricId, "guardrail"),
     );
+
+    // Sort by significance or change if sortBy is set
+    if (
+      (sortBy === "significance" || sortBy === "change") &&
+      metricDefaults &&
+      sortDirection
+    ) {
+      const sortOptions = {
+        sortBy,
+        variationFilter:
+          analysisBarSettings?.variationFilter ?? variationFilter ?? [],
+        metricDefaults,
+        sortDirection,
+      };
+
+      const sortRows = (rows: ExperimentTableRow[]) => {
+        const parentRows = rows.filter((row) => !row.parentRowId);
+        const sortedParents = [...parentRows].sort((a, b) =>
+          compareRows(a, b, sortOptions),
+        );
+
+        const newRows: ExperimentTableRow[] = [];
+        sortedParents.forEach((parent) => {
+          newRows.push(parent);
+          const childRows = rows.filter(
+            (row) => row.parentRowId === parent.metric?.id,
+          );
+          const sortedChildren = [...childRows].sort((a, b) =>
+            compareRows(a, b, sortOptions),
+          );
+          newRows.push(...sortedChildren);
+        });
+
+        return newRows;
+      };
+
+      return [
+        ...sortRows(retMetrics),
+        ...sortRows(retSecondary),
+        ...sortRows(retGuardrails),
+      ];
+    }
+
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
@@ -444,6 +503,11 @@ const CompactResults: FC<{
     getFactMetricLevels,
     shouldShowMetricSlices,
     customMetricSlices,
+    sortBy,
+    sortDirection,
+    analysisBarSettings?.variationFilter,
+    metricDefaults,
+    variationFilter,
   ]);
 
   const getChildRowCounts = (metricId: string) => {
@@ -562,6 +626,10 @@ const CompactResults: FC<{
           ssrPolyfills={ssrPolyfills}
           disableTimeSeriesButton={disableTimeSeriesButton}
           isHoldout={experimentType === "holdout"}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
         />
       ) : null}
 
@@ -613,6 +681,10 @@ const CompactResults: FC<{
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
           />
         </div>
       ) : null}
@@ -665,6 +737,10 @@ const CompactResults: FC<{
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
           />
         </div>
       ) : (
