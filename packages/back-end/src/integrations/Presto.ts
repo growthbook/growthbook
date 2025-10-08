@@ -92,7 +92,9 @@ export default class Presto extends SqlIntegration {
         success: () => {
           resolve({
             rows,
-            columns: cols,
+            columns: cols.map((col) => ({
+              name: col,
+            })),
             statistics,
           });
         },
