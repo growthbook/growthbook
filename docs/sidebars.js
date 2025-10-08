@@ -733,6 +733,11 @@ const sidebars = {
       items: [
         {
           type: "doc",
+          id: "guide/migrate-from-statsig",
+          label: "Migrate from Statsig",
+        },
+        {
+          type: "doc",
           id: "guide/sanity",
           label: "Sanity",
         },

@@ -1,6 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
-import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
+import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -53,7 +53,7 @@ const refreshFactTableColumns = async (job: RefreshFactTableColumnsJob) => {
     updates.columnsError = e.message;
   }
 
-  await updateFactTableColumns(factTable, updates);
+  await updateFactTableColumns(factTable, updates, context);
 };
 
 export async function runColumnTopValuesQuery(
@@ -78,33 +78,33 @@ export async function runColumnTopValuesQuery(
   const sql = integration.getColumnTopValuesQuery({
     factTable,
     column,
-    limit: Math.max(100, MAX_METRIC_DIMENSION_LEVELS),
+    limit: Math.max(100, MAX_METRIC_SLICE_LEVELS),
   });
   const result = await integration.runColumnTopValuesQuery(sql);
 
   return result.rows.map((r) => r.value);
 }
 
-export function populateDimensionLevels(
+export function populateAutoSlices(
   col: ColumnInterface,
   topValues: string[],
 ): string[] {
-  // Use existing dimensionLevels if they exist, otherwise use topValues up to the max
-  if (col.dimensionLevels && col.dimensionLevels.length > 0) {
-    return col.dimensionLevels;
+  // Use existing autoSlices if they exist, otherwise use topValues up to the max
+  if (col.autoSlices && col.autoSlices.length > 0) {
+    return col.autoSlices;
   }
 
-  // If no dimensionLevels set, use topValues up to the max
-  const maxValues = MAX_METRIC_DIMENSION_LEVELS;
-  const dimensionLevels: string[] = [];
+  // If no autoSlices set, use topValues up to the max
+  const maxValues = MAX_METRIC_SLICE_LEVELS;
+  const autoSlices: string[] = [];
   for (const value of topValues) {
-    if (dimensionLevels.length >= maxValues) break;
-    if (!dimensionLevels.includes(value)) {
-      dimensionLevels.push(value);
+    if (autoSlices.length >= maxValues) break;
+    if (!autoSlices.includes(value)) {
+      autoSlices.push(value);
     }
   }
 
-  return dimensionLevels;
+  return autoSlices;
 }
 
 export async function runRefreshColumnsQuery(
@@ -138,7 +138,37 @@ export async function runRefreshColumnsQuery(
 
   const typeMap = new Map<string, FactTableColumnType>();
   const jsonMap = new Map<string, JSONColumnFields>();
-  determineColumnTypes(result.results).forEach((col) => {
+
+  result.columns?.forEach((col) => {
+    // If the underlying SQL engine returned the datatype, use it
+    if (col.dataType !== undefined) {
+      // For JSON, only return if we have the field information, otherwise skip
+      // so we can infer from the returned data
+      if (
+        col.dataType === "json" &&
+        col.fields !== undefined &&
+        col.fields.length > 0
+      ) {
+        typeMap.set(col.name, "json");
+        jsonMap.set(
+          col.name,
+          col.fields.reduce(
+            (acc, field) => ({
+              ...acc,
+              [field.name]: {
+                datatype: field.dataType,
+              },
+            }),
+            {},
+          ),
+        );
+      } else if (col.dataType !== "json") {
+        typeMap.set(col.name, col.dataType);
+      }
+    }
+  });
+
+  determineColumnTypes(result.results, typeMap).forEach((col) => {
     typeMap.set(col.column, col.datatype);
     if (col.jsonFields) {
       jsonMap.set(col.column, col.jsonFields);
@@ -212,7 +242,7 @@ export async function runRefreshColumnsQuery(
     }
 
     if (
-      (col.alwaysInlineFilter || col.isDimension) &&
+      (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
       canInlineFilterColumn(factTable, col.column)
     ) {
       try {
@@ -226,8 +256,8 @@ export async function runRefreshColumnsQuery(
         col.topValues = topValues;
         col.topValuesDate = new Date();
 
-        if (col.isDimension) {
-          col.dimensionLevels = populateDimensionLevels(col, topValues);
+        if (col.isAutoSliceColumn) {
+          col.autoSlices = populateAutoSlices(col, topValues);
         }
       } catch (e) {
         logger.error(e, "Error running top values query", {
