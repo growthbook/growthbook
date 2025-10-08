@@ -349,17 +349,20 @@ from
   describe("determineColumns", () => {
     it("can determine columns and types from result", () => {
       expect(
-        determineColumnTypes([
-          {
-            num: 123,
-            str: "hello",
-            dateStr: "2023-01-01 00:00:00",
-            dateObj: new Date(),
-            bool: false,
-            other: ["testing"],
-            empty: null,
-          },
-        ]),
+        determineColumnTypes(
+          [
+            {
+              num: 123,
+              str: "hello",
+              dateStr: "2023-01-01 00:00:00",
+              dateObj: new Date(),
+              bool: false,
+              other: ["testing"],
+              empty: null,
+            },
+          ],
+          new Map(),
+        ),
       ).toEqual([
         { column: "num", datatype: "number" },
         { column: "str", datatype: "string" },
@@ -373,20 +376,23 @@ from
 
     it("can determine JSON field keys and values", () => {
       expect(
-        determineColumnTypes([
-          {
-            x: JSON.stringify({
-              a: 123,
-              b: "hello",
-              c: false,
-              d: null,
-              e: null,
-            }),
-          },
-          {
-            x: JSON.stringify({ d: 123, f: "foo" }),
-          },
-        ]),
+        determineColumnTypes(
+          [
+            {
+              x: JSON.stringify({
+                a: 123,
+                b: "hello",
+                c: false,
+                d: null,
+                e: null,
+              }),
+            },
+            {
+              x: JSON.stringify({ d: 123, f: "foo" }),
+            },
+          ],
+          new Map(),
+        ),
       ).toEqual([
         {
           column: "x",
@@ -404,27 +410,33 @@ from
 
     it("can skip over null values", () => {
       expect(
-        determineColumnTypes([
-          {
-            col: null,
-          },
-          {
-            col: 123,
-          },
-        ]),
+        determineColumnTypes(
+          [
+            {
+              col: null,
+            },
+            {
+              col: 123,
+            },
+          ],
+          new Map(),
+        ),
       ).toEqual([{ column: "col", datatype: "number" }]);
     });
 
     it("detects JSON objects in addition to strings", () => {
       expect(
-        determineColumnTypes([
-          {
-            x: { a: 123, b: "hello", c: false, d: null, e: null },
-          },
-          {
-            x: { d: 123, f: "foo" },
-          },
-        ]),
+        determineColumnTypes(
+          [
+            {
+              x: { a: 123, b: "hello", c: false, d: null, e: null },
+            },
+            {
+              x: { d: 123, f: "foo" },
+            },
+          ],
+          new Map(),
+        ),
       ).toEqual([
         {
           column: "x",
@@ -442,22 +454,54 @@ from
 
     it("detects Date objects as datatype date", () => {
       expect(
-        determineColumnTypes([
-          {
-            d: new Date(),
-          },
-        ]),
+        determineColumnTypes(
+          [
+            {
+              d: new Date(),
+            },
+          ],
+          new Map(),
+        ),
       ).toEqual([{ column: "d", datatype: "date" }]);
     });
 
     it("detects other non-plain objects as 'other'", () => {
       expect(
-        determineColumnTypes([
-          {
-            d: new Map(),
-          },
-        ]),
+        determineColumnTypes(
+          [
+            {
+              d: new Map(),
+            },
+          ],
+          new Map(),
+        ),
       ).toEqual([{ column: "d", datatype: "other" }]);
+    });
+
+    it("refines string type to json when values are JSON strings", () => {
+      expect(
+        determineColumnTypes(
+          [
+            {
+              payload: JSON.stringify({ a: 1, b: "x" }),
+            },
+            {
+              payload: JSON.stringify({ b: "y", c: false }),
+            },
+          ],
+          new Map([["payload", "string"]]),
+        ),
+      ).toEqual([
+        {
+          column: "payload",
+          datatype: "json",
+          jsonFields: {
+            a: { datatype: "number" },
+            b: { datatype: "string" },
+            c: { datatype: "boolean" },
+          },
+        },
+      ]);
     });
   });
 });
