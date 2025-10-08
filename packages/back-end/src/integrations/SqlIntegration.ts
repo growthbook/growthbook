@@ -985,6 +985,7 @@ export default abstract class SqlIntegration
                   percentile: metricData.metric.cappingSettings.value ?? 1,
                   ignoreZeros:
                     metricData.metric.cappingSettings.ignoreZeros ?? false,
+                  sourceIndex: metricData.numeratorSourceIndex,
                 },
                 ...(metricData.ratioMetric
                   ? [
@@ -996,6 +997,7 @@ export default abstract class SqlIntegration
                         ignoreZeros:
                           metricData.metric.cappingSettings.ignoreZeros ??
                           false,
+                        sourceIndex: metricData.denominatorSourceIndex,
                       },
                     ]
                   : []),
@@ -2563,28 +2565,28 @@ export default abstract class SqlIntegration
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: `m${numeratorAlias}.${alias}_value`,
       metric,
-      capTablePrefix: "cap",
+      capTablePrefix: `cap${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
     const capCoalesceDenominator = this.capCoalesceValue({
       valueCol: `m${denominatorAlias}.${alias}_denominator`,
       metric,
-      capTablePrefix: "cap",
+      capTablePrefix: `cap${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`,
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
     const capCoalesceCovariate = this.capCoalesceValue({
       valueCol: `c${numeratorAlias}.${alias}_value`,
       metric,
-      capTablePrefix: "cap",
+      capTablePrefix: `cap${numeratorSourceIndex === 0 ? "" : numeratorSourceIndex}`,
       capValueCol: `${alias}_value_cap`,
       columnRef: metric.numerator,
     });
     const capCoalesceDenominatorCovariate = this.capCoalesceValue({
       valueCol: `c${denominatorAlias}.${alias}_denominator`,
       metric,
-      capTablePrefix: "cap",
+      capTablePrefix: `cap${denominatorSourceIndex === 0 ? "" : denominatorSourceIndex}`,
       capValueCol: `${alias}_denominator_cap`,
       columnRef: metric.denominator,
     });
@@ -2930,6 +2932,7 @@ export default abstract class SqlIntegration
       outputCol: string;
       percentile: number;
       ignoreZeros: boolean;
+      sourceIndex: number;
     }[] = [];
     metricData
       .filter((m) => m.isPercentileCapped)
@@ -2939,6 +2942,7 @@ export default abstract class SqlIntegration
           outputCol: `${m.alias}_value_cap`,
           percentile: m.metric.cappingSettings.value ?? 1,
           ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+          sourceIndex: m.numeratorSourceIndex,
         });
         percentileTableIndices.add(m.numeratorSourceIndex);
         if (m.ratioMetric) {
@@ -2947,6 +2951,7 @@ export default abstract class SqlIntegration
             outputCol: `${m.alias}_denominator_cap`,
             percentile: m.metric.cappingSettings.value ?? 1,
             ignoreZeros: m.metric.cappingSettings.ignoreZeros ?? false,
+            sourceIndex: m.denominatorSourceIndex,
           });
           percentileTableIndices.add(m.denominatorSourceIndex);
         }
@@ -3180,7 +3185,10 @@ export default abstract class SqlIntegration
         percentileTableIndices.has(f.index)
           ? `
         , __capValue${f.index === 0 ? "" : f.index} AS (
-            ${this.percentileCapSelectClause(percentileData, `__userMetricAgg${f.index === 0 ? "" : f.index}`)}
+            ${this.percentileCapSelectClause(
+              percentileData.filter((p) => p.sourceIndex === f.index),
+              `__userMetricAgg${f.index === 0 ? "" : f.index}`,
+            )}
         )
         `
           : ""
@@ -3743,6 +3751,7 @@ export default abstract class SqlIntegration
                   outputCol: "value_cap",
                   percentile: metric.cappingSettings.value ?? 1,
                   ignoreZeros: metric.cappingSettings.ignoreZeros ?? false,
+                  sourceIndex: 0,
                 },
               ],
               "__userMetricAgg",
@@ -3803,6 +3812,7 @@ export default abstract class SqlIntegration
                       percentile: denominator.cappingSettings.value ?? 1,
                       ignoreZeros:
                         denominator.cappingSettings.ignoreZeros ?? false,
+                      sourceIndex: 0,
                     },
                   ],
                   "__userDenominatorAgg",
@@ -4615,6 +4625,7 @@ export default abstract class SqlIntegration
       outputCol: string;
       percentile: number;
       ignoreZeros: boolean;
+      sourceIndex: number;
     }[],
     metricTable: string,
     where: string = "",
