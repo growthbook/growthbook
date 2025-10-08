@@ -647,6 +647,9 @@ export function getSnapshotSettings({
     phase &&
     (!phase.banditEvents || phase.banditEvents.length === 0)
   ) {
+    logger.warn(
+      "JIT initializing banditEvents in memory (getSnapshotSettings)",
+    );
     const weights =
       phase.variationWeights || getEqualWeights(experiment.variations.length);
     const initialBanditEvent = {
@@ -990,6 +993,9 @@ export function resetExperimentBanditSettings({
       (experimentBanditEvents && experimentBanditEvents.length > 0);
 
     if (!hasValidBanditEvents) {
+      logger.warn(
+        "initializing missing banditEvents (resetExperimentBanditSettings)",
+      );
       const weights =
         changes.phases[phase].variationWeights ||
         experiment.phases[phase]?.variationWeights ||
