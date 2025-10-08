@@ -78,18 +78,28 @@ if (SENTRY_DSN) {
   });
 }
 
-const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
-const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
-// Rate limit API keys to 60 requests per minute
 router.use(
   rateLimit({
-    windowMs: 60 * 1000,
-    max: API_RATE_LIMIT_MAX,
+    windowMs: 60 * 1000, // 1 minute window
+    max: (req: Request & ApiRequestLocals) => {
+      return (
+        req.context.org.apiRateLimit ||
+        Number(process.env.API_RATE_LIMIT_MAX) ||
+        60
+      );
+    },
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request & ApiRequestLocals) => req.apiKey,
-    message: {
-      message: `Too many requests, limit to ${overallRateLimit} per minute`,
+    message: (req: Request & ApiRequestLocals) => {
+      const rateLimitForWarning = IS_CLOUD
+        ? 60
+        : req.context.org.apiRateLimit ||
+          Number(process.env.API_RATE_LIMIT_MAX) ||
+          60;
+      return {
+        message: `Too many requests, limit to ${rateLimitForWarning} per minute`,
+      };
     },
   }),
 );
