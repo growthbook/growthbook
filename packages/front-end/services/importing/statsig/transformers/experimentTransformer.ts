@@ -105,15 +105,8 @@ export function transformStatsigExperimentToGB(
       savedGroupIdMap,
     );
     phaseCondition = transformedCondition.condition || "";
-    phaseSavedGroups = transformedCondition.savedGroups.map((id) => ({
-      match: "all" as const,
-      ids: [id],
-    }));
-    phasePrerequisites =
-      transformedCondition.prerequisites?.map((id) => ({
-        id,
-        condition: JSON.stringify({ value: true }),
-      })) || [];
+    phaseSavedGroups = transformedCondition.savedGroups;
+    phasePrerequisites = transformedCondition.prerequisites || [];
   }
   const toGbStatusMap = {
     setup: "draft",
