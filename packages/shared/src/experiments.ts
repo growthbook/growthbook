@@ -69,10 +69,13 @@ export function canInlineFilterColumn(
   // If the column is one of the identifier columns, it is not eligible for prompting
   if (factTable.userIdTypes.includes(column)) return false;
 
-  if (
-    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
-    "string"
-  ) {
+  const dataType = getSelectedColumnDatatype({
+    factTable,
+    column,
+    excludeDeleted: true,
+  });
+
+  if (dataType !== "string" && dataType !== "boolean") {
     return false;
   }
 
@@ -106,14 +109,23 @@ export function getColumnExpression(
   return alias ? `${alias}.${column}` : column;
 }
 
-export function getColumnRefWhereClause(
-  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
-  columnRef: ColumnRef,
-  escapeStringLiteral: (s: string) => string,
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+export function getColumnRefWhereClause({
+  factTable,
+  columnRef,
+  escapeStringLiteral,
+  jsonExtract,
+  evalBoolean,
   showSourceComment = false,
-  sliceInfo?: SliceMetricInfo,
-): string[] {
+  sliceInfo,
+}: {
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  columnRef: ColumnRef;
+  escapeStringLiteral: (s: string) => string;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  evalBoolean: (col: string, value: boolean) => string;
+  showSourceComment?: boolean;
+  sliceInfo?: SliceMetricInfo;
+}): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
   const filterIds = columnRef.filters || [];
 
@@ -156,14 +168,31 @@ export function getColumnRefWhereClause(
 
   // Then add inline filters
   Object.entries(inlineFilters).forEach(([column, values]) => {
+    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
+
+    const columnType = factTable.columns?.find(
+      (c) => c.column === column,
+    )?.datatype;
+
+    // Special handling for boolean columns
+    if (columnType === "boolean") {
+      // This should never happen, but if it does, skip
+      if (values.length !== 1) return;
+      const v = values[0].toLowerCase();
+      // An empty value means do not filter
+      if (!v) return;
+      where.add(`(${evalBoolean(columnExpr, v === "true" || v === "1")})`);
+      return;
+    }
+
+    // TODO: Special handling for number columns
+
+    // Treat everything else as string
     const escapedValues = new Set(
       values
         .filter((v) => v.length > 0)
         .map((v) => "'" + escapeStringLiteral(v) + "'"),
     );
-
-    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
-
     if (!escapedValues.size) {
       return;
     } else if (escapedValues.size === 1) {
