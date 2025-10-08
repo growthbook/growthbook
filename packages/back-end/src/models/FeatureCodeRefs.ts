@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
-import { omit } from "lodash";
 import { FeatureCodeRefsInterface } from "back-end/types/code-refs";
+import {
+  ToInterface,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
 import { ApiCodeRef } from "back-end/types/openapi";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
@@ -41,10 +44,8 @@ const FeatureCodeRefsModel = mongoose.model<FeatureCodeRefsInterface>(
   featureCodeRefsSchema,
 );
 
-function toInterface(doc: FeatureCodeRefsDocument): FeatureCodeRefsInterface {
-  const ret = doc.toJSON<FeatureCodeRefsDocument>();
-  return omit(ret, ["__v", "_id"]);
-}
+const toInterface: ToInterface<FeatureCodeRefsInterface> = (doc) =>
+  removeMongooseFields(doc);
 
 export function toApiInterface(doc: FeatureCodeRefsDocument): ApiCodeRef {
   return {
