@@ -147,6 +147,7 @@ export default function SingleDashboardPage() {
           deleteBlock={() => {}}
           mutate={mutate}
           nextUpdate={dashboard.nextUpdate}
+          dashboardLastUpdated={dashboard.lastUpdated}
           setIsEditing={setIsEditing}
           canShare={hasCommercialFeature("dashboards")}
         />

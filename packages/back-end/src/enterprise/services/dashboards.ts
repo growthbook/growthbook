@@ -206,6 +206,7 @@ export async function updateNonExperimentDashboard(
     nextUpdate:
       determineNextDate(context.org.settings?.updateSchedule || null) ??
       undefined,
+    lastUpdated: new Date(),
   });
 }
 

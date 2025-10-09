@@ -138,6 +138,7 @@ interface Props {
   isEditing: boolean;
   enableAutoUpdates: boolean;
   nextUpdate: Date | undefined;
+  dashboardLastUpdated?: Date;
   editSidebarDirty: boolean;
   focusedBlockIndex: number | undefined;
   stagedBlockIndex: number | undefined;
@@ -165,6 +166,7 @@ function DashboardEditor({
   isEditing,
   enableAutoUpdates,
   nextUpdate,
+  dashboardLastUpdated,
   editSidebarDirty,
   focusedBlockIndex,
   stagedBlockIndex,
@@ -281,7 +283,7 @@ function DashboardEditor({
   return (
     <div>
       <Flex
-        align="end"
+        align="center"
         height={DASHBOARD_TOPBAR_HEIGHT}
         className="mb-3"
         gap="1"
@@ -308,6 +310,7 @@ function DashboardEditor({
         <DashboardUpdateDisplay
           enableAutoUpdates={enableAutoUpdates}
           nextUpdate={nextUpdate}
+          dashboardLastUpdated={dashboardLastUpdated}
           disabled={editSidebarDirty}
           isEditing={isEditing}
         />
