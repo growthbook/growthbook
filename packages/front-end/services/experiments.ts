@@ -278,6 +278,11 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
+    // Skip metric slice rows that are hidden (not expanded or pinned)
+    if (row.isSliceRow && row.isHiddenByFilter) {
+      return;
+    }
+
     const baseline = row.variations[variations[0].index];
     if (!baseline) return;
     variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
