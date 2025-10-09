@@ -245,7 +245,10 @@ function getJSONFields(testValues: unknown[]): JSONColumnFields {
   return fields;
 }
 
-export function determineColumnTypes(rows: Record<string, unknown>[]): {
+export function determineColumnTypes(
+  rows: Record<string, unknown>[],
+  typeMap: Map<string, FactTableColumnType>,
+): {
   column: string;
   datatype: FactTableColumnType;
   jsonFields?: JSONColumnFields;
@@ -258,13 +261,24 @@ export function determineColumnTypes(rows: Record<string, unknown>[]): {
     datatype: FactTableColumnType;
     jsonFields?: JSONColumnFields;
   }[] = [];
+
   cols.forEach((col) => {
     const testValues = rows
       .map((row) => row[col])
       .filter((val) => val !== null && val !== undefined);
     const testValue = testValues[0];
 
-    if (typeof testValue === "string" && isJSON(testValue)) {
+    const colType = typeMap.get(col);
+    const shouldAttemptInference =
+      colType === undefined ||
+      colType === "" ||
+      (colType === "string" &&
+        typeof testValue === "string" &&
+        isJSON(testValue));
+
+    if (!shouldAttemptInference) {
+      return;
+    } else if (typeof testValue === "string" && isJSON(testValue)) {
       // Use all test values to determine JSON fields
       columns.push({
         column: col,

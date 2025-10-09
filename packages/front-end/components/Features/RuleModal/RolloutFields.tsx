@@ -16,7 +16,7 @@ import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTarget
 
 export default function RolloutFields({
   feature,
-  environment,
+  environments,
   defaultValues,
   version,
   revisions,
@@ -28,7 +28,7 @@ export default function RolloutFields({
   setScheduleToggleEnabled,
 }: {
   feature: FeatureInterface;
-  environment: string;
+  environments: string[];
   defaultValues: FeatureRule | NewExperimentRefRule;
   version: number;
   revisions?: FeatureRevisionInterface[];
@@ -149,7 +149,7 @@ export default function RolloutFields({
           feature={feature}
           revisions={revisions}
           version={version}
-          environments={[environment]}
+          environments={environments}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
         />
         {isCyclic && (
