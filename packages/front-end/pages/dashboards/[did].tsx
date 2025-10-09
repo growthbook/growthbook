@@ -116,6 +116,9 @@ export default function SingleDashboardPage() {
       >
         <DashboardEditor
           isTabActive
+          id={dashboard.id}
+          editLevel={dashboard.editLevel}
+          dashboardOwnerId={dashboard.userId}
           isGeneralDashboard={true}
           isEditing={false}
           title={dashboard.title}
@@ -140,6 +143,7 @@ export default function SingleDashboardPage() {
               },
             });
           }}
+          projects={dashboard.projects ? dashboard.projects : []}
           moveBlock={() => {}}
           addBlockType={() => {}}
           editBlock={() => {}}
@@ -149,7 +153,6 @@ export default function SingleDashboardPage() {
           nextUpdate={dashboard.nextUpdate}
           dashboardLastUpdated={dashboard.lastUpdated}
           setIsEditing={setIsEditing}
-          canShare={hasCommercialFeature("dashboards")}
         />
       </DashboardSnapshotProvider>
     </div>

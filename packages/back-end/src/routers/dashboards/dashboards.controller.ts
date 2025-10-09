@@ -32,6 +32,7 @@ import {
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
+import { ExperimentInterface } from "back-end/types/experiment";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -89,22 +90,29 @@ export async function createDashboard(
   res: ResponseWithStatusAndError<SingleDashboardResponse>,
 ) {
   const context = getContextFromReq(req);
-  if (!context.hasPremiumFeature("dashboards")) {
-    throw new Error("Must have a commercial License Key to create Dashboards");
-  }
 
   const { experimentId, editLevel, enableAutoUpdates, title, blocks } =
     req.body;
 
+  // Quick permission check before we create the blocks
   if (experimentId) {
-    // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
+    // Experiment dashboards require the dashboards feature
+    if (!context.hasPremiumFeature("dashboards")) {
+      context.permissions.throwPermissionError();
+    }
     const experiment = await getExperimentById(context, experimentId);
     if (!experiment) throw new Error("Cannot find experiment");
     if (!context.permissions.canCreateReport(experiment)) {
       context.permissions.throwPermissionError();
     }
   } else {
-    //MKTODO: Do generic permission check here?
+    // General dashboards require the product-analytics-dashboards feature
+    if (!context.hasPremiumFeature("product-analytics-dashboards")) {
+      context.permissions.throwPermissionError();
+    }
+    if (!context.permissions.canCreateGeneralDashboards(req.body)) {
+      context.permissions.throwPermissionError();
+    }
   }
   const createdBlocks = await Promise.all(
     blocks.map((blockData) => createDashboardBlock(context.org.id, blockData)),
@@ -133,31 +141,37 @@ export async function updateDashboard(
   res: ResponseWithStatusAndError<SingleDashboardResponse>,
 ) {
   const context = getContextFromReq(req);
-  if (!context.hasPremiumFeature("dashboards")) {
-    throw new Error("Must have a commercial License Key to manage Dashboards");
-  }
 
   const { id } = req.params;
   const updates = { ...req.body };
   const dashboard = await context.models.dashboards.getById(id);
   if (!dashboard) throw new Error("Cannot find dashboard");
 
+  let experiment: ExperimentInterface | null = null;
+
   if (dashboard.experimentId) {
-    const experiment = await getExperimentById(context, dashboard.experimentId);
+    experiment = await getExperimentById(context, dashboard.experimentId);
     if (!experiment) throw new Error("Cannot find connected experiment");
   }
 
+  // Permission check before we update the blocks
+  //MKTODO: Revisit this logic
   if (updates.blocks) {
     // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
     const isOwner = context.userId === dashboard.userId || !dashboard.userId;
     const isAdmin = context.permissions.canSuperDeleteReport();
-    const canEdit = true;
-    //MKTODO: Fix this permission check
-    // const canEdit =
-    //   isOwner ||
-    //   isAdmin ||
-    //   (dashboard.editLevel === "organization" &&
-    //     context.permissions.canUpdateReport(experiment));
+    let canEdit = isOwner || isAdmin;
+
+    if (!canEdit) {
+      if (experiment) {
+        canEdit =
+          dashboard.editLevel === "organization" &&
+          context.permissions.canUpdateReport(experiment);
+      } else {
+        context.permissions.canUpdateGeneralDashboards(dashboard, updates);
+      }
+    }
+
     const canManage = isOwner || isAdmin;
 
     if (!canEdit) context.permissions.throwPermissionError();

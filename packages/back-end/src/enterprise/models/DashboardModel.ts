@@ -96,8 +96,37 @@ export class DashboardModel extends BaseClass {
   }
 
   protected canCreate(doc: DashboardInterface): boolean {
-    if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error("Must have a commercial License Key to use Dashboards");
+    if (doc.experimentId) {
+      if (!this.context.hasPremiumFeature("dashboards")) {
+        throw new Error("Your plan does not support creating dashboards.");
+      }
+      const { experiment } = this.getForeignRefs(doc);
+      if (!experiment) {
+        throw new Error("Experiment not found.");
+      }
+      if (!this.context.permissions.canCreateReport(experiment)) {
+        this.context.permissions.throwPermissionError();
+      }
+    } else {
+      if (doc.editLevel === "private") {
+        if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
+          throw new Error(
+            "Your plan does not support creating private dashboards.",
+          );
+        }
+      } else {
+        if (
+          !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+        ) {
+          throw new Error(
+            "Your plan does not support creating shared dashboards.",
+          );
+        }
+      }
+      if (!this.context.permissions.canCreateGeneralDashboards(doc)) {
+        this.context.permissions.throwPermissionError();
+      }
+    }
     const { experiment } = this.getForeignRefs(doc);
     if (!experiment) return true;
     return this.context.permissions.canCreateReport(experiment);
@@ -111,8 +140,34 @@ export class DashboardModel extends BaseClass {
     existing: DashboardInterface,
     updates: UpdateProps<DashboardInterface>,
   ): boolean {
-    if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error("Must have a commercial License Key to use Dashboards");
+    //MKTODO: Revisit this logic
+    if (existing.experimentId) {
+      if (!this.context.hasPremiumFeature("dashboards")) {
+        throw new Error("Your plan does not support updating dashboards.");
+      }
+    } else {
+      if (
+        !this.context.permissions.canUpdateGeneralDashboards(existing, updates)
+      ) {
+        this.context.permissions.throwPermissionError();
+      }
+      if (existing.editLevel === "private" || updates.editLevel === "private") {
+        if (
+          !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+        ) {
+          throw new Error(
+            "Your plan does not support updating private dashboards.",
+          );
+        }
+
+        // Private dashboards can only be edited by the owner
+        if (existing.userId !== this.context.userId) {
+          throw new Error(
+            "You are not authorized to edit this dashboard. This dashboard is private, and you are not the owner.",
+          );
+        }
+      }
+    }
 
     const isOwner = this.context.userId === existing.userId;
     const isAdmin = this.context.permissions.canSuperDeleteReport();
@@ -135,9 +190,7 @@ export class DashboardModel extends BaseClass {
   }
 
   protected canDelete(doc: DashboardInterface): boolean {
-    if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error("Must have a commercial License Key to use Dashboards");
-
+    //MKTODO: Revisit this logic
     const isOwner = this.context.userId === doc.userId;
     const isAdmin = this.context.permissions.canSuperDeleteReport();
     if (!isOwner && !isAdmin) return false;

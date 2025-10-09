@@ -25,3 +25,5 @@ export const dashboardInterface = z
   .strict();
 
 export type DashboardInterface = z.infer<typeof dashboardInterface>;
+
+export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;

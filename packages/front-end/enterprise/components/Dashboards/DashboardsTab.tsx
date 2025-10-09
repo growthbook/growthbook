@@ -567,8 +567,18 @@ function DashboardsTab({
                     ) : (
                       <DashboardEditor
                         isTabActive={isTabActive}
+                        id={dashboard.id}
                         title={dashboard.title}
+                        editLevel={dashboard.editLevel}
+                        dashboardOwnerId={dashboard.userId}
                         blocks={blocks}
+                        projects={
+                          dashboard.projects
+                            ? dashboard.projects
+                            : experiment.project
+                              ? [experiment.project]
+                              : []
+                        }
                         isEditing={false}
                         scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
@@ -600,6 +610,9 @@ function DashboardsTab({
                         focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
                         switchToExperimentView={switchToExperimentView}
+                        isGeneralDashboard={
+                          !dashboard.experimentId ? true : false
+                        }
                       />
                     )}
                   </>

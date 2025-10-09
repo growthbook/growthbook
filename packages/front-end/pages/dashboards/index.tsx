@@ -30,23 +30,22 @@ import EmptyState from "@/components/EmptyState";
 import ProjectBadges from "@/components/ProjectBadges";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useUser } from "@/services/UserContext";
-import EditDashboardNameModal from "@/enterprise/components/Dashboards/DashboardEditor/EditDashboardNameModal";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
-  const { getUserDisplay } = useUser();
+  const { getUserDisplay, hasCommercialFeature, userId } = useUser();
   const { project } = useDefinitions();
   const { apiCall } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editDashboard, setEditDashboard] = useState<
-    DashboardInterface | undefined
-  >(undefined);
   const [dashboardId, setDashboardId] = useState("");
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
@@ -59,11 +58,22 @@ export default function DashboardsPage() {
     defaultSortDir: -1,
     searchFields: ["title"],
   });
-  const canCreate = permissionsUtil.canCreateGeneralDashboards({
-    projects: [project],
-  });
+
+  // We prevent orgs without the feature from viewing dashboards
+  const canViewDashboards = hasCommercialFeature(
+    "product-analytics-dashboards",
+  );
+
+  const canCreate =
+    permissionsUtil.canCreateGeneralDashboards({
+      projects: [project],
+    }) && hasCommercialFeature("product-analytics-dashboards");
 
   const dashboard = dashboards.find((d) => d.id === dashboardId);
+
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 1500,
+  });
 
   useEffect(() => {
     if (dashboard) {
@@ -126,20 +136,10 @@ export default function DashboardsPage() {
           isTabActive={true} // MK: This doesn't really make sense for general dashboards
         />
       )}
-      {editDashboard && (
-        <EditDashboardNameModal
-          trackingEventModalType="edit-dashboard-name"
-          trackingEventModalSource="dashboards-index-page-table"
-          dashboard={editDashboard}
-          close={() => {
-            setEditDashboard(undefined);
-            mutateDashboards();
-          }}
-        />
-      )}
       {showCreateModal && (
         <DashboardModal
           mode="create"
+          type="general"
           close={() => setShowCreateModal(false)}
           submit={async (data) => {
             await submitDashboard({ method: "POST", data });
@@ -161,16 +161,24 @@ export default function DashboardsPage() {
         </Flex>
         {!dashboards.length ? (
           <div className="mt-4">
-            <EmptyState
-              title="Explore & Share Custom Analyses"
-              description="Create curated dashboards to visualize key metrics and track performance."
-              leftButton={
-                <Button onClick={() => setShowCreateModal(true)}>
-                  Create Dashboard
-                </Button>
-              }
-              rightButton={null}
-            />
+            {!hasCommercialFeature("product-analytics-dashboards") ? (
+              <PremiumEmptyState
+                title="Explore & Share Custom Analyses"
+                description="Create curated dashboards to visualize key metrics and track performance."
+                commercialFeature="dashboards"
+              />
+            ) : (
+              <EmptyState
+                title="Explore & Share Custom Analyses"
+                description="Create curated dashboards to visualize key metrics and track performance."
+                leftButton={
+                  <Button onClick={() => setShowCreateModal(true)}>
+                    Create Dashboard
+                  </Button>
+                }
+                rightButton={null}
+              />
+            )}
           </div>
         ) : (
           <>
@@ -206,6 +214,7 @@ export default function DashboardsPage() {
                           <SortableTH field={"title"}>
                             Dashboard Name
                           </SortableTH>
+                          <th>Visibility</th>
                           <th>Projects</th>
                           <th>Owner</th>
                           <SortableTH field={"dateUpdated"}>
@@ -217,20 +226,43 @@ export default function DashboardsPage() {
                       <tbody>
                         {items.map((d) => {
                           const ownerName = getUserDisplay(d.userId);
-                          const canEdit =
+                          let canEdit =
                             permissionsUtil.canUpdateGeneralDashboards(d, {});
-                          const canDelete =
+                          let canDelete =
                             permissionsUtil.canDeleteGeneralDashboards(d);
+                          const canDuplicate =
+                            permissionsUtil.canCreateGeneralDashboards(d);
+
+                          // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
+                          if (
+                            d.editLevel === "private" &&
+                            d.userId !== userId
+                          ) {
+                            canEdit = false;
+                            canDelete = false;
+                          }
+
                           return (
                             <tr key={d.id}>
                               <td>
-                                <Link
-                                  className="text-color-primary"
-                                  key={d.id}
-                                  href={`/dashboards/${d.id}`}
-                                >
-                                  {d.title}
-                                </Link>
+                                {canViewDashboards ? (
+                                  <Link
+                                    className="text-color-primary"
+                                    key={d.id}
+                                    href={`/dashboards/${d.id}`}
+                                  >
+                                    {d.title}
+                                  </Link>
+                                ) : (
+                                  <Tooltip body="Your plan does not support viewing/editing Product Analytics Dashboards.">
+                                    <Text>{d.title}</Text>
+                                  </Tooltip>
+                                )}
+                              </td>
+                              <td>
+                                {d.editLevel === "organization"
+                                  ? "Public"
+                                  : "Private"}
                               </td>
                               <td>
                                 {d && (d.projects || []).length > 0 ? (
@@ -258,39 +290,94 @@ export default function DashboardsPage() {
                               </td>
                               <td>{ago(d.dateUpdated)}</td>
                               <td style={{ width: 30 }}>
-                                <DropdownMenu
-                                  trigger={
-                                    <IconButton
-                                      variant="ghost"
-                                      color="gray"
-                                      radius="full"
-                                      size="3"
-                                      highContrast
-                                    >
-                                      <BsThreeDotsVertical />
-                                    </IconButton>
-                                  }
-                                >
-                                  {canEdit ? (
-                                    <>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          setDashboardId(d.id);
-                                          setIsEditing(true);
-                                        }}
+                                {canViewDashboards ? (
+                                  <DropdownMenu
+                                    trigger={
+                                      <IconButton
+                                        variant="ghost"
+                                        color="gray"
+                                        radius="full"
+                                        size="3"
+                                        highContrast
                                       >
-                                        Edit
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => setEditDashboard(d)}
-                                      >
-                                        Rename dashboard
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                    </>
-                                  ) : null}
-                                  {canDelete ? (
+                                        <BsThreeDotsVertical />
+                                      </IconButton>
+                                    }
+                                  >
                                     <DropdownMenuItem
+                                      disabled={!canEdit}
+                                      onClick={() => {
+                                        setDashboardId(d.id);
+                                        setIsEditing(true);
+                                      }}
+                                    >
+                                      Edit
+                                    </DropdownMenuItem>
+                                    {/* MKTODO: Should we leverage the DashboardModal here? */}
+                                    <DropdownMenuItem
+                                      disabled={!canDuplicate}
+                                      onClick={async () => {
+                                        // Clean blocks by removing system-generated properties
+                                        const cleanBlocks = d.blocks.map(
+                                          (block) => {
+                                            const {
+                                              organization: _organization,
+                                              id: _id,
+                                              uid: _uid,
+                                              ...cleanBlock
+                                            } = block;
+                                            return cleanBlock;
+                                          },
+                                        );
+
+                                        await submitDashboard({
+                                          method: "POST",
+                                          data: {
+                                            title: `${d.title} (Copy)`,
+                                            // If the dashboard is public, and the org doesn't have the shareable-product-analytics-dashboards feature anymore,
+                                            // set the edit level to private
+                                            editLevel:
+                                              d.editLevel === "organization" &&
+                                              !hasCommercialFeature(
+                                                "share-product-analytics-dashboards",
+                                              )
+                                                ? "private"
+                                                : d.editLevel,
+                                            enableAutoUpdates:
+                                              d.enableAutoUpdates,
+                                            blocks: cleanBlocks,
+                                          },
+                                        });
+                                      }}
+                                    >
+                                      Duplicate
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        const url =
+                                          window.location.href.replace(
+                                            /[?#].*/,
+                                            `#dashboards/${dashboardId}`,
+                                          );
+                                        performCopy(url);
+                                      }}
+                                    >
+                                      <Tooltip
+                                        state={copySuccess}
+                                        ignoreMouseEvents
+                                        delay={0}
+                                        tipPosition="left"
+                                        body="URL copied to clipboard"
+                                        innerClassName="px-2 py-1"
+                                      >
+                                        Copy link
+                                      </Tooltip>
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      disabled={!canDelete}
                                       color="red"
                                       onClick={async () => {
                                         await apiCall(`/dashboards/${d.id}`, {
@@ -301,8 +388,8 @@ export default function DashboardsPage() {
                                     >
                                       Delete
                                     </DropdownMenuItem>
-                                  ) : null}
-                                </DropdownMenu>
+                                  </DropdownMenu>
+                                ) : null}
                               </td>
                             </tr>
                           );

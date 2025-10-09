@@ -326,6 +326,16 @@ export default function DashboardWorkspace({
         <div style={{ flexGrow: 1, minWidth: 0 }}>
           <DashboardEditor
             isTabActive={isTabActive}
+            id={dashboard.id}
+            editLevel={dashboard.editLevel}
+            dashboardOwnerId={dashboard.userId}
+            projects={
+              dashboard.projects
+                ? dashboard.projects
+                : experiment?.project
+                  ? [experiment.project]
+                  : []
+            }
             title={dashboard.title}
             blocks={effectiveBlocks}
             isEditing={true}

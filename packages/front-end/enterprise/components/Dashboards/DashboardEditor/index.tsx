@@ -19,6 +19,11 @@ import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/react";
 import { isPersistedDashboardBlock } from "shared/enterprise";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import {
+  DashboardEditLevel,
+  DashboardInterface,
+} from "back-end/src/enterprise/validators/dashboard";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
@@ -27,6 +32,12 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Callout from "@/ui/Callout";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useUser } from "@/services/UserContext";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import DashboardModal from "../DashboardModal";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
 
@@ -78,16 +89,37 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
   ["Other", ["markdown", "sql-explorer", "metric-explorer"]],
 ];
 
+// Block types that are allowed in general dashboards (non-experiment specific)
+const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
+  "markdown",
+  "sql-explorer",
+  "metric-explorer",
+];
+
+// Helper function to check if a block type is allowed for the given dashboard type
+const isBlockTypeAllowed = (
+  blockType: DashboardBlockType,
+  isGeneralDashboard: boolean,
+): boolean => {
+  if (isGeneralDashboard) {
+    return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
+  } else {
+    return true; // All block types are allowed for experiment dashboards
+  }
+};
+
 function AddBlockDropdown({
   trigger,
   addBlockType,
   onDropdownOpen,
   onDropdownClose,
+  isGeneralDashboard = false,
 }: {
   trigger: React.ReactNode;
   addBlockType: (bType: DashboardBlockType) => void;
   onDropdownOpen?: () => void;
   onDropdownClose?: () => void;
+  isGeneralDashboard?: boolean;
 }) {
   const [dropdownOpen, setDropdownOpen] = useState<boolean>(false);
   useEffect(() => {
@@ -108,25 +140,39 @@ function AddBlockDropdown({
       }}
       trigger={trigger}
     >
-      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => (
-        <Fragment key={`${subgroup}-${i}`}>
-          <DropdownMenuLabel className="font-weight-bold">
-            <Text style={{ color: "var(--color-text-high)" }}>{subgroup}</Text>
-          </DropdownMenuLabel>
-          {blockTypes.map((bType) => (
-            <DropdownMenuItem
-              key={bType}
-              onClick={() => {
-                setDropdownOpen(false);
-                addBlockType(bType);
-              }}
-            >
-              {BLOCK_TYPE_INFO[bType].name}
-            </DropdownMenuItem>
-          ))}
-          {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
-        </Fragment>
-      ))}
+      {BLOCK_SUBGROUPS.map(([subgroup, blockTypes], i) => {
+        // Filter block types based on dashboard type
+        const allowedBlockTypes = blockTypes.filter((bType) =>
+          isBlockTypeAllowed(bType, isGeneralDashboard),
+        );
+
+        // Don't render the subgroup if no block types are allowed
+        if (allowedBlockTypes.length === 0) {
+          return null;
+        }
+
+        return (
+          <Fragment key={`${subgroup}-${i}`}>
+            <DropdownMenuLabel className="font-weight-bold">
+              <Text style={{ color: "var(--color-text-high)" }}>
+                {subgroup}
+              </Text>
+            </DropdownMenuLabel>
+            {allowedBlockTypes.map((bType) => (
+              <DropdownMenuItem
+                key={bType}
+                onClick={() => {
+                  setDropdownOpen(false);
+                  addBlockType(bType);
+                }}
+              >
+                {BLOCK_TYPE_INFO[bType].name}
+              </DropdownMenuItem>
+            ))}
+            {i < BLOCK_SUBGROUPS.length - 1 && <DropdownMenuSeparator />}
+          </Fragment>
+        );
+      })}
     </DropdownMenu>
   );
 }
@@ -135,8 +181,12 @@ interface Props {
   isTabActive: boolean;
   title: string;
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+  id: string;
   isEditing: boolean;
+  projects: string[];
   enableAutoUpdates: boolean;
+  editLevel: DashboardEditLevel;
+  dashboardOwnerId: string;
   nextUpdate: Date | undefined;
   dashboardLastUpdated?: Date;
   editSidebarDirty: boolean;
@@ -156,7 +206,6 @@ interface Props {
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
   setIsEditing?: (v: boolean) => void;
-  canShare?: boolean;
 }
 
 function DashboardEditor({
@@ -165,8 +214,12 @@ function DashboardEditor({
   blocks,
   isEditing,
   enableAutoUpdates,
+  editLevel,
+  id,
+  dashboardOwnerId,
   nextUpdate,
   dashboardLastUpdated,
+  projects,
   editSidebarDirty,
   focusedBlockIndex,
   stagedBlockIndex,
@@ -181,8 +234,71 @@ function DashboardEditor({
   switchToExperimentView,
   isGeneralDashboard = false,
   setIsEditing,
-  canShare = false,
 }: Props) {
+  const [editDashboard, setEditDashboard] = useState(false);
+  const { apiCall } = useAuth();
+  const { userId, hasCommercialFeature } = useUser();
+  const permissionsUtil = usePermissionsUtil();
+  let canEdit = permissionsUtil.canUpdateGeneralDashboards(
+    { projects: projects || [] },
+    {},
+  );
+  let canDelete = permissionsUtil.canDeleteGeneralDashboards({
+    projects: projects || [],
+  });
+  if (editLevel === "private" && dashboardOwnerId !== userId) {
+    canEdit = false;
+    canDelete = false;
+  }
+
+  const { performCopy, copySuccess } = useCopyToClipboard({
+    timeout: 1500,
+  });
+
+  const handleDuplicate = async () => {
+    // Clean blocks by removing system-generated properties
+    const cleanBlocks = blocks.map((block) => {
+      // Check if block has the system properties and remove them
+      if ("organization" in block || "id" in block || "uid" in block) {
+        const {
+          organization: _organization,
+          id: _id,
+          uid: _uid,
+          ...cleanBlock
+        } = block as Record<string, unknown>;
+        return cleanBlock;
+      }
+      return block;
+    });
+    const res = await apiCall<{
+      status: number;
+      dashboard: DashboardInterface;
+    }>(`/dashboards`, {
+      method: "POST",
+      body: JSON.stringify({
+        blocks: cleanBlocks,
+        title: `${title} (Copy)`,
+        editLevel:
+          editLevel === "organization" &&
+          !hasCommercialFeature("share-product-analytics-dashboards")
+            ? "private"
+            : editLevel,
+        enableAutoUpdates,
+        experimentId: "",
+        projects,
+      }),
+    });
+    if (res.status === 200) {
+      mutate();
+      // I think we should route the user to the new dashboard
+      if (typeof window !== "undefined") {
+        window.location.href = `/dashboards/${res.dashboard.id}`;
+      }
+    } else {
+      console.error(res);
+    }
+  };
+
   const renderSingleBlock = ({
     i,
     key,
@@ -272,6 +388,7 @@ function DashboardEditor({
                     addBlockType(bType, i + 1);
                   }
                 }}
+                isGeneralDashboard={isGeneralDashboard}
               />
             </Flex>
           )}
@@ -282,6 +399,24 @@ function DashboardEditor({
 
   return (
     <div>
+      {editDashboard && (
+        <DashboardModal
+          mode="edit"
+          initial={{
+            title: title,
+            editLevel: editLevel,
+            enableAutoUpdates: enableAutoUpdates,
+          }}
+          close={() => setEditDashboard(false)}
+          submit={async (data) => {
+            await apiCall(`/dashboards/${id}`, {
+              method: "PUT",
+              body: JSON.stringify(data),
+            });
+            mutate();
+          }}
+        />
+      )}
       <Flex
         align="center"
         height={DASHBOARD_TOPBAR_HEIGHT}
@@ -316,25 +451,76 @@ function DashboardEditor({
         />
         {isGeneralDashboard && setIsEditing && !isEditing ? (
           <>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {}}
-              disabled={!canShare}
-              className="mx-4"
+            <Tooltip
+              state={copySuccess}
+              ignoreMouseEvents
+              delay={0}
+              tipPosition="left"
+              body="URL copied to clipboard"
+              innerClassName="px-2 py-1"
             >
-              {/* //MKTODO: Wire this up and disable if the org doesn't have the
-          commercial feature */}
-              Share
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const url = window.location.href.replace(
+                    /[?#].*/,
+                    `#dashboards/${id}`,
+                  );
+                  performCopy(url);
+                }}
+              >
+                Copy link
+              </Button>
+            </Tooltip>
             <Button
               variant="solid"
               size="sm"
+              className="mx-4"
+              disabled={!canEdit}
               onClick={() => setIsEditing(true)}
             >
               <PiPencilSimpleFill className="mr-2" />
-              Edit
+              Edit Blocks
             </Button>
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                  highContrast
+                >
+                  <BsThreeDotsVertical />
+                </IconButton>
+              }
+            >
+              <DropdownMenuItem
+                disabled={!canEdit}
+                onClick={() => setEditDashboard(true)}
+              >
+                Edit Details
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDuplicate()}>
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={!canDelete}
+                onClick={async () => {
+                  await apiCall(`/dashboards/${id}`, {
+                    method: "DELETE",
+                  });
+                  if (typeof window !== "undefined") {
+                    window.location.href = "/dashboards";
+                  }
+                }}
+                color="red"
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenu>
           </>
         ) : null}
       </Flex>
@@ -359,6 +545,7 @@ function DashboardEditor({
               </Flex>
               <AddBlockDropdown
                 addBlockType={addBlockType}
+                isGeneralDashboard={isGeneralDashboard}
                 trigger={
                   <Button
                     size="sm"

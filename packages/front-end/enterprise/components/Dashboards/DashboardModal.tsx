@@ -37,7 +37,6 @@ export default function DashboardModal({
     hasCommercialFeature,
   } = useUser();
 
-  // For general dashboards, auto-updates don't make sense since there's no experiment to update from
   const isGeneralDashboard = type === "general";
 
   const refreshInterval = useMemo(() => {
@@ -105,7 +104,7 @@ export default function DashboardModal({
           placeholder="Dashboard name"
           {...form.register("title")}
         />
-        {refreshInterval && !isGeneralDashboard && (
+        {refreshInterval && (
           <Checkbox
             label="Auto-update dashboard data"
             description={`An automatic data refresh will occur ${refreshInterval}.`}
@@ -116,16 +115,22 @@ export default function DashboardModal({
           />
         )}
 
-        {/* //MKTODO: Make this a premium feature? */}
         <Checkbox
           label="Allow organization members to edit"
           description="Anyone with edit access to this Project can edit this dashboard."
-          disabled={!hasCommercialFeature("dashboards")}
+          disabled={
+            isGeneralDashboard
+              ? // General dashboards can only be shared if the org has the shareable dashboards feature
+                !hasCommercialFeature("share-product-analytics-dashboards")
+              : false
+          }
+          disabledMessage="Your plan does not support creating public dashboards."
           value={form.watch("editLevel") === "organization"}
           setValue={(checked) => {
             form.setValue("editLevel", checked ? "organization" : "private");
           }}
         />
+        {/* MKTODO: If we use this for the duplicate function, add block here if the existing dashboard is private and owned by someone else - explain what will happen */}
       </Flex>
     </Modal>
   );
