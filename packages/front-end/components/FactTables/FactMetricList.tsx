@@ -254,12 +254,18 @@ export default function FactMetricList({
                             (col) => col.column === slice,
                           );
                           const levels = column?.autoSlices;
-                          if (!levels?.length) return null;
+                          const hasNoLevels = !levels?.length;
 
                           return (
                             <span key={slice} style={{ whiteSpace: "nowrap" }}>
-                              <Tooltip body={levels.join(", ")}>
-                                <Text weight="medium" size="1">
+                              <Tooltip 
+                                body={
+                                  hasNoLevels
+                                    ? "No slice levels configured"
+                                    : levels.join(", ")
+                                }
+                              >
+                                <Text weight="medium" size="1" color={hasNoLevels ? "red" : undefined}>
                                   {column?.name || slice}
                                 </Text>
                               </Tooltip>
@@ -267,13 +273,7 @@ export default function FactMetricList({
                             </span>
                           );
                         })}
-                        {(!metric.metricAutoSlices?.length ||
-                          metric.metricAutoSlices.every((slice) => {
-                            const column = factTable.columns?.find(
-                              (col) => col.column === slice,
-                            );
-                            return !column?.autoSlices?.length;
-                          })) && (
+                        {!metric.metricAutoSlices?.length && (
                           <Text
                             as="span"
                             style={{
