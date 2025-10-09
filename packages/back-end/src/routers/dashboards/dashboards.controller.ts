@@ -15,15 +15,10 @@ import {
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { createDashboardBlock } from "back-end/src/enterprise/models/DashboardBlockModel";
-import {
-  DashboardBlockInterface,
-  MetricExplorerBlockInterface,
-  SqlExplorerBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
+import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import {
   deleteSnapshotById,
   findSnapshotsByIds,
@@ -33,7 +28,10 @@ import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
-import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
+import {
+  updateDashboardSavedQueries,
+  updateNonExperimentDashboard,
+} from "back-end/src/enterprise/services/dashboards";
 import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
@@ -219,8 +217,6 @@ export async function refreshDashboardData(
   const { id } = req.params;
   const dashboard = await context.models.dashboards.getById(id);
   if (!dashboard) throw new Error("Cannot find dashboard");
-  // Copy the blocks of the dashboard before updating their fields
-  const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
   if (dashboard.experimentId) {
     // MKTODO: Validate this change doesn't have any unintended consequences
     const experiment = await getExperimentById(context, dashboard.experimentId);
@@ -245,14 +241,11 @@ export async function refreshDashboardData(
 
     let mainSnapshotUsed = false;
     // Copy the blocks of the dashboard to overwrite their snapshot IDs
-    newBlocks.forEach((block) => {
-      if (
-        blockHasFieldOfType(block, "snapshotId", isString) &&
-        snapshotSatisfiesBlock(mainSnapshot, block)
-      ) {
-        mainSnapshotUsed = true;
-        block.snapshotId = mainSnapshot.id;
-      }
+    const newBlocks = dashboard.blocks.map((block) => {
+      if (!blockHasFieldOfType(block, "snapshotId", isString)) return block;
+      if (!snapshotSatisfiesBlock(mainSnapshot, block)) return { ...block };
+      mainSnapshotUsed = true;
+      return { ...block, snapshotId: mainSnapshot.id };
     });
     if (mainSnapshotUsed) {
       await queryRunner.startAnalysis({
@@ -306,64 +299,15 @@ export async function refreshDashboardData(
         }
       });
     }
-  }
 
-  const metricAnalyses = await context.models.metricAnalysis.getByIds([
-    ...new Set(
-      dashboard.blocks
-        .filter(
-          (block) =>
-            blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-            block.metricAnalysisId.length > 0,
-        )
-        .map((block: MetricExplorerBlockInterface) => block.metricAnalysisId),
-    ),
-  ]);
-  for (const metricAnalysis of metricAnalyses) {
-    // TODO: safety checks before refreshing
-    const metric = await context.models.factMetrics.getById(
-      metricAnalysis.metric,
-    );
-    if (metric) {
-      const queryRunner = await createMetricAnalysis(
-        context,
-        metric,
-        metricAnalysis.settings,
-        metricAnalysis.source ?? "metric",
-        false,
-      );
-      newBlocks.forEach((block) => {
-        if (
-          blockHasFieldOfType(block, "metricAnalysisId", isString) &&
-          block.metricAnalysisId === metricAnalysis.id
-        ) {
-          block.metricAnalysisId = queryRunner.model.id;
-        }
-      });
-    }
-  }
+    await updateDashboardSavedQueries(context, dashboard);
 
-  // Bypassing permissions here to allow anyone to refresh the results of a dashboard
-  await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
-    blocks: newBlocks,
-  });
-
-  const savedQueries = await context.models.savedQueries.getByIds([
-    ...new Set(
-      dashboard.blocks
-        .filter((block) => block.type === "sql-explorer" && block.savedQueryId)
-        .map((block: SqlExplorerBlockInterface) => block.savedQueryId!),
-    ),
-  ]);
-
-  for (const savedQuery of savedQueries) {
-    const datasource = await getDataSourceById(
-      context,
-      savedQuery.datasourceId,
-    );
-    if (datasource) {
-      executeAndSaveQuery(context, savedQuery, datasource);
-    }
+    // Bypassing permissions here to allow anyone to refresh the results of a dashboard
+    await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
+      blocks: newBlocks,
+    });
+  } else {
+    await updateNonExperimentDashboard(context, dashboard);
   }
 
   return res.status(200).json({ status: 200 });

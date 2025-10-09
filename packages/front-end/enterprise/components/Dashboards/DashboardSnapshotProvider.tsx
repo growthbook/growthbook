@@ -173,15 +173,15 @@ export default function DashboardSnapshotProvider({
   // Periodically check for the status of all snapshots
   useEffect(() => {
     const intervalId = setInterval(async () => {
-      if (status === "running") {
-        mutateAllSnapshots();
-      } else if (runningMetricAnalyses.length > 0) {
+      if (runningMetricAnalyses.length > 0) {
         // Refresh the query status of all analyses before mutating
         for (const m of runningMetricAnalyses) {
           await apiCall(`/metric-analysis/${m.id}/refreshStatus`, {
             method: "POST",
           });
         }
+      }
+      if (status === "running") {
         mutateAllSnapshots();
       } else {
         clearInterval(intervalId);
@@ -393,7 +393,9 @@ export function useDashboardMetricAnalysis(
   );
 
   const shouldFetchMetricAnalysis = () =>
-    blockHasMetricAnalysis && !metricAnalysisFromMap;
+    blockHasMetricAnalysis &&
+    block.metricAnalysisId.length > 0 &&
+    !metricAnalysisFromMap;
   const {
     data: existingMetricAnalysisData,
     error: existingMetricAnalysisError,
@@ -433,8 +435,8 @@ export function useDashboardMetricAnalysis(
       source: "metric",
     };
 
-    setPostError(undefined);
     setPostLoading(true);
+    setPostError(undefined);
     try {
       const response = await apiCall<{
         metricAnalysis: MetricAnalysisInterface;
@@ -452,15 +454,26 @@ export function useDashboardMetricAnalysis(
   }, [apiCall, block, blockHasMetricAnalysis, setBlock]);
 
   useEffect(() => {
-    if (!blockHasMetricAnalysis || postLoading) return;
-    // TODO: handle date stringification
-    if (isEqual(block.analysisSettings, metricAnalysis?.settings)) return;
-    // refreshAnalysis();
+    if (
+      !blockHasMetricAnalysis ||
+      postLoading ||
+      getMetricAnalysisLoading ||
+      ["queued", "running"].includes(metricAnalysis?.status ?? "")
+    )
+      return;
+    const settingsWithValidDates = {
+      ...block.analysisSettings,
+      startDate: getValidDate(block.analysisSettings.startDate),
+      endDate: getValidDate(block.analysisSettings.endDate),
+    };
+    if (isEqual(settingsWithValidDates, metricAnalysis?.settings)) return;
+    refreshAnalysis();
   }, [
     block,
     blockHasMetricAnalysis,
     metricAnalysis,
     postLoading,
+    getMetricAnalysisLoading,
     refreshAnalysis,
   ]);
 

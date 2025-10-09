@@ -17,6 +17,7 @@ export const dashboardInterface = z
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
+    nextUpdate: z.date().optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })

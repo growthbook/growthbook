@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
@@ -24,6 +24,16 @@ export default function SingleDashboardPage() {
   const [isEditing, setIsEditing] = useState(false);
   const { hasCommercialFeature } = useUser();
   const { apiCall } = useAuth();
+  const [blocks, setBlocks] = useState<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
+  >([]);
+  useEffect(() => {
+    if (dashboard) {
+      setBlocks(dashboard.blocks);
+    } else {
+      setBlocks([]);
+    }
+  }, [dashboard]);
 
   const submitDashboard = async ({
     method,
@@ -115,14 +125,28 @@ export default function SingleDashboardPage() {
           focusedBlockIndex={undefined}
           stagedBlockIndex={undefined}
           scrollAreaRef={null}
-          setBlock={() => {}}
+          setBlock={(i, block) => {
+            const newBlocks = [
+              ...blocks.slice(0, i),
+              block,
+              ...blocks.slice(i + 1),
+            ];
+            setBlocks(newBlocks);
+            submitDashboard({
+              method: "PUT",
+              dashboardId: dashboard.id,
+              data: {
+                blocks: newBlocks,
+              },
+            });
+          }}
           moveBlock={() => {}}
           addBlockType={() => {}}
           editBlock={() => {}}
           duplicateBlock={() => {}}
           deleteBlock={() => {}}
           mutate={mutate}
-          nextUpdate={undefined}
+          nextUpdate={dashboard.nextUpdate}
           setIsEditing={setIsEditing}
           canShare={hasCommercialFeature("dashboards")}
         />

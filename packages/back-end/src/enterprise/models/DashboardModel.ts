@@ -9,6 +9,7 @@ import {
   UpdateProps,
 } from "back-end/src/models/BaseModel";
 import {
+  getCollection,
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
@@ -56,6 +57,42 @@ export class DashboardModel extends BaseClass {
     additionalFilter: ScopedFilterQuery<typeof dashboardInterface> = {},
   ): Promise<DashboardInterface[]> {
     return this._find({ experimentId, ...additionalFilter });
+  }
+
+  public static async getDashboardsToUpdate(): Promise<
+    Array<{
+      id: string;
+      organization: string;
+    }>
+  > {
+    const dashboards = await getCollection(COLLECTION_NAME)
+      .find({
+        isDeleted: false,
+        isDefault: false,
+        enableAutoUpdates: true,
+        experimentId: null,
+        $or: [
+          {
+            nextUpdate: {
+              $exists: true,
+              $lte: new Date(),
+            },
+          },
+          {
+            nextUpdate: {
+              $exists: false,
+            },
+          },
+        ],
+      })
+      .project({
+        id: true,
+        organization: true,
+      })
+      .limit(100)
+      .sort({ nextUpdate: 1 })
+      .toArray();
+    return dashboards.map(({ id, organization }) => ({ id, organization }));
   }
 
   protected canCreate(doc: DashboardInterface): boolean {

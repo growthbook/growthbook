@@ -588,6 +588,7 @@ function DashboardsTab({
                             },
                           });
                         }}
+                        isGeneralDashboard={false}
                         // TODO: reduce unnecessary props
                         stagedBlockIndex={undefined}
                         editSidebarDirty={false}
