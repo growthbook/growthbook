@@ -2,11 +2,16 @@ import cronstrue from "cronstrue";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
+import {
+  DashboardEditLevel,
+  DashboardShareLevel,
+} from "back-end/src/enterprise/validators/dashboard";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import { useUser } from "@/services/UserContext";
+import SelectField from "@/components/Forms/SelectField";
 import {
   autoUpdateDisabledMessage,
   CreateDashboardArgs,
@@ -15,6 +20,7 @@ import {
 const defaultFormInit = {
   title: "",
   editLevel: "private",
+  shareLevel: "private",
   enableAutoUpdates: true,
 } as const;
 
@@ -56,15 +62,15 @@ export default function DashboardModal({
 
   const form = useForm<{
     title: string;
-    editLevel: "organization" | "private";
+    editLevel: DashboardEditLevel;
+    shareLevel: DashboardShareLevel;
     enableAutoUpdates: boolean;
   }>({
     defaultValues: initial ?? {
       ...defaultFormInit,
-      // For general dashboards, disable auto-updates by default
-      enableAutoUpdates: isGeneralDashboard
-        ? false
-        : defaultFormInit.enableAutoUpdates,
+      shareLevel: !isGeneralDashboard
+        ? "organization"
+        : defaultFormInit.shareLevel,
     },
   });
 
@@ -72,10 +78,9 @@ export default function DashboardModal({
     form.reset(
       initial || {
         ...defaultFormInit,
-        // For general dashboards, disable auto-updates by default
-        enableAutoUpdates: isGeneralDashboard
-          ? false
-          : defaultFormInit.enableAutoUpdates,
+        shareLevel: !isGeneralDashboard
+          ? "organization"
+          : defaultFormInit.shareLevel,
       },
     );
   }, [form, initial, isGeneralDashboard]);
@@ -114,21 +119,46 @@ export default function DashboardModal({
             setValue={(checked) => form.setValue("enableAutoUpdates", checked)}
           />
         )}
-
-        <Checkbox
-          label="Allow organization members to edit"
-          description="Anyone with edit access to this Project can edit this dashboard."
+        {isGeneralDashboard ? (
+          <SelectField
+            label="View access"
+            disabled={
+              !hasCommercialFeature("share-product-analytics-dashboards")
+            }
+            options={[
+              { label: "Organization members", value: "organization" },
+              { label: "Only me", value: "private" },
+            ]}
+            helpText={
+              form.watch("shareLevel") === "organization"
+                ? "Other organization members who have read access to the project(s) this dashboard is associated with will be permitted to view this dashboard."
+                : "Only you can view this dashboard."
+            }
+            value={form.watch("shareLevel")}
+            onChange={(value) =>
+              form.setValue("shareLevel", value as DashboardEditLevel)
+            }
+          />
+        ) : null}
+        <SelectField
+          label="Edit access"
           disabled={
-            isGeneralDashboard
-              ? // General dashboards can only be shared if the org has the shareable dashboards feature
-                !hasCommercialFeature("share-product-analytics-dashboards")
-              : false
+            !hasCommercialFeature("share-product-analytics-dashboards") ||
+            form.watch("shareLevel") === "private"
           }
-          disabledMessage="Your plan does not support creating public dashboards."
-          value={form.watch("editLevel") === "organization"}
-          setValue={(checked) => {
-            form.setValue("editLevel", checked ? "organization" : "private");
-          }}
+          options={[
+            { label: "Organization members", value: "organization" },
+            { label: "Only me", value: "private" },
+          ]}
+          helpText={
+            form.watch("editLevel") === "organization"
+              ? "Other organization members who have permission to edit Dashboards will be permitted to edit this dashboard."
+              : "Only you can edit this dashboard."
+          }
+          value={form.watch("editLevel")}
+          onChange={(value) =>
+            form.setValue("editLevel", value as DashboardEditLevel)
+          }
         />
       </Flex>
     </Modal>

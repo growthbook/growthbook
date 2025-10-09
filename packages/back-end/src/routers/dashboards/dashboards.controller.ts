@@ -92,14 +92,19 @@ export async function createDashboard(
 ) {
   const context = getContextFromReq(req);
 
-  const { experimentId, editLevel, enableAutoUpdates, title, blocks } =
-    req.body;
+  const {
+    experimentId,
+    editLevel,
+    shareLevel,
+    enableAutoUpdates,
+    title,
+    blocks,
+  } = req.body;
 
-  // Quick permission check before we create the blocks
   if (experimentId) {
-    // Experiment dashboards require the dashboards feature
+    // Quick permission check before we write to the dashboard block collection
     if (!context.hasPremiumFeature("dashboards")) {
-      context.permissions.throwPermissionError();
+      throw new Error("Your plan does not support creating dashboards.");
     }
     const experiment = await getExperimentById(context, experimentId);
     if (!experiment) throw new Error("Cannot find experiment");
@@ -107,12 +112,22 @@ export async function createDashboard(
       context.permissions.throwPermissionError();
     }
   } else {
-    // General dashboards require the product-analytics-dashboards feature
-    if (!context.hasPremiumFeature("product-analytics-dashboards")) {
-      context.permissions.throwPermissionError();
-    }
-    if (!context.permissions.canCreateGeneralDashboards(req.body)) {
-      context.permissions.throwPermissionError();
+    if (shareLevel === "private") {
+      if (!context.hasPremiumFeature("product-analytics-dashboards")) {
+        throw new Error(
+          "Your plan does not support creating private dashboards.",
+        );
+      }
+    } else {
+      if (!context.hasPremiumFeature("share-product-analytics-dashboards")) {
+        throw new Error(
+          "Your plan does not support creating shared dashboards.",
+        );
+      }
+
+      if (!context.permissions.canCreateGeneralDashboards(req.body)) {
+        context.permissions.throwPermissionError();
+      }
     }
   }
   const createdBlocks = await Promise.all(
@@ -125,6 +140,7 @@ export async function createDashboard(
     isDeleted: false,
     userId: context.userId,
     editLevel,
+    shareLevel,
     enableAutoUpdates,
     experimentId: experimentId || undefined,
     title,
@@ -155,36 +171,41 @@ export async function updateDashboard(
     if (!experiment) throw new Error("Cannot find connected experiment");
   }
 
-  // Permission check before we update the blocks
-  //MKTODO: Revisit this logic
   if (updates.blocks) {
-    // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
-    const isOwner = context.userId === dashboard.userId || !dashboard.userId;
-    const isAdmin = context.permissions.canSuperDeleteReport();
-    let canEdit = isOwner || isAdmin;
+    // Quick permission check before we write to the block collection
+    if (experiment) {
+      if (!context.hasPremiumFeature("dashboards")) {
+        throw new Error("Your plan does not support updating dashboards.");
+      }
+      if (!context.permissions.canUpdateReport(experiment)) {
+        context.permissions.throwPermissionError();
+      }
+    } else {
+      if (
+        dashboard.editLevel === "private" ||
+        updates.editLevel === "private"
+      ) {
+        if (!context.hasPremiumFeature("product-analytics-dashboards")) {
+          throw new Error(
+            "Your plan does not support updating private dashboards.",
+          );
+        }
+      }
 
-    if (!canEdit) {
-      if (experiment) {
-        canEdit =
-          dashboard.editLevel === "organization" &&
-          context.permissions.canUpdateReport(experiment);
-      } else {
-        context.permissions.canUpdateGeneralDashboards(dashboard, updates);
+      if (
+        dashboard.editLevel === "organization" ||
+        updates.editLevel === "organization"
+      ) {
+        if (!context.hasPremiumFeature("share-product-analytics-dashboards")) {
+          throw new Error(
+            "Your plan does not support updating shared dashboards.",
+          );
+        }
+      }
+      if (!context.permissions.canUpdateGeneralDashboards(dashboard, updates)) {
+        context.permissions.throwPermissionError();
       }
     }
-
-    const canManage = isOwner || isAdmin;
-
-    if (!canEdit) context.permissions.throwPermissionError();
-    if (
-      ("title" in updates ||
-        "editLevel" in updates ||
-        "enableAutoUpdates" in updates) &&
-      !canManage
-    ) {
-      return context.permissions.throwPermissionError();
-    }
-
     const createdBlocks = await Promise.all(
       updates.blocks.map((blockData) => {
         if (blockData.type === "metric-explorer") {

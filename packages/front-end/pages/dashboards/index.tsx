@@ -104,6 +104,7 @@ export default function DashboardsPage() {
                 blocks: data.blocks,
                 title: data.title,
                 editLevel: data.editLevel,
+                shareLevel: data.shareLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 projects: project ? [project] : [],
               }
@@ -111,6 +112,7 @@ export default function DashboardsPage() {
                 blocks: data.blocks ?? [],
                 title: data.title,
                 editLevel: data.editLevel,
+                shareLevel: data.shareLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 experimentId: "",
                 projects: project ? [project] : [],
@@ -149,6 +151,7 @@ export default function DashboardsPage() {
           initial={{
             title: showEditModal.title,
             editLevel: showEditModal.editLevel,
+            shareLevel: showEditModal.shareLevel,
             enableAutoUpdates: showEditModal.enableAutoUpdates,
           }}
           close={() => setShowEditModal(undefined)}
@@ -170,6 +173,7 @@ export default function DashboardsPage() {
           initial={{
             title: `Copy of ${showDuplicateModal.title}`,
             editLevel: showDuplicateModal.editLevel,
+            shareLevel: showDuplicateModal.shareLevel,
             enableAutoUpdates: showDuplicateModal.enableAutoUpdates,
           }}
           submit={async (data) => {

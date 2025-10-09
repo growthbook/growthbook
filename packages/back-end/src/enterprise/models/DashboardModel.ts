@@ -104,9 +104,7 @@ export class DashboardModel extends BaseClass {
       if (!experiment) {
         throw new Error("Experiment not found.");
       }
-      if (!this.context.permissions.canCreateReport(experiment)) {
-        this.context.permissions.throwPermissionError();
-      }
+      return this.context.permissions.canCreateReport(experiment);
     } else {
       if (doc.editLevel === "private") {
         if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
@@ -123,80 +121,78 @@ export class DashboardModel extends BaseClass {
           );
         }
       }
-      if (!this.context.permissions.canCreateGeneralDashboards(doc)) {
-        this.context.permissions.throwPermissionError();
-      }
+      return this.context.permissions.canCreateGeneralDashboards(doc);
     }
-    const { experiment } = this.getForeignRefs(doc);
-    if (!experiment) return true;
-    return this.context.permissions.canCreateReport(experiment);
   }
 
   protected canRead(_doc: DashboardInterface): boolean {
-    return this.context.hasPermission("readData", "");
+    if (!this.context.permissions.canReadMultiProjectResource(_doc.projects)) {
+      return false;
+    }
+
+    if (_doc.shareLevel === "private" && _doc.userId !== this.context.userId) {
+      return false;
+    }
+
+    return true;
   }
 
   protected canUpdate(
     existing: DashboardInterface,
     updates: UpdateProps<DashboardInterface>,
   ): boolean {
-    //MKTODO: Revisit this logic
     if (existing.experimentId) {
       if (!this.context.hasPremiumFeature("dashboards")) {
         throw new Error("Your plan does not support updating dashboards.");
       }
+      const { experiment } = this.getForeignRefs(existing);
+      if (!experiment) throw new Error("Experiment not found.");
+      return this.context.permissions.canUpdateReport(experiment);
     } else {
-      if (
-        !this.context.permissions.canUpdateGeneralDashboards(existing, updates)
-      ) {
-        this.context.permissions.throwPermissionError();
-      }
       if (existing.editLevel === "private" || updates.editLevel === "private") {
-        if (
-          !this.context.hasPremiumFeature("share-product-analytics-dashboards")
-        ) {
+        if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
           throw new Error(
             "Your plan does not support updating private dashboards.",
           );
         }
-
-        // Private dashboards can only be edited by the owner
+        // Safety check to prevent updating private dashboards that are not owned by the user
         if (existing.userId !== this.context.userId) {
           throw new Error(
             "You are not authorized to edit this dashboard. This dashboard is private, and you are not the owner.",
           );
         }
       }
+      if (
+        existing.editLevel === "organization" ||
+        updates.editLevel === "organization"
+      ) {
+        if (
+          !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+        ) {
+          throw new Error(
+            "Your plan does not support updating shared dashboards.",
+          );
+        }
+      }
+      return this.context.permissions.canUpdateGeneralDashboards(
+        existing,
+        updates,
+      );
     }
-
-    const isOwner = this.context.userId === existing.userId;
-    const isAdmin = this.context.permissions.canSuperDeleteReport();
-
-    const canManage = isOwner || isAdmin;
-    if (canManage) return true;
-    // Editing privileged fields (metadata/settings) requires canManage
-    if (
-      "title" in updates ||
-      "editLevel" in updates ||
-      "enableAutoUpdates" in updates
-    ) {
-      return false;
-    }
-
-    if (existing.editLevel !== "organization") return false;
-    const { experiment } = this.getForeignRefs(existing);
-    if (!experiment) return true;
-    return this.context.permissions.canUpdateReport(experiment);
   }
 
   protected canDelete(doc: DashboardInterface): boolean {
-    //MKTODO: Revisit this logic
-    const isOwner = this.context.userId === doc.userId;
-    const isAdmin = this.context.permissions.canSuperDeleteReport();
-    if (!isOwner && !isAdmin) return false;
-    const { experiment } = this.getForeignRefs(doc);
-    if (!experiment) return true;
-    return this.context.permissions.canDeleteReport(experiment);
+    if (doc.experimentId) {
+      const { experiment } = this.getForeignRefs(doc);
+      if (!experiment) throw new Error("Experiment not found.");
+      return this.context.permissions.canDeleteReport(experiment);
+    } else {
+      // Safety check to prevent deleting private dashboards that are not owned by the user
+      if (doc.editLevel === "private" && doc.userId !== this.context.userId) {
+        return false;
+      }
+      return this.context.permissions.canDeleteGeneralDashboards(doc);
+    }
   }
 
   protected migrate(orig: LegacyDashboardDocument): DashboardInterface {

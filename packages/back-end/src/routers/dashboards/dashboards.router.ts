@@ -6,7 +6,10 @@ import {
   createDashboardBlockInterface,
   dashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { dashboardEditLevel } from "back-end/src/enterprise/validators/dashboard";
+import {
+  dashboardEditLevel,
+  dashboardShareLevel,
+} from "back-end/src/enterprise/validators/dashboard";
 import * as rawDashboardsController from "./dashboards.controller";
 
 const router = express.Router();
@@ -18,6 +21,7 @@ export const createDashboardBody = z
     experimentId: z.string().optional(),
     title: z.string(),
     editLevel: dashboardEditLevel,
+    shareLevel: dashboardShareLevel,
     enableAutoUpdates: z.boolean(),
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
@@ -28,6 +32,7 @@ export const updateDashboardBody = z
   .object({
     title: z.string().optional(),
     editLevel: dashboardEditLevel.optional(),
+    shareLevel: dashboardShareLevel.optional(),
     enableAutoUpdates: z.boolean().optional(),
     projects: z.array(z.string()).optional(),
     blocks: z

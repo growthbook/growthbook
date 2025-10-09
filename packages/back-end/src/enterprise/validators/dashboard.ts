@@ -2,6 +2,7 @@ import { z } from "zod";
 import { dashboardBlockInterface } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["organization", "private"]);
+export const dashboardShareLevel = z.enum(["organization", "private"]);
 
 export const dashboardInterface = z
   .object({
@@ -13,6 +14,7 @@ export const dashboardInterface = z
     isDeleted: z.boolean(), // For soft-deletes (currently unused)
     userId: z.string(),
     editLevel: dashboardEditLevel,
+    shareLevel: dashboardShareLevel, // Ignored for experiment dashboards. Only configurable for orgs with share-product-analytics-dashboards commercialFeature
     enableAutoUpdates: z.boolean(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
@@ -27,3 +29,4 @@ export const dashboardInterface = z
 export type DashboardInterface = z.infer<typeof dashboardInterface>;
 
 export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;
+export type DashboardShareLevel = z.infer<typeof dashboardShareLevel>;

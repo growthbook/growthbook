@@ -39,6 +39,7 @@ export type CreateDashboardArgs = {
   data: {
     title: string;
     editLevel: DashboardInterface["editLevel"];
+    shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
   };
@@ -50,6 +51,7 @@ export type UpdateDashboardArgs = {
     title: string;
     blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     editLevel: DashboardInterface["editLevel"];
+    shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
   }>;
 };
@@ -169,12 +171,14 @@ function DashboardsTab({
                 title: data.title,
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
+                shareLevel: data.shareLevel,
               }
             : {
                 blocks: data.blocks ?? [],
                 title: data.title,
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
+                shareLevel: data.shareLevel,
                 experimentId: experiment.id,
               },
         ),
@@ -231,6 +235,7 @@ function DashboardsTab({
               close={() => setShowEditModal(false)}
               initial={{
                 editLevel: dashboard.editLevel,
+                shareLevel: dashboard.shareLevel || "organization",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: dashboard.title,
               }}
@@ -249,6 +254,7 @@ function DashboardsTab({
               close={() => setShowDuplicateModal(false)}
               initial={{
                 editLevel: dashboard.editLevel,
+                shareLevel: dashboard.shareLevel || "organization",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: `Copy of ${dashboard.title}`,
               }}
