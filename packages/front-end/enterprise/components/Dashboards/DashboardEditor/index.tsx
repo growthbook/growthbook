@@ -40,6 +40,7 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import DashboardModal from "../DashboardModal";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
+import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
 export const DASHBOARD_TOPBAR_HEIGHT = "40px";
 export const BLOCK_TYPE_INFO: Record<
@@ -462,6 +463,7 @@ function DashboardEditor({
               <Button
                 variant="outline"
                 size="sm"
+                style={{ whiteSpace: "nowrap" }}
                 onClick={() => {
                   const url = window.location.href.replace(
                     /[?#].*/,
@@ -505,6 +507,12 @@ function DashboardEditor({
               <DropdownMenuItem onClick={() => handleDuplicate()}>
                 Duplicate
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DashboardViewQueriesButton
+                className="dropdown-item text-capitalize"
+                weight="regular"
+                size="2"
+              />
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 disabled={!canDelete}
