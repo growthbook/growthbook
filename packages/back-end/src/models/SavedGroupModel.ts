@@ -107,7 +107,7 @@ export async function getSavedGroupsById(
 ): Promise<SavedGroupInterface[]> {
   const savedGroups = await getCollection(COLLECTION)
     .find({
-      id: { $in: savedGroupIds },
+      id: { $in: savedGroupIds || [] },
       organization: organization,
     })
     .toArray();
