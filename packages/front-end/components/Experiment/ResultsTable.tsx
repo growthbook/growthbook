@@ -11,6 +11,12 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
+import {
+  FaSortUp,
+  FaSortDown,
+  FaSort,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   ExperimentReportVariation,
@@ -27,7 +33,6 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -114,6 +119,10 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 };
 
 const ROW_HEIGHT = 46;
@@ -173,11 +182,95 @@ export default function ResultsTable({
   disableTimeSeriesButton,
   columnsFilter,
   isHoldout,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }: ResultsTableProps) {
-  // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
+
+  const SortButton = ({ column }: { column: "significance" | "change" }) => {
+    if (!setSortBy || !setSortDirection) return null;
+
+    const isActive = sortBy === column;
+
+    const handleClick = () => {
+      if (!isActive) {
+        // Not currently sorting by this column, set to default direction
+        setSortBy(column);
+        if (column === "change") {
+          // Change: desc, asc, null
+          setSortDirection("desc");
+        } else if (column === "significance") {
+          // Significance: frequentist (desc, asc, null), bayesian (asc, desc, null)
+          setSortDirection(statsEngine === "frequentist" ? "desc" : "asc");
+        }
+      } else {
+        // Currently sorting by this column, cycle through directions
+        if (column === "change") {
+          // Change: desc -> asc -> null
+          if (sortDirection === "desc") {
+            setSortDirection("asc");
+          } else if (sortDirection === "asc") {
+            setSortBy(null);
+          }
+        } else if (column === "significance") {
+          // Significance: frequentist (desc -> asc -> null), bayesian (asc -> desc -> null)
+          if (statsEngine === "frequentist") {
+            if (sortDirection === "desc") {
+              setSortDirection("asc");
+            } else if (sortDirection === "asc") {
+              setSortBy(null);
+            }
+          } else {
+            if (sortDirection === "asc") {
+              setSortDirection("desc");
+            } else if (sortDirection === "desc") {
+              setSortBy(null);
+            }
+          }
+        }
+      }
+    };
+
+    const getTooltipText = () => {
+      if (isActive) {
+        return `Sorted by ${column} ${sortDirection === "desc" ? "(desc)" : "(asc)"}`;
+      }
+      return `Sort by ${column}`;
+    };
+
+    const getIcon = () => {
+      if (!isActive) return <FaSort size={16} />;
+      return sortDirection === "desc" ? (
+        <FaSortDown size={16} />
+      ) : (
+        <FaSortUp size={16} />
+      );
+    };
+
+    return (
+      <Tooltip
+        usePortal={true}
+        innerClassName={"text-left"}
+        body={getTooltipText()}
+      >
+        <a
+          role="button"
+          onClick={handleClick}
+          style={{
+            marginLeft: "2px",
+            color: isActive ? "var(--blue-10)" : "var(--gray-a8)",
+            userSelect: "none",
+          }}
+        >
+          {getIcon()}
+        </a>
+      </Tooltip>
+    );
+  };
   const columnsToDisplay = columnsFilter?.length
     ? columnsFilter
     : RESULTS_TABLE_COLUMNS;
@@ -591,13 +684,21 @@ export default function ResultsTable({
                       >
                         {statsEngine === "bayesian" ? (
                           <div
-                            style={{
-                              lineHeight: "15px",
-                              marginBottom: 2,
-                            }}
+                            className="d-flex align-items-end"
+                            style={{ width: 44 }}
                           >
-                            <span className="nowrap">Chance</span>{" "}
-                            <span className="nowrap">to Win</span>
+                            <div
+                              style={{
+                                lineHeight: "15px",
+                                marginBottom: 2,
+                              }}
+                            >
+                              <span className="nowrap">Chance</span>{" "}
+                              <span className="nowrap">to Win</span>
+                            </div>
+                            <div style={{ top: -2, position: "relative" }}>
+                              <SortButton column="significance" />
+                            </div>
                           </div>
                         ) : sequentialTestingEnabled ||
                           appliedPValueCorrection ? (
@@ -618,9 +719,13 @@ export default function ResultsTable({
                           >
                             {appliedPValueCorrection ? "Adj. " : ""}P-value{" "}
                             <RxInfoCircled />
+                            <SortButton column="significance" />
                           </Tooltip>
                         ) : (
-                          <>P-value</>
+                          <>
+                            P-value
+                            <SortButton column="significance" />
+                          </>
                         )}
                       </th>
                     )}
@@ -680,6 +785,7 @@ export default function ResultsTable({
                           >
                             {changeTitle} <RxInfoCircled />
                           </Tooltip>
+                          <SortButton column="change" />
                         </div>
                       </th>
                     )}
