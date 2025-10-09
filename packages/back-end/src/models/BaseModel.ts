@@ -321,11 +321,25 @@ export abstract class BaseModel<
   ): Promise<z.infer<T>> {
     return this._updateOne(existing, updates, { writeOptions });
   }
-  public dangerousUpdateBypassPermission(
+  public async dangerousUpdateBypassPermission(
     existing: z.infer<T>,
     updates: UpdateProps<z.infer<T>>,
     writeOptions?: WriteOptions,
   ): Promise<z.infer<T>> {
+    return this._updateOne(existing, updates, {
+      writeOptions,
+      forceCanUpdate: true,
+    });
+  }
+  public async dangerousUpdateByIdBypassPermission(
+    id: string,
+    updates: UpdateProps<z.infer<T>>,
+    writeOptions?: WriteOptions,
+  ): Promise<z.infer<T>> {
+    const existing = await this.getById(id);
+    if (!existing) {
+      throw new Error("Could not find resource to update");
+    }
     return this._updateOne(existing, updates, {
       writeOptions,
       forceCanUpdate: true,

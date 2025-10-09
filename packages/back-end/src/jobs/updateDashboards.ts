@@ -65,9 +65,12 @@ const updateSingleDashboard = async (job: UpdateSingleDashJob) => {
 
   // Disable auto snapshots for the dashboard so it doesn't keep trying to update if schedule is off
   if (organization?.settings?.updateSchedule?.type === "never") {
-    await context.models.dashboards.updateById(dashboardId, {
-      enableAutoUpdates: false,
-    });
+    await context.models.dashboards.dangerousUpdateByIdBypassPermission(
+      dashboardId,
+      {
+        enableAutoUpdates: false,
+      },
+    );
     return;
   }
 
@@ -79,9 +82,12 @@ const updateSingleDashboard = async (job: UpdateSingleDashJob) => {
     logger.error(e, "Failed to update dashboard: " + dashboardId);
     // If we failed to update the dashboard, turn off auto-updating for the future
     try {
-      await context.models.dashboards.updateById(dashboardId, {
-        enableAutoUpdates: false,
-      });
+      await context.models.dashboards.dangerousUpdateByIdBypassPermission(
+        dashboardId,
+        {
+          enableAutoUpdates: false,
+        },
+      );
     } catch (e) {
       logger.error(e, "Failed to turn off dashboard updates: " + dashboardId);
     }

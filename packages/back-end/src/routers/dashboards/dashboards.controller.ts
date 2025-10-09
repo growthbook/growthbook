@@ -29,6 +29,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { MetricAnalysisInterface } from "back-end/types/metric-analysis";
 import {
+  updateDashboardMetricAnalyses,
   updateDashboardSavedQueries,
   updateNonExperimentDashboard,
 } from "back-end/src/enterprise/services/dashboards";
@@ -314,7 +315,8 @@ export async function refreshDashboardData(
       });
     }
 
-    await updateDashboardSavedQueries(context, dashboard);
+    await updateDashboardMetricAnalyses(context, newBlocks);
+    await updateDashboardSavedQueries(context, newBlocks);
 
     // Bypassing permissions here to allow anyone to refresh the results of a dashboard
     await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {

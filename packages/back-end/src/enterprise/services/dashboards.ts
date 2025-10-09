@@ -157,16 +157,49 @@ export async function updateExperimentDashboards({
     await queryRunner.waitForResults();
   }
 
-  await updateDashboardSavedQueries(context, { blocks: allBlocks });
+  await updateDashboardSavedQueries(context, allBlocks);
+  for (const dashboard of associatedDashboards) {
+    const editableBlocks = dashboard.blocks.map((block) =>
+      block.type === "metric-explorer" ? { ...block } : block,
+    );
+    const blockUpdated = await updateDashboardMetricAnalyses(
+      context,
+      editableBlocks,
+    );
+    if (blockUpdated) {
+      await context.models.dashboards.dangerousUpdateBypassPermission(
+        dashboard,
+        { blocks: editableBlocks },
+      );
+    }
+  }
 }
 
 export async function updateNonExperimentDashboard(
   context: ReqContext | ApiReqContext,
   dashboard: DashboardInterface,
 ) {
+  // Copy the blocks of the dashboard to overwrite their fields
+  const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
+  await updateDashboardMetricAnalyses(context, newBlocks);
+  await updateDashboardSavedQueries(context, newBlocks);
+  await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
+    blocks: newBlocks,
+    nextUpdate:
+      determineNextDate(context.org.settings?.updateSchedule || null) ??
+      undefined,
+    lastUpdated: new Date(),
+  });
+}
+
+// Returns a boolean indicating whether the blocks have been modified and will need to be saved to db
+export async function updateDashboardMetricAnalyses(
+  context: ReqContext | ApiReqContext,
+  blocks: DashboardInterface["blocks"],
+): Promise<boolean> {
   const metricAnalyses = await context.models.metricAnalysis.getByIds([
     ...new Set(
-      dashboard.blocks
+      blocks
         .filter(
           (block) =>
             blockHasFieldOfType(block, "metricAnalysisId", isString) &&
@@ -175,8 +208,8 @@ export async function updateNonExperimentDashboard(
         .map((block: MetricExplorerBlockInterface) => block.metricAnalysisId),
     ),
   ]);
-  // Copy the blocks of the dashboard to overwrite their fields
-  const newBlocks = dashboard.blocks.map((block) => ({ ...block }));
+
+  let blockModified = false;
   for (const metricAnalysis of metricAnalyses) {
     // TODO: safety checks before refreshing
     const metric = await context.models.factMetrics.getById(
@@ -190,33 +223,27 @@ export async function updateNonExperimentDashboard(
         metricAnalysis.source ?? "metric",
         false,
       );
-      newBlocks.forEach((block) => {
+      blocks.forEach((block) => {
         if (
           blockHasFieldOfType(block, "metricAnalysisId", isString) &&
           block.metricAnalysisId === metricAnalysis.id
         ) {
+          blockModified = true;
           block.metricAnalysisId = queryRunner.model.id;
         }
       });
     }
   }
-  await updateDashboardSavedQueries(context, dashboard);
-  await context.models.dashboards.update(dashboard, {
-    blocks: newBlocks,
-    nextUpdate:
-      determineNextDate(context.org.settings?.updateSchedule || null) ??
-      undefined,
-    lastUpdated: new Date(),
-  });
+  return blockModified;
 }
 
 export async function updateDashboardSavedQueries(
   context: ReqContext | ApiReqContext,
-  dashboard: Pick<DashboardInterface, "blocks">,
+  blocks: DashboardInterface["blocks"],
 ) {
   const savedQueries = await context.models.savedQueries.getByIds([
     ...new Set(
-      dashboard.blocks
+      blocks
         .filter((block) => block.type === "sql-explorer" && block.savedQueryId)
         .map((block: SqlExplorerBlockInterface) => block.savedQueryId!),
     ),
