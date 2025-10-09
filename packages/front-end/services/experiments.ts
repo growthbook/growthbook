@@ -279,7 +279,7 @@ export function useDomain(
   let upperBound = 0;
   rows.forEach((row) => {
     // Skip metric slice rows that are hidden (not expanded or pinned)
-    if (row.isSliceRow && row.isHiddenByFilter) {
+    if (row.isHiddenByFilter) {
       return;
     }
 
