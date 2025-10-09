@@ -177,6 +177,7 @@ function getColumnOptions({
   includeNumericColumns = true,
   includeStringColumns = false,
   includeJSONFields = false,
+  includeBooleanColumns = false,
   showColumnsAsSums = false,
   excludeColumns,
   groupPrefix = "",
@@ -187,6 +188,7 @@ function getColumnOptions({
   includeCountDistinct?: boolean;
   includeNumericColumns?: boolean;
   includeStringColumns?: boolean;
+  includeBooleanColumns?: boolean;
   includeJSONFields?: boolean;
   showColumnsAsSums?: boolean;
   excludeColumns?: Set<string>;
@@ -220,6 +222,19 @@ function getColumnOptions({
   if (stringColumns) {
     stringColumnOptions.push(
       ...stringColumns.map((col) => ({
+        label: col.name,
+        value: col.column,
+      })),
+    );
+  }
+
+  const booleanColumnOptions: SingleValue[] = [];
+  const booleanColumns = factTable?.columns.filter(
+    (col) => col.datatype === "boolean" && !col.deleted,
+  );
+  if (booleanColumns) {
+    booleanColumnOptions.push(
+      ...booleanColumns.map((col) => ({
         label: col.name,
         value: col.column,
       })),
@@ -281,6 +296,14 @@ function getColumnOptions({
     ret.push({
       label: `${groupPrefix}String Columns`,
       options: stringColumnOptions.filter((v) => !excludeColumns?.has(v.value)),
+    });
+  }
+  if (includeBooleanColumns && booleanColumnOptions.length > 0) {
+    ret.push({
+      label: `${groupPrefix}Boolean Columns`,
+      options: booleanColumnOptions.filter(
+        (v) => !excludeColumns?.has(v.value),
+      ),
     });
   }
   return ret;
@@ -442,6 +465,7 @@ function ColumnRefSelector({
     includeCountDistinct: false,
     includeNumericColumns: false,
     includeStringColumns: true,
+    includeBooleanColumns: true,
     includeJSONFields: true,
     showColumnsAsSums: false,
     excludeColumns: new Set([...(factTable?.userIdTypes || [])]),
@@ -451,14 +475,14 @@ function ColumnRefSelector({
       factTable ? canInlineFilterColumn(factTable, option.value) : false,
     );
 
-  const unfilteredStringColumns = eligibleColumns.filter(
+  const unfilteredEligibleColumns = eligibleColumns.filter(
     (c) => !value.inlineFilters?.[c.value]?.length,
   );
 
-  if (unfilteredStringColumns.length > 0) {
+  if (unfilteredEligibleColumns.length > 0) {
     addFilterOptions.push({
       label: "Filter by Column",
-      options: unfilteredStringColumns.map((o) => ({
+      options: unfilteredEligibleColumns.map((o) => ({
         label: o.label,
         value: `col::${o.value}`,
       })),
@@ -619,12 +643,12 @@ function ColumnRefSelector({
                       className="border rounded mr-1 d-flex align-items-center bg-white"
                       key={k}
                     >
-                      {colAlert && unfilteredStringColumns.length > 0 ? (
+                      {colAlert && unfilteredEligibleColumns.length > 0 ? (
                         <SelectField
                           value={k}
                           options={[
                             { label: col?.name || k, value: k },
-                            ...unfilteredStringColumns,
+                            ...unfilteredEligibleColumns,
                           ]}
                           onChange={(newKey) => {
                             if (k === newKey || !value.inlineFilters) return;
@@ -653,7 +677,19 @@ function ColumnRefSelector({
                           {colAlert}
                         </span>
                       )}
-                      {col?.topValues?.length ? (
+                      {col?.datatype === "boolean" ? (
+                        <SelectField
+                          value={v?.[0] + ""}
+                          onChange={(val) => onValuesChange(val ? [val] : [])}
+                          options={[
+                            { label: "Remove", value: "" },
+                            { label: "Is True", value: "true" },
+                            { label: "Is False", value: "false" },
+                          ]}
+                          sort={false}
+                          autoFocus
+                        />
+                      ) : col?.topValues?.length ? (
                         <MultiSelectField
                           value={v}
                           onChange={onValuesChange}
@@ -693,11 +729,19 @@ function ColumnRefSelector({
                         onChange={(v) => {
                           if (v) {
                             if (v.startsWith("col::")) {
+                              const column = v.replace("col::", "");
+                              const dataType = getSelectedColumnDatatype({
+                                factTable,
+                                column,
+                              });
+
                               setValue({
                                 ...value,
                                 inlineFilters: {
                                   ...value.inlineFilters,
-                                  [v.replace("col::", "")]: [""],
+                                  [column]: [
+                                    dataType === "boolean" ? "true" : "",
+                                  ],
                                 },
                               });
                             } else {
@@ -885,14 +929,15 @@ function getWHERE({
 }) {
   const whereParts =
     factTable && columnRef
-      ? getColumnRefWhereClause(
+      ? getColumnRefWhereClause({
           factTable,
           columnRef,
-          (s) => s.replace(/'/g, "''"),
-          // This isn't real SQL syntax, but it should get the point across
-          (jsonCol, path) => `${jsonCol}.${path}`,
-          true,
-        )
+          escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          // This isn't real SQL syntax for most dialects, but it should get the point across
+          jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+          evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+          showSourceComment: true,
+        })
       : [];
 
   if (type === "retention") {
@@ -1234,7 +1279,10 @@ function FieldMappingModal({
 
   const stringColumnOptions =
     factTable?.columns
-      ?.filter((c) => canInlineFilterColumn(factTable, c.column))
+      ?.filter(
+        (c) =>
+          canInlineFilterColumn(factTable, c.column) && c.datatype === "string",
+      )
       .map((c) => ({
         label: c.name || c.column,
         value: c.column,

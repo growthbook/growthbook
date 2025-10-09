@@ -268,6 +268,23 @@ If a user participates in an experiment more than once (e.g., revisits the site 
 
 ## Other
 
+### What types of SQL queries can users run in GrowthBook?
+
+Users can only run read SELECT queries in GrowthBook. For security reasons, all user-provided SQL is validated to be a read-only query before being executed. This applies to all places where you can write raw SQL, including:
+
+- SQL Explorer for ad-hoc queries
+- Metric and Fact Table definitions
+- Dimension queries
+- Data Source configuration (experiment assignment queries, identifier joins, etc.)
+
+Write operations such as INSERT, UPDATE, DELETE, etc, are not permitted from any user-entered SQL.
+
+:::note
+
+Some GrowthBook features, such as [Pipeline Mode](/app/data-pipeline), may write temporary tables to your data warehouse to improve query performance. However, these write operations are managed by GrowthBook itself.
+
+:::
+
 ### How do I disable the on-screen celebrations?
 
 Throughout the GrowthBook application, we randomly celebrate key milestones like launching experiments with on-screen confetti. If you'd like to disable this, you can click on your avatar in the top right corner and select "Edit Profile". From there, you can disable the toggle for "Allow Celebrations". Please note this is persisted in your browser's local storage, so if you clear your browser's local storage, you will need to disable this again.
