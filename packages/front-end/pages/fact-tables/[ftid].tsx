@@ -1,11 +1,12 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   FactTableInterface,
   FactMetricInterface,
 } from "back-end/types/fact-table";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -33,6 +34,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
+import Callout from "@/ui/Callout";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -65,7 +68,7 @@ export default function FactTablePage() {
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const {
     getFactTableById,
@@ -207,6 +210,26 @@ export default function FactTablePage() {
           { display: factTable.name },
         ]}
       />
+
+      {factTable.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id),
+      ) && (
+        <Callout status="info" contentsAs="div" mb="2">
+          <Flex align="center" justify="between">
+            <Text>
+              This Fact Table is part of our sample dataset. You can safely
+              delete this once you are done exploring.
+            </Text>
+            <Box ml="auto">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/fact-tables")}
+                source="fact-table"
+              />
+            </Box>
+          </Flex>
+        </Callout>
+      )}
+
       {factTable.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This Fact Table is archived.</strong> Existing references will
