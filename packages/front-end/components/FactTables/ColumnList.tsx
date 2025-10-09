@@ -162,12 +162,12 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                       )}
                       {col.isAutoSliceColumn && (
                         <div style={{ position: "relative" }}>
-                          <Tooltip 
+                          <Tooltip
                             body={
                               !col.autoSlices || col.autoSlices.length === 0
-                                ? "Auto Slices enabled, no slice levels configured"
-                                : "Auto Slices enabled"
-                            } 
+                                ? "Auto slices enabled, no slice levels configured"
+                                : "Auto slices enabled"
+                            }
                             tipPosition="left"
                           >
                             <Avatar
