@@ -153,9 +153,9 @@ function DashboardsTab({
     }
   }, [dashboard]);
 
-  const submitDashboard = useCallback<
-    SubmitDashboard<CreateDashboardArgs | UpdateDashboardArgs>
-  >(
+  const submitDashboard: SubmitDashboard<
+    CreateDashboardArgs | UpdateDashboardArgs
+  > = useCallback(
     async ({ method, dashboardId, data }) => {
       const res = await apiCall<{
         status: number;
@@ -610,9 +610,6 @@ function DashboardsTab({
                         focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
                         switchToExperimentView={switchToExperimentView}
-                        isGeneralDashboard={
-                          !dashboard.experimentId ? true : false
-                        }
                       />
                     )}
                   </>

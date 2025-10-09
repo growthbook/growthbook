@@ -46,8 +46,14 @@ export default function DashboardsPage() {
   const { apiCall } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [dashboardId, setDashboardId] = useState("");
-  const [blocks, setBlocks] = useState<
+  const [dashboardId, setDashboardId] = useState<string | undefined>(undefined);
+  const [showEditModal, setShowEditModal] = useState<
+    DashboardInterface | undefined
+  >(undefined);
+  const [showDuplicateModal, setShowDuplicateModal] = useState<
+    DashboardInterface | undefined
+  >(undefined);
+  const [_blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
   const { dashboards, loading, error, mutateDashboards } = useDashboards(false);
@@ -71,7 +77,7 @@ export default function DashboardsPage() {
 
   const dashboard = dashboards.find((d) => d.id === dashboardId);
 
-  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+  const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 1500,
   });
 
@@ -133,7 +139,43 @@ export default function DashboardsPage() {
           submitDashboard={submitDashboard}
           mutate={mutateDashboards}
           close={() => setIsEditing(false)}
-          isTabActive={true} // MK: This doesn't really make sense for general dashboards
+          isTabActive={true}
+        />
+      )}
+      {showEditModal && (
+        <DashboardModal
+          mode="edit"
+          type="general"
+          initial={{
+            title: showEditModal.title,
+            editLevel: showEditModal.editLevel,
+            enableAutoUpdates: showEditModal.enableAutoUpdates,
+          }}
+          close={() => setShowEditModal(undefined)}
+          submit={async (data) => {
+            await submitDashboard({
+              method: "PUT",
+              dashboardId: showEditModal.id,
+              data,
+            });
+            setDashboardId(undefined);
+          }}
+        />
+      )}
+      {showDuplicateModal && (
+        <DashboardModal
+          mode="duplicate"
+          type="general"
+          close={() => setShowDuplicateModal(undefined)}
+          initial={{
+            title: `Copy of ${showDuplicateModal.title}`,
+            editLevel: showDuplicateModal.editLevel,
+            enableAutoUpdates: showDuplicateModal.enableAutoUpdates,
+          }}
+          submit={async (data) => {
+            await submitDashboard({ method: "POST", data });
+            setIsEditing(true);
+          }}
         />
       )}
       {showCreateModal && (
@@ -214,7 +256,7 @@ export default function DashboardsPage() {
                           <SortableTH field={"title"}>
                             Dashboard Name
                           </SortableTH>
-                          <th>Visibility</th>
+                          <th>Edit Level</th>
                           <th>Projects</th>
                           <th>Owner</th>
                           <SortableTH field={"dateUpdated"}>
@@ -230,7 +272,7 @@ export default function DashboardsPage() {
                             permissionsUtil.canUpdateGeneralDashboards(d, {});
                           let canDelete =
                             permissionsUtil.canDeleteGeneralDashboards(d);
-                          const canDuplicate =
+                          let canDuplicate =
                             permissionsUtil.canCreateGeneralDashboards(d);
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
@@ -240,6 +282,7 @@ export default function DashboardsPage() {
                           ) {
                             canEdit = false;
                             canDelete = false;
+                            canDuplicate = false;
                           }
 
                           return (
@@ -306,49 +349,13 @@ export default function DashboardsPage() {
                                   >
                                     <DropdownMenuItem
                                       disabled={!canEdit}
-                                      onClick={() => {
-                                        setDashboardId(d.id);
-                                        setIsEditing(true);
-                                      }}
+                                      onClick={() => setShowEditModal(d)}
                                     >
-                                      Edit
+                                      Edit Dashboard Settings
                                     </DropdownMenuItem>
-                                    {/* MKTODO: Should we leverage the DashboardModal here? */}
                                     <DropdownMenuItem
                                       disabled={!canDuplicate}
-                                      onClick={async () => {
-                                        // Clean blocks by removing system-generated properties
-                                        const cleanBlocks = d.blocks.map(
-                                          (block) => {
-                                            const {
-                                              organization: _organization,
-                                              id: _id,
-                                              uid: _uid,
-                                              ...cleanBlock
-                                            } = block;
-                                            return cleanBlock;
-                                          },
-                                        );
-
-                                        await submitDashboard({
-                                          method: "POST",
-                                          data: {
-                                            title: `${d.title} (Copy)`,
-                                            // If the dashboard is public, and the org doesn't have the shareable-product-analytics-dashboards feature anymore,
-                                            // set the edit level to private
-                                            editLevel:
-                                              d.editLevel === "organization" &&
-                                              !hasCommercialFeature(
-                                                "share-product-analytics-dashboards",
-                                              )
-                                                ? "private"
-                                                : d.editLevel,
-                                            enableAutoUpdates:
-                                              d.enableAutoUpdates,
-                                            blocks: cleanBlocks,
-                                          },
-                                        });
-                                      }}
+                                      onClick={() => setShowDuplicateModal(d)}
                                     >
                                       Duplicate
                                     </DropdownMenuItem>
@@ -358,7 +365,7 @@ export default function DashboardsPage() {
                                         const url =
                                           window.location.href.replace(
                                             /[?#].*/,
-                                            `#dashboards/${dashboardId}`,
+                                            `#dashboards/${d.id}`,
                                           );
                                         performCopy(url);
                                       }}

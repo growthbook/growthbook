@@ -237,8 +237,9 @@ function DashboardEditor({
   setIsEditing,
 }: Props) {
   const [editDashboard, setEditDashboard] = useState(false);
+  const [duplicateDashboard, setDuplicateDashboard] = useState(false);
   const { apiCall } = useAuth();
-  const { userId, hasCommercialFeature } = useUser();
+  const { userId } = useUser();
   const permissionsUtil = usePermissionsUtil();
   let canEdit = permissionsUtil.canUpdateGeneralDashboards(
     { projects: projects || [] },
@@ -255,50 +256,6 @@ function DashboardEditor({
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 1500,
   });
-
-  const handleDuplicate = async () => {
-    // Clean blocks by removing system-generated properties
-    const cleanBlocks = blocks.map((block) => {
-      // Check if block has the system properties and remove them
-      if ("organization" in block || "id" in block || "uid" in block) {
-        const {
-          organization: _organization,
-          id: _id,
-          uid: _uid,
-          ...cleanBlock
-        } = block as Record<string, unknown>;
-        return cleanBlock;
-      }
-      return block;
-    });
-    const res = await apiCall<{
-      status: number;
-      dashboard: DashboardInterface;
-    }>(`/dashboards`, {
-      method: "POST",
-      body: JSON.stringify({
-        blocks: cleanBlocks,
-        title: `${title} (Copy)`,
-        editLevel:
-          editLevel === "organization" &&
-          !hasCommercialFeature("share-product-analytics-dashboards")
-            ? "private"
-            : editLevel,
-        enableAutoUpdates,
-        experimentId: "",
-        projects,
-      }),
-    });
-    if (res.status === 200) {
-      mutate();
-      // I think we should route the user to the new dashboard
-      if (typeof window !== "undefined") {
-        window.location.href = `/dashboards/${res.dashboard.id}`;
-      }
-    } else {
-      console.error(res);
-    }
-  };
 
   const renderSingleBlock = ({
     i,
@@ -418,6 +375,38 @@ function DashboardEditor({
           }}
         />
       )}
+      {duplicateDashboard && (
+        <DashboardModal
+          mode="duplicate"
+          initial={{
+            title: `Copy of ${title}`,
+            editLevel: editLevel,
+            enableAutoUpdates: enableAutoUpdates,
+          }}
+          close={() => setDuplicateDashboard(false)}
+          submit={async (data) => {
+            const res = await apiCall<{
+              status: number;
+              dashboard: DashboardInterface;
+            }>(`/dashboards`, {
+              method: "POST",
+              body: JSON.stringify({
+                title: data.title,
+                editLevel: data.editLevel,
+                enableAutoUpdates: data.enableAutoUpdates,
+                blocks: data.blocks || [],
+              }),
+            });
+            if (res.status === 200) {
+              if (typeof window !== "undefined") {
+                window.location.href = `/dashboards/${res.dashboard.id}`;
+              }
+            } else {
+              console.error(res);
+            }
+          }}
+        />
+      )}
       <Flex
         align="center"
         height={DASHBOARD_TOPBAR_HEIGHT}
@@ -504,7 +493,7 @@ function DashboardEditor({
               >
                 Edit Details
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDuplicate()}>
+              <DropdownMenuItem onClick={() => setDuplicateDashboard(true)}>
                 Duplicate
               </DropdownMenuItem>
               <DropdownMenuSeparator />
