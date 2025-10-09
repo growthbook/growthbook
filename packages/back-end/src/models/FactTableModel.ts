@@ -562,6 +562,36 @@ export async function deleteFactTable(
   });
 }
 
+export async function deleteAllFactTablesForAProject({
+  projectId,
+  context,
+}: {
+  projectId: string;
+  context: ReqContext | ApiReqContext;
+}) {
+  const metricsToDelete = await FactTableModel.find({
+    organization: context.org.id,
+    projects: [projectId],
+  });
+
+  for (const metric of metricsToDelete) {
+    await deleteFactTable(context, toInterface(metric));
+  }
+}
+
+export async function removeProjectFromFactTables(
+  project: string,
+  context: ReqContext | ApiReqContext,
+) {
+  await FactTableModel.updateMany(
+    { organization: context.org.id, projects: project },
+    {
+      $pull: { projects: project },
+      $set: { dateUpdated: new Date() },
+    },
+  );
+}
+
 export async function deleteFactFilter(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
