@@ -395,7 +395,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     style: { fill: "var(--slate-11)", translate: "0 15px" },
                   }}
                   labelClassName="h5"
-                  labelOffset={75}
+                  labelOffset={55}
                 />
                 <line
                   x1={contentXScale(0)}
