@@ -461,12 +461,30 @@ export function useDashboardMetricAnalysis(
       ["queued", "running"].includes(metricAnalysis?.status ?? "")
     )
       return;
-    const settingsWithValidDates = {
-      ...block.analysisSettings,
-      startDate: getValidDate(block.analysisSettings.startDate),
-      endDate: getValidDate(block.analysisSettings.endDate),
-    };
-    if (isEqual(settingsWithValidDates, metricAnalysis?.settings)) return;
+
+    if (metricAnalysis) {
+      const blockSettings = {
+        ...block.analysisSettings,
+        startDate: getValidDate(block.analysisSettings.startDate),
+        endDate: getValidDate(block.analysisSettings.endDate),
+        populationId: block.analysisSettings.populationId || "",
+      };
+      const metricAnalysisSettings = {
+        ...metricAnalysis.settings,
+        startDate: getValidDate(metricAnalysis.settings.startDate),
+        endDate: getValidDate(metricAnalysis.settings.endDate),
+        populationId: metricAnalysis.settings.populationId || "",
+      };
+      if (isEqual(blockSettings, metricAnalysisSettings)) return;
+      console.log(
+        "Refreshing analysis",
+        metricAnalysis,
+        block.metricAnalysisId,
+        blockSettings,
+        metricAnalysisSettings,
+      );
+    }
+
     refreshAnalysis();
   }, [
     block,
