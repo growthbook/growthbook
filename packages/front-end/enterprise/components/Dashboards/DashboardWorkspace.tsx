@@ -341,7 +341,10 @@ export default function DashboardWorkspace({
             isEditing={true}
             isGeneralDashboard={isGeneralDashboard}
             enableAutoUpdates={dashboard.enableAutoUpdates}
-            nextUpdate={experiment ? experiment.nextSnapshotAttempt : undefined}
+            nextUpdate={
+              experiment ? experiment.nextSnapshotAttempt : dashboard.nextUpdate
+            }
+            dashboardLastUpdated={dashboard.lastUpdated}
             editSidebarDirty={editSidebarDirty}
             focusedBlockIndex={focusedBlockIndex}
             stagedBlockIndex={addBlockIndex ?? editingBlockIndex}

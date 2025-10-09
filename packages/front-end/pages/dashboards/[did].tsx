@@ -5,6 +5,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
+import { withErrorBoundary } from "@sentry/nextjs";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DashboardEditor from "@/enterprise/components/Dashboards/DashboardEditor";
@@ -13,8 +14,9 @@ import { useAuth } from "@/services/auth";
 import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/DashboardSnapshotProvider";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
+import Callout from "@/ui/Callout";
 
-export default function SingleDashboardPage() {
+function SingleDashboardPage() {
   const router = useRouter();
   const { did } = router.query;
   const { data, isLoading, error, mutate } = useApi<{
@@ -87,21 +89,6 @@ export default function SingleDashboardPage() {
     return null;
   }
 
-  if (isEditing && dashboard) {
-    return (
-      <DashboardWorkspace
-        experiment={null}
-        dashboard={dashboard}
-        submitDashboard={({ method, dashboardId, data }) =>
-          submitDashboard({ method, dashboardId, data })
-        }
-        mutate={mutate}
-        close={() => setIsEditing(false)}
-        isTabActive={true}
-      />
-    );
-  }
-
   return (
     <div className="p-3 container-fluid pagecontents">
       <PageHead
@@ -114,47 +101,64 @@ export default function SingleDashboardPage() {
         dashboard={dashboard}
         mutateDefinitions={mutate}
       >
-        <DashboardEditor
-          isTabActive
-          id={dashboard.id}
-          editLevel={dashboard.editLevel}
-          dashboardOwnerId={dashboard.userId}
-          isGeneralDashboard={true}
-          isEditing={false}
-          title={dashboard.title}
-          blocks={dashboard.blocks}
-          enableAutoUpdates={dashboard.enableAutoUpdates}
-          editSidebarDirty={false}
-          focusedBlockIndex={undefined}
-          stagedBlockIndex={undefined}
-          scrollAreaRef={null}
-          setBlock={(i, block) => {
-            const newBlocks = [
-              ...blocks.slice(0, i),
-              block,
-              ...blocks.slice(i + 1),
-            ];
-            setBlocks(newBlocks);
-            submitDashboard({
-              method: "PUT",
-              dashboardId: dashboard.id,
-              data: {
-                blocks: newBlocks,
-              },
-            });
-          }}
-          projects={dashboard.projects ? dashboard.projects : []}
-          moveBlock={() => {}}
-          addBlockType={() => {}}
-          editBlock={() => {}}
-          duplicateBlock={() => {}}
-          deleteBlock={() => {}}
-          mutate={mutate}
-          nextUpdate={dashboard.nextUpdate}
-          dashboardLastUpdated={dashboard.lastUpdated}
-          setIsEditing={setIsEditing}
-        />
+        {isEditing && dashboard ? (
+          <DashboardWorkspace
+            experiment={null}
+            dashboard={dashboard}
+            submitDashboard={({ method, dashboardId, data }) =>
+              submitDashboard({ method, dashboardId, data })
+            }
+            mutate={mutate}
+            close={() => setIsEditing(false)}
+            isTabActive={true}
+          />
+        ) : (
+          <DashboardEditor
+            isTabActive
+            id={dashboard.id}
+            editLevel={dashboard.editLevel}
+            dashboardOwnerId={dashboard.userId}
+            isGeneralDashboard={true}
+            isEditing={false}
+            title={dashboard.title}
+            blocks={dashboard.blocks}
+            enableAutoUpdates={dashboard.enableAutoUpdates}
+            editSidebarDirty={false}
+            focusedBlockIndex={undefined}
+            stagedBlockIndex={undefined}
+            scrollAreaRef={null}
+            setBlock={(i, block) => {
+              const newBlocks = [
+                ...blocks.slice(0, i),
+                block,
+                ...blocks.slice(i + 1),
+              ];
+              setBlocks(newBlocks);
+              submitDashboard({
+                method: "PUT",
+                dashboardId: dashboard.id,
+                data: {
+                  blocks: newBlocks,
+                },
+              });
+            }}
+            projects={dashboard.projects ? dashboard.projects : []}
+            moveBlock={() => {}}
+            addBlockType={() => {}}
+            editBlock={() => {}}
+            duplicateBlock={() => {}}
+            deleteBlock={() => {}}
+            mutate={mutate}
+            nextUpdate={dashboard.nextUpdate}
+            dashboardLastUpdated={dashboard.lastUpdated}
+            setIsEditing={setIsEditing}
+          />
+        )}
       </DashboardSnapshotProvider>
     </div>
   );
 }
+
+export default withErrorBoundary(SingleDashboardPage, {
+  fallback: <Callout status="error">Failed to load dashboard</Callout>,
+});
