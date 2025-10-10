@@ -246,6 +246,7 @@ export interface OrganizationSettings {
   experimentPageMarkdown?: string;
   metricListMarkdown?: string;
   metricPageMarkdown?: string;
+  preferredEnvironment?: string | null; // null (or undefined) means "remember previous environment"
   banditScheduleValue?: number;
   banditScheduleUnit?: "hours" | "days";
   banditBurnInValue?: number;

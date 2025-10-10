@@ -177,3 +177,6 @@ properties:
   experimentMaxLengthDays:
     type: number
     nullable: true
+  preferredEnvironment:
+    type: string
+    nullable: true
