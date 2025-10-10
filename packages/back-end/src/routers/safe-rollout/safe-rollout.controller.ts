@@ -81,10 +81,20 @@ export const postSafeRolloutSnapshot = async (
       message: "Safe Rollout not found",
     });
   }
+
+  const feature = await getFeature(context, safeRollout.featureId);
+  if (!feature) {
+    return res.status(404).json({
+      status: 404,
+      message: "Feature not found",
+    });
+  }
+
   const { snapshot } = await createSafeRolloutSnapshot({
     context,
     useCache,
     safeRollout,
+    customFields: feature.customFields,
   });
 
   res.status(200).json({
