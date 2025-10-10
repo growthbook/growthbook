@@ -9,13 +9,41 @@ import {
   UPLOAD_METHOD,
   GCS_BUCKET_NAME,
   GCS_DOMAIN,
+  AWS_ASSUME_ROLE,
 } from "back-end/src/util/secrets";
 
 let s3: AWS.S3;
 function getS3(): AWS.S3 {
   if (!s3) {
     AWS.config.update({ region: S3_REGION });
-    s3 = new AWS.S3({ signatureVersion: "v4" });
+    if (AWS_ASSUME_ROLE) {
+      const sts = new AWS.STS();
+      const stsRequest = sts.assumeRole({
+        RoleArn: AWS_ASSUME_ROLE,
+        RoleSessionName: "growthbook-uploads",
+      });
+      stsRequest
+        .promise()
+        .then((response) => {
+          const awsCredentials = response.Credentials;
+          if (!awsCredentials) {
+            throw new Error("Failed to assume role");
+          }
+          s3 = new AWS.S3({
+            signatureVersion: "v4",
+            credentials: {
+              accessKeyId: awsCredentials.AccessKeyId,
+              secretAccessKey: awsCredentials.SecretAccessKey,
+              sessionToken: awsCredentials.SessionToken,
+            },
+          });
+        })
+        .catch((error) => {
+          throw error;
+        });
+    } else {
+      s3 = new AWS.S3({ signatureVersion: "v4" });
+    }
   }
   return s3;
 }
@@ -150,7 +178,6 @@ export async function getSignedUploadUrl(
       Expires: expiresInMinutes * 60, // Convert to seconds
       ContentType: contentType,
     };
-
     const signedUrl = getS3().getSignedUrl("putObject", params);
     const fileUrl = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
 
