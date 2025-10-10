@@ -149,7 +149,7 @@ export default function TrafficAndTargeting({
                     Namespace{" "}
                     <Tooltip
                       popperStyle={{ lineHeight: 1.5 }}
-                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces"
+                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces"
                     >
                       <GBInfo />
                     </Tooltip>

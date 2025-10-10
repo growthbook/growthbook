@@ -343,7 +343,7 @@ export default function TargetingInfo({
               <div className={clsx("mb-3", horizontalView && "mr-4")}>
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
-                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
+                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces">
                     <GBInfo />
                   </Tooltip>
                 </div>
