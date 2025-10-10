@@ -165,6 +165,22 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
 
   const [editTitle, setEditTitle] = useState(false);
 
+  // Type guards for sql-explorer blocks
+  const isSqlExplorerWithDataVizIndex = (
+    b: typeof block,
+  ): b is typeof block & { dataVizConfigIndex: number } => {
+    return (
+      b.type === "sql-explorer" &&
+      blockHasFieldOfType(b, "dataVizConfigIndex", isNumber)
+    );
+  };
+
+  const isSqlExplorerWithBlockConfig = (
+    b: typeof block,
+  ): b is typeof block & { blockConfig: string[] } => {
+    return b.type === "sql-explorer" && "blockConfig" in b;
+  };
+
   // Use the API directly when the saved query hasn't been attached to the dashboard yet (when editing)
   const shouldFetchSavedQuery = () =>
     blockHasSavedQuery && !savedQueriesMap.has(block.savedQueryId);
@@ -281,9 +297,14 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       block.dimensionId.length === 0) ||
     (blockHasSavedQuery &&
       (block.savedQueryId.length === 0 || !blockSavedQuery)) ||
-    (blockHasFieldOfType(block, "dataVizConfigIndex", isNumber) &&
-      (block.dataVizConfigIndex === -1 ||
-        !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex])) ||
+    (blockHasSavedQuery &&
+      block.type === "sql-explorer" &&
+      (isSqlExplorerWithDataVizIndex(block)
+        ? block.dataVizConfigIndex === -1 ||
+          !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]
+        : isSqlExplorerWithBlockConfig(block)
+          ? !block.blockConfig || block.blockConfig.length === 0
+          : true)) ||
     (blockHasFactMetric &&
       (block.factMetricId.length === 0 || !blockFactMetric)) ||
     (blockHasMetricAnalysis &&

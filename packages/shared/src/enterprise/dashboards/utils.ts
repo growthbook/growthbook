@@ -217,7 +217,6 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     savedQueryId: "",
-    dataVizConfigIndex: -1,
     showResultsTable: true,
     blockConfig: [],
     ...(initialValues || {}),
