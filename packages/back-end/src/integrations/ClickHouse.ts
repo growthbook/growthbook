@@ -134,6 +134,10 @@ if(
       `;
     }
   }
+  evalBoolean(col: string, value: boolean): string {
+    // Clickhouse does not support `IS TRUE` / `IS FALSE`
+    return `${col} = ${value ? "true" : "false"}`;
+  }
 
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
