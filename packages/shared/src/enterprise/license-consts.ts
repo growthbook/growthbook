@@ -139,6 +139,7 @@ export interface LicenseInterface {
   installationUsers: {
     [installationId: string]: {
       date: string;
+      installationName?: string;
       userHashes: string[];
       licenseUserCodes?: LicenseUserCodes;
     };
@@ -317,6 +318,7 @@ export interface LicenseUserCodes {
 
 export interface LicenseMetaData {
   installationId: string;
+  installationName?: string;
   gitSha: string;
   gitCommitDate: string;
   sdkLanguages: string[];
