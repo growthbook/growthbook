@@ -8,6 +8,7 @@ const dimensionSlicesSchema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
+    index: true,
   },
   organization: String,
   runStarted: Date,
@@ -32,6 +33,7 @@ const dimensionSlicesSchema = new mongoose.Schema({
   ],
   error: String,
 });
+dimensionSlicesSchema.index({ organization: 1, id: 1 }, { unique: true });
 
 type DimensionSlicesDocument = mongoose.Document & DimensionSlicesInterface;
 
@@ -65,6 +67,18 @@ export async function updateDimensionSlices(
     ...updates,
   };
 }
+
+export async function _dangerousGetAllDimensionSlicesByIds(
+  ids: string[],
+  runStartedLt?: Date,
+): Promise<DimensionSlicesInterface[]> {
+  const docs = await DimensionSlicesModel.find({
+    id: { $in: ids },
+    ...(runStartedLt ? { runStarted: { $lt: runStartedLt } } : {}),
+  });
+  return docs.map(toInterface);
+}
+
 export async function getDimensionSlicesById(
   organization: string,
   id: string,
