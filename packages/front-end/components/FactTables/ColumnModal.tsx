@@ -501,6 +501,28 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         placeholder={form.watch("column")}
       />
 
+      {showDescription ? (
+        <div className="form-group">
+          <label>Description</label>
+          <MarkdownInput
+            value={form.watch("description") || ""}
+            setValue={(value) => form.setValue("description", value)}
+            autofocus={!existing?.description?.length}
+          />
+        </div>
+      ) : (
+        <a
+          href="#"
+          className="badge badge-light badge-pill mb-3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+        >
+          + description
+        </a>
+      )}
+
       {isMetricSlicesFeatureEnabled &&
         form.watch("datatype") === "string" &&
         !factTable.userIdTypes.includes(form.watch("column")) &&
@@ -595,28 +617,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           />
         </div>
-      )}
-
-      {showDescription ? (
-        <div className="form-group">
-          <label>Description</label>
-          <MarkdownInput
-            value={form.watch("description") || ""}
-            setValue={(value) => form.setValue("description", value)}
-            autofocus={!existing?.description?.length}
-          />
-        </div>
-      ) : (
-        <a
-          href="#"
-          className="badge badge-light badge-pill mb-3"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowDescription(true);
-          }}
-        >
-          + description
-        </a>
       )}
     </Modal>
   );
