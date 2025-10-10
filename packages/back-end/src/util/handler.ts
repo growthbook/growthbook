@@ -1,5 +1,5 @@
 import { Request, RequestHandler } from "express";
-import z, { Schema, ZodNever } from "zod";
+import { z, Schema, ZodNever } from "zod";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
 import { ApiPaginationFields } from "back-end/types/openapi";
@@ -79,7 +79,7 @@ export function createApiRequestHandler<
           if (!validated.success) {
             allErrors.push(`Request params: ` + validated.errors.join(", "));
           } else {
-            req.params = validated.data;
+            req.params = validated.data as z.output<ParamsSchema>;
           }
         }
         if (querySchema && !(querySchema instanceof ZodNever)) {
@@ -87,7 +87,7 @@ export function createApiRequestHandler<
           if (!validated.success) {
             allErrors.push(`Querystring: ` + validated.errors.join(", "));
           } else {
-            req.query = validated.data;
+            req.query = validated.data as z.output<QuerySchema>;
           }
         }
         if (bodySchema && !(bodySchema instanceof ZodNever)) {
@@ -95,7 +95,7 @@ export function createApiRequestHandler<
           if (!validated.success) {
             allErrors.push(`Request body: ` + validated.errors.join(", "));
           } else {
-            req.body = validated.data;
+            req.body = validated.data as z.output<BodySchema>;
           }
         }
         if (allErrors.length > 0) {

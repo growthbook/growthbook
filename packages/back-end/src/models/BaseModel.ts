@@ -54,12 +54,8 @@ export type CreateRawShape<T extends z.ZodRawShape> = {
 };
 
 export type CreateZodObject<T> =
-  T extends z.ZodObject<
-    infer RawShape,
-    infer UnknownKeysParam,
-    infer ZodTypeAny
-  >
-    ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+  T extends z.ZodObject<infer RawShape, infer UnknownKeysParam>
+    ? z.ZodObject<CreateRawShape<RawShape>, UnknownKeysParam>
     : never;
 
 export const createSchema = <T extends BaseSchema>(schema: T) =>
@@ -84,12 +80,8 @@ export type UpdateRawShape<T extends z.ZodRawShape> = {
 };
 
 export type UpdateZodObject<T> =
-  T extends z.ZodObject<
-    infer RawShape,
-    infer UnknownKeysParam,
-    infer ZodTypeAny
-  >
-    ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam, ZodTypeAny>
+  T extends z.ZodObject<infer RawShape, infer UnknownKeysParam>
+    ? z.ZodObject<UpdateRawShape<RawShape>, UnknownKeysParam>
     : never;
 
 const updateSchema = <T extends BaseSchema>(schema: T) =>
@@ -542,7 +534,7 @@ export abstract class BaseModel<
       forceCanUpdate?: boolean;
     },
   ) {
-    updates = this.updateValidator.parse(updates);
+    updates = this.updateValidator.parse(updates) as UpdateProps<z.infer<T>>;
 
     // Only consider updates that actually change the value
     const updatedFields = Object.entries(updates)
