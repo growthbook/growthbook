@@ -23,6 +23,7 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   DashboardEditLevel,
   DashboardInterface,
+  DashboardShareLevel,
 } from "back-end/src/enterprise/validators/dashboard";
 import Button from "@/ui/Button";
 import {
@@ -187,6 +188,7 @@ interface Props {
   projects: string[];
   enableAutoUpdates: boolean;
   editLevel: DashboardEditLevel;
+  shareLevel: DashboardShareLevel;
   dashboardOwnerId: string;
   nextUpdate: Date | undefined;
   dashboardLastUpdated?: Date;
@@ -216,6 +218,7 @@ function DashboardEditor({
   isEditing,
   enableAutoUpdates,
   editLevel,
+  shareLevel,
   id,
   dashboardOwnerId,
   nextUpdate,
@@ -364,6 +367,7 @@ function DashboardEditor({
             title: title,
             editLevel: editLevel,
             enableAutoUpdates: enableAutoUpdates,
+            shareLevel: shareLevel,
           }}
           close={() => setEditDashboard(false)}
           submit={async (data) => {
@@ -382,6 +386,7 @@ function DashboardEditor({
             title: `Copy of ${title}`,
             editLevel: editLevel,
             enableAutoUpdates: enableAutoUpdates,
+            shareLevel: shareLevel,
           }}
           close={() => setDuplicateDashboard(false)}
           submit={async (data) => {

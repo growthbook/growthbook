@@ -72,6 +72,10 @@ function SingleDashboardPage() {
     }
   };
 
+  if (!hasCommercialFeature("product-analytics-dashboards")) {
+    return <>TODO: upgrade modal</>;
+  }
+
   if (isLoading) {
     return <LoadingOverlay />;
   }
@@ -117,6 +121,7 @@ function SingleDashboardPage() {
             isTabActive
             id={dashboard.id}
             editLevel={dashboard.editLevel}
+            shareLevel={dashboard.shareLevel}
             dashboardOwnerId={dashboard.userId}
             isGeneralDashboard={true}
             isEditing={false}

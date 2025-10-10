@@ -576,14 +576,11 @@ function DashboardsTab({
                         id={dashboard.id}
                         title={dashboard.title}
                         editLevel={dashboard.editLevel}
+                        shareLevel={dashboard.shareLevel}
                         dashboardOwnerId={dashboard.userId}
                         blocks={blocks}
                         projects={
-                          dashboard.projects
-                            ? dashboard.projects
-                            : experiment.project
-                              ? [experiment.project]
-                              : []
+                          experiment.project ? [experiment.project] : []
                         }
                         isEditing={false}
                         scrollAreaRef={null}

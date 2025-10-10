@@ -25,15 +25,6 @@ const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-explorer",
 ];
 
-// Block types that are only allowed in experiment dashboards
-const EXPERIMENT_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
-  "experiment-metadata",
-  "experiment-metric",
-  "experiment-dimension",
-  "experiment-time-series",
-  "experiment-traffic",
-];
-
 // Helper function to check if a block type is allowed for the given dashboard type
 const isBlockTypeAllowed = (
   blockType: DashboardBlockType,
@@ -328,6 +319,7 @@ export default function DashboardWorkspace({
             isTabActive={isTabActive}
             id={dashboard.id}
             editLevel={dashboard.editLevel}
+            shareLevel={dashboard.shareLevel}
             dashboardOwnerId={dashboard.userId}
             projects={
               dashboard.projects
