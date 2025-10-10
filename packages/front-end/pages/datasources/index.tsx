@@ -161,6 +161,8 @@ const DataSourcesPage: FC = () => {
       !!license?.orbSubscription) &&
     gb.isOn("inbuilt-data-warehouse");
 
+  const useNewSampleData = gb.isOn("new-sample-data");
+
   return (
     <div className="container-fluid pagecontents">
       {newModalData && (
@@ -184,9 +186,14 @@ const DataSourcesPage: FC = () => {
           <Button
             onClick={async () => {
               try {
-                await apiCall("/demo-datasource-project", {
-                  method: "POST",
-                });
+                await apiCall(
+                  useNewSampleData
+                    ? "/demo-datasource-project/new"
+                    : "/demo-datasource-project",
+                  {
+                    method: "POST",
+                  },
+                );
                 track("Create Sample Project", {
                   source: "sample-project-page",
                 });

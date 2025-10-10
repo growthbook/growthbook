@@ -26,6 +26,10 @@ import {
   removeProjectFromSlackIntegration,
 } from "back-end/src/models/SlackIntegrationModel";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
+import {
+  deleteAllFactTablesForAProject,
+  removeProjectFromFactTables,
+} from "back-end/src/models/FactTableModel";
 
 // region POST /projects
 
@@ -136,6 +140,7 @@ type DeleteProjectRequest = AuthRequest<
     deleteMetrics?: boolean;
     deleteSlackIntegrations?: boolean;
     deleteDataSources?: boolean;
+    deleteFactTables?: boolean;
   }
 >;
 
@@ -163,6 +168,7 @@ export const deleteProject = async (
     deleteMetrics = false,
     deleteSlackIntegrations = false,
     deleteDataSources = false,
+    deleteFactTables = false,
   } = req.query;
   const context = getContextFromReq(req);
 
@@ -213,6 +219,23 @@ export const deleteProject = async (
     }
   } else {
     await removeProjectFromMetrics(id, org.id);
+  }
+
+  // Clean up fact metrics
+  if (deleteFactTables) {
+    try {
+      await deleteAllFactTablesForAProject({
+        projectId: id,
+        context,
+      });
+    } catch (e) {
+      return res.json({
+        status: 403,
+        message: "Failed to delete fact tables",
+      });
+    }
+  } else {
+    await removeProjectFromFactTables(id, context);
   }
 
   // Clean up features

@@ -15,9 +15,10 @@ import {
 } from "shared/constants";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
@@ -62,6 +63,8 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
+import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -174,7 +177,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -505,6 +508,26 @@ export default function FactMetricPage() {
           { display: factMetric.name },
         ]}
       />
+
+      {factMetric.projects?.includes(
+        getDemoDatasourceProjectIdForOrganization(organization.id),
+      ) && (
+        <Callout status="info" contentsAs="div" mb="2">
+          <Flex align="center" justify="between">
+            <Text>
+              This Fact Metric is part of our sample dataset. You can safely
+              delete this once you are done exploring.
+            </Text>
+            <Box ml="auto">
+              <DeleteDemoDatasourceButton
+                onDelete={() => router.push("/metrics")}
+                source="fact-metric"
+              />
+            </Box>
+          </Flex>
+        </Callout>
+      )}
+
       {factMetric.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This metric is archived.</strong> Existing references will
