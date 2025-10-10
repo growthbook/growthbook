@@ -71,8 +71,7 @@ export async function uploadFile(
       Body: contents,
       ContentType: contentType,
     };
-    const s3 = await getS3();
-    await s3.upload(params).promise();
+    await getS3().upload(params).promise();
     fileURL = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
@@ -140,9 +139,8 @@ export async function getSignedImageUrl(
       Key: filePath,
       Expires: expiresInMinutes * 60, // Convert to seconds
     };
-    const s3 = await getS3();
 
-    const signedUrl = s3.getSignedUrl("getObject", params);
+    const signedUrl = getS3().getSignedUrl("getObject", params);
 
     return signedUrl;
   } else if (UPLOAD_METHOD === "google-cloud") {
@@ -180,8 +178,7 @@ export async function getSignedUploadUrl(
       Expires: expiresInMinutes * 60, // Convert to seconds
       ContentType: contentType,
     };
-    const s3 = await getS3();
-    const signedUrl = s3.getSignedUrl("putObject", params);
+    const signedUrl = getS3().getSignedUrl("putObject", params);
     const fileUrl = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
 
     return { signedUrl, fileUrl };
