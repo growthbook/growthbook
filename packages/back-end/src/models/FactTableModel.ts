@@ -14,6 +14,11 @@ import {
 import { ApiFactTable, ApiFactTableFilter } from "back-end/types/openapi";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import {
+  ToInterface,
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
 
 const factTableSchema = new mongoose.Schema({
   id: String,
@@ -67,17 +72,15 @@ const factTableSchema = new mongoose.Schema({
 
 factTableSchema.index({ id: 1, organization: 1 }, { unique: true });
 
-type FactTableDocument = mongoose.Document & FactTableInterface;
-
 const FactTableModel = mongoose.model<FactTableInterface>(
   "FactTable",
   factTableSchema,
 );
 
-function toInterface(doc: FactTableDocument): FactTableInterface {
-  const ret = doc.toJSON<FactTableDocument>();
-  return omit(ret, ["__v", "_id"]);
-}
+const COLLECTION = "facttables";
+
+const toInterface: ToInterface<FactTableInterface> = (doc) =>
+  removeMongooseFields(doc);
 
 function createPropsToInterface(
   context: ReqContext | ApiReqContext,
@@ -128,8 +131,13 @@ function createPropsToInterface(
 
 export async function getAllFactTablesForOrganization(
   context: ReqContext | ApiReqContext,
-) {
-  const docs = await FactTableModel.find({ organization: context.org.id });
+): Promise<FactTableInterface[]> {
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+    })
+    .toArray();
+
   return docs
     .map((doc) => toInterface(doc))
     .filter((f) => context.permissions.canReadMultiProjectResource(f.projects));
@@ -139,10 +147,12 @@ export async function getFactTablesForDatasource(
   context: ReqContext,
   datasource: string,
 ): Promise<FactTableInterface[]> {
-  const docs = await FactTableModel.find({
-    organization: context.org.id,
-    datasource,
-  });
+  const docs = await getCollection(COLLECTION)
+    .find({
+      organization: context.org.id,
+      datasource,
+    })
+    .toArray();
 
   return docs
     .map((doc) => toInterface(doc))
@@ -163,7 +173,7 @@ export async function getFactTable(
   context: ReqContext | ApiReqContext,
   id: string,
 ) {
-  const doc = await FactTableModel.findOne({
+  const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     id,
   });
@@ -181,15 +191,17 @@ export async function getFactTablesByIds(
   ids: string[],
 ) {
   const factTables: FactTableInterface[] = [];
-
   if (!ids.length) {
     return factTables;
   }
 
-  const docs = await FactTableModel.find({
-    id: { $in: ids },
-    organization: context.org.id,
-  });
+  const docs = await getCollection(COLLECTION)
+    .find({
+      id: { $in: ids },
+      organization: context.org.id,
+    })
+    .toArray();
+
   docs.forEach((doc) => {
     factTables.push(toInterface(doc));
   });
