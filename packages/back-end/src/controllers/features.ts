@@ -135,6 +135,7 @@ import {
 } from "back-end/types/feature-rule";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { SafeRolloutRule } from "back-end/src/validators/features";
+import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { HoldoutInterface } from "../routers/holdout/holdout.validators";
 
 class UnrecoverableApiError extends Error {
@@ -531,19 +532,6 @@ export async function postFeatures(
     );
   }
 
-  if (holdout && holdout.id) {
-    const holdoutObj = await context.models.holdout.getById(holdout.id);
-    if (!holdoutObj) {
-      throw new Error("Holdout not found");
-    }
-    await context.models.holdout.updateById(holdout.id, {
-      linkedFeatures: {
-        ...holdoutObj.linkedFeatures,
-        [id]: { id, dateAdded: new Date() },
-      },
-    });
-  }
-
   const feature: FeatureInterface = {
     defaultValue: "",
     valueType: "boolean",
@@ -594,6 +582,8 @@ export async function postFeatures(
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
+  await runValidateFeatureHooks(context, feature);
+
   await createFeature(context, feature);
   await upsertWatch({
     userId,
@@ -610,6 +600,19 @@ export async function postFeatures(
     },
     details: auditDetailsCreate(feature),
   });
+
+  if (holdout && holdout.id) {
+    const holdoutObj = await context.models.holdout.getById(holdout.id);
+    if (!holdoutObj) {
+      throw new Error("Holdout not found");
+    }
+    await context.models.holdout.updateById(holdout.id, {
+      linkedFeatures: {
+        ...holdoutObj.linkedFeatures,
+        [id]: { id, dateAdded: new Date() },
+      },
+    });
+  }
 
   res.status(200).json({
     status: 200,

@@ -66,6 +66,7 @@ export type CommercialFeature =
   | "metric-correlations"
   | "dashboards"
   | "precomputed-dimensions"
+  | "custom-hooks"
   | "metric-slices"
   | "manage-official-resources";
 
@@ -298,6 +299,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-correlations",
     "dashboards",
     "precomputed-dimensions",
+    "custom-hooks",
     "metric-slices",
     "manage-official-resources",
   ]),

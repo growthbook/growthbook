@@ -45,6 +45,7 @@ export const POLICIES = [
   "DecisionCriteriaFullAccess",
   "SqlExplorerFullAccess",
   "HoldoutsFullAccess",
+  "CustomHooksFullAccess",
   "ManageOfficialResources",
 ] as const;
 
@@ -128,6 +129,7 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   TemplatesFullAccess: ["readData", "manageTemplates"],
   SqlExplorerFullAccess: ["readData", "runSqlExplorerQueries"],
   HoldoutsFullAccess: ["readData", "createAnalyses", "runQueries"],
+  CustomHooksFullAccess: ["readData", "manageCustomHooks"],
   ManageOfficialResources: [
     "readData",
     "manageOfficialResources",
@@ -391,6 +393,10 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Holdouts Full Access",
     description: "Create, edit, and delete holdouts",
   },
+  CustomHooksFullAccess: {
+    displayName: "Custom Hooks Full Access",
+    description: "Create, edit, and delete custom hooks",
+  },
   ManageOfficialResources: {
     displayName: "Manage Official Resources",
     description:
@@ -552,6 +558,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageCustomFields",
   "manageTemplates",
   "manageExecReports",
+  "manageCustomHooks",
   "manageOfficialResources",
 ] as const;
 
