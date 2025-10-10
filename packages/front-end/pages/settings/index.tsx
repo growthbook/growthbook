@@ -221,7 +221,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     openAIDefaultModel: form.watch("openAIDefaultModel"),
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
-    preferredEnvironment: form.watch("preferredEnvironment"),
+    preferredEnvironment: form.watch("preferredEnvironment") || "",
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -340,6 +340,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
+      preferredEnvironment: value.preferredEnvironment || null,
     };
 
     // Make sure the feature key example is valid
