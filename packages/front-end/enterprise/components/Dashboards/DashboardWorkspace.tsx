@@ -409,6 +409,7 @@ export default function DashboardWorkspace({
           </Flex>
 
           <DashboardEditorSidebar
+            dashboardId={dashboard.id}
             experiment={experiment}
             isGeneralDashboard={isGeneralDashboard}
             open={editSidebarExpanded}

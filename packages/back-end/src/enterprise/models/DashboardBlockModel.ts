@@ -109,6 +109,8 @@ const experimentTimeSeriesBlockSchema = new mongoose.Schema({
 const sqlExplorerBlockSchema = new mongoose.Schema({
   savedQueryId: String,
   dataVizConfigIndex: Number,
+  showResultsTable: Boolean,
+  blockConfig: [String],
 });
 
 const metricExplorerBlockSchema = new mongoose.Schema({

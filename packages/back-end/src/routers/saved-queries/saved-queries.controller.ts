@@ -86,8 +86,15 @@ export async function postSavedQuery(
   req: AuthRequest<SavedQueryCreateProps>,
   res: Response,
 ) {
-  const { name, sql, datasourceId, results, dateLastRan, dataVizConfig } =
-    req.body;
+  const {
+    name,
+    sql,
+    datasourceId,
+    results,
+    dateLastRan,
+    dataVizConfig,
+    linkedDashboardIds,
+  } = req.body;
   const context = getContextFromReq(req);
 
   if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
@@ -99,16 +106,18 @@ export async function postSavedQuery(
     throw new Error("Cannot find datasource");
   }
 
-  await context.models.savedQueries.create({
+  const savedQuery = await context.models.savedQueries.create({
     name,
     sql,
     datasourceId,
     dateLastRan: getValidDate(dateLastRan),
     results,
     dataVizConfig,
+    linkedDashboardIds,
   });
   res.status(200).json({
     status: 200,
+    id: savedQuery.id,
   });
 }
 

@@ -218,6 +218,8 @@ export const CREATE_BLOCK_TYPE: {
     description: "",
     savedQueryId: "",
     dataVizConfigIndex: -1,
+    showResultsTable: true,
+    blockConfig: [],
     ...(initialValues || {}),
   }),
   "metric-explorer": ({ initialValues }) => ({
