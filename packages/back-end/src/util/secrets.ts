@@ -96,6 +96,8 @@ if ((prod || !isLocalhost) && !IS_CLOUD && JWT_SECRET === "dev") {
   );
 }
 
+export const AWS_ASSUME_ROLE = process.env.AWS_ASSUME_ROLE || "";
+
 export const EMAIL_ENABLED = stringToBoolean(process.env.EMAIL_ENABLED);
 export const EMAIL_HOST = process.env.EMAIL_HOST;
 export const EMAIL_PORT = parseInt(process.env.EMAIL_PORT || "") || 587;
