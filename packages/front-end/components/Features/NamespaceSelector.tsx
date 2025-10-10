@@ -149,14 +149,7 @@ export default function NamespaceSelector({
                 namespace={namespace}
                 usage={data?.namespaces || {}}
                 featureId={featureId}
-                range={
-                  ranges.length > 0
-                    ? [
-                        Math.min(...ranges.map((r) => r[0])),
-                        Math.max(...ranges.map((r) => r[1])),
-                      ]
-                    : [0, 0]
-                }
+                ranges={ranges.length > 0 ? ranges : undefined}
                 title="Allocation"
                 trackingKey={trackingKey}
               />
@@ -216,7 +209,7 @@ export default function NamespaceSelector({
                     {ranges.length > 1 && (
                       <div className="col-auto">
                         <Button
-                          color="danger"
+                          color="red"
                           onClick={() => removeRange(index)}
                           className="btn-sm"
                         >
