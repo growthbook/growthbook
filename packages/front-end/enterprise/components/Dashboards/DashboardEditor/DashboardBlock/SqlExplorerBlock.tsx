@@ -5,6 +5,7 @@ import {
   DataVisualizationDisplay,
   SqlExplorerDataVisualization,
 } from "@/components/DataViz/SqlExplorerDataVisualization";
+import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
 import { BlockProps } from ".";
 
 export default function SqlExplorerBlock({
@@ -45,6 +46,25 @@ export default function SqlExplorerBlock({
 
   return (
     <Flex direction="column" gap="4" p="4">
+      {block.showResultsTable ? (
+        <Box
+          style={{
+            height: 500,
+            position: "relative",
+            overflow: "auto",
+          }}
+        >
+          <DisplayTestQueryResults
+            duration={savedQuery.results?.duration || 0}
+            results={savedQuery.results?.results || []}
+            sql={savedQuery.results?.sql || ""}
+            error={savedQuery.results?.error || ""}
+            allowDownload={true}
+            showSampleHeader={false}
+            renderedSQLLabel="SQL"
+          />
+        </Box>
+      ) : null}
       {/* MKTODO: If block.showResultsTable is true, we need to show the results table here in addition to the visualizations */}
       {visualizations.map(({ title, dataVizConfig }, index) => (
         <Box key={`${title}-${index}`} style={{ minHeight: "300px" }}>
