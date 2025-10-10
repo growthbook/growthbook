@@ -25,6 +25,7 @@ function DashboardStatusSummary({
   const {
     defaultSnapshot,
     snapshotsMap,
+    metricAnalysesMap,
     refreshError,
     allQueries,
     snapshotError,
@@ -34,17 +35,22 @@ function DashboardStatusSummary({
     [allQueries],
   );
 
-  // Find any snapshot actively in use by the dashboard (if one exists)
+  // Find any snapshot or metric analysis actively in use by the dashboard (if one exists)
   const snapshotEntry = snapshotsMap
     .entries()
     .find(([snapshotId]) => snapshotId !== defaultSnapshot?.id);
+  const metricAnalysisEntry = [...metricAnalysesMap.entries()][0];
 
   const snapshot = snapshotEntry ? snapshotEntry[1] : defaultSnapshot;
+  const metricAnalysis = metricAnalysisEntry?.[1];
 
   const textColor =
     refreshError || numFailed > 0 || snapshotError ? "red" : undefined;
   const lastUpdateTime =
-    snapshot?.runStarted ?? dashboardLastUpdated ?? undefined;
+    metricAnalysis?.runStarted ??
+    dashboardLastUpdated ??
+    snapshot?.runStarted ??
+    undefined;
   const content = refreshError
     ? "Update Failed"
     : numFailed > 0

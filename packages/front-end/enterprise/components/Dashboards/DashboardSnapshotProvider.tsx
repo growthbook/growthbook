@@ -446,12 +446,13 @@ export function useDashboardMetricAnalysis(
       });
 
       setBlock({ ...block, metricAnalysisId: response.metricAnalysis.id });
+      mutateAnalysesMap();
     } catch (e) {
       setPostError(e.message);
     } finally {
       setPostLoading(false);
     }
-  }, [apiCall, block, blockHasMetricAnalysis, setBlock]);
+  }, [apiCall, block, blockHasMetricAnalysis, setBlock, mutateAnalysesMap]);
 
   useEffect(() => {
     if (
@@ -476,13 +477,6 @@ export function useDashboardMetricAnalysis(
         populationId: metricAnalysis.settings.populationId || "",
       };
       if (isEqual(blockSettings, metricAnalysisSettings)) return;
-      console.log(
-        "Refreshing analysis",
-        metricAnalysis,
-        block.metricAnalysisId,
-        blockSettings,
-        metricAnalysisSettings,
-      );
     }
 
     refreshAnalysis();
