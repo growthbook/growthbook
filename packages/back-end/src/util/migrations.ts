@@ -564,7 +564,7 @@ export function upgradeExperimentDoc(
       };
       // Some experiments have a namespace with only `enabled` set, no idea why
       // This breaks namespaces, so add default values if missing
-      if (!phase.namespace.range) {
+      if (!("range" in phase.namespace) && !("ranges" in phase.namespace)) {
         phase.namespace = {
           enabled: false,
           name: "",
