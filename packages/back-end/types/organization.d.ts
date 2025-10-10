@@ -341,6 +341,7 @@ export interface OrganizationInterface {
   deactivatedRoles?: string[];
   disabled?: boolean;
   setupEventTracker?: string;
+  apiRateLimit?: number;
 }
 
 export type NamespaceUsage = Record<
