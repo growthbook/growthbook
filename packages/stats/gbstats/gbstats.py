@@ -268,8 +268,11 @@ def get_configured_test(
             difference_type="absolute",
             alpha=analysis.alpha / num_tests,
         )
-        if isinstance(stat_a, RegressionAdjustedStatistic) and isinstance(
-            stat_b, RegressionAdjustedStatistic
+        if (
+            isinstance(stat_a, RegressionAdjustedStatistic)
+            and isinstance(stat_b, RegressionAdjustedStatistic)
+            and isinstance(stat_a.pre_statistic, SampleMeanStatistic)
+            and isinstance(stat_b.pre_statistic, SampleMeanStatistic)
         ):
             pre_stat_a = SampleMeanStatistic(
                 n=stat_a.n,
@@ -280,6 +283,20 @@ def get_configured_test(
                 n=stat_b.n,
                 sum=stat_b.pre_statistic.sum,
                 sum_squares=stat_b.pre_statistic.sum_squares,
+            )
+        elif (
+            isinstance(stat_a, RegressionAdjustedStatistic)
+            and isinstance(stat_b, RegressionAdjustedStatistic)
+            and isinstance(stat_a.pre_statistic, ProportionStatistic)
+            and isinstance(stat_b.pre_statistic, ProportionStatistic)
+        ):
+            pre_stat_a = ProportionStatistic(
+                n=stat_a.n,
+                sum=stat_a.pre_statistic.sum,
+            )
+            pre_stat_b = ProportionStatistic(
+                n=stat_b.n,
+                sum=stat_b.pre_statistic.sum,
             )
         elif isinstance(stat_a, RegressionAdjustedRatioStatistic) and isinstance(
             stat_b, RegressionAdjustedRatioStatistic
@@ -298,9 +315,9 @@ def get_configured_test(
             )
         else:
             stat_empty = SampleMeanStatistic(
-                n=0,
-                sum=0,
-                sum_squares=0,
+                n=int(0),
+                sum=0.0,
+                sum_squares=0.0,
             )
             pre_stat_a = stat_empty
             pre_stat_b = stat_empty

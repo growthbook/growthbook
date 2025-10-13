@@ -363,6 +363,7 @@ DEFAULT_ANALYSIS = AnalysisSettingsForStatsEngine(
     alpha=0.05,
     max_dimensions=20,
     one_sided_intervals=False,
+    use_covariate_as_response=False,
 )
 
 
@@ -730,6 +731,282 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         self.assertNotEqual(
             np.round(result.at[0, "v1_expected"], 3),
             (0.074 - 0.110963012) / 0.110963012,
+        )
+
+    def test_analyze_metric_df_ra_proportion(self):
+        rows = RA_STATISTICS_DF.copy()
+        # override default DF
+        rows.drop(columns=["main_sum_squares", "covariate_sum_squares"], inplace=True)
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            metric=dataclasses.replace(
+                RA_METRIC,
+                main_metric_type="binomial",
+                covariate_metric_type="binomial",
+            ),
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
+        )
+
+        # Test that metric mean is unadjusted
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "All")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.099966678)
+        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.099966678)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
+        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.31620216)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000000353)
+
+    def test_analyze_metric_df_ratio_ra(self):
+        rows = RATIO_RA_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            metric=RATIO_RA_METRIC,
+            analysis=dataclasses.replace(DEFAULT_ANALYSIS, stats_engine="frequentist"),
+        )
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "All")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.713495487)
+        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.713495487)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.729754963)
+        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.729754963)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.000701483)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.857710405)
+
+
+class TestUseCovariateAsResponse(TestCase):
+    def test_no_covariates(self):
+        rows = QUERY_OUTPUT
+        df = get_metric_df(pd.DataFrame(rows), {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            metric=COUNT_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine="frequentist",
+                difference_type="absolute",
+                use_covariate_as_response=True,
+            ),
+        )
+        df_no_data = pd.DataFrame(copy.deepcopy(QUERY_OUTPUT))
+        df_no_data["main_sum"] = 0.0
+        df_no_data["main_sum_squares"] = 0.0
+        # raise ValueError(['hanni', type(df_no_data['users'][0])])
+        df_pre = get_metric_df(df_no_data, {"zero": 0, "one": 1}, ["zero", "one"])
+        result_true = analyze_metric_df(
+            df_pre,
+            metric=COUNT_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS, stats_engine="frequentist", difference_type="absolute"
+            ),
+        )
+        cols_to_ignore = [
+            "baseline_main_sum",
+            "baseline_main_sum_squares",
+            "baseline_covariate_sum",
+            "baseline_covariate_sum_squares",
+            "baseline_main_covariate_sum_product",
+            "v1_main_sum",
+            "v1_main_sum_squares",
+            "v1_covariate_sum",
+            "v1_covariate_sum_squares",
+            "v1_main_covariate_sum_product",
+        ]
+        pd.testing.assert_frame_equal(
+            result.drop(columns=cols_to_ignore).reset_index(drop=True),
+            result_true.drop(columns=cols_to_ignore).reset_index(drop=True),
+            check_dtype=False,
+        )
+
+    def test_use_covariate_as_response_ra_proportion(self):
+        rows = RA_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            metric=dataclasses.replace(
+                RA_METRIC, main_metric_type="binomial", covariate_metric_type="binomial"
+            ),
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine="frequentist",
+                difference_type="absolute",
+                use_covariate_as_response=True,
+            ),
+        )
+        drop_cols = [
+            "main_sum",
+            "main_sum_squares",
+            "main_covariate_sum_product",
+            "covariate_sum_squares",
+        ]
+        mapping = {
+            "covariate_sum": "main_sum",
+        }
+        rows_pre = (
+            copy.deepcopy(RA_STATISTICS_DF)
+            .drop(columns=drop_cols)
+            .rename(columns=mapping)
+        )
+        df_pre = get_metric_df(rows_pre, {"zero": 0, "one": 1}, ["zero", "one"])
+        result_true = analyze_metric_df(
+            df_pre,
+            metric=dataclasses.replace(
+                COUNT_METRIC,
+                main_metric_type="binomial",
+            ),
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS, stats_engine="frequentist", difference_type="absolute"
+            ),
+        )
+        cols_to_ignore = [
+            "baseline_main_sum",
+            "baseline_main_sum_squares",
+            "baseline_covariate_sum",
+            "baseline_covariate_sum_squares",
+            "baseline_main_covariate_sum_product",
+            "v1_main_sum",
+            "v1_main_sum_squares",
+            "v1_covariate_sum",
+            "v1_covariate_sum_squares",
+            "v1_main_covariate_sum_product",
+        ]
+        pd.testing.assert_frame_equal(
+            result.drop(columns=cols_to_ignore).reset_index(drop=True),
+            result_true.drop(columns=cols_to_ignore).reset_index(drop=True),
+        )
+
+    def test_use_covariate_as_response_ra_count(self):
+        rows = RA_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            metric=RA_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine="frequentist",
+                difference_type="absolute",
+                use_covariate_as_response=True,
+            ),
+        )
+        drop_cols = ["main_sum", "main_sum_squares", "main_covariate_sum_product"]
+        mapping = {
+            "covariate_sum": "main_sum",
+            "covariate_sum_squares": "main_sum_squares",
+        }
+        rows_pre = (
+            copy.deepcopy(RA_STATISTICS_DF)
+            .drop(columns=drop_cols)
+            .rename(columns=mapping)
+        )
+        df_pre = get_metric_df(rows_pre, {"zero": 0, "one": 1}, ["zero", "one"])
+        result_true = analyze_metric_df(
+            df_pre,
+            metric=COUNT_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS, stats_engine="frequentist", difference_type="absolute"
+            ),
+        )
+        cols_to_ignore = [
+            "baseline_main_sum",
+            "baseline_main_sum_squares",
+            "baseline_covariate_sum",
+            "baseline_covariate_sum_squares",
+            "baseline_main_covariate_sum_product",
+            "v1_main_sum",
+            "v1_main_sum_squares",
+            "v1_covariate_sum",
+            "v1_covariate_sum_squares",
+            "v1_main_covariate_sum_product",
+        ]
+        pd.testing.assert_frame_equal(
+            result.drop(columns=cols_to_ignore).reset_index(drop=True),
+            result_true.drop(columns=cols_to_ignore).reset_index(drop=True),
+        )
+
+    def test_use_covariate_as_response_ra_ratio(self):
+        rows = RATIO_RA_STATISTICS_DF
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df,
+            metric=RATIO_RA_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS,
+                stats_engine="frequentist",
+                difference_type="absolute",
+                use_covariate_as_response=True,
+            ),
+        )
+
+        drop_cols = [
+            "main_sum",
+            "main_sum_squares",
+            "denominator_sum",
+            "denominator_sum_squares",
+            "main_covariate_sum_product",
+            "main_denominator_sum_product",
+            "main_post_denominator_pre_sum_product",
+            "main_pre_denominator_post_sum_product",
+            "denominator_post_denominator_pre_sum_product",
+        ]
+        mapping = {
+            "covariate_sum": "main_sum",
+            "covariate_sum_squares": "main_sum_squares",
+            "denominator_pre_sum": "denominator_sum",
+            "denominator_pre_sum_squares": "denominator_sum_squares",
+            "main_pre_denominator_pre_sum_product": "main_denominator_sum_product",
+        }
+        rows_pre = (
+            copy.deepcopy(RATIO_RA_STATISTICS_DF)
+            .drop(columns=drop_cols)
+            .rename(columns=mapping)
+        )
+        df_pre = get_metric_df(rows_pre, {"zero": 0, "one": 1}, ["zero", "one"])
+        result_true = analyze_metric_df(
+            df_pre,
+            metric=RATIO_METRIC,
+            analysis=dataclasses.replace(
+                DEFAULT_ANALYSIS, stats_engine="frequentist", difference_type="absolute"
+            ),
+        )
+        cols_to_ignore = [
+            "baseline_main_sum",
+            "baseline_main_sum_squares",
+            "baseline_denominator_sum",
+            "baseline_denominator_sum_squares",
+            "baseline_main_denominator_sum_product",
+            "baseline_covariate_sum",
+            "baseline_covariate_sum_squares",
+            "baseline_main_covariate_sum_product",
+            "baseline_denominator_pre_sum",
+            "baseline_denominator_pre_sum_squares",
+            "baseline_main_post_denominator_pre_sum_product",
+            "baseline_main_pre_denominator_post_sum_product",
+            "baseline_main_pre_denominator_pre_sum_product",
+            "baseline_denominator_post_denominator_pre_sum_product",
+            "v1_main_sum",
+            "v1_main_sum_squares",
+            "v1_denominator_sum",
+            "v1_denominator_sum_squares",
+            "v1_main_denominator_sum_product",
+            "v1_covariate_sum",
+            "v1_covariate_sum_squares",
+            "v1_main_covariate_sum_product",
+            "v1_denominator_pre_sum",
+            "v1_denominator_pre_sum_squares",
+            "v1_main_post_denominator_pre_sum_product",
+            "v1_main_pre_denominator_post_sum_product",
+            "v1_main_pre_denominator_pre_sum_product",
+            "v1_denominator_post_denominator_pre_sum_product",
+        ]
+        pd.testing.assert_frame_equal(
+            result.drop(columns=cols_to_ignore).reset_index(drop=True),
+            result_true.drop(columns=cols_to_ignore).reset_index(drop=True),
         )
 
     def test_analyze_metric_df_ra_proportion(self):
