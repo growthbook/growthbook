@@ -222,7 +222,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [description] Expected string, received boolean",
+      message:
+        "Request body: [description] Invalid input: expected string, received boolean",
     });
   });
 
@@ -289,7 +290,8 @@ describe("environements API", () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      message: "Request body: [name] Expected string, received boolean",
+      message:
+        "Request body: [name] Invalid input: expected string, received boolean",
     });
   });
 });

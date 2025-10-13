@@ -1,4 +1,4 @@
-import { z, ZodError } from "zod";
+import { z } from "zod";
 import { Collection } from "mongodb";
 import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
 
@@ -390,20 +390,19 @@ describe("BaseModel", () => {
     );
   });
 
-  it("raises an error when attempting to create an invalid document", () => {
+  it("raises an error when attempting to create an invalid document", async () => {
     const model = new TestModel(defaultContext);
     model.canCreateMock.mockReturnValue(true);
-    expect(model.create({ id: "aabb" })).rejects.toEqual(
-      new ZodError([
+    await expect(model.create({ id: "aabb" })).rejects.toMatchObject({
+      issues: [
         {
           code: "invalid_type",
           expected: "string",
-          received: "undefined",
           path: ["name"],
-          message: "Required",
+          message: "Invalid input: expected string, received undefined",
         },
-      ]),
-    );
+      ],
+    });
   });
 
   it("allows creation of a document with a readonly field", async () => {
