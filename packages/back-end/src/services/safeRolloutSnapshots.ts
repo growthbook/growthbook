@@ -169,6 +169,8 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
       weight: v.weight,
     })),
     coverage: settings.coverage,
+    customFields: settings.customFields,
+    phase: settings.phase,
   };
 
   const analysisSettings = getAnalysisSettingsFromSafeRolloutArgs(
