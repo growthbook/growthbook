@@ -3728,6 +3728,7 @@ export interface components {
       banditBurnInUnit: "hours" | "days";
       experimentMinLengthDays: number;
       experimentMaxLengthDays?: number | null;
+      preferredEnvironment?: string | null;
     };
     CodeRef: {
       /** @description The organization name */
@@ -13831,6 +13832,7 @@ export interface operations {
               banditBurnInUnit: "hours" | "days";
               experimentMinLengthDays: number;
               experimentMaxLengthDays?: number | null;
+              preferredEnvironment?: string | null;
             };
           };
         };

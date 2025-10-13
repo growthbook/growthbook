@@ -8479,6 +8479,9 @@ components:
         experimentMaxLengthDays:
           type: number
           nullable: true
+        preferredEnvironment:
+          type: string
+          nullable: true
     CodeRef:
       type: object
       required:
