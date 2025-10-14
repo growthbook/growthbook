@@ -50,6 +50,7 @@ import {
   DiffResult,
   getObjectDiff,
 } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateFeatureHooks } from "../enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -332,10 +333,16 @@ export async function createFeature(
     data,
     getEnvironmentIdsFromOrg(org),
   );
-  const feature = await FeatureModel.create({
+
+  const featureToCreate = {
     ...data,
     linkedExperiments,
-  });
+  };
+
+  // Run any custom hooks for this feature
+  await runValidateFeatureHooks(context, featureToCreate);
+
+  const feature = await FeatureModel.create(featureToCreate);
 
   // Historically, we haven't properly removed revisions when deleting a feature
   // So, clean up any conflicting revisions first before creating a new one
