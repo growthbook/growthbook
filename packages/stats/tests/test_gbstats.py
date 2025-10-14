@@ -797,7 +797,6 @@ class TestUseCovariateAsResponse(TestCase):
         df_no_data = pd.DataFrame(copy.deepcopy(QUERY_OUTPUT))
         df_no_data["main_sum"] = 0.0
         df_no_data["main_sum_squares"] = 0.0
-        # raise ValueError(['hanni', type(df_no_data['users'][0])])
         df_pre = get_metric_df(df_no_data, {"zero": 0, "one": 1}, ["zero", "one"])
         result_true = analyze_metric_df(
             df_pre,
