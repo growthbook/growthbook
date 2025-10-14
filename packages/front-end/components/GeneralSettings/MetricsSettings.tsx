@@ -23,7 +23,7 @@ export default function MetricsSettings() {
   const maxMetricSliceLevels = form.watch("maxMetricSliceLevels");
   const maxMetricSliceLevelsWarningMsg =
     maxMetricSliceLevels && maxMetricSliceLevels > 20
-      ? "Setting this number too high may increase query costs substantially. All auto slice levels are analyzed automatically every time an experiment updates."
+      ? "Using too many slice levels may increase query costs substantially. All auto slice levels are analyzed every time an experiment refreshes."
       : "";
   const currencyOptions = Object.entries(supportedCurrencies).map(
     ([value, label]) => ({ value, label }),
