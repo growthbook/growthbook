@@ -29,11 +29,6 @@ const config = {
     locales: ["en"], // Ensure only 'en' is listed if it's single-language
   },
 
-  // Enable v4 features
-  future: {
-    v4: true,
-  },
-
   // Markdown
   markdown: {
     hooks: {
