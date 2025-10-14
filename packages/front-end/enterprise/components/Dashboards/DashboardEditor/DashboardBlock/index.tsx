@@ -303,7 +303,8 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         ? block.dataVizConfigIndex === -1 ||
           !blockSavedQuery?.dataVizConfig?.[block.dataVizConfigIndex]
         : isSqlExplorerWithBlockConfig(block)
-          ? !block.blockConfig || block.blockConfig.length === 0
+          ? !block.blockConfig ||
+            (block.blockConfig.length === 0 && !block.showResultsTable)
           : true)) ||
     (blockHasFactMetric &&
       (block.factMetricId.length === 0 || !blockFactMetric)) ||
@@ -454,7 +455,6 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
             >
               {block.title || BLOCK_TYPE_INFO[block.type].name}
             </h4>
-
             {canEditTitle && (
               <a
                 href="#"
