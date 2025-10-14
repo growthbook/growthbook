@@ -5,7 +5,7 @@ import useApi from "./useApi";
 export function useAllDashboards() {
   const { data, error, mutate } = useApi<{
     dashboards: DashboardInterface[];
-  }>("/dashboards");
+  }>("/dashboards?includeExperimentDashboards=true");
 
   const dashboards = useMemo(() => data?.dashboards || [], [data]);
 

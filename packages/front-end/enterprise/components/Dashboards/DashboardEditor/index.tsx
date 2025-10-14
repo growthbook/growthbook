@@ -201,7 +201,7 @@ interface Props {
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   ) => void;
   moveBlock: (index: number, direction: -1 | 1) => void;
-  addBlockType: (bType: DashboardBlockType, i?: number) => void;
+  addBlockType?: (bType: DashboardBlockType, i?: number) => void;
   editBlock: (index: number) => void;
   duplicateBlock: (index: number) => void;
   deleteBlock: (index: number) => void;
@@ -345,7 +345,7 @@ function DashboardEditor({
                   </IconButton>
                 }
                 addBlockType={(bType: DashboardBlockType) => {
-                  if (isDefined(i)) {
+                  if (isDefined(i) && addBlockType) {
                     addBlockType(bType, i + 1);
                   }
                 }}
@@ -543,21 +543,27 @@ function DashboardEditor({
                 <Heading weight="medium" align="center">
                   Add Content Blocks
                 </Heading>
-                <Text align="center">Choose a block type to get started.</Text>
+                <Text align="center">
+                  {addBlockType
+                    ? "Choose a block type to get started."
+                    : "Add some blocks to get started"}
+                </Text>
               </Flex>
-              <AddBlockDropdown
-                addBlockType={addBlockType}
-                isGeneralDashboard={isGeneralDashboard}
-                trigger={
-                  <Button
-                    size="sm"
-                    icon={<PiCaretDownFill />}
-                    iconPosition="right"
-                  >
-                    Add block
-                  </Button>
-                }
-              />
+              {addBlockType && (
+                <AddBlockDropdown
+                  addBlockType={addBlockType}
+                  isGeneralDashboard={isGeneralDashboard}
+                  trigger={
+                    <Button
+                      size="sm"
+                      icon={<PiCaretDownFill />}
+                      iconPosition="right"
+                    >
+                      Add block
+                    </Button>
+                  }
+                />
+              )}
             </Flex>
           ) : (
             blocks.map((block, i) =>

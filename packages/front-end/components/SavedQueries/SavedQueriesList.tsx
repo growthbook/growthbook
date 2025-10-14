@@ -4,6 +4,8 @@ import { SavedQuery } from "back-end/src/validators/saved-queries";
 import Link from "next/link";
 import { BiHide, BiShow } from "react-icons/bi";
 import { BsXCircle } from "react-icons/bs";
+import { blockHasFieldOfType } from "shared/enterprise";
+import { isString } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -128,7 +130,17 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 const datasource = getDatasourceById(query.datasourceId);
                 const datasourceName = datasource?.name || "Unknown";
                 const linkedDashboardIds = query.linkedDashboardIds || [];
-                const numReferences = linkedDashboardIds.length;
+
+                const numReferences = linkedDashboardIds.filter((dashId) =>
+                  dashboardsMap
+                    .get(dashId)
+                    // Check that the link is still active for each dashboard
+                    ?.blocks?.some(
+                      (block) =>
+                        blockHasFieldOfType(block, "savedQueryId", isString) &&
+                        block.savedQueryId === query.id,
+                    ),
+                ).length;
 
                 return (
                   <tr key={query.id}>
@@ -201,7 +213,11 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                                     style={{ maxWidth: 320 }}
                                                   >
                                                     <Link
-                                                      href={`/experiment/${dashboard.experimentId}#dashboards/${dashboard.id}`}
+                                                      href={
+                                                        dashboard.experimentId
+                                                          ? `/experiment/${dashboard.experimentId}#dashboards/${dashboard.id}`
+                                                          : `/dashboards/${dashboard.id}`
+                                                      }
                                                     >
                                                       {dashboard.title}
                                                     </Link>

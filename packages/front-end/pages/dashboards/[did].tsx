@@ -149,7 +149,6 @@ function SingleDashboardPage() {
             }}
             projects={dashboard.projects ? dashboard.projects : []}
             moveBlock={() => {}}
-            addBlockType={() => {}}
             editBlock={() => {}}
             duplicateBlock={() => {}}
             deleteBlock={() => {}}

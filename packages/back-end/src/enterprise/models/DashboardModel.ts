@@ -216,22 +216,13 @@ export class DashboardModel extends BaseClass {
   ) {
     const initialQueryIdSet = getSavedQueryIds(existing);
     const finalQueryIdSet = getSavedQueryIds(newDoc);
-    for (const queryId of initialQueryIdSet) {
-      if (finalQueryIdSet.has(queryId)) continue;
-      await this.unlinkSavedQuery(queryId, newDoc);
-    }
     for (const queryId of finalQueryIdSet) {
       if (initialQueryIdSet.has(queryId)) continue;
       await this.linkSavedQuery(queryId, newDoc);
     }
   }
 
-  protected async afterDelete(doc: DashboardDocument) {
-    const queryIdSet = getSavedQueryIds(doc);
-    for (const queryId of queryIdSet) {
-      await this.unlinkSavedQuery(queryId, doc);
-    }
-  }
+  protected async afterDelete(_doc: DashboardDocument) {}
 
   protected async linkSavedQuery(queryId: string, doc: DashboardDocument) {
     const savedQuery = await this.context.models.savedQueries.getById(queryId);
@@ -239,21 +230,6 @@ export class DashboardModel extends BaseClass {
       const linkedDashboardIds = savedQuery.linkedDashboardIds || [];
       if (!linkedDashboardIds.includes(doc.id)) {
         linkedDashboardIds.push(doc.id);
-        await this.context.models.savedQueries.updateById(queryId, {
-          linkedDashboardIds,
-        });
-      }
-    }
-  }
-
-  protected async unlinkSavedQuery(queryId: string, doc: DashboardDocument) {
-    const savedQuery = await this.context.models.savedQueries.getById(queryId);
-    if (savedQuery) {
-      if ((savedQuery.linkedDashboardIds || []).includes(doc.id)) {
-        const linkedDashboardIds = (savedQuery.linkedDashboardIds || []).filter(
-          (dashId) => dashId !== doc.id,
-        );
-
         await this.context.models.savedQueries.updateById(queryId, {
           linkedDashboardIds,
         });
