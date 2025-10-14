@@ -56,7 +56,6 @@ export default function ExperimentRefNewFields({
   source,
   feature,
   project,
-  environment,
   environments,
   defaultValues,
   revisions,
@@ -92,8 +91,7 @@ export default function ExperimentRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
+  environments: string[];
   defaultValues?: FeatureRule | NewExperimentRefRule;
   revisions?: FeatureRevisionInterface[];
   version?: number;
@@ -390,7 +388,7 @@ export default function ExperimentRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={environment ? [environment] : (environments ?? [])}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }

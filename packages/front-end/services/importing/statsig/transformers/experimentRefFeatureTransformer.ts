@@ -105,14 +105,8 @@ export function transformStatsigExperimentToFeature(
         condition: transformedCondition.condition,
         enabled: true,
         value: rule.returnValueJSON,
-        savedGroups: transformedCondition.savedGroups.map((id) => ({
-          match: "all",
-          ids: [id],
-        })),
-        prerequisites: transformedCondition.prerequisites?.map((id) => ({
-          id,
-          condition: JSON.stringify({ value: true }),
-        })),
+        savedGroups: transformedCondition.savedGroups,
+        prerequisites: transformedCondition.prerequisites,
         scheduleRules: transformedCondition.scheduleRules || [],
       };
 
