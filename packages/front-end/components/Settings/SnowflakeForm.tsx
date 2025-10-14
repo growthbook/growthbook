@@ -173,12 +173,9 @@ const SnowflakeForm: FC<{
       </div>
       <div className="col-md-12">
         <div className="form-group">
-          <label htmlFor="access-url" className="mr-2">
-            Use Access URL (Optional)
-          </label>
           <Switch
             id="access-url"
-            label="Use Access URL (Optional)"
+            label="Use Access URL (optional)"
             value={useAccessUrl}
             onChange={(v) => {
               setUseAccessUrl(v);

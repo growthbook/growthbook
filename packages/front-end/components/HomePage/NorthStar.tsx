@@ -1,4 +1,5 @@
 import React, { FC, useEffect, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -113,8 +114,8 @@ const NorthStar: FC<{
             </div>
             <div className="col" style={{ position: "relative" }}>
               {(selectedMetrics?.length || 0) > 0 && (
-                <div
-                  className="float-right mr-3"
+                <Flex
+                  className="float-right"
                   style={{ position: "relative", top: 40 }}
                 >
                   <label
@@ -126,13 +127,14 @@ const NorthStar: FC<{
                     (7 day trailing)
                   </label>
                   <Switch
+                    size="3"
                     value={smoothBy === "week"}
                     onChange={() =>
                       setSmoothBy(smoothBy === "week" ? "day" : "week")
                     }
                     id="toggle-group-smooth-by"
                   />
-                </div>
+                </Flex>
               )}
             </div>
           </div>

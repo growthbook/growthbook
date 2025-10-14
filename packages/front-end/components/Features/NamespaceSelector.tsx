@@ -107,8 +107,6 @@ export default function NamespaceSelector({
                       step=".01"
                       {...form.register(`${formPrefix}namespace.range.0`, {
                         valueAsNumber: true,
-                        max: range[1],
-                        min: 0,
                       })}
                     />
                   </div>

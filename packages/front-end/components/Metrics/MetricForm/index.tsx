@@ -1,4 +1,5 @@
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import {
   Condition,
   ManagedBy,
@@ -1383,15 +1384,13 @@ const MetricForm: FC<MetricFormProps> = ({
                       }}
                     >
                       <div className="d-flex my-2 border-bottom"></div>
-                      <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                        <label
-                          className="mr-1"
-                          htmlFor="toggle-regressionAdjustmentEnabled"
-                        >
-                          Apply regression adjustment for this metric
-                        </label>
+                      <Flex
+                        direction="column"
+                        className="form-group mt-3 mb-0 mr-2"
+                      >
                         <Switch
                           id={"toggle-regressionAdjustmentEnabled"}
+                          label="Apply regression adjustment for this metric"
                           value={!!form.watch("regressionAdjustmentEnabled")}
                           onChange={(value) => {
                             form.setValue("regressionAdjustmentEnabled", value);
@@ -1402,7 +1401,8 @@ const MetricForm: FC<MetricFormProps> = ({
                           (organization default:{" "}
                           {settings.regressionAdjustmentEnabled ? "On" : "Off"})
                         </small>
-                      </div>
+                      </Flex>
+
                       <div
                         className="form-group mt-3 mb-1 mr-2"
                         style={{

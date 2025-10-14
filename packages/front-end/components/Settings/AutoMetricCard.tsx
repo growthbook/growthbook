@@ -6,6 +6,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Switch from "@/ui/Switch";
 import Button from "@/components/Button";
 import SQLInputField from "@/components/SQLInputField";
+import DSTooltip from "@/ui/Tooltip";
 
 type Props = {
   event: AutoMetricTrackedEvent;
@@ -61,27 +62,28 @@ export default function AutoMetricCard({
         {event.metricsToCreate[binomialIndex]?.sql ? (
           <td className={selected === binomialIndex ? "bg-light" : ""}>
             <div className="d-flex flex-column justify-content-center align-items-center">
-              <Switch
-                value={
-                  event.metricsToCreate[binomialIndex].shouldCreate || false
-                }
-                disabled={
+              <DSTooltip
+                content="This metric has already been created."
+                enabled={
                   event.metricsToCreate[binomialIndex].alreadyExists || false
                 }
-                disabledMessage="This metric has already been created."
-                style={
-                  event.metricsToCreate[binomialIndex].alreadyExists
-                    ? { opacity: 0.5 }
-                    : {}
-                }
-                id={`${event}-${event.metricsToCreate[binomialIndex].name}`}
-                onChange={(value) => {
-                  const updates = cloneDeep(trackedEvents);
-                  updates[i].metricsToCreate[binomialIndex].shouldCreate =
-                    value;
-                  setTrackedEvents(updates);
-                }}
-              />
+              >
+                <Switch
+                  value={
+                    event.metricsToCreate[binomialIndex].shouldCreate || false
+                  }
+                  disabled={
+                    event.metricsToCreate[binomialIndex].alreadyExists || false
+                  }
+                  id={`${event}-${event.metricsToCreate[binomialIndex].name}`}
+                  onChange={(value) => {
+                    const updates = cloneDeep(trackedEvents);
+                    updates[i].metricsToCreate[binomialIndex].shouldCreate =
+                      value;
+                    setTrackedEvents(updates);
+                  }}
+                />
+              </DSTooltip>
               <Button
                 color="link"
                 onClick={async () =>
@@ -100,24 +102,27 @@ export default function AutoMetricCard({
         {event.metricsToCreate[countIndex]?.sql ? (
           <td className={selected === countIndex ? "bg-light" : ""}>
             <div className="d-flex flex-column justify-content-center align-items-center">
-              <Switch
-                value={event.metricsToCreate[countIndex].shouldCreate || false}
-                id={`${event}-${event.metricsToCreate[countIndex].name}`}
-                disabled={
+              <DSTooltip
+                content="This metric has already been created."
+                enabled={
                   event.metricsToCreate[countIndex].alreadyExists || false
                 }
-                disabledMessage="This metric has already been created."
-                style={
-                  event.metricsToCreate[countIndex].alreadyExists
-                    ? { opacity: 0.5 }
-                    : {}
-                }
-                onChange={(value) => {
-                  const updates = cloneDeep(trackedEvents);
-                  updates[i].metricsToCreate[countIndex].shouldCreate = value;
-                  setTrackedEvents(updates);
-                }}
-              />
+              >
+                <Switch
+                  value={
+                    event.metricsToCreate[countIndex].shouldCreate || false
+                  }
+                  id={`${event}-${event.metricsToCreate[countIndex].name}`}
+                  disabled={
+                    event.metricsToCreate[countIndex].alreadyExists || false
+                  }
+                  onChange={(value) => {
+                    const updates = cloneDeep(trackedEvents);
+                    updates[i].metricsToCreate[countIndex].shouldCreate = value;
+                    setTrackedEvents(updates);
+                  }}
+                />
+              </DSTooltip>
               <Button
                 color="link"
                 onClick={async () =>

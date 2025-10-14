@@ -183,15 +183,13 @@ export default function FactMetricList({
           </div>
         )}
         {hasArchivedMetrics && (
-          <div className="col-auto text-muted">
-            <Switch
-              value={showArchived}
-              onChange={setShowArchived}
-              id="show-archived"
-              label="show archived"
-            />
-            Show archived
-          </div>
+          <Switch
+            value={showArchived}
+            onChange={setShowArchived}
+            id="show-archived"
+            label="Show archived"
+            ml="2"
+          />
         )}
         <div className="col-auto ml-auto">
           <Tooltip

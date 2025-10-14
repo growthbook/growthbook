@@ -35,7 +35,6 @@ import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -203,20 +202,15 @@ export default function LegacyReportPage({
                 value={form.watch("description")}
               />
             </div>
-            Publish:{" "}
             <Switch
               id="toggle-status"
               value={form.watch("status") === "published"}
-              label="published"
+              label="Publish"
+              description="A published report will be visible to other users of your team"
               onChange={(value) => {
                 const newStatus = value ? "published" : "private";
                 form.setValue("status", newStatus);
               }}
-            />
-            <Tooltip
-              body={
-                "A published report will be visible to other users of your team"
-              }
             />
           </Modal>
         )}

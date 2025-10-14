@@ -307,13 +307,12 @@ const ExperimentsPage = (): React.ReactElement => {
                 <div className="col-auto ml-auto">
                   <Switch
                     id="my-experiments-toggle"
-                    type="toggle"
+                    label="My Bandits Only"
                     value={showMineOnly}
                     onChange={(value) => {
                       setShowMineOnly(value);
                     }}
-                  />{" "}
-                  My Bandits Only
+                  />
                 </div>
               </div>
 

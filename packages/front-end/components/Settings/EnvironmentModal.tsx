@@ -215,26 +215,23 @@ export default function EnvironmentModal({
           </div>
         )}
       </div>
-      <div className="mb-3">
-        <Switch
-          id={"defaultToggle"}
-          label="Identifier"
-          value={!!form.watch("defaultState")}
-          onChange={(value) => {
-            form.setValue("defaultState", value);
-          }}
-        />{" "}
-        <label htmlFor="defaultToggle">Default state for new features</label>
-      </div>
+      <Switch
+        id={"defaultToggle"}
+        label="Default state for new features"
+        value={!!form.watch("defaultState")}
+        onChange={(value) => {
+          form.setValue("defaultState", value);
+        }}
+        mb="3"
+      />
       <Switch
         id={"toggle"}
-        label="Identifier"
+        label="Show toggle on feature list"
         value={!!form.watch("toggleOnList")}
         onChange={(value) => {
           form.setValue("toggleOnList", value);
         }}
-      />{" "}
-      <label htmlFor="toggle">Show toggle on feature list </label>
+      />
     </Modal>
   );
 }

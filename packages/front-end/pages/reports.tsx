@@ -139,15 +139,12 @@ const ReportsPage = (): React.ReactElement => {
         <div className="col-lg-3 col-md-4 col-6">
           <Field placeholder="Search..." type="search" {...searchInputProps} />
         </div>
-        <div className="col-auto">
-          <Switch
-            id={"onlymine"}
-            value={onlyMyReports}
-            label={"onlymine"}
-            onChange={setOnlyMyReports}
-          />
-          Show only my reports
-        </div>
+        <Switch
+          id={"onlymine"}
+          value={onlyMyReports}
+          label="Show only my reports"
+          onChange={setOnlyMyReports}
+        />
         <div style={{ flex: 1 }} />
       </div>
       <table className="table appbox gbtable table-hover">

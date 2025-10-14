@@ -94,21 +94,18 @@ export default function FrequentistTab({
           </PremiumTooltip>
         </h5>
         <div className="form-group mb-0 mr-2">
-          <div className="d-flex">
-            <label className="mr-1" htmlFor="toggle-sequentialTestingEnabled">
-              Apply sequential testing by default
-            </label>
-            <Switch
-              id={"toggle-sequentialTestingEnabled"}
-              value={form.watch("sequentialTestingEnabled")}
-              onChange={(value) => {
-                form.setValue("sequentialTestingEnabled", value);
-              }}
-              disabled={
-                !hasCommercialFeature("sequential-testing") || hasFileConfig()
-              }
-            />
-          </div>
+          <Switch
+            id={"toggle-sequentialTestingEnabled"}
+            value={form.watch("sequentialTestingEnabled")}
+            label="Apply sequential testing by default"
+            onChange={(value) => {
+              form.setValue("sequentialTestingEnabled", value);
+            }}
+            disabled={
+              !hasCommercialFeature("sequential-testing") || hasFileConfig()
+            }
+            mb="1"
+          />
           {form.watch("sequentialTestingEnabled") &&
             form.watch("statsEngine") === "bayesian" && (
               <div className="d-flex">

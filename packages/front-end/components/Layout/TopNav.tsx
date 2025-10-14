@@ -40,8 +40,7 @@ import Avatar from "@/components/Avatar/Avatar";
 import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Switch from "@/ui/Switch";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
@@ -413,12 +412,12 @@ const TopNav: FC<{
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
-          <Switch
+          <Checkbox
             id="allowCelebration"
             label="Allow celebration"
             description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
             value={form.watch("enableCelebrations")}
-            onChange={(v) => form.setValue("enableCelebrations", v)}
+            setValue={(v) => form.setValue("enableCelebrations", v)}
           />
         </Modal>
       )}

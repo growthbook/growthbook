@@ -922,11 +922,9 @@ const EditMember: FC<{
           />
         </div>
         <div className="mt-4">
-          <label>Verified Email </label>
           <Switch
-            label="Verified"
+            label="Verified Email"
             id="verified"
-            className=" ml-2"
             value={verified}
             onChange={(e) => setVerified(e)}
           />

@@ -25,9 +25,6 @@ export default function SSLConnectionFields({
     <>
       <div className="col-md-12">
         <div className="form-group">
-          <label htmlFor="require-ssl" className="mr-2">
-            Require SSL
-          </label>
           <Switch
             id="require-ssl"
             label="Require SSL"

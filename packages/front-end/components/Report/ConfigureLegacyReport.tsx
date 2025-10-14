@@ -554,21 +554,10 @@ export default function ConfigureLegacyReport({
       )}
       {form.watch("statsEngine") === "bayesian" && (
         <div className="align-items-center">
-          <label
-            className="ml-1 mr-1 mb-3 font-weight-bold"
-            htmlFor="useLatestPriorSettings"
-          >
-            Use latest metric prior settings{" "}
-            <Tooltip
-              body={
-                "Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
-              }
-            >
-              <FaQuestionCircle />
-            </Tooltip>
-          </label>
           <Switch
             id="useLatestPriorSettings"
+            label="Use latest metric prior settings"
+            description="Enabling this ensures the report uses the latest priors set for your organization and metrics. You can disable it to freeze the priors for this report and keep them from changing when metric definitions change."
             value={form.watch("useLatestPriorSettings")}
             onChange={(v) => form.setValue("useLatestPriorSettings", v)}
           />

@@ -3,7 +3,7 @@ import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Box, Text } from "@radix-ui/themes";
+import { Box, Flex, Text } from "@radix-ui/themes";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -2151,6 +2151,7 @@ export default function FactMetricModal({
                     <Switch
                       id="quantileTypeSelector"
                       label="Aggregate by User First"
+                      description="Aggregate by Experiment User before taking quantile?"
                       value={
                         !canUseEventQuantile ||
                         quantileSettings.type !== "event"
@@ -2172,12 +2173,6 @@ export default function FactMetricModal({
                       }}
                       disabled={!canUseEventQuantile}
                     />
-                    <label
-                      htmlFor="quantileTypeSelector"
-                      className="ml-2 cursor-pointer"
-                    >
-                      Aggregate by Experiment User before taking quantile?
-                    </label>
                   </div>
                   <label>
                     {quantileSettings.type === "unit"
@@ -2499,15 +2494,13 @@ export default function FactMetricModal({
                                 }}
                               >
                                 <div className="d-flex my-2 border-bottom"></div>
-                                <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                                  <label
-                                    className="mr-1"
-                                    htmlFor="toggle-regressionAdjustmentEnabled"
-                                  >
-                                    Apply regression adjustment for this metric
-                                  </label>
+                                <Flex
+                                  direction="column"
+                                  className="form-group mt-3 mb-0 mr-2"
+                                >
                                   <Switch
                                     id={"toggle-regressionAdjustmentEnabled"}
+                                    label="Apply regression adjustment for this metric"
                                     value={
                                       !!form.watch(
                                         "regressionAdjustmentEnabled",
@@ -2528,7 +2521,7 @@ export default function FactMetricModal({
                                       : "Off"}
                                     )
                                   </small>
-                                </div>
+                                </Flex>
                                 <div
                                   className="form-group mt-3 mb-1 mr-2"
                                   style={{

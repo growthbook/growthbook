@@ -107,18 +107,14 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         ) : null
       }
     >
-      <div>
-        <label className="mr-2">
-          Allow GrowthBook to write tables during experiment analyses?
-        </label>
-        <Switch
-          id={"toggle-allowWriting"}
-          value={!!form.watch("allowWriting")}
-          onChange={(value) => {
-            form.setValue("allowWriting", value);
-          }}
-        />
-      </div>
+      <Switch
+        label="Allow GrowthBook to write tables during experiment analyses"
+        id={"toggle-allowWriting"}
+        value={!!form.watch("allowWriting")}
+        onChange={(value) => {
+          form.setValue("allowWriting", value);
+        }}
+      />
       {form.watch("allowWriting") ? (
         <div className="form-inline flex-column align-items-start mb-4 mt-4">
           <label>

@@ -165,8 +165,7 @@ export default function FallbackAttributeSelector({
                             !hasStickyBucketFeature ||
                             !hasSDKWithStickyBucketing
                           }
-                          className="ml-2"
-                          style={{ width: 70 }}
+                          ml="2"
                         />
                       </div>
                     </div>

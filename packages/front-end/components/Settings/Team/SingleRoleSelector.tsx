@@ -1,4 +1,5 @@
 import { ReactNode, useMemo } from "react";
+import { Flex } from "@radix-ui/themes";
 import { MemberRoleInfo } from "back-end/types/organization";
 import uniqid from "uniqid";
 import { RESERVED_ROLE_IDS, roleSupportsEnvLimit } from "shared/permissions";
@@ -143,12 +144,7 @@ export default function SingleRoleSelector({
         envOptions.length > 1 && (
           <div>
             <div className="form-group">
-              <label htmlFor={`role-modal--${id}`}>
-                <PremiumTooltip commercialFeature="advanced-permissions">
-                  Restrict Access to Specific Environments
-                </PremiumTooltip>
-              </label>
-              <div>
+              <Flex align="center" gap="2">
                 <Switch
                   disabled={!hasFeature}
                   id={`role-modal--${id}`}
@@ -160,7 +156,12 @@ export default function SingleRoleSelector({
                     });
                   }}
                 />
-              </div>
+                <label htmlFor={`role-modal--${id}`} className="mb-0">
+                  <PremiumTooltip commercialFeature="advanced-permissions">
+                    Restrict Access to Specific Environments
+                  </PremiumTooltip>
+                </label>
+              </Flex>
             </div>
             {value.limitAccessByEnvironment && (
               <MultiSelectField

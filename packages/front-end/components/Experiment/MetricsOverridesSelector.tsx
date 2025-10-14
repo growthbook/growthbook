@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
@@ -27,7 +28,6 @@ import SelectField from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 import { getDefaultMetricOverridesFormValue } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
-import { Flex } from "@radix-ui/themes";
 
 const defaultFieldMap = {
   goalMetrics: "goalMetrics",
@@ -560,9 +560,10 @@ export default function MetricsOverridesSelector({
                       }}
                     >
                       <div className="d-flex my-2 border-bottom"></div>
-                      <Flex gap="2">
+                      <Flex direction="column" mb="2">
                         <Switch
                           id={`toggle-properPrior_${i}`}
+                          size="1"
                           label="Use proper prior for this metric"
                           value={
                             !!form.watch(
@@ -682,7 +683,7 @@ export default function MetricsOverridesSelector({
                           }}
                         >
                           <div className="d-flex my-2 border-bottom"></div>
-                          <Flex gap="1">
+                          <Flex direction="column" mb="2">
                             <Switch
                               id={`toggle-regressionAdjustmentEnabled_${i}`}
                               size="1"

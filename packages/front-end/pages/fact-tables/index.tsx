@@ -336,9 +336,8 @@ export default function FactTablesPage() {
                       value={showArchived}
                       onChange={setShowArchived}
                       id="show-archived"
-                      label="show archived"
+                      label="Show archived"
                     />
-                    Show archived
                   </div>
                 )}
                 <div className="col-auto">

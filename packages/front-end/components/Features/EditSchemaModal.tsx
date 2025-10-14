@@ -23,6 +23,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { GBAddCircle } from "@/components/Icons";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Checkbox from "@/ui/Checkbox";
 
 export interface Props {
   feature: FeatureInterface;
@@ -98,13 +99,13 @@ function EditSchemaField({
       />
       {inObject && (
         <div className="form-group">
-          <Switch
+          <Checkbox
             id={`schema_required_${i}`}
             value={value.required}
-            onChange={(v) => onChange({ ...value, required: v })}
-            type="toggle"
-          />{" "}
-          <label htmlFor={`schema_required_${i}`}>Required</label>
+            setValue={(v) => onChange({ ...value, required: v })}
+            description="Check if this property is required"
+            label="Required"
+          />
         </div>
       )}
       {value.type !== "boolean" && (
@@ -511,25 +512,14 @@ export default function EditSchemaModal({
       close={close}
       open={true}
     >
-      <div className="form-group d-flex align-items-top mb-4">
-        <Switch
-          id={"schemaEnabled"}
-          value={form.watch("enabled")}
-          onChange={(v) => form.setValue("enabled", v)}
-        />{" "}
-        <div className="ml-3">
-          <label
-            htmlFor="schemaEnabled"
-            className="mb-0 font-weight-bold text-dark"
-          >
-            Enable Validation
-          </label>
-          <div>
-            These validation rules will only apply going forward. Existing
-            feature values will not be affected.
-          </div>
-        </div>
-      </div>
+      <Switch
+        id={"schemaEnabled"}
+        label="Enable Validation"
+        description="These validation rules will only apply going forward. Existing feature values will not be affected."
+        value={form.watch("enabled")}
+        onChange={(v) => form.setValue("enabled", v)}
+        mb="4"
+      />
       {form.watch("enabled") && (
         <>
           <div className="form-group">

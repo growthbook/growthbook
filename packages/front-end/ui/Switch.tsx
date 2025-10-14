@@ -40,7 +40,7 @@ export type Props = (UncontrolledSwitchProps | ControlledSwitchProps) &
   BaseProps &
   MarginProps;
 
-const Switch = forwardRef<HTMLDivElement, Props>(function Switch(
+const Switch = forwardRef<HTMLButtonElement, Props>(function Switch(
   {
     color,
     id,
@@ -120,8 +120,6 @@ const Switch = forwardRef<HTMLDivElement, Props>(function Switch(
 
   return (
     <Grid
-      ref={ref}
-      // columns="1 1fr"
       areas={getGridAreas()}
       columns={label ? "auto 1fr" : "auto"}
       align="center"
@@ -131,6 +129,7 @@ const Switch = forwardRef<HTMLDivElement, Props>(function Switch(
       {...props}
     >
       <RadixSwitch
+        ref={ref}
         color={color}
         id={switchId}
         size={getSwitchSize()}
@@ -159,7 +158,6 @@ const Switch = forwardRef<HTMLDivElement, Props>(function Switch(
           {label}
         </Text>
       )}
-      {/* {label && typeof label !== "string" && <div>{label}</div>} */}
       {((label && description) || (state !== "default" && stateLabel)) && (
         <Flex gridArea="description" direction="column" gap="1">
           {label && description && (
