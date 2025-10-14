@@ -77,6 +77,7 @@ export async function getCreateMetricPropsFromBody(
 
   const cleanedNumerator = {
     filters: [],
+    inlineFilters: {},
     ...numerator,
     column:
       body.metricType === "proportion" || body.metricType === "retention"
@@ -146,12 +147,14 @@ export async function getCreateMetricPropsFromBody(
     regressionAdjustmentEnabled: !!scopedSettings.regressionAdjustmentEnabled,
     numerator: cleanedNumerator,
     denominator: null,
+    metricAutoSlices: [],
     ...otherFields,
   };
 
   if (denominator) {
     data.denominator = {
       filters: [],
+      inlineFilters: {},
       ...denominator,
       column: denominator.column || "$$distinctUsers",
     };
@@ -199,6 +202,14 @@ export async function getCreateMetricPropsFromBody(
 
 export const postFactMetric = createApiRequestHandler(postFactMetricValidator)(
   async (req): Promise<PostFactMetricResponse> => {
+    if (
+      req.body.metricAutoSlices &&
+      req.body.metricAutoSlices.length > 0 &&
+      !req.context.hasPremiumFeature("metric-slices")
+    ) {
+      throw new Error("Metric slices require an enterprise license");
+    }
+
     const lookupFactTable = async (id: string) => getFactTable(req.context, id);
 
     const data = await getCreateMetricPropsFromBody(

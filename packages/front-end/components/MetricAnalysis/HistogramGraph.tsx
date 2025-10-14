@@ -23,6 +23,7 @@ type TooltipData = { x: number; y: number; d: Datapoint };
 
 interface HistogramGraphProps {
   data: Datapoint[];
+  xAxisLabel?: string;
   mean?: number;
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   height?: number;
@@ -74,6 +75,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
   data,
   mean,
   formatter,
+  xAxisLabel,
   height = 220,
   margin = [15, 15, 30, 80],
   highlightPositiveNegative = false,
@@ -367,7 +369,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     fontSize: 10,
                     textAnchor: "middle",
                   })}
-                  label="Lift"
+                  label={xAxisLabel}
                   labelClassName="h5"
                   labelOffset={25}
                   labelProps={{

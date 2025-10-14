@@ -1,24 +1,26 @@
+import { forwardRef } from "react";
 import {
   Tooltip as RadixTooltip,
-  type TooltipProps as RadixTooltipProps,
+  TooltipProps as RadixTooltipProps,
 } from "@radix-ui/themes";
-import { forwardRef } from "react";
 
-const Tooltip = forwardRef<
-  HTMLDivElement,
-  RadixTooltipProps & { shouldDisplay?: boolean }
->(({ children, shouldDisplay, ...props }, ref) => {
-  if (!shouldDisplay) {
-    return <>{children}</>;
-  }
+type TooltipProps = RadixTooltipProps & {
+  enabled: boolean;
+};
 
-  return (
-    <RadixTooltip ref={ref} {...props}>
-      {children}
-    </RadixTooltip>
-  );
-});
+const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
+  ({ children, enabled, ...props }, ref) => {
+    if (!enabled) {
+      return <>{children}</>;
+    }
+
+    return (
+      <RadixTooltip {...props} ref={ref}>
+        {children}
+      </RadixTooltip>
+    );
+  },
+);
 
 Tooltip.displayName = "Tooltip";
-
 export default Tooltip;

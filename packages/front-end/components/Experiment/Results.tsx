@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useEffect } from "react";
+import React, { FC, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { getValidDate, ago, relativeDate } from "shared/dates";
@@ -7,7 +7,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  generatePinnedSliceKey,
+} from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
@@ -58,6 +61,10 @@ const Results: FC<{
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
   experiment,
   envs,
@@ -80,8 +87,62 @@ const Results: FC<{
   isTabActive = true,
   setTab,
   holdout,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }) => {
   const { apiCall } = useAuth();
+
+  const [optimisticPinnedLevels, setOptimisticPinnedLevels] = useState<
+    string[]
+  >(experiment.pinnedMetricSlices || []);
+  useEffect(
+    () => setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []),
+    [experiment.pinnedMetricSlices],
+  );
+
+  const togglePinnedMetricSlice = async (
+    metricId: string,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    location?: "goal" | "secondary" | "guardrail",
+  ) => {
+    if (!editMetrics || !mutateExperiment) return;
+
+    // Use the slice levels directly since they're already in the correct format
+    const formattedSliceLevels = sliceLevels.map((dl) => ({
+      column: dl.dimension,
+      levels: dl.levels,
+    }));
+
+    const key = generatePinnedSliceKey(
+      metricId,
+      formattedSliceLevels,
+      location || "goal",
+    );
+    const newPinned = optimisticPinnedLevels.includes(key)
+      ? optimisticPinnedLevels.filter((id) => id !== key)
+      : [...optimisticPinnedLevels, key];
+    setOptimisticPinnedLevels(newPinned);
+
+    try {
+      const response = await apiCall<{ pinnedMetricSlices: string[] }>(
+        `/experiment/${experiment.id}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            pinnedMetricSlices: newPinned,
+          }),
+        },
+      );
+      if (response?.pinnedMetricSlices) {
+        setOptimisticPinnedLevels(response.pinnedMetricSlices);
+      }
+      mutateExperiment();
+    } catch (error) {
+      setOptimisticPinnedLevels(experiment.pinnedMetricSlices || []);
+    }
+  };
 
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
@@ -331,6 +392,7 @@ const Results: FC<{
         />
       ) : showBreakDownResults && snapshot ? (
         <BreakDownResults
+          experimentId={experiment.id}
           key={analysis?.settings?.dimensions?.[0] ?? snapshot.dimension}
           results={analysis?.results ?? []}
           queryStatusData={queryStatusData}
@@ -361,6 +423,11 @@ const Results: FC<{
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
           experimentType={experiment.type}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
+          analysisBarSettings={analysisBarSettings}
         />
       ) : showCompactResults ? (
         <>
@@ -374,6 +441,7 @@ const Results: FC<{
             </div>
           )}
           <CompactResults
+            experimentId={experiment.id}
             editMetrics={editMetrics}
             variations={variations}
             variationFilter={analysisBarSettings.variationFilter}
@@ -403,6 +471,14 @@ const Results: FC<{
             isTabActive={isTabActive}
             setTab={setTab}
             experimentType={experiment.type}
+            pinnedMetricSlices={optimisticPinnedLevels}
+            togglePinnedMetricSlice={togglePinnedMetricSlice}
+            customMetricSlices={experiment.customMetricSlices}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
+            analysisBarSettings={analysisBarSettings}
           />
         </>
       ) : null}

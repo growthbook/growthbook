@@ -35,9 +35,8 @@ export default function SafeRolloutFields({
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  isNewRule,
+  mode,
   isDraft,
-  duplicate,
   defaultValues,
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
@@ -53,9 +52,8 @@ export default function SafeRolloutFields({
   conditionKey: number;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
-  isNewRule: boolean;
+  mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
-  duplicate: boolean;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -66,7 +64,7 @@ export default function SafeRolloutFields({
   const { datasources } = useDefinitions();
   const [controlValueDisabled, setControlValueDisabled] = useState(true);
 
-  const disableFields = !isDraft && !isNewRule;
+  const disableFields = !isDraft && mode !== "create";
   const dataSourceOptions =
     datasources?.map((ds) => ({
       label: ds.name,
@@ -131,7 +129,7 @@ export default function SafeRolloutFields({
           </div>
         )}
 
-        {duplicate && !!form.watch("seed") && (
+        {mode === "duplicate" && !!form.watch("seed") && (
           <div
             className="ml-auto link-purple cursor-pointer mb-2"
             onClick={(e) => {
@@ -147,15 +145,17 @@ export default function SafeRolloutFields({
             Advanced Options
           </div>
         )}
-        {duplicate && !!form.watch("seed") && advancedOptionsOpen && (
-          <div className="ml-2">
-            <Checkbox
-              value={form.watch("sameSeed")}
-              setValue={(value: boolean) => form.setValue("sameSeed", value)}
-              label="Same seed"
-            />
-          </div>
-        )}
+        {mode === "duplicate" &&
+          !!form.watch("seed") &&
+          advancedOptionsOpen && (
+            <div className="ml-2">
+              <Checkbox
+                value={form.watch("sameSeed")}
+                setValue={(value: boolean) => form.setValue("sameSeed", value)}
+                label="Same seed"
+              />
+            </div>
+          )}
       </>
     );
   };

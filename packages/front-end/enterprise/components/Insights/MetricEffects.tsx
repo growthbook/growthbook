@@ -513,6 +513,7 @@ const MetricEffectCard = ({
                         formatter={(value) =>
                           formatterM1(value, formatterOptions)
                         }
+                        xAxisLabel="Lift"
                         mean={metricData.stats?.mean || 0}
                         height={300}
                         highlightPositiveNegative={true}

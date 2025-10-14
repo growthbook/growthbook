@@ -1457,6 +1457,15 @@ Triggered when an experiment is created
             customFields?: {
                 [x: string]: any;
             } | undefined;
+            /** Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+            pinnedMetricSlices?: string[] | undefined;
+            /** Custom slices that apply to ALL applicable metrics in the experiment */
+            customMetricSlices?: {
+                slices: {
+                    column: string;
+                    levels: string[];
+                }[];
+            }[] | undefined;
         };
     };
     user: {
@@ -1618,6 +1627,15 @@ Triggered when an experiment is updated
             customFields?: {
                 [x: string]: any;
             } | undefined;
+            /** Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+            pinnedMetricSlices?: string[] | undefined;
+            /** Custom slices that apply to ALL applicable metrics in the experiment */
+            customMetricSlices?: {
+                slices: {
+                    column: string;
+                    levels: string[];
+                }[];
+            }[] | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1745,6 +1763,15 @@ Triggered when an experiment is updated
             customFields?: ({
                 [x: string]: any;
             } | undefined) | undefined;
+            /** Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+            pinnedMetricSlices?: (string[] | undefined) | undefined;
+            /** Custom slices that apply to ALL applicable metrics in the experiment */
+            customMetricSlices?: ({
+                slices: {
+                    column: string;
+                    levels: string[];
+                }[];
+            }[] | undefined) | undefined;
         };
         changes?: {
             added: {
@@ -1917,6 +1944,15 @@ Triggered when an experiment is deleted
             customFields?: {
                 [x: string]: any;
             } | undefined;
+            /** Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+            pinnedMetricSlices?: string[] | undefined;
+            /** Custom slices that apply to ALL applicable metrics in the experiment */
+            customMetricSlices?: {
+                slices: {
+                    column: string;
+                    levels: string[];
+                }[];
+            }[] | undefined;
         };
     };
     user: {

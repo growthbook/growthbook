@@ -50,7 +50,7 @@ interface SortableProps {
     environment: string;
     i: number;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -389,7 +389,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       className="dropdown-item"
                       onClick={(e) => {
                         e.preventDefault();
-                        setRuleModal({ environment, i });
+                        setRuleModal({ environment, i, mode: "edit" });
                       }}
                     >
                       Edit
@@ -444,7 +444,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         color=""
                         className="dropdown-item"
                         onClick={() => {
-                          setRuleModal({ environment, i, duplicate: true });
+                          setRuleModal({ environment, i, mode: "duplicate" });
                         }}
                       >
                         Duplicate rule

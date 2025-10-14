@@ -7,6 +7,7 @@ import {
 import React, { ReactElement } from "react";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { StatsEngine } from "back-end/types/stats";
+import { MdSwapCalls } from "react-icons/md";
 import {
   capitalizeFirstLetter,
   isNullUndefinedOrEmpty,
@@ -15,6 +16,7 @@ import { ExperimentTableRow } from "@/services/experiments";
 import Markdown from "@/components/Markdown/Markdown";
 import SortedTags from "@/components/Tags/SortedTags";
 import { getPercentileLabel } from "@/services/metrics";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import styles from "./MetricToolTipBody.module.scss";
 import MetricName from "./MetricName";
 
@@ -54,7 +56,20 @@ const MetricTooltipBody = ({
     {
       show: true,
       label: "Type",
-      body: isFactMetric(metric) ? metric.metricType : metric.type,
+      body: (
+        <>
+          {isFactMetric(metric) ? metric.metricType : metric.type}
+          {metric.inverse ? (
+            <Tooltip body="Metric is inverse, lower is better" className="ml-1">
+              <span>
+                <MdSwapCalls />
+              </span>
+            </Tooltip>
+          ) : (
+            ""
+          )}
+        </>
+      ),
     },
     ...(!hideDetails
       ? [
@@ -207,7 +222,13 @@ const MetricTooltipBody = ({
   return (
     <div>
       <h4>
-        <MetricName id={metric.id} showOfficialLabel disableTooltip />
+        <MetricName
+          id={metric.id}
+          showOfficialLabel
+          disableTooltip
+          showLink
+          officialBadgePosition="right"
+        />
       </h4>
       {extraInfo}
       <table className="table gbtable mb-0">

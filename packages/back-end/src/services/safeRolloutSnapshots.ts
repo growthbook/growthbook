@@ -32,7 +32,6 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
-  SnapshotTriggeredBy,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
@@ -170,6 +169,8 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
       weight: v.weight,
     })),
     coverage: settings.coverage,
+    customFields: settings.customFields,
+    phase: settings.phase,
   };
 
   const analysisSettings = getAnalysisSettingsFromSafeRolloutArgs(
@@ -266,6 +267,7 @@ function getSafeRolloutSnapshotSettings({
   factTableMap,
   metricGroups,
   datasource,
+  customFields,
 }: {
   safeRollout: SafeRolloutInterface;
   safeRolloutRule: SafeRolloutRule;
@@ -276,6 +278,7 @@ function getSafeRolloutSnapshotSettings({
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
+  customFields?: Record<string, unknown>;
 }): SafeRolloutSnapshotSettings {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
@@ -317,6 +320,10 @@ function getSafeRolloutSnapshotSettings({
   return {
     queryFilter: "",
     experimentId: safeRolloutRule.trackingKey,
+    phase: {
+      index: "0",
+    },
+    customFields,
     datasourceId: safeRollout.datasourceId || "",
     dimensions: settings.dimensions.map((id) => ({ id })),
     startDate: safeRollout.startedAt || new Date(), // TODO: What do we want to do if startedAt is not set?
@@ -336,6 +343,7 @@ function getSafeRolloutSnapshotSettings({
 
 export async function _createSafeRolloutSnapshot({
   safeRollout,
+  customFields,
   context,
   triggeredBy,
   useCache = false,
@@ -345,8 +353,9 @@ export async function _createSafeRolloutSnapshot({
   factTableMap,
 }: {
   safeRollout: SafeRolloutInterface;
+  customFields?: Record<string, unknown>;
   context: ReqContext | ApiReqContext;
-  triggeredBy: SnapshotTriggeredBy;
+  triggeredBy: SafeRolloutSnapshotInterface["triggeredBy"];
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -382,6 +391,7 @@ export async function _createSafeRolloutSnapshot({
     factTableMap,
     metricGroups,
     datasource,
+    customFields,
   });
   const data: CreateProps<SafeRolloutSnapshotInterface> = {
     safeRolloutId: safeRollout.id,
@@ -432,13 +442,15 @@ export async function _createSafeRolloutSnapshot({
 export async function createSafeRolloutSnapshot({
   context,
   safeRollout,
+  customFields,
   useCache = true,
   triggeredBy,
 }: {
   context: ReqContext;
   safeRollout: SafeRolloutInterface;
+  customFields?: Record<string, unknown>;
   useCache?: boolean;
-  triggeredBy?: SnapshotTriggeredBy;
+  triggeredBy?: SafeRolloutSnapshotInterface["triggeredBy"];
 }): Promise<{
   snapshot: SafeRolloutSnapshotInterface;
   queryRunner: SafeRolloutResultsQueryRunner;
@@ -465,6 +477,7 @@ export async function createSafeRolloutSnapshot({
     factTableMap,
     triggeredBy: triggeredBy ?? "manual",
     safeRollout,
+    customFields,
   });
   const snapshot = queryRunner.model;
 

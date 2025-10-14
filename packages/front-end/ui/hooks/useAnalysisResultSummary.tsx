@@ -7,11 +7,11 @@ import {
 } from "back-end/types/stats";
 import { ExperimentTableRow, RowResults } from "@/services/experiments";
 
-export function useAnalysisResultPopover({
+export function useAnalysisResultSummary({
   orderedVariations,
   rows,
   rowsResults,
-  dimension,
+  dimension: _dimension,
   statsEngine,
   differenceType,
   pValueCorrection,
@@ -98,8 +98,9 @@ export function useAnalysisResultPopover({
       metricRow,
       metric,
       metricSnapshotSettings: row.metricSnapshotSettings,
-      dimensionName: dimension,
-      dimensionValue: dimension ? row.label : undefined,
+      dimensionName: _dimension,
+      dimensionValue: _dimension ? row.label : undefined,
+      sliceLevels: row.sliceLevels,
       variation,
       stats,
       baseline,

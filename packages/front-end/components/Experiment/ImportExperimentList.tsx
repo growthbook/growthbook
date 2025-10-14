@@ -56,6 +56,7 @@ const ImportExperimentList: FC<{
       exposureQueryName: item.exposureQueryId
         ? getExposureQuery(datasource?.settings, item.exposureQueryId)?.name
         : "experiments",
+      id: item.trackingKey,
     }),
     [datasource],
   );
