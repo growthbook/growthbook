@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 const docSections = {
   //Pages
@@ -99,6 +99,9 @@ const docSections = {
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",
   devTools: "/tools/chrome-extension",
   pipelineMode: "/app/data-pipeline",
+  holdouts: "/app/holdouts",
+  autoSlices: "/app/metrics#auto-slices",
+  customSlices: "/app/metrics#custom-slices",
 };
 
 export type DocSection = keyof typeof docSections;

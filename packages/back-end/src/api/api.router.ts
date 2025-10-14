@@ -7,7 +7,7 @@ import * as Sentry from "@sentry/node";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
-import { SENTRY_DSN } from "../util/secrets";
+import { IS_CLOUD, SENTRY_DSN } from "../util/secrets";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import snapshotsRouter from "./snapshots/snapshots.router";
@@ -34,6 +34,7 @@ import ingestionRouter from "./ingestion/ingestion.router";
 import archetypesRouter from "./archetypes/archetypes.router";
 import { getExperimentNames } from "./experiments/getExperimentNames";
 import queryRouter from "./queries/queries.router";
+import settingsRouter from "./settings/settings.router";
 
 const router = Router();
 let openapiSpec: string;
@@ -78,6 +79,7 @@ if (SENTRY_DSN) {
 }
 
 const API_RATE_LIMIT_MAX = Number(process.env.API_RATE_LIMIT_MAX) || 60;
+const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
 // Rate limit API keys to 60 requests per minute
 router.use(
   rateLimit({
@@ -87,7 +89,7 @@ router.use(
     legacyHeaders: false,
     keyGenerator: (req: Request & ApiRequestLocals) => req.apiKey,
     message: {
-      message: `Too many requests, limit to ${API_RATE_LIMIT_MAX} per minute`,
+      message: `Too many requests, limit to ${overallRateLimit} per minute`,
     },
   }),
 );
@@ -127,7 +129,7 @@ router.use("/members", membersRouter);
 router.use("/ingestion", ingestionRouter);
 router.use("/archetypes", archetypesRouter);
 router.use("/queries", queryRouter);
-
+router.use("/settings", settingsRouter);
 router.post("/transform-copy", postCopyTransform);
 
 // 404 route

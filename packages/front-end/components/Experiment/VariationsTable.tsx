@@ -10,8 +10,9 @@ import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const imageCache = {};
 
@@ -76,6 +77,7 @@ interface Props {
   // for some experiments, screenshots don't make sense - this is for a future state where you can mark exp as such.
   allowImages?: boolean;
   mutate?: () => void;
+  noMargin?: boolean;
 }
 
 function NoImageBox({
@@ -131,6 +133,8 @@ export function VariationBox({
   percent?: number;
   minWidth?: string | number;
 }) {
+  const { blockFileUploads } = useOrgSettings();
+
   return (
     <Box
       key={i}
@@ -177,7 +181,7 @@ export function VariationBox({
                 />
               ) : (
                 <>
-                  {canEdit ? (
+                  {canEdit && !blockFileUploads ? (
                     <>
                       <ScreenshotUpload
                         variation={i}
@@ -213,7 +217,7 @@ export function VariationBox({
                     {v.screenshots.length > 1 ? "s" : ""}
                   </Text>
                 ) : null}
-                {canEdit && (
+                {canEdit && !blockFileUploads && (
                   <div>
                     <ScreenshotUpload
                       variation={i}
@@ -240,6 +244,7 @@ const VariationsTable: FC<Props> = ({
   variationsList,
   canEditExperiment,
   allowImages = true,
+  noMargin = false,
   mutate,
 }) => {
   const { apiCall } = useAuth();
@@ -265,7 +270,7 @@ const VariationsTable: FC<Props> = ({
   const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
 
   return (
-    <Box mx="4">
+    <Box mx={noMargin ? "0" : "4"}>
       <Grid
         gap={gap}
         columns={{

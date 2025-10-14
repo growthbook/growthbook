@@ -32,7 +32,6 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
-  SnapshotTriggeredBy,
 } from "back-end/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
 import { OrganizationInterface, ReqContext } from "back-end/types/organization";
@@ -346,7 +345,7 @@ export async function _createSafeRolloutSnapshot({
 }: {
   safeRollout: SafeRolloutInterface;
   context: ReqContext | ApiReqContext;
-  triggeredBy: SnapshotTriggeredBy;
+  triggeredBy: SafeRolloutSnapshotInterface["triggeredBy"];
   useCache?: boolean;
   defaultAnalysisSettings: ExperimentSnapshotAnalysisSettings;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
@@ -438,7 +437,7 @@ export async function createSafeRolloutSnapshot({
   context: ReqContext;
   safeRollout: SafeRolloutInterface;
   useCache?: boolean;
-  triggeredBy?: SnapshotTriggeredBy;
+  triggeredBy?: SafeRolloutSnapshotInterface["triggeredBy"];
 }): Promise<{
   snapshot: SafeRolloutSnapshotInterface;
   queryRunner: SafeRolloutResultsQueryRunner;

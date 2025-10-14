@@ -18,10 +18,10 @@ import {
 } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import MultipleExposuresCard from "../HealthTab/MultipleExposuresCard";
 import SRMCard from "../HealthTab/SRMCard";
@@ -209,12 +209,11 @@ const SafeRolloutResults: FC<{
             <>
               <Link
                 weight="medium"
-                mt="4"
-                mb="3"
+                mt="5"
                 onClick={() => setIsHealthExpanded(!isHealthExpanded)}
               >
-                {isHealthExpanded ? <FaCaretDown /> : <FaCaretRight />} View
-                Traffic {showHealthWarning && <WarningIcon />}
+                {isHealthExpanded ? <FaCaretDown /> : <FaCaretRight />}
+                View Traffic {showHealthWarning && <WarningIcon />}
               </Link>
 
               {isHealthExpanded ? (

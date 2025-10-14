@@ -43,6 +43,8 @@ export interface ColumnInterface {
   topValuesDate?: Date;
   jsonFields?: JSONColumnFields;
   deleted: boolean;
+  isAutoSliceColumn?: boolean;
+  autoSlices?: string[];
 }
 
 export interface FactFilterInterface {
@@ -58,7 +60,7 @@ export interface FactFilterInterface {
 export interface FactTableInterface {
   organization: string;
   id: string;
-  managedBy?: "" | "api";
+  managedBy?: "" | "api" | "admin";
   dateCreated: Date | null;
   dateUpdated: Date | null;
   name: string;

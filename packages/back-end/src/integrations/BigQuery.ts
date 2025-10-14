@@ -1,4 +1,5 @@
 import * as bq from "@google-cloud/bigquery";
+import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
 import { bigQueryCreateTableOptions } from "shared/enterprise";
 import { FormatDialect } from "shared/src/types";
 import { format } from "shared/sql";
@@ -10,9 +11,15 @@ import {
   InformationSchema,
   QueryResponse,
   RawInformationSchema,
+  DataType,
+  QueryResponseColumnData,
 } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
+import {
+  BigQueryDataType,
+  getFactTableTypeFromBigQueryType,
+} from "../services/bigquery";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -76,8 +83,9 @@ export default class BigQuery extends SqlIntegration {
       await setExternalId(job.id);
     }
 
-    const [rows] = await job.getQueryResults();
+    const [rows, _, queryResultsResponse] = await job.getQueryResults();
     const [metadata] = await job.getMetadata();
+
     const statistics = {
       executionDurationMs: Number(
         metadata?.statistics?.finalExecutionDurationMs,
@@ -91,6 +99,10 @@ export default class BigQuery extends SqlIntegration {
           ? metadata.statistics.query.totalPartitionsProcessed > 0
           : undefined,
     };
+
+    const columns = queryResultsResponse
+      ? this.getQueryResultResponseColumns(queryResultsResponse)
+      : undefined;
 
     // BigQuery dates are stored nested in an object, so need to extract the value
     for (const row of rows) {
@@ -107,12 +119,19 @@ export default class BigQuery extends SqlIntegration {
       }
     }
 
-    return { rows, statistics };
+    return {
+      rows,
+      columns,
+      statistics,
+    };
   }
 
   createUnitsTableOptions() {
+    if (!this.datasource.settings.pipelineSettings) {
+      throw new Error("Pipeline settings are required to create a units table");
+    }
     return bigQueryCreateTableOptions(
-      this.datasource.settings.pipelineSettings ?? {},
+      this.datasource.settings.pipelineSettings,
     );
   }
 
@@ -238,5 +257,53 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return formatInformationSchema(results as RawInformationSchema[]);
+  }
+
+  getDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "STRING";
+      case "integer":
+        return "INT64";
+      case "float":
+        return "FLOAT64";
+      case "boolean":
+        return "BOOL";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
+  }
+
+  getQueryResultResponseColumns(
+    bqQueryResultsResponse: QueryResultsResponse,
+  ): QueryResponseColumnData[] | undefined {
+    const mapField = (field: bq.TableField): QueryResponseColumnData => {
+      let childFields: QueryResponseColumnData[] | undefined = undefined;
+      if (field.type === "RECORD" || field.type === "STRUCT") {
+        childFields = field.fields
+          ?.filter((f) => f.name !== undefined)
+          .map((f) => mapField(f));
+      }
+
+      const dataType = field.type
+        ? getFactTableTypeFromBigQueryType(field.type as BigQueryDataType)
+        : undefined;
+
+      return {
+        name: field.name!.toLowerCase(),
+        ...(dataType && { dataType }),
+        ...(childFields && { fields: childFields }),
+      };
+    };
+
+    return bqQueryResultsResponse.schema?.fields
+      ?.filter((field) => field.name !== undefined)
+      .map((field) => mapField(field));
   }
 }

@@ -11,7 +11,7 @@ import Modal from "@/components/Modal";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Frame from "@/components/Radix/Frame";
+import Frame from "@/ui/Frame";
 import NorthStarMetricDisplay from "./NorthStarMetricDisplay";
 
 const NorthStar: FC<{

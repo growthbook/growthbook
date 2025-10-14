@@ -21,10 +21,10 @@ import Button from "@/components/Button";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import HelperText from "@/components/Radix/HelperText";
-import Badge from "@/components/Radix/Badge";
+import HelperText from "@/ui/HelperText";
+import Badge from "@/ui/Badge";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
 import SafeRolloutDetails from "@/components/SafeRollout/SafeRolloutDetails";
@@ -50,7 +50,7 @@ interface SortableProps {
     environment: string;
     i: number;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -137,8 +137,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
     let title: string | ReactElement =
-      rule.description ||
-      rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+      rule.description || rule.type[0].toUpperCase() + rule.type.slice(1);
+    if (rule.type !== "rollout") {
+      title += " Rule";
+    }
     if (rule.type === "experiment") {
       title = (
         <div className="d-flex align-items-center">
@@ -254,11 +256,14 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                           />
                         </Flex>
                       ) : rule.type === "safe-rollout" ? (
-                        <Flex gap="3" align="center">
+                        <Flex gap="3">
                           <div>Safe Rollout</div>
                           <SafeRolloutStatusBadge rule={rule} />
                           {!locked && rule.enabled !== false && (
-                            <div className="ml-auto">
+                            <div
+                              className="ml-auto"
+                              style={{ marginBottom: -10 }}
+                            >
                               <DecisionCTA
                                 rule={rule}
                                 openStatusModal={() => {
@@ -384,7 +389,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       className="dropdown-item"
                       onClick={(e) => {
                         e.preventDefault();
-                        setRuleModal({ environment, i });
+                        setRuleModal({ environment, i, mode: "edit" });
                       }}
                     >
                       Edit
@@ -439,7 +444,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         color=""
                         className="dropdown-item"
                         onClick={() => {
-                          setRuleModal({ environment, i, duplicate: true });
+                          setRuleModal({ environment, i, mode: "duplicate" });
                         }}
                       >
                         Duplicate rule

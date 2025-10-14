@@ -9,7 +9,7 @@ import { useAuth } from "@/services/auth";
 import Button from "@/components/Button";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 
 export default function RoleList() {
   const { roles, refreshOrganization, organization } = useUser();

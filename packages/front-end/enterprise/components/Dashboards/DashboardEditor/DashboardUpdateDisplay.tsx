@@ -3,75 +3,76 @@ import { Flex, Text } from "@radix-ui/themes";
 import { ago, getValidDate } from "shared/dates";
 import { PiArrowClockwise, PiInfo, PiLightning } from "react-icons/pi";
 import clsx from "clsx";
-import { dashboardCanAutoUpdate } from "shared/enterprise";
-import {
-  DashboardBlockInterfaceOrData,
-  DashboardBlockInterface,
-} from "back-end/src/enterprise/validators/dashboard-block";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
+import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
 function SnapshotStatusSummary({
-  blocks,
   enableAutoUpdates,
+  nextUpdate,
 }: {
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
 }) {
   const {
     settings: { updateSchedule },
   } = useUser();
   const {
-    experiment,
-    defaultSnapshot: snapshot,
+    defaultSnapshot,
+    snapshotsMap,
     refreshError,
     allQueries,
+    snapshotError,
   } = useContext(DashboardSnapshotContext);
   const numFailed = useMemo(
     () => allQueries.filter((q) => q.status === "failed").length,
     [allQueries],
   );
 
-  if (!snapshot) return null;
+  if (!defaultSnapshot) return null;
+  // Find any snapshot actively in use by the dashboard (if one exists)
+  const snapshotEntry = snapshotsMap
+    .entries()
+    .find(([snapshotId]) => snapshotId !== defaultSnapshot.id);
 
-  const autoUpdateEnabled =
-    enableAutoUpdates &&
-    dashboardCanAutoUpdate({ blocks }) &&
-    updateSchedule?.type !== "never" &&
-    experiment?.autoSnapshots;
-  const nextUpdate = experiment?.nextSnapshotAttempt;
+  const snapshot = snapshotEntry ? snapshotEntry[1] : defaultSnapshot;
 
-  const textColor = refreshError || numFailed > 0 ? "red" : undefined;
+  const textColor =
+    refreshError || numFailed > 0 || snapshotError ? "red" : undefined;
   const content = refreshError
     ? "Update Failed"
     : numFailed > 0
       ? "One or more queries failed"
-      : snapshot.runStarted
-        ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
-        : "Not started yet";
+      : snapshotError
+        ? "Error running analysis"
+        : snapshot.runStarted
+          ? `Updated ${ago(snapshot.runStarted).replace("about ", "")}`
+          : "Not started yet";
   const tooltipBody = refreshError ? refreshError : undefined;
 
   return (
-    <Flex gap="2" align="center">
+    <Flex gap="1" align="center">
       <Text size="1">
-        {autoUpdateEnabled &&
-          nextUpdate &&
-          getValidDate(nextUpdate) > new Date() && (
-            <Tooltip
-              tipPosition="top"
-              body={`Next auto-update ${ago(nextUpdate)}`}
-            >
-              <PiLightning />{" "}
-            </Tooltip>
-          )}
+        {enableAutoUpdates && updateSchedule?.type !== "never" && (
+          <Tooltip
+            tipPosition="top"
+            body={
+              nextUpdate && getValidDate(nextUpdate) > new Date()
+                ? `Next auto-update ${ago(nextUpdate)}`
+                : "Auto-update starting soon"
+            }
+          >
+            <PiLightning style={{ color: "var(--violet-11)" }} />{" "}
+          </Tooltip>
+        )}
       </Text>
-      <Text color={textColor}>{content}</Text>
-      {tooltipBody ? (
+      <Text size="1" color={textColor}>
+        {content}
+      </Text>
+      {tooltipBody && (
         <Tooltip
           body={tooltipBody}
           delay={0}
@@ -84,29 +85,23 @@ function SnapshotStatusSummary({
             </Text>
           </Flex>
         </Tooltip>
-      ) : (
-        <MoreMenu useRadix size={10}>
-          <ViewAsyncQueriesButton
-            queries={allQueries.map((q) => q.query) ?? []}
-            className="dropdown-item"
-            display="View Queries"
-          />
-        </MoreMenu>
       )}
     </Flex>
   );
 }
 
 interface Props {
-  blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
   disabled: boolean;
+  isEditing: boolean;
 }
 
 export default function DashboardUpdateDisplay({
-  blocks,
   enableAutoUpdates,
+  nextUpdate,
   disabled,
+  isEditing,
 }: Props) {
   const {
     defaultSnapshot: snapshot,
@@ -137,11 +132,21 @@ export default function DashboardUpdateDisplay({
       gap="1"
       align="center"
       className={clsx({ "dashboard-disabled": disabled })}
+      style={{ minWidth: 250 }}
+      justify={"end"}
     >
       <SnapshotStatusSummary
-        blocks={blocks}
         enableAutoUpdates={enableAutoUpdates}
+        nextUpdate={nextUpdate}
       />
+      {isEditing && (
+        <DashboardViewQueriesButton
+          size="1"
+          buttonProps={{ variant: "ghost" }}
+          hideQueryCount
+        />
+      )}
+
       <div className="position-relative">
         <Button
           size="xs"

@@ -1,5 +1,4 @@
-import { FC, useMemo } from "react";
-import { MdSwapCalls } from "react-icons/md";
+import { FC, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -15,24 +14,37 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import Link from "next/link";
-import { FaAngleRight, FaTimes, FaUsers } from "react-icons/fa";
+import {
+  FactTableInterface,
+  FactMetricInterface,
+} from "back-end/types/fact-table";
+import { FaAngleRight, FaUsers } from "react-icons/fa";
+import {
+  PiCaretCircleRight,
+  PiCaretCircleDown,
+  PiPushPinFill,
+} from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import {
   expandMetricGroups,
   ExperimentMetricInterface,
-  getMetricLink,
+  generatePinnedSliceKey,
+  createCustomSliceDataForMetric,
+  createAutoSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  dedupeSliceMetrics,
+  SliceDataForMetric,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { PiWarningFill } from "react-icons/pi";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { HiBadgeCheck } from "react-icons/hi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  compareRows,
 } from "@/services/experiments";
-import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import {
   ResultsMetricFilters,
@@ -41,10 +53,10 @@ import {
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
-import MetricName, { PercentileLabel } from "@/components/Metrics/MetricName";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import ConditionalWrapper from "@/components/ConditionalWrapper";
-import HelperText from "@/components/Radix/HelperText";
+import { useUser } from "@/services/UserContext";
+import { AppFeatures } from "@/types/app-features";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -54,6 +66,7 @@ import { ExperimentTab } from "./TabbedPage";
 const numberFormatter = Intl.NumberFormat();
 
 const CompactResults: FC<{
+  experimentId: string;
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   variationFilter?: number[];
@@ -89,7 +102,27 @@ const CompactResults: FC<{
   ssrPolyfills?: SSRPolyfills;
   hideDetails?: boolean;
   disableTimeSeriesButton?: boolean;
+  pinnedMetricSlices?: string[];
+  togglePinnedMetricSlice?: (
+    metricId: string,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    location?: "goal" | "secondary" | "guardrail",
+  ) => void;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
+  analysisBarSettings?: {
+    variationFilter: number[];
+  };
 }> = ({
+  experimentId,
   editMetrics,
   variations,
   variationFilter,
@@ -125,12 +158,44 @@ const CompactResults: FC<{
   ssrPolyfills,
   hideDetails,
   disableTimeSeriesButton,
+  pinnedMetricSlices,
+  togglePinnedMetricSlice,
+  customMetricSlices,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
+  analysisBarSettings,
 }) => {
-  const { getExperimentMetricById, metricGroups, ready } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
+    useDefinitions();
+  const { hasCommercialFeature } = useUser();
+  const growthbook = useGrowthBook<AppFeatures>();
+  const { metricDefaults } = useOrganizationMetricDefaults();
+
+  // Feature flag and commercial feature checks for slice analysis
+  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+  const shouldShowMetricSlices =
+    isMetricSlicesFeatureEnabled && hasMetricSlicesFeature;
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+
+  const [expandedMetrics, setExpandedMetrics] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleExpandedMetric = (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => {
+    const key = `${metricId}:${resultGroup}`;
+    setExpandedMetrics((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -189,14 +254,14 @@ const CompactResults: FC<{
   ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
-    function getRow(
+    function getRowsForMetric(
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail",
-    ) {
+    ): ExperimentTableRow[] {
       const metric =
         ssrPolyfills?.getExperimentMetricById?.(metricId) ||
         getExperimentMetricById(metricId);
-      if (!metric) return null;
+      if (!metric) return [];
       const { newMetric, overrideFields } = applyMetricOverrides(
         metric,
         metricOverrides,
@@ -207,7 +272,38 @@ const CompactResults: FC<{
           (s) => s.metric === metricId,
         );
       }
-      return {
+      // Calculate slice count (will be computed from actual slice data below)
+      let numSlices = 0;
+
+      let sliceData: SliceDataForMetric[] = [];
+
+      if (shouldShowMetricSlices) {
+        const standardSliceData = createAutoSliceDataForMetric({
+          parentMetric: getExperimentMetricById(metricId),
+          factTable: getFactTableById(
+            (getExperimentMetricById(metricId) as FactMetricInterface)
+              ?.numerator?.factTableId || "",
+          ),
+          includeOther: true,
+        });
+
+        const customSliceData = createCustomSliceDataForMetric({
+          metricId,
+          metricName: newMetric?.name || "",
+          customMetricSlices: customMetricSlices || [],
+        });
+
+        // Dedupe (auto and custom slices sometimes overlap)
+        sliceData = dedupeSliceMetrics([
+          ...standardSliceData,
+          ...customSliceData,
+        ]);
+      }
+
+      // Update numSlices with actual count
+      numSlices = sliceData.length;
+
+      const parentRow: ExperimentTableRow = {
         label: newMetric?.name,
         metric: newMetric,
         metricOverrideFields: overrideFields,
@@ -224,7 +320,81 @@ const CompactResults: FC<{
         }),
         metricSnapshotSettings,
         resultGroup,
+        numSlices,
       };
+
+      const rows: ExperimentTableRow[] = [parentRow];
+
+      if (numSlices > 0) {
+        sliceData.forEach((slice) => {
+          const expandedKey = `${metricId}:${resultGroup}`;
+          const isExpanded = expandedMetrics[expandedKey] || false;
+
+          // Generate pinned key from all slice levels
+          const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
+            column: dl.column,
+            levels: dl.levels,
+          }));
+          const pinnedKey = generatePinnedSliceKey(
+            metricId,
+            pinnedSliceLevels,
+            resultGroup,
+          );
+          const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
+
+          // Show level if metric is expanded OR if it's pinned
+          const shouldShowLevel = isExpanded || isPinned;
+
+          // Generate label from slice levels
+          const label = slice.sliceLevels
+            .map((dl) => dl.levels[0] || "other")
+            .join(" + ");
+
+          const sliceRow: ExperimentTableRow = {
+            label,
+            metric: {
+              ...newMetric,
+              name: slice.name, // Use the full slice metric name
+            },
+            metricOverrideFields: overrideFields,
+            rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+            variations: results.variations.map((v) => {
+              // Use the slice metric's data instead of the parent metric's data
+              return (
+                v.metrics?.[slice.id] || {
+                  users: 0,
+                  value: 0,
+                  cr: 0,
+                  errorMessage: "No data",
+                }
+              );
+            }),
+            metricSnapshotSettings,
+            resultGroup,
+            numSlices: 0,
+            isSliceRow: true,
+            parentRowId: metricId,
+            sliceLevels: slice.sliceLevels.map((dl) => ({
+              column: dl.column,
+              levels: dl.levels,
+            })),
+            allSliceLevels: slice.allSliceLevels,
+            isHiddenByFilter: !shouldShowLevel, // Always add slice rows to the array, even if hidden by filter
+            isPinned: isPinned,
+          };
+
+          // Skip "other" slice rows with no data
+          if (
+            slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
+            sliceRow.variations.every((v) => v.value === 0)
+          ) {
+            return;
+          }
+          rows.push(sliceRow);
+        });
+      }
+
+      return rows;
     }
 
     if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
@@ -241,10 +411,11 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
-      metricDefs,
-      metricFilter,
-    );
+    // Only use tag-based sorting when sortBy is "metric-tags"
+    const sortedFilteredMetrics =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(metricDefs, metricFilter)
+        : metricDefs.map((m) => m.id);
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -253,10 +424,10 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredSecondary = sortAndFilterMetricsByTags(
-      secondaryDefs,
-      metricFilter,
-    );
+    const sortedFilteredSecondary =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(secondaryDefs, metricFilter)
+        : secondaryDefs.map((m) => m.id);
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -265,20 +436,63 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
-      guardrailDefs,
-      metricFilter,
+    const sortedFilteredGuardrails =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(guardrailDefs, metricFilter)
+        : guardrailDefs.map((m) => m.id);
+
+    const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
+      getRowsForMetric(metricId, "goal"),
+    );
+    const retSecondary = sortedFilteredSecondary.flatMap((metricId) =>
+      getRowsForMetric(metricId, "secondary"),
+    );
+    const retGuardrails = sortedFilteredGuardrails.flatMap((metricId) =>
+      getRowsForMetric(metricId, "guardrail"),
     );
 
-    const retMetrics = sortedFilteredMetrics
-      .map((metricId) => getRow(metricId, "goal"))
-      .filter(isDefined);
-    const retSecondary = sortedFilteredSecondary
-      .map((metricId) => getRow(metricId, "secondary"))
-      .filter(isDefined);
-    const retGuardrails = sortedFilteredGuardrails
-      .map((metricId) => getRow(metricId, "guardrail"))
-      .filter(isDefined);
+    // Sort by significance or change if sortBy is set
+    if (
+      (sortBy === "significance" || sortBy === "change") &&
+      metricDefaults &&
+      sortDirection
+    ) {
+      const sortOptions = {
+        sortBy,
+        variationFilter:
+          analysisBarSettings?.variationFilter ?? variationFilter ?? [],
+        metricDefaults,
+        sortDirection,
+      };
+
+      const sortRows = (rows: ExperimentTableRow[]) => {
+        const parentRows = rows.filter((row) => !row.parentRowId);
+        const sortedParents = [...parentRows].sort((a, b) =>
+          compareRows(a, b, sortOptions),
+        );
+
+        const newRows: ExperimentTableRow[] = [];
+        sortedParents.forEach((parent) => {
+          newRows.push(parent);
+          const childRows = rows.filter(
+            (row) => row.parentRowId === parent.metric?.id,
+          );
+          const sortedChildren = [...childRows].sort((a, b) =>
+            compareRows(a, b, sortOptions),
+          );
+          newRows.push(...sortedChildren);
+        });
+
+        return newRows;
+      };
+
+      return [
+        ...sortRows(retMetrics),
+        ...sortRows(retSecondary),
+        ...sortRows(retGuardrails),
+      ];
+    }
+
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
@@ -293,8 +507,27 @@ const CompactResults: FC<{
     ready,
     ssrPolyfills,
     getExperimentMetricById,
+    getFactTableById,
     metricFilter,
+    pinnedMetricSlices,
+    expandedMetrics,
+    shouldShowMetricSlices,
+    customMetricSlices,
+    sortBy,
+    sortDirection,
+    analysisBarSettings?.variationFilter,
+    metricDefaults,
+    variationFilter,
   ]);
+
+  const getChildRowCounts = (metricId: string) => {
+    const childRows = rows.filter((row) => row.parentRowId === metricId);
+    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
+    return {
+      total: childRows.length,
+      pinned: pinnedChildRows.length,
+    };
+  };
 
   const isBandit = experimentType === "multi-armed-bandit";
 
@@ -308,7 +541,7 @@ const CompactResults: FC<{
                 trigger={
                   <div className="d-inline-flex mx-3 align-items-center">
                     <FaUsers size={16} className="mr-1" />
-                    {numberFormatter.format(totalUsers)} total users
+                    {numberFormatter.format(totalUsers)} total units
                     <FaAngleRight className="chevron ml-1" />
                   </div>
                 }
@@ -345,6 +578,7 @@ const CompactResults: FC<{
 
       {expandedGoals.length ? (
         <ResultsTable
+          experimentId={experimentId}
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
           phase={phase}
@@ -357,6 +591,7 @@ const CompactResults: FC<{
           baselineRow={baselineRow}
           rows={rows.filter((r) => r.resultGroup === "goal")}
           id={id}
+          resultGroup="goal"
           tableRowAxis="metric"
           labelHeader={
             experimentType !== "multi-armed-bandit"
@@ -370,12 +605,20 @@ const CompactResults: FC<{
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
           differenceType={differenceType}
-          renderLabelColumn={getRenderLabelColumn(
+          renderLabelColumn={getRenderLabelColumn({
             regressionAdjustmentEnabled,
             statsEngine,
             hideDetails,
             experimentType,
-          )}
+            pinnedMetricSlices,
+            togglePinnedMetricSlice,
+            expandedMetrics,
+            toggleExpandedMetric,
+            getExperimentMetricById,
+            getFactTableById,
+            shouldShowMetricSlices,
+            getChildRowCounts,
+          })}
           metricFilter={
             experimentType !== "multi-armed-bandit" ? metricFilter : undefined
           }
@@ -393,12 +636,17 @@ const CompactResults: FC<{
           ssrPolyfills={ssrPolyfills}
           disableTimeSeriesButton={disableTimeSeriesButton}
           isHoldout={experimentType === "holdout"}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
         />
       ) : null}
 
       {!mainTableOnly && expandedSecondaries.length ? (
         <div className="mt-4">
           <ResultsTable
+            experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             phase={phase}
@@ -411,6 +659,7 @@ const CompactResults: FC<{
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.resultGroup === "secondary")}
             id={id}
+            resultGroup="secondary"
             tableRowAxis="metric"
             labelHeader="Secondary Metrics"
             editMetrics={editMetrics}
@@ -418,11 +667,20 @@ const CompactResults: FC<{
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
-            renderLabelColumn={getRenderLabelColumn(
+            renderLabelColumn={getRenderLabelColumn({
               regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
-            )}
+              experimentType: undefined,
+              pinnedMetricSlices,
+              togglePinnedMetricSlice,
+              expandedMetrics,
+              toggleExpandedMetric,
+              getExperimentMetricById,
+              getFactTableById,
+              shouldShowMetricSlices,
+              getChildRowCounts,
+            })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -433,6 +691,10 @@ const CompactResults: FC<{
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
           />
         </div>
       ) : null}
@@ -440,6 +702,7 @@ const CompactResults: FC<{
       {!mainTableOnly && expandedGuardrails.length ? (
         <div className="mt-4">
           <ResultsTable
+            experimentId={experimentId}
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
             phase={phase}
@@ -452,6 +715,7 @@ const CompactResults: FC<{
             baselineRow={baselineRow}
             rows={rows.filter((r) => r.resultGroup === "guardrail")}
             id={id}
+            resultGroup="guardrail"
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
@@ -459,11 +723,20 @@ const CompactResults: FC<{
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
-            renderLabelColumn={getRenderLabelColumn(
+            renderLabelColumn={getRenderLabelColumn({
               regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
-            )}
+              experimentType: undefined,
+              pinnedMetricSlices,
+              togglePinnedMetricSlice,
+              expandedMetrics,
+              toggleExpandedMetric,
+              getExperimentMetricById,
+              getFactTableById,
+              shouldShowMetricSlices,
+              getChildRowCounts,
+            })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -474,6 +747,10 @@ const CompactResults: FC<{
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
           />
         </div>
       ) : (
@@ -484,130 +761,285 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(
-  regressionAdjustmentEnabled?: boolean,
-  statsEngine?: StatsEngine,
-  hideDetails?: boolean,
-  experimentType?: ExperimentType,
-) {
-  return function renderLabelColumn(
-    label: string,
-    metric: ExperimentMetricInterface,
-    row?: ExperimentTableRow,
-    maxRows?: number,
-  ) {
-    const invalidHoldoutMetric =
-      experimentType === "holdout" &&
-      metric?.windowSettings?.type === "conversion";
-    const metricLink = (
-      <Tooltip
-        body={
-          <MetricTooltipBody
-            metric={metric}
-            row={row}
-            statsEngine={statsEngine}
-            reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
-            hideDetails={hideDetails}
-            extraInfo={
-              invalidHoldoutMetric ? (
-                <div className="mb-2">
-                  <HelperText status="warning">
-                    Metrics with conversion windows are not supported in
-                    holdouts
-                  </HelperText>
-                </div>
-              ) : undefined
-            }
-          />
-        }
-        tipPosition="right"
-        className="d-inline-block font-weight-bold metric-label"
-        flipTheme={false}
-        usePortal={true}
-      >
-        {" "}
-        <span
-          style={
-            maxRows
-              ? {
-                  display: "-webkit-box",
-                  WebkitLineClamp: maxRows,
-                  WebkitBoxOrient: "vertical",
-                  textOverflow: "ellipsis",
-                  overflow: "hidden",
-                  lineHeight: "1.2em",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
-                }
-              : {
-                  lineHeight: "1.2em",
-                  wordBreak: "break-word",
-                  overflowWrap: "anywhere",
-                }
-          }
-        >
-          <ConditionalWrapper
-            condition={!hideDetails}
-            wrapper={
-              <Link
-                href={getMetricLink(metric.id)}
-                className="metriclabel text-dark"
-              />
-            }
-          >
-            {invalidHoldoutMetric ? (
-              <PiWarningFill
-                style={{ color: "var(--amber-11)" }}
-                className="mr-1"
-              />
-            ) : null}
-            <MetricName metric={metric} disableTooltip />
-            <PercentileLabel metric={metric} />
-          </ConditionalWrapper>
-        </span>
-      </Tooltip>
-    );
+export function getRenderLabelColumn({
+  regressionAdjustmentEnabled,
+  statsEngine,
+  hideDetails,
+  experimentType: _experimentType,
+  pinnedMetricSlices,
+  togglePinnedMetricSlice,
+  expandedMetrics,
+  toggleExpandedMetric,
+  getExperimentMetricById,
+  getFactTableById,
+  shouldShowMetricSlices,
+  getChildRowCounts,
+  className = "pl-3",
+}: {
+  regressionAdjustmentEnabled?: boolean;
+  statsEngine?: StatsEngine;
+  hideDetails?: boolean;
+  experimentType?: ExperimentType;
+  pinnedMetricSlices?: string[];
+  togglePinnedMetricSlice?: (
+    metricId: string,
+    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => void;
+  expandedMetrics?: Record<string, boolean>;
+  toggleExpandedMetric?: (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => void;
+  getExperimentMetricById?: (id: string) => null | ExperimentMetricInterface;
+  getFactTableById?: (id: string) => null | FactTableInterface;
+  shouldShowMetricSlices?: boolean;
+  getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
+  className?: string;
+}) {
+  return function renderLabelColumn({
+    label,
+    metric,
+    row,
+    maxRows,
+    location,
+  }: {
+    label: string;
+    metric: ExperimentMetricInterface;
+    row?: ExperimentTableRow;
+    maxRows?: number;
+    location?: "goal" | "secondary" | "guardrail";
+  }) {
+    const expandedKey = `${metric.id}:${location}`;
+    const isExpanded = !!expandedMetrics?.[expandedKey];
 
-    const cupedIconDisplay =
-      regressionAdjustmentEnabled &&
-      !row?.metricSnapshotSettings?.regressionAdjustmentEnabled ? (
-        <Tooltip
-          className="ml-1"
-          body={
-            row?.metricSnapshotSettings?.regressionAdjustmentReason
-              ? `CUPED disabled: ${row?.metricSnapshotSettings?.regressionAdjustmentReason}`
-              : `CUPED disabled`
-          }
-        >
+    const isSliceRow = !!row?.isSliceRow;
+
+    // Slice row
+    if (isSliceRow) {
+      // Generate pinned key from all slice levels
+      const pinnedKey = row?.sliceLevels
+        ? generatePinnedSliceKey(
+            metric.id,
+            row.sliceLevels.map((dl) => ({
+              column: dl.column,
+              levels: dl.levels,
+            })),
+            location || "goal",
+          )
+        : "";
+      const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
+
+      return (
+        <div className={className} style={{ position: "relative" }}>
+          {isExpanded && togglePinnedMetricSlice ? (
+            <Tooltip
+              body={
+                isPinned
+                  ? "Pinned: will be visible when the metric is collapsed"
+                  : "Not pinned: will be hidden when the metric is collapsed"
+              }
+              tipPosition="top"
+              tipMinWidth="50px"
+            >
+              <PiPushPinFill
+                style={{
+                  position: "absolute",
+                  left: 4,
+                  top: 3,
+                  cursor: "pointer",
+                }}
+                size={14}
+                className={isPinned ? "link-purple" : "text-muted opacity50"}
+                onClick={() => {
+                  if (togglePinnedMetricSlice && row?.sliceLevels) {
+                    togglePinnedMetricSlice(
+                      metric.id,
+                      row.sliceLevels.map((dl) => ({
+                        dimension: dl.column,
+                        levels: dl.levels,
+                      })),
+                      location || "goal",
+                    );
+                  }
+                }}
+              />
+            </Tooltip>
+          ) : null}
           <div
-            className="d-inline-block mr-1 position-relative"
-            style={{ width: 12, height: 12 }}
+            className="ml-2 font-weight-bold"
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: 1,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+              color: "var(--color-text-mid)",
+            }}
           >
-            <GBCuped className="position-absolute" size={12} />
-            <FaTimes
-              className="position-absolute"
-              color="#ff0000"
-              style={{ transform: "scale(0.7)", top: -4, right: -8 }}
-            />
+            {label}
           </div>
-        </Tooltip>
-      ) : null;
+          <div className="ml-2 text-muted small">
+            {row?.sliceLevels?.map((dl) => dl.column).join(" + ")}
+          </div>
+        </div>
+      );
+    }
 
-    const metricInverseIconDisplay = metric.inverse ? (
-      <Tooltip
-        body="metric is inverse, lower is better"
-        className="inverse-indicator ml-1"
-      >
-        <MdSwapCalls />
-      </Tooltip>
-    ) : null;
+    const hasSlices =
+      shouldShowMetricSlices &&
+      !!createAutoSliceDataForMetric({
+        parentMetric: getExperimentMetricById?.(metric.id),
+        factTable: getFactTableById?.(
+          (getExperimentMetricById?.(metric.id) as FactMetricInterface)
+            ?.numerator?.factTableId || "",
+        ),
+        includeOther: true,
+      }).length;
 
+    // Get child row counts for pinned indicator
+    const childRowCounts =
+      shouldShowMetricSlices && hasSlices && getChildRowCounts
+        ? getChildRowCounts(metric.id)
+        : { total: 0, pinned: 0 };
+
+    // Render non-slice metric
     return (
-      <span style={{ display: "inline-flex", alignItems: "center" }}>
-        {metricLink}
-        {metricInverseIconDisplay}
-        {cupedIconDisplay}
-      </span>
+      <>
+        <div
+          className={className}
+          style={{
+            position: "relative",
+            top: childRowCounts.total > 0 ? -6 : undefined,
+          }}
+        >
+          <span
+            className="ml-2"
+            style={
+              maxRows
+                ? {
+                    display: "-webkit-box",
+                    WebkitLineClamp: maxRows,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }
+                : undefined
+            }
+          >
+            {hasSlices ? (
+              <a
+                className="link-purple"
+                role="button"
+                onClick={() => {
+                  if (toggleExpandedMetric) {
+                    toggleExpandedMetric(metric.id, location || "goal");
+                  }
+                }}
+                style={{
+                  textDecoration: "none",
+                }}
+              >
+                <div style={{ position: "absolute", left: 4, marginTop: -1 }}>
+                  <Tooltip
+                    body={
+                      isExpanded
+                        ? "Collapse metric slices"
+                        : "Explore metric slices"
+                    }
+                    tipPosition="top"
+                  >
+                    {isExpanded ? (
+                      <PiCaretCircleDown size={16} />
+                    ) : (
+                      <PiCaretCircleRight size={16} />
+                    )}
+                  </Tooltip>
+                </div>
+                <span
+                  style={{
+                    lineHeight: "1.1em",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    color: "var(--color-text-high)",
+                  }}
+                >
+                  <Tooltip
+                    body={
+                      <MetricTooltipBody
+                        metric={metric}
+                        row={row}
+                        statsEngine={statsEngine}
+                        reportRegressionAdjustmentEnabled={
+                          regressionAdjustmentEnabled
+                        }
+                        hideDetails={hideDetails}
+                      />
+                    }
+                    tipPosition="right"
+                    className="d-inline-block font-weight-bold metric-label"
+                    flipTheme={false}
+                    usePortal={true}
+                  >
+                    {label}
+                    {metric.managedBy ? (
+                      <HiBadgeCheck
+                        style={{
+                          marginTop: "-2px",
+                          marginLeft: "2px",
+                          color: "var(--blue-11)",
+                        }}
+                      />
+                    ) : null}
+                  </Tooltip>
+                </span>
+              </a>
+            ) : (
+              <Tooltip
+                body={
+                  <MetricTooltipBody
+                    metric={metric}
+                    row={row}
+                    statsEngine={statsEngine}
+                    reportRegressionAdjustmentEnabled={
+                      regressionAdjustmentEnabled
+                    }
+                    hideDetails={hideDetails}
+                  />
+                }
+                tipPosition="right"
+                className="d-inline-block font-weight-bold metric-label"
+                flipTheme={false}
+                usePortal={true}
+              >
+                <span
+                  style={{
+                    lineHeight: "1.1em",
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    color: "var(--color-text-high)",
+                  }}
+                >
+                  {label}
+                </span>
+              </Tooltip>
+            )}
+          </span>
+        </div>
+
+        {childRowCounts.total > 0 && (
+          <div
+            className="text-muted small"
+            style={{
+              position: "absolute",
+              bottom: "8%",
+              left: 28,
+              width: "100%",
+              fontStyle: "italic",
+            }}
+          >
+            {childRowCounts.pinned} of {childRowCounts.total} pinned
+          </div>
+        )}
+      </>
     );
   };
 }

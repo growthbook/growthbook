@@ -7,6 +7,16 @@ import {
   savedGroupTargeting,
 } from "./shared";
 
+export const customMetricSlice = z.object({
+  slices: z.array(
+    z.object({
+      column: z.string(),
+      levels: z.array(z.string()),
+    }),
+  ),
+});
+export type CustomMetricSlice = z.infer<typeof customMetricSlice>;
+
 export const experimentResultsType = [
   "dnf",
   "won",
@@ -182,6 +192,8 @@ export const experimentAnalysisSettings = z
     sequentialTestingEnabled: z.boolean().optional(),
     sequentialTestingTuningParameter: z.number().optional(),
     statsEngine: z.enum(statsEngines).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
   })
   .strict();
 export type ExperimentAnalysisSettings = z.infer<
@@ -323,6 +335,9 @@ export const experimentInterface = z
     analysisSummary: experimentAnalysisSummary.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),
+    defaultDashboardId: z.string().optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

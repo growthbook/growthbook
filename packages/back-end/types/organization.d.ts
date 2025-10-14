@@ -253,6 +253,9 @@ export interface OrganizationSettings {
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
+  disableLegacyMetricCreation?: boolean;
+  blockFileUploads?: boolean;
+  defaultFeatureRulesInAllEnvs?: boolean;
 }
 
 export interface OrganizationConnections {

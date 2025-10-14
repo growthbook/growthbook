@@ -49,10 +49,14 @@ function validateUserFilter({
     );
   }
 
-  // error if metric type is not retention or proportion
-  if (metricType !== "retention" && metricType !== "proportion") {
+  // error if metric type is not retention, proportion, or ratio
+  if (
+    metricType !== "retention" &&
+    metricType !== "proportion" &&
+    metricType !== "ratio"
+  ) {
     throw new Error(
-      `Aggregate filter is only supported for retention and proportion metrics.`,
+      `Aggregate filter is only supported for retention, proportion, and ratio metrics.`,
     );
   }
 
@@ -152,17 +156,38 @@ export class FactMetricModel extends BaseClass {
         "Fact metric ids MUST start with 'fact__' and contain only letters, numbers, underscores, and dashes",
       );
     }
+
+    if (doc.managedBy === "api" && !this.context.isApiRequest) {
+      throw new Error(
+        "Cannot create fact metric managed by API if the request isn't from the API.",
+      );
+    }
+
+    if (
+      doc.managedBy === "admin" &&
+      !this.context.hasPremiumFeature("manage-official-resources")
+    ) {
+      throw new Error(
+        "Your organization's plan does not support creating official fact metrics.",
+      );
+    }
   }
 
   protected async beforeUpdate(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot update fact metric managed by API");
+      throw new Error(
+        "Cannot update fact metric managed by API if the request isn't from the API.",
+      );
     }
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
+    // Check the admin permission here?
     if (existing.managedBy === "api" && !this.context.isApiRequest) {
-      throw new Error("Cannot delete fact metric managed by API");
+      throw new Error(
+        "Cannot delete fact metric managed by API if the request isn't from the API.",
+      );
     }
   }
 

@@ -21,9 +21,9 @@ export default function ExperimentDimensionBlock({
   snapshot,
   analysis,
   ssrPolyfills,
+  metrics,
 }: BlockProps<ExperimentDimensionBlockInterface>) {
   const {
-    metricIds,
     baselineRow,
     columnsFilter,
     variationIds,
@@ -38,7 +38,7 @@ export default function ExperimentDimensionBlock({
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups } = useDefinitions();
-  const expandedMetricIds = expandMetricGroups(metricIds, metricGroups);
+  const expandedMetricIds = metrics.map((m) => m.id);
   const expGoalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     metricGroups,
@@ -110,6 +110,8 @@ export default function ExperimentDimensionBlock({
 
   return (
     <BreakDownResults
+      experimentId={experiment.id}
+      noStickyHeader
       idPrefix={blockId}
       key={snapshot.dimension}
       results={analysis.results}
@@ -138,6 +140,9 @@ export default function ExperimentDimensionBlock({
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
       renderMetricName={(metric) => metric.name}
+      showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
+        d.startsWith("precomputed:"),
+      )}
     />
   );
 }

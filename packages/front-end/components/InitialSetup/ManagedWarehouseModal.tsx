@@ -14,9 +14,9 @@ import {
 } from "@/services/initial-resources";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
-import Badge from "@/components/Radix/Badge";
+import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 export default function ManagedWarehouseModal({
   close,

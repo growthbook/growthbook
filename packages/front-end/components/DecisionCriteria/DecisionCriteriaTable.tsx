@@ -7,8 +7,8 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
-import Badge from "@/components/Radix/Badge";
+} from "@/ui/DropdownMenu";
+import Badge from "@/ui/Badge";
 
 interface DecisionCriteriaTableProps {
   defaultCriteriaId: string;

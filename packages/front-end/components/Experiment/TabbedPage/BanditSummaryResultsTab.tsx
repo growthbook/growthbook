@@ -14,7 +14,7 @@ import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { GBCuped } from "@/components/Icons";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -154,11 +154,15 @@ export default function BanditSummaryResultsTab({
             <div className="d-flex mx-3 align-items-center">
               <div className="h4 mb-0">
                 {metric
-                  ? getRenderLabelColumn(
-                      false,
-                      "bayesian",
-                      isPublic,
-                    )("", metric)
+                  ? getRenderLabelColumn({
+                      regressionAdjustmentEnabled: false,
+                      statsEngine: "bayesian",
+                      hideDetails: isPublic,
+                      className: "",
+                    })({
+                      label: metric.name,
+                      metric,
+                    })
                   : null}
               </div>
               <div className="flex-1" />

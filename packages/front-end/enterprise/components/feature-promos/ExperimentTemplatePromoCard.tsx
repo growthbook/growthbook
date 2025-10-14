@@ -1,7 +1,7 @@
 import { Box, Flex, Text } from "@radix-ui/themes";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 export default function ExperimentTemplatePromoCard({
   hasFeature,
