@@ -15,7 +15,7 @@ import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
 
-export default function FeaturesSettings() {
+export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
 
@@ -55,7 +55,7 @@ export default function FeaturesSettings() {
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
-            Features Settings
+            Feature Settings
           </Heading>
         </Box>
 
@@ -259,6 +259,44 @@ export default function FeaturesSettings() {
                   </Text>
                 </Box>
               </Flex>
+            </Flex>
+          </Box>
+
+          <Box mb="5">
+            <Text
+              as="label"
+              size="2"
+              className="font-weight-semibold"
+              htmlFor="preferredEnvironment"
+            >
+              Preferred environment for feature pages:
+            </Text>
+            <Flex>
+              <SelectField
+                className="my-2"
+                value={form.watch("preferredEnvironment") || ""}
+                isClearable
+                options={[
+                  {
+                    label: "Remember previous environment",
+                    value: "",
+                  },
+                  ...environments.map((env) => ({
+                    label: env.id,
+                    value: env.id,
+                  })),
+                ]}
+                formatOptionLabel={(option) => {
+                  if (option.value === "") {
+                    return <em>{option.label}</em>;
+                  }
+                  return option.label;
+                }}
+                onChange={(v: string) =>
+                  form.setValue("preferredEnvironment", v)
+                }
+                sort={false}
+              />
             </Flex>
           </Box>
 
