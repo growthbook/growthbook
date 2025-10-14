@@ -583,7 +583,6 @@ function DashboardsTab({
                           experiment.project ? [experiment.project] : []
                         }
                         isEditing={false}
-                        scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
                         setBlock={(i, block) => {
@@ -602,15 +601,6 @@ function DashboardsTab({
                           });
                         }}
                         isGeneralDashboard={false}
-                        // TODO: reduce unnecessary props
-                        stagedBlockIndex={undefined}
-                        editSidebarDirty={false}
-                        moveBlock={(_i, _direction) => {}}
-                        addBlockType={() => {}}
-                        editBlock={() => {}}
-                        duplicateBlock={() => {}}
-                        deleteBlock={() => {}}
-                        focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
                         switchToExperimentView={switchToExperimentView}
                       />

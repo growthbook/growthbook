@@ -128,10 +128,6 @@ function SingleDashboardPage() {
             title={dashboard.title}
             blocks={dashboard.blocks}
             enableAutoUpdates={dashboard.enableAutoUpdates}
-            editSidebarDirty={false}
-            focusedBlockIndex={undefined}
-            stagedBlockIndex={undefined}
-            scrollAreaRef={null}
             setBlock={(i, block) => {
               const newBlocks = [
                 ...blocks.slice(0, i),
@@ -148,10 +144,6 @@ function SingleDashboardPage() {
               });
             }}
             projects={dashboard.projects ? dashboard.projects : []}
-            moveBlock={() => {}}
-            editBlock={() => {}}
-            duplicateBlock={() => {}}
-            deleteBlock={() => {}}
             mutate={mutate}
             nextUpdate={dashboard.nextUpdate}
             dashboardLastUpdated={dashboard.lastUpdated}

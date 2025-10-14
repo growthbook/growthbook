@@ -337,10 +337,6 @@ export default function DashboardWorkspace({
               experiment ? experiment.nextSnapshotAttempt : dashboard.nextUpdate
             }
             dashboardLastUpdated={dashboard.lastUpdated}
-            editSidebarDirty={editSidebarDirty}
-            focusedBlockIndex={focusedBlockIndex}
-            stagedBlockIndex={addBlockIndex ?? editingBlockIndex}
-            scrollAreaRef={scrollAreaRef}
             setBlock={(i, block) => {
               if (i === editingBlockIndex) {
                 setStagedEditBlock(block);
@@ -354,23 +350,29 @@ export default function DashboardWorkspace({
                 ]);
               }
             }}
-            moveBlock={(i, direction) => {
-              if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
-                return;
-              const otherBlocks = blocks.toSpliced(i, 1);
-              setBlocksAndSubmit([
-                ...otherBlocks.slice(0, i + direction),
-                blocks[i],
-                ...otherBlocks.slice(i + direction),
-              ]);
+            editBlockProps={{
+              editSidebarDirty: editSidebarDirty,
+              focusedBlockIndex: focusedBlockIndex,
+              stagedBlockIndex: addBlockIndex ?? editingBlockIndex,
+              scrollAreaRef: scrollAreaRef,
+              moveBlock: (i, direction) => {
+                if (isDefined(addBlockIndex) || isDefined(editingBlockIndex))
+                  return;
+                const otherBlocks = blocks.toSpliced(i, 1);
+                setBlocksAndSubmit([
+                  ...otherBlocks.slice(0, i + direction),
+                  blocks[i],
+                  ...otherBlocks.slice(i + direction),
+                ]);
+              },
+              addBlockType: addBlockType,
+              editBlock: editBlock,
+              duplicateBlock: (i) => {
+                setAddBlockIndex(i + 1);
+                setStagedAddBlock(getBlockData(effectiveBlocks[i]));
+              },
+              deleteBlock: deleteBlock,
             }}
-            addBlockType={addBlockType}
-            editBlock={editBlock}
-            duplicateBlock={(i) => {
-              setAddBlockIndex(i + 1);
-              setStagedAddBlock(getBlockData(effectiveBlocks[i]));
-            }}
-            deleteBlock={deleteBlock}
             mutate={mutate}
           />
         </div>

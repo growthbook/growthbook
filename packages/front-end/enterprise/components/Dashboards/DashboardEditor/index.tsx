@@ -179,6 +179,18 @@ function AddBlockDropdown({
   );
 }
 
+interface EditBlockProps {
+  scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
+  editSidebarDirty: boolean;
+  focusedBlockIndex: number | undefined;
+  stagedBlockIndex: number | undefined;
+  addBlockType: (bType: DashboardBlockType, i?: number) => void;
+  moveBlock: (index: number, direction: -1 | 1) => void;
+  editBlock: (index: number) => void;
+  duplicateBlock: (index: number) => void;
+  deleteBlock: (index: number) => void;
+}
+
 interface Props {
   isTabActive: boolean;
   title: string;
@@ -192,23 +204,15 @@ interface Props {
   dashboardOwnerId: string;
   nextUpdate: Date | undefined;
   dashboardLastUpdated?: Date;
-  editSidebarDirty: boolean;
-  focusedBlockIndex: number | undefined;
-  stagedBlockIndex: number | undefined;
-  scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
   setBlock: (
     index: number,
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
   ) => void;
-  moveBlock: (index: number, direction: -1 | 1) => void;
-  addBlockType?: (bType: DashboardBlockType, i?: number) => void;
-  editBlock: (index: number) => void;
-  duplicateBlock: (index: number) => void;
-  deleteBlock: (index: number) => void;
   mutate: () => void;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
   setIsEditing?: (v: boolean) => void;
+  editBlockProps?: EditBlockProps;
 }
 
 function DashboardEditor({
@@ -224,21 +228,25 @@ function DashboardEditor({
   nextUpdate,
   dashboardLastUpdated,
   projects,
-  editSidebarDirty,
-  focusedBlockIndex,
-  stagedBlockIndex,
-  scrollAreaRef,
   setBlock,
-  moveBlock,
-  addBlockType,
-  editBlock,
-  duplicateBlock,
-  deleteBlock,
   mutate,
   switchToExperimentView,
   isGeneralDashboard = false,
   setIsEditing,
+  editBlockProps,
 }: Props) {
+  const {
+    editSidebarDirty,
+    focusedBlockIndex,
+    stagedBlockIndex,
+    scrollAreaRef,
+    moveBlock,
+    addBlockType,
+    editBlock,
+    duplicateBlock,
+    deleteBlock,
+  } = editBlockProps ?? {};
+
   const [editDashboard, setEditDashboard] = useState(false);
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
   const { apiCall } = useAuth();
@@ -296,12 +304,14 @@ function DashboardEditor({
           }
           isFirstBlock={i === 0}
           isLastBlock={i === blocks.length - 1}
-          scrollAreaRef={scrollAreaRef}
+          scrollAreaRef={scrollAreaRef ?? null}
           setBlock={setBlock}
-          editBlock={() => editBlock(i)}
-          duplicateBlock={() => duplicateBlock(i)}
-          deleteBlock={() => deleteBlock(i)}
-          moveBlock={(direction) => moveBlock(i, direction)}
+          editBlock={editBlock ? () => editBlock(i) : () => {}}
+          duplicateBlock={duplicateBlock ? () => duplicateBlock(i) : () => {}}
+          deleteBlock={deleteBlock ? () => deleteBlock(i) : () => {}}
+          moveBlock={
+            moveBlock ? (direction) => moveBlock(i, direction) : () => {}
+          }
           mutate={mutate}
         />
         <Container
@@ -441,7 +451,7 @@ function DashboardEditor({
           enableAutoUpdates={enableAutoUpdates}
           nextUpdate={nextUpdate}
           dashboardLastUpdated={dashboardLastUpdated}
-          disabled={editSidebarDirty}
+          disabled={!!editSidebarDirty}
           isEditing={isEditing}
         />
         {isGeneralDashboard && setIsEditing && !isEditing ? (
