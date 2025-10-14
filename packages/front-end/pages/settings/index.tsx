@@ -14,6 +14,7 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  MAX_METRIC_SLICE_LEVELS,
 } from "shared/constants";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
@@ -173,6 +174,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultFeatureRulesInAllEnvs:
         settings.defaultFeatureRulesInAllEnvs ?? false,
       preferredEnvironment: settings.preferredEnvironment || "",
+      maxMetricSliceLevels:
+        settings.maxMetricSliceLevels ?? MAX_METRIC_SLICE_LEVELS,
     },
   });
   const { apiCall } = useAuth();
@@ -222,6 +225,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
+    maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";

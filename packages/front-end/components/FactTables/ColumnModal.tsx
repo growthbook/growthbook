@@ -44,12 +44,15 @@ export interface Props {
 
 export default function ColumnModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, settings } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
   // Feature flag and commercial feature checks for slice analysis
   const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+
+  const maxMetricSliceLevels =
+    settings?.maxMetricSliceLevels ?? MAX_METRIC_SLICE_LEVELS;
 
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length,
@@ -140,8 +143,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         !refreshingTopValues &&
         shouldForceOverwriteSlices
       ) {
-        const maxValues = MAX_METRIC_SLICE_LEVELS;
-        const newAutoSlices = topValues.slice(0, maxValues);
+        const newAutoSlices = topValues.slice(0, maxMetricSliceLevels);
         form.setValue("autoSlices", newAutoSlices);
         setShouldForceOverwriteSlices(false); // Reset flag
         return;
@@ -161,8 +163,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         !hasManuallyClearedSlices
       ) {
         // Populate with top values up to the max limit
-        const maxValues = MAX_METRIC_SLICE_LEVELS;
-        const newAutoSlices = topValues.slice(0, maxValues);
+        const newAutoSlices = topValues.slice(0, maxMetricSliceLevels);
         form.setValue("autoSlices", newAutoSlices);
       }
     },
@@ -573,16 +574,16 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                 </div>
                 {autoSlicesWarning ||
                 (form.watch("autoSlices") || [])?.length >
-                  MAX_METRIC_SLICE_LEVELS ? (
+                  maxMetricSliceLevels ? (
                   <HelperText status="warning" mb="1">
-                    Limit {MAX_METRIC_SLICE_LEVELS + ""} slices
+                    Limit {maxMetricSliceLevels + ""} slices
                   </HelperText>
                 ) : null}
                 <MultiSelectField
                   value={form.watch("autoSlices") || []}
                   onChange={(values) => {
-                    if (values.length > MAX_METRIC_SLICE_LEVELS) {
-                      values = values.slice(0, MAX_METRIC_SLICE_LEVELS);
+                    if (values.length > maxMetricSliceLevels) {
+                      values = values.slice(0, maxMetricSliceLevels);
                       setAutoSlicesWarning(true);
                       setTimeout(() => {
                         setAutoSlicesWarning(false);

@@ -203,11 +203,9 @@ export const putFactTable = async (
           column,
         );
 
-        // Constrain top values to MAX_METRIC_SLICE_LEVELS
-        const constrainedTopValues = topValues.slice(
-          0,
-          MAX_METRIC_SLICE_LEVELS,
-        );
+        const maxSliceLevels =
+          context.org.settings?.maxMetricSliceLevels ?? MAX_METRIC_SLICE_LEVELS;
+        const constrainedTopValues = topValues.slice(0, maxSliceLevels);
 
         // Update the column with new top values
         await updateColumn({
