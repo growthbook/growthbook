@@ -148,16 +148,20 @@ export default function DashboardEditorSidebar({
             key={`${subgroup}-${i}`}
             width="100%"
           >
-            <Text
-              weight="medium"
-              size="1"
-              style={{
-                color: "var(--color-text-high)",
-                textTransform: "uppercase",
-              }}
-            >
-              {subgroup}
-            </Text>
+            {/* We hide the `Other` subgroup title for general dashboards since those are the only available options */}
+            {experiment ? (
+              <Text
+                weight="medium"
+                size="1"
+                style={{
+                  color: "var(--color-text-high)",
+                  textTransform: "uppercase",
+                }}
+              >
+                {subgroup}
+              </Text>
+            ) : null}
+
             {allowedBlockTypes.map((bType) => (
               <a
                 href="#"

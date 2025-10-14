@@ -704,29 +704,32 @@ export default function EditSingleBlock({
               </div>
             )}
             {block.type === "sql-explorer" && (
-              <Flex direction="column" gap="2" width="100%">
-                <RadioGroup
-                  value={sqlExplorerType}
-                  setValue={(value: "create" | "existing") => {
-                    // Reset the saved query id if the type changes
-                    setBlock({
-                      ...block,
-                      savedQueryId: "",
-                    });
-                    setSqlExplorerType(value);
-                  }}
-                  options={[
-                    {
-                      label: "Select existing query",
-                      value: "existing",
-                      disabled: !savedQueryOptions.length,
-                    },
-                    {
-                      label: "Create new query",
-                      value: "create",
-                    },
-                  ]}
-                />
+              <Flex direction="column" gap="2" width="100%" my="3">
+                {!block.savedQueryId ? (
+                  <RadioGroup
+                    value={sqlExplorerType}
+                    setValue={(value: "create" | "existing") => {
+                      // Reset the saved query id if the type changes
+                      setBlock({
+                        ...block,
+                        savedQueryId: "",
+                      });
+                      setSqlExplorerType(value);
+                    }}
+                    options={[
+                      {
+                        label: "Select existing query",
+                        value: "existing",
+                        disabled: !savedQueryOptions.length,
+                      },
+                      {
+                        label: "Create new query",
+                        value: "create",
+                      },
+                    ]}
+                  />
+                ) : null}
+
                 {sqlExplorerType === "create" ? (
                   <Button
                     variant="soft"

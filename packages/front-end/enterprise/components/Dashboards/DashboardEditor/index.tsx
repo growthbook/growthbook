@@ -73,11 +73,11 @@ export const BLOCK_TYPE_INFO: Record<
     icon: <PiChartLineDuotone />,
   },
   "sql-explorer": {
-    name: "SQL Explorer",
+    name: "SQL Query",
     icon: <PiFileSqlDuotone />,
   },
   "metric-explorer": {
-    name: "Metric Explorer",
+    name: "Metric",
     icon: <PiFileSqlDuotone />,
   },
 };
