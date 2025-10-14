@@ -24,7 +24,6 @@ interface MetricToolTipCompProps {
   metric: ExperimentMetricInterface;
   row?: ExperimentTableRow;
   statsEngine?: StatsEngine;
-  reportRegressionAdjustmentEnabled?: boolean;
   hideDetails?: boolean;
   extraInfo?: ReactElement | string;
 }
@@ -40,7 +39,6 @@ const MetricTooltipBody = ({
   metric,
   row,
   statsEngine,
-  reportRegressionAdjustmentEnabled,
   hideDetails,
   extraInfo,
 }: MetricToolTipCompProps): React.ReactElement => {
@@ -181,7 +179,7 @@ const MetricTooltipBody = ({
     });
   }
 
-  if (reportRegressionAdjustmentEnabled && row) {
+  if (row?.metricSnapshotSettings) {
     metricInfo.push({
       show: true,
       label: "CUPED",
@@ -240,7 +238,7 @@ const MetricTooltipBody = ({
                 <td
                   className="text-right font-weight-bold py-2 align-middle"
                   style={{
-                    width: 120,
+                    width: 140,
                     border: "1px solid var(--border-color-100)",
                     fontSize: "12px",
                     lineHeight: "14px",

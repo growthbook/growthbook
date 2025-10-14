@@ -416,7 +416,6 @@ const Results: FC<{
           status={experiment.status}
           statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
           pValueCorrection={pValueCorrection}
-          regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
           settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
@@ -462,7 +461,6 @@ const Results: FC<{
             id={experiment.id}
             statsEngine={analysis.settings.statsEngine}
             pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}

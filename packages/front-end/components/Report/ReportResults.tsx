@@ -275,9 +275,6 @@ export default function ReportResults({
                 status={"stopped"}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection}
-                regressionAdjustmentEnabled={
-                  analysis?.settings?.regressionAdjusted
-                }
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
                 differenceType={
@@ -315,9 +312,6 @@ export default function ReportResults({
                 id={report.id}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection} // todo: bake this into snapshot or report
-                regressionAdjustmentEnabled={
-                  report.experimentAnalysisSettings.regressionAdjustmentEnabled
-                }
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis.settings?.sequentialTesting}
                 differenceType={

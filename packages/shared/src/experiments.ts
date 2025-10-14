@@ -414,7 +414,7 @@ export interface SliceLevel {
 
 export interface SliceMetricInfo {
   isSliceMetric: boolean;
-  parentMetricId: string;
+  baseMetricId: string;
   sliceLevels: SliceLevel[];
 }
 
@@ -423,12 +423,12 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
   if (questionMarkIndex === -1) {
     return {
       isSliceMetric: false,
-      parentMetricId: metricId,
+      baseMetricId: metricId,
       sliceLevels: [],
     };
   }
 
-  const parentMetricId = metricId.substring(0, questionMarkIndex);
+  const baseMetricId = metricId.substring(0, questionMarkIndex);
   const queryString = metricId.substring(questionMarkIndex + 1);
 
   // Parse query parameters using URLSearchParams
@@ -446,14 +446,14 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
   if (sliceLevels.length === 0) {
     return {
       isSliceMetric: false,
-      parentMetricId,
+      baseMetricId,
       sliceLevels: [],
     };
   }
 
   return {
     isSliceMetric: true,
-    parentMetricId,
+    baseMetricId,
     sliceLevels: sliceLevels,
   };
 }
@@ -592,7 +592,11 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   // get RA and prior settings from metric override
   if (metricOverrides) {
-    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+    // For slice metrics, use the base metric ID for lookups
+    const { baseMetricId } = parseSliceMetricId(metric.id);
+    const metricOverride = metricOverrides.find(
+      (mo) => mo.id === baseMetricId,
+    );
 
     // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
