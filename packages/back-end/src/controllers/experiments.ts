@@ -2394,6 +2394,7 @@ export async function postExperimentTargeting(
         namespace,
         variationWeights,
         seed,
+        disableStickyBucketing: experiment.disableStickyBucketing,
       };
     } else {
       phases[phases.length - 1] = {
@@ -2401,6 +2402,7 @@ export async function postExperimentTargeting(
         condition,
         savedGroups,
         coverage,
+        disableStickyBucketing: experiment.disableStickyBucketing,
       };
     }
   } else {
@@ -2420,6 +2422,7 @@ export async function postExperimentTargeting(
       reason: "",
       variationWeights,
       seed: phases.length && reseed ? uuidv4() : seed,
+      disableStickyBucketing: experiment.disableStickyBucketing,
     });
   }
   changes.phases = phases;
@@ -2557,7 +2560,6 @@ export async function postExperimentPhase(
     dateEnded: undefined,
     reason: "",
   });
-
   // TODO: validation
   try {
     changes.phases = phases;
