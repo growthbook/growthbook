@@ -381,6 +381,7 @@ function DashboardEditor({
             editLevel: editLevel,
             enableAutoUpdates: enableAutoUpdates,
             shareLevel: shareLevel,
+            projects: projects,
           }}
           close={() => setEditDashboard(false)}
           submit={async (data) => {
@@ -400,6 +401,7 @@ function DashboardEditor({
             editLevel: editLevel,
             enableAutoUpdates: enableAutoUpdates,
             shareLevel: shareLevel,
+            projects: projects,
           }}
           close={() => setDuplicateDashboard(false)}
           submit={async (data) => {

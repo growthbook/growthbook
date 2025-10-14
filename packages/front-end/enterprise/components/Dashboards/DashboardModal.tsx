@@ -12,6 +12,8 @@ import Checkbox from "@/ui/Checkbox";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   autoUpdateDisabledMessage,
   CreateDashboardArgs,
@@ -22,6 +24,7 @@ const defaultFormInit = {
   editLevel: "private",
   shareLevel: "private",
   enableAutoUpdates: true,
+  projects: [],
 } as const;
 
 export default function DashboardModal({
@@ -42,6 +45,13 @@ export default function DashboardModal({
     settings: { updateSchedule },
     hasCommercialFeature,
   } = useUser();
+
+  const { projects } = useDefinitions();
+
+  const projectsOptions = projects.map((p) => ({
+    label: p.name,
+    value: p.id,
+  }));
 
   const isGeneralDashboard = type === "general";
 
@@ -65,9 +75,11 @@ export default function DashboardModal({
     editLevel: DashboardEditLevel;
     shareLevel: DashboardShareLevel;
     enableAutoUpdates: boolean;
+    projects: string[];
   }>({
     defaultValues: initial ?? {
       ...defaultFormInit,
+      projects: [...defaultFormInit.projects],
       shareLevel: !isGeneralDashboard
         ? "published"
         : defaultFormInit.shareLevel,
@@ -78,6 +90,7 @@ export default function DashboardModal({
     form.reset(
       initial || {
         ...defaultFormInit,
+        projects: [...defaultFormInit.projects],
         shareLevel: !isGeneralDashboard
           ? "published"
           : defaultFormInit.shareLevel,
@@ -108,6 +121,13 @@ export default function DashboardModal({
           label="Name"
           placeholder="Dashboard name"
           {...form.register("title")}
+        />
+        <MultiSelectField
+          label="Projects"
+          placeholder="All projects"
+          options={projectsOptions}
+          value={form.watch("projects")}
+          onChange={(value) => form.setValue("projects", value)}
         />
         {refreshInterval && (
           <Checkbox

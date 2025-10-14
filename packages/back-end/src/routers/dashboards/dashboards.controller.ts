@@ -99,6 +99,7 @@ export async function createDashboard(
     enableAutoUpdates,
     title,
     blocks,
+    projects,
   } = req.body;
 
   if (experimentId) {
@@ -144,6 +145,7 @@ export async function createDashboard(
     enableAutoUpdates,
     experimentId: experimentId || undefined,
     title,
+    projects,
     blocks: createdBlocks,
   });
 

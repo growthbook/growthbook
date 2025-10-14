@@ -107,7 +107,7 @@ export default function DashboardsPage() {
                 editLevel: data.editLevel,
                 shareLevel: data.shareLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
-                projects: project ? [project] : [],
+                projects: data.projects,
               }
             : {
                 blocks: data.blocks ?? [],
@@ -116,7 +116,7 @@ export default function DashboardsPage() {
                 shareLevel: data.shareLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 experimentId: "",
-                projects: project ? [project] : [],
+                projects: data.projects,
               },
         ),
       });
@@ -128,7 +128,7 @@ export default function DashboardsPage() {
         console.error(res);
       }
     },
-    [apiCall, mutateDashboards, project],
+    [apiCall, mutateDashboards],
   );
 
   if (loading) return <LoadingOverlay />;
@@ -154,6 +154,7 @@ export default function DashboardsPage() {
             editLevel: showEditModal.editLevel,
             shareLevel: showEditModal.shareLevel,
             enableAutoUpdates: showEditModal.enableAutoUpdates,
+            projects: showEditModal.projects || [],
           }}
           close={() => setShowEditModal(undefined)}
           submit={async (data) => {
@@ -176,6 +177,7 @@ export default function DashboardsPage() {
             editLevel: showDuplicateModal.editLevel,
             shareLevel: showDuplicateModal.shareLevel,
             enableAutoUpdates: showDuplicateModal.enableAutoUpdates,
+            projects: showDuplicateModal.projects || [],
           }}
           submit={async (data) => {
             await submitDashboard({ method: "POST", data });
@@ -189,6 +191,7 @@ export default function DashboardsPage() {
           type="general"
           close={() => setShowCreateModal(false)}
           submit={async (data) => {
+            console.log("data", data);
             await submitDashboard({ method: "POST", data });
             setIsEditing(true);
           }}

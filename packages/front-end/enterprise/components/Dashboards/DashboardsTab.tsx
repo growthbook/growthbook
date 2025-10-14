@@ -42,6 +42,7 @@ export type CreateDashboardArgs = {
     shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
+    projects: string[];
   };
 };
 export type UpdateDashboardArgs = {
@@ -53,6 +54,7 @@ export type UpdateDashboardArgs = {
     editLevel: DashboardInterface["editLevel"];
     shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
+    projects: string[];
   }>;
 };
 export type SubmitDashboard<
@@ -145,7 +147,7 @@ function DashboardsTab({
   const isAdmin = permissionsUtil.canSuperDeleteReport();
   const canManage = isOwner || isAdmin;
   const canEdit =
-    canManage || (dashboard.editLevel === "organization" && canUpdateDashboard);
+    canManage || (dashboard.editLevel === "published" && canUpdateDashboard);
 
   useEffect(() => {
     if (dashboard) {
@@ -235,9 +237,10 @@ function DashboardsTab({
               close={() => setShowEditModal(false)}
               initial={{
                 editLevel: dashboard.editLevel,
-                shareLevel: dashboard.shareLevel || "organization",
+                shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: dashboard.title,
+                projects: dashboard.projects || [],
               }}
               submit={async (data) => {
                 await submitDashboard({
@@ -254,9 +257,10 @@ function DashboardsTab({
               close={() => setShowDuplicateModal(false)}
               initial={{
                 editLevel: dashboard.editLevel,
-                shareLevel: dashboard.shareLevel || "organization",
+                shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: `Copy of ${dashboard.title}`,
+                projects: dashboard.projects || [],
               }}
               submit={async (data) => {
                 await submitDashboard({
