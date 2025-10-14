@@ -222,6 +222,7 @@ export const deleteProject = async (
   }
 
   // Clean up fact metrics
+  // TODO: we should delete fact metrics when deleting a fact table
   if (deleteFactTables) {
     try {
       await deleteAllFactTablesForAProject({
