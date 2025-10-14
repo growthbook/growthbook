@@ -106,7 +106,7 @@ import {
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "back-end/types/experiment-snapshot";
-import { SQLVars, TemplateVariables } from "back-end/types/sql";
+import { PhaseSQLVar, SQLVars, TemplateVariables } from "back-end/types/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import {
@@ -1959,6 +1959,8 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        phase: settings.phase,
+        customFields: settings.customFields,
       })}
     ),
     __experimentExposures AS (
@@ -2007,6 +2009,8 @@ export default abstract class SqlIntegration
               overrideConversionWindows,
             ),
             experimentId: settings.experimentId,
+            phase: settings.phase,
+            customFields: settings.customFields,
             factTableMap,
           })})
         `
@@ -2023,6 +2027,8 @@ export default abstract class SqlIntegration
               startDate: settings.startDate,
               endDate: settings.endDate,
               experimentId: settings.experimentId,
+              phase: settings.phase,
+              customFields: settings.customFields,
             },
           )})`
         : ""
@@ -3064,6 +3070,8 @@ export default abstract class SqlIntegration
             startDate: metricStart,
             experimentId: settings.experimentId,
             addFiltersToWhere: true,
+            phase: settings.phase,
+            customFields: settings.customFields,
           })}
         )
         , __userMetricJoin${f.index === 0 ? "" : f.index} as (
@@ -3647,6 +3655,8 @@ export default abstract class SqlIntegration
         startDate: metricStart,
         endDate: metricEnd,
         experimentId: settings.experimentId,
+        phase: settings.phase,
+        customFields: settings.customFields,
         factTableMap,
       })})
       ${denominatorMetrics
@@ -3658,6 +3668,8 @@ export default abstract class SqlIntegration
             startDate: metricStart,
             endDate: metricEnd,
             experimentId: settings.experimentId,
+            phase: settings.phase,
+            customFields: settings.customFields,
             factTableMap,
             useDenominator: true,
           })})`;
@@ -5277,6 +5289,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     endDate,
     experimentId,
     addFiltersToWhere,
+    phase,
+    customFields,
   }: {
     metricsWithIndices: { metric: FactMetricInterface; index: number }[];
     factTable: FactTableInterface;
@@ -5286,6 +5300,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     endDate: Date | null;
     experimentId?: string;
     addFiltersToWhere?: boolean;
+    phase?: PhaseSQLVar;
+    customFields?: Record<string, unknown>;
   }) {
     // Determine if a join is required to match up id types
     let join = "";
@@ -5432,6 +5448,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         endDate: endDate || undefined,
         experimentId,
         templateVariables: getFactTableTemplateVariables(factTable),
+        phase,
+        customFields,
       },
     );
   }
@@ -5509,6 +5527,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     experimentId,
     factTableMap,
     useDenominator,
+    phase,
+    customFields,
   }: {
     metric: ExperimentMetricInterface;
     baseIdType: string;
@@ -5518,6 +5538,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     experimentId?: string;
     factTableMap: FactTableMap;
     useDenominator?: boolean;
+    phase?: PhaseSQLVar;
+    customFields?: Record<string, unknown>;
   }) {
     const cols = this.getMetricColumns(
       metric,
@@ -5637,6 +5659,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         startDate,
         endDate: endDate || undefined,
         experimentId,
+        phase,
+        customFields,
         templateVariables: getMetricTemplateVariables(
           metric,
           factTableMap,
