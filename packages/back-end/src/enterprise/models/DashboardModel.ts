@@ -163,8 +163,8 @@ export class DashboardModel extends BaseClass {
         }
       }
       if (
-        existing.editLevel === "organization" ||
-        updates.editLevel === "organization"
+        existing.editLevel === "published" ||
+        updates.editLevel === "published"
       ) {
         if (
           !this.context.hasPremiumFeature("share-product-analytics-dashboards")

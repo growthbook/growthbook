@@ -69,7 +69,7 @@ export default function DashboardModal({
     defaultValues: initial ?? {
       ...defaultFormInit,
       shareLevel: !isGeneralDashboard
-        ? "organization"
+        ? "published"
         : defaultFormInit.shareLevel,
     },
   });
@@ -79,7 +79,7 @@ export default function DashboardModal({
       initial || {
         ...defaultFormInit,
         shareLevel: !isGeneralDashboard
-          ? "organization"
+          ? "published"
           : defaultFormInit.shareLevel,
       },
     );
@@ -126,14 +126,10 @@ export default function DashboardModal({
               !hasCommercialFeature("share-product-analytics-dashboards")
             }
             options={[
-              { label: "Organization members", value: "organization" },
+              { label: "Organization members", value: "published" },
               { label: "Only me", value: "private" },
+              // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
             ]}
-            helpText={
-              form.watch("shareLevel") === "organization"
-                ? "Other organization members who have read access to the project(s) this dashboard is associated with will be permitted to view this dashboard."
-                : "Only you can view this dashboard."
-            }
             value={form.watch("shareLevel")}
             onChange={(value) =>
               form.setValue("shareLevel", value as DashboardEditLevel)
@@ -147,14 +143,12 @@ export default function DashboardModal({
             form.watch("shareLevel") === "private"
           }
           options={[
-            { label: "Organization members", value: "organization" },
+            {
+              label: "Any organization members with editing permission",
+              value: "published",
+            },
             { label: "Only me", value: "private" },
           ]}
-          helpText={
-            form.watch("editLevel") === "organization"
-              ? "Other organization members who have permission to edit Dashboards will be permitted to edit this dashboard."
-              : "Only you can edit this dashboard."
-          }
           value={form.watch("editLevel")}
           onChange={(value) =>
             form.setValue("editLevel", value as DashboardEditLevel)

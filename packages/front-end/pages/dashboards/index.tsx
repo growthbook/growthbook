@@ -38,6 +38,7 @@ import {
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
 export default function DashboardsPage() {
   const permissionsUtil = usePermissionsUtil();
@@ -260,7 +261,7 @@ export default function DashboardsPage() {
                           <SortableTH field={"title"}>
                             Dashboard Name
                           </SortableTH>
-                          <th>Edit Level</th>
+                          <SortableTH field={"shareLevel"}>Status</SortableTH>
                           <th>Projects</th>
                           <th>Owner</th>
                           <SortableTH field={"dateUpdated"}>
@@ -307,9 +308,19 @@ export default function DashboardsPage() {
                                 )}
                               </td>
                               <td>
-                                {d.editLevel === "organization"
-                                  ? "Public"
-                                  : "Private"}
+                                <ShareStatusBadge
+                                  shareLevel={
+                                    d.shareLevel === "published"
+                                      ? "organization"
+                                      : "private"
+                                  }
+                                  editLevel={
+                                    d.editLevel === "private"
+                                      ? "private"
+                                      : "organization"
+                                  }
+                                  isOwner={d.userId === userId}
+                                />
                               </td>
                               <td>
                                 {d && (d.projects || []).length > 0 ? (

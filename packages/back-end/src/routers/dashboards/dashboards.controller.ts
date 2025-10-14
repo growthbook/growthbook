@@ -193,8 +193,8 @@ export async function updateDashboard(
       }
 
       if (
-        dashboard.editLevel === "organization" ||
-        updates.editLevel === "organization"
+        dashboard.editLevel === "published" ||
+        updates.editLevel === "published"
       ) {
         if (!context.hasPremiumFeature("share-product-analytics-dashboards")) {
           throw new Error(

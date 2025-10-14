@@ -38,6 +38,8 @@ import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
+import ProjectBadges from "@/components/ProjectBadges";
 import DashboardModal from "../DashboardModal";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
@@ -373,6 +375,7 @@ function DashboardEditor({
       {editDashboard && (
         <DashboardModal
           mode="edit"
+          type={isGeneralDashboard ? "general" : "experiment"}
           initial={{
             title: title,
             editLevel: editLevel,
@@ -422,120 +425,140 @@ function DashboardEditor({
           }}
         />
       )}
-      <Flex
-        align="center"
-        height={DASHBOARD_TOPBAR_HEIGHT}
-        className="mb-3"
-        gap="1"
-      >
-        {switchToExperimentView ? (
-          <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
-            View Regular Experiment View
-          </Button>
-        ) : (
-          <Text
-            weight="medium"
-            size="5"
-            style={{
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              flexShrink: 1,
-            }}
-          >
-            {title}
-          </Text>
-        )}
-        <div style={{ flexGrow: 1 }} />
-        <DashboardUpdateDisplay
-          enableAutoUpdates={enableAutoUpdates}
-          nextUpdate={nextUpdate}
-          dashboardLastUpdated={dashboardLastUpdated}
-          disabled={!!editSidebarDirty}
-          isEditing={isEditing}
-        />
-        {isGeneralDashboard && setIsEditing && !isEditing ? (
-          <>
-            <Tooltip
-              state={copySuccess}
-              ignoreMouseEvents
-              delay={0}
-              tipPosition="left"
-              body="URL copied to clipboard"
-              innerClassName="px-2 py-1"
-            >
-              <Button
-                variant="outline"
-                size="sm"
-                style={{ whiteSpace: "nowrap" }}
-                onClick={() => {
-                  const url = window.location.href.replace(
-                    /[?#].*/,
-                    `#dashboards/${id}`,
-                  );
-                  performCopy(url);
-                }}
-              >
-                Copy link
-              </Button>
-            </Tooltip>
-            <Button
-              variant="solid"
-              size="sm"
-              className="mx-4"
-              disabled={!canEdit}
-              onClick={() => setIsEditing(true)}
-            >
-              <PiPencilSimpleFill className="mr-2" />
-              Edit Blocks
+      <div className="mb-3">
+        <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
+          {switchToExperimentView ? (
+            <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
+              View Regular Experiment View
             </Button>
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="3"
-                  highContrast
-                >
-                  <BsThreeDotsVertical />
-                </IconButton>
-              }
+          ) : (
+            <Text
+              weight="medium"
+              size="5"
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                flexShrink: 1,
+              }}
             >
-              <DropdownMenuItem
+              <Flex align="center" gap="2">
+                {title}
+                {isGeneralDashboard && (
+                  <ShareStatusBadge
+                    shareLevel={
+                      shareLevel === "published" ? "organization" : "private"
+                    }
+                    editLevel={
+                      editLevel === "private" ? "private" : "organization"
+                    }
+                    isOwner={dashboardOwnerId === userId}
+                  />
+                )}
+              </Flex>
+            </Text>
+          )}
+          <div style={{ flexGrow: 1 }} />
+          <DashboardUpdateDisplay
+            enableAutoUpdates={enableAutoUpdates}
+            nextUpdate={nextUpdate}
+            dashboardLastUpdated={dashboardLastUpdated}
+            disabled={!!editSidebarDirty}
+            isEditing={isEditing}
+          />
+          {isGeneralDashboard && setIsEditing && !isEditing ? (
+            <>
+              <Tooltip
+                state={copySuccess}
+                ignoreMouseEvents
+                delay={0}
+                tipPosition="left"
+                body="URL copied to clipboard"
+                innerClassName="px-2 py-1"
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={{ whiteSpace: "nowrap" }}
+                  onClick={() => {
+                    const url = window.location.href.replace(
+                      /[?#].*/,
+                      `#dashboards/${id}`,
+                    );
+                    performCopy(url);
+                  }}
+                >
+                  Copy link
+                </Button>
+              </Tooltip>
+              <Button
+                variant="solid"
+                size="sm"
+                className="mx-4"
                 disabled={!canEdit}
-                onClick={() => setEditDashboard(true)}
+                onClick={() => setIsEditing(true)}
               >
-                Edit Details
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDuplicateDashboard(true)}>
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DashboardViewQueriesButton
-                className="dropdown-item text-capitalize"
-                weight="regular"
-                size="2"
-              />
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={!canDelete}
-                onClick={async () => {
-                  await apiCall(`/dashboards/${id}`, {
-                    method: "DELETE",
-                  });
-                  if (typeof window !== "undefined") {
-                    window.location.href = "/dashboards";
-                  }
-                }}
-                color="red"
+                <PiPencilSimpleFill className="mr-2" />
+                Edit Blocks
+              </Button>
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="3"
+                    highContrast
+                  >
+                    <BsThreeDotsVertical />
+                  </IconButton>
+                }
               >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenu>
-          </>
-        ) : null}
-      </Flex>
+                <DropdownMenuItem
+                  disabled={!canEdit}
+                  onClick={() => setEditDashboard(true)}
+                >
+                  Edit Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setDuplicateDashboard(true)}>
+                  Duplicate
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DashboardViewQueriesButton
+                  className="dropdown-item text-capitalize"
+                  weight="regular"
+                  size="2"
+                />
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={!canDelete}
+                  onClick={async () => {
+                    await apiCall(`/dashboards/${id}`, {
+                      method: "DELETE",
+                    });
+                    if (typeof window !== "undefined") {
+                      window.location.href = "/dashboards";
+                    }
+                  }}
+                  color="red"
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenu>
+            </>
+          ) : null}
+        </Flex>
+        <Flex align="center">
+          <div>
+            Projects:{" "}
+            {projects?.length ? (
+              <ProjectBadges resourceType="dashboard" projectIds={projects} />
+            ) : (
+              <ProjectBadges resourceType="dashboard" />
+            )}
+          </div>
+        </Flex>
+      </div>
       <div>
         <div>
           {blocks.length === 0 ? (

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { dashboardBlockInterface } from "./dashboard-block";
 
-export const dashboardEditLevel = z.enum(["organization", "private"]);
-export const dashboardShareLevel = z.enum(["organization", "private"]);
+export const dashboardEditLevel = z.enum(["published", "private"]);
+export const dashboardShareLevel = z.enum(["published", "private"]);
 
 export const dashboardInterface = z
   .object({
