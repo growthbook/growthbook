@@ -3,7 +3,6 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
-import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 
 const EditOrganization: FC<{

@@ -326,7 +326,7 @@ const DateResults: FC<{
           <div>
             <Tooltip
               content="Cumulative charts disabled for Scaled Impact difference type"
-              shouldDisplay={differenceType === "scaled"}
+              enabled={differenceType === "scaled"}
             >
               <Switch
                 id="cumulative"

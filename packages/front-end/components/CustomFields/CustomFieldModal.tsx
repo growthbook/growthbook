@@ -10,10 +10,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import track from "@/services/track";
 import { useCustomFields } from "@/hooks/useCustomFields";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Switch from "@/ui/Switch";
 import SelectField, {
   GroupedValue,
   SingleValue,
