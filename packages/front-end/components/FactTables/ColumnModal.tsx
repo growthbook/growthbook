@@ -16,7 +16,7 @@ import {
   PiArrowClockwise,
 } from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
-import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -52,7 +52,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   const maxMetricSliceLevels =
-    settings?.maxMetricSliceLevels ?? MAX_METRIC_SLICE_LEVELS;
+    settings?.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
 
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length,

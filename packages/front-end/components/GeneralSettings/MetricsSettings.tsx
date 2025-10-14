@@ -1,7 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import React from "react";
-import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { hasFileConfig } from "@/services/env";
 import { supportedCurrencies } from "@/services/settings";
 import Field from "@/components/Forms/Field";
@@ -245,7 +245,7 @@ export default function MetricsSettings() {
             </Text>
             <Box mb="3">
               {hasCommercialFeature("metric-slices")
-                ? `Maximum number of slice levels that can be configured for metric analysis. Default is ${MAX_METRIC_SLICE_LEVELS}.`
+                ? `Maximum number of slice levels that can be configured for metric analysis. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
                 : "This feature requires an Enterprise license."}
             </Box>
             <Box width="200px">

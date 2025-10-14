@@ -14,8 +14,8 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
-  MAX_METRIC_SLICE_LEVELS,
 } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -175,7 +175,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.defaultFeatureRulesInAllEnvs ?? false,
       preferredEnvironment: settings.preferredEnvironment || "",
       maxMetricSliceLevels:
-        settings.maxMetricSliceLevels ?? MAX_METRIC_SLICE_LEVELS,
+        settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
     },
   });
   const { apiCall } = useAuth();

@@ -180,3 +180,5 @@ properties:
   preferredEnvironment:
     type: string
     nullable: true
+  maxMetricSliceLevels:
+    type: number

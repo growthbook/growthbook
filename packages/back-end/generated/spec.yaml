@@ -8474,6 +8474,8 @@ components:
         preferredEnvironment:
           type: string
           nullable: true
+        maxMetricSliceLevels:
+          type: number
     CodeRef:
       type: object
       required:

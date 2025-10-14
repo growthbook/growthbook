@@ -1,6 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
-import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -80,7 +80,8 @@ export async function runColumnTopValuesQuery(
     column,
     limit: Math.max(
       100,
-      context.org.settings?.maxMetricSliceLevels ?? MAX_METRIC_SLICE_LEVELS,
+      context.org.settings?.maxMetricSliceLevels ??
+        DEFAULT_MAX_METRIC_SLICE_LEVELS,
     ),
   });
   const result = await integration.runColumnTopValuesQuery(sql);
@@ -99,7 +100,7 @@ export function populateAutoSlices(
   }
 
   // If no autoSlices set, use topValues up to the max
-  const maxSliceLevels = maxValues ?? MAX_METRIC_SLICE_LEVELS;
+  const maxSliceLevels = maxValues ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
   const autoSlices: string[] = [];
   for (const value of topValues) {
     if (autoSlices.length >= maxSliceLevels) break;
