@@ -1261,9 +1261,19 @@ export function createCustomSliceDataForMetric({
     const sortedSlices = group.slices.sort((a, b) =>
       a.column.localeCompare(b.column),
     );
-    const sliceString = generateSliceStringFromLevels(
-      sortedSlices.map((d) => ({ column: d.column, levels: d.levels })),
-    );
+
+    // Create slice levels with proper handling for boolean "null" values
+    const sliceLevelsForString = sortedSlices.map((d) => {
+      const column = factTable?.columns.find((col) => col.column === d.column);
+      // For boolean "null" slices, use empty array to generate ?dim:col= format
+      const levels =
+        d.levels[0] === "null" && column?.datatype === "boolean"
+          ? []
+          : d.levels;
+      return { column: d.column, levels };
+    });
+
+    const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
 
     const customSliceMetric = {
       id: `${metricId}?${sliceString}`,
@@ -1273,12 +1283,17 @@ export function createCustomSliceDataForMetric({
         const column = factTable?.columns.find(
           (col) => col.column === d.column,
         );
+        // For boolean "null" slices, use empty array to match "other" slice format
+        const levels =
+          d.levels[0] === "null" && column?.datatype === "boolean"
+            ? []
+            : d.levels;
         return {
           column: d.column,
           datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
             | "string"
             | "boolean",
-          levels: d.levels,
+          levels,
         };
       }),
       allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
@@ -1742,12 +1757,20 @@ export function expandAllSliceMetricsInMap({
 
         if (!hasAllRequiredColumns) return;
 
-        const sliceString = generateSliceStringFromLevels(
-          sortedSliceGroups.map((d) => ({
-            column: d.column,
-            levels: d.levels,
-          })),
-        );
+        // Create slice levels
+        const sliceLevelsForString = sortedSliceGroups.map((d) => {
+          const column = factTable.columns.find(
+            (col) => col.column === d.column,
+          );
+          // For boolean "null" slices, use empty array to generate ?dim:col= format
+          const levels =
+            column?.datatype === "boolean" && d.levels[0] === "null"
+              ? []
+              : d.levels;
+          return { column: d.column, levels };
+        });
+
+        const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
 
         const customSliceMetric: ExperimentMetricInterface = {
           ...metric,

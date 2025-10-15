@@ -364,7 +364,7 @@ const CompactResults: FC<{
                         <span
                           style={{ fontVariant: "small-caps", fontWeight: 600 }}
                         >
-                          NULL
+                          null
                         </span>
                       </>
                     );

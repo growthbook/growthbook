@@ -159,10 +159,25 @@ export default function CustomMetricSlicesSelector({
   const saveEditing = () => {
     if (editingSliceLevels.length === 0) return;
 
-    const sliceLevelsFormatted = editingSliceLevels.map((dl) => ({
-      column: dl.column,
-      levels: dl.levels[0] ? [dl.levels[0]] : [],
-    }));
+    const sliceLevelsFormatted = editingSliceLevels.map((dl) => {
+      // Find the column metadata to check if it's boolean
+      const columnMetadata = metricsWithStringColumns
+        .flatMap((metric) => metric.stringColumns || [])
+        .find((col) => col.column === dl.column);
+
+      // For boolean "null" slices, use empty array to generate correct pin ID
+      const levels =
+        dl.levels[0] === "null" && columnMetadata?.datatype === "boolean"
+          ? []
+          : dl.levels[0]
+            ? [dl.levels[0]]
+            : [];
+
+      return {
+        column: dl.column,
+        levels,
+      };
+    });
 
     const newLevels: CustomMetricSlice = {
       slices: editingSliceLevels.map((dl) => ({
@@ -261,10 +276,25 @@ export default function CustomMetricSlicesSelector({
     setCustomMetricSlices(updatedLevels);
 
     // Auto-unpin custom slice levels from all applicable metrics
-    const sliceLevelsFormatted = levelsToRemove.slices.map((dl) => ({
-      column: dl.column,
-      levels: dl.levels[0] ? [dl.levels[0]] : [],
-    }));
+    const sliceLevelsFormatted = levelsToRemove.slices.map((dl) => {
+      // Find the column metadata to check if it's boolean
+      const columnMetadata = metricsWithStringColumns
+        .flatMap((metric) => metric.stringColumns || [])
+        .find((col) => col.column === dl.column);
+
+      // For boolean "null" slices, use empty array to generate correct pin ID
+      const levels =
+        dl.levels[0] === "null" && columnMetadata?.datatype === "boolean"
+          ? []
+          : dl.levels[0]
+            ? [dl.levels[0]]
+            : [];
+
+      return {
+        column: dl.column,
+        levels,
+      };
+    });
 
     const keysToRemove: string[] = [];
     [
@@ -507,6 +537,7 @@ function SliceSelector({
         if (col.datatype === "boolean") {
           existing.levels.add("true");
           existing.levels.add("false");
+          existing.levels.add("null");
         } else {
           col.autoSlices?.forEach((level) => {
             existing.levels.add(level);
@@ -518,7 +549,7 @@ function SliceSelector({
       } else {
         let allLevels: Set<string>;
         if (col.datatype === "boolean") {
-          allLevels = new Set(["true", "false"]);
+          allLevels = new Set(["true", "false", "null"]);
         } else {
           allLevels = new Set([
             ...(col.autoSlices || []),
@@ -670,6 +701,7 @@ function EditingInterface({
                 if (col.datatype === "boolean") {
                   existing.levels.add("true");
                   existing.levels.add("false");
+                  existing.levels.add("null");
                 } else {
                   col.autoSlices?.forEach((level) => {
                     existing.levels.add(level);
@@ -681,7 +713,7 @@ function EditingInterface({
               } else {
                 let allLevels: Set<string>;
                 if (col.datatype === "boolean") {
-                  allLevels = new Set(["true", "false"]);
+                  allLevels = new Set(["true", "false", "null"]);
                 } else {
                   allLevels = new Set([
                     ...(col.autoSlices || []),
@@ -706,6 +738,7 @@ function EditingInterface({
             const booleanOptions = [
               { label: "TRUE", value: "true" },
               { label: "FALSE", value: "false" },
+              { label: "NULL", value: "null" },
             ];
 
             return (
@@ -726,6 +759,7 @@ function EditingInterface({
                   style={{ minWidth: "120px" }}
                   placeholder="Select..."
                   autoFocus={!sliceLevel.levels[0]}
+                  sort={false}
                 />
                 <button
                   type="button"
@@ -763,6 +797,7 @@ function EditingInterface({
                   createable
                   placeholder=""
                   autoFocus={!sliceLevel.levels[0]}
+                  sort={false}
                 />
               ) : (
                 <Field
