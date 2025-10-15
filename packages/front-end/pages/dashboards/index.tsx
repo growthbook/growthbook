@@ -266,7 +266,7 @@ export default function DashboardsPage() {
                           </SortableTH>
                           <SortableTH field={"shareLevel"}>Status</SortableTH>
                           <th>Projects</th>
-                          <th>Owner</th>
+                          <SortableTH field={"userId"}>Owner</SortableTH>
                           <SortableTH field={"dateUpdated"}>
                             Last Updated
                           </SortableTH>
@@ -352,68 +352,70 @@ export default function DashboardsPage() {
                               <td>{ago(d.dateUpdated)}</td>
                               <td style={{ width: 30 }}>
                                 {canViewDashboards ? (
-                                  <DropdownMenu
-                                    trigger={
-                                      <IconButton
-                                        variant="ghost"
-                                        color="gray"
-                                        radius="full"
-                                        size="3"
-                                        highContrast
+                                  <Flex align="center">
+                                    <DropdownMenu
+                                      trigger={
+                                        <IconButton
+                                          variant="ghost"
+                                          color="gray"
+                                          radius="full"
+                                          size="3"
+                                          highContrast
+                                        >
+                                          <BsThreeDotsVertical />
+                                        </IconButton>
+                                      }
+                                    >
+                                      <DropdownMenuItem
+                                        disabled={!canEdit}
+                                        onClick={() => setShowEditModal(d)}
                                       >
-                                        <BsThreeDotsVertical />
-                                      </IconButton>
-                                    }
-                                  >
-                                    <DropdownMenuItem
-                                      disabled={!canEdit}
-                                      onClick={() => setShowEditModal(d)}
-                                    >
-                                      Edit Dashboard Settings
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      disabled={!canDuplicate}
-                                      onClick={() => setShowDuplicateModal(d)}
-                                    >
-                                      Duplicate
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        const url =
-                                          window.location.href.replace(
-                                            /[?#].*/,
-                                            `#dashboards/${d.id}`,
-                                          );
-                                        performCopy(url);
-                                      }}
-                                    >
-                                      <Tooltip
-                                        state={copySuccess}
-                                        ignoreMouseEvents
-                                        delay={0}
-                                        tipPosition="left"
-                                        body="URL copied to clipboard"
-                                        innerClassName="px-2 py-1"
+                                        Edit Dashboard Settings
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        disabled={!canDuplicate}
+                                        onClick={() => setShowDuplicateModal(d)}
                                       >
-                                        Copy link
-                                      </Tooltip>
-                                    </DropdownMenuItem>
+                                        Duplicate
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          const url =
+                                            window.location.href.replace(
+                                              /[?#].*/,
+                                              `#dashboards/${d.id}`,
+                                            );
+                                          performCopy(url);
+                                        }}
+                                      >
+                                        <Tooltip
+                                          state={copySuccess}
+                                          ignoreMouseEvents
+                                          delay={0}
+                                          tipPosition="left"
+                                          body="URL copied to clipboard"
+                                          innerClassName="px-2 py-1"
+                                        >
+                                          Copy link
+                                        </Tooltip>
+                                      </DropdownMenuItem>
 
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      disabled={!canDelete}
-                                      color="red"
-                                      onClick={async () => {
-                                        await apiCall(`/dashboards/${d.id}`, {
-                                          method: "DELETE",
-                                        });
-                                        mutateDashboards();
-                                      }}
-                                    >
-                                      Delete
-                                    </DropdownMenuItem>
-                                  </DropdownMenu>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        disabled={!canDelete}
+                                        color="red"
+                                        onClick={async () => {
+                                          await apiCall(`/dashboards/${d.id}`, {
+                                            method: "DELETE",
+                                          });
+                                          mutateDashboards();
+                                        }}
+                                      >
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenu>
+                                  </Flex>
                                 ) : null}
                               </td>
                             </tr>

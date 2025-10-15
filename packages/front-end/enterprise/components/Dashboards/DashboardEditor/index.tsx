@@ -552,39 +552,41 @@ function DashboardEditor({
             </>
           ) : null}
         </Flex>
-        <Flex align="center" gap="3">
-          <Flex align="center" gap="1">
-            <Text weight="medium">Projects:</Text>
-            {projects?.length ? (
-              <Tooltip
-                body={
-                  <Flex direction="column" gap="1">
-                    <ProjectBadges
-                      skipMargin
-                      resourceType="dashboard"
-                      projectIds={projects}
-                    />
-                  </Flex>
-                }
-              >
-                <span role="button">{projects.length}</span>
-              </Tooltip>
-            ) : (
-              <ProjectBadges resourceType="dashboard" />
-            )}
+        {!isEditing && (
+          <Flex align="center" gap="3">
+            <Flex align="center" gap="1">
+              <Text weight="medium">Projects:</Text>
+              {projects?.length ? (
+                <Tooltip
+                  body={
+                    <Flex direction="column" gap="1">
+                      <ProjectBadges
+                        skipMargin
+                        resourceType="dashboard"
+                        projectIds={projects}
+                      />
+                    </Flex>
+                  }
+                >
+                  <span role="button">{projects.length}</span>
+                </Tooltip>
+              ) : (
+                <ProjectBadges resourceType="dashboard" />
+              )}
+            </Flex>
+            <Flex align="center" gap="1">
+              <Text weight="medium">Owner:</Text>
+              {ownerName ? (
+                <>
+                  <UserAvatar name={ownerName} size="sm" variant="soft" />
+                  <Text>{ownerName}</Text>
+                </>
+              ) : (
+                "None"
+              )}
+            </Flex>
           </Flex>
-          <Flex align="center" gap="1">
-            <Text weight="medium">Owner:</Text>
-            {ownerName ? (
-              <>
-                <UserAvatar name={ownerName} size="sm" variant="soft" />
-                <Text>{ownerName}</Text>
-              </>
-            ) : (
-              "None"
-            )}
-          </Flex>
-        </Flex>
+        )}
       </div>
       <div>
         <div>

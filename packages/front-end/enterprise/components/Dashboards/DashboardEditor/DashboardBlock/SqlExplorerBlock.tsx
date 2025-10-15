@@ -71,12 +71,20 @@ export default function SqlExplorerBlock({
         </>
       ) : null}
       {visualizations.map(({ title, dataVizConfig }, index) => (
-        <Box key={`${title}-${index}`} style={{ minHeight: "300px" }}>
-          <DataVisualizationDisplay
-            rows={savedQuery.results.results}
-            dataVizConfig={dataVizConfig}
-          />
-        </Box>
+        <Flex
+          key={`${title}-${index}`}
+          py="5"
+          align="center"
+          justify="center"
+          className="border rounded"
+        >
+          <Box>
+            <DataVisualizationDisplay
+              rows={savedQuery.results.results}
+              dataVizConfig={dataVizConfig}
+            />
+          </Box>
+        </Flex>
       ))}
     </Flex>
   );
