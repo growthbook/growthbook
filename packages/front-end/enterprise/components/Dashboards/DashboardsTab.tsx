@@ -190,6 +190,21 @@ function DashboardsTab({
     [apiCall, experiment.id, mutateDashboards],
   );
 
+  const memoizedSetBlock = useCallback(
+    (i: number, block: (typeof blocks)[number]) => {
+      const newBlocks = [...blocks.slice(0, i), block, ...blocks.slice(i + 1)];
+      setBlocks(newBlocks);
+      submitDashboard({
+        method: "PUT",
+        dashboardId,
+        data: {
+          blocks: newBlocks,
+        },
+      });
+    },
+    [blocks, submitDashboard, dashboardId],
+  );
+
   if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
   return (
     <DashboardSnapshotProvider
@@ -574,25 +589,7 @@ function DashboardsTab({
                         scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
-                        setBlock={
-                          canEdit
-                            ? (i, block) => {
-                                const newBlocks = [
-                                  ...blocks.slice(0, i),
-                                  block,
-                                  ...blocks.slice(i + 1),
-                                ];
-                                setBlocks(newBlocks);
-                                submitDashboard({
-                                  method: "PUT",
-                                  dashboardId,
-                                  data: {
-                                    blocks: newBlocks,
-                                  },
-                                });
-                              }
-                            : undefined
-                        }
+                        setBlock={canEdit ? memoizedSetBlock : undefined}
                         // TODO: reduce unnecessary props
                         stagedBlockIndex={undefined}
                         editSidebarDirty={false}
