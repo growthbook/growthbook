@@ -125,7 +125,10 @@ const navlinks: SidebarLinkProps[] = [
         name: "SQL Explorer",
         href: "/sql-explorer",
         path: /^sql-explorer/,
-        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
+        filter: ({ gb, savedQueries }) =>
+          !!gb?.isOn("sql-explorer") &&
+          // Only show SQL Explorer for orgs with saved queries that weren't created by dashboards
+          savedQueries.some((sq) => (sq.linkedDashboardIds ?? []).length === 0),
       },
     ],
   },

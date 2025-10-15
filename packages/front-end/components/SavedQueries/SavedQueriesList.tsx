@@ -130,8 +130,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                 const datasource = getDatasourceById(query.datasourceId);
                 const datasourceName = datasource?.name || "Unknown";
                 const linkedDashboardIds = query.linkedDashboardIds || [];
-
-                const numReferences = linkedDashboardIds.filter((dashId) =>
+                const activeReferences = linkedDashboardIds.filter((dashId) =>
                   dashboardsMap
                     .get(dashId)
                     // Check that the link is still active for each dashboard
@@ -140,7 +139,8 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                         blockHasFieldOfType(block, "savedQueryId", isString) &&
                         block.savedQueryId === query.id,
                     ),
-                ).length;
+                );
+                const numReferences = activeReferences.length;
 
                 return (
                   <tr key={query.id}>
@@ -192,14 +192,14 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                               <div
                                 style={{ maxHeight: 300, overflowY: "auto" }}
                               >
-                                {linkedDashboardIds.length > 0 && (
+                                {activeReferences.length > 0 && (
                                   <>
                                     <div className="mt-1 text-muted font-weight-bold">
                                       Dashboards:
                                     </div>
                                     <div className="mb-2">
                                       <ul className="pl-3 mb-0">
-                                        {linkedDashboardIds.map(
+                                        {activeReferences.map(
                                           (dashboardId, j) => {
                                             const dashboard =
                                               dashboardsMap.get(dashboardId);
@@ -228,7 +228,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                                     className="my-1"
                                                   >
                                                     <em>
-                                                      {linkedDashboardIds.length -
+                                                      {activeReferences.length -
                                                         j}{" "}
                                                       more...
                                                     </em>
@@ -306,34 +306,30 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                               className="dropdown-item text-danger"
                               text="Delete"
                               getConfirmationContent={async () => {
-                                const dashboardIds =
-                                  query.linkedDashboardIds || [];
-                                if (dashboardIds.length === 0) return null;
+                                if (activeReferences.length === 0) return null;
                                 return (
                                   <div>
                                     <Callout
                                       status="warning"
                                       mb="2"
                                     >{`This saved query is in use by ${
-                                      dashboardIds.length
+                                      activeReferences.length
                                     } dashboard${
-                                      dashboardIds.length === 1 ? "" : "s"
+                                      activeReferences.length === 1 ? "" : "s"
                                     }. If deleted, linked SQL Explorer blocks will lose their visualizations.`}</Callout>
                                     <ul>
-                                      {dashboardIds.map((dashId) => {
+                                      {activeReferences.map((dashId) => {
                                         const dashboard =
                                           dashboardsMap.get(dashId);
                                         if (!dashboard) return null;
-                                        if (!dashboard.experimentId)
-                                          return (
-                                            <li key={dashId}>
-                                              <span>{dashboard.title}</span>
-                                            </li>
-                                          );
                                         return (
                                           <li key={dashId}>
                                             <Link
-                                              href={`/experiment/${dashboard.experimentId}#dashboards/${dashId}`}
+                                              href={
+                                                dashboard.experimentId
+                                                  ? `/experiment/${dashboard.experimentId}#dashboards/${dashId}`
+                                                  : `/dashboards/${dashId}`
+                                              }
                                             >
                                               {dashboard.title}
                                             </Link>
