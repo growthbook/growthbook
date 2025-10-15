@@ -594,9 +594,7 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
   if (metricOverrides) {
     // For slice metrics, use the base metric ID for lookups
     const { baseMetricId } = parseSliceMetricId(metric.id);
-    const metricOverride = metricOverrides.find(
-      (mo) => mo.id === baseMetricId,
-    );
+    const metricOverride = metricOverrides.find((mo) => mo.id === baseMetricId);
 
     // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
