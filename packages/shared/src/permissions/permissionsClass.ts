@@ -528,6 +528,15 @@ export class Permissions {
     );
   };
 
+  public canCreateAnalyses = (projects?: string[]): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: projects ? projects : [],
+      },
+      "createAnalyses",
+    );
+  };
+
   // This is a helper method to use on the frontend to determine whether or not to show certain UI elements
   public canViewIdeaModal = (project?: string): boolean => {
     return this.canCreateIdea({ project });
