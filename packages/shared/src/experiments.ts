@@ -147,9 +147,19 @@ export function getColumnRefWhereClause({
           jsonExtract,
         );
 
-        if (sliceLevel.levels.length === 0) {
-          // For "other", exclude all auto slice values
-          if (sliceColumn.autoSlices && sliceColumn.autoSlices.length > 0) {
+        if (
+          sliceLevel.levels.length === 0 ||
+          (sliceColumn.datatype === "boolean" &&
+            sliceLevel.levels[0] === "null")
+        ) {
+          // For "other" or "null", exclude all auto slice values
+          if (sliceColumn.datatype === "boolean") {
+            // For boolean "other"/"null", check for NULL values
+            where.add(`(${columnExpr} IS NULL)`);
+          } else if (
+            sliceColumn.autoSlices &&
+            sliceColumn.autoSlices.length > 0
+          ) {
             const escapedValues = sliceColumn.autoSlices.map(
               (v: string) => "'" + escapeStringLiteral(v) + "'",
             );
@@ -1177,8 +1187,12 @@ export function createAutoSliceDataForMetric({
     const autoSlices = col.autoSlices || [];
     const columnName = col.name || col.column;
 
-    // Create slice data for each auto slice
-    autoSlices.forEach((value) => {
+    // For boolean columns, generate true/false slices, "null" will be handled as "other" below
+    const sliceValues =
+      col.datatype === "boolean" ? ["true", "false"] : autoSlices;
+
+    // Create slice data for each slice value
+    sliceValues.forEach((value) => {
       const sliceString = generateSliceString({ [col.column]: value });
       sliceData.push({
         id: `${factMetric.id}?${sliceString}`,
@@ -1195,8 +1209,8 @@ export function createAutoSliceDataForMetric({
       });
     });
 
-    // Create an "other" slice data for values not in autoSlices
-    if (includeOther && autoSlices.length > 0) {
+    // Create an "other" slice data for values not in autoSlices (includes NULL for boolean)
+    if (includeOther && (autoSlices.length > 0 || col.datatype === "boolean")) {
       const sliceString = generateSliceString({ [col.column]: "" });
       sliceData.push({
         id: `${factMetric.id}?${sliceString}`,
@@ -1689,8 +1703,8 @@ export function expandAllSliceMetricsInMap({
           metricMap.set(sliceMetric.id, sliceMetric);
         });
 
-        // Create an "other" metric for values not in autoSlices
-        if (autoSlices.length > 0 && col.datatype !== "boolean") {
+        // Create an "other" metric for values not in autoSlices (includes NULL for boolean)
+        if (autoSlices.length > 0 || col.datatype === "boolean") {
           const sliceString = generateSliceString({
             [col.column]: "",
           });

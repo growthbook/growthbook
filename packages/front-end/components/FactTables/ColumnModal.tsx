@@ -275,6 +275,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             data.jsonFields = value.jsonFields;
           }
 
+          if (data.datatype === "boolean" && data.autoSlices) {
+            data.autoSlices = ["true", "false"];
+          }
+
           await apiCall(
             `/fact-tables/${factTable.id}/column/${existing.column}`,
             {
@@ -283,6 +287,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             },
           );
         } else {
+          if (value.datatype === "boolean" && value.autoSlices) {
+            value.autoSlices = ["true", "false"];
+          }
+
           await apiCall(`/fact-tables/${factTable.id}/column`, {
             method: "POST",
             body: JSON.stringify(value),
