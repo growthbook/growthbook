@@ -11,6 +11,12 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
+import {
+  FaSortUp,
+  FaSortDown,
+  FaSort,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   ExperimentReportVariation,
@@ -27,7 +33,6 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -114,10 +119,14 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 };
 
 const ROW_HEIGHT = 46;
-const METRIC_LABEL_ROW_HEIGHT = 46;
+const METRIC_LABEL_ROW_HEIGHT = 56;
 const SPACER_ROW_HEIGHT = 6;
 
 export const RESULTS_TABLE_COLUMNS = [
@@ -173,11 +182,95 @@ export default function ResultsTable({
   disableTimeSeriesButton,
   columnsFilter,
   isHoldout,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }: ResultsTableProps) {
-  // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
+
+  const SortButton = ({ column }: { column: "significance" | "change" }) => {
+    if (!setSortBy || !setSortDirection) return null;
+
+    const isActive = sortBy === column;
+
+    const handleClick = () => {
+      if (!isActive) {
+        // Not currently sorting by this column, set to default direction
+        setSortBy(column);
+        if (column === "change") {
+          // Change: desc, asc, null
+          setSortDirection("desc");
+        } else if (column === "significance") {
+          // Significance: frequentist (desc, asc, null), bayesian (asc, desc, null)
+          setSortDirection(statsEngine === "frequentist" ? "desc" : "asc");
+        }
+      } else {
+        // Currently sorting by this column, cycle through directions
+        if (column === "change") {
+          // Change: desc -> asc -> null
+          if (sortDirection === "desc") {
+            setSortDirection("asc");
+          } else if (sortDirection === "asc") {
+            setSortBy(null);
+          }
+        } else if (column === "significance") {
+          // Significance: frequentist (desc -> asc -> null), bayesian (asc -> desc -> null)
+          if (statsEngine === "frequentist") {
+            if (sortDirection === "desc") {
+              setSortDirection("asc");
+            } else if (sortDirection === "asc") {
+              setSortBy(null);
+            }
+          } else {
+            if (sortDirection === "asc") {
+              setSortDirection("desc");
+            } else if (sortDirection === "desc") {
+              setSortBy(null);
+            }
+          }
+        }
+      }
+    };
+
+    const getTooltipText = () => {
+      if (isActive) {
+        return `Sorted by ${column} ${sortDirection === "desc" ? "(desc)" : "(asc)"}`;
+      }
+      return `Sort by ${column}`;
+    };
+
+    const getIcon = () => {
+      if (!isActive) return <FaSort size={16} />;
+      return sortDirection === "desc" ? (
+        <FaSortDown size={16} />
+      ) : (
+        <FaSortUp size={16} />
+      );
+    };
+
+    return (
+      <Tooltip
+        usePortal={true}
+        innerClassName={"text-left"}
+        body={getTooltipText()}
+      >
+        <a
+          role="button"
+          onClick={handleClick}
+          style={{
+            marginLeft: "2px",
+            color: isActive ? "var(--blue-10)" : "var(--gray-a8)",
+            userSelect: "none",
+          }}
+        >
+          {getIcon()}
+        </a>
+      </Tooltip>
+    );
+  };
   const columnsToDisplay = columnsFilter?.length
     ? columnsFilter
     : RESULTS_TABLE_COLUMNS;
@@ -488,7 +581,7 @@ export default function ResultsTable({
                         <div className="col d-flex align-items-end px-0">
                           <a
                             role="button"
-                            className="ml-1 cursor-pointer"
+                            className="ml-1 cursor-pointer link-purple"
                             onClick={(e) => {
                               e.preventDefault();
                               editMetrics();
@@ -591,13 +684,21 @@ export default function ResultsTable({
                       >
                         {statsEngine === "bayesian" ? (
                           <div
-                            style={{
-                              lineHeight: "15px",
-                              marginBottom: 2,
-                            }}
+                            className="d-flex align-items-end"
+                            style={{ width: 44 }}
                           >
-                            <span className="nowrap">Chance</span>{" "}
-                            <span className="nowrap">to Win</span>
+                            <div
+                              style={{
+                                lineHeight: "15px",
+                                marginBottom: 2,
+                              }}
+                            >
+                              <span className="nowrap">Chance</span>{" "}
+                              <span className="nowrap">to Win</span>
+                            </div>
+                            <div style={{ top: -2, position: "relative" }}>
+                              <SortButton column="significance" />
+                            </div>
                           </div>
                         ) : sequentialTestingEnabled ||
                           appliedPValueCorrection ? (
@@ -618,9 +719,13 @@ export default function ResultsTable({
                           >
                             {appliedPValueCorrection ? "Adj. " : ""}P-value{" "}
                             <RxInfoCircled />
+                            <SortButton column="significance" />
                           </Tooltip>
                         ) : (
-                          <>P-value</>
+                          <>
+                            P-value
+                            <SortButton column="significance" />
+                          </>
                         )}
                       </th>
                     )}
@@ -680,6 +785,7 @@ export default function ResultsTable({
                           >
                             {changeTitle} <RxInfoCircled />
                           </Tooltip>
+                          <SortButton column="change" />
                         </div>
                       </th>
                     )}
@@ -732,7 +838,7 @@ export default function ResultsTable({
                       {/* Render the main results tbody */}
                       <tbody
                         className={clsx("results-group-row", {
-                          "dimension-row": row.isDimensionRow,
+                          "slice-row": row.isSliceRow,
                         })}
                         key={i}
                       >
@@ -790,12 +896,13 @@ export default function ResultsTable({
                                 className: clsx(
                                   "results-variation-row align-items-center error-row",
                                   {
-                                    "last-before-dimension-header":
-                                      !row.isDimensionRow &&
+                                    "last-before-slice-header":
+                                      !row.isSliceRow &&
                                       i < rows.length - 1 &&
-                                      rows[i + 1].isDimensionRow &&
-                                      rows[i + 1].dimensionColumn !==
-                                        (rows[i]?.dimensionColumn || null),
+                                      rows[i + 1].isSliceRow &&
+                                      rows[i + 1].sliceLevels?.[0]?.column !==
+                                        (rows[i]?.sliceLevels?.[0]?.column ||
+                                          null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -807,7 +914,7 @@ export default function ResultsTable({
                                 label: (
                                   <>
                                     {compactResults ? (
-                                      <div className="mb-1">
+                                      <div className="mb-1 position-relative">
                                         {renderLabelColumn({
                                           label: row.label,
                                           metric: row.metric,
@@ -848,12 +955,13 @@ export default function ResultsTable({
                                 className: clsx(
                                   "results-variation-row align-items-center error-row",
                                   {
-                                    "last-before-dimension-header":
-                                      !row.isDimensionRow &&
+                                    "last-before-slice-header":
+                                      !row.isSliceRow &&
                                       i < rows.length - 1 &&
-                                      rows[i + 1].isDimensionRow &&
-                                      rows[i + 1].dimensionColumn !==
-                                        (rows[i]?.dimensionColumn || null),
+                                      rows[i + 1].isSliceRow &&
+                                      rows[i + 1].sliceLevels?.[0]?.column !==
+                                        (rows[i]?.sliceLevels?.[0]?.column ||
+                                          null),
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -921,12 +1029,14 @@ export default function ResultsTable({
                               className={clsx(
                                 "results-variation-row align-items-center",
                                 {
-                                  "last-before-dimension-header":
-                                    !row.isDimensionRow &&
+                                  "last-before-slice-header":
+                                    !row.isSliceRow &&
                                     i < rows.length - 1 &&
-                                    rows[i + 1].isDimensionRow &&
-                                    rows[i + 1].dimensionColumn !==
-                                      (rows[i]?.dimensionColumn || null) &&
+                                    rows[i + 1].isSliceRow &&
+                                    JSON.stringify(rows[i + 1].sliceLevels) !==
+                                      JSON.stringify(
+                                        rows[i]?.sliceLevels || [],
+                                      ) &&
                                     j === orderedVariations.length - 1,
                                 },
                               )}
@@ -941,7 +1051,7 @@ export default function ResultsTable({
                                 "Metric & Variation Names",
                               ) && (
                                 <td
-                                  className={`variation with-variation-label variation${v.index}`}
+                                  className={`variation with-variation-label variation${v.index} position-relative`}
                                   style={{
                                     width: 220 * tableCellScale,
                                   }}
@@ -1185,7 +1295,7 @@ export default function ResultsTable({
                         {visibleTimeSeriesRowIds.includes(rowId) ? (
                           <tr
                             style={
-                              !row.isDimensionRow
+                              !row.isSliceRow
                                 ? { backgroundColor: "var(--slate-a2)" }
                                 : undefined
                             }
@@ -1212,9 +1322,11 @@ export default function ResultsTable({
                                       rows.length > 1
                                     }
                                     firstDateToRender={getValidDate(startDate)}
-                                    isDimensionRow={row.isDimensionRow}
-                                    dimensionColumn={row.dimensionColumn}
-                                    dimensionValue={row.dimensionValue}
+                                    isSliceRow={row.isSliceRow}
+                                    sliceLevels={row.sliceLevels?.map((dl) => ({
+                                      dimension: dl.column,
+                                      levels: dl.levels,
+                                    }))}
                                   />
                                 </div>
                               </div>
@@ -1279,7 +1391,11 @@ function drawEmptyRow({
 }) {
   return (
     <tr key={key} style={{ height: rowHeight, ...style }} className={className}>
-      {renderLabel && <td colSpan={labelColSpan}>{label}</td>}
+      {renderLabel && (
+        <td colSpan={labelColSpan} className="position-relative">
+          {label}
+        </td>
+      )}
 
       {renderGraph && (
         <td className="graph-cell">

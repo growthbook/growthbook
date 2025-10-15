@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { canInlineFilterColumn } from "shared/experiments";
-import { MAX_METRIC_DIMENSION_LEVELS } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import { cloneDeep } from "lodash";
 import { ReqContext } from "back-end/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
@@ -25,6 +26,8 @@ import {
   deleteFactFilter as deleteFactFilterInDb,
   createFactFilter,
   updateFactFilter,
+  cleanupMetricAutoSlices,
+  detectRemovedColumns,
 } from "back-end/src/models/FactTableModel";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -99,10 +102,6 @@ export const postFactTable = async (
   const data = req.body;
   const context = getContextFromReq(req);
 
-  if (!context.permissions.canCreateFactTable(data)) {
-    context.permissions.throwPermissionError();
-  }
-
   if (!data.datasource) {
     throw new Error("Must specify a data source for this fact table");
   }
@@ -150,10 +149,6 @@ export const putFactTable = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, data)) {
-    context.permissions.throwPermissionError();
-  }
-
   const datasource = await getDataSourceById(context, factTable.datasource);
   if (!datasource) {
     throw new Error("Could not find datasource");
@@ -167,6 +162,7 @@ export const putFactTable = async (
 
   // Update the columns
   if (req.query?.forceColumnRefresh || needsColumnRefresh(data)) {
+    const originalColumns = cloneDeep(factTable.columns || []);
     data.columns = await runRefreshColumnsQuery(context, datasource, {
       ...factTable,
       ...data,
@@ -176,6 +172,17 @@ export const putFactTable = async (
     if (!data.columns.some((col) => !col.deleted)) {
       throw new Error("SQL did not return any rows");
     }
+
+    // Check for removed columns and trigger cleanup
+    const removedColumns = detectRemovedColumns(originalColumns, data.columns);
+
+    if (removedColumns.length > 0) {
+      await cleanupMetricAutoSlices({
+        context,
+        factTableId: factTable.id,
+        removedColumns,
+      });
+    }
   }
 
   // If dim parameter is provided, refresh top values for that specific column
@@ -183,7 +190,11 @@ export const putFactTable = async (
     const columnName = req.query.dim;
     const column = factTable.columns.find((col) => col.column === columnName);
 
-    if (column && canInlineFilterColumn(factTable, column.column)) {
+    if (
+      column &&
+      canInlineFilterColumn(factTable, column.column) &&
+      column.datatype === "string"
+    ) {
       try {
         const topValues = await runColumnTopValuesQuery(
           context,
@@ -192,15 +203,18 @@ export const putFactTable = async (
           column,
         );
 
-        // Constrain top values to MAX_METRIC_DIMENSION_LEVELS
-        const constrainedTopValues = topValues.slice(
-          0,
-          MAX_METRIC_DIMENSION_LEVELS,
-        );
+        const maxSliceLevels =
+          context.org.settings?.maxMetricSliceLevels ??
+          DEFAULT_MAX_METRIC_SLICE_LEVELS;
+        const constrainedTopValues = topValues.slice(0, maxSliceLevels);
 
         // Update the column with new top values
-        await updateColumn(factTable, column.column, {
-          topValues: constrainedTopValues,
+        await updateColumn({
+          factTable,
+          column: column.column,
+          changes: {
+            topValues: constrainedTopValues,
+          },
         });
       } catch (e) {
         logger.error(e, "Error running top values query for specific column", {
@@ -273,9 +287,6 @@ export const deleteFactTable = async (
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
-  if (!context.permissions.canDeleteFactTable(factTable)) {
-    context.permissions.throwPermissionError();
-  }
 
   // check if for fact segments using this before deleting
   const segments = await context.models.segments.getByFactTableId(factTable.id);
@@ -321,9 +332,9 @@ export const putColumn = async (
   }
 
   // Check enterprise feature access for dimension properties
-  if (data.isDimension) {
-    if (!context.hasPremiumFeature("metric-dimensions")) {
-      throw new Error("Metric dimensions require an enterprise license");
+  if (data.isAutoSliceColumn) {
+    if (!context.hasPremiumFeature("metric-slices")) {
+      throw new Error("Metric slices require an enterprise license");
     }
   }
 
@@ -333,7 +344,8 @@ export const putColumn = async (
   if (
     !col.alwaysInlineFilter &&
     data.alwaysInlineFilter &&
-    canInlineFilterColumn(factTable, updatedCol.column)
+    canInlineFilterColumn(factTable, updatedCol.column) &&
+    updatedCol.datatype === "string"
   ) {
     const datasource = await getDataSourceById(context, factTable.datasource);
     if (!datasource) {
@@ -344,8 +356,12 @@ export const putColumn = async (
       runColumnTopValuesQuery(context, datasource, factTable, col)
         .then(async (values) => {
           if (!values.length) return;
-          await updateColumn(factTable, col.column, {
-            topValues: values,
+          await updateColumn({
+            factTable,
+            column: col.column,
+            changes: {
+              topValues: values,
+            },
           });
         })
         .catch((e) => {
@@ -354,7 +370,12 @@ export const putColumn = async (
     }
   }
 
-  await updateColumn(factTable, req.params.column, data);
+  await updateColumn({
+    context,
+    factTable,
+    column: req.params.column,
+    changes: data,
+  });
 
   res.status(200).json({
     status: 200,

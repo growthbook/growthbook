@@ -51,6 +51,10 @@ export interface Props {
   setMetricFilter: (m: ResultsMetricFilters) => void;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  sortBy: "metric-tags" | "significance" | "change" | null;
+  setSortBy: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection: "asc" | "desc" | null;
+  setSortDirection: (d: "asc" | "desc" | null) => void;
 }
 
 export default function ResultsTab({
@@ -67,6 +71,10 @@ export default function ResultsTab({
   setAnalysisBarSettings,
   metricFilter,
   setMetricFilter,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }: Props) {
   const {
     getDatasourceById,
@@ -228,7 +236,6 @@ export default function ResultsTab({
                 differenceType: d,
               })
             }
-            differenceType={analysisBarSettings.differenceType}
             reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (
@@ -311,6 +318,10 @@ export default function ResultsTab({
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
                   setTab={setTab}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  sortDirection={sortDirection}
+                  setSortDirection={setSortDirection}
                 />
               )}
             </>

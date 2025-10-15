@@ -45,6 +45,106 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import { RowError } from "@/components/Experiment/ResultsTable";
 import { getDefaultRuleValue, NewExperimentRefRule } from "./features";
 
+export const compareRows = (
+  a: ExperimentTableRow,
+  b: ExperimentTableRow,
+  options: {
+    sortBy: "significance" | "change";
+    variationFilter: number[];
+    metricDefaults: MetricDefaults;
+    sortDirection: "asc" | "desc";
+  },
+) => {
+  const { sortBy, variationFilter, metricDefaults, sortDirection } = options;
+
+  const aVisibleVariations =
+    a?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+  const bVisibleVariations =
+    b?.variations?.filter((_, index) => !variationFilter?.includes?.(index)) ??
+    [];
+
+  const aBaseline = a?.variations?.[0];
+  const bBaseline = b?.variations?.[0];
+
+  const aVariationsWithEnoughData = aVisibleVariations.filter((v) => {
+    const originalIndex = a?.variations?.indexOf(v) ?? -1;
+    return (
+      originalIndex > 0 &&
+      v &&
+      v.value != null &&
+      v.value > 0 &&
+      hasEnoughData(aBaseline, v, a?.metric, metricDefaults)
+    );
+  });
+  const bVariationsWithEnoughData = bVisibleVariations.filter((v) => {
+    const originalIndex = b?.variations?.indexOf(v) ?? -1;
+    return (
+      originalIndex > 0 &&
+      v &&
+      v.value != null &&
+      v.value > 0 &&
+      hasEnoughData(bBaseline, v, b?.metric, metricDefaults)
+    );
+  });
+
+  if (
+    aVariationsWithEnoughData.length === 0 &&
+    bVariationsWithEnoughData.length === 0
+  )
+    return 0;
+  if (aVariationsWithEnoughData.length === 0) return 1;
+  if (bVariationsWithEnoughData.length === 0) return -1;
+
+  const aSignificanceValues = aVariationsWithEnoughData.map((v) => {
+    if (sortBy === "change") {
+      return v?.expected ?? 0;
+    } else {
+      const usePValue =
+        aVariationsWithEnoughData.some((v) => v?.pValue != null) ||
+        bVariationsWithEnoughData.some((v) => v?.pValue != null);
+      return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
+    }
+  });
+  const bSignificanceValues = bVariationsWithEnoughData.map((v) => {
+    if (sortBy === "change") {
+      return v?.expected ?? 0;
+    } else {
+      const usePValue =
+        aVariationsWithEnoughData.some((v) => v?.pValue != null) ||
+        bVariationsWithEnoughData.some((v) => v?.pValue != null);
+      return usePValue ? (v?.pValue ?? 1) : (v?.chanceToWin ?? 0);
+    }
+  });
+
+  if (aSignificanceValues.length === 0 && bSignificanceValues.length === 0)
+    return 0;
+  if (aSignificanceValues.length === 0) return 1;
+  if (bSignificanceValues.length === 0) return -1;
+
+  const aAggregatedValue =
+    sortBy === "change"
+      ? Math.max(...aSignificanceValues)
+      : aVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? Math.min(...aSignificanceValues)
+        : Math.max(...aSignificanceValues);
+  const bAggregatedValue =
+    sortBy === "change"
+      ? Math.max(...bSignificanceValues)
+      : bVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? Math.min(...bSignificanceValues)
+        : Math.max(...bSignificanceValues);
+
+  const comparisonResult =
+    sortBy === "change"
+      ? bAggregatedValue - aAggregatedValue
+      : aVariationsWithEnoughData.some((v) => v?.pValue != null)
+        ? aAggregatedValue - bAggregatedValue
+        : bAggregatedValue - aAggregatedValue;
+
+  return sortDirection === "desc" ? -comparisonResult : comparisonResult;
+};
+
 export function experimentDate(exp: ExperimentInterfaceStringDates): string {
   return (
     (exp.archived
@@ -66,16 +166,17 @@ export type ExperimentTableRow = {
   metricSnapshotSettings?: MetricSnapshotSettings;
   resultGroup: "goal" | "secondary" | "guardrail";
   error?: RowError;
-  numDimensions?: number;
-  // Dimension row properties
-  isDimensionRow?: boolean;
+  numSlices?: number;
+  // Slice row properties
+  isSliceRow?: boolean;
   parentRowId?: string;
-  dimensionColumn?: string;
-  dimensionColumnName?: string;
-  dimensionValue?: string | null; // The specific dimension value (e.g., "chrome") or null for "other"
-  dimensionLevels?: string[];
-  isHiddenByFilter?: boolean; // True if this row should be hidden due to dimension level filtering
-  isPinned?: boolean; // True if this dimension level row is pinned
+  sliceLevels?: Array<{
+    column: string;
+    levels: string[];
+  }>;
+  allSliceLevels?: string[];
+  isHiddenByFilter?: boolean; // True if this row should be hidden due to slice level filtering
+  isPinned?: boolean; // True if this slice level row is pinned
 };
 
 export function getRisk(
@@ -177,6 +278,11 @@ export function useDomain(
   let lowerBound = 0;
   let upperBound = 0;
   rows.forEach((row) => {
+    // Skip metric slice rows that are hidden (not expanded or pinned)
+    if (row.isHiddenByFilter) {
+      return;
+    }
+
     const baseline = row.variations[variations[0].index];
     if (!baseline) return;
     variations?.forEach((v: ExperimentReportVariationWithIndex, i) => {
@@ -365,20 +471,7 @@ export function useExperimentSearch({
     defaultSortField,
     defaultSortDir,
     updateSearchQueryOnChange: true,
-    searchFields: [
-      "name^3",
-      "trackingKey^2",
-      "id",
-      "hypothesis^2",
-      "description",
-      "tags",
-      "status",
-      "ownerName",
-      "metricNames",
-      "results",
-      "analysis",
-      "isWatched",
-    ],
+    searchFields: ["name^3", "trackingKey^2", "hypothesis^2", "description"],
     searchTermFilters: {
       is: (item) => {
         const is: string[] = [];

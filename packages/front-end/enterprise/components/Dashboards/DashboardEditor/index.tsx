@@ -134,14 +134,17 @@ interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   isEditing: boolean;
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
   editSidebarDirty: boolean;
   focusedBlockIndex: number | undefined;
   stagedBlockIndex: number | undefined;
   scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
-  setBlock: (
-    index: number,
-    block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-  ) => void;
+  setBlock:
+    | undefined
+    | ((
+        index: number,
+        block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+      ) => void);
   moveBlock: (index: number, direction: -1 | 1) => void;
   addBlockType: (bType: DashboardBlockType, i?: number) => void;
   editBlock: (index: number) => void;
@@ -158,6 +161,7 @@ function DashboardEditor({
   blocks,
   isEditing,
   enableAutoUpdates,
+  nextUpdate,
   editSidebarDirty,
   focusedBlockIndex,
   stagedBlockIndex,
@@ -184,9 +188,9 @@ function DashboardEditor({
     key: number | string;
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
     isFocused: boolean;
-    setBlock: React.Dispatch<
-      DashboardBlockInterfaceOrData<DashboardBlockInterface>
-    >;
+    setBlock:
+      | undefined
+      | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>;
     isEditingBlock: boolean;
     isLastBlock: boolean;
   }) => {
@@ -297,8 +301,8 @@ function DashboardEditor({
         )}
         <div style={{ flexGrow: 1 }} />
         <DashboardUpdateDisplay
-          blocks={blocks}
           enableAutoUpdates={enableAutoUpdates}
+          nextUpdate={nextUpdate}
           disabled={editSidebarDirty}
           isEditing={isEditing}
         />
@@ -344,7 +348,7 @@ function DashboardEditor({
                   : `${block.type}-${i}`,
                 block: block,
                 isFocused: focusedBlockIndex === i,
-                setBlock: (block) => setBlock(i, block),
+                setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
                 isEditingBlock: stagedBlockIndex === i,
                 isLastBlock: i === blocks.length - 1,
               }),

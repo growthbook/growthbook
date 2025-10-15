@@ -4,6 +4,7 @@ import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
 } from "back-end/src/services/stats";
+import { PhaseSQLVar } from "back-end/types/sql";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
 import {
@@ -137,7 +138,11 @@ export interface ExperimentSnapshotAnalysisSettings {
 }
 
 export type SnapshotType = "standard" | "exploratory" | "report";
-export type SnapshotTriggeredBy = "schedule" | "manual";
+export type SnapshotTriggeredBy =
+  | "schedule"
+  | "manual"
+  | "manual-dashboard"
+  | "update-dashboards";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
@@ -187,6 +192,8 @@ export interface ExperimentSnapshotSettings {
   exposureQueryId: string;
   startDate: Date;
   endDate: Date;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;

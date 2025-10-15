@@ -1,11 +1,10 @@
 import mongoose from "mongoose";
-import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
+import { ExperimentMetricInterface } from "shared/experiments";
 import {
   InsertMetricProps,
   LegacyMetricInterface,
   MetricInterface,
 } from "back-end/types/metric";
-import { FactTableMap } from "back-end/types/fact-table";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
@@ -632,52 +631,3 @@ export async function generateMetricEmbeddings(
 const getTextForEmbedding = (metric: MetricInterface): string => {
   return `Name: ${metric.name}\nDescription: ${metric.description}`;
 };
-
-/**
- * Expands dimension metrics for fact metrics with enableMetricDimensions and adds them to the metricMap
- */
-export function expandDimensionMetricsInMap(
-  metricMap: Map<string, ExperimentMetricInterface>,
-  factTableMap: FactTableMap,
-  baseMetrics: ExperimentMetricInterface[],
-): void {
-  for (const metric of baseMetrics) {
-    if (isFactMetric(metric) && metric.enableMetricDimensions) {
-      const factTable = factTableMap.get(metric.numerator.factTableId);
-      if (factTable) {
-        const dimensionColumns = factTable.columns.filter(
-          (col) =>
-            col.isDimension &&
-            !col.deleted &&
-            (col.dimensionLevels?.length || 0) > 0,
-        );
-
-        dimensionColumns.forEach((col) => {
-          const dimensionLevels = col.dimensionLevels || [];
-
-          // Create a metric for each dimension level
-          dimensionLevels.forEach((value: string) => {
-            const dimensionMetric: ExperimentMetricInterface = {
-              ...metric,
-              id: `${metric.id}?dim:${col.column}=${value}`,
-              name: `${metric.name} (${col.name || col.column}: ${value})`,
-              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
-            };
-            metricMap.set(dimensionMetric.id, dimensionMetric);
-          });
-
-          // Create an "other" metric for values not in dimensionLevels
-          if (dimensionLevels.length > 0) {
-            const otherMetric: ExperimentMetricInterface = {
-              ...metric,
-              id: `${metric.id}?dim:${col.column}=`,
-              name: `${metric.name} (${col.name || col.column}: other)`,
-              description: `Dimension analysis of ${metric.name} for ${col.name || col.column} = other`,
-            };
-            metricMap.set(otherMetric.id, otherMetric);
-          }
-        });
-      }
-    }
-  }
-}
