@@ -40,6 +40,7 @@ import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import ProjectBadges from "@/components/ProjectBadges";
+import UserAvatar from "@/components/Avatar/UserAvatar";
 import DashboardModal from "../DashboardModal";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
@@ -252,7 +253,7 @@ function DashboardEditor({
   const [editDashboard, setEditDashboard] = useState(false);
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
   const { apiCall } = useAuth();
-  const { userId } = useUser();
+  const { userId, getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
   let canEdit = permissionsUtil.canUpdateGeneralDashboards(
     { projects: projects || [] },
@@ -265,6 +266,7 @@ function DashboardEditor({
     canEdit = false;
     canDelete = false;
   }
+  const ownerName = getUserDisplay(dashboardOwnerId, false) || "";
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 1500,
@@ -550,15 +552,38 @@ function DashboardEditor({
             </>
           ) : null}
         </Flex>
-        <Flex align="center">
-          <div>
-            Projects:{" "}
+        <Flex align="center" gap="3">
+          <Flex align="center" gap="1">
+            <Text weight="medium">Projects:</Text>
             {projects?.length ? (
-              <ProjectBadges resourceType="dashboard" projectIds={projects} />
+              <Tooltip
+                body={
+                  <Flex direction="column" gap="1">
+                    <ProjectBadges
+                      skipMargin
+                      resourceType="dashboard"
+                      projectIds={projects}
+                    />
+                  </Flex>
+                }
+              >
+                <span role="button">{projects.length}</span>
+              </Tooltip>
             ) : (
               <ProjectBadges resourceType="dashboard" />
             )}
-          </div>
+          </Flex>
+          <Flex align="center" gap="1">
+            <Text weight="medium">Owner:</Text>
+            {ownerName ? (
+              <>
+                <UserAvatar name={ownerName} size="sm" variant="soft" />
+                <Text>{ownerName}</Text>
+              </>
+            ) : (
+              "None"
+            )}
+          </Flex>
         </Flex>
       </div>
       <div>
@@ -584,7 +609,7 @@ function DashboardEditor({
                     : "Add some blocks to get started"}
                 </Text>
               </Flex>
-              {addBlockType && (
+              {addBlockType ? (
                 <AddBlockDropdown
                   addBlockType={addBlockType}
                   isGeneralDashboard={isGeneralDashboard}
@@ -594,11 +619,15 @@ function DashboardEditor({
                       icon={<PiCaretDownFill />}
                       iconPosition="right"
                     >
-                      Add block
+                      Add Block
                     </Button>
                   }
                 />
-              )}
+              ) : canEdit && setIsEditing ? (
+                <Button size="md" onClick={() => setIsEditing(true)}>
+                  Add Block
+                </Button>
+              ) : null}
             </Flex>
           ) : (
             blocks.map((block, i) =>

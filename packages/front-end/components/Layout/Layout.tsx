@@ -12,6 +12,7 @@ import {
   GBDatabase,
   GBExperiment,
   GBLibrary,
+  GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
@@ -129,10 +130,16 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    name: "Product Analytics",
+    href: "/dashboards",
+    path: /^(dashboards)/,
+    Icon: GBProductAnalytics,
+  },
+  {
     name: "Insights",
     href: "/dashboard",
     Icon: GBLibrary,
-    path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
+    path: /^(learnings|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
         name: "Dashboard",
