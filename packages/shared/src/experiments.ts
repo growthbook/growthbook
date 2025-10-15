@@ -39,6 +39,7 @@ import {
 } from "back-end/types/stats";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
 import uniqid from "uniqid";
+import { stringToBoolean } from "./util";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -159,8 +160,7 @@ export function getColumnRefWhereClause({
         } else {
           // For specific auto slice values, filter to that value
           if (sliceColumn.datatype === "boolean") {
-            const boolValue =
-              sliceLevel.levels[0] === "true" || sliceLevel.levels[0] === "1";
+            const boolValue = stringToBoolean(sliceLevel.levels[0]);
             where.add(`(${evalBoolean(columnExpr, boolValue)})`);
             return;
           }
@@ -185,10 +185,10 @@ export function getColumnRefWhereClause({
     if (columnType === "boolean") {
       // This should never happen, but if it does, skip
       if (values.length !== 1) return;
-      const v = values[0].toLowerCase();
+      const v = values[0];
       // An empty value means do not filter
       if (!v) return;
-      where.add(`(${evalBoolean(columnExpr, v === "true" || v === "1")})`);
+      where.add(`(${evalBoolean(columnExpr, stringToBoolean(v))})`);
       return;
     }
 
