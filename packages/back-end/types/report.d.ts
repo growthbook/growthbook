@@ -185,7 +185,7 @@ export type ExperimentReportSSRData = {
       id: string;
       name: string;
       description: string;
-      parentMetricId: string;
+      baseMetricId: string;
       sliceLevels: Array<{
         column: string;
         columnName: string;

@@ -161,16 +161,39 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                         </Tooltip>
                       )}
                       {col.isAutoSliceColumn && (
-                        <Tooltip body="Auto Slices enabled" tipPosition="left">
-                          <Avatar
-                            size="sm"
-                            color="violet"
-                            variant="soft"
-                            radius="small"
+                        <div style={{ position: "relative" }}>
+                          <Tooltip
+                            body={
+                              !col.autoSlices || col.autoSlices.length === 0
+                                ? "Auto slices enabled, no slice levels configured"
+                                : "Auto slices enabled"
+                            }
+                            tipPosition="left"
                           >
-                            <PiStackBold size={14} />
-                          </Avatar>
-                        </Tooltip>
+                            <Avatar
+                              size="sm"
+                              color="violet"
+                              variant="soft"
+                              radius="small"
+                            >
+                              <PiStackBold size={14} />
+                            </Avatar>
+                          </Tooltip>
+                          {(!col.autoSlices || col.autoSlices.length === 0) && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: -2,
+                                right: -2,
+                                width: 8,
+                                height: 8,
+                                backgroundColor: "var(--red-10)",
+                                borderRadius: "50%",
+                                border: "1px solid white",
+                              }}
+                            />
+                          )}
+                        </div>
                       )}
                       {col.alwaysInlineFilter && (
                         <Tooltip

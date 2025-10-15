@@ -69,10 +69,13 @@ export function canInlineFilterColumn(
   // If the column is one of the identifier columns, it is not eligible for prompting
   if (factTable.userIdTypes.includes(column)) return false;
 
-  if (
-    getSelectedColumnDatatype({ factTable, column, excludeDeleted: true }) !==
-    "string"
-  ) {
+  const dataType = getSelectedColumnDatatype({
+    factTable,
+    column,
+    excludeDeleted: true,
+  });
+
+  if (dataType !== "string" && dataType !== "boolean") {
     return false;
   }
 
@@ -106,14 +109,23 @@ export function getColumnExpression(
   return alias ? `${alias}.${column}` : column;
 }
 
-export function getColumnRefWhereClause(
-  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">,
-  columnRef: ColumnRef,
-  escapeStringLiteral: (s: string) => string,
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string,
+export function getColumnRefWhereClause({
+  factTable,
+  columnRef,
+  escapeStringLiteral,
+  jsonExtract,
+  evalBoolean,
   showSourceComment = false,
-  sliceInfo?: SliceMetricInfo,
-): string[] {
+  sliceInfo,
+}: {
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  columnRef: ColumnRef;
+  escapeStringLiteral: (s: string) => string;
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
+  evalBoolean: (col: string, value: boolean) => string;
+  showSourceComment?: boolean;
+  sliceInfo?: SliceMetricInfo;
+}): string[] {
   const inlineFilters = columnRef.inlineFilters || {};
   const filterIds = columnRef.filters || [];
 
@@ -156,14 +168,31 @@ export function getColumnRefWhereClause(
 
   // Then add inline filters
   Object.entries(inlineFilters).forEach(([column, values]) => {
+    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
+
+    const columnType = factTable.columns?.find(
+      (c) => c.column === column,
+    )?.datatype;
+
+    // Special handling for boolean columns
+    if (columnType === "boolean") {
+      // This should never happen, but if it does, skip
+      if (values.length !== 1) return;
+      const v = values[0].toLowerCase();
+      // An empty value means do not filter
+      if (!v) return;
+      where.add(`(${evalBoolean(columnExpr, v === "true" || v === "1")})`);
+      return;
+    }
+
+    // TODO: Special handling for number columns
+
+    // Treat everything else as string
     const escapedValues = new Set(
       values
         .filter((v) => v.length > 0)
         .map((v) => "'" + escapeStringLiteral(v) + "'"),
     );
-
-    const columnExpr = getColumnExpression(column, factTable, jsonExtract);
-
     if (!escapedValues.size) {
       return;
     } else if (escapedValues.size === 1) {
@@ -226,6 +255,15 @@ export function getAggregateFilters({
   return filters;
 }
 
+export function getFactTableTemplateVariables(
+  factTable: FactTableInterface,
+): TemplateVariables {
+  return {
+    eventName: factTable.eventName,
+  };
+}
+
+// TODO(sql): refactor to remove factTableMap
 export function getMetricTemplateVariables(
   m: ExperimentMetricInterface,
   factTableMap: FactTableMap,
@@ -376,7 +414,7 @@ export interface SliceLevel {
 
 export interface SliceMetricInfo {
   isSliceMetric: boolean;
-  parentMetricId: string;
+  baseMetricId: string;
   sliceLevels: SliceLevel[];
 }
 
@@ -385,12 +423,12 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
   if (questionMarkIndex === -1) {
     return {
       isSliceMetric: false,
-      parentMetricId: metricId,
+      baseMetricId: metricId,
       sliceLevels: [],
     };
   }
 
-  const parentMetricId = metricId.substring(0, questionMarkIndex);
+  const baseMetricId = metricId.substring(0, questionMarkIndex);
   const queryString = metricId.substring(questionMarkIndex + 1);
 
   // Parse query parameters using URLSearchParams
@@ -408,14 +446,14 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
   if (sliceLevels.length === 0) {
     return {
       isSliceMetric: false,
-      parentMetricId,
+      baseMetricId,
       sliceLevels: [],
     };
   }
 
   return {
     isSliceMetric: true,
-    parentMetricId,
+    baseMetricId,
     sliceLevels: sliceLevels,
   };
 }
@@ -554,7 +592,9 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
 
   // get RA and prior settings from metric override
   if (metricOverrides) {
-    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+    // For slice metrics, use the base metric ID for lookups
+    const { baseMetricId } = parseSliceMetricId(metric.id);
+    const metricOverride = metricOverrides.find((mo) => mo.id === baseMetricId);
 
     // RA override
     if (metricOverride?.regressionAdjustmentOverride) {
@@ -1081,39 +1121,37 @@ export function getAllExpandedMetricIdsFromExperiment({
   return Array.from(expandedMetricIds);
 }
 
-// Creates ephemeral slice metrics for a fact metric based on the metric's metricAutoSlices slices
-export function createSliceMetrics({
-  parentMetric,
-  factTable,
-  includeOther = true,
-}: {
-  parentMetric: FactMetricInterface;
-  factTable: FactTableInterface;
-  includeOther?: boolean;
-}): Array<{
-  id: string;
-  name: string;
+// For building slice metric rows (FE)
+export interface SliceDataForMetric {
+  id: string; // Format: `${parentId}?dim:${encodedColumnId}=${encodedValue}` or `${parentId}?dim:${encodedColumnId}=` for "other"
+  name: string; // Format: `${parentName} (${columnName}: ${value})` or `${parentName} (${columnName}: other)`
   description: string;
   sliceLevels: Array<{
     column: string;
     levels: string[];
   }>;
   allSliceLevels: string[];
-}> {
-  if (!parentMetric.metricAutoSlices?.length) {
-    return [];
-  }
+}
 
-  const sliceMetrics: Array<{
-    id: string;
-    name: string;
-    description: string;
-    sliceLevels: Array<{
-      column: string;
-      levels: string[];
-    }>;
-    allSliceLevels: string[];
-  }> = [];
+// Creates auto slice data for a fact metric based on the metric's metricAutoSlices
+export function createAutoSliceDataForMetric({
+  parentMetric,
+  factTable,
+  includeOther = true,
+}: {
+  parentMetric: ExperimentMetricInterface | null | undefined;
+  factTable: FactTableInterface | null | undefined;
+  includeOther?: boolean;
+}): SliceDataForMetric[] {
+  // Sanity checks
+  if (!parentMetric || !isFactMetric(parentMetric)) return [];
+  if (!factTable) return [];
+
+  // Cast to FactMetricInterface after type check
+  const factMetric = parentMetric as FactMetricInterface;
+  if (!factMetric.metricAutoSlices?.length) return [];
+
+  const sliceData: SliceDataForMetric[] = [];
 
   // Get the intersection of metricAutoSlices with fact table auto slice columns
   const factTableAutoSliceColumns = factTable.columns.filter(
@@ -1124,20 +1162,20 @@ export function createSliceMetrics({
   );
 
   const autoSliceColumns = factTableAutoSliceColumns.filter((col) =>
-    parentMetric.metricAutoSlices?.includes(col.column),
+    factMetric.metricAutoSlices?.includes(col.column),
   );
 
   autoSliceColumns.forEach((col) => {
     const autoSlices = col.autoSlices || [];
     const columnName = col.name || col.column;
 
-    // Create a metric for each auto slice
+    // Create slice data for each auto slice
     autoSlices.forEach((value) => {
       const sliceString = generateSliceString({ [col.column]: value });
-      sliceMetrics.push({
-        id: `${parentMetric.id}?${sliceString}`,
-        name: `${parentMetric.name} (${columnName}: ${value})`,
-        description: `Slice analysis of ${parentMetric.name} for ${columnName} = ${value}`,
+      sliceData.push({
+        id: `${factMetric.id}?${sliceString}`,
+        name: `${factMetric.name} (${columnName}: ${value})`,
+        description: `Slice analysis of ${factMetric.name} for ${columnName} = ${value}`,
         sliceLevels: [
           {
             column: col.column,
@@ -1148,13 +1186,13 @@ export function createSliceMetrics({
       });
     });
 
-    // Create an "other" metric for values not in autoSlices
+    // Create an "other" slice data for values not in autoSlices
     if (includeOther && autoSlices.length > 0) {
       const sliceString = generateSliceString({ [col.column]: "" });
-      sliceMetrics.push({
-        id: `${parentMetric.id}?${sliceString}`,
-        name: `${parentMetric.name} (${columnName}: other)`,
-        description: `Slice analysis of ${parentMetric.name} for ${columnName} (other)`,
+      sliceData.push({
+        id: `${factMetric.id}?${sliceString}`,
+        name: `${factMetric.name} (${columnName}: other)`,
+        description: `Slice analysis of ${factMetric.name} for ${columnName} (other)`,
         sliceLevels: [
           {
             column: col.column,
@@ -1166,10 +1204,10 @@ export function createSliceMetrics({
     }
   });
 
-  return sliceMetrics;
+  return sliceData;
 }
 
-// Creates slice data format from custom metric slice levels for a specific metric
+// Creates custom slice data for a fact metric by using the experiment's customMetricSlices
 export function createCustomSliceDataForMetric({
   metricId,
   metricName,
@@ -1177,38 +1215,20 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices: Array<{
-    slices: Array<{
-      column: string;
-      levels: string[];
-    }>;
-  }>;
-}): Array<{
-  id: string;
-  name: string;
-  description: string;
-  parentMetricId: string;
-  sliceLevels: Array<{
-    column: string;
-    levels: string[];
-  }>;
-  allSliceLevels: string[];
-}> {
-  if (!customMetricSlices?.length) {
-    return [];
-  }
+  customMetricSlices:
+    | Array<{
+        slices: Array<{
+          column: string;
+          levels: string[];
+        }>;
+      }>
+    | null
+    | undefined;
+}): SliceDataForMetric[] {
+  // Sanity checks
+  if (!customMetricSlices?.length) return [];
 
-  const customSliceData: Array<{
-    id: string;
-    name: string;
-    description: string;
-    parentMetricId: string;
-    sliceLevels: Array<{
-      column: string;
-      levels: string[];
-    }>;
-    allSliceLevels: string[];
-  }> = [];
+  const customSliceData: SliceDataForMetric[] = [];
 
   customMetricSlices.forEach((group) => {
     // Sort slices alphabetically for consistent ID generation
@@ -1223,12 +1243,11 @@ export function createCustomSliceDataForMetric({
       id: `${metricId}?${sliceString}`,
       name: `${metricName} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
       description: `Slice analysis of ${metricName} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-      parentMetricId: metricId,
       sliceLevels: sortedSlices.map((d) => ({
         column: d.column,
         levels: d.levels,
       })),
-      allSliceLevels: [],
+      allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
     };
     customSliceData.push(customSliceMetric);
   });
@@ -1575,6 +1594,19 @@ export function countDimensionLevels(
   });
 
   return nLevels.reduce((acc, n) => acc * n, 1) * nVariations;
+}
+
+export function dedupeSliceMetrics(
+  metrics: SliceDataForMetric[],
+): SliceDataForMetric[] {
+  const seen = new Set<string>();
+  return metrics.filter((metric) => {
+    if (seen.has(metric.id)) {
+      return false;
+    }
+    seen.add(metric.id);
+    return true;
+  });
 }
 
 export function expandAllSliceMetricsInMap({

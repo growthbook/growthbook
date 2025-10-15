@@ -304,9 +304,6 @@ const Presentation = ({
               id={experiment.id}
               statsEngine={snapshot?.analyses[0]?.settings.statsEngine}
               pValueCorrection={orgSettings?.pValueCorrection}
-              regressionAdjustmentEnabled={
-                snapshot?.analyses[0]?.settings?.regressionAdjusted
-              }
               settingsForSnapshotMetrics={settingsForSnapshotMetrics}
               sequentialTestingEnabled={
                 snapshot?.analyses[0]?.settings?.sequentialTesting
