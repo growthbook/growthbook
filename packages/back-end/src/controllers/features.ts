@@ -707,6 +707,7 @@ export async function postFeatureRebase(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     {
       baseVersion: live.version,
@@ -1391,6 +1392,7 @@ export async function postFeatureRule(
   });
   await addFeatureRule(
     context,
+    feature,
     revision,
     selectedEnvironments,
     rule,
@@ -1744,6 +1746,7 @@ export async function putRevisionComment(
 
   await updateRevision(
     context,
+    feature,
     revision,
     {},
     {
@@ -1790,6 +1793,7 @@ export async function postFeatureDefaultValue(
   });
   await setDefaultValue(
     context,
+    feature,
     revision,
     defaultValue,
     res.locals.eventAudit,
@@ -1871,6 +1875,7 @@ export async function putSafeRolloutStatus(
 
   await editFeatureRule(
     context,
+    feature,
     revision,
     environment,
     i,
@@ -2060,6 +2065,7 @@ export async function putFeatureRule(
 
   await editFeatureRule(
     context,
+    feature,
     revision,
     environment,
     i,
@@ -2174,6 +2180,7 @@ export async function postFeatureMoveRule(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -2254,6 +2261,7 @@ export async function deleteFeatureRule(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -3286,6 +3294,7 @@ export async function postCopyEnvironmentRules(
 
   await copyFeatureEnvironmentRules(
     context,
+    feature,
     revision,
     sourceEnv,
     targetEnv,

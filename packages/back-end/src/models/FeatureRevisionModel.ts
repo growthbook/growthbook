@@ -12,6 +12,7 @@ import { ApiReqContext } from "back-end/types/api";
 import { applyEnvironmentInheritance } from "back-end/src/util/features";
 import { MinimalFeatureRevisionInterface } from "back-end/src/validators/features";
 import { logger } from "back-end/src/util/logger";
+import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -355,6 +356,8 @@ export async function createRevision({
     revision.status = "pending-review";
   }
 
+  await runValidateFeatureRevisionHooks(context, feature, revision);
+
   const doc = await FeatureRevisionModel.create(revision);
 
   // Fire and forget - no route that creates the revision expects the log to be there immediately
@@ -381,6 +384,7 @@ export async function createRevision({
 
 export async function updateRevision(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   changes: Partial<
     Pick<
@@ -413,6 +417,12 @@ export async function updateRevision(
   if (resetReview && revision.status === "approved") {
     status = "pending-review";
   }
+
+  await runValidateFeatureRevisionHooks(context, feature, {
+    ...revision,
+    ...changes,
+    status,
+  });
 
   await FeatureRevisionModel.updateOne(
     {

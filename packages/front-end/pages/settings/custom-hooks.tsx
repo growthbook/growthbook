@@ -7,6 +7,8 @@ import {
 import { CreateProps } from "back-end/types/models";
 import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
+import { FeatureInterface } from "back-end/types/feature";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -24,6 +26,50 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { isCloud } from "@/services/env";
 
+const dummyFeature: FeatureInterface = {
+  id: "new-feature",
+  organization: "org_abc123",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  description: "My new feature",
+  valueType: "boolean",
+  defaultValue: "false",
+  tags: [],
+  environmentSettings: {
+    production: {
+      enabled: true,
+      rules: [],
+    },
+  },
+  archived: false,
+  owner: "",
+  project: "",
+  version: 1,
+  hasDrafts: false,
+  prerequisites: [],
+  customFields: {},
+};
+const dummyRevision: FeatureRevisionInterface = {
+  organization: "org_abc123",
+  featureId: "new-feature",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  version: 2,
+  baseVersion: 1,
+  comment: "",
+  createdBy: {
+    type: "dashboard",
+    id: "user_123",
+    name: "User",
+    email: "user@example.com",
+  },
+  defaultValue: "false",
+  status: "draft",
+  rules: {},
+  datePublished: null,
+  publishedBy: null,
+};
+
 const hookTypes: Record<
   CustomHookType,
   {
@@ -40,33 +86,24 @@ const hookTypes: Record<
     availableArguments: {
       feature: {
         description: "The feature object being validated",
-        testValue: stringify({
-          id: "new-feature",
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-          description: "My new feature",
-          valueType: "boolean",
-          defaultValue: "false",
-          tags: [],
-          environmentSettings: {
-            production: {
-              enabled: true,
-              rules: [],
-            },
-          },
-          archived: false,
-          owner: "",
-          project: "",
-          version: 1,
-          hasDrafts: false,
-          prerequisites: [],
-          jsonSchema: {},
-          customFields: {},
-          holdout: {},
-        }),
+        testValue: stringify(dummyFeature),
       },
     },
     example: `\n// Example: require a description\nif (!feature.description) {\n  throw new Error("Feature must have a description");\n}`,
+  },
+  validateFeatureRevision: {
+    label: "Validate Feature Revision",
+    availableArguments: {
+      feature: {
+        description: "The feature object the revision belongs to",
+        testValue: stringify(dummyFeature),
+      },
+      revision: {
+        description: "The feature revision being validated",
+        testValue: stringify(dummyRevision),
+      },
+    },
+    example: `\n// Example: require at least one rule in production\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}`,
   },
 };
 

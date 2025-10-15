@@ -680,6 +680,8 @@ export async function updateFeature(
     });
   }
 
+  await runValidateFeatureHooks(context, updatedFeature);
+
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },
     {
@@ -812,6 +814,7 @@ export async function toggleFeatureEnvironment(
 
 export async function addFeatureRule(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   envs: string[],
   rule: FeatureRule,
@@ -832,6 +835,7 @@ export async function addFeatureRule(
   });
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -846,6 +850,7 @@ export async function addFeatureRule(
 
 export async function editFeatureRule(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   environment: string,
   i: number,
@@ -866,6 +871,7 @@ export async function editFeatureRule(
   } as FeatureRule;
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -880,6 +886,7 @@ export async function editFeatureRule(
 
 export async function copyFeatureEnvironmentRules(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   sourceEnv: string,
   targetEnv: string,
@@ -893,6 +900,7 @@ export async function copyFeatureEnvironmentRules(
   changes.rules[targetEnv] = changes.rules[sourceEnv] || [];
   await updateRevision(
     context,
+    feature,
     revision,
     changes,
     {
@@ -966,6 +974,7 @@ export async function removeProjectFromFeatures(
 
 export async function setDefaultValue(
   context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   defaultValue: string,
   user: EventUser,
@@ -973,6 +982,7 @@ export async function setDefaultValue(
 ) {
   await updateRevision(
     context,
+    feature,
     revision,
     { defaultValue },
     {

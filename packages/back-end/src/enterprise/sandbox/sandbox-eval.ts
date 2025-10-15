@@ -10,6 +10,7 @@ import {
 import { FeatureInterface } from "back-end/types/feature";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
+import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 
 const MEMORY_MB = 32;
 const CPU_TIMEOUT_MS = 100; // max active CPU time (excluding fetch)
@@ -25,6 +26,19 @@ export async function runValidateFeatureHooks(
     context,
     "validateFeature",
     { feature },
+    feature.project,
+  );
+}
+
+export async function runValidateFeatureRevisionHooks(
+  context: ReqContextClass,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): Promise<void> {
+  return _runCustomHooks(
+    context,
+    "validateFeatureRevision",
+    { feature, revision },
     feature.project,
   );
 }
