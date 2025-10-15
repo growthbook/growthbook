@@ -370,19 +370,41 @@ export default function CustomMetricSlicesSelector({
                   <div className="d-flex align-items-center">
                     <div className="flex-grow-1">
                       <Flex gap="2" align="center">
-                        {levels.slices.map((combo, comboIndex) => (
-                          <React.Fragment key={comboIndex}>
-                            {comboIndex > 0 && <Text size="1">AND</Text>}
-                            <Badge
-                              label={
-                                <Text style={{ color: "var(--slate-12)" }}>
-                                  {combo.column} = {combo.levels[0]}
-                                </Text>
-                              }
-                              color="gray"
-                            />
-                          </React.Fragment>
-                        ))}
+                        {levels.slices.map((combo, comboIndex) => {
+                          // Find the column datatype
+                          const columnMetadata = metricsWithStringColumns
+                            .flatMap((metric) => metric.stringColumns || [])
+                            .find((col) => col.column === combo.column);
+                          const isBoolean =
+                            columnMetadata?.datatype === "boolean";
+
+                          return (
+                            <React.Fragment key={comboIndex}>
+                              {comboIndex > 0 && <Text size="1">AND</Text>}
+                              <Badge
+                                label={
+                                  <Text style={{ color: "var(--slate-12)" }}>
+                                    {combo.column} ={" "}
+                                    {isBoolean ? (
+                                      <span
+                                        style={{
+                                          textTransform: "uppercase",
+                                          fontWeight: 600,
+                                          fontSize: "10px",
+                                        }}
+                                      >
+                                        {combo.levels[0]}
+                                      </span>
+                                    ) : (
+                                      combo.levels[0]
+                                    )}
+                                  </Text>
+                                }
+                                color="gray"
+                              />
+                            </React.Fragment>
+                          );
+                        })}
                       </Flex>
                     </div>
                     <div
@@ -682,8 +704,8 @@ function EditingInterface({
 
           if (sliceColumn.datatype === "boolean") {
             const booleanOptions = [
-              { label: "true", value: "true" },
-              { label: "false", value: "false" },
+              { label: "TRUE", value: "true" },
+              { label: "FALSE", value: "false" },
             ];
 
             return (
