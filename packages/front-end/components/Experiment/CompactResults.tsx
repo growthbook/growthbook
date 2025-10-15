@@ -357,8 +357,17 @@ const CompactResults: FC<{
               {slice.sliceLevels.map((dl, index) => {
                 const content = (() => {
                   if (dl.levels.length === 0) {
-                    // For "other" slice, show "column: other"
-                    return <span>{dl.column}: other</span>;
+                    // For "other" slice, show "column: NULL" with small caps styling
+                    return (
+                      <>
+                        {dl.column}:{" "}
+                        <span
+                          style={{ fontVariant: "small-caps", fontWeight: 600 }}
+                        >
+                          NULL
+                        </span>
+                      </>
+                    );
                   }
                   const value = dl.levels[0];
                   // Only use colon notation for boolean columns
