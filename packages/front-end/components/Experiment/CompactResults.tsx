@@ -345,7 +345,17 @@ const CompactResults: FC<{
 
           // Generate label from slice levels
           const label = slice.sliceLevels
-            .map((dl) => dl.levels[0] || "other")
+            .map((dl) => {
+              if (dl.levels.length === 0) {
+                return dl.column;
+              }
+              const value = dl.levels[0];
+              // Only use colon notation for boolean columns
+              if (value === "true" || value === "false") {
+                return `${dl.column}: ${value}`;
+              }
+              return value;
+            })
             .join(" + ");
 
           const sliceRow: ExperimentTableRow = {

@@ -157,7 +157,14 @@ export function getColumnRefWhereClause({
             );
           }
         } else {
-          // For specific auto slice values, filter to that value (using first level for now)
+          // For specific auto slice values, filter to that value
+          if (sliceColumn.datatype === "boolean") {
+            const boolValue =
+              sliceLevel.levels[0] === "true" || sliceLevel.levels[0] === "1";
+            where.add(`(${evalBoolean(columnExpr, boolValue)})`);
+            return;
+          }
+
           where.add(
             `(${columnExpr} = '${escapeStringLiteral(sliceLevel.levels[0])}')`,
           );
@@ -1670,7 +1677,7 @@ export function expandAllSliceMetricsInMap({
         });
 
         // Create an "other" metric for values not in autoSlices
-        if (autoSlices.length > 0) {
+        if (autoSlices.length > 0 && col.datatype !== "boolean") {
           const sliceString = generateSliceString({
             [col.column]: "",
           });
@@ -1693,7 +1700,7 @@ export function expandAllSliceMetricsInMap({
           a.column.localeCompare(b.column),
         );
 
-        // Verify all custom slice columns exist and are string type
+        // Verify all custom slice columns exist and are string or boolean type
         const hasAllRequiredColumns = sortedSliceGroups.every((slice) => {
           const column = factTable.columns.find(
             (col) => col.column === slice.column,
@@ -1701,7 +1708,7 @@ export function expandAllSliceMetricsInMap({
           return (
             column &&
             !column.deleted &&
-            column.datatype === "string" &&
+            (column.datatype === "string" || column.datatype === "boolean") &&
             !factTable.userIdTypes.includes(column.column)
           );
         });

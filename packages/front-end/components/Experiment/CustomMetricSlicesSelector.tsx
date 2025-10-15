@@ -32,6 +32,7 @@ interface MetricWithStringColumns extends FactMetricInterface {
   stringColumns: Array<{
     column: string;
     name: string;
+    datatype?: string;
     isAutoSliceColumn?: boolean;
     autoSlices?: string[];
     topValues?: string[];
@@ -108,7 +109,7 @@ export default function CustomMetricSlicesSelector({
         const factTable = factTableMap.get(metric!.numerator?.factTableId);
         const stringColumns = factTable?.columns?.filter(
           (col) =>
-            col.datatype === "string" &&
+            (col.datatype === "string" || col.datatype === "boolean") &&
             !col.deleted &&
             !factTable.userIdTypes.includes(col.column),
         );
@@ -118,6 +119,7 @@ export default function CustomMetricSlicesSelector({
             stringColumns?.map((col) => ({
               column: col.column,
               name: col.name || col.column,
+              datatype: col.datatype,
               isAutoSliceColumn: col.isAutoSliceColumn,
               autoSlices: col.autoSlices,
               topValues: col.topValues,
@@ -473,30 +475,39 @@ function SliceSelector({
 
   const sliceMap = new Map<
     string,
-    { name: string; levels: Set<string>; column: string }
+    { name: string; levels: Set<string>; column: string; datatype?: string }
   >();
 
   metricsWithSlices.forEach((metric) => {
     (metric.stringColumns || []).forEach((col) => {
       const existing = sliceMap.get(col.column);
       if (existing) {
-        // UNION the levels from autoSlices and topValues
-        col.autoSlices?.forEach((level) => {
-          existing.levels.add(level);
-        });
-        col.topValues?.forEach((level) => {
-          existing.levels.add(level);
-        });
+        if (col.datatype === "boolean") {
+          existing.levels.add("true");
+          existing.levels.add("false");
+        } else {
+          col.autoSlices?.forEach((level) => {
+            existing.levels.add(level);
+          });
+          col.topValues?.forEach((level) => {
+            existing.levels.add(level);
+          });
+        }
       } else {
-        // Create new entry with levels from autoSlices and topValues
-        const allLevels = new Set([
-          ...(col.autoSlices || []),
-          ...(col.topValues || []),
-        ]);
+        let allLevels: Set<string>;
+        if (col.datatype === "boolean") {
+          allLevels = new Set(["true", "false"]);
+        } else {
+          allLevels = new Set([
+            ...(col.autoSlices || []),
+            ...(col.topValues || []),
+          ]);
+        }
         sliceMap.set(col.column, {
           column: col.column,
           name: col.name || col.column || "",
           levels: allLevels,
+          datatype: col.datatype,
         });
       }
     });
@@ -618,10 +629,14 @@ function EditingInterface({
         style={{ gap: "0.5rem", minHeight: "40px" }}
       >
         {editingSliceLevels.map((sliceLevel, levelIndex) => {
-          // Build the same slice map with unioned levels
           const sliceMap = new Map<
             string,
-            { name: string; levels: Set<string>; column: string }
+            {
+              name: string;
+              levels: Set<string>;
+              column: string;
+              datatype?: string;
+            }
           >();
 
           metricsWithSlices.forEach((metric) => {
@@ -630,32 +645,78 @@ function EditingInterface({
 
               const existing = sliceMap.get(col.column);
               if (existing) {
-                // UNION the levels from autoSlices and topValues
-                col.autoSlices?.forEach((level) => {
-                  existing.levels.add(level);
-                });
-                col.topValues?.forEach((level) => {
-                  existing.levels.add(level);
-                });
+                if (col.datatype === "boolean") {
+                  existing.levels.add("true");
+                  existing.levels.add("false");
+                } else {
+                  col.autoSlices?.forEach((level) => {
+                    existing.levels.add(level);
+                  });
+                  col.topValues?.forEach((level) => {
+                    existing.levels.add(level);
+                  });
+                }
               } else {
-                // Create new entry with levels from autoSlices and topValues
-                const allLevels = new Set([
-                  ...(col.autoSlices || []),
-                  ...(col.topValues || []),
-                ]);
+                let allLevels: Set<string>;
+                if (col.datatype === "boolean") {
+                  allLevels = new Set(["true", "false"]);
+                } else {
+                  allLevels = new Set([
+                    ...(col.autoSlices || []),
+                    ...(col.topValues || []),
+                  ]);
+                }
                 sliceMap.set(col.column, {
                   column: col.column,
                   name: col.name || col.column || "",
                   levels: allLevels,
+                  datatype: col.datatype,
                 });
               }
             });
           });
 
           const sliceColumn = sliceMap.get(sliceLevel.column);
-          const availableLevels = sliceColumn
-            ? Array.from(sliceColumn.levels).sort()
-            : [];
+
+          if (!sliceColumn) return null;
+
+          if (sliceColumn.datatype === "boolean") {
+            const booleanOptions = [
+              { label: "true", value: "true" },
+              { label: "false", value: "false" },
+            ];
+
+            return (
+              <div
+                key={levelIndex}
+                className="border rounded d-flex align-items-center bg-white"
+              >
+                <span className="px-2 font-weight-medium">
+                  {sliceColumn?.name || sliceLevel.column}:
+                </span>
+                <SelectField
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(value) =>
+                    updateSliceLevel(levelIndex, "level", value)
+                  }
+                  options={booleanOptions}
+                  className="mb-0"
+                  style={{ minWidth: "120px" }}
+                  placeholder="Select..."
+                  autoFocus={!sliceLevel.levels[0]}
+                />
+                <button
+                  type="button"
+                  className="btn btn-link p-0 ml-1 text-muted"
+                  onClick={() => removeSliceLevel(levelIndex)}
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            );
+          }
+
+          const availableLevels = Array.from(sliceColumn.levels).sort();
 
           return (
             <div
