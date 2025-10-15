@@ -159,7 +159,7 @@ export default function FactTableAutoSliceSelector({
                   body={
                     hasNoLevels
                       ? "No slice levels configured"
-                      : levels.join(", ")
+                      : levels?.join(", ") || "No levels"
                   }
                 >
                   <Badge

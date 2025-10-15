@@ -1,4 +1,4 @@
-import { FC, ReactNode, useMemo, useState } from "react";
+import { FC, ReactElement, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -352,7 +352,7 @@ const CompactResults: FC<{
           const shouldShowLevel = isExpanded || isPinned;
 
           // Generate label from slice levels
-          const label: ReactNode = (
+          const label: ReactElement = (
             <>
               {slice.sliceLevels.map((dl, index) => {
                 const content = (() => {
@@ -840,7 +840,7 @@ export function getRenderLabelColumn({
     maxRows,
     location,
   }: {
-    label: string;
+    label: string | ReactElement;
     metric: ExperimentMetricInterface;
     row?: ExperimentTableRow;
     maxRows?: number;

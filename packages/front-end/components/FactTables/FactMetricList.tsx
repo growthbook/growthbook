@@ -277,7 +277,7 @@ export default function FactMetricList({
                                   body={
                                     hasNoLevels
                                       ? "No slice levels configured"
-                                      : levels.join(", ")
+                                      : levels?.join(", ") || "No levels"
                                   }
                                 >
                                   <Text

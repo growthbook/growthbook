@@ -95,7 +95,7 @@ export type ResultsTableProps = {
     maxRows,
     location,
   }: {
-    label: string;
+    label: string | ReactElement;
     metric: ExperimentMetricInterface;
     row: ExperimentTableRow;
     maxRows?: number;
