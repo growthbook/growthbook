@@ -98,10 +98,10 @@ export function populateAutoSlices(
     return ["true", "false"];
   }
 
+  // Use existing autoSlices if they exist, otherwise use topValues up to the max
   if (col.autoSlices && col.autoSlices.length > 0) {
     return col.autoSlices;
   }
-
   const maxSliceLevels = maxValues ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
   const autoSlices: string[] = [];
   for (const value of topValues) {

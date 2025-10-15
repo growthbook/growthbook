@@ -261,8 +261,12 @@ export default function FactMetricList({
                             );
                             if (!column || column.deleted) return null;
 
-                            const levels = column?.autoSlices;
-                            const hasNoLevels = !levels?.length;
+                            const levels =
+                              column?.datatype === "boolean"
+                                ? ["true", "false"]
+                                : column?.autoSlices;
+                            const hasNoLevels =
+                              !levels?.length && column?.datatype !== "boolean";
 
                             return (
                               <span

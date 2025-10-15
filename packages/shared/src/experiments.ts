@@ -1135,6 +1135,7 @@ export interface SliceDataForMetric {
   description: string;
   sliceLevels: Array<{
     column: string;
+    datatype: "string" | "boolean";
     levels: string[];
   }>;
   allSliceLevels: string[];
@@ -1186,6 +1187,7 @@ export function createAutoSliceDataForMetric({
         sliceLevels: [
           {
             column: col.column,
+            datatype: col.datatype as "string" | "boolean",
             levels: [value],
           },
         ],
@@ -1203,6 +1205,7 @@ export function createAutoSliceDataForMetric({
         sliceLevels: [
           {
             column: col.column,
+            datatype: col.datatype as "string" | "boolean",
             levels: [],
           },
         ],
@@ -1219,6 +1222,7 @@ export function createCustomSliceDataForMetric({
   metricId,
   metricName,
   customMetricSlices,
+  factTable,
 }: {
   metricId: string;
   metricName: string;
@@ -1231,6 +1235,7 @@ export function createCustomSliceDataForMetric({
       }>
     | null
     | undefined;
+  factTable?: FactTableInterface | null;
 }): SliceDataForMetric[] {
   // Sanity checks
   if (!customMetricSlices?.length) return [];
@@ -1250,10 +1255,18 @@ export function createCustomSliceDataForMetric({
       id: `${metricId}?${sliceString}`,
       name: `${metricName} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
       description: `Slice analysis of ${metricName} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-      sliceLevels: sortedSlices.map((d) => ({
-        column: d.column,
-        levels: d.levels,
-      })),
+      sliceLevels: sortedSlices.map((d) => {
+        const column = factTable?.columns.find(
+          (col) => col.column === d.column,
+        );
+        return {
+          column: d.column,
+          datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
+            | "string"
+            | "boolean",
+          levels: d.levels,
+        };
+      }),
       allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
     };
     customSliceData.push(customSliceMetric);
