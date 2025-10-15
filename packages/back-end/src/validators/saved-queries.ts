@@ -174,6 +174,11 @@ const bigValueChartValidator = baseChartConfig
   .merge(z.object({ chartType: z.literal("big-value") }))
   .merge(withFormat);
 
+const pivotTableValidator = baseChartConfig
+  .merge(z.object({ chartType: z.literal("pivot-table") }))
+  .merge(withXAxis)
+  .merge(withDimensions);
+
 // Union of all chart type validators
 export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
   barChartValidator,
@@ -181,6 +186,7 @@ export const dataVizConfigValidator = z.discriminatedUnion("chartType", [
   areaChartValidator,
   scatterChartValidator,
   bigValueChartValidator,
+  pivotTableValidator,
 ]);
 
 // Type helpers for better TypeScript inference
@@ -190,6 +196,7 @@ export type AreaChart = z.infer<typeof areaChartValidator>;
 export type ScatterChart = z.infer<typeof scatterChartValidator>;
 export type BigValueChart = z.infer<typeof bigValueChartValidator>;
 export type BigValueFormat = z.infer<typeof formatEnum>;
+export type PivotTable = z.infer<typeof pivotTableValidator>;
 
 export const testQueryRowSchema = z.record(z.any());
 
