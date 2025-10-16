@@ -4,7 +4,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useMemo, useState } from "react";
+import React, { useContext, useMemo, useState } from "react";
 import {
   blockHasFieldOfType,
   isDifferenceType,
@@ -16,21 +16,25 @@ import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import useApi from "@/hooks/useApi";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
-import Checkbox from "@/components/Radix/Checkbox";
-import Avatar from "@/components/Radix/Avatar";
-import { useDashboardSnapshot } from "../../DashboardSnapshotProvider";
+import Checkbox from "@/ui/Checkbox";
+import Avatar from "@/ui/Avatar";
+import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
+import {
+  DashboardSnapshotContext,
+  useDashboardSnapshot,
+} from "../../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "..";
 
 type RequiredField = {
@@ -110,12 +114,14 @@ export default function EditSingleBlock({
     [metricGroups],
   );
 
-  const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
+  const { analysis } = useDashboardSnapshot(block, setBlock);
+  const { defaultSnapshot, dimensionless } = useContext(
+    DashboardSnapshotContext,
+  );
 
-  const dimensionValueOptions =
-    snapshot?.dimension && analysis?.results
-      ? analysis.results.map(({ name }) => ({ value: name, label: name }))
-      : [];
+  const dimensionValueOptions = analysis?.results
+    ? analysis.results.map(({ name }) => ({ value: name, label: name }))
+    : [];
 
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
 
@@ -185,6 +191,10 @@ export default function EditSingleBlock({
   const dimensionOptions = useMemo(() => {
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
+      precomputedDimensions: getPrecomputedDimensions(
+        defaultSnapshot,
+        dimensionless,
+      ),
       datasource,
       dimensions,
       exposureQueryId: experiment.exposureQueryId,
@@ -197,7 +207,13 @@ export default function EditSingleBlock({
         (option) => option.value !== "pre:date",
       ),
     }));
-  }, [experiment, dimensions, getDatasourceById]);
+  }, [
+    experiment,
+    dimensions,
+    getDatasourceById,
+    defaultSnapshot,
+    dimensionless,
+  ]);
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -459,6 +475,7 @@ export default function EditSingleBlock({
                 containerClassName="mb-0"
                 onChange={(value) => setBlock({ ...block, dimensionId: value })}
                 options={dimensionOptions}
+                sort={false}
               />
             )}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) && (

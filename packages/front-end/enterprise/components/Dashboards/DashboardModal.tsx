@@ -4,7 +4,7 @@ import React, { useEffect, useMemo } from "react";
 import { Flex } from "@radix-ui/themes";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import { getExperimentRefreshFrequency } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import {
@@ -20,13 +20,11 @@ const defaultFormInit = {
 
 export default function DashboardModal({
   mode,
-  disableAutoUpdate,
   initial,
   close,
   submit,
 }: {
   mode: "create" | "edit" | "duplicate";
-  disableAutoUpdate?: boolean;
   initial?: CreateDashboardArgs["data"];
   close: () => void;
   submit: (data: CreateDashboardArgs["data"]) => void;
@@ -91,7 +89,7 @@ export default function DashboardModal({
           <Checkbox
             label="Auto-update dashboard data"
             description={`An automatic data refresh will occur ${refreshInterval}.`}
-            disabled={disableAutoUpdate}
+            disabled={updateSchedule?.type === "never"}
             disabledMessage={autoUpdateDisabledMessage}
             value={form.watch("enableAutoUpdates")}
             setValue={(checked) => form.setValue("enableAutoUpdates", checked)}

@@ -31,8 +31,8 @@ import SavedGroupTargetingField, {
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
-import RadioGroup, { RadioOptions } from "@/components/Radix/RadioGroup";
-import Checkbox from "@/components/Radix/Checkbox";
+import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
+import Checkbox from "@/ui/Checkbox";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";

@@ -30,7 +30,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useExperiments } from "@/hooks/useExperiments";
 import {
   DashboardSnapshotContext,
@@ -76,7 +76,7 @@ type ObjectProps<Block> = {
 export type BlockProps<T extends DashboardBlockInterface> = {
   isTabActive: boolean;
   block: DashboardBlockInterfaceOrData<T>;
-  setBlock: React.Dispatch<DashboardBlockInterfaceOrData<T>>;
+  setBlock: undefined | React.Dispatch<DashboardBlockInterfaceOrData<T>>;
   snapshot: ExperimentSnapshotInterface;
   analysis: ExperimentSnapshotAnalysis;
   mutate: () => void;
@@ -95,7 +95,9 @@ interface Props<DashboardBlock extends DashboardBlockInterface> {
   isFirstBlock: boolean;
   isLastBlock: boolean;
   scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
-  setBlock: React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlock>>;
+  setBlock:
+    | undefined
+    | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlock>>;
   editBlock: () => void;
   duplicateBlock: () => void;
   deleteBlock: () => void;
@@ -336,7 +338,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         </DropdownMenu>
       )}
       <Flex align="center" mb="2" mr="3">
-        {canEditTitle && editTitle ? (
+        {canEditTitle && editTitle && setBlock ? (
           <Field
             autoFocus
             defaultValue={block.title || BLOCK_TYPE_INFO[block.type].name}

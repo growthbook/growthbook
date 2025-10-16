@@ -1,6 +1,7 @@
 export const DEFAULT_STATS_ENGINE = "bayesian" as const;
 export const DEFAULT_METRIC_HISTOGRAM_BINS = 25;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
+export const DEFAULT_P_VALUE_CORRECTION = null;
 export const DEFAULT_GUARDRAIL_ALPHA = 0.05; //used for early stopping for safe
 // Metric defaults
 export const DEFAULT_METRIC_WINDOW = "conversion";
@@ -11,6 +12,7 @@ export const DEFAULT_METRIC_CAPPING = "";
 export const DEFAULT_METRIC_CAPPING_VALUE = 0;
 export const DEFAULT_WIN_RISK_THRESHOLD = 0.0025;
 export const DEFAULT_LOSE_RISK_THRESHOLD = 0.0125;
+export const DEFAULT_MAX_METRIC_SLICE_LEVELS = 20;
 
 // Bayesian prior
 export const DEFAULT_PROPER_PRIOR_STDDEV = 0.3;
@@ -30,6 +32,7 @@ export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
 
 // Query settings
 export const DEFAULT_TEST_QUERY_DAYS = 30;
+export const DEFAULT_USE_STICKY_BUCKETING = false;
 
 // Dimension name constants:
 export const EXPOSURE_DATE_DIMENSION_NAME = "dim_exposure_date";

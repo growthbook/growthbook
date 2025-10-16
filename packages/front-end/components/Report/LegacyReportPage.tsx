@@ -47,12 +47,7 @@ import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/Radix/Tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useURLHash from "@/hooks/useURLHash";
 
 export default function LegacyReportPage({
@@ -100,9 +95,6 @@ export default function LegacyReportPage({
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment",
-  );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
 
@@ -147,12 +139,6 @@ export default function LegacyReportPage({
 
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
-
-  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
-  const regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature &&
-    regressionAdjustmentAvailable &&
-    !!report.args.regressionAdjustmentEnabled;
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
@@ -441,7 +427,6 @@ export default function LegacyReportPage({
                         report.args,
                         false,
                       )}
-                      differenceType={report.args.differenceType ?? "relative"}
                       trackingKey={report.title}
                       dimension={report.args.dimension ?? undefined}
                       project={experimentData?.experiment.project || ""}
@@ -499,6 +484,7 @@ export default function LegacyReportPage({
                   />
                 ) : (
                   <BreakDownResults
+                    experimentId={report.experimentId ?? ""}
                     isLatestPhase={true}
                     phase={
                       (experimentData?.experiment?.phases?.length ?? 1) - 1
@@ -523,7 +509,6 @@ export default function LegacyReportPage({
                       report.args.statsEngine || DEFAULT_STATS_ENGINE
                     }
                     pValueCorrection={pValueCorrection}
-                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                     settingsForSnapshotMetrics={
                       report.args.settingsForSnapshotMetrics
                     }
@@ -573,6 +558,7 @@ export default function LegacyReportPage({
                 report.results?.dimensions?.[0] !== undefined && (
                   <div className="mt-0 mb-3">
                     <CompactResults
+                      experimentId={report.experimentId ?? ""}
                       variations={variations}
                       multipleExposures={report.results?.multipleExposures || 0}
                       results={report.results?.dimensions?.[0]}
@@ -596,7 +582,6 @@ export default function LegacyReportPage({
                         report.args.statsEngine || DEFAULT_STATS_ENGINE
                       }
                       pValueCorrection={pValueCorrection}
-                      regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                       settingsForSnapshotMetrics={
                         report.args.settingsForSnapshotMetrics
                       }

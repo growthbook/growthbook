@@ -21,10 +21,10 @@ import Button from "@/components/Button";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import HelperText from "@/components/Radix/HelperText";
-import Badge from "@/components/Radix/Badge";
+import HelperText from "@/ui/HelperText";
+import Badge from "@/ui/Badge";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
 import SafeRolloutSnapshotProvider from "@/components/SafeRollout/SnapshotProvider";
 import SafeRolloutDetails from "@/components/SafeRollout/SafeRolloutDetails";
@@ -50,7 +50,7 @@ interface SortableProps {
     environment: string;
     i: number;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -389,7 +389,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       className="dropdown-item"
                       onClick={(e) => {
                         e.preventDefault();
-                        setRuleModal({ environment, i });
+                        setRuleModal({ environment, i, mode: "edit" });
                       }}
                     >
                       Edit
@@ -444,7 +444,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         color=""
                         className="dropdown-item"
                         onClick={() => {
-                          setRuleModal({ environment, i, duplicate: true });
+                          setRuleModal({ environment, i, mode: "duplicate" });
                         }}
                       >
                         Duplicate rule

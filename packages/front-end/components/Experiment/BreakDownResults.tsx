@@ -28,6 +28,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  compareRows,
 } from "@/services/experiments";
 import ResultsTable, {
   RESULTS_TABLE_COLUMNS,
@@ -43,6 +44,7 @@ import {
 import ResultsMetricFilter from "@/components/Experiment/ResultsMetricFilter";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import UsersTable from "./UsersTable";
 
 const numberFormatter = Intl.NumberFormat();
@@ -76,6 +78,7 @@ type TableDef = {
 };
 
 const BreakDownResults: FC<{
+  experimentId: string;
   results: ExperimentReportResultDimension[];
   queryStatusData?: QueryStatusData;
   variations: ExperimentReportVariation[];
@@ -98,7 +101,6 @@ const BreakDownResults: FC<{
   status: ExperimentStatus;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
-  regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
   showErrorsOnQuantileMetrics?: boolean;
@@ -112,7 +114,15 @@ const BreakDownResults: FC<{
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
+  analysisBarSettings?: {
+    variationFilter: number[];
+  };
 }> = ({
+  experimentId,
   dimensionId,
   dimensionValuesFilter,
   results,
@@ -135,7 +145,6 @@ const BreakDownResults: FC<{
   reportDate,
   statsEngine,
   pValueCorrection,
-  regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
   sequentialTestingEnabled,
   showErrorsOnQuantileMetrics,
@@ -147,11 +156,17 @@ const BreakDownResults: FC<{
   hideDetails,
   renderMetricName,
   noStickyHeader,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
+  analysisBarSettings,
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
 
   const { getDimensionById, getExperimentMetricById, metricGroups, ready } =
     useDefinitions();
+  const { metricDefaults } = useOrganizationMetricDefaults();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -240,18 +255,23 @@ const BreakDownResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
-      metricDefs,
-      metricFilter,
-    );
+    // Only use tag-based sorting when sortBy is "metric-tags"
+    const sortedFilteredMetrics =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(metricDefs, metricFilter)
+        : metricDefs.map((m) => m.id);
 
-    return Array.from(new Set(sortedFilteredMetrics))
+    const tables = Array.from(new Set(sortedFilteredMetrics))
       .map((metricId) => {
         const metric =
           ssrPolyfills?.getExperimentMetricById?.(metricId) ||
           getExperimentMetricById(metricId);
         if (!metric) return;
-        const ret = sortAndFilterMetricsByTags([metric], metricFilter);
+        // Only filter by tags when sortBy is "metric-tags"
+        const ret =
+          sortBy === "metric-tags"
+            ? sortAndFilterMetricsByTags([metric], metricFilter)
+            : [metric.id];
         if (ret.length === 0) return;
 
         const { newMetric, overrideFields } = applyMetricOverrides(
@@ -307,6 +327,27 @@ const BreakDownResults: FC<{
         };
       })
       .filter((table) => table?.metric) as TableDef[];
+
+    // Sort rows within each table by significance or change if sortBy is set
+    if (
+      (sortBy === "significance" || sortBy === "change") &&
+      metricDefaults &&
+      sortDirection
+    ) {
+      const sortOptions = {
+        sortBy,
+        variationFilter:
+          analysisBarSettings?.variationFilter ?? variationFilter ?? [],
+        metricDefaults,
+        sortDirection,
+      };
+      return tables.map((table) => ({
+        ...table,
+        rows: [...table.rows].sort((a, b) => compareRows(a, b, sortOptions)),
+      }));
+    }
+
+    return tables;
   }, [
     results,
     expandedGoals,
@@ -323,6 +364,11 @@ const BreakDownResults: FC<{
     metricFilter,
     dimensionValuesFilter,
     showErrorsOnQuantileMetrics,
+    sortBy,
+    sortDirection,
+    analysisBarSettings?.variationFilter,
+    metricDefaults,
+    variationFilter,
   ]);
 
   const activationMetricObj = activationMetric
@@ -394,6 +440,7 @@ const BreakDownResults: FC<{
             </h5>
             <ResultsTable
               key={i}
+              experimentId={experimentId}
               dateCreated={reportDate}
               isLatestPhase={isLatestPhase}
               phase={phase}
@@ -414,12 +461,16 @@ const BreakDownResults: FC<{
                   renderMetricName(table.metric)
                 ) : (
                   <div style={{ marginBottom: 2 }}>
-                    {getRenderLabelColumn(
-                      !!regressionAdjustmentEnabled,
+                    {getRenderLabelColumn({
                       statsEngine,
                       hideDetails,
                       experimentType,
-                    )(table.metric.name, table.metric, table.rows[0])}
+                      className: "",
+                    })({
+                      label: table.metric.name,
+                      metric: table.metric,
+                      row: table.rows[0],
+                    })}
                   </div>
                 )
               }
@@ -428,26 +479,27 @@ const BreakDownResults: FC<{
               sequentialTestingEnabled={sequentialTestingEnabled}
               pValueCorrection={pValueCorrection}
               differenceType={differenceType}
-              renderLabelColumn={(label) => (
-                <>
+              renderLabelColumn={({ label }) => (
+                <div
+                  className="pl-3 font-weight-bold"
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 1,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                    color: "var(--color-text-mid)",
+                  }}
+                >
                   {label ? (
                     label === "__NULL_DIMENSION" ? (
                       <em>NULL (unset)</em>
                     ) : (
-                      <span
-                        style={{
-                          lineHeight: "1.2em",
-                          wordBreak: "break-word",
-                          overflowWrap: "anywhere",
-                        }}
-                      >
-                        {label}
-                      </span>
+                      label
                     )
                   ) : (
                     <em>unknown</em>
                   )}
-                </>
+                </div>
               )}
               metricFilter={metricFilter}
               isTabActive={true}
@@ -455,6 +507,10 @@ const BreakDownResults: FC<{
               ssrPolyfills={ssrPolyfills}
               noStickyHeader={noStickyHeader}
               isHoldout={isHoldout}
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              sortDirection={sortDirection}
+              setSortDirection={setSortDirection}
             />
             <div className="mb-5" />
           </>

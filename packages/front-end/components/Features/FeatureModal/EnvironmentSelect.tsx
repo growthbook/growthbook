@@ -4,13 +4,14 @@ import { FeatureEnvironment } from "back-end/types/feature";
 import { Box, Grid, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 const EnvironmentSelect: FC<{
-  environmentSettings: Record<string, FeatureEnvironment>;
+  environmentSettings: Record<string, Pick<FeatureEnvironment, "enabled">>;
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
-}> = ({ environmentSettings, environments, setValue }) => {
+  label?: string;
+}> = ({ environmentSettings, environments, setValue, label }) => {
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
   const environmentsUserCanAccess = useMemo(() => {
@@ -29,7 +30,7 @@ const EnvironmentSelect: FC<{
   return (
     <div className="form-group">
       <Text as="label" weight="bold" mb="2">
-        Enabled Environments
+        {label || "Enabled Environments"}
       </Text>
       <Box
         className="box"
