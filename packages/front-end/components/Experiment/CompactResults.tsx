@@ -87,7 +87,6 @@ const CompactResults: FC<{
   id: string;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
-  regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
   differenceType: DifferenceType;
@@ -143,7 +142,6 @@ const CompactResults: FC<{
   id,
   statsEngine,
   pValueCorrection,
-  regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
   sequentialTestingEnabled,
   differenceType,
@@ -606,7 +604,6 @@ const CompactResults: FC<{
           pValueCorrection={pValueCorrection}
           differenceType={differenceType}
           renderLabelColumn={getRenderLabelColumn({
-            regressionAdjustmentEnabled,
             statsEngine,
             hideDetails,
             experimentType,
@@ -668,7 +665,6 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn({
-              regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
               experimentType: undefined,
@@ -724,7 +720,6 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn({
-              regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
               experimentType: undefined,
@@ -762,7 +757,6 @@ const CompactResults: FC<{
 export default CompactResults;
 
 export function getRenderLabelColumn({
-  regressionAdjustmentEnabled,
   statsEngine,
   hideDetails,
   experimentType: _experimentType,
@@ -776,7 +770,6 @@ export function getRenderLabelColumn({
   getChildRowCounts,
   className = "pl-3",
 }: {
-  regressionAdjustmentEnabled?: boolean;
   statsEngine?: StatsEngine;
   hideDetails?: boolean;
   experimentType?: ExperimentType;
@@ -968,9 +961,6 @@ export function getRenderLabelColumn({
                         metric={metric}
                         row={row}
                         statsEngine={statsEngine}
-                        reportRegressionAdjustmentEnabled={
-                          regressionAdjustmentEnabled
-                        }
                         hideDetails={hideDetails}
                       />
                     }
@@ -999,9 +989,6 @@ export function getRenderLabelColumn({
                     metric={metric}
                     row={row}
                     statsEngine={statsEngine}
-                    reportRegressionAdjustmentEnabled={
-                      regressionAdjustmentEnabled
-                    }
                     hideDetails={hideDetails}
                   />
                 }

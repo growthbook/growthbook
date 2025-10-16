@@ -291,6 +291,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/sql-templates",
+          label: "SQL Templates",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },

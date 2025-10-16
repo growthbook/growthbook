@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import React from "react";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { hasFileConfig } from "@/services/env";
 import { supportedCurrencies } from "@/services/settings";
 import Field from "@/components/Forms/Field";
@@ -8,13 +9,21 @@ import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
+import { useUser } from "@/services/UserContext";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 export default function MetricsSettings() {
   const form = useFormContext();
+  const { hasCommercialFeature } = useUser();
   const metricAnalysisDays = form.watch("metricAnalysisDays");
   const metricAnalysisDaysWarningMsg =
     metricAnalysisDays && metricAnalysisDays > 365
       ? "Using more historical data will slow down metric analysis queries"
+      : "";
+  const maxMetricSliceLevels = form.watch("maxMetricSliceLevels");
+  const maxMetricSliceLevelsWarningMsg =
+    maxMetricSliceLevels && maxMetricSliceLevels > 20
+      ? "Using too many slice levels may increase query costs substantially. All auto slice levels are analyzed every time an experiment refreshes."
       : "";
   const currencyOptions = Object.entries(supportedCurrencies).map(
     ([value, label]) => ({ value, label }),
@@ -24,7 +33,7 @@ export default function MetricsSettings() {
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
-            Metrics Settings
+            Metric Settings
           </Heading>
         </Box>
 
@@ -219,6 +228,47 @@ export default function MetricsSettings() {
                 </Box>
               </Flex>
             </Flex>
+          </Box>
+
+          <Box mb="6" width="100%" mt="2">
+            <Heading as="h4" size="4" mb="3">
+              Metric Slices
+            </Heading>
+            <Text as="label" className="font-weight-semibold" size="3">
+              Max auto slice levels
+              <PaidFeatureBadge
+                commercialFeature="metric-slices"
+                premiumText="This is an Enterprise feature"
+                variant="outline"
+                ml="2"
+              />
+            </Text>
+            <Box mb="3">
+              {hasCommercialFeature("metric-slices")
+                ? `Maximum number of slice levels that can be configured for metric analysis. Default is ${DEFAULT_MAX_METRIC_SLICE_LEVELS}.`
+                : "This feature requires an Enterprise license."}
+            </Box>
+            <Box width="200px">
+              <Field
+                type="number"
+                min="0"
+                max="200"
+                step="1"
+                disabled={
+                  hasFileConfig() || !hasCommercialFeature("metric-slices")
+                }
+                {...form.register("maxMetricSliceLevels", {
+                  valueAsNumber: true,
+                  min: 0,
+                  max: 200,
+                })}
+              />
+            </Box>
+            {maxMetricSliceLevelsWarningMsg && (
+              <Callout status="warning" mt="2">
+                {maxMetricSliceLevelsWarningMsg}
+              </Callout>
+            )}
           </Box>
         </Flex>
       </Flex>
