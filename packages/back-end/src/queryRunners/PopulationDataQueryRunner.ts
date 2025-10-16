@@ -77,7 +77,7 @@ export const startPopulationDataQueries = async (
 
   const queries: Queries = [];
 
-  const { groups, singles } = getFactMetricGroups(
+  const { factMetricGroups, legacyMetricSingles } = getFactMetricGroups(
     selectedMetrics,
     settings,
     integration,
@@ -97,7 +97,7 @@ export const startPopulationDataQueries = async (
     }
   }
 
-  for (const m of singles) {
+  for (const m of legacyMetricSingles) {
     if (
       !integration.getPopulationMetricQuery ||
       !integration.runPopulationMetricQuery
@@ -106,7 +106,7 @@ export const startPopulationDataQueries = async (
     }
 
     const denominatorMetrics: MetricInterface[] = [];
-    if (!isFactMetric(m) && m.denominator) {
+    if (m.denominator) {
       denominatorMetrics.push(
         ...expandDenominatorMetrics(
           m.denominator,
@@ -144,7 +144,7 @@ export const startPopulationDataQueries = async (
     );
   }
 
-  for (const [i, m] of groups.entries()) {
+  for (const [i, m] of factMetricGroups.entries()) {
     if (
       !integration.getPopulationFactMetricsQuery ||
       !integration.runPopulationFactMetricsQuery
