@@ -7,6 +7,8 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { DashboardSnapshotContext } from "../DashboardSnapshotProvider";
 import DashboardViewQueriesButton from "./DashboardViewQueriesButton";
 
@@ -103,11 +105,14 @@ export default function DashboardUpdateDisplay({
   disabled,
   isEditing,
 }: Props) {
+  const { datasources } = useDefinitions();
   const {
     defaultSnapshot: snapshot,
+    projects,
     loading,
     refreshStatus,
     allQueries,
+    savedQueriesMap,
     updateAllSnapshots,
   } = useContext(DashboardSnapshotContext);
   const refreshing = ["running", "queued"].includes(refreshStatus);
@@ -118,6 +123,18 @@ export default function DashboardUpdateDisplay({
     ).length;
     return { numQueries, numFinished };
   }, [allQueries]);
+  const datasourceIds = useMemo(
+    () => [...(savedQueriesMap?.values().map((sq) => sq.datasourceId) ?? [])],
+    [savedQueriesMap],
+  );
+  const datasourcesInUse = datasourceIds.map((id) =>
+    datasources.find((ds) => ds.id === id),
+  );
+  const { canRunSqlExplorerQueries, canCreateAnalyses } = usePermissionsUtil();
+
+  const canRefresh =
+    canCreateAnalyses(projects) &&
+    !datasourcesInUse.some((ds) => ds && !canRunSqlExplorerQueries(ds));
   if (loading)
     return (
       <Flex gap="1" align="center">
@@ -148,16 +165,19 @@ export default function DashboardUpdateDisplay({
       )}
 
       <div className="position-relative">
-        <Button
-          size="xs"
-          disabled={refreshing}
-          icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
-          iconPosition="left"
-          variant="ghost"
-          onClick={updateAllSnapshots}
-        >
-          {refreshing ? "Refreshing" : "Update"}
-        </Button>
+        {canRefresh && (
+          <Button
+            size="xs"
+            disabled={refreshing}
+            icon={refreshing ? <LoadingSpinner /> : <PiArrowClockwise />}
+            iconPosition="left"
+            variant="ghost"
+            onClick={updateAllSnapshots}
+          >
+            {refreshing ? "Refreshing" : "Update"}
+          </Button>
+        )}
+
         {refreshing && allQueries.length > 0 && (
           <div
             className="position-absolute bg-info"

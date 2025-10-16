@@ -2,6 +2,7 @@ import clsx from "clsx";
 import {
   CSSProperties,
   ReactElement,
+  ReactNode,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -70,7 +71,7 @@ export type ResultsTableProps = {
     row,
     maxRows,
   }: {
-    label: string;
+    label: string | ReactNode;
     metric: ExperimentMetricInterface;
     row: ExperimentTableRow;
     maxRows?: number;

@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, ReactElement, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -14,6 +14,10 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
+import {
+  FactTableInterface,
+  FactMetricInterface,
+} from "back-end/types/fact-table";
 import { FaAngleRight, FaUsers } from "react-icons/fa";
 import {
   PiCaretCircleRight,
@@ -26,8 +30,11 @@ import {
   ExperimentMetricInterface,
   generatePinnedSliceKey,
   createCustomSliceDataForMetric,
+  createAutoSliceDataForMetric,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
+  dedupeSliceMetrics,
+  SliceDataForMetric,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -36,6 +43,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
   ExperimentTableRow,
+  compareRows,
 } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import {
@@ -48,6 +56,7 @@ import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useUser } from "@/services/UserContext";
 import { AppFeatures } from "@/types/app-features";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
@@ -78,7 +87,6 @@ const CompactResults: FC<{
   id: string;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
-  regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
   differenceType: DifferenceType;
@@ -96,7 +104,11 @@ const CompactResults: FC<{
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
-    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: Array<{
+      dimension: string;
+      datatype: "string" | "boolean";
+      levels: string[];
+    }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => void;
   customMetricSlices?: Array<{
@@ -105,6 +117,13 @@ const CompactResults: FC<{
       levels: string[];
     }>;
   }>;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
+  analysisBarSettings?: {
+    variationFilter: number[];
+  };
 }> = ({
   experimentId,
   editMetrics,
@@ -127,7 +146,6 @@ const CompactResults: FC<{
   id,
   statsEngine,
   pValueCorrection,
-  regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
   sequentialTestingEnabled,
   differenceType,
@@ -145,11 +163,17 @@ const CompactResults: FC<{
   pinnedMetricSlices,
   togglePinnedMetricSlice,
   customMetricSlices,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
+  analysisBarSettings,
 }) => {
-  const { getExperimentMetricById, getFactMetricLevels, metricGroups, ready } =
+  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
     useDefinitions();
   const { hasCommercialFeature } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
+  const { metricDefaults } = useOrganizationMetricDefaults();
 
   // Feature flag and commercial feature checks for slice analysis
   const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
@@ -232,7 +256,7 @@ const CompactResults: FC<{
   ]);
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
-    function getRow(
+    function getRowsForMetric(
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail",
     ): ExperimentTableRow[] {
@@ -250,17 +274,39 @@ const CompactResults: FC<{
           (s) => s.metric === metricId,
         );
       }
-      // Get slice count for this metric (only if feature is enabled)
-      const standardSlices =
-        ssrPolyfills?.getFactMetricLevels?.(metricId)?.length ||
-        getFactMetricLevels?.(metricId)?.length ||
-        0;
+      // Calculate slice count (will be computed from actual slice data below)
+      let numSlices = 0;
 
-      const customSlices = customMetricSlices?.length || 0;
+      let sliceData: SliceDataForMetric[] = [];
 
-      const numSlices = shouldShowMetricSlices
-        ? standardSlices + customSlices
-        : 0;
+      if (shouldShowMetricSlices) {
+        const standardSliceData = createAutoSliceDataForMetric({
+          parentMetric: getExperimentMetricById(metricId),
+          factTable: getFactTableById(
+            (getExperimentMetricById(metricId) as FactMetricInterface)
+              ?.numerator?.factTableId || "",
+          ),
+          includeOther: true,
+        });
+
+        const customSliceData = createCustomSliceDataForMetric({
+          metricId,
+          metricName: newMetric?.name || "",
+          customMetricSlices: customMetricSlices || [],
+          factTable: getFactTableById(
+            (metric as FactMetricInterface)?.numerator?.factTableId || "",
+          ),
+        });
+
+        // Dedupe (auto and custom slices sometimes overlap)
+        sliceData = dedupeSliceMetrics([
+          ...standardSliceData,
+          ...customSliceData,
+        ]);
+      }
+
+      // Update numSlices with actual count
+      numSlices = sliceData.length;
 
       const parentRow: ExperimentTableRow = {
         label: newMetric?.name,
@@ -284,22 +330,7 @@ const CompactResults: FC<{
 
       const rows: ExperimentTableRow[] = [parentRow];
 
-      // Add slice rows if this metric has slices and feature is enabled
-      if (numSlices > 0 && shouldShowMetricSlices) {
-        const standardSliceData =
-          ssrPolyfills?.getFactMetricLevels?.(metricId) ||
-          getFactMetricLevels?.(metricId) ||
-          [];
-
-        // Convert custom slice levels to slice data format
-        const customSliceData = createCustomSliceDataForMetric({
-          metricId,
-          metricName: newMetric?.name || "",
-          customMetricSlices: customMetricSlices || [],
-        });
-
-        const sliceData = [...standardSliceData, ...customSliceData];
-
+      if (numSlices > 0) {
         sliceData.forEach((slice) => {
           const expandedKey = `${metricId}:${resultGroup}`;
           const isExpanded = expandedMetrics[expandedKey] || false;
@@ -307,6 +338,7 @@ const CompactResults: FC<{
           // Generate pinned key from all slice levels
           const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
             column: dl.column,
+            datatype: dl.datatype,
             levels: dl.levels,
           }));
           const pinnedKey = generatePinnedSliceKey(
@@ -320,9 +352,49 @@ const CompactResults: FC<{
           const shouldShowLevel = isExpanded || isPinned;
 
           // Generate label from slice levels
-          const label = slice.sliceLevels
-            .map((dl) => dl.levels[0] || "other")
-            .join(" + ");
+          const label: ReactElement = (
+            <>
+              {slice.sliceLevels.map((dl, index) => {
+                const content = (() => {
+                  if (dl.levels.length === 0) {
+                    // For "other" slice, show "column: NULL" with small caps styling
+                    return (
+                      <>
+                        {dl.column}:{" "}
+                        <span
+                          style={{ fontVariant: "small-caps", fontWeight: 600 }}
+                        >
+                          null
+                        </span>
+                      </>
+                    );
+                  }
+                  const value = dl.levels[0];
+                  // Only use colon notation for boolean columns
+                  if (dl.datatype === "boolean") {
+                    return (
+                      <>
+                        {dl.column}:{" "}
+                        <span
+                          style={{ fontVariant: "small-caps", fontWeight: 600 }}
+                        >
+                          {value}
+                        </span>
+                      </>
+                    );
+                  }
+                  return value;
+                })();
+
+                return (
+                  <span key={`${dl.column}-${index}`}>
+                    {content}
+                    {index < slice.sliceLevels.length - 1 && <span> + </span>}
+                  </span>
+                );
+              })}
+            </>
+          );
 
           const sliceRow: ExperimentTableRow = {
             label,
@@ -345,19 +417,19 @@ const CompactResults: FC<{
             }),
             metricSnapshotSettings,
             resultGroup,
-            numSlices: 0, // Slice rows don't have their own slices
+            numSlices: 0,
             isSliceRow: true,
             parentRowId: metricId,
             sliceLevels: slice.sliceLevels.map((dl) => ({
               column: dl.column,
+              datatype: dl.datatype,
               levels: dl.levels,
             })),
             allSliceLevels: slice.allSliceLevels,
-            isHiddenByFilter: !shouldShowLevel, // Add this property to indicate if row should be hidden
+            isHiddenByFilter: !shouldShowLevel, // Always add slice rows to the array, even if hidden by filter
             isPinned: isPinned,
           };
 
-          // Always add slice rows to the array, even if hidden by filter
           // Skip "other" slice rows with no data
           if (
             slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
@@ -386,10 +458,11 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredMetrics = sortAndFilterMetricsByTags(
-      metricDefs,
-      metricFilter,
-    );
+    // Only use tag-based sorting when sortBy is "metric-tags"
+    const sortedFilteredMetrics =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(metricDefs, metricFilter)
+        : metricDefs.map((m) => m.id);
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -398,10 +471,10 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredSecondary = sortAndFilterMetricsByTags(
-      secondaryDefs,
-      metricFilter,
-    );
+    const sortedFilteredSecondary =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(secondaryDefs, metricFilter)
+        : secondaryDefs.map((m) => m.id);
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -410,20 +483,63 @@ const CompactResults: FC<{
           getExperimentMetricById(metricId),
       )
       .filter(isDefined);
-    const sortedFilteredGuardrails = sortAndFilterMetricsByTags(
-      guardrailDefs,
-      metricFilter,
-    );
+    const sortedFilteredGuardrails =
+      sortBy === "metric-tags"
+        ? sortAndFilterMetricsByTags(guardrailDefs, metricFilter)
+        : guardrailDefs.map((m) => m.id);
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
-      getRow(metricId, "goal"),
+      getRowsForMetric(metricId, "goal"),
     );
     const retSecondary = sortedFilteredSecondary.flatMap((metricId) =>
-      getRow(metricId, "secondary"),
+      getRowsForMetric(metricId, "secondary"),
     );
     const retGuardrails = sortedFilteredGuardrails.flatMap((metricId) =>
-      getRow(metricId, "guardrail"),
+      getRowsForMetric(metricId, "guardrail"),
     );
+
+    // Sort by significance or change if sortBy is set
+    if (
+      (sortBy === "significance" || sortBy === "change") &&
+      metricDefaults &&
+      sortDirection
+    ) {
+      const sortOptions = {
+        sortBy,
+        variationFilter:
+          analysisBarSettings?.variationFilter ?? variationFilter ?? [],
+        metricDefaults,
+        sortDirection,
+      };
+
+      const sortRows = (rows: ExperimentTableRow[]) => {
+        const parentRows = rows.filter((row) => !row.parentRowId);
+        const sortedParents = [...parentRows].sort((a, b) =>
+          compareRows(a, b, sortOptions),
+        );
+
+        const newRows: ExperimentTableRow[] = [];
+        sortedParents.forEach((parent) => {
+          newRows.push(parent);
+          const childRows = rows.filter(
+            (row) => row.parentRowId === parent.metric?.id,
+          );
+          const sortedChildren = [...childRows].sort((a, b) =>
+            compareRows(a, b, sortOptions),
+          );
+          newRows.push(...sortedChildren);
+        });
+
+        return newRows;
+      };
+
+      return [
+        ...sortRows(retMetrics),
+        ...sortRows(retSecondary),
+        ...sortRows(retGuardrails),
+      ];
+    }
+
     return [...retMetrics, ...retSecondary, ...retGuardrails];
   }, [
     results,
@@ -438,12 +554,17 @@ const CompactResults: FC<{
     ready,
     ssrPolyfills,
     getExperimentMetricById,
+    getFactTableById,
     metricFilter,
     pinnedMetricSlices,
     expandedMetrics,
-    getFactMetricLevels,
     shouldShowMetricSlices,
     customMetricSlices,
+    sortBy,
+    sortDirection,
+    analysisBarSettings?.variationFilter,
+    metricDefaults,
+    variationFilter,
   ]);
 
   const getChildRowCounts = (metricId: string) => {
@@ -532,7 +653,6 @@ const CompactResults: FC<{
           pValueCorrection={pValueCorrection}
           differenceType={differenceType}
           renderLabelColumn={getRenderLabelColumn({
-            regressionAdjustmentEnabled,
             statsEngine,
             hideDetails,
             experimentType,
@@ -540,8 +660,8 @@ const CompactResults: FC<{
             togglePinnedMetricSlice,
             expandedMetrics,
             toggleExpandedMetric,
-            getFactMetricLevels,
-            ssrPolyfills,
+            getExperimentMetricById,
+            getFactTableById,
             shouldShowMetricSlices,
             getChildRowCounts,
           })}
@@ -562,6 +682,10 @@ const CompactResults: FC<{
           ssrPolyfills={ssrPolyfills}
           disableTimeSeriesButton={disableTimeSeriesButton}
           isHoldout={experimentType === "holdout"}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
         />
       ) : null}
 
@@ -590,7 +714,6 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn({
-              regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
               experimentType: undefined,
@@ -598,8 +721,8 @@ const CompactResults: FC<{
               togglePinnedMetricSlice,
               expandedMetrics,
               toggleExpandedMetric,
-              getFactMetricLevels,
-              ssrPolyfills,
+              getExperimentMetricById,
+              getFactTableById,
               shouldShowMetricSlices,
               getChildRowCounts,
             })}
@@ -613,6 +736,10 @@ const CompactResults: FC<{
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
           />
         </div>
       ) : null}
@@ -642,7 +769,6 @@ const CompactResults: FC<{
             pValueCorrection={pValueCorrection}
             differenceType={differenceType}
             renderLabelColumn={getRenderLabelColumn({
-              regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
               experimentType: undefined,
@@ -650,8 +776,8 @@ const CompactResults: FC<{
               togglePinnedMetricSlice,
               expandedMetrics,
               toggleExpandedMetric,
-              getFactMetricLevels,
-              ssrPolyfills,
+              getExperimentMetricById,
+              getFactTableById,
               shouldShowMetricSlices,
               getChildRowCounts,
             })}
@@ -665,6 +791,10 @@ const CompactResults: FC<{
             ssrPolyfills={ssrPolyfills}
             disableTimeSeriesButton={disableTimeSeriesButton}
             isHoldout={experimentType === "holdout"}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
           />
         </div>
       ) : (
@@ -676,7 +806,6 @@ const CompactResults: FC<{
 export default CompactResults;
 
 export function getRenderLabelColumn({
-  regressionAdjustmentEnabled,
   statsEngine,
   hideDetails,
   experimentType: _experimentType,
@@ -684,20 +813,21 @@ export function getRenderLabelColumn({
   togglePinnedMetricSlice,
   expandedMetrics,
   toggleExpandedMetric,
-  getFactMetricLevels,
-  ssrPolyfills,
   shouldShowMetricSlices,
   getChildRowCounts,
   className = "pl-3",
 }: {
-  regressionAdjustmentEnabled?: boolean;
   statsEngine?: StatsEngine;
   hideDetails?: boolean;
   experimentType?: ExperimentType;
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
-    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: Array<{
+      dimension: string;
+      datatype: "string" | "boolean";
+      levels: string[];
+    }>,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   expandedMetrics?: Record<string, boolean>;
@@ -705,8 +835,8 @@ export function getRenderLabelColumn({
     metricId: string,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
-  getFactMetricLevels?: (metricId: string) => unknown[];
-  ssrPolyfills?: SSRPolyfills;
+  getExperimentMetricById?: (id: string) => null | ExperimentMetricInterface;
+  getFactTableById?: (id: string) => null | FactTableInterface;
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
   className?: string;
@@ -718,7 +848,7 @@ export function getRenderLabelColumn({
     maxRows,
     location,
   }: {
-    label: string;
+    label: string | ReactElement;
     metric: ExperimentMetricInterface;
     row?: ExperimentTableRow;
     maxRows?: number;
@@ -737,6 +867,7 @@ export function getRenderLabelColumn({
             metric.id,
             row.sliceLevels.map((dl) => ({
               column: dl.column,
+              datatype: dl.datatype,
               levels: dl.levels,
             })),
             location || "goal",
@@ -771,6 +902,7 @@ export function getRenderLabelColumn({
                       metric.id,
                       row.sliceLevels.map((dl) => ({
                         dimension: dl.column,
+                        datatype: dl.datatype,
                         levels: dl.levels,
                       })),
                       location || "goal",
@@ -799,18 +931,13 @@ export function getRenderLabelColumn({
       );
     }
 
-    const hasSlices =
-      shouldShowMetricSlices &&
-      !!(
-        ssrPolyfills?.getFactMetricLevels?.(metric.id)?.length ||
-        getFactMetricLevels?.(metric.id)?.length
-      );
-
     // Get child row counts for pinned indicator
     const childRowCounts =
-      shouldShowMetricSlices && hasSlices && getChildRowCounts
+      shouldShowMetricSlices && getChildRowCounts
         ? getChildRowCounts(metric.id)
         : { total: 0, pinned: 0 };
+
+    const hasSlices = childRowCounts.total > 0;
 
     // Render non-slice metric
     return (
@@ -878,9 +1005,6 @@ export function getRenderLabelColumn({
                         metric={metric}
                         row={row}
                         statsEngine={statsEngine}
-                        reportRegressionAdjustmentEnabled={
-                          regressionAdjustmentEnabled
-                        }
                         hideDetails={hideDetails}
                       />
                     }
@@ -909,9 +1033,6 @@ export function getRenderLabelColumn({
                     metric={metric}
                     row={row}
                     statsEngine={statsEngine}
-                    reportRegressionAdjustmentEnabled={
-                      regressionAdjustmentEnabled
-                    }
                     hideDetails={hideDetails}
                   />
                 }

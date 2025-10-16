@@ -85,6 +85,8 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   isPercentileCapped: boolean;
+  numeratorSourceIndex: number;
+  denominatorSourceIndex: number;
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
@@ -112,6 +114,7 @@ export type FactMetricPercentileData = {
   outputCol: string;
   percentile: number;
   ignoreZeros: boolean;
+  sourceIndex: number;
 };
 
 export type BanditMetricData = Pick<
@@ -124,6 +127,8 @@ export type BanditMetricData = Pick<
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"
+  | "numeratorSourceIndex"
+  | "denominatorSourceIndex"
 >;
 
 export type VariationPeriodWeight = {

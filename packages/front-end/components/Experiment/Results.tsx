@@ -61,6 +61,10 @@ const Results: FC<{
   isTabActive?: boolean;
   setTab?: (tab: ExperimentTab) => void;
   holdout?: HoldoutInterface;
+  sortBy?: "metric-tags" | "significance" | "change" | null;
+  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 }> = ({
   experiment,
   envs,
@@ -83,6 +87,10 @@ const Results: FC<{
   isTabActive = true,
   setTab,
   holdout,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }) => {
   const { apiCall } = useAuth();
 
@@ -408,13 +416,17 @@ const Results: FC<{
           status={experiment.status}
           statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
           pValueCorrection={pValueCorrection}
-          regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
           settingsForSnapshotMetrics={settingsForSnapshotMetrics}
           sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           differenceType={analysis?.settings?.differenceType || "relative"}
           metricFilter={metricFilter}
           setMetricFilter={setMetricFilter}
           experimentType={experiment.type}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirection}
+          analysisBarSettings={analysisBarSettings}
         />
       ) : showCompactResults ? (
         <>
@@ -449,7 +461,6 @@ const Results: FC<{
             id={experiment.id}
             statsEngine={analysis.settings.statsEngine}
             pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
             settingsForSnapshotMetrics={settingsForSnapshotMetrics}
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             differenceType={analysis.settings?.differenceType}
@@ -461,6 +472,11 @@ const Results: FC<{
             pinnedMetricSlices={optimisticPinnedLevels}
             togglePinnedMetricSlice={togglePinnedMetricSlice}
             customMetricSlices={experiment.customMetricSlices}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
+            analysisBarSettings={analysisBarSettings}
           />
         </>
       ) : null}

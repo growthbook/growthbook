@@ -7,11 +7,16 @@ import {
   FactTableColumnType,
 } from "back-end/types/fact-table";
 import { useForm } from "react-hook-form";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { canInlineFilterColumn } from "shared/experiments";
-import { PiPlus, PiX, PiArrowSquareOut } from "react-icons/pi";
+import {
+  PiPlus,
+  PiX,
+  PiArrowSquareOut,
+  PiArrowClockwise,
+} from "react-icons/pi";
 import { Flex } from "@radix-ui/themes";
-import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { differenceInDays } from "date-fns";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -39,12 +44,15 @@ export interface Props {
 
 export default function ColumnModal({ existing, factTable, close }: Props) {
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, settings } = useUser();
   const growthbook = useGrowthBook<AppFeatures>();
 
   // Feature flag and commercial feature checks for slice analysis
   const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
+
+  const maxMetricSliceLevels =
+    settings?.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
 
   const [showDescription, setShowDescription] = useState(
     !!existing?.description?.length,
@@ -52,6 +60,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
   const [refreshingTopValues, setRefreshingTopValues] = useState(false);
 
   const [autoSlicesWarning, setAutoSlicesWarning] = useState(false);
+  const [hasManuallyClearedSlices, setHasManuallyClearedSlices] =
+    useState(false);
+  const [shouldForceOverwriteSlices, setShouldForceOverwriteSlices] =
+    useState(false);
 
   const { mutateDefinitions } = useDefinitions();
 
@@ -59,6 +71,7 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     if (!existing) return;
 
     setRefreshingTopValues(true);
+    setShouldForceOverwriteSlices(true); // Flag to force overwrite slices
     try {
       await apiCall(
         `/fact-tables/${factTable.id}?forceColumnRefresh=1&dim=${existing.column}`,
@@ -68,6 +81,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         },
       );
       mutateDefinitions();
+      // Reset manual clear flag so auto-population can work again after refresh
+      setHasManuallyClearedSlices(false);
     } catch (error) {
       console.error("Failed to refresh top values:", error);
     } finally {
@@ -89,17 +104,26 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     },
   });
 
-  // Check if topValuesDate is stale (older than 7 days) or if topValues are empty
+  const topValues = existing?.topValues || [];
   const isTopValuesStale =
     !existing?.topValues?.length ||
     (existing?.topValuesDate &&
       differenceInDays(new Date(), new Date(existing.topValuesDate)) > 7);
 
   // Auto-refresh top values when isAutoSliceColumn is checked (set to true) and topValues are stale
-  React.useEffect(
+  useEffect(
     () => {
       const isAutoSliceColumn = form.watch("isAutoSliceColumn");
       const wasAutoSliceColumn = existing?.isAutoSliceColumn;
+      const datatype = form.watch("datatype");
+
+      // Skip refresh for boolean columns
+      if (datatype === "boolean") {
+        if (isAutoSliceColumn && !wasAutoSliceColumn) {
+          form.setValue("autoSlices", ["true", "false"]);
+        }
+        return;
+      }
 
       // Only trigger if isAutoSliceColumn is being set to true (not already true) and topValues are stale
       if (
@@ -115,8 +139,53 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     [form.watch("isAutoSliceColumn")],
   );
 
+  // Auto-populate autoSlices when top values query finishes and autoSlices is empty
+  const isAutoSliceColumn = form.watch("isAutoSliceColumn");
+  useEffect(
+    () => {
+      const currentAutoSlices = form.watch("autoSlices");
+
+      // Force overwrite slices when user clicks "Get Top Values"
+      if (
+        isAutoSliceColumn &&
+        topValues.length > 0 &&
+        !refreshingTopValues &&
+        shouldForceOverwriteSlices
+      ) {
+        const newAutoSlices = topValues.slice(0, maxMetricSliceLevels);
+        form.setValue("autoSlices", newAutoSlices);
+        setShouldForceOverwriteSlices(false); // Reset flag
+        return;
+      }
+
+      // Only auto-populate if:
+      // 1. This is an auto slice column
+      // 2. autoSlices is currently empty
+      // 3. We have top values available
+      // 4. We're not currently refreshing
+      // 5. User hasn't manually cleared the slices
+      if (
+        isAutoSliceColumn &&
+        (!currentAutoSlices || currentAutoSlices.length === 0) &&
+        topValues.length > 0 &&
+        !refreshingTopValues &&
+        !hasManuallyClearedSlices
+      ) {
+        // Populate with top values up to the max limit
+        const newAutoSlices = topValues.slice(0, maxMetricSliceLevels);
+        form.setValue("autoSlices", newAutoSlices);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      topValues,
+      refreshingTopValues,
+      shouldForceOverwriteSlices,
+      isAutoSliceColumn,
+    ],
+  );
+
   // Calculate auto slice options combining topValues with current autoSlices
-  const topValues = existing?.topValues || [];
   const currentLevels = form.watch("autoSlices") || [];
   const allValues = new Set([...topValues, ...currentLevels]);
   const autoSliceOptions = Array.from(allValues).map((value) => ({
@@ -206,6 +275,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             data.jsonFields = value.jsonFields;
           }
 
+          if (data.datatype === "boolean" && data.autoSlices) {
+            data.autoSlices = ["true", "false"];
+          }
+
           await apiCall(
             `/fact-tables/${factTable.id}/column/${existing.column}`,
             {
@@ -214,6 +287,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             },
           );
         } else {
+          if (value.datatype === "boolean" && value.autoSlices) {
+            value.autoSlices = ["true", "false"];
+          }
+
           await apiCall(`/fact-tables/${factTable.id}/column`, {
             method: "POST",
             body: JSON.stringify(value),
@@ -442,8 +519,31 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
         placeholder={form.watch("column")}
       />
 
+      {showDescription ? (
+        <div className="form-group">
+          <label>Description</label>
+          <MarkdownInput
+            value={form.watch("description") || ""}
+            setValue={(value) => form.setValue("description", value)}
+            autofocus={!existing?.description?.length}
+          />
+        </div>
+      ) : (
+        <a
+          href="#"
+          className="badge badge-light badge-pill mb-3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+        >
+          + description
+        </a>
+      )}
+
       {isMetricSlicesFeatureEnabled &&
-        form.watch("datatype") === "string" &&
+        (form.watch("datatype") === "string" ||
+          form.watch("datatype") === "boolean") &&
         !factTable.userIdTypes.includes(form.watch("column")) &&
         form.watch("column") !== "timestamp" && (
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
@@ -477,43 +577,49 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
               />
             </div>
 
-            {form.watch("isAutoSliceColumn") && hasMetricSlicesFeature && (
-              <div className="mb-2">
-                <div className="d-flex justify-content-between mb-1">
-                  <label className="form-label mb-0">Slices</label>
-                  <RadixButton
-                    size="xs"
-                    variant="ghost"
-                    onClick={refreshTopValues}
-                    loading={refreshingTopValues}
-                  >
-                    Refresh
-                  </RadixButton>
+            {form.watch("isAutoSliceColumn") &&
+              hasMetricSlicesFeature &&
+              form.watch("datatype") !== "boolean" && (
+                <div className="mb-2">
+                  <div className="d-flex justify-content-between mb-1">
+                    <label className="form-label mb-0">Slices</label>
+                    <RadixButton
+                      size="xs"
+                      variant="ghost"
+                      onClick={refreshTopValues}
+                      loading={refreshingTopValues}
+                    >
+                      <PiArrowClockwise /> Use Top Values
+                    </RadixButton>
+                  </div>
+                  {autoSlicesWarning ||
+                  (form.watch("autoSlices") || [])?.length >
+                    maxMetricSliceLevels ? (
+                    <HelperText status="warning" mb="1">
+                      Limit {maxMetricSliceLevels + ""} slices
+                    </HelperText>
+                  ) : null}
+                  <MultiSelectField
+                    value={form.watch("autoSlices") || []}
+                    onChange={(values) => {
+                      if (values.length > maxMetricSliceLevels) {
+                        values = values.slice(0, maxMetricSliceLevels);
+                        setAutoSlicesWarning(true);
+                        setTimeout(() => {
+                          setAutoSlicesWarning(false);
+                        }, 3000);
+                      }
+                      // Track if user manually clears all slices
+                      if (values.length === 0) {
+                        setHasManuallyClearedSlices(true);
+                      }
+                      form.setValue("autoSlices", values);
+                    }}
+                    options={autoSliceOptions}
+                    creatable={true}
+                  />
                 </div>
-                {autoSlicesWarning ||
-                (form.watch("autoSlices") || [])?.length >
-                  MAX_METRIC_SLICE_LEVELS ? (
-                  <HelperText status="warning" mb="1">
-                    Limit {MAX_METRIC_SLICE_LEVELS + ""} slices
-                  </HelperText>
-                ) : null}
-                <MultiSelectField
-                  value={form.watch("autoSlices") || []}
-                  onChange={(values) => {
-                    if (values.length > MAX_METRIC_SLICE_LEVELS) {
-                      values = values.slice(0, MAX_METRIC_SLICE_LEVELS);
-                      setAutoSlicesWarning(true);
-                      setTimeout(() => {
-                        setAutoSlicesWarning(false);
-                      }, 3000);
-                    }
-                    form.setValue("autoSlices", values);
-                  }}
-                  options={autoSliceOptions}
-                  creatable={true}
-                />
-              </div>
-            )}
+              )}
           </div>
         )}
 
@@ -532,28 +638,6 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             description="Use this for columns that are almost always required, like 'event_type' for an `events` table"
           />
         </div>
-      )}
-
-      {showDescription ? (
-        <div className="form-group">
-          <label>Description</label>
-          <MarkdownInput
-            value={form.watch("description") || ""}
-            setValue={(value) => form.setValue("description", value)}
-            autofocus={!existing?.description?.length}
-          />
-        </div>
-      ) : (
-        <a
-          href="#"
-          className="badge badge-light badge-pill mb-3"
-          onClick={(e) => {
-            e.preventDefault();
-            setShowDescription(true);
-          }}
-        >
-          + description
-        </a>
       )}
     </Modal>
   );

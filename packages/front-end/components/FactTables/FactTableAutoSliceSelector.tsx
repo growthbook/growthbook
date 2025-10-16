@@ -45,11 +45,7 @@ export default function FactTableAutoSliceSelector({
         value: col.column,
       })) || [];
 
-  const metricAutoSlicesWithLevels =
-    factMetric.metricAutoSlices?.filter((slice) => {
-      const column = factTable?.columns?.find((col) => col.column === slice);
-      return !!column?.autoSlices?.length;
-    }) || [];
+  const metricAutoSlices = factMetric.metricAutoSlices || [];
 
   const hasPermission = hasCommercialFeature("metric-slices");
 
@@ -140,15 +136,32 @@ export default function FactTableAutoSliceSelector({
   return (
     <div className="d-flex align-items-center" style={{ gap: "0.5rem" }}>
       <div className="flex-grow-1">
-        {metricAutoSlicesWithLevels.length ? (
+        {metricAutoSlices.filter((slice) => {
+          const column = factTable?.columns?.find((c) => c.column === slice);
+          return column && !column.deleted;
+        }).length ? (
           <div className="d-flex flex-wrap" style={{ gap: "0.25rem" }}>
-            {metricAutoSlicesWithLevels.map((slice) => {
+            {metricAutoSlices.map((slice) => {
               const column = factTable?.columns?.find(
                 (col) => col.column === slice,
               );
-              const levels = column?.autoSlices;
+              if (!column || column.deleted) return null;
+
+              const levels =
+                column?.datatype === "boolean"
+                  ? ["true", "false"]
+                  : column?.autoSlices;
+              const hasNoLevels =
+                !levels?.length && column?.datatype !== "boolean";
               return (
-                <Tooltip key={slice} body={levels?.join(", ") || ""}>
+                <Tooltip
+                  key={slice}
+                  body={
+                    hasNoLevels
+                      ? "No slice levels configured"
+                      : levels?.join(", ") || "No levels"
+                  }
+                >
                   <Badge
                     label={
                       <>
@@ -156,7 +169,7 @@ export default function FactTableAutoSliceSelector({
                         {column?.name || slice}
                       </>
                     }
-                    color="violet"
+                    color={hasNoLevels ? "red" : "violet"}
                   />
                 </Tooltip>
               );

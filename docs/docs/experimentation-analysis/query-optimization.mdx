@@ -11,11 +11,9 @@ GrowthBook is designed to run efficient database queries out-of-the-box, but for
 
 ## SQL Template Variables
 
-GrowthBook always includes a date filter in the SQL queries it generates, but because the queries are complex with multiple nested subqueries, database engines are not always able to fully take advantage of these filters.
+GrowthBook runs all SQL through a templating engine (Handlebars) to allow for dynamic SQL generation. This lets you apply advanced query optimization.
 
-If you have a date-partitioned table, you can use template variables within the SQL you enter in GrowthBook to provide better hints to your database. This applies to metrics, fact tables, and experiment assignment queries.
-
-Here's an example of a simple Fact Table definition that uses template variables:
+The most common is adding a date filter. For example:
 
 ```sql
 SELECT
@@ -27,43 +25,7 @@ WHERE
   timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
 ```
 
-The following variables are available:
-
-- **startDate** - `yyyy-MM-dd HH:mm:ss` of the earliest data that needs to be included
-- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format
-- **endDate** - `yyyy-MM-dd HH:mm:ss` of the latest data that needs to be included
-- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format
-
-There is also a `date` helper you can use with the ISO variables to format the date exactly how you need it. For example `{{date endDateISO "yyyyMMdd"}}`
-
-| code | meaning   |
-| ---- | --------- |
-| yyyy | year      |
-| MM   | month     |
-| dd   | day       |
-| HH   | hour      |
-| mm   | minutes   |
-| ss   | seconds   |
-| t    | timestamp |
-
-Here's a full example of this being used:
-
-```sql
-SELECT
-  user_id as user_id,
-  received_at as timestamp
-FROM
-  orders
-WHERE
-  partition_key BETWEEN
-    '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}'
-```
-
-:::note
-
-The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of `{{ startDate }}`).
-
-:::
+Read more about [SQL Templates](/app/sql-templates) and the different variables that are available.
 
 ## Fact Tables
 

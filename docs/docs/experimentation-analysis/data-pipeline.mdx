@@ -79,6 +79,14 @@ In this strategy, GrowthBook materializes one intermediate table per experiment 
 
 To enable Temporary materialization, follow the steps for your data warehouse:
 
+## Configuring Pipeline Mode
+
+:::note
+
+While Pipeline mode requires you to give write permissions to your Data Source, GrowthBook only uses it for the Pipeline Mode. All other user-provided SQL statements are validated to be read-only before being executed.
+
+:::
+
 ### BigQuery
 
 1. (strongly recommended, but optional) Create a dedicated dataset to which GrowthBook will write temporary tables. This will keep your data warehouse clean and ensure that we are only writing to a dedicated space.
