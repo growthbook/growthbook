@@ -9,6 +9,7 @@ import {
 import {
   dashboardEditLevel,
   dashboardShareLevel,
+  dashboardUpdateSchedule,
 } from "back-end/src/enterprise/validators/dashboard";
 import * as rawDashboardsController from "./dashboards.controller";
 
@@ -23,6 +24,7 @@ export const createDashboardBody = z
     editLevel: dashboardEditLevel,
     shareLevel: dashboardShareLevel,
     enableAutoUpdates: z.boolean(),
+    updateSchedule: dashboardUpdateSchedule.optional(),
     blocks: z.array(createDashboardBlockInterface),
     projects: z.array(z.string()).optional(),
   })
@@ -34,6 +36,7 @@ export const updateDashboardBody = z
     editLevel: dashboardEditLevel.optional(),
     shareLevel: dashboardShareLevel.optional(),
     enableAutoUpdates: z.boolean().optional(),
+    updateSchedule: dashboardUpdateSchedule.optional(),
     projects: z.array(z.string()).optional(),
     blocks: z
       .array(z.union([createDashboardBlockInterface, dashboardBlockInterface]))

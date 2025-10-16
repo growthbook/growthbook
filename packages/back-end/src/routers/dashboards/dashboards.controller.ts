@@ -97,6 +97,7 @@ export async function createDashboard(
     editLevel,
     shareLevel,
     enableAutoUpdates,
+    updateSchedule,
     title,
     blocks,
     projects,
@@ -111,6 +112,11 @@ export async function createDashboard(
     if (!experiment) throw new Error("Cannot find experiment");
     if (!context.permissions.canCreateReport(experiment)) {
       context.permissions.throwPermissionError();
+    }
+    if (updateSchedule) {
+      throw new Error(
+        "Cannot specify an update schedule for experiment dashboards",
+      );
     }
   } else {
     if (shareLevel === "private") {
@@ -130,6 +136,9 @@ export async function createDashboard(
         context.permissions.throwPermissionError();
       }
     }
+    if (enableAutoUpdates && !updateSchedule) {
+      throw new Error("Must define an update schedule to enable auto updates");
+    }
   }
   const createdBlocks = await Promise.all(
     blocks.map((blockData) => createDashboardBlock(context.org.id, blockData)),
@@ -143,6 +152,7 @@ export async function createDashboard(
     editLevel,
     shareLevel,
     enableAutoUpdates,
+    updateSchedule,
     experimentId: experimentId || undefined,
     title,
     projects,

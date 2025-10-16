@@ -107,6 +107,7 @@ export default function DashboardsPage() {
                 editLevel: data.editLevel,
                 shareLevel: data.shareLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
+                updateSchedule: data.updateSchedule,
                 projects: data.projects,
               }
             : {
@@ -116,6 +117,7 @@ export default function DashboardsPage() {
                 shareLevel: data.shareLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 experimentId: "",
+                updateSchedule: data.updateSchedule,
                 projects: data.projects,
               },
         ),
@@ -155,6 +157,7 @@ export default function DashboardsPage() {
             shareLevel: showEditModal.shareLevel,
             enableAutoUpdates: showEditModal.enableAutoUpdates,
             projects: showEditModal.projects || [],
+            updateSchedule: showEditModal.updateSchedule,
           }}
           close={() => setShowEditModal(undefined)}
           submit={async (data) => {

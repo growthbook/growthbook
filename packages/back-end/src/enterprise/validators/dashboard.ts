@@ -3,6 +3,20 @@ import { dashboardBlockInterface } from "./dashboard-block";
 
 export const dashboardEditLevel = z.enum(["published", "private"]);
 export const dashboardShareLevel = z.enum(["published", "private"]);
+export const dashboardUpdateSchedule = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("stale"),
+      hours: z.number(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("cron"),
+      cron: z.string(),
+    })
+    .strict(),
+]);
 
 export const dashboardInterface = z
   .object({
@@ -16,6 +30,7 @@ export const dashboardInterface = z
     editLevel: dashboardEditLevel,
     shareLevel: dashboardShareLevel, // Ignored for experiment dashboards. Only configurable for orgs with share-product-analytics-dashboards commercialFeature
     enableAutoUpdates: z.boolean(),
+    updateSchedule: dashboardUpdateSchedule.optional(),
     title: z.string(),
     blocks: z.array(dashboardBlockInterface),
     projects: z.array(z.string()).optional(), // General dashboards only, experiment dashboards use the experiment's projects
@@ -30,3 +45,4 @@ export type DashboardInterface = z.infer<typeof dashboardInterface>;
 
 export type DashboardEditLevel = z.infer<typeof dashboardEditLevel>;
 export type DashboardShareLevel = z.infer<typeof dashboardShareLevel>;
+export type DashboardUpdateSchedule = z.infer<typeof dashboardUpdateSchedule>;

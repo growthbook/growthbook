@@ -186,8 +186,7 @@ export async function updateNonExperimentDashboard(
   await context.models.dashboards.dangerousUpdateBypassPermission(dashboard, {
     blocks: newBlocks,
     nextUpdate:
-      determineNextDate(context.org.settings?.updateSchedule || null) ??
-      undefined,
+      determineNextDate(dashboard.updateSchedule || null) ?? undefined,
     lastUpdated: new Date(),
   });
 }

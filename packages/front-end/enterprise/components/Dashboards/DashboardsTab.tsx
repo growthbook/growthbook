@@ -1,6 +1,9 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useCallback, useEffect, useState } from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
+import {
+  DashboardInterface,
+  DashboardUpdateSchedule,
+} from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -41,6 +44,7 @@ export type CreateDashboardArgs = {
     editLevel: DashboardInterface["editLevel"];
     shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
+    updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
     projects: string[];
   };
@@ -54,6 +58,7 @@ export type UpdateDashboardArgs = {
     editLevel: DashboardInterface["editLevel"];
     shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
+    updateSchedule?: DashboardUpdateSchedule;
     projects: string[];
   }>;
 };
