@@ -1,18 +1,17 @@
 import { ago } from "shared/dates";
-import { FaMagnifyingGlass } from "react-icons/fa6";
 import { useCallback, useEffect, useState } from "react";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import { Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import Link from "next/link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSearch } from "@/services/search";
-import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -202,7 +201,7 @@ export default function DashboardsPage() {
       )}
       <div className="p-3 container-fluid pagecontents">
         <Flex justify="between" align="center">
-          <h1>Dashboards</h1>
+          <h1>Product Analytics Dashboards</h1>
           {dashboards.length ? (
             <Button
               onClick={() => setShowCreateModal(true)}
@@ -249,16 +248,21 @@ export default function DashboardsPage() {
               </div>
             ) : (
               <>
-                <div className="row mb-4 align-items-center justify-content-between">
-                  <div className="col-auto mr-auto">
+                <Flex
+                  gap="4"
+                  align="start"
+                  justify="between"
+                  mb="4"
+                  wrap="wrap"
+                >
+                  <Box flexBasis="300px" flexShrink="0">
                     <Field
-                      prepend={<FaMagnifyingGlass />}
                       placeholder="Search..."
                       type="search"
                       {...searchInputProps}
                     />
-                  </div>
-                </div>
+                  </Box>
+                </Flex>
                 <div className="row mb-0">
                   <div className="col-12">
                     <table className="table gbtable">
@@ -300,12 +304,14 @@ export default function DashboardsPage() {
                             <tr key={d.id}>
                               <td>
                                 {canViewDashboards ? (
-                                  <Link
-                                    className="text-color-primary"
-                                    key={d.id}
-                                    href={`/dashboards/${d.id}`}
-                                  >
-                                    {d.title}
+                                  <Link href={`/dashboards/${d.id}`}>
+                                    <span
+                                      style={{
+                                        color: "var(--color-text-high)",
+                                      }}
+                                    >
+                                      {d.title}
+                                    </span>
                                   </Link>
                                 ) : (
                                   <Tooltip body="Your plan does not support viewing/editing Product Analytics Dashboards.">
@@ -381,7 +387,6 @@ export default function DashboardsPage() {
                                       >
                                         Duplicate
                                       </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
                                       <DropdownMenuItem
                                         onClick={() => {
                                           const url =
