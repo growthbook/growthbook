@@ -6,7 +6,7 @@ FROM python:${PYTHON_MAJOR}-slim AS pybuild
 WORKDIR /usr/local/src/app
 COPY ./packages/stats .
 RUN \
-  pip3 install --no-cache-dir poetry==1.8.5 \
+  pip3 install poetry==1.8.5  \
   && poetry install --no-root --without dev --no-interaction --no-ansi \
   && poetry build \
   && poetry export -f requirements.txt --output requirements.txt
@@ -72,7 +72,7 @@ RUN apt-get update && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 COPY --from=pybuild /usr/local/src/app/requirements.txt /usr/local/src/requirements.txt
-RUN pip3 install --no-cache-dir -r /usr/local/src/requirements.txt
+RUN pip3 install -r /usr/local/src/requirements.txt && rm -rf /root/.cache/pip
 COPY --from=nodebuild /usr/local/src/app/packages ./packages
 COPY --from=nodebuild /usr/local/src/app/node_modules ./node_modules
 COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
@@ -81,9 +81,7 @@ COPY --from=nodebuild /usr/local/src/app/package.json ./package.json
 COPY buildinfo* ./buildinfo
 
 COPY --from=pybuild /usr/local/src/app/dist /usr/local/src/gbstats
-RUN test -n "$(ls -1 /usr/local/src/gbstats/*.whl 2>/dev/null)" \
-  && pip3 install --no-cache-dir /usr/local/src/gbstats/*.whl ddtrace \
-  && python3 -c "import gbstats; print('gbstats ok')"
+RUN pip3 install /usr/local/src/gbstats/*.whl ddtrace
 ARG DD_GIT_COMMIT_SHA=""
 ARG DD_GIT_REPOSITORY_URL=https://github.com/growthbook/growthbook.git
 ARG DD_VERSION=""

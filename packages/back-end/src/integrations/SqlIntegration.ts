@@ -2701,12 +2701,7 @@ export default abstract class SqlIntegration
     metricData: FactMetricData[],
     quantileType: MetricQuantileSettings["type"],
   ): FactMetricQuantileData[] {
-    const quantileData: {
-      alias: string;
-      valueCol: string;
-      outputCol: string;
-      metricQuantileSettings: MetricQuantileSettings;
-    }[] = [];
+    const quantileData: FactMetricQuantileData[] = [];
     metricData
       .filter((m) => m.quantileMetric === quantileType)
       .forEach((m) => {
@@ -3283,6 +3278,9 @@ export default abstract class SqlIntegration
         eventQuantileTableName: "__eventQuantileMetric",
         cupedMetricTableName: "__userCovariateMetric",
         capValueTableName: "__capValue",
+        factTablesWithIndices,
+        regressionAdjustedTableIndices,
+        percentileTableIndices,
       })}
       `
       }`,
@@ -3301,6 +3299,9 @@ export default abstract class SqlIntegration
     eventQuantileTableName,
     cupedMetricTableName,
     capValueTableName,
+    factTablesWithIndices,
+    regressionAdjustedTableIndices,
+    percentileTableIndices,
   }: {
     dimensionCols: DimensionColumnData[];
     metricData: FactMetricData[];
@@ -3312,6 +3313,9 @@ export default abstract class SqlIntegration
     eventQuantileTableName: string;
     cupedMetricTableName: string;
     capValueTableName: string;
+    factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
+    regressionAdjustedTableIndices: Set<number>;
+    percentileTableIndices: Set<number>;
   }): string {
     return `SELECT
         m.variation AS variation
@@ -3422,6 +3426,36 @@ export default abstract class SqlIntegration
             )`
             : ""
         }
+      ${factTablesWithIndices
+        .map(({ factTable: _, index }) => {
+          const suffix = `${index === 0 ? "" : index}`;
+          return `
+        ${
+          index === 0
+            ? ""
+            : `LEFT JOIN ${joinedMetricTableName}${suffix} m${suffix} ON (
+          m${suffix}.${baseIdType} = m.${baseIdType}
+        )`
+        }
+        ${
+          regressionAdjustedTableIndices.has(index)
+            ? `
+          LEFT JOIN ${cupedMetricTableName}${suffix} c${suffix} ON (
+            c${suffix}.${baseIdType} = m${suffix}.${baseIdType}
+          )
+        `
+            : ""
+        }
+        ${
+          percentileTableIndices.has(index)
+            ? `
+          CROSS JOIN ${capValueTableName}${suffix} cap${suffix}
+        `
+            : ""
+        }
+        `;
+        })
+        .join("\n")}
       GROUP BY
         m.variation
         ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
@@ -7235,6 +7269,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         eventQuantileTableName: "__eventQuantileMetric",
         cupedMetricTableName: "__userCovariateMetric",
         capValueTableName: "__capValue",
+        factTablesWithIndices: [], // TODO(incremental-refresh): fact tables
+        regressionAdjustedTableIndices: new Set(), // TODO(incremental-refresh): regression adjusted tables
+        percentileTableIndices: new Set(), // TODO(incremental-refresh): percentile tables
       })}
       `,
       this.getFormatDialect(),
