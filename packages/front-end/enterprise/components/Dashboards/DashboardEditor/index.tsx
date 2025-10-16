@@ -158,11 +158,13 @@ function AddBlockDropdown({
 
         return (
           <Fragment key={`${subgroup}-${i}`}>
-            <DropdownMenuLabel className="font-weight-bold">
-              <Text style={{ color: "var(--color-text-high)" }}>
-                {subgroup}
-              </Text>
-            </DropdownMenuLabel>
+            {!isGeneralDashboard && (
+              <DropdownMenuLabel className="font-weight-bold">
+                <Text style={{ color: "var(--color-text-high)" }}>
+                  {subgroup}
+                </Text>
+              </DropdownMenuLabel>
+            )}
             {allowedBlockTypes.map((bType) => (
               <DropdownMenuItem
                 key={bType}

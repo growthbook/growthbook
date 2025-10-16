@@ -43,7 +43,7 @@ export default function SqlExplorer() {
 
   return (
     <div className="container pagecontents">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center">
         <h1>SQL Explorer</h1>
       </div>
 

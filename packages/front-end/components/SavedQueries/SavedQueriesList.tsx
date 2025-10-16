@@ -35,14 +35,13 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
   >();
   const [showReferences, setShowReferences] = useState<number | null>(null);
 
-  const { items, searchInputProps, isFiltered, SortableTH, clear, pagination } =
-    useSearch({
-      items: savedQueries,
-      defaultSortField: "dateUpdated",
-      localStorageKey: "savedqueries",
-      searchFields: ["name^3", "sql"],
-      pageSize: 20,
-    });
+  const { items, isFiltered, SortableTH, clear, pagination } = useSearch({
+    items: savedQueries,
+    defaultSortField: "dateUpdated",
+    localStorageKey: "savedqueries",
+    searchFields: ["name^3", "sql"],
+    pageSize: 20,
+  });
 
   const handleDelete = useCallback(
     async (query: SavedQuery) => {
@@ -100,17 +99,8 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
         />
       )}
 
-      <div className="mb-3">
-        <input
-          type="search"
-          className="form-control"
-          placeholder="Search saved queries..."
-          {...searchInputProps}
-        />
-      </div>
-
       {items.length > 0 ? (
-        <>
+        <div className="mt-3">
           <table className="table appbox gbtable">
             <thead>
               <tr>
@@ -351,7 +341,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
             </tbody>
           </table>
           {pagination}
-        </>
+        </div>
       ) : isFiltered ? (
         <div className="appbox p-4 text-center">
           <p>No saved queries match your search.</p>
