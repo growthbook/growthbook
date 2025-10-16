@@ -120,9 +120,10 @@ export function getFactMetricGroups(
   integration: SourceIntegrationInterface,
   organization: OrganizationInterface,
 ): GroupedMetrics {
-
-  const legacyMetrics: MetricInterface[] = metrics.filter((m) => isLegacyMetric(m));
-  const factMetrics: FactMetricInterface[] = metrics.filter(isFactMetric)
+  const legacyMetrics: MetricInterface[] = metrics.filter((m) =>
+    isLegacyMetric(m),
+  );
+  const factMetrics: FactMetricInterface[] = metrics.filter(isFactMetric);
 
   const defaultReturn: GroupedMetrics = {
     // by default, put all fact metrics in their own group
@@ -150,7 +151,6 @@ export function getFactMetricGroups(
   // Group fact metrics into efficient groups (primarily if they share a fact table)
   const groups: Record<string, FactMetricInterface[]> = {};
   factMetrics.forEach((m) => {
-
     // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
     if (
       (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
