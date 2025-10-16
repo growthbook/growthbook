@@ -42,14 +42,18 @@ from gbstats.frequentist.tests import (
 )
 
 from gbstats.models.results import (
-    BaselineResponse,
-    BayesianVariationResponse,
     DimensionResponse,
+    BaselineResponseForComparison,
+    BayesianVariationResponseForComparison,
+    FrequentistVariationResponseForComparison,
+    VariationResponse,
     ExperimentMetricAnalysis,
     ExperimentMetricAnalysisResult,
-    FrequentistVariationResponse,
     MetricStats,
     MultipleExperimentMetricAnalysis,
+    BaselineResponse,
+    BayesianVariationResponse,
+    FrequentistVariationResponse,
     BanditResult,
     ResponseCI,
     SingleVariationResult,
@@ -487,9 +491,7 @@ def format_results(
     return results
 
 
-def format_variation_result(
-    row: Dict[Hashable, Any], v: int
-) -> Union[BaselineResponse, BayesianVariationResponse, FrequentistVariationResponse]:
+def format_variation_result(row: Dict[Hashable, Any], v: int) -> VariationResponse:
     prefix = f"v{v}" if v > 0 else "baseline"
 
     # if quantile_n
@@ -506,9 +508,14 @@ def format_variation_result(
         "denominator": row[f"{prefix}_denominator_sum"],
         "stats": stats,
     }
+    metricResultUnadjusted = copy.deepcopy(metricResult)
+
     if v == 0:
         # baseline variation
-        return BaselineResponse(**metricResult)
+        return BaselineResponseForComparison(
+            response=BaselineResponse(**metricResult),
+            responseCupedUnadjusted=BaselineResponse(**metricResultUnadjusted),
+        )
     else:
         # non-baseline variation
         if row[f"{prefix}_decision_making_conditions"]:
@@ -541,21 +548,29 @@ def format_variation_result(
             "errorMessage": row[f"{prefix}_error_message"],
         }
         if row["engine"] == "frequentist":
-            return FrequentistVariationResponse(
+            response = FrequentistVariationResponse(
                 **metricResult,
                 **testResult,
                 power=power_response,
                 pValue=row[f"{prefix}_p_value"],
                 pValueErrorMessage=row[f"{prefix}_p_value_error_message"],
             )
+            response_cuped_unadjusted = copy.deepcopy(response)
+            return FrequentistVariationResponseForComparison(
+                response=response, responseCupedUnadjusted=response_cuped_unadjusted
+            )
         else:
-            return BayesianVariationResponse(
+            response = BayesianVariationResponse(
                 **metricResult,
                 **testResult,
                 power=power_response,
                 chanceToWin=row[f"{prefix}_prob_beat_baseline"],
                 risk=row[f"{prefix}_risk"],
                 riskType=row[f"{prefix}_risk_type"],
+            )
+            response_cuped_unadjusted = copy.deepcopy(response)
+            return BayesianVariationResponseForComparison(
+                response=response, responseCupedUnadjusted=response_cuped_unadjusted
             )
 
 

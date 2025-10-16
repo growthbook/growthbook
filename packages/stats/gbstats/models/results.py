@@ -84,8 +84,28 @@ class FrequentistVariationResponse(BaseVariationResponse):
     pValueErrorMessage: Optional[PValueErrorMessage]
 
 
+@dataclass
+class BaselineResponseForComparison:
+    response: BaselineResponse
+    responseCupedUnadjusted: BaselineResponse
+
+
+@dataclass
+class BayesianVariationResponseForComparison:
+    response: BayesianVariationResponse
+    responseCupedUnadjusted: BayesianVariationResponse
+
+
+@dataclass
+class FrequentistVariationResponseForComparison:
+    response: FrequentistVariationResponse
+    responseCupedUnadjusted: FrequentistVariationResponse
+
+
 VariationResponse = Union[
-    BayesianVariationResponse, FrequentistVariationResponse, BaselineResponse
+    BayesianVariationResponseForComparison,
+    FrequentistVariationResponseForComparison,
+    BaselineResponseForComparison,
 ]
 
 

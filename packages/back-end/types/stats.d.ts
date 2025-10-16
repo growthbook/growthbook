@@ -46,6 +46,16 @@ interface FrequentistVariationResponse extends BaseVariationResponse {
   pValueErrorMessage?: PValueErrorMessage;
 }
 
+export interface FrequentistVariationResponseForComparison {
+  response: FrequentistVariationResponse;
+  responseCupedUnadjusted: FrequentistVariationResponse;
+}
+
+export interface BayesianVariationResponseForComparison {
+  response: BayesianVariationResponse;
+  responseCupedUnadjusted: BayesianVariationResponse;
+}
+
 // Keep in sync with gbstats PowerResponse
 export interface MetricPowerResponseFromStatsEngine {
   status: string;
@@ -66,16 +76,16 @@ interface BaseDimensionResponse {
 }
 
 interface BayesianDimensionResponse extends BaseDimensionResponse {
-  variations: BayesianVariationResponse[];
+  variations: BayesianVariationResponseForComparison[];
 }
 
-interface FrequentistVariationResponse extends BaseDimensionResponse {
-  variations: FrequentistVariationResponse[];
+interface FrequentistDimensionResponse extends BaseDimensionResponse {
+  variations: FrequentistVariationResponseForComparison[];
 }
 
 type StatsEngineDimensionResponse =
   | BayesianDimensionResponse
-  | FrequentistVariationResponse;
+  | FrequentistDimensionResponse;
 
 // Keep below classes in sync with gbstats
 export type ExperimentMetricAnalysis = {
