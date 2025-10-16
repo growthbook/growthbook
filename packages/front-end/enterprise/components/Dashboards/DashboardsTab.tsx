@@ -599,8 +599,8 @@ function DashboardsTab({
                         isTabActive={isTabActive}
                         id={dashboard.id}
                         title={dashboard.title}
-                        editLevel={dashboard.editLevel}
-                        shareLevel={dashboard.shareLevel}
+                        initialEditLevel={dashboard.editLevel}
+                        initialShareLevel={dashboard.shareLevel}
                         dashboardOwnerId={dashboard.userId}
                         blocks={blocks}
                         projects={

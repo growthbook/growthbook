@@ -260,41 +260,106 @@ export default function DashboardModal({
             )}
           </>
         )}
-        {isGeneralDashboard ? (
-          <SelectField
-            label="View access"
-            disabled={
-              !hasCommercialFeature("share-product-analytics-dashboards")
-            }
-            options={[
-              { label: "Organization members", value: "published" },
-              { label: "Only me", value: "private" },
-              // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
-            ]}
-            value={form.watch("shareLevel")}
-            onChange={(value) =>
-              form.setValue("shareLevel", value as DashboardEditLevel)
-            }
-          />
-        ) : null}
-        <SelectField
-          label="Edit access"
-          disabled={
-            !hasCommercialFeature("share-product-analytics-dashboards") ||
-            form.watch("shareLevel") === "private"
-          }
-          options={[
-            {
-              label: "Any organization members with editing permission",
-              value: "published",
-            },
-            { label: "Only me", value: "private" },
-          ]}
-          value={form.watch("editLevel")}
-          onChange={(value) =>
-            form.setValue("editLevel", value as DashboardEditLevel)
-          }
-        />
+        {mode === "create" ? (
+          // Creating a dashboard: show view access for general dashboards only, edit access for all
+          <>
+            {isGeneralDashboard && (
+              <SelectField
+                label="View access"
+                disabled={
+                  !hasCommercialFeature("share-product-analytics-dashboards")
+                }
+                options={[
+                  { label: "Organization members", value: "published" },
+                  { label: "Only me", value: "private" },
+                  // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+                ]}
+                value={form.watch("shareLevel")}
+                onChange={(value) =>
+                  form.setValue("shareLevel", value as DashboardShareLevel)
+                }
+              />
+            )}
+            <SelectField
+              label="Edit access"
+              disabled={
+                !hasCommercialFeature("share-product-analytics-dashboards") ||
+                form.watch("shareLevel") === "private"
+              }
+              options={[
+                {
+                  label: "Any organization members with editing permission",
+                  value: "published",
+                },
+                { label: "Only me", value: "private" },
+              ]}
+              value={form.watch("editLevel")}
+              onChange={(value) =>
+                form.setValue("editLevel", value as DashboardEditLevel)
+              }
+            />
+          </>
+        ) : mode === "edit" ? (
+          // Editing a dashboard: hide view and edit access for general dashboards, show view access for experiment dashboards
+          <>
+            {!isGeneralDashboard && (
+              <SelectField
+                label="View access"
+                disabled={
+                  !hasCommercialFeature("share-product-analytics-dashboards")
+                }
+                options={[
+                  { label: "Organization members", value: "published" },
+                  { label: "Only me", value: "private" },
+                  // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+                ]}
+                value={form.watch("shareLevel")}
+                onChange={(value) =>
+                  form.setValue("shareLevel", value as DashboardShareLevel)
+                }
+              />
+            )}
+          </>
+        ) : (
+          // Duplicating a dashboard: show view access for general dashboards only, edit access for all
+          <>
+            {isGeneralDashboard && (
+              <SelectField
+                label="View access"
+                disabled={
+                  !hasCommercialFeature("share-product-analytics-dashboards")
+                }
+                options={[
+                  { label: "Organization members", value: "published" },
+                  { label: "Only me", value: "private" },
+                  // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+                ]}
+                value={form.watch("shareLevel")}
+                onChange={(value) =>
+                  form.setValue("shareLevel", value as DashboardShareLevel)
+                }
+              />
+            )}
+            <SelectField
+              label="Edit access"
+              disabled={
+                !hasCommercialFeature("share-product-analytics-dashboards") ||
+                form.watch("shareLevel") === "private"
+              }
+              options={[
+                {
+                  label: "Any organization members with editing permission",
+                  value: "published",
+                },
+                { label: "Only me", value: "private" },
+              ]}
+              value={form.watch("editLevel")}
+              onChange={(value) =>
+                form.setValue("editLevel", value as DashboardEditLevel)
+              }
+            />
+          </>
+        )}
       </Flex>
     </Modal>
   );

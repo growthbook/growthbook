@@ -8,6 +8,8 @@ import {
   PiListDashesDuotone,
   PiArticleMediumDuotone,
   PiPencilSimpleFill,
+  PiCheck,
+  PiLink,
 } from "react-icons/pi";
 import {
   DashboardBlockInterfaceOrData,
@@ -42,6 +44,10 @@ import ProjectBadges from "@/components/ProjectBadges";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Modal from "@/components/Modal";
+import SelectField from "@/components/Forms/SelectField";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import HelperText from "@/ui/HelperText";
 import DashboardModal from "../DashboardModal";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
@@ -205,8 +211,8 @@ interface Props {
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
-  editLevel: DashboardEditLevel;
-  shareLevel: DashboardShareLevel;
+  initialEditLevel: DashboardEditLevel;
+  initialShareLevel: DashboardShareLevel;
   dashboardOwnerId: string;
   nextUpdate: Date | undefined;
   dashboardLastUpdated?: Date;
@@ -229,8 +235,8 @@ function DashboardEditor({
   blocks,
   isEditing,
   enableAutoUpdates,
-  editLevel,
-  shareLevel,
+  initialEditLevel,
+  initialShareLevel,
   id,
   dashboardOwnerId,
   nextUpdate,
@@ -256,9 +262,22 @@ function DashboardEditor({
   } = editBlockProps ?? {};
 
   const [editDashboard, setEditDashboard] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const [duplicateDashboard, setDuplicateDashboard] = useState(false);
+  const [shareLevel, setShareLevel] =
+    useState<DashboardShareLevel>(initialShareLevel);
+  const [editLevel, setEditLevel] =
+    useState<DashboardEditLevel>(initialEditLevel);
+  console.log("initialEditLevel", initialEditLevel);
+  console.log("editLevel", editLevel);
+  const [saveShareLevelStatus, setSaveShareLevelStatus] = useState<
+    null | "loading" | "success" | "fail"
+  >(null);
+  const [saveEditLevelStatus, setSaveEditLevelStatus] = useState<
+    null | "loading" | "success" | "fail"
+  >(null);
   const { apiCall } = useAuth();
-  const { userId, getUserDisplay } = useUser();
+  const { userId, getUserDisplay, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   let canEdit = permissionsUtil.canUpdateGeneralDashboards(
     { projects: projects || [] },
@@ -276,6 +295,46 @@ function DashboardEditor({
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 1500,
   });
+
+  // Handle shareLevel changes
+  useEffect(() => {
+    if (initialShareLevel !== shareLevel) {
+      setSaveShareLevelStatus("loading");
+      apiCall(`/dashboards/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ shareLevel }),
+      })
+        .then(() => {
+          mutate?.();
+          setSaveShareLevelStatus("success");
+          setTimeout(() => setSaveShareLevelStatus(null), 3000);
+        })
+        .catch(() => {
+          setSaveShareLevelStatus("fail");
+          setTimeout(() => setSaveShareLevelStatus(null), 3000);
+        });
+    }
+  }, [shareLevel, initialShareLevel, id, apiCall, mutate]);
+
+  // Handle editLevel changes
+  useEffect(() => {
+    if (initialEditLevel !== editLevel) {
+      setSaveEditLevelStatus("loading");
+      apiCall(`/dashboards/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ editLevel }),
+      })
+        .then(() => {
+          mutate?.();
+          setSaveEditLevelStatus("success");
+          setTimeout(() => setSaveEditLevelStatus(null), 3000);
+        })
+        .catch(() => {
+          setSaveEditLevelStatus("fail");
+          setTimeout(() => setSaveEditLevelStatus(null), 3000);
+        });
+    }
+  }, [editLevel, initialEditLevel, id, apiCall, mutate]);
 
   const renderSingleBlock = ({
     i,
@@ -377,6 +436,26 @@ function DashboardEditor({
     );
   };
 
+  const shareLinkButton = copySuccess ? (
+    <Button style={{ width: 130 }} icon={<PiCheck />}>
+      Link copied
+    </Button>
+  ) : (
+    <Button
+      disabled={shareLevel === "private"}
+      onClick={() => {
+        const url = window.location.href.replace(/[?#].*/, `#dashboards/${id}`);
+        performCopy(url);
+      }}
+      style={{
+        width: 130,
+      }}
+      icon={<PiLink />}
+    >
+      Copy Link
+    </Button>
+  );
+
   return (
     <div>
       {editDashboard && (
@@ -385,9 +464,9 @@ function DashboardEditor({
           type={isGeneralDashboard ? "general" : "experiment"}
           initial={{
             title: title,
-            editLevel: editLevel,
+            editLevel: initialEditLevel,
             enableAutoUpdates: enableAutoUpdates,
-            shareLevel: shareLevel,
+            shareLevel: initialShareLevel,
             projects: projects,
           }}
           close={() => setEditDashboard(false)}
@@ -403,11 +482,12 @@ function DashboardEditor({
       {duplicateDashboard && (
         <DashboardModal
           mode="duplicate"
+          type={isGeneralDashboard ? "general" : "experiment"}
           initial={{
             title: `Copy of ${title}`,
-            editLevel: editLevel,
+            editLevel: initialEditLevel,
             enableAutoUpdates: enableAutoUpdates,
-            shareLevel: shareLevel,
+            shareLevel: initialShareLevel,
             projects: projects,
           }}
           close={() => setDuplicateDashboard(false)}
@@ -433,6 +513,94 @@ function DashboardEditor({
             }
           }}
         />
+      )}
+      {shareModalOpen && (
+        <Modal
+          open={true}
+          trackingEventModalType="product-analytics-dashboard"
+          header="Update Dashboard Access Settings"
+          close={() => setShareModalOpen(false)}
+          closeCta="Close"
+          useRadixButton={true}
+          secondaryCTA={shareLinkButton}
+        >
+          <Flex direction="column" gap="1">
+            <div className="mb-1">
+              {shareLevel === "private" ? (
+                <Callout status="info" size="sm">
+                  Currently only you can view or edit this dashboard.
+                </Callout>
+              ) : (
+                <Callout status="warning" size="sm">
+                  {`This report is discoverable within your organization. ${editLevel === "private" ? "Only you can edit it." : "Anybody in your organization with permissions can edit it."}`}
+                </Callout>
+              )}
+            </div>
+            <div>
+              <SelectField
+                label="View access"
+                disabled={
+                  !hasCommercialFeature("share-product-analytics-dashboards")
+                }
+                options={[
+                  { label: "Organization members", value: "published" },
+                  { label: "Only me", value: "private" },
+                  // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+                ]}
+                value={shareLevel}
+                onChange={(value: DashboardShareLevel) => setShareLevel(value)}
+              />
+              <div className="mb-1" style={{ height: 24 }}>
+                {saveShareLevelStatus === "loading" ? (
+                  <div className="position-relative" style={{ top: -6 }}>
+                    <LoadingSpinner />
+                  </div>
+                ) : saveShareLevelStatus === "success" ? (
+                  <HelperText status="success" size="sm">
+                    Sharing status has been updated
+                  </HelperText>
+                ) : saveShareLevelStatus === "fail" ? (
+                  <HelperText status="error" size="sm">
+                    Unable to update sharing status
+                  </HelperText>
+                ) : null}
+              </div>
+            </div>
+            <div>
+              <SelectField
+                label="Edit access"
+                disabled={
+                  !hasCommercialFeature("share-product-analytics-dashboards") ||
+                  shareLevel === "private"
+                }
+                options={[
+                  {
+                    label: "Any organization members with editing permission",
+                    value: "published",
+                  },
+                  { label: "Only me", value: "private" },
+                ]}
+                value={editLevel}
+                onChange={(value: DashboardEditLevel) => setEditLevel(value)}
+              />
+              <div className="mb-1" style={{ height: 24 }}>
+                {saveEditLevelStatus === "loading" ? (
+                  <div className="position-relative" style={{ top: -6 }}>
+                    <LoadingSpinner />
+                  </div>
+                ) : saveEditLevelStatus === "success" ? (
+                  <HelperText status="success" size="sm">
+                    Edit access has been updated
+                  </HelperText>
+                ) : saveEditLevelStatus === "fail" ? (
+                  <HelperText status="error" size="sm">
+                    Unable to update edit access
+                  </HelperText>
+                ) : null}
+              </div>
+            </div>
+          </Flex>
+        </Modal>
       )}
       <div className="mb-3">
         <Flex align="center" height={DASHBOARD_TOPBAR_HEIGHT} gap="1">
@@ -475,31 +643,15 @@ function DashboardEditor({
             disabled={!!editSidebarDirty}
             isEditing={isEditing}
           />
-          {isGeneralDashboard && setIsEditing && !isEditing ? (
+          {isGeneralDashboard && setIsEditing && !isEditing && canEdit ? (
             <>
-              <Tooltip
-                state={copySuccess}
-                ignoreMouseEvents
-                delay={0}
-                tipPosition="left"
-                body="URL copied to clipboard"
-                innerClassName="px-2 py-1"
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShareModalOpen(true)}
               >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  style={{ whiteSpace: "nowrap" }}
-                  onClick={() => {
-                    const url = window.location.href.replace(
-                      /[?#].*/,
-                      `#dashboards/${id}`,
-                    );
-                    performCopy(url);
-                  }}
-                >
-                  Copy link
-                </Button>
-              </Tooltip>
+                Share...
+              </Button>
               <Button
                 variant="solid"
                 size="sm"
@@ -510,6 +662,7 @@ function DashboardEditor({
                 <PiPencilSimpleFill className="mr-2" />
                 Edit Blocks
               </Button>
+
               <MoreMenu>
                 {canEdit && (
                   <Button
