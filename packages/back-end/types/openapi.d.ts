@@ -2932,8 +2932,15 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-      pinnedMetricDimensionLevels?: (string)[];
+      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+      pinnedMetricSlices?: (string)[];
+      /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     ExperimentSnapshot: {
       id: string;
@@ -3261,8 +3268,15 @@ export interface components {
       customFields?: {
         [key: string]: unknown | undefined;
       };
-      /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-      pinnedMetricDimensionLevels?: (string)[];
+      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+      pinnedMetricSlices?: (string)[];
+      /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     }) & ({
       enhancedStatus?: {
         /** @enum {string} */
@@ -3418,12 +3432,12 @@ export interface components {
           /** @default false */
           deleted: boolean;
           /**
-           * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+           * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
            * @default false
            */
-          isDimension?: boolean;
-          /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-          dimensionLevels?: (string)[];
+          isAutoSliceColumn?: boolean;
+          /** @description Specific slices to automatically analyze for this column. */
+          autoSlices?: (string)[];
           /** Format: date-time */
           dateCreated?: string;
           /** Format: date-time */
@@ -3467,12 +3481,12 @@ export interface components {
       /** @default false */
       deleted: boolean;
       /**
-       * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+       * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
        * @default false
        */
-      isDimension?: boolean;
-      /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-      dimensionLevels?: (string)[];
+      isAutoSliceColumn?: boolean;
+      /** @description Specific slices to automatically analyze for this column. */
+      autoSlices?: (string)[];
       /** Format: date-time */
       dateCreated?: string;
       /** Format: date-time */
@@ -3591,8 +3605,8 @@ export interface components {
       /** Format: date-time */
       dateUpdated: string;
       archived?: boolean;
-      /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-      enableMetricDimensions?: boolean;
+      /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+      metricAutoSlices?: (string)[];
     };
     MetricAnalysis: {
       /** @description The ID of the created metric analysis */
@@ -3714,6 +3728,8 @@ export interface components {
       banditBurnInUnit: "hours" | "days";
       experimentMinLengthDays: number;
       experimentMaxLengthDays?: number | null;
+      preferredEnvironment?: string | null;
+      maxMetricSliceLevels?: number;
     };
     CodeRef: {
       /** @description The organization name */
@@ -9113,8 +9129,15 @@ export interface operations {
                 customFields?: {
                   [key: string]: unknown | undefined;
                 };
-                /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-                pinnedMetricDimensionLevels?: (string)[];
+                /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+                pinnedMetricSlices?: (string)[];
+                /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
               })[];
           }) & {
             limit: number;
@@ -9240,8 +9263,15 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
-          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-          pinnedMetricDimensionLevels?: (string)[];
+          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+          pinnedMetricSlices?: (string)[];
+          /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
         };
       };
     };
@@ -9392,8 +9422,15 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-              pinnedMetricDimensionLevels?: (string)[];
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
           };
         };
@@ -9576,8 +9613,15 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-              pinnedMetricDimensionLevels?: (string)[];
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             }) & ({
               enhancedStatus?: {
                 /** @enum {string} */
@@ -9707,8 +9751,15 @@ export interface operations {
           banditBurnInValue?: number;
           /** @enum {string} */
           banditBurnInUnit?: "days" | "hours";
-          /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-          pinnedMetricDimensionLevels?: (string)[];
+          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+          pinnedMetricSlices?: (string)[];
+          /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
         };
       };
     };
@@ -9859,8 +9910,15 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-              pinnedMetricDimensionLevels?: (string)[];
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
           };
         };
@@ -10953,8 +11011,15 @@ export interface operations {
               customFields?: {
                 [key: string]: unknown | undefined;
               };
-              /** @description Array of pinned metric dimension levels in format `{metricId}?dim:{dimensionColumn}={value}&location={goal|secondary|guardrail}` */
-              pinnedMetricDimensionLevels?: (string)[];
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
           };
         };
@@ -11927,12 +11992,12 @@ export interface operations {
                     /** @default false */
                     deleted: boolean;
                     /**
-                     * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                     * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                      * @default false
                      */
-                    isDimension?: boolean;
-                    /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-                    dimensionLevels?: (string)[];
+                    isAutoSliceColumn?: boolean;
+                    /** @description Specific slices to automatically analyze for this column. */
+                    autoSlices?: (string)[];
                     /** Format: date-time */
                     dateCreated?: string;
                     /** Format: date-time */
@@ -12035,12 +12100,12 @@ export interface operations {
                   /** @default false */
                   deleted: boolean;
                   /**
-                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                    * @default false
                    */
-                  isDimension?: boolean;
-                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-                  dimensionLevels?: (string)[];
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12114,12 +12179,12 @@ export interface operations {
                   /** @default false */
                   deleted: boolean;
                   /**
-                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                    * @default false
                    */
-                  isDimension?: boolean;
-                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-                  dimensionLevels?: (string)[];
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12169,7 +12234,7 @@ export interface operations {
           sql?: string;
           /** @description The event name used in SQL template variables */
           eventName?: string;
-          /** @description Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Dimension-related properties require an enterprise license. */
+          /** @description Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license. */
           columns?: ({
               /** @description The actual column name in the database/SQL query */
               column: string;
@@ -12195,12 +12260,12 @@ export interface operations {
               /** @default false */
               deleted: boolean;
               /**
-               * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+               * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                * @default false
                */
-              isDimension?: boolean;
-              /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-              dimensionLevels?: (string)[];
+              isAutoSliceColumn?: boolean;
+              /** @description Specific slices to automatically analyze for this column. */
+              autoSlices?: (string)[];
               /** Format: date-time */
               dateCreated?: string;
               /** Format: date-time */
@@ -12259,12 +12324,12 @@ export interface operations {
                   /** @default false */
                   deleted: boolean;
                   /**
-                   * @description Whether this column can be used for dimension analysis. This is an enterprise feature. 
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
                    * @default false
                    */
-                  isDimension?: boolean;
-                  /** @description Specific values from this dimension column to include in analysis. If empty, all top values will be used. */
-                  dimensionLevels?: (string)[];
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
                   /** Format: date-time */
                   dateCreated?: string;
                   /** Format: date-time */
@@ -12635,8 +12700,8 @@ export interface operations {
                 /** Format: date-time */
                 dateUpdated: string;
                 archived?: boolean;
-                /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-                enableMetricDimensions?: boolean;
+                /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+                metricAutoSlices?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -12783,8 +12848,8 @@ export interface operations {
            * @enum {string}
            */
           managedBy?: "" | "api" | "admin";
-          /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-          enableMetricDimensions?: boolean;
+          /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+          metricAutoSlices?: (string)[];
         };
       };
     };
@@ -12890,8 +12955,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
-              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-              enableMetricDimensions?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -13008,8 +13073,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
-              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-              enableMetricDimensions?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -13144,8 +13209,8 @@ export interface operations {
            */
           managedBy?: "" | "api" | "admin";
           archived?: boolean;
-          /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-          enableMetricDimensions?: boolean;
+          /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+          metricAutoSlices?: (string)[];
         };
       };
     };
@@ -13251,8 +13316,8 @@ export interface operations {
               /** Format: date-time */
               dateUpdated: string;
               archived?: boolean;
-              /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-              enableMetricDimensions?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -13500,8 +13565,8 @@ export interface operations {
                  * @enum {string}
                  */
                 managedBy?: "" | "api" | "admin";
-                /** @description Whether this metric supports dimension analysis. This is an enterprise feature. */
-                enableMetricDimensions?: boolean;
+                /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+                metricAutoSlices?: (string)[];
               };
             })[];
         };
@@ -13764,6 +13829,8 @@ export interface operations {
               banditBurnInUnit: "hours" | "days";
               experimentMinLengthDays: number;
               experimentMaxLengthDays?: number | null;
+              preferredEnvironment?: string | null;
+              maxMetricSliceLevels?: number;
             };
           };
         };

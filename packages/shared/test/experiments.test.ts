@@ -33,6 +33,8 @@ describe("Experiments", () => {
       name: "Event Name",
       alwaysInlineFilter: true,
       deleted: false,
+      autoSlices: ["s1", "s2", "s3"],
+      isAutoSliceColumn: true,
     };
     const column2: ColumnInterface = {
       column: "page",
@@ -79,6 +81,16 @@ describe("Experiments", () => {
         "c.d": { datatype: "string" },
         "c.e": { datatype: "number" },
       },
+    };
+    const boolColumn: ColumnInterface = {
+      column: "is_bot",
+      datatype: "boolean",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "Is bot",
+      numberFormat: "",
+      name: "Is Bot",
+      deleted: false,
     };
     const deletedColumn: ColumnInterface = {
       column: "deleted_column",
@@ -129,6 +141,7 @@ describe("Experiments", () => {
         numericColumn,
         deletedColumn,
         jsonColumn,
+        boolColumn,
       ],
       filters: [filter, filter2, filter3],
       userIdTypes: ["user_id"],
@@ -141,6 +154,9 @@ describe("Experiments", () => {
       }
       return `${jsonCol}:'${path}'`;
     };
+    const evalBoolean = (col: string, value: boolean) => {
+      return `${col} IS ${value ? "TRUE" : "FALSE"}`;
+    };
 
     describe("canInlineFilterColumn", () => {
       it("returns true for string columns with alwaysInlineFilter", () => {
@@ -148,6 +164,9 @@ describe("Experiments", () => {
       });
       it("returns true for string columns, even if alwaysInlineFilter is false", () => {
         expect(canInlineFilterColumn(factTable, column2.column)).toBe(true);
+      });
+      it("returns true for boolean columns", () => {
+        expect(canInlineFilterColumn(factTable, boolColumn.column)).toBe(true);
       });
       it("returns false for deleted columns", () => {
         expect(canInlineFilterColumn(factTable, deletedColumn.column)).toBe(
@@ -182,22 +201,23 @@ describe("Experiments", () => {
     describe("getColumnRefWhereClause", () => {
       it("returns empty array when there are no filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
               filters: [],
               factTableId: "",
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
               filters: [],
               inlineFilters: {},
@@ -205,13 +225,14 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
               filters: [],
               inlineFilters: {
@@ -221,13 +242,14 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([]);
 
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: "event_name",
               filters: [],
               inlineFilters: {
@@ -237,14 +259,15 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([]);
       });
       it("ignores invalid filters, but uses invalid inline filter columns", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: ["unknown_id"],
               factTableId: "",
@@ -257,7 +280,8 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([
           "(unknown_column = 'unknown_value')",
           `(${numericColumn.column} = '1')`,
@@ -267,37 +291,39 @@ describe("Experiments", () => {
       });
       it("returns where clause for single filter", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [filter.id],
               factTableId: "",
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${filter.value})`]);
       });
       it("returns where clause for multiple filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [filter.id, filter2.id],
               factTableId: "",
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${filter.value})`, `(${filter2.value})`]);
       });
       it("returns where clause for single inline filter value", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [],
               inlineFilters: {
@@ -307,14 +333,15 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("returns where clause for multiple inline filter values", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [],
               inlineFilters: {
@@ -324,14 +351,15 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${column.column} IN (\n  'login',\n  'signup'\n))`]);
       });
       it("returns where clause for inline filters and filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [filter.id],
               inlineFilters: {
@@ -341,14 +369,15 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${column.column} = 'login')`, `(${filter.value})`]);
       });
       it("escapes string literals", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [],
               inlineFilters: {
@@ -358,14 +387,15 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${column.column} = 'login''s')`]);
       });
       it("removes duplicate inline filter and filter values", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [filter3.id],
               inlineFilters: {
@@ -375,14 +405,15 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("removes duplicate inline filter values", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: column.column,
               filters: [],
               inlineFilters: {
@@ -392,14 +423,15 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${column.column} = 'login')`]);
       });
       it("supports JSON column inline filters", () => {
         expect(
-          getColumnRefWhereClause(
+          getColumnRefWhereClause({
             factTable,
-            {
+            columnRef: {
               column: `${jsonColumn.column}.b`,
               filters: [],
               inlineFilters: {
@@ -409,8 +441,154 @@ describe("Experiments", () => {
             },
             escapeStringLiteral,
             jsonExtract,
-          ),
+            evalBoolean,
+          }),
         ).toStrictEqual([`(${jsonColumn.column}:'b'::float = 'hello')`]);
+      });
+      it("supports IS TRUE inline filter", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {
+                [boolColumn.column]: ["true"],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${boolColumn.column} IS TRUE)`]);
+      });
+      it("supports IS FALSE inline filter", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {
+                [boolColumn.column]: ["false"],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([`(${boolColumn.column} IS FALSE)`]);
+      });
+      it("ignores empty boolean filter", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {
+                [boolColumn.column]: [""],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+          }),
+        ).toStrictEqual([]);
+      });
+      it("includes metric slices", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {},
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              sliceLevels: [
+                {
+                  column: column.column,
+                  levels: ["l1"],
+                },
+                {
+                  column: column2.column,
+                  levels: ["l2", "l3"],
+                },
+              ],
+            },
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'l1')`,
+          // TODO: this should be an IN clause, fix the test once the code is updated
+          `(${column2.column} = 'l2')`,
+        ]);
+      });
+      it("includes metric auto slices - other", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [],
+              inlineFilters: {},
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              sliceLevels: [
+                {
+                  column: column.column,
+                  levels: [],
+                },
+              ],
+            },
+          }),
+        ).toStrictEqual([
+          `(${column.column} NOT IN (\n  's1',\n  's2',\n  's3'\n))`,
+        ]);
+      });
+      it("combines multiple types of filters", () => {
+        expect(
+          getColumnRefWhereClause({
+            factTable,
+            columnRef: {
+              column: "foo",
+              filters: [filter.id],
+              inlineFilters: {
+                [boolColumn.column]: ["false"],
+              },
+              factTableId: "",
+            },
+            escapeStringLiteral,
+            jsonExtract,
+            evalBoolean,
+            sliceInfo: {
+              isSliceMetric: true,
+              sliceLevels: [
+                {
+                  column: column.column,
+                  levels: ["l1"],
+                },
+              ],
+            },
+          }),
+        ).toStrictEqual([
+          `(${column.column} = 'l1')`,
+          `(${boolColumn.column} IS FALSE)`,
+          `(${filter.value})`,
+        ]);
       });
     });
     describe("getAggregateFilter", () => {

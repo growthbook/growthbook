@@ -453,11 +453,11 @@ export function GBCircleArrowLeft({ className = "" }): React.ReactElement {
   );
 }
 
-export function GBEdit({ className = "" }): React.ReactElement {
+export function GBEdit({ className = "", size = 16 }): React.ReactElement {
   return (
     <svg
-      width="16"
-      height="16"
+      width={size}
+      height={size}
       viewBox="0 0 16 16"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

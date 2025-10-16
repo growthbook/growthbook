@@ -34,6 +34,7 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 
 export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
+  projects?: string[];
   defaultSnapshot?: ExperimentSnapshotInterface;
   dimensionless?: ExperimentSnapshotInterface;
   snapshotsMap: Map<string, ExperimentSnapshotInterface>;
@@ -213,6 +214,7 @@ export default function DashboardSnapshotProvider({
     <DashboardSnapshotContext.Provider
       value={{
         experiment,
+        projects: experiment?.project ? [experiment.project] : undefined,
         defaultSnapshot: snapshotData?.snapshot,
         dimensionless: snapshotData?.dimensionless,
         snapshotsMap,
@@ -254,6 +256,7 @@ export function useDashboardSnapshot(
   const [postSnapshotAnalysisLoading, setPostSnapshotAnalysisLoading] =
     useState(false);
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
+  const [fetchingSnapshotFailed, setFetchingSnapshotFailed] = useState(false);
 
   const blockSnapshotId = block?.snapshotId;
   const blockSnapshot = snapshotsMap.get(blockSnapshotId ?? "");
@@ -290,7 +293,8 @@ export function useDashboardSnapshot(
       !experiment ||
       !snapshot ||
       snapshotSettingsMatch ||
-      fetchingSnapshot
+      fetchingSnapshot ||
+      fetchingSnapshotFailed
     )
       return;
     const getNewSnapshot = async () => {
@@ -303,7 +307,11 @@ export function useDashboardSnapshot(
           experiment.phases.length - 1
         }/${dimension}`,
       );
-      setBlock({ ...block, snapshotId: res.snapshot?.id ?? "" });
+      if (!res.snapshot) {
+        setFetchingSnapshotFailed(true);
+      } else {
+        setBlock({ ...block, snapshotId: res.snapshot.id });
+      }
       setFetchingSnapshot(false);
     };
     getNewSnapshot();
@@ -312,6 +320,7 @@ export function useDashboardSnapshot(
     snapshot,
     snapshotSettingsMatch,
     fetchingSnapshot,
+    fetchingSnapshotFailed,
     apiCall,
     block,
     setBlock,

@@ -196,6 +196,21 @@ function DashboardsTab({
     [apiCall, experiment.id, mutateDashboards],
   );
 
+  const memoizedSetBlock = useCallback(
+    (i: number, block: (typeof blocks)[number]) => {
+      const newBlocks = [...blocks.slice(0, i), block, ...blocks.slice(i + 1)];
+      setBlocks(newBlocks);
+      submitDashboard({
+        method: "PUT",
+        dashboardId,
+        data: {
+          blocks: newBlocks,
+        },
+      });
+    },
+    [blocks, submitDashboard, dashboardId],
+  );
+
   if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
   return (
     <DashboardSnapshotProvider
@@ -589,22 +604,8 @@ function DashboardsTab({
                         isEditing={false}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
-                        setBlock={(i, block) => {
-                          const newBlocks = [
-                            ...blocks.slice(0, i),
-                            block,
-                            ...blocks.slice(i + 1),
-                          ];
-                          setBlocks(newBlocks);
-                          submitDashboard({
-                            method: "PUT",
-                            dashboardId,
-                            data: {
-                              blocks: newBlocks,
-                            },
-                          });
-                        }}
                         isGeneralDashboard={false}
+                        setBlock={canEdit ? memoizedSetBlock : undefined}
                         mutate={mutateDashboards}
                         switchToExperimentView={switchToExperimentView}
                       />

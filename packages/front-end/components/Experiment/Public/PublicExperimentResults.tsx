@@ -151,7 +151,6 @@ export default function PublicExperimentResults({
                 status={experiment.status}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection}
-                regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
                 differenceType={analysis.settings?.differenceType}
@@ -179,7 +178,6 @@ export default function PublicExperimentResults({
                 id={experiment.id}
                 statsEngine={analysis.settings.statsEngine}
                 pValueCorrection={pValueCorrection}
-                regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
                 settingsForSnapshotMetrics={settingsForSnapshotMetrics}
                 sequentialTestingEnabled={analysis.settings?.sequentialTesting}
                 differenceType={analysis.settings?.differenceType}

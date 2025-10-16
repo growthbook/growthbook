@@ -111,7 +111,7 @@ const getTooltipContents = (
         </HelperText>
       ) : null}
       <Table size="1">
-        <TableHeader>
+        <TableHeader style={{ fontSize: "12px" }}>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
             <TableColumnHeader justify="center">Users</TableColumnHeader>
@@ -133,7 +133,7 @@ const getTooltipContents = (
           </TableRow>
         </TableHeader>
 
-        <TableBody>
+        <TableBody style={{ fontSize: "12px" }}>
           {variationNames.map((v, i) => {
             if (!d.variations) return null;
             if (!showVariations[i]) return null;
@@ -174,11 +174,19 @@ const getTooltipContents = (
                 </TableRowHeaderCell>
                 {yaxis === "effect" && (
                   <>
-                    <TableCell justify="center">{variation.users}</TableCell>
-                    <TableCell justify="center">
+                    <TableCell
+                      justify="center"
+                      style={{ fontWeight: "normal" }}
+                    >
+                      {variation.users}
+                    </TableCell>
+                    <TableCell
+                      justify="center"
+                      style={{ fontWeight: "normal" }}
+                    >
                       {variation.v_formatted}
                     </TableCell>
-                    <TableCell justify="center">
+                    <TableCell justify="center" style={{ fontWeight: "bold" }}>
                       {i > 0 && (
                         <>
                           {((variation.up ?? 0) > 0 ? "+" : "") +
@@ -188,7 +196,10 @@ const getTooltipContents = (
                     </TableCell>
                     {hasStats && (
                       <>
-                        <TableCell justify="center">
+                        <TableCell
+                          justify="center"
+                          style={{ fontWeight: "normal" }}
+                        >
                           {i > 0 && (
                             <>
                               [
@@ -802,8 +813,71 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       textAnchor: "middle",
                     };
                   }}
-                  tickFormat={(d) => {
-                    return format(d as Date, "MMM dd");
+                  tickFormat={(d, i, values) => {
+                    const date = getValidDate(
+                      d instanceof Date ? d : d.valueOf(),
+                    );
+                    const now = new Date();
+                    const sixMonthsAgo = new Date(
+                      now.getFullYear(),
+                      now.getMonth() - 6,
+                      now.getDate(),
+                    );
+                    const isOldRange = min < sixMonthsAgo.getTime();
+
+                    if (isOldRange) {
+                      // Check if this tick is on Jan 1st
+                      const isJan1 =
+                        date.getMonth() === 0 && date.getDate() === 1;
+                      if (isJan1) {
+                        return format(date, "MMM d, yyyy");
+                      }
+
+                      // Check if this is the first tick and it's 1+ months older than oldest Jan 1st tick
+                      if (i === 0) {
+                        // Find the oldest Jan 1st tick in the data range
+                        const jan1Ticks = values.filter((tick) => {
+                          const tickDate = getValidDate(
+                            tick.value instanceof Date
+                              ? tick.value
+                              : tick.value.valueOf(),
+                          );
+                          return (
+                            tickDate.getMonth() === 0 &&
+                            tickDate.getDate() === 1
+                          );
+                        });
+
+                        if (jan1Ticks.length === 0) {
+                          // No Jan 1st tick exists, show year on first tick
+                          return format(date, "MMM d, yyyy");
+                        } else {
+                          // Show year if first tick is 1+ months older than oldest Jan 1st tick
+                          const oldestJan1Tick = Math.min(
+                            ...jan1Ticks.map((tick) => {
+                              const tickDate = getValidDate(
+                                tick.value instanceof Date
+                                  ? tick.value
+                                  : tick.value.valueOf(),
+                              );
+                              return tickDate.getTime();
+                            }),
+                          );
+                          const monthsDiff = Math.abs(
+                            (date.getFullYear() -
+                              new Date(oldestJan1Tick).getFullYear()) *
+                              12 +
+                              (date.getMonth() -
+                                new Date(oldestJan1Tick).getMonth()),
+                          );
+                          if (monthsDiff >= 1) {
+                            return format(date, "MMM d, yyyy");
+                          }
+                        }
+                      }
+                    }
+
+                    return format(date, "MMM d");
                   }}
                   tickValues={numXTicks < 7 ? allXTicks : undefined}
                   axisLineClassName={timeSeriesStyles.axisLine}

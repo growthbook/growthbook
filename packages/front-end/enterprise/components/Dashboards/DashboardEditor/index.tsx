@@ -207,10 +207,12 @@ interface Props {
   dashboardOwnerId: string;
   nextUpdate: Date | undefined;
   dashboardLastUpdated?: Date;
-  setBlock: (
-    index: number,
-    block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-  ) => void;
+  setBlock:
+    | undefined
+    | ((
+        index: number,
+        block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+      ) => void);
   mutate: () => void;
   switchToExperimentView?: () => void;
   isGeneralDashboard: boolean;
@@ -285,9 +287,9 @@ function DashboardEditor({
     key: number | string;
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
     isFocused: boolean;
-    setBlock: React.Dispatch<
-      DashboardBlockInterfaceOrData<DashboardBlockInterface>
-    >;
+    setBlock:
+      | undefined
+      | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>;
     isEditingBlock: boolean;
     isLastBlock: boolean;
   }) => {
@@ -640,7 +642,7 @@ function DashboardEditor({
                   : `${block.type}-${i}`,
                 block: block,
                 isFocused: focusedBlockIndex === i,
-                setBlock: (block) => setBlock(i, block),
+                setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
                 isEditingBlock: stagedBlockIndex === i,
                 isLastBlock: i === blocks.length - 1,
               }),

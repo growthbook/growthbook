@@ -68,7 +68,7 @@ export type CommercialFeature =
   | "product-analytics-dashboards"
   | "share-product-analytics-dashboards"
   | "precomputed-dimensions"
-  | "metric-dimensions"
+  | "metric-slices"
   | "manage-official-resources";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -302,7 +302,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-correlations",
     "dashboards",
     "precomputed-dimensions",
-    "metric-dimensions",
+    "metric-slices",
     "manage-official-resources",
     "product-analytics-dashboards",
     "share-product-analytics-dashboards",

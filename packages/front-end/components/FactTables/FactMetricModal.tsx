@@ -3,7 +3,7 @@ import omit from "lodash/omit";
 import { ReactElement, useEffect, useState } from "react";
 import { FaArrowRight, FaTimes } from "react-icons/fa";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Box } from "@radix-ui/themes";
+import { Box, Text } from "@radix-ui/themes";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -28,8 +28,9 @@ import {
   getColumnRefWhereClause,
   getSelectedColumnDatatype,
 } from "shared/experiments";
-import { PiPlus } from "react-icons/pi";
+import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   formatNumber,
@@ -65,10 +66,12 @@ import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
 import HelperText from "@/ui/HelperText";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { MANAGED_BY_ADMIN } from "../Metrics/MetricForm";
+import { DocLink } from "../DocLink";
 
 export interface Props {
   close?: () => void;
@@ -174,6 +177,7 @@ function getColumnOptions({
   includeNumericColumns = true,
   includeStringColumns = false,
   includeJSONFields = false,
+  includeBooleanColumns = false,
   showColumnsAsSums = false,
   excludeColumns,
   groupPrefix = "",
@@ -184,6 +188,7 @@ function getColumnOptions({
   includeCountDistinct?: boolean;
   includeNumericColumns?: boolean;
   includeStringColumns?: boolean;
+  includeBooleanColumns?: boolean;
   includeJSONFields?: boolean;
   showColumnsAsSums?: boolean;
   excludeColumns?: Set<string>;
@@ -217,6 +222,19 @@ function getColumnOptions({
   if (stringColumns) {
     stringColumnOptions.push(
       ...stringColumns.map((col) => ({
+        label: col.name,
+        value: col.column,
+      })),
+    );
+  }
+
+  const booleanColumnOptions: SingleValue[] = [];
+  const booleanColumns = factTable?.columns.filter(
+    (col) => col.datatype === "boolean" && !col.deleted,
+  );
+  if (booleanColumns) {
+    booleanColumnOptions.push(
+      ...booleanColumns.map((col) => ({
         label: col.name,
         value: col.column,
       })),
@@ -278,6 +296,14 @@ function getColumnOptions({
     ret.push({
       label: `${groupPrefix}String Columns`,
       options: stringColumnOptions.filter((v) => !excludeColumns?.has(v.value)),
+    });
+  }
+  if (includeBooleanColumns && booleanColumnOptions.length > 0) {
+    ret.push({
+      label: `${groupPrefix}Boolean Columns`,
+      options: booleanColumnOptions.filter(
+        (v) => !excludeColumns?.has(v.value),
+      ),
     });
   }
   return ret;
@@ -439,6 +465,7 @@ function ColumnRefSelector({
     includeCountDistinct: false,
     includeNumericColumns: false,
     includeStringColumns: true,
+    includeBooleanColumns: true,
     includeJSONFields: true,
     showColumnsAsSums: false,
     excludeColumns: new Set([...(factTable?.userIdTypes || [])]),
@@ -448,14 +475,14 @@ function ColumnRefSelector({
       factTable ? canInlineFilterColumn(factTable, option.value) : false,
     );
 
-  const unfilteredStringColumns = eligibleColumns.filter(
+  const unfilteredEligibleColumns = eligibleColumns.filter(
     (c) => !value.inlineFilters?.[c.value]?.length,
   );
 
-  if (unfilteredStringColumns.length > 0) {
+  if (unfilteredEligibleColumns.length > 0) {
     addFilterOptions.push({
       label: "Filter by Column",
-      options: unfilteredStringColumns.map((o) => ({
+      options: unfilteredEligibleColumns.map((o) => ({
         label: o.label,
         value: `col::${o.value}`,
       })),
@@ -616,12 +643,12 @@ function ColumnRefSelector({
                       className="border rounded mr-1 d-flex align-items-center bg-white"
                       key={k}
                     >
-                      {colAlert && unfilteredStringColumns.length > 0 ? (
+                      {colAlert && unfilteredEligibleColumns.length > 0 ? (
                         <SelectField
                           value={k}
                           options={[
                             { label: col?.name || k, value: k },
-                            ...unfilteredStringColumns,
+                            ...unfilteredEligibleColumns,
                           ]}
                           onChange={(newKey) => {
                             if (k === newKey || !value.inlineFilters) return;
@@ -650,7 +677,19 @@ function ColumnRefSelector({
                           {colAlert}
                         </span>
                       )}
-                      {col?.topValues?.length ? (
+                      {col?.datatype === "boolean" ? (
+                        <SelectField
+                          value={v?.[0] + ""}
+                          onChange={(val) => onValuesChange(val ? [val] : [])}
+                          options={[
+                            { label: "Remove", value: "" },
+                            { label: "Is True", value: "true" },
+                            { label: "Is False", value: "false" },
+                          ]}
+                          sort={false}
+                          autoFocus
+                        />
+                      ) : col?.topValues?.length ? (
                         <MultiSelectField
                           value={v}
                           onChange={onValuesChange}
@@ -690,11 +729,19 @@ function ColumnRefSelector({
                         onChange={(v) => {
                           if (v) {
                             if (v.startsWith("col::")) {
+                              const column = v.replace("col::", "");
+                              const dataType = getSelectedColumnDatatype({
+                                factTable,
+                                column,
+                              });
+
                               setValue({
                                 ...value,
                                 inlineFilters: {
                                   ...value.inlineFilters,
-                                  [v.replace("col::", "")]: [""],
+                                  [column]: [
+                                    dataType === "boolean" ? "true" : "",
+                                  ],
                                 },
                               });
                             } else {
@@ -882,14 +929,15 @@ function getWHERE({
 }) {
   const whereParts =
     factTable && columnRef
-      ? getColumnRefWhereClause(
+      ? getColumnRefWhereClause({
           factTable,
           columnRef,
-          (s) => s.replace(/'/g, "''"),
-          // This isn't real SQL syntax, but it should get the point across
-          (jsonCol, path) => `${jsonCol}.${path}`,
-          true,
-        )
+          escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+          // This isn't real SQL syntax for most dialects, but it should get the point across
+          jsonExtract: (jsonCol, path) => `${jsonCol}.${path}`,
+          evalBoolean: (col, value) => `${col} IS ${value ? "TRUE" : "FALSE"}`,
+          showSourceComment: true,
+        })
       : [];
 
   if (type === "retention") {
@@ -1231,7 +1279,10 @@ function FieldMappingModal({
 
   const stringColumnOptions =
     factTable?.columns
-      ?.filter((c) => canInlineFilterColumn(factTable, c.column))
+      ?.filter(
+        (c) =>
+          canInlineFilterColumn(factTable, c.column) && c.datatype === "string",
+      )
       .map((c) => ({
         label: c.name || c.column,
         value: c.column,
@@ -1460,6 +1511,10 @@ export default function FactMetricModal({
 
   const { hasCommercialFeature, permissionsUtil } = useUser();
   const { disableLegacyMetricCreation } = settings;
+
+  const growthbook = useGrowthBook();
+  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   // TODO: We may want to hide this from non-technical users in the future
   const showSQLPreview = true;
@@ -1757,6 +1812,18 @@ export default function FactMetricModal({
         };
 
         if (!isNew) {
+          // Track auto slices changes
+          const previousSlices = existing.metricAutoSlices || [];
+          const newSlices = values.metricAutoSlices || [];
+          if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
+            track("metric-auto-slices-updated", {
+              metricId: existing.id,
+              previousSlices: previousSlices,
+              newSlices: newSlices,
+              sliceCount: newSlices.length,
+            });
+          }
+
           const updatePayload: UpdateFactMetricProps = omit(values, [
             "datasource",
           ]);
@@ -1767,6 +1834,15 @@ export default function FactMetricModal({
           track("Edit Fact Metric", trackProps);
           await mutateDefinitions();
         } else {
+          // Track auto slices for new metrics
+          const newSlices = values.metricAutoSlices || [];
+          if (newSlices.length > 0) {
+            track("metric-auto-slices-updated", {
+              newSlices: newSlices,
+              sliceCount: newSlices.length,
+            });
+          }
+
           const createPayload: CreateFactMetricProps = {
             ...values,
             projects:
@@ -2248,6 +2324,74 @@ export default function FactMetricModal({
                   },
                 ]}
               />
+
+              {isMetricSlicesFeatureEnabled &&
+                hasMetricSlicesFeature &&
+                (() => {
+                  const factTableId = form.watch("numerator.factTableId");
+                  const factTable = getFactTableById(factTableId);
+                  const availableSlices =
+                    factTable?.columns?.filter(
+                      (col) => col.isAutoSliceColumn && !col.deleted,
+                    ) || [];
+
+                  return (
+                    <div className="mt-3 mb-4">
+                      <label className="font-weight-bold mb-1">
+                        Auto Slices
+                        <PaidFeatureBadge
+                          commercialFeature="metric-slices"
+                          premiumText="This is an Enterprise feature"
+                          variant="outline"
+                          ml="2"
+                        />
+                      </label>
+                      <Text
+                        as="p"
+                        className="mb-2"
+                        style={{ color: "var(--color-text-mid)" }}
+                      >
+                        Choose metric breakdowns to automatically analyze in
+                        your experiments.{" "}
+                        <DocLink docSection="autoSlices">
+                          Learn More <PiArrowSquareOut />
+                        </DocLink>
+                      </Text>
+                      {hasMetricSlicesFeature && (
+                        <div className="mt-2">
+                          {availableSlices.length > 0 ? (
+                            <MultiSelectField
+                              value={form.watch("metricAutoSlices") || []}
+                              onChange={(metricAutoSlices) => {
+                                form.setValue(
+                                  "metricAutoSlices",
+                                  metricAutoSlices,
+                                );
+                              }}
+                              options={availableSlices.map((col) => ({
+                                label: col.name || col.column,
+                                value: col.column,
+                              }))}
+                              placeholder="Select auto slice columns..."
+                            />
+                          ) : (
+                            <Text
+                              as="span"
+                              style={{
+                                color: "var(--color-text-low)",
+                                fontStyle: "italic",
+                              }}
+                              size="1"
+                            >
+                              No slices available. Configure your fact table to
+                              enable auto slices.
+                            </Text>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
               {!advancedOpen && (
                 <a
