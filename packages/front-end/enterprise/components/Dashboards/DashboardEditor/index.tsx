@@ -19,7 +19,6 @@ import { Container, Flex, Heading, IconButton, Text } from "@radix-ui/themes";
 import clsx from "clsx";
 import { withErrorBoundary } from "@sentry/react";
 import { isPersistedDashboardBlock } from "shared/enterprise";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   DashboardEditLevel,
   DashboardInterface,
@@ -41,6 +40,8 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import ProjectBadges from "@/components/ProjectBadges";
 import UserAvatar from "@/components/Avatar/UserAvatar";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DashboardModal from "../DashboardModal";
 import DashboardBlock from "./DashboardBlock";
 import DashboardUpdateDisplay from "./DashboardUpdateDisplay";
@@ -509,50 +510,48 @@ function DashboardEditor({
                 <PiPencilSimpleFill className="mr-2" />
                 Edit Blocks
               </Button>
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="3"
-                    highContrast
+              <MoreMenu>
+                {canEdit && (
+                  <Button
+                    className="dropdown-item"
+                    onClick={() => setEditDashboard(true)}
                   >
-                    <BsThreeDotsVertical />
-                  </IconButton>
-                }
-              >
-                <DropdownMenuItem
-                  disabled={!canEdit}
-                  onClick={() => setEditDashboard(true)}
+                    <Text weight="regular">Edit Dashboard Settings</Text>
+                  </Button>
+                )}
+                <Button
+                  className="dropdown-item"
+                  onClick={() => setDuplicateDashboard(true)}
                 >
-                  Edit Details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setDuplicateDashboard(true)}>
-                  Duplicate
-                </DropdownMenuItem>
+                  <Text weight="regular">Duplicate</Text>
+                </Button>
                 <DropdownMenuSeparator />
                 <DashboardViewQueriesButton
                   className="dropdown-item text-capitalize"
                   weight="regular"
                   size="2"
                 />
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={!canDelete}
-                  onClick={async () => {
-                    await apiCall(`/dashboards/${id}`, {
-                      method: "DELETE",
-                    });
-                    if (typeof window !== "undefined") {
-                      window.location.href = "/dashboards";
-                    }
-                  }}
-                  color="red"
-                >
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenu>
+                {canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DeleteButton
+                      displayName="Dashboard"
+                      className="dropdown-item text-danger"
+                      useIcon={false}
+                      text="Delete"
+                      title="Delete Dashboard"
+                      onClick={async () => {
+                        await apiCall(`/dashboards/${id}`, {
+                          method: "DELETE",
+                        });
+                        if (typeof window !== "undefined") {
+                          window.location.href = "/dashboards";
+                        }
+                      }}
+                    />
+                  </>
+                )}
+              </MoreMenu>
             </>
           ) : null}
         </Flex>

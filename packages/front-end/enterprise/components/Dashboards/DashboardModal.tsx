@@ -129,7 +129,7 @@ export default function DashboardModal({
       trackingEventModalType={`${mode}-dashboard`}
       header={
         mode === "edit"
-          ? "Edit Dashboard Details"
+          ? "Edit Dashboard Settings"
           : mode === "create"
             ? "Create New Dashboard"
             : "Duplicate Dashboard"
