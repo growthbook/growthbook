@@ -18,7 +18,7 @@ const docSections = {
   api: "/app/api",
   eventWebhooks: "/app/webhooks/event-webhooks",
   sdkWebhooks: "/app/webhooks/sdk-webhooks",
-  dashboards: "/app/insights#dashboards", //MKTODO: Need to build this path
+  productAnalytics: "/app/product-analytics",
   "sdkWebhooks#payload-format": "/app/webhooks/sdk-webhooks#payload-format",
   webhookSecrets: "/app/webhooks#webhook-secrets",
   bandits: "/bandits/overview",
@@ -137,7 +137,7 @@ const urlPathMapping: Record<string, DocSection> = {
   "/saved-groups": "savedGroups",
   "/archetypes": "archetypes",
   "/settings/team": "team",
-  "/dashboards": "dashboards",
+  "/product-analytics": "productAnalytics",
 };
 
 //for testing use "http://localhost:3200"
