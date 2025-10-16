@@ -602,11 +602,6 @@ export class Permissions {
   public canViewCreateFactTableModal = (project?: string): boolean => {
     return this.canCreateFactTable({ projects: project ? [project] : [] });
   };
-  public canViewEditFactTableModal = (
-    factTable: Pick<FactTableInterface, "projects">,
-  ): boolean => {
-    return this.canUpdateFactTable(factTable, {});
-  };
 
   public canCreateFactTable = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy">,
@@ -623,10 +618,11 @@ export class Permissions {
     existing: Pick<FactTableInterface, "projects" | "managedBy">,
     updates: UpdateFactTableProps,
   ): boolean => {
-    if (
-      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
-      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
-    ) {
+    // We allow changing columns even for managed fact tables
+    const changedKeys = Object.keys(updates);
+    const requireManagedByCheck = changedKeys.some((k) => k !== "columns");
+
+    if (requireManagedByCheck && (existing.managedBy || updates.managedBy)) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
         return false;
       }

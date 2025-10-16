@@ -94,13 +94,18 @@ export default function FactTablePage() {
     projects: factTable.projects,
   });
 
-  let canEdit = permissionsUtil.canUpdateFactTable(factTable, {});
+  let canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
   let canDelete = permissionsUtil.canDeleteFactTable(factTable);
 
   if (factTable.managedBy && ["api", "config"].includes(factTable.managedBy)) {
     canEdit = false;
     canDelete = false;
   }
+
+  // Editing columns is less restrictive than editing the whole fact table
+  const canEditColumns = permissionsUtil.canUpdateFactTable(factTable, {
+    columns: [],
+  });
 
   const numMetrics = metrics.length;
   const numFilters = factTable.filters.length;
@@ -415,7 +420,7 @@ export default function FactTablePage() {
         <div className="col col-md-6 d-flex flex-column">
           <h3>Columns</h3>
           <div className="appbox p-3 flex-1 mb-0">
-            <ColumnList factTable={factTable} canEdit={canEdit} />
+            <ColumnList factTable={factTable} canEdit={canEditColumns} />
           </div>
         </div>
       </div>
