@@ -7,7 +7,7 @@ import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import Checkbox from "@/ui/Checkbox";
-import Button from "@/ui/Button";
+import Button from "@/components/Button";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 
 export interface Props {
