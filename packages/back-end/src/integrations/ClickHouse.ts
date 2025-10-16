@@ -33,7 +33,7 @@ export default class ClickHouse extends SqlIntegration {
 
   async runQuery(sql: string): Promise<QueryResponse> {
     const client = createClient({
-      host: getHost(this.params.url, this.params.port),
+      url: getHost(this.params.url, this.params.port),
       username: this.params.username,
       password: this.params.password,
       database: this.params.database,
@@ -133,6 +133,10 @@ if(
 )
       `;
     }
+  }
+  evalBoolean(col: string, value: boolean): string {
+    // Clickhouse does not support `IS TRUE` / `IS FALSE`
+    return `${col} = ${value ? "true" : "false"}`;
   }
 
   getInformationSchemaWhereClause(): string {

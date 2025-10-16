@@ -56,6 +56,7 @@ export function getDefaultFactMetricProps({
   project,
   datasources,
   initialFactTable,
+  managedBy,
 }: {
   metricDefaults: MetricDefaults;
   settings: OrganizationSettings;
@@ -63,6 +64,7 @@ export function getDefaultFactMetricProps({
   datasources: DataSourceInterfaceWithParams[];
   existing?: Partial<FactMetricInterface>;
   initialFactTable?: FactTableInterface;
+  managedBy?: "" | "api" | "admin";
 }): CreateFactMetricProps {
   return {
     name: existing?.name || "",
@@ -93,6 +95,7 @@ export function getDefaultFactMetricProps({
       type: "",
       value: 0,
     },
+    managedBy: managedBy || "",
     quantileSettings: existing?.quantileSettings || null,
     windowSettings: existing?.windowSettings || {
       type: DEFAULT_FACT_METRIC_WINDOW,
@@ -135,6 +138,7 @@ export function getDefaultFactMetricProps({
         mean: 0,
         stddev: DEFAULT_PROPER_PRIOR_STDDEV,
       }),
+    metricAutoSlices: existing?.metricAutoSlices || [],
   };
 }
 
@@ -288,6 +292,8 @@ export function getColumnFormatter(
       return formatBytes;
     case "memory:kilobytes":
       return formatKilobytes;
+    default:
+      return formatNumber;
   }
 }
 

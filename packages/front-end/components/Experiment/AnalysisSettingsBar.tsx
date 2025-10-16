@@ -176,22 +176,24 @@ export default function AnalysisSettingsBar({
           <div className="col-auto form-inline pr-5">
             <DimensionChooser
               value={analysisBarSettings.dimension}
-              setValue={(d: string) =>
-                setAnalysisBarSettings({ ...analysisBarSettings, dimension: d })
+              setValue={(d: string, resetOtherSettings?: boolean) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  dimension: d,
+                  ...(resetOtherSettings
+                    ? {
+                        baselineRow: 0,
+                        differenceType: "relative",
+                        variationFilter: [],
+                      }
+                    : {}),
+                })
               }
               precomputedDimensions={precomputedDimensions}
               activationMetric={!!experiment.activationMetric}
               datasourceId={experiment.datasource}
               exposureQueryId={experiment.exposureQueryId}
               userIdType={experiment.userIdType}
-              resetAnalysisBarSettings={() =>
-                setAnalysisBarSettings({
-                  ...analysisBarSettings,
-                  baselineRow: 0,
-                  differenceType: "relative",
-                  variationFilter: [],
-                })
-              }
               labelClassName="mr-2"
               analysis={analysis}
               snapshot={snapshot}
@@ -351,9 +353,6 @@ export default function AnalysisSettingsBar({
             <div className="col-auto">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={
-                  analysis?.settings?.differenceType ?? "relative"
-                }
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={async () => {

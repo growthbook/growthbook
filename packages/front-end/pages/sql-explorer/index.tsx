@@ -3,13 +3,13 @@ import { isProjectListValidForProject } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
-import LinkButton from "@/components/Radix/LinkButton";
-import Button from "@/components/Radix/Button";
+import LinkButton from "@/ui/LinkButton";
+import Button from "@/ui/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import SavedQueriesList from "@/components/SavedQueries/SavedQueriesList";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import PremiumCallout from "@/components/Radix/PremiumCallout";
+import PremiumCallout from "@/ui/PremiumCallout";
 
 export default function SqlExplorer() {
   const { datasources, project } = useDefinitions();

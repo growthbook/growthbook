@@ -51,7 +51,7 @@ export default function RuleList({
     environment: string;
     i: number;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -157,11 +157,14 @@ export default function RuleList({
           <em>No Active Rules</em>
         </div>
       )}
-      <HoldoutRule
-        feature={feature}
-        setRuleModal={openHoldoutModal}
-        mutate={mutate}
-      />
+      {holdout && (
+        <HoldoutRule
+          feature={feature}
+          setRuleModal={openHoldoutModal}
+          mutate={mutate}
+          ruleCount={items.length}
+        />
+      )}
       <SortableContext items={items} strategy={verticalListSortingStrategy}>
         {items.map(({ ...rule }, i) => (
           <SortableRule

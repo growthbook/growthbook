@@ -36,8 +36,8 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import EmptyState from "@/components/EmptyState";
-import LinkButton from "@/components/Radix/LinkButton";
-import Callout from "@/components/Radix/Callout";
+import LinkButton from "@/ui/LinkButton";
+import Callout from "@/ui/Callout";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 interface HistogramDatapoint {
@@ -513,6 +513,7 @@ const MetricEffectCard = ({
                         formatter={(value) =>
                           formatterM1(value, formatterOptions)
                         }
+                        xAxisLabel="Lift"
                         mean={metricData.stats?.mean || 0}
                         height={300}
                         highlightPositiveNegative={true}

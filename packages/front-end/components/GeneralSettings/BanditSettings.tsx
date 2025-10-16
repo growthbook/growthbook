@@ -7,7 +7,7 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 
 export default function BanditSettings({
   page = "org-settings",

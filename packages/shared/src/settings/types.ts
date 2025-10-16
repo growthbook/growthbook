@@ -14,7 +14,7 @@ import {
   OrganizationInterface,
   RequireReview,
 } from "back-end/types/organization";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { ProjectInterface } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
 import { MetricWindowSettings } from "back-end/types/fact-table";
@@ -54,13 +54,13 @@ export type ScopeSettingsFn = (scopes: ScopeDefinition) => {
 };
 
 interface MetricSettings {
-  windowType: MetricWindowSettings["type"] | null;
-  windowHours: number | null;
-  delayHours: number | null;
+  windowType: MetricWindowSettings["type"];
+  windowHours: number;
+  delayHours: number;
 
-  winRisk: number | null;
-  loseRisk: number | null;
-  targetMDE: number | null;
+  winRisk: number;
+  loseRisk: number;
+  targetMDE: number;
 }
 
 interface BaseSettings {
@@ -76,11 +76,13 @@ interface BaseSettings {
   defaultRole: MemberRoleInfo;
   statsEngine: StatsEngine;
   pValueThreshold: number;
+  pValueCorrection: PValueCorrection;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
   sequentialTestingEnabled: boolean;
   sequentialTestingTuningParameter: number;
   attributionModel: AttributionModel;
+  srmThreshold: number;
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
   requireReviews: boolean | RequireReview[];
@@ -92,6 +94,8 @@ interface BaseSettings {
   banditBurnInUnit: "hours" | "days";
   experimentMinLengthDays: number;
   experimentMaxLengthDays: number | undefined;
+  maxMetricSliceLevels: number;
+  useStickyBucketing: boolean;
 }
 
 // todo: encapsulate all settings, including experiment

@@ -6,9 +6,9 @@ import {ExperimentInterfaceStringDates} from "back-end/types/experiment";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import DifferenceTypeChooser from "@/components/Experiment/DifferenceTypeChooser";
-import { DropdownMenu } from "@/components/Radix/DropdownMenu";
-import Metadata from "@/components/Radix/Metadata";
-import Link from "@/components/Radix/Link";
+import { DropdownMenu } from "@/ui/DropdownMenu";
+import Metadata from "@/ui/Metadata";
+import Link from "@/ui/Link";
 
 export default function PublicExperimentAnalysisSettingsBar({
   experiment,

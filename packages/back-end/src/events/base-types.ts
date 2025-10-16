@@ -13,6 +13,7 @@ import {
   safeRolloutDecisionNotificationPayload,
   safeRolloutUnhealthyNotificationPayload,
 } from "back-end/src/validators/safe-rollout-notifications";
+import { DiffResult } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { EventUser } from "./event-types";
 
 type WebhookEntry = {
@@ -220,6 +221,13 @@ export const notificationEventPayloadData = <
     ...(data.isDiff
       ? {
           previous_attributes: schema.partial(),
+          changes: z
+            .object({
+              added: z.record(z.string(), z.unknown()),
+              removed: z.record(z.string(), z.unknown()),
+              modified: z.record(z.string(), z.unknown()),
+            })
+            .optional(),
         }
       : {}),
   });
@@ -240,6 +248,7 @@ export type NotificationEventPayloadDataType<
   ? {
       object: Obj;
       previous_attributes: PreviousAttributes;
+      changes?: DiffResult;
     } & NotificationEventPayloadExtraAttributes<Resource, Event>
   : { object: Obj } & NotificationEventPayloadExtraAttributes<Resource, Event>;
 

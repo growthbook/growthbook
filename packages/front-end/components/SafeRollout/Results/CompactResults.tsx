@@ -242,11 +242,11 @@ const CompactResults: FC<{
             statsEngine="frequentist"
             pValueCorrection={pValueCorrection}
             differenceType="absolute"
-            renderLabelColumn={getRenderLabelColumn(
+            renderLabelColumn={getRenderLabelColumn({
               regressionAdjustmentEnabled,
               statsEngine,
               hideDetails,
-            )}
+            })}
             metricFilter={metricFilter}
             setMetricFilter={setMetricFilter}
             metricTags={allMetricTags}
@@ -265,17 +265,24 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-export function getRenderLabelColumn(
-  regressionAdjustmentEnabled?: boolean,
-  statsEngine?: StatsEngine,
-  hideDetails?: boolean,
-) {
-  return function renderLabelColumn(
-    label: string,
-    metric: ExperimentMetricInterface,
-    row?: ExperimentTableRow,
-    maxRows?: number,
-  ) {
+export function getRenderLabelColumn({
+  regressionAdjustmentEnabled,
+  statsEngine,
+  hideDetails,
+}: {
+  regressionAdjustmentEnabled?: boolean;
+  statsEngine?: StatsEngine;
+  hideDetails?: boolean;
+}) {
+  return function renderLabelColumn({
+    metric,
+    row,
+    maxRows,
+  }: {
+    metric: ExperimentMetricInterface;
+    row?: ExperimentTableRow;
+    maxRows?: number;
+  }) {
     const metricLink = (
       <Tooltip
         body={
@@ -283,7 +290,6 @@ export function getRenderLabelColumn(
             metric={metric}
             row={row}
             statsEngine={statsEngine}
-            reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
             hideDetails={hideDetails}
           />
         }

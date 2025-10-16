@@ -12,7 +12,7 @@ import MetricGroupModal from "@/components/Metrics/MetricGroupModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const MetricGroupsList: FC = () => {

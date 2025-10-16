@@ -531,7 +531,7 @@ export async function postFeatures(
     );
   }
 
-  if (holdout) {
+  if (holdout && holdout.id) {
     const holdoutObj = await context.models.holdout.getById(holdout.id);
     if (!holdoutObj) {
       throw new Error("Holdout not found");
@@ -559,7 +559,7 @@ export async function postFeatures(
     archived: false,
     version: 1,
     hasDrafts: false,
-    holdout,
+    holdout: holdout?.id ? holdout : undefined,
     jsonSchema: {
       schemaType: "schema",
       simple: {
@@ -1250,7 +1250,11 @@ export async function postFeatureRule(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, version } = req.params;
-  const { environment, rule, safeRolloutFields } = req.body;
+  const {
+    environments: selectedEnvironments = [],
+    rule,
+    safeRolloutFields,
+  } = req.body;
 
   const feature = await getFeature(context, id);
   if (!feature) {
@@ -1261,9 +1265,24 @@ export async function postFeatureRule(
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
 
-  if (!environmentIds.includes(environment)) {
-    throw new Error("Invalid environment");
+  if (!selectedEnvironments.length) {
+    // Temporary so this new back-end continues to work with old front-end
+    if (
+      "environment" in req.body &&
+      typeof req.body.environment === "string" &&
+      req.body.environment
+    ) {
+      selectedEnvironments.push(req.body.environment);
+    } else {
+      throw new Error("Must select at least one environment");
+    }
   }
+
+  selectedEnvironments.forEach((env) => {
+    if (!environmentIds.includes(env)) {
+      throw new Error("Invalid environment");
+    }
+  });
 
   if (
     !context.permissions.canUpdateFeature(feature, {}) ||
@@ -1273,6 +1292,13 @@ export async function postFeatureRule(
   }
 
   if (rule.type === "safe-rollout") {
+    const environment = selectedEnvironments[0];
+    if (selectedEnvironments.length > 1) {
+      throw new Error(
+        "Safe Rollout rules can only be applied to a single environment",
+      );
+    }
+
     if (!context.hasPremiumFeature("safe-rollout")) {
       throw new Error(`Safe Rollout rules is a premium feature.`);
     }
@@ -1318,7 +1344,7 @@ export async function postFeatureRule(
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
   // experiment-ref rules
-  if (rule.type === "experiment-ref" && feature.holdout) {
+  if (rule.type === "experiment-ref" && feature.holdout?.id) {
     const experiment = await getExperimentById(context, rule.experimentId);
     const expHasLinkedChanges =
       (experiment?.linkedFeatures?.length ?? 0) > 0 ||
@@ -1359,14 +1385,14 @@ export async function postFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
   const resetReview = resetReviewOnChange({
     feature,
-    changedEnvironments: [environment],
+    changedEnvironments: selectedEnvironments,
     defaultValueChanged: false,
     settings: org?.settings,
   });
   await addFeatureRule(
     context,
     revision,
-    environment,
+    selectedEnvironments,
     rule,
     res.locals.eventAudit,
     resetReview,
@@ -2315,7 +2341,7 @@ export async function putFeature(
 
   const updatedFeature = await updateFeature(context, feature, updates);
 
-  if (updates.holdout?.id !== feature.holdout?.id) {
+  if (updates.holdout && updates.holdout?.id !== feature.holdout?.id) {
     const hasNonDraftExperimentsOrBandits = feature.linkedExperiments?.some(
       async (experimentId) => {
         const experiment = await getExperimentById(context, experimentId);
@@ -2337,14 +2363,18 @@ export async function putFeature(
     }
   }
 
-  if (updates.holdout?.id !== feature.holdout?.id && feature.holdout?.id) {
+  if (
+    updates.holdout &&
+    updates.holdout.id !== feature.holdout?.id &&
+    feature.holdout?.id
+  ) {
     await context.models.holdout.removeFeatureFromHoldout(
       feature.holdout.id,
       feature.id,
     );
   }
 
-  if (updates.holdout) {
+  if (updates.holdout && updates.holdout.id) {
     const holdoutObj = await context.models.holdout.getById(updates.holdout.id);
     if (!holdoutObj) {
       throw new Error("Holdout not found");
@@ -2436,10 +2466,15 @@ export async function deleteFeatureById(
       context.permissions.throwPermissionError();
     }
     if (feature.holdout?.id) {
-      await context.models.holdout.removeFeatureFromHoldout(
-        feature.holdout.id,
-        feature.id,
-      );
+      try {
+        await context.models.holdout.removeFeatureFromHoldout(
+          feature.holdout.id,
+          feature.id,
+        );
+      } catch (e) {
+        // This is not a fatal error, so don't block the request from happening
+        logger.warn(e, "Error removing feature from holdout");
+      }
     }
     await deleteFeature(context, feature);
     await req.audit({

@@ -7,7 +7,7 @@ import { ago } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingDimensions, hasFileConfig } from "@/services/env";
@@ -18,17 +18,13 @@ import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useSearch } from "@/services/search";
-import Table, {
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@/components/Radix/Table";
+import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 import { OfficialBadge } from "@/components/Metrics/MetricName";
 
 type ExperimentDimensionItem = {
+  id: string;
   dimension: string;
   datasourceName: string;
   datasourceId: string;
@@ -47,6 +43,7 @@ function getExperimentDimensions(
         const key = `${d}-${ds.id}`;
         if (!collapsedExperimentDimensions[key]) {
           collapsedExperimentDimensions[key] = {
+            id: key,
             dimension: d,
             datasourceName: ds.name,
             datasourceId: ds.id,
@@ -265,7 +262,7 @@ const DimensionsPage: FC = () => {
                           <OfficialBadge
                             type="Dimension"
                             managedBy={s.managedBy}
-                          />{" "}
+                          />
                           {s.name}{" "}
                           {s.description ? (
                             <Tooltip body={s.description} />

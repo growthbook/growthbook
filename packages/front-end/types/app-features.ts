@@ -30,6 +30,7 @@ export type AppFeatures = {
   "organization-message-list": Record<string, unknown>;
   "remote-evaluation": boolean;
   "import-from-x": boolean;
+  "import-from-statsig": boolean;
   "demo-datasource": boolean;
   "new-experiment-rule": boolean;
   "visual-editor-ai-enabled": boolean;
@@ -97,4 +98,5 @@ export type AppFeatures = {
   asdf: boolean;
   "experiment-dashboards-enabled": boolean;
   holdouts_feature: boolean;
+  "metric-slices": boolean;
 };

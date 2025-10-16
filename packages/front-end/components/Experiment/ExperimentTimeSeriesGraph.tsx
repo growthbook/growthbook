@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import React, { FC, useMemo } from "react";
 import { format } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
@@ -16,7 +16,7 @@ import { NumberValue, ScaleLinear, ScaleTime } from "d3-scale";
 import { pValueFormatter } from "@/services/experiments";
 import { getVariationColor } from "@/services/features";
 import { RadixTheme } from "@/services/RadixTheme";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import Table, {
   TableRow,
   TableHeader,
@@ -24,7 +24,7 @@ import Table, {
   TableColumnHeader,
   TableRowHeaderCell,
   TableCell,
-} from "@/components/Radix/Table";
+} from "@/ui/Table";
 import styles from "./ExperimentDateGraph.module.scss";
 import timeSeriesStyles from "./ExperimentTimeSeriesGraph.module.scss";
 
@@ -111,7 +111,7 @@ const getTooltipContents = (
         </HelperText>
       ) : null}
       <Table size="1">
-        <TableHeader>
+        <TableHeader style={{ fontSize: "12px" }}>
           <TableRow style={{ color: "var(--color-text-mid)" }}>
             <TableColumnHeader pl="0">Variation</TableColumnHeader>
             <TableColumnHeader justify="center">Users</TableColumnHeader>
@@ -133,7 +133,7 @@ const getTooltipContents = (
           </TableRow>
         </TableHeader>
 
-        <TableBody>
+        <TableBody style={{ fontSize: "12px" }}>
           {variationNames.map((v, i) => {
             if (!d.variations) return null;
             if (!showVariations[i]) return null;
@@ -174,11 +174,19 @@ const getTooltipContents = (
                 </TableRowHeaderCell>
                 {yaxis === "effect" && (
                   <>
-                    <TableCell justify="center">{variation.users}</TableCell>
-                    <TableCell justify="center">
+                    <TableCell
+                      justify="center"
+                      style={{ fontWeight: "normal" }}
+                    >
+                      {variation.users}
+                    </TableCell>
+                    <TableCell
+                      justify="center"
+                      style={{ fontWeight: "normal" }}
+                    >
                       {variation.v_formatted}
                     </TableCell>
-                    <TableCell justify="center">
+                    <TableCell justify="center" style={{ fontWeight: "bold" }}>
                       {i > 0 && (
                         <>
                           {((variation.up ?? 0) > 0 ? "+" : "") +
@@ -188,7 +196,10 @@ const getTooltipContents = (
                     </TableCell>
                     {hasStats && (
                       <>
-                        <TableCell justify="center">
+                        <TableCell
+                          justify="center"
+                          style={{ fontWeight: "normal" }}
+                        >
                           {i > 0 && (
                             <>
                               [
@@ -504,8 +515,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   return (
     <ParentSizeModern>
       {({ width }) => {
-        const yMax = height - margin[0] - margin[2];
-        const xMax = width - margin[1] - margin[3];
+        const yMax = Math.max(0, height - margin[0] - margin[2]);
+        const xMax = Math.max(0, width - margin[1] - margin[3]);
         const numXTicks =
           datapoints.length < 7 ? datapoints.length : width > 768 ? 7 : 4;
         const numYTicks = 5;
@@ -589,8 +600,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
               ref={containerRef}
               className={styles.dategraph}
               style={{
-                width: width - margin[1] - margin[3],
-                height: height - margin[0] - margin[2],
+                width: Math.max(0, width - margin[1] - margin[3]),
+                height: Math.max(0, height - margin[0] - margin[2]),
                 marginLeft: margin[3],
                 marginTop: margin[0],
               }}
@@ -602,7 +613,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   {variationNames.map((variationName, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
-                      return;
+                      return null;
                     }
                     if (!tooltipData?.d.variations?.[i]) return null;
                     // Render a dot at the current x location for each variation
@@ -624,26 +635,30 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
               {sortedDatesWithData.map((d) => {
                 // Render a dot at the current x location for each variation
-                return variationNames.map((_, i) => {
-                  if (yaxis === "effect" && i === 0) {
-                    return;
-                  }
-                  if (!showVariations[i]) return null;
-                  const variation = d.variations?.[i];
-                  if (!variation) return null;
-                  return (
-                    <div
-                      key={`${d.d.getTime()}_${i}`}
-                      className={timeSeriesStyles.positionWithData}
-                      style={{
-                        transform: `translate(${xScale(d.d)}px, ${
-                          yScale(getYVal(variation, yaxis) ?? 0) ?? 0
-                        }px)`,
-                        background: getVariationColor(i, true),
-                      }}
-                    />
-                  );
-                });
+                return (
+                  <React.Fragment key={`date_${d.d.getTime()}`}>
+                    {variationNames.map((_, i) => {
+                      if (yaxis === "effect" && i === 0) {
+                        return null;
+                      }
+                      if (!showVariations[i]) return null;
+                      const variation = d.variations?.[i];
+                      if (!variation) return null;
+                      return (
+                        <div
+                          key={`${d.d.getTime()}_${i}`}
+                          className={timeSeriesStyles.positionWithData}
+                          style={{
+                            transform: `translate(${xScale(d.d)}px, ${
+                              yScale(getYVal(variation, yaxis) ?? 0) ?? 0
+                            }px)`,
+                            background: getVariationColor(i, true),
+                          }}
+                        />
+                      );
+                    })}
+                  </React.Fragment>
+                );
               })}
             </div>
             <svg width={width} height={height}>
@@ -652,8 +667,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
               </defs>
@@ -676,7 +691,9 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   {variationNames.map((_, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
-                      return <></>;
+                      return (
+                        <React.Fragment key={`empty_${i}`}></React.Fragment>
+                      );
                     }
 
                     const sortedDataForVariation = sortedDatesWithData
@@ -742,7 +759,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       );
 
                     return (
-                      <>
+                      <React.Fragment key={`linepaths_${i}`}>
                         {/* Render a dotted line for the previous settings data points */}
                         <LinePath
                           key={`linepath_dashed_${i}`}
@@ -773,7 +790,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                           strokeWidth={2}
                           curve={curveLinear}
                         />
-                      </>
+                      </React.Fragment>
                     );
                   })}
 
@@ -802,8 +819,71 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       textAnchor: "middle",
                     };
                   }}
-                  tickFormat={(d) => {
-                    return format(d as Date, "MMM dd");
+                  tickFormat={(d, i, values) => {
+                    const date = getValidDate(
+                      d instanceof Date ? d : d.valueOf(),
+                    );
+                    const now = new Date();
+                    const sixMonthsAgo = new Date(
+                      now.getFullYear(),
+                      now.getMonth() - 6,
+                      now.getDate(),
+                    );
+                    const isOldRange = min < sixMonthsAgo.getTime();
+
+                    if (isOldRange) {
+                      // Check if this tick is on Jan 1st
+                      const isJan1 =
+                        date.getMonth() === 0 && date.getDate() === 1;
+                      if (isJan1) {
+                        return format(date, "MMM d, yyyy");
+                      }
+
+                      // Check if this is the first tick and it's 1+ months older than oldest Jan 1st tick
+                      if (i === 0) {
+                        // Find the oldest Jan 1st tick in the data range
+                        const jan1Ticks = values.filter((tick) => {
+                          const tickDate = getValidDate(
+                            tick.value instanceof Date
+                              ? tick.value
+                              : tick.value.valueOf(),
+                          );
+                          return (
+                            tickDate.getMonth() === 0 &&
+                            tickDate.getDate() === 1
+                          );
+                        });
+
+                        if (jan1Ticks.length === 0) {
+                          // No Jan 1st tick exists, show year on first tick
+                          return format(date, "MMM d, yyyy");
+                        } else {
+                          // Show year if first tick is 1+ months older than oldest Jan 1st tick
+                          const oldestJan1Tick = Math.min(
+                            ...jan1Ticks.map((tick) => {
+                              const tickDate = getValidDate(
+                                tick.value instanceof Date
+                                  ? tick.value
+                                  : tick.value.valueOf(),
+                              );
+                              return tickDate.getTime();
+                            }),
+                          );
+                          const monthsDiff = Math.abs(
+                            (date.getFullYear() -
+                              new Date(oldestJan1Tick).getFullYear()) *
+                              12 +
+                              (date.getMonth() -
+                                new Date(oldestJan1Tick).getMonth()),
+                          );
+                          if (monthsDiff >= 1) {
+                            return format(date, "MMM d, yyyy");
+                          }
+                        }
+                      }
+                    }
+
+                    return format(date, "MMM d");
                   }}
                   tickValues={numXTicks < 7 ? allXTicks : undefined}
                   axisLineClassName={timeSeriesStyles.axisLine}

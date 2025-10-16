@@ -12,7 +12,7 @@ import { getSnapshotAnalysis } from "shared/util";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { DifferenceType } from "back-end/types/stats";
 import router, { useRouter } from "next/router";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import ScatterPlotGraph, {
   ScatterPointData,
 } from "@/components/ScatterPlotGraph";
@@ -30,7 +30,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import EmptyState from "@/components/EmptyState";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import MetricCorrelationsExperimentTable from "@/enterprise/components/Insights/MetricCorrelations/MetricCorrelationsExperimentTable";
 import { useCurrency } from "@/hooks/useCurrency";
 

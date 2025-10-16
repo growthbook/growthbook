@@ -4,8 +4,8 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField, Text, Flex, Grid } from "@radix-ui/themes";
 import {
-  PiCaretUp,
-  PiCaretDown,
+  PiCaretUpFill,
+  PiCaretDownFill,
   PiLockBold,
   PiLockOpenBold,
 } from "react-icons/pi";
@@ -19,9 +19,9 @@ import ConditionInput from "@/components/Features/ConditionInput";
 import PrerequisiteTargetingField from "@/components/Features/PrerequisiteTargetingField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import HelperText from "@/components/Radix/HelperText";
+import HelperText from "@/ui/HelperText";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ScheduleInputs from "@/components/Features/ScheduleInputs";
 import { AppFeatures } from "@/types/app-features";
@@ -35,9 +35,8 @@ export default function SafeRolloutFields({
   isCyclic,
   cyclicFeatureId,
   conditionKey,
-  isNewRule,
+  mode,
   isDraft,
-  duplicate,
   defaultValues,
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
@@ -53,19 +52,19 @@ export default function SafeRolloutFields({
   conditionKey: number;
   scheduleToggleEnabled: boolean;
   setScheduleToggleEnabled: (b: boolean) => void;
-  isNewRule: boolean;
+  mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
-  duplicate: boolean;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
+  const [advancedOptionsSeedOpen, setAdvancedOptionsSeedOpen] = useState(false);
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
   const { datasources } = useDefinitions();
   const [controlValueDisabled, setControlValueDisabled] = useState(true);
 
-  const disableFields = !isDraft && !isNewRule;
+  const disableFields = !isDraft && mode !== "create";
   const dataSourceOptions =
     datasources?.map((ds) => ({
       label: ds.name,
@@ -130,7 +129,7 @@ export default function SafeRolloutFields({
           </div>
         )}
 
-        {duplicate && !!form.watch("seed") && (
+        {mode === "duplicate" && !!form.watch("seed") && (
           <div
             className="ml-auto link-purple cursor-pointer mb-2"
             onClick={(e) => {
@@ -138,19 +137,25 @@ export default function SafeRolloutFields({
               setAdvancedOptionsOpen(!advancedOptionsOpen);
             }}
           >
-            Advanced Options{" "}
-            {!advancedOptionsOpen ? <PiCaretDown /> : <PiCaretUp />}
+            {!advancedOptionsOpen ? (
+              <PiCaretDownFill className="mr-1" />
+            ) : (
+              <PiCaretUpFill className="mr-1" />
+            )}
+            Advanced Options
           </div>
         )}
-        {duplicate && !!form.watch("seed") && advancedOptionsOpen && (
-          <div className="ml-2">
-            <Checkbox
-              value={form.watch("sameSeed")}
-              setValue={(value: boolean) => form.setValue("sameSeed", value)}
-              label="Same seed"
-            />
-          </div>
-        )}
+        {mode === "duplicate" &&
+          !!form.watch("seed") &&
+          advancedOptionsOpen && (
+            <div className="ml-2">
+              <Checkbox
+                value={form.watch("sameSeed")}
+                setValue={(value: boolean) => form.setValue("sameSeed", value)}
+                label="Same seed"
+              />
+            </div>
+          )}
       </>
     );
   };
@@ -160,7 +165,7 @@ export default function SafeRolloutFields({
       <>
         <SelectField
           disabled={disableFields}
-          label="Split based on attribute"
+          label="Sample based on attribute"
           options={attributeSchema
             .filter((s) => !hasHashAttributes || s.hashAttribute)
             .map((s) => ({ label: s.property, value: s.property }))}
@@ -168,9 +173,37 @@ export default function SafeRolloutFields({
           onChange={(v) => {
             form.setValue("hashAttribute", v);
           }}
-          className="mb-4"
+          className="mb-2"
           required
         />
+        <div className="mb-4">
+          <span
+            className="ml-auto link-purple cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setAdvancedOptionsSeedOpen(!advancedOptionsSeedOpen);
+            }}
+          >
+            {!advancedOptionsSeedOpen ? (
+              <PiCaretDownFill className="mr-1" />
+            ) : (
+              <PiCaretUpFill className="mr-1" />
+            )}
+            Advanced Options
+          </span>
+          {advancedOptionsSeedOpen && (
+            <div className="mt-3 mb-5">
+              <Text as="label" weight="medium" size="2" mb="2">
+                Seed
+              </Text>
+              <TextField.Root
+                {...form.register("seed")}
+                disabled={disableFields}
+              />
+            </div>
+          )}
+        </div>
+
         <div className="bg-highlight rounded p-3 mb-4">
           <div className="mb-3 pb-1">
             <SelectField
@@ -265,7 +298,7 @@ export default function SafeRolloutFields({
               }
             />
           </div>
-          <div className="mb-3 pb-1">
+          <div className="pb-1">
             <Text as="label" size="2" weight="medium">
               Duration to monitor guardrail results
               <Text size="1" as="div" weight="regular" color="gray">
@@ -292,7 +325,7 @@ export default function SafeRolloutFields({
               </TextField.Root>
             </Box>
             {dateMonitoredUntil && !isNaN(dateMonitoredUntil.getTime()) && (
-              <HelperText status="info" size="sm" mt="2">
+              <HelperText status="info" size="sm" mt="3">
                 Feature will be monitored until{" "}
                 {dateMonitoredUntil.toLocaleDateString()} if started today
               </HelperText>
@@ -427,7 +460,7 @@ export default function SafeRolloutFields({
         />
       )}
 
-      {renderTargeting()}
+      <div className="mt-3">{renderTargeting()}</div>
     </>
   );
 }
