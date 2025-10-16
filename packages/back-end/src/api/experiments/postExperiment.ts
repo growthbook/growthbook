@@ -31,6 +31,30 @@ const validateCustomFields = async (
     if (!customField) {
       throw new Error(`Custom field not found: ${key}`);
     }
+    // validate the value is a valid value for the custom field
+    if (customField.type === "string") {
+      if (typeof value !== "string") {
+        throw new Error(`Invalid value for custom field: ${key}`);
+      }
+    }
+    if (customField.type === "number") {
+      if (typeof value !== "number") {
+        throw new Error(`Invalid value for custom field: ${key}`);
+      }
+    }
+    if (customField.type === "boolean") {
+      if (typeof value !== "boolean") {
+        throw new Error(`Invalid value for custom field: ${key}`);
+      }
+    }
+    if (customField.type === "date") {
+      if (typeof value !== "string") {
+        throw new Error(`Invalid value for custom field: ${key}`);
+      }
+      if (!isValidDate(value)) {
+        throw new Error(`Invalid value for custom field: ${key}`);
+      }
+    }
   }
 };
 
