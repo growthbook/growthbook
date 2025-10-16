@@ -291,6 +291,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/sql-templates",
+          label: "SQL Templates",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
@@ -299,6 +304,11 @@ const sidebars = {
           id: "experimentation-analysis/managed-warehouse",
           label: "Managed Warehouse",
           className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "official-resources",
+          label: "Official Resources",
         },
       ],
     },
@@ -726,6 +736,11 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/migrate-from-statsig",
+          label: "Migrate from Statsig",
+        },
         {
           type: "doc",
           id: "guide/sanity",

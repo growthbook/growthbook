@@ -134,20 +134,24 @@ interface Props {
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
   isEditing: boolean;
   enableAutoUpdates: boolean;
+  nextUpdate: Date | undefined;
   editSidebarDirty: boolean;
   focusedBlockIndex: number | undefined;
   stagedBlockIndex: number | undefined;
   scrollAreaRef: null | React.MutableRefObject<HTMLDivElement | null>;
-  setBlock: (
-    index: number,
-    block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-  ) => void;
+  setBlock:
+    | undefined
+    | ((
+        index: number,
+        block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+      ) => void);
   moveBlock: (index: number, direction: -1 | 1) => void;
   addBlockType: (bType: DashboardBlockType, i?: number) => void;
   editBlock: (index: number) => void;
   duplicateBlock: (index: number) => void;
   deleteBlock: (index: number) => void;
   mutate: () => void;
+  switchToExperimentView?: () => void;
 }
 
 function DashboardEditor({
@@ -157,6 +161,7 @@ function DashboardEditor({
   blocks,
   isEditing,
   enableAutoUpdates,
+  nextUpdate,
   editSidebarDirty,
   focusedBlockIndex,
   stagedBlockIndex,
@@ -168,6 +173,7 @@ function DashboardEditor({
   duplicateBlock,
   deleteBlock,
   mutate,
+  switchToExperimentView,
 }: Props) {
   const renderSingleBlock = ({
     i,
@@ -182,9 +188,9 @@ function DashboardEditor({
     key: number | string;
     block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
     isFocused: boolean;
-    setBlock: React.Dispatch<
-      DashboardBlockInterfaceOrData<DashboardBlockInterface>
-    >;
+    setBlock:
+      | undefined
+      | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>;
     isEditingBlock: boolean;
     isLastBlock: boolean;
   }) => {
@@ -275,22 +281,28 @@ function DashboardEditor({
         className="mb-3"
         gap="1"
       >
-        <Text
-          weight="medium"
-          size="5"
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flexShrink: 1,
-          }}
-        >
-          {title}
-        </Text>
+        {switchToExperimentView ? (
+          <Button variant="ghost" size="xs" onClick={switchToExperimentView}>
+            View Regular Experiment View
+          </Button>
+        ) : (
+          <Text
+            weight="medium"
+            size="5"
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flexShrink: 1,
+            }}
+          >
+            {title}
+          </Text>
+        )}
         <div style={{ flexGrow: 1 }} />
         <DashboardUpdateDisplay
-          blocks={blocks}
           enableAutoUpdates={enableAutoUpdates}
+          nextUpdate={nextUpdate}
           disabled={editSidebarDirty}
           isEditing={isEditing}
         />
@@ -336,7 +348,7 @@ function DashboardEditor({
                   : `${block.type}-${i}`,
                 block: block,
                 isFocused: focusedBlockIndex === i,
-                setBlock: (block) => setBlock(i, block),
+                setBlock: setBlock ? (block) => setBlock(i, block) : undefined,
                 isEditingBlock: stagedBlockIndex === i,
                 isLastBlock: i === blocks.length - 1,
               }),

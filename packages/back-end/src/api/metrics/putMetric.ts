@@ -28,10 +28,6 @@ export const putMetric = createApiRequestHandler(putMetricValidator)(async (
 
   const updated = putMetricApiPayloadToMetricInterface(req.body);
 
-  if (!req.context.permissions.canUpdateMetric(metric, updated)) {
-    req.context.permissions.throwPermissionError();
-  }
-
   await updateMetric(req.context, metric, updated);
 
   return {

@@ -110,6 +110,7 @@ export default function ExperimentDimensionBlock({
 
   return (
     <BreakDownResults
+      experimentId={experiment.id}
       noStickyHeader
       idPrefix={blockId}
       key={snapshot.dimension}
@@ -134,11 +135,13 @@ export default function ExperimentDimensionBlock({
       status={experiment.status}
       statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
       pValueCorrection={pValueCorrection}
-      regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
       settingsForSnapshotMetrics={settingsForSnapshotMetrics}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
       renderMetricName={(metric) => metric.name}
+      showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
+        d.startsWith("precomputed:"),
+      )}
     />
   );
 }

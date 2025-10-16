@@ -385,9 +385,6 @@ export default function ReportMetaInfo({
                       ? getAllMetricIdsFromExperiment(snapshot.settings, false)
                       : undefined
                   }
-                  differenceType={
-                    analysis?.settings?.differenceType ?? "relative"
-                  }
                   trackingKey={report.title}
                   dimension={snapshot?.dimension ?? undefined}
                   setNameModalOpen={canEdit ? setGeneralModalOpen : undefined}

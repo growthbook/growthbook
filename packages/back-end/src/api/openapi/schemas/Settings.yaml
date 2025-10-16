@@ -34,7 +34,6 @@ required:
 properties:
   confidenceLevel:
     type: number
-    nullable: true
   northStar:
     type: object
     nullable: true
@@ -47,7 +46,6 @@ properties:
           type: string
   metricDefaults:
     type: object
-    nullable: true
     properties:
       priorSettings:
         type: object
@@ -75,7 +73,6 @@ properties:
         type: number
   pastExperimentsMinLength:
     type: number
-    nullable: true
   metricAnalysisDays:
     type: number
   updateSchedule:
@@ -109,7 +106,6 @@ properties:
           type: string
   statsEngine:
     type: string
-    nullable: true
   pValueThreshold:
     type: number
   regressionAdjustmentEnabled:
@@ -127,22 +123,16 @@ properties:
       - "experimentDuration"
   targetMDE:
     type: number
-    nullable: true
   delayHours:
     type: number
-    nullable: true
   windowType:
     type: string
-    nullable: true
   windowHours:
     type: number
-    nullable: true
   winRisk:
     type: number
-    nullable: true
   loseRisk:
     type: number
-    nullable: true
   secureAttributeSalt:
     type: string
   killswitchConfirmation:
@@ -187,3 +177,8 @@ properties:
   experimentMaxLengthDays:
     type: number
     nullable: true
+  preferredEnvironment:
+    type: string
+    nullable: true
+  maxMetricSliceLevels:
+    type: number

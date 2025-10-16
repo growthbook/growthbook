@@ -4,8 +4,14 @@ import { mapStatsigAttributeToGB } from "./attributeMapper";
 
 export type TransformedCondition = {
   condition: string; // JSON string for targeting conditions
-  savedGroups: string[]; // Array of saved group IDs
-  prerequisites?: string[]; // Array of prerequisite feature IDs
+  savedGroups: Array<{
+    ids: string[];
+    match: "all" | "any" | "none";
+  }>; // Array of saved group targeting
+  prerequisites?: Array<{
+    id: string;
+    condition: string;
+  }>; // Array of prerequisite feature conditions
   scheduleRules?: [
     start: { timestamp: string; enabled: boolean },
     end: { timestamp: string; enabled: boolean },
@@ -17,10 +23,13 @@ export type TransformedCondition = {
  */
 export function transformStatsigConditionsToGB(
   conditions: StatsigCondition[],
+  skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): TransformedCondition {
   const targetingConditions: StatsigCondition[] = [];
-  const savedGroups: string[] = [];
-  const prerequisites: string[] = [];
+  const savedGroups: Array<{ ids: string[]; match: "all" | "any" | "none" }> =
+    [];
+  const prerequisites: Array<{ id: string; condition: string }> = [];
   let startTime: string | null = null;
   let endTime: string | null = null;
 
@@ -48,15 +57,49 @@ export function transformStatsigConditionsToGB(
     if (operator === null || operator === undefined) {
       switch (type) {
         case "passes_gate":
+          // These become prerequisites with exists (live) condition
+          prerequisites.push({
+            id: String(targetValue),
+            condition: JSON.stringify({ value: { $exists: true } }),
+          });
+          return;
         case "fails_gate":
-          // These become prerequisites
-          prerequisites.push(String(targetValue));
+          // These become prerequisites with not exists (not live)condition
+          prerequisites.push({
+            id: String(targetValue),
+            condition: JSON.stringify({ value: { $exists: false } }),
+          });
           return;
-        case "passes_segment":
-        case "fails_segment":
-          // These become saved groups
-          savedGroups.push(String(targetValue));
+        case "passes_segment": {
+          // These become saved groups with inclusion
+          const segmentName = String(targetValue);
+          const savedGroupId = savedGroupIdMap?.get(segmentName);
+          if (savedGroupId) {
+            savedGroups.push({ ids: [savedGroupId], match: "all" });
+          } else {
+            console.warn(
+              `Saved group ID not found for segment: ${segmentName}`,
+            );
+            // Fallback to using the name if ID not found
+            savedGroups.push({ ids: [segmentName], match: "all" });
+          }
           return;
+        }
+        case "fails_segment": {
+          // These become saved groups with exclusion
+          const segmentName = String(targetValue);
+          const savedGroupId = savedGroupIdMap?.get(segmentName);
+          if (savedGroupId) {
+            savedGroups.push({ ids: [savedGroupId], match: "none" });
+          } else {
+            console.warn(
+              `Saved group ID not found for segment: ${segmentName}`,
+            );
+            // Fallback to using the name if ID not found
+            savedGroups.push({ ids: [segmentName], match: "none" });
+          }
+          return;
+        }
         default:
           // Other null operator conditions go to targeting
           targetingConditions.push(condition);
@@ -71,7 +114,7 @@ export function transformStatsigConditionsToGB(
   // Convert targeting conditions to GrowthBook format
   const conditionString =
     targetingConditions.length > 0
-      ? transformTargetingConditions(targetingConditions)
+      ? transformTargetingConditions(targetingConditions, skipAttributeMapping)
       : "{}";
 
   // Create schedule rules tuple if we have both start and end times
@@ -99,15 +142,25 @@ export function transformStatsigConditionsToGB(
 /**
  * Transform targeting conditions to GrowthBook condition string
  */
-function transformTargetingConditions(conditions: StatsigCondition[]): string {
+function transformTargetingConditions(
+  conditions: StatsigCondition[],
+  skipAttributeMapping: boolean = false,
+): string {
   // Map Statsig operators to GrowthBook operators
   const operatorMap: Record<string, string> = {
     any: "$in",
     none: "$nin",
     str_contains_any: "$regex",
-    str_contains_none: "$not",
+    str_contains_none: "$regex",
+    str_matches: "$regex",
+    any_case_sensitive: "$in",
+    any_case_insensitive: "$in",
+    none_case_sensitive: "$nin",
+    none_case_insensitive: "$nin",
     lt: "$lt",
     gt: "$gt",
+    lte: "$lte",
+    gte: "$gte",
     version_lt: "$vlt",
     version_gt: "$vgt",
     version_lte: "$vlte",
@@ -122,16 +175,38 @@ function transformTargetingConditions(conditions: StatsigCondition[]): string {
   const conditionObj: ConditionInterface = {};
 
   conditions.forEach((condition) => {
-    const { type, operator, targetValue } = condition;
+    const { type, operator, targetValue, field } = condition;
     const gbOperator = operatorMap[operator] || "$eq";
 
-    // Map Statsig attribute name to GrowthBook attribute name
-    const gbAttributeName = mapStatsigAttributeToGB(type);
+    // For custom_field type, use the field value as the attribute name
+    // Otherwise, use the type as the attribute name
+    const attributeName =
+      type === "custom_field" ? field || "custom_field" : type;
+    const gbAttributeName = mapStatsigAttributeToGB(
+      attributeName,
+      skipAttributeMapping,
+    );
 
-    if (operator === "str_contains_none") {
+    // Initialize the attribute object if it doesn't exist
+    if (!conditionObj[gbAttributeName]) {
+      conditionObj[gbAttributeName] = {};
+    }
+
+    if (operator === "str_contains_any") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];
+      const escapedValues = values.map((v) =>
+        String(v).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      );
+      const regex = escapedValues.join("|");
+      conditionObj[gbAttributeName] = { $regex: regex };
+    } else if (operator === "str_contains_none") {
+      const values = Array.isArray(targetValue) ? targetValue : [targetValue];
+      const escapedValues = values.map((v) =>
+        String(v).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      );
+      const regex = escapedValues.join("|");
       conditionObj[gbAttributeName] = {
-        $not: { $regex: values.join("|") },
+        $not: { $regex: regex },
       };
     } else if (operator === "is_null") {
       conditionObj[gbAttributeName] = { $exists: false };
@@ -139,7 +214,33 @@ function transformTargetingConditions(conditions: StatsigCondition[]): string {
       conditionObj[gbAttributeName] = { $exists: true };
     } else if (gbOperator === "$in" || gbOperator === "$nin") {
       const values = Array.isArray(targetValue) ? targetValue : [targetValue];
-      conditionObj[gbAttributeName] = { [gbOperator]: values };
+
+      // Check if we already have a conflicting operator on this attribute
+      const existingCondition = conditionObj[gbAttributeName];
+      if (existingCondition && typeof existingCondition === "object") {
+        if (gbOperator === "$nin" && "$in" in existingCondition) {
+          // We have both $in and $nin - need to use $and
+          conditionObj[gbAttributeName] = {
+            $and: [
+              { [gbAttributeName]: { $in: existingCondition.$in } },
+              { [gbAttributeName]: { $nin: values } },
+            ],
+          };
+        } else if (gbOperator === "$in" && "$nin" in existingCondition) {
+          // Reverse case: existing $nin, new $nin
+          conditionObj[gbAttributeName] = {
+            $and: [
+              { [gbAttributeName]: { $nin: existingCondition.$nin } },
+              { [gbAttributeName]: { $in: values } },
+            ],
+          };
+        } else {
+          // No conflict, merge normally
+          conditionObj[gbAttributeName][gbOperator] = values;
+        }
+      } else {
+        conditionObj[gbAttributeName] = { [gbOperator]: values };
+      }
     } else if (gbOperator === "$regex") {
       if (Array.isArray(targetValue)) {
         conditionObj[gbAttributeName] = { $regex: targetValue.join("|") };
@@ -149,7 +250,9 @@ function transformTargetingConditions(conditions: StatsigCondition[]): string {
     } else if (gbOperator === "$not") {
       conditionObj[gbAttributeName] = { $not: targetValue };
     } else {
-      conditionObj[gbAttributeName] = { [gbOperator]: targetValue };
+      // Merge operators for the same attribute
+      (conditionObj[gbAttributeName] as Record<string, unknown>)[gbOperator] =
+        targetValue;
     }
   });
 

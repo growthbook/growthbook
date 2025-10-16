@@ -242,6 +242,7 @@ export const getEventUserFormatted = async (eventId: string) => {
   const event = await getEvent(eventId);
 
   if (!event || !event.data?.user) return "an unknown user";
+  if (event.data.user.type === "system") return "an automated process";
 
   if (event.data.user.type === "api_key")
     return `an API request with key ending in ...${event.data.user.apiKey.slice(

@@ -314,6 +314,20 @@ const experimentSchema = new mongoose.Schema({
   },
   dismissedWarnings: [String],
   holdoutId: String,
+  defaultDashboardId: String,
+  pinnedMetricSlices: [String],
+  customMetricSlices: [
+    {
+      _id: false,
+      slices: [
+        {
+          _id: false,
+          column: String,
+          levels: [String],
+        },
+      ],
+    },
+  ],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

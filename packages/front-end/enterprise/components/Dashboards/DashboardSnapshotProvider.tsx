@@ -13,11 +13,11 @@ import {
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
   blockHasFieldOfType,
+  getBlockSnapshotAnalysis,
   getBlockAnalysisSettings,
-  getBlockSnapshotSettings,
+  snapshotSatisfiesBlock,
 } from "shared/enterprise";
 import { getSnapshotAnalysis, isDefined, isString } from "shared/util";
-import { isEqual } from "lodash";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { Queries, QueryStatus } from "back-end/types/query";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
@@ -27,13 +27,16 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 
 export const DashboardSnapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
+  projects?: string[];
   defaultSnapshot?: ExperimentSnapshotInterface;
+  dimensionless?: ExperimentSnapshotInterface;
   snapshotsMap: Map<string, ExperimentSnapshotInterface>;
   savedQueriesMap: Map<string, SavedQuery>;
   loading?: boolean;
   error?: Error;
   refreshStatus: QueryStatus;
-  refreshError?: string;
+  refreshError?: string; // Error from hitting the backend to start refreshing snapshots
+  snapshotError?: string; // Error from the resulting snapshots after the refresh request succeeded
   allQueries: Queries;
   mutateSnapshot: () => Promise<unknown>;
   mutateSnapshotsMap: () => Promise<unknown>;
@@ -62,11 +65,12 @@ export default function DashboardSnapshotProvider({
   const { apiCall } = useAuth();
   const {
     data: snapshotData,
-    error: snapshotError,
+    error: singleSnapshotError,
     isLoading: snapshotLoading,
     mutate: mutateDefaultSnapshot,
   } = useApi<{
     snapshot: ExperimentSnapshotInterface;
+    dimensionless: ExperimentSnapshotInterface;
   }>(`/experiment/${experiment.id}/snapshot/${experiment.phases.length - 1}`);
   const [refreshError, setRefreshError] = useState<string | undefined>(
     undefined,
@@ -100,13 +104,17 @@ export default function DashboardSnapshotProvider({
     [allSavedQueries],
   );
 
-  const { status, snapshotsMap, allQueries } = useMemo(() => {
+  const { status, snapshotsMap, allQueries, snapshotError } = useMemo(() => {
     const snapshotsMap = new Map(allSnapshots.map((snap) => [snap.id, snap]));
     const allQueries = allSnapshots.flatMap(
       (snapshot) => snapshot.queries || [],
     );
-    const { status } = getQueryStatus(allQueries);
-    return { status, snapshotsMap, allQueries };
+    const snapshotError = allSnapshots.find(
+      (snapshot) => snapshot.error,
+    )?.error;
+    const { status } = getQueryStatus(allQueries, snapshotError);
+
+    return { status, snapshotsMap, allQueries, snapshotError };
   }, [allSnapshots]);
 
   useEffect(() => {
@@ -157,13 +165,16 @@ export default function DashboardSnapshotProvider({
     <DashboardSnapshotContext.Provider
       value={{
         experiment,
+        projects: experiment?.project ? [experiment.project] : undefined,
         defaultSnapshot: snapshotData?.snapshot,
+        dimensionless: snapshotData?.dimensionless,
         snapshotsMap,
         savedQueriesMap,
-        error: snapshotError || allSnapshotsError,
+        error: singleSnapshotError || allSnapshotsError,
         loading: snapshotLoading || allSnapshotsLoading,
         refreshStatus: status,
         refreshError,
+        snapshotError,
         allQueries,
         mutateSnapshot: mutateDefaultSnapshot,
         mutateSnapshotsMap: mutateAllSnapshots,
@@ -195,11 +206,15 @@ export function useDashboardSnapshot(
   const [postSnapshotAnalysisLoading, setPostSnapshotAnalysisLoading] =
     useState(false);
   const [fetchingSnapshot, setFetchingSnapshot] = useState(false);
+  const [fetchingSnapshotFailed, setFetchingSnapshotFailed] = useState(false);
 
   const blockSnapshotId = block?.snapshotId;
   const blockSnapshot = snapshotsMap.get(blockSnapshotId ?? "");
 
-  const snapshot = isDefined(blockSnapshotId) ? blockSnapshot : defaultSnapshot;
+  const snapshot =
+    isDefined(blockSnapshotId) && blockSnapshotId.length > 0
+      ? blockSnapshot
+      : defaultSnapshot;
   const mutateSnapshot = isDefined(blockSnapshotId)
     ? mutateSnapshotsMap
     : mutateDefault;
@@ -212,19 +227,13 @@ export function useDashboardSnapshot(
   }, [snapshot, block]);
 
   // Check that the current snapshot is sufficient for the block
-  let snapshotSettingsMatch = true;
-  if (snapshot && block) {
-    const blockSettings = {
-      ...snapshot.settings,
-      ...getBlockSnapshotSettings(block),
-    };
-    snapshotSettingsMatch = isEqual(blockSettings, snapshot.settings);
-  }
+  const snapshotSettingsMatch =
+    snapshot && block ? snapshotSatisfiesBlock(snapshot, block) : true;
 
   const analysis = useMemo(() => {
-    if (!snapshot || !blockAnalysisSettings) return null;
-    return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
-  }, [blockAnalysisSettings, snapshot]);
+    if (!snapshot || !block) return null;
+    return getBlockSnapshotAnalysis(snapshot, block);
+  }, [snapshot, block]);
 
   // If the current snapshot is incorrect, e.g. a dimension mismatch, fetch a matching snapshot
   useEffect(() => {
@@ -234,7 +243,8 @@ export function useDashboardSnapshot(
       !experiment ||
       !snapshot ||
       snapshotSettingsMatch ||
-      fetchingSnapshot
+      fetchingSnapshot ||
+      fetchingSnapshotFailed
     )
       return;
     const getNewSnapshot = async () => {
@@ -247,7 +257,11 @@ export function useDashboardSnapshot(
           experiment.phases.length - 1
         }/${dimension}`,
       );
-      setBlock({ ...block, snapshotId: res.snapshot?.id ?? "" });
+      if (!res.snapshot) {
+        setFetchingSnapshotFailed(true);
+      } else {
+        setBlock({ ...block, snapshotId: res.snapshot.id });
+      }
       setFetchingSnapshot(false);
     };
     getNewSnapshot();
@@ -256,6 +270,7 @@ export function useDashboardSnapshot(
     snapshot,
     snapshotSettingsMatch,
     fetchingSnapshot,
+    fetchingSnapshotFailed,
     apiCall,
     block,
     setBlock,
@@ -268,6 +283,7 @@ export function useDashboardSnapshot(
       !blockAnalysisSettings ||
       !snapshotSettingsMatch ||
       analysis ||
+      snapshot.status === "running" ||
       snapshotsLoading
     )
       return;

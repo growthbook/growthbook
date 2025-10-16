@@ -1,11 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
@@ -14,7 +8,8 @@ import {
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { Container, Flex, Heading, Text } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
-import { dashboardCanAutoUpdate, getBlockData } from "shared/enterprise";
+import { getBlockData } from "shared/enterprise";
+import { withErrorBoundary } from "@sentry/nextjs";
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -31,6 +26,7 @@ import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
+import Callout from "@/ui/Callout";
 import DashboardEditor from "./DashboardEditor";
 import DashboardSnapshotProvider from "./DashboardSnapshotProvider";
 import DashboardModal from "./DashboardModal";
@@ -62,18 +58,25 @@ export type SubmitDashboard<
 > = (args: T) => Promise<void>;
 
 export const autoUpdateDisabledMessage =
-  "Automatic updates are disabled for dashboards with Dimension Analyses or SQL Explorer blocks, or when experiment updates are disabled";
-
+  "Your organization settings have disabled automatic refreshing of experiment results";
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   initialDashboardId: string;
   isTabActive: boolean;
+  showDashboardView?: boolean;
+  updateTabPath: (path: string) => void;
+  switchToExperimentView?: () => void;
+  mutateExperiment?: () => void;
 }
 
-export default function DashboardsTab({
+function DashboardsTab({
   experiment,
   initialDashboardId,
   isTabActive,
+  showDashboardView = false,
+  updateTabPath,
+  switchToExperimentView,
+  mutateExperiment,
 }: Props) {
   const [dashboardId, setDashboardId] = useState(initialDashboardId);
   useEffect(() => {
@@ -99,6 +102,12 @@ export default function DashboardsTab({
       setDashboardId(defaultDashboard?.id ?? dashboards[0].id);
     }
   }, [dashboardId, dashboards, defaultDashboard]);
+
+  useEffect(() => {
+    if (isTabActive) {
+      updateTabPath(dashboardId);
+    }
+  }, [isTabActive, updateTabPath, dashboardId]);
 
   const {
     userId,
@@ -127,6 +136,9 @@ export default function DashboardsTab({
   const canUpdateDashboard = experiment
     ? permissionsUtil.canViewReportModal(experiment.project)
     : true;
+  const canUpdateExperiment = permissionsUtil.canViewExperimentModal(
+    experiment.project,
+  );
   const isOwner = userId === dashboard?.userId || !dashboard?.userId;
   const isAdmin = permissionsUtil.canSuperDeleteReport();
   const canManage = isOwner || isAdmin;
@@ -178,13 +190,19 @@ export default function DashboardsTab({
     [apiCall, experiment.id, mutateDashboards],
   );
 
-  const autoUpdateDisabled = useMemo(
-    () =>
-      dashboard &&
-      (!experiment.autoSnapshots ||
-        !dashboardCanAutoUpdate(dashboard) ||
-        updateSchedule?.type === "never"),
-    [experiment, updateSchedule, dashboard],
+  const memoizedSetBlock = useCallback(
+    (i: number, block: (typeof blocks)[number]) => {
+      const newBlocks = [...blocks.slice(0, i), block, ...blocks.slice(i + 1)];
+      setBlocks(newBlocks);
+      submitDashboard({
+        method: "PUT",
+        dashboardId,
+        data: {
+          blocks: newBlocks,
+        },
+      });
+    },
+    [blocks, submitDashboard, dashboardId],
   );
 
   if (loadingDashboards || !dashboardMounted) return <LoadingSpinner />;
@@ -194,7 +212,7 @@ export default function DashboardsTab({
       dashboard={dashboard}
       mutateDefinitions={mutateDashboards}
     >
-      {isEditing && dashboard ? (
+      {canEdit && isEditing && dashboard ? (
         <DashboardWorkspace
           experiment={experiment}
           dashboard={dashboard}
@@ -231,7 +249,6 @@ export default function DashboardsTab({
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: dashboard.title,
               }}
-              disableAutoUpdate={autoUpdateDisabled}
               submit={async (data) => {
                 await submitDashboard({
                   method: "PUT",
@@ -250,7 +267,6 @@ export default function DashboardsTab({
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: `Copy of ${dashboard.title}`,
               }}
-              disableAutoUpdate={autoUpdateDisabled}
               submit={async (data) => {
                 await submitDashboard({
                   method: "POST",
@@ -306,7 +322,7 @@ export default function DashboardsTab({
               <>
                 <Flex align="center" justify="between" mb="1">
                   <Flex gap="1" align="center">
-                    {dashboards.length > 0 ? (
+                    {dashboards.length > 0 && !showDashboardView ? (
                       <Flex gap="4" align="center">
                         <Select
                           style={{
@@ -364,7 +380,7 @@ export default function DashboardsTab({
                       <></>
                     )}
                   </Flex>
-                  {dashboard ? (
+                  {dashboard && !showDashboardView ? (
                     <Flex gap="4" align="center">
                       <Tooltip
                         state={copySuccess}
@@ -394,6 +410,43 @@ export default function DashboardsTab({
                                   </Text>
                                 </Button>
                               )}
+                              {mutateExperiment && canUpdateExperiment && (
+                                <Tooltip
+                                  body={
+                                    experiment.defaultDashboardId ===
+                                    dashboard.id
+                                      ? "Remove this dashboard as the default view for the experiment"
+                                      : "Set this dashboard as the default view for the experiment"
+                                  }
+                                >
+                                  <Button
+                                    className="dropdown-item"
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/experiment/${experiment.id}`,
+                                        {
+                                          method: "POST",
+                                          body: JSON.stringify({
+                                            defaultDashboardId:
+                                              experiment.defaultDashboardId ===
+                                              dashboard.id
+                                                ? ""
+                                                : dashboard.id,
+                                          }),
+                                        },
+                                      );
+                                      mutateExperiment();
+                                    }}
+                                  >
+                                    <Text weight="regular">
+                                      {experiment.defaultDashboardId ===
+                                      dashboard.id
+                                        ? "Remove as Default View"
+                                        : "Set as Default View"}
+                                    </Text>
+                                  </Button>
+                                </Tooltip>
+                              )}
 
                               <Container px="5">
                                 <DropdownMenuSeparator />
@@ -403,11 +456,11 @@ export default function DashboardsTab({
                           {canManage && hasDashboardFeature && (
                             <Tooltip
                               body={autoUpdateDisabledMessage}
-                              shouldDisplay={autoUpdateDisabled}
+                              shouldDisplay={updateSchedule?.type === "never"}
                             >
                               <Button
                                 className="dropdown-item"
-                                disabled={autoUpdateDisabled}
+                                disabled={updateSchedule?.type === "never"}
                                 onClick={() =>
                                   submitDashboard({
                                     method: "PUT",
@@ -420,8 +473,7 @@ export default function DashboardsTab({
                                 }
                               >
                                 <Text weight="regular">{`${
-                                  dashboard.enableAutoUpdates &&
-                                  !autoUpdateDisabled
+                                  dashboard.enableAutoUpdates
                                     ? "Disable"
                                     : "Enable"
                                 } Auto-update`}</Text>
@@ -536,21 +588,8 @@ export default function DashboardsTab({
                         isEditing={false}
                         scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
-                        setBlock={(i, block) => {
-                          const newBlocks = [
-                            ...blocks.slice(0, i),
-                            block,
-                            ...blocks.slice(i + 1),
-                          ];
-                          setBlocks(newBlocks);
-                          submitDashboard({
-                            method: "PUT",
-                            dashboardId,
-                            data: {
-                              blocks: newBlocks,
-                            },
-                          });
-                        }}
+                        nextUpdate={experiment.nextSnapshotAttempt}
+                        setBlock={canEdit ? memoizedSetBlock : undefined}
                         // TODO: reduce unnecessary props
                         stagedBlockIndex={undefined}
                         editSidebarDirty={false}
@@ -561,6 +600,7 @@ export default function DashboardsTab({
                         deleteBlock={() => {}}
                         focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
+                        switchToExperimentView={switchToExperimentView}
                       />
                     )}
                   </>
@@ -573,3 +613,7 @@ export default function DashboardsTab({
     </DashboardSnapshotProvider>
   );
 }
+
+export default withErrorBoundary(DashboardsTab, {
+  fallback: <Callout status="error">Failed to load dashboards</Callout>,
+});

@@ -15,6 +15,7 @@ import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
 } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -35,7 +36,7 @@ import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
-import FeaturesSettings from "@/components/GeneralSettings/FeaturesSettings";
+import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -162,11 +163,19 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      blockFileUploads: settings.blockFileUploads ?? false,
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       aiEnabled: settings.aiEnabled ?? false,
       openAIDefaultModel: settings.openAIDefaultModel || "gpt-4o-mini",
+      disableLegacyMetricCreation:
+        settings.disableLegacyMetricCreation ?? false,
+      defaultFeatureRulesInAllEnvs:
+        settings.defaultFeatureRulesInAllEnvs ?? false,
+      preferredEnvironment: settings.preferredEnvironment || "",
+      maxMetricSliceLevels:
+        settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
     },
   });
   const { apiCall } = useAuth();
@@ -213,6 +222,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
     aiEnabled: form.watch("aiEnabled"),
     openAIDefaultModel: form.watch("openAIDefaultModel"),
+    disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
+    defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
+    preferredEnvironment: form.watch("preferredEnvironment") || "",
+    maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -331,6 +344,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
+      preferredEnvironment: value.preferredEnvironment || null,
     };
 
     // Make sure the feature key example is valid
@@ -422,7 +436,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsContent>
 
             <TabsContent value="feature">
-              <FeaturesSettings />
+              <FeatureSettings />
             </TabsContent>
 
             <TabsContent value="metrics">

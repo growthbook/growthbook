@@ -1,6 +1,7 @@
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { StatsigFeatureGate, StatsigDynamicConfig } from "../types";
 import { transformStatsigConditionsToGB } from "./ruleTransformer";
+import { mapStatsigAttributeToGB } from "./attributeMapper";
 
 /**
  * Transform Statsig feature gate or dynamic config to GrowthBook feature
@@ -24,6 +25,8 @@ export function transformStatsigFeatureGateToGB(
   _apiCall: (path: string, options?: unknown) => Promise<unknown>,
   type: "featureGate" | "dynamicConfig" = "featureGate",
   project?: string,
+  skipAttributeMapping: boolean = false,
+  savedGroupIdMap?: Map<string, string>,
 ): Omit<
   FeatureInterface,
   "organization" | "dateCreated" | "dateUpdated" | "version"
@@ -56,6 +59,8 @@ export function transformStatsigFeatureGateToGB(
     try {
       const transformedCondition = transformStatsigConditionsToGB(
         rule.conditions,
+        skipAttributeMapping,
+        savedGroupIdMap,
       );
 
       // Determine which environments this rule applies to
@@ -84,15 +89,12 @@ export function transformStatsigFeatureGateToGB(
             enabled: true,
             value: JSON.stringify(variant.returnValue),
             coverage: variantEndCoverage,
-            hashAttribute: "id",
-            savedGroups: transformedCondition.savedGroups.map((id) => ({
-              match: "all",
-              ids: [id],
-            })),
-            prerequisites: transformedCondition.prerequisites?.map((id) => ({
-              id,
-              condition: JSON.stringify({ value: true }),
-            })),
+            hashAttribute: mapStatsigAttributeToGB(
+              "user_id",
+              skipAttributeMapping,
+            ),
+            savedGroups: transformedCondition.savedGroups,
+            prerequisites: transformedCondition.prerequisites,
             scheduleRules: transformedCondition.scheduleRules || [],
           };
 
@@ -124,14 +126,8 @@ export function transformStatsigFeatureGateToGB(
           condition: transformedCondition.condition,
           enabled: true,
           value: ruleValue,
-          savedGroups: transformedCondition.savedGroups.map((id) => ({
-            match: "all",
-            ids: [id],
-          })),
-          prerequisites: transformedCondition.prerequisites?.map((id) => ({
-            id,
-            condition: JSON.stringify({ value: true }), // Prerequisite must be true
-          })),
+          savedGroups: transformedCondition.savedGroups,
+          prerequisites: transformedCondition.prerequisites,
           scheduleRules: transformedCondition.scheduleRules || [],
         };
       } else {
@@ -144,15 +140,12 @@ export function transformStatsigFeatureGateToGB(
           enabled: true,
           value: ruleValue,
           coverage: rule.passPercentage / 100, // Convert percentage to decimal
-          hashAttribute: "id", // Default hash attribute for rollouts
-          savedGroups: transformedCondition.savedGroups.map((id) => ({
-            match: "all",
-            ids: [id],
-          })),
-          prerequisites: transformedCondition.prerequisites?.map((id) => ({
-            id,
-            condition: JSON.stringify({ value: true }), // Prerequisite must be true
-          })),
+          hashAttribute: mapStatsigAttributeToGB(
+            "user_id",
+            skipAttributeMapping,
+          ), // Default hash attribute for rollouts
+          savedGroups: transformedCondition.savedGroups,
+          prerequisites: transformedCondition.prerequisites,
           scheduleRules: transformedCondition.scheduleRules || [],
         };
       }
