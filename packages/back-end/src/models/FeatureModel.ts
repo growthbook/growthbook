@@ -806,7 +806,7 @@ export async function toggleFeatureEnvironment(
 export async function addFeatureRule(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
-  env: string,
+  envs: string[],
   rule: FeatureRule,
   user: EventUser,
   resetReview: boolean,
@@ -819,8 +819,10 @@ export async function addFeatureRule(
     rules: revision.rules || {},
     status: revision.status,
   };
-  changes.rules[env] = changes.rules[env] || [];
-  changes.rules[env].push(rule);
+  envs.forEach((env) => {
+    changes.rules[env] = changes.rules[env] || [];
+    changes.rules[env].push(rule);
+  });
   await updateRevision(
     context,
     revision,
@@ -828,7 +830,7 @@ export async function addFeatureRule(
     {
       user,
       action: "add rule",
-      subject: `to ${env}`,
+      subject: `to ${envs.join(", ")}`,
       value: JSON.stringify(rule),
     },
     resetReview,

@@ -29,7 +29,7 @@ export type Props = {
   size?: Size;
   error?: string;
   errorLevel?: "error" | "warning";
-  description?: string;
+  description?: string | ReactElement;
   weight?: "bold" | "regular";
   setValue: (value: boolean) => void;
   required?: boolean;

@@ -19,6 +19,7 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import {
   ColumnInterface,
   FactMetricInterface,
+  FactTableColumnType,
   FactTableInterface,
   MetricQuantileSettings,
 } from "back-end/types/fact-table";
@@ -53,7 +54,7 @@ export type MetricAggregationType = "pre" | "post" | "noWindow";
 export type FactMetricData = {
   alias: string;
   id: string;
-  metric: ExperimentMetricInterface;
+  metric: FactMetricInterface;
   ratioMetric: boolean;
   funnelMetric: boolean;
   quantileMetric: "" | MetricQuantileSettings["type"];
@@ -62,6 +63,8 @@ export type FactMetricData = {
   regressionAdjustmentHours: number;
   overrideConversionWindows: boolean;
   isPercentileCapped: boolean;
+  numeratorSourceIndex: number;
+  denominatorSourceIndex: number;
   capCoalesceMetric: string;
   capCoalesceDenominator: string;
   capCoalesceCovariate: string;
@@ -87,6 +90,8 @@ export type BanditMetricData = Pick<
   | "capCoalesceMetric"
   | "capCoalesceDenominator"
   | "capCoalesceCovariate"
+  | "numeratorSourceIndex"
+  | "denominatorSourceIndex"
 >;
 
 export type VariationPeriodWeight = {
@@ -227,6 +232,12 @@ export interface ExperimentAggregateUnitsQueryParams
 export type DimensionSlicesQueryParams = {
   exposureQueryId: string;
   dimensions: ExperimentDimension[];
+  lookbackDays: number;
+};
+
+export type UserExperimentExposuresQueryParams = {
+  userIdType: string;
+  unitId: string;
   lookbackDays: number;
 };
 
@@ -431,10 +442,23 @@ export type DimensionSlicesQueryResponseRows = {
   total_units: number;
 }[];
 
+export type UserExperimentExposuresQueryResponseRows = {
+  timestamp: string;
+  experiment_id: string;
+  variation_id: string;
+  [key: string]: string | null;
+}[];
+
+export type QueryResponseColumnData = {
+  name: string;
+  dataType?: FactTableColumnType;
+  fields?: QueryResponseColumnData[];
+};
+
 // eslint-disable-next-line
 export type QueryResponse<Rows = Record<string, any>[]> = {
   rows: Rows;
-  columns?: string[];
+  columns?: QueryResponseColumnData[];
   statistics?: QueryStatistics;
 };
 
@@ -457,6 +481,10 @@ export type DropTableQueryResponse = QueryResponse;
 export type ColumnTopValuesResponse = QueryResponse<
   ColumnTopValuesResponseRow[]
 >;
+export type UserExperimentExposuresQueryResponse =
+  QueryResponse<UserExperimentExposuresQueryResponseRows> & {
+    truncated?: boolean;
+  };
 
 export interface TestQueryRow {
   [key: string]: unknown;
@@ -464,6 +492,7 @@ export interface TestQueryRow {
 
 export interface TestQueryResult {
   results: TestQueryRow[];
+  columns?: QueryResponseColumnData[];
   duration: number;
 }
 
@@ -645,6 +674,12 @@ export interface SourceIntegrationInterface {
   ): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
+  getUserExperimentExposuresQuery(
+    params: UserExperimentExposuresQueryParams,
+  ): string;
+  runUserExperimentExposuresQuery(
+    query: string,
+  ): Promise<UserExperimentExposuresQueryResponse>;
   getDimensionSlicesQuery(params: DimensionSlicesQueryParams): string;
   runDimensionSlicesQuery(
     query: string,

@@ -16,7 +16,7 @@ export default function NorthStarMetricSettings() {
               </Heading>
             </Box>
 
-            <Flex align="start" direction="column" flexGrow="1" pt="2">
+            <Flex align="start" direction="column" flexGrow="1" pt="6">
               <p>
                 North stars are metrics your team is focused on improving. These
                 metrics are shown on the home page with the experiments that

@@ -26,15 +26,6 @@ export const updateFactTable = createApiRequestHandler(
     throw new Error("Could not find factTable with that id");
   }
 
-  if (
-    !req.context.permissions.canUpdateFactTable(
-      factTable,
-      req.body as UpdateFactTableRequest,
-    )
-  ) {
-    req.context.permissions.throwPermissionError();
-  }
-
   // Validate projects
   if (req.body.projects?.length) {
     const projects = await req.context.models.projects.getAll();
@@ -70,15 +61,15 @@ export const updateFactTable = createApiRequestHandler(
 
   // Handle column property updates only (no creation/deletion of columns)
   if (data.columns) {
-    // Check if any column has dimension properties
-    const hasDimensionProperties = data.columns.some(
-      (col) => col.isDimension || col.dimensionLevels,
+    // Check if any column has auto slice properties
+    const hasAutoSliceProperties = data.columns.some(
+      (col) => col.isAutoSliceColumn || col.autoSlices,
     );
 
-    if (hasDimensionProperties) {
+    if (hasAutoSliceProperties) {
       // Check enterprise feature access
-      if (!req.context.hasPremiumFeature("metric-dimensions")) {
-        throw new Error("Metric dimensions require an enterprise license");
+      if (!req.context.hasPremiumFeature("metric-slices")) {
+        throw new Error("Metric slices require an enterprise license");
       }
     }
 
@@ -93,11 +84,12 @@ export const updateFactTable = createApiRequestHandler(
         );
       }
 
-      await updateColumn(
+      await updateColumn({
+        context: req.context,
         factTable,
-        columnUpdate.column,
-        omit(columnUpdate, ["dateCreated", "dateUpdated"]),
-      );
+        column: columnUpdate.column,
+        changes: omit(columnUpdate, ["dateCreated", "dateUpdated"]),
+      });
     }
 
     // Remove columns from the main update since we handled them individually
