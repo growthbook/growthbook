@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import {
@@ -15,6 +15,7 @@ import DashboardSnapshotProvider from "@/enterprise/components/Dashboards/Dashbo
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 function SingleDashboardPage() {
   const router = useRouter();
@@ -24,8 +25,19 @@ function SingleDashboardPage() {
   }>(`/dashboards/${did}`);
   const dashboard = data?.dashboard;
   const [isEditing, setIsEditing] = useState(false);
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, userId } = useUser();
   const { apiCall } = useAuth();
+  const permissionsUtil = usePermissionsUtil();
+
+  const canUpdateDashboards = permissionsUtil.canCreateAnalyses(
+    dashboard?.projects,
+  );
+  const isOwner = userId === dashboard?.userId || !dashboard?.userId;
+  const isAdmin = permissionsUtil.canSuperDeleteReport();
+  const canManage = isOwner || isAdmin;
+  const canEdit =
+    canManage || (dashboard.editLevel === "published" && canUpdateDashboards);
+
   const [blocks, setBlocks] = useState<
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
@@ -37,40 +49,59 @@ function SingleDashboardPage() {
     }
   }, [dashboard]);
 
-  const submitDashboard = async ({
-    method,
-    dashboardId,
-    data,
-  }: {
-    method: "PUT" | "POST";
-    dashboardId?: string;
-    data: {
-      title?: DashboardInterface["title"];
-      editLevel?: DashboardInterface["editLevel"];
-      enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
-      blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
-    };
-  }) => {
-    const res = (await apiCall(
-      `/dashboards/${method === "PUT" ? dashboardId : ""}`,
-      {
-        method,
-        body: JSON.stringify(
-          method === "PUT"
-            ? {
-                blocks: data.blocks,
-                title: data.title,
-                editLevel: data.editLevel,
-                enableAutoUpdates: data.enableAutoUpdates,
-              }
-            : data,
-        ),
-      },
-    )) as { status: number; dashboard: DashboardInterface };
-    if (res.status === 200) {
-      await mutate();
-    }
-  };
+  const submitDashboard = useCallback(
+    async ({
+      method,
+      dashboardId,
+      data,
+    }: {
+      method: "PUT" | "POST";
+      dashboardId?: string;
+      data: {
+        title?: DashboardInterface["title"];
+        editLevel?: DashboardInterface["editLevel"];
+        enableAutoUpdates?: DashboardInterface["enableAutoUpdates"];
+        blocks?: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
+      };
+    }) => {
+      const res = (await apiCall(
+        `/dashboards/${method === "PUT" ? dashboardId : ""}`,
+        {
+          method,
+          body: JSON.stringify(
+            method === "PUT"
+              ? {
+                  blocks: data.blocks,
+                  title: data.title,
+                  editLevel: data.editLevel,
+                  enableAutoUpdates: data.enableAutoUpdates,
+                }
+              : data,
+          ),
+        },
+      )) as { status: number; dashboard: DashboardInterface };
+      if (res.status === 200) {
+        await mutate();
+      }
+    },
+    [apiCall, mutate],
+  );
+
+  const memoizedSetBlock = useCallback(
+    (i: number, block: (typeof blocks)[number]) => {
+      if (!dashboard) return;
+      const newBlocks = [...blocks.slice(0, i), block, ...blocks.slice(i + 1)];
+      setBlocks(newBlocks);
+      submitDashboard({
+        method: "PUT",
+        dashboardId: dashboard.id,
+        data: {
+          blocks: newBlocks,
+        },
+      });
+    },
+    [blocks, submitDashboard, dashboard],
+  );
 
   if (!hasCommercialFeature("product-analytics-dashboards")) {
     return <>TODO: upgrade modal</>;
@@ -128,21 +159,7 @@ function SingleDashboardPage() {
             title={dashboard.title}
             blocks={dashboard.blocks}
             enableAutoUpdates={dashboard.enableAutoUpdates}
-            setBlock={(i, block) => {
-              const newBlocks = [
-                ...blocks.slice(0, i),
-                block,
-                ...blocks.slice(i + 1),
-              ];
-              setBlocks(newBlocks);
-              submitDashboard({
-                method: "PUT",
-                dashboardId: dashboard.id,
-                data: {
-                  blocks: newBlocks,
-                },
-              });
-            }}
+            setBlock={canEdit ? memoizedSetBlock : undefined}
             projects={dashboard.projects ? dashboard.projects : []}
             mutate={mutate}
             nextUpdate={dashboard.nextUpdate}

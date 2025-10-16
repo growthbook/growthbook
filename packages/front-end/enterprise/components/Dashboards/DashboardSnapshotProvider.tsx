@@ -214,7 +214,9 @@ export default function DashboardSnapshotProvider({
     <DashboardSnapshotContext.Provider
       value={{
         experiment,
-        projects: experiment?.project ? [experiment.project] : undefined,
+        projects:
+          dashboard?.projects ??
+          (experiment?.project ? [experiment.project] : undefined),
         defaultSnapshot: snapshotData?.snapshot,
         dimensionless: snapshotData?.dimensionless,
         snapshotsMap,
