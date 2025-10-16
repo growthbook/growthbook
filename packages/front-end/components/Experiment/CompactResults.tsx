@@ -813,8 +813,6 @@ export function getRenderLabelColumn({
   togglePinnedMetricSlice,
   expandedMetrics,
   toggleExpandedMetric,
-  getExperimentMetricById,
-  getFactTableById,
   shouldShowMetricSlices,
   getChildRowCounts,
   className = "pl-3",
@@ -933,22 +931,13 @@ export function getRenderLabelColumn({
       );
     }
 
-    const hasSlices =
-      shouldShowMetricSlices &&
-      !!createAutoSliceDataForMetric({
-        parentMetric: getExperimentMetricById?.(metric.id),
-        factTable: getFactTableById?.(
-          (getExperimentMetricById?.(metric.id) as FactMetricInterface)
-            ?.numerator?.factTableId || "",
-        ),
-        includeOther: true,
-      }).length;
-
     // Get child row counts for pinned indicator
     const childRowCounts =
-      shouldShowMetricSlices && hasSlices && getChildRowCounts
+      shouldShowMetricSlices && getChildRowCounts
         ? getChildRowCounts(metric.id)
         : { total: 0, pinned: 0 };
+
+    const hasSlices = childRowCounts.total > 0;
 
     // Render non-slice metric
     return (
