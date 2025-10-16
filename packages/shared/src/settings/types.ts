@@ -14,7 +14,7 @@ import {
   OrganizationInterface,
   RequireReview,
 } from "back-end/types/organization";
-import { StatsEngine } from "back-end/types/stats";
+import { StatsEngine, PValueCorrection } from "back-end/types/stats";
 import { ProjectInterface } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
 import { MetricWindowSettings } from "back-end/types/fact-table";
@@ -76,11 +76,13 @@ interface BaseSettings {
   defaultRole: MemberRoleInfo;
   statsEngine: StatsEngine;
   pValueThreshold: number;
+  pValueCorrection: PValueCorrection;
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
   sequentialTestingEnabled: boolean;
   sequentialTestingTuningParameter: number;
   attributionModel: AttributionModel;
+  srmThreshold: number;
   secureAttributeSalt: string;
   killswitchConfirmation: boolean;
   requireReviews: boolean | RequireReview[];
@@ -92,6 +94,8 @@ interface BaseSettings {
   banditBurnInUnit: "hours" | "days";
   experimentMinLengthDays: number;
   experimentMaxLengthDays: number | undefined;
+  maxMetricSliceLevels: number;
+  useStickyBucketing: boolean;
 }
 
 // todo: encapsulate all settings, including experiment

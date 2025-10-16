@@ -210,10 +210,10 @@ export async function getExperimentMetricById(
   context: Context,
   metricId: string,
 ): Promise<ExperimentMetricInterface | null> {
-  // Handle slice metric IDs by extracting the parent metric ID
+  // Handle slice metric IDs by extracting the base metric ID
   const sliceInfo = parseSliceMetricId(metricId);
   const actualMetricId = sliceInfo.isSliceMetric
-    ? sliceInfo.parentMetricId
+    ? sliceInfo.baseMetricId
     : metricId;
 
   if (isFactMetricId(actualMetricId)) {
@@ -705,6 +705,10 @@ export function getSnapshotSettings({
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
+    phase: {
+      index: phaseIndex + "",
+    },
+    customFields: experiment.customFields,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
@@ -1514,7 +1518,11 @@ function getExperimentMetric(
   experiment: ExperimentInterface,
   id: string,
 ): ApiExperimentMetric {
-  const overrides = experiment.metricOverrides?.find((o) => o.id === id);
+  // For slice metrics, use the base metric ID for lookups
+  const { baseMetricId } = parseSliceMetricId(id);
+  const overrides = experiment.metricOverrides?.find(
+    (o) => o.id === baseMetricId,
+  );
   const ret: ApiExperimentMetric = {
     metricId: id,
     overrides: {},

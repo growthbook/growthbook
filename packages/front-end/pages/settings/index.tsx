@@ -15,6 +15,7 @@ import {
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
 } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
 import { OrganizationSettings } from "back-end/types/organization";
 import Link from "next/link";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -173,6 +174,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultFeatureRulesInAllEnvs:
         settings.defaultFeatureRulesInAllEnvs ?? false,
       preferredEnvironment: settings.preferredEnvironment || "",
+      maxMetricSliceLevels:
+        settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
     },
   });
   const { apiCall } = useAuth();
@@ -222,6 +225,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
+    maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
