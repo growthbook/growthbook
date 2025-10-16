@@ -2,7 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "back-end/types/experiment";
-import { clsx } from "clsx";
+import clsx from "clsx";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
