@@ -93,18 +93,18 @@ const mockResponse2 = {
 const mockMultiOrgResponse = {
   [mockOrgId]: {
     limits: {
-      requests: 1_000,
-      bandwidth: 10_000_000_000,
-      managedClickhouseEvents: 1_000_000,
+      requests: 3_000,
+      bandwidth: 30_000_000_000,
+      managedClickhouseEvents: 3_000_000,
     },
     cdn: { lastUpdated: new Date(), status: "under" as const },
     managedClickhouse: { lastUpdated: new Date(), status: "under" as const },
   },
   [mockOrgId2]: {
     limits: {
-      requests: 3_000,
-      bandwidth: 30_000_000_000,
-      managedClickhouseEvents: 3_000_000,
+      requests: 4_000,
+      bandwidth: 40_000_000_000,
+      managedClickhouseEvents: 4_000_000,
     },
     cdn: { lastUpdated: new Date(), status: "approaching" as const },
     managedClickhouse: { lastUpdated: new Date(), status: "over" as const },
@@ -284,7 +284,7 @@ describe("getUsage", () => {
 describe("getUsages", () => {
   const env = process.env;
   const now = new Date("2023-11-21T12:08:12.610Z");
-  const twoHoursFromNow = new Date("2023-11-21T14:08:12.610Z");
+  const twoHoursAgo = new Date("2023-11-21T10:08:12.610Z");
 
   beforeEach(() => {
     resetUsageCache();
@@ -437,62 +437,55 @@ describe("getUsages", () => {
 
       it("should use cached data for some organizations and fetch for others", async () => {
         // Pre-populate cache for only one organization
-        setUsageInCache(mockOrgId, mockMultiOrgResponse[mockOrgId]);
+        setUsageInCache(mockOrgId2, mockMultiOrgResponse[mockOrgId2]);
 
         mockedFetch.mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce({
-            [mockOrgId2]: mockMultiOrgResponse[mockOrgId2],
-          }),
+          json: jest.fn().mockResolvedValueOnce(mockResponse),
         } as unknown as Response);
 
         const usages = await getUsages([mockOrganization, mockOrganization2]);
 
         expect(usages).toEqual({
-          [mockOrgId]: mockMultiOrgResponse[mockOrgId],
+          [mockOrgId]: mockResponse[mockOrgId],
           [mockOrgId2]: mockMultiOrgResponse[mockOrgId2],
         });
         expect(mockedFetch).toHaveBeenCalledTimes(1);
         expect(mockedFetch).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({
-            body: expect.stringContaining(mockOrgId2),
+            body: expect.stringContaining(mockOrgId),
           }),
         );
         // Ensure we don't fetch the cached organization
         expect(mockedFetch).toHaveBeenCalledWith(
           expect.any(String),
           expect.objectContaining({
-            body: expect.not.stringContaining(mockOrgId),
+            body: expect.not.stringContaining(mockOrgId2),
           }),
         );
       });
 
       it("should handle mixed expired and valid cache data", async () => {
         // Set one organization with valid cache
-        setUsageInCache(mockOrgId, mockMultiOrgResponse[mockOrgId]);
-
-        jest.setSystemTime(twoHoursFromNow);
         setUsageInCache(mockOrgId2, mockMultiOrgResponse[mockOrgId2]);
+
+        // Set the other organization with expired cache
+        jest.setSystemTime(twoHoursAgo);
+        setUsageInCache(mockOrgId, mockMultiOrgResponse[mockOrgId]);
         jest.setSystemTime(now);
 
         mockedFetch.mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce({
-            [mockOrgId2]: {
-              ...mockMultiOrgResponse[mockOrgId2],
-              limits: {
-                ...mockMultiOrgResponse[mockOrgId2].limits,
-                requests: 5000,
-              },
-            },
-          }),
+          json: jest.fn().mockResolvedValueOnce(mockResponse),
         } as unknown as Response);
 
         const usages = await getUsages([mockOrganization, mockOrganization2]);
 
-        expect(usages[mockOrgId]).toEqual(mockMultiOrgResponse[mockOrgId]);
-        expect(usages[mockOrgId2].limits.requests).toBe(5000);
+        expect(usages[mockOrgId2]).toEqual(mockMultiOrgResponse[mockOrgId2]);
+        expect(usages[mockOrgId].limits.requests).toBe(
+          mockResponse[mockOrgId].limits.requests,
+        );
         expect(mockedFetch).toHaveBeenCalledTimes(1);
       });
 
@@ -506,16 +499,13 @@ describe("getUsages", () => {
       it("should fallback to UNLIMITED_USAGE for organizations not returned by server", async () => {
         mockedFetch.mockResolvedValueOnce({
           ok: true,
-          json: jest.fn().mockResolvedValueOnce({
-            // Only return data for one organization
-            [mockOrgId]: mockMultiOrgResponse[mockOrgId],
-          }),
+          json: jest.fn().mockResolvedValueOnce(mockResponse),
         } as unknown as Response);
 
         const usages = await getUsages([mockOrganization, mockOrganization2]);
 
         expect(usages).toEqual({
-          [mockOrgId]: mockMultiOrgResponse[mockOrgId],
+          [mockOrgId]: mockResponse[mockOrgId],
           [mockOrgId2]: UNLIMITED_USAGE,
         });
         expect(mockedFetch).toHaveBeenCalledTimes(1);
