@@ -6,7 +6,7 @@ import {
 } from "back-end/types/experiment";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaExclamationCircle, FaExternalLinkAlt } from "react-icons/fa";
-import { clsx } from "clsx";
+import clsx from "clsx";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
   FeaturePrerequisite,
