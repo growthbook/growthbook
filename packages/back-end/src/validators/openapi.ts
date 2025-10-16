@@ -663,3 +663,9 @@ export const getSettingsValidator = {
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
+
+export const getCustomFieldsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({ "projectId": z.string().optional() }).strict(),
+  paramsSchema: z.never(),
+};

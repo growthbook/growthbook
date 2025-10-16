@@ -367,6 +367,10 @@ export interface paths {
     /** Get organization settings */
     get: operations["getSettings"];
   };
+  "/custom-fields": {
+    /** Get list of custom fields */
+    get: operations["getCustomFields"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -13849,6 +13853,33 @@ export interface operations {
       };
     };
   };
+  getCustomFields: {
+    /** Get list of custom fields */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+              id: string;
+              name: string;
+              type: string;
+              section: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              active: boolean;
+              required: boolean;
+            })[];
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -13993,3 +14024,4 @@ export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"
 export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
 export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];
+export type GetCustomFieldsResponse = operations["getCustomFields"]["responses"]["200"]["content"]["application/json"];
