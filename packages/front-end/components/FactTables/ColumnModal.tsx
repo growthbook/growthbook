@@ -115,6 +115,15 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
     () => {
       const isAutoSliceColumn = form.watch("isAutoSliceColumn");
       const wasAutoSliceColumn = existing?.isAutoSliceColumn;
+      const datatype = form.watch("datatype");
+
+      // Skip refresh for boolean columns
+      if (datatype === "boolean") {
+        if (isAutoSliceColumn && !wasAutoSliceColumn) {
+          form.setValue("autoSlices", ["true", "false"]);
+        }
+        return;
+      }
 
       // Only trigger if isAutoSliceColumn is being set to true (not already true) and topValues are stale
       if (
@@ -266,6 +275,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             data.jsonFields = value.jsonFields;
           }
 
+          if (data.datatype === "boolean" && data.autoSlices) {
+            data.autoSlices = ["true", "false"];
+          }
+
           await apiCall(
             `/fact-tables/${factTable.id}/column/${existing.column}`,
             {
@@ -274,6 +287,10 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
             },
           );
         } else {
+          if (value.datatype === "boolean" && value.autoSlices) {
+            value.autoSlices = ["true", "false"];
+          }
+
           await apiCall(`/fact-tables/${factTable.id}/column`, {
             method: "POST",
             body: JSON.stringify(value),
@@ -525,7 +542,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
       )}
 
       {isMetricSlicesFeatureEnabled &&
-        form.watch("datatype") === "string" &&
+        (form.watch("datatype") === "string" ||
+          form.watch("datatype") === "boolean") &&
         !factTable.userIdTypes.includes(form.watch("column")) &&
         form.watch("column") !== "timestamp" && (
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
@@ -559,47 +577,49 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
               />
             </div>
 
-            {form.watch("isAutoSliceColumn") && hasMetricSlicesFeature && (
-              <div className="mb-2">
-                <div className="d-flex justify-content-between mb-1">
-                  <label className="form-label mb-0">Slices</label>
-                  <RadixButton
-                    size="xs"
-                    variant="ghost"
-                    onClick={refreshTopValues}
-                    loading={refreshingTopValues}
-                  >
-                    <PiArrowClockwise /> Use Top Values
-                  </RadixButton>
+            {form.watch("isAutoSliceColumn") &&
+              hasMetricSlicesFeature &&
+              form.watch("datatype") !== "boolean" && (
+                <div className="mb-2">
+                  <div className="d-flex justify-content-between mb-1">
+                    <label className="form-label mb-0">Slices</label>
+                    <RadixButton
+                      size="xs"
+                      variant="ghost"
+                      onClick={refreshTopValues}
+                      loading={refreshingTopValues}
+                    >
+                      <PiArrowClockwise /> Use Top Values
+                    </RadixButton>
+                  </div>
+                  {autoSlicesWarning ||
+                  (form.watch("autoSlices") || [])?.length >
+                    maxMetricSliceLevels ? (
+                    <HelperText status="warning" mb="1">
+                      Limit {maxMetricSliceLevels + ""} slices
+                    </HelperText>
+                  ) : null}
+                  <MultiSelectField
+                    value={form.watch("autoSlices") || []}
+                    onChange={(values) => {
+                      if (values.length > maxMetricSliceLevels) {
+                        values = values.slice(0, maxMetricSliceLevels);
+                        setAutoSlicesWarning(true);
+                        setTimeout(() => {
+                          setAutoSlicesWarning(false);
+                        }, 3000);
+                      }
+                      // Track if user manually clears all slices
+                      if (values.length === 0) {
+                        setHasManuallyClearedSlices(true);
+                      }
+                      form.setValue("autoSlices", values);
+                    }}
+                    options={autoSliceOptions}
+                    creatable={true}
+                  />
                 </div>
-                {autoSlicesWarning ||
-                (form.watch("autoSlices") || [])?.length >
-                  maxMetricSliceLevels ? (
-                  <HelperText status="warning" mb="1">
-                    Limit {maxMetricSliceLevels + ""} slices
-                  </HelperText>
-                ) : null}
-                <MultiSelectField
-                  value={form.watch("autoSlices") || []}
-                  onChange={(values) => {
-                    if (values.length > maxMetricSliceLevels) {
-                      values = values.slice(0, maxMetricSliceLevels);
-                      setAutoSlicesWarning(true);
-                      setTimeout(() => {
-                        setAutoSlicesWarning(false);
-                      }, 3000);
-                    }
-                    // Track if user manually clears all slices
-                    if (values.length === 0) {
-                      setHasManuallyClearedSlices(true);
-                    }
-                    form.setValue("autoSlices", values);
-                  }}
-                  options={autoSliceOptions}
-                  creatable={true}
-                />
-              </div>
-            )}
+              )}
           </div>
         )}
 
