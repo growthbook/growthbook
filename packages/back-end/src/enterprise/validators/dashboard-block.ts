@@ -14,6 +14,11 @@ const baseBlockInterface = z
   })
   .strict();
 
+// Extension for blocks that support metric slices
+const metricSliceSettingsInterface = z.object({
+  pinnedMetricSlices: z.array(z.string()).optional(),
+});
+
 const markdownBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("markdown"),
@@ -120,8 +125,8 @@ const experimentMetricBlockInterface = baseBlockInterface
       ]),
     ),
     snapshotId: z.string(),
-    pinnedMetricSlices: z.array(z.string()).optional(),
   })
+  .merge(metricSliceSettingsInterface)
   .strict();
 
 export type ExperimentMetricBlockInterface = z.infer<
@@ -179,6 +184,7 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     variationIds: z.array(z.string()),
     snapshotId: z.string(),
   })
+  .merge(metricSliceSettingsInterface)
   .strict();
 
 export type ExperimentTimeSeriesBlockInterface = z.infer<

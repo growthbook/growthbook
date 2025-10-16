@@ -5,9 +5,13 @@ import {
 } from "back-end/types/report";
 import { MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { FactMetricInterface } from "back-end/types/fact-table";
+import {
+  FactMetricInterface,
+  FactTableInterface,
+} from "back-end/types/fact-table";
 import {
   expandMetricGroups,
+  ExperimentMetricInterface,
   generatePinnedSliceKey,
   createCustomSliceDataForMetric,
   createAutoSliceDataForMetric,
@@ -81,6 +85,7 @@ export interface UseExperimentTableRowsReturn {
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   allMetricTags: string[];
+  getChildRowCounts: (metricId: string) => { total: number; pinned: number };
 }
 
 export function useExperimentTableRows({
@@ -186,158 +191,19 @@ export function useExperimentTableRows({
       metricId: string,
       resultGroup: "goal" | "secondary" | "guardrail",
     ): ExperimentTableRow[] {
-      const metric =
-        ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-        getExperimentMetricById(metricId);
-      if (!metric) return [];
-      const { newMetric, overrideFields } = applyMetricOverrides(
-        metric,
-        metricOverrides,
-      );
-      let metricSnapshotSettings: MetricSnapshotSettings | undefined;
-      if (settingsForSnapshotMetrics) {
-        metricSnapshotSettings = settingsForSnapshotMetrics.find(
-          (s) => s.metric === metricId,
-        );
-      }
-      // Calculate slice count (will be computed from actual slice data below)
-      let numSlices = 0;
-
-      let sliceData: SliceDataForMetric[] = [];
-
-      if (_shouldShowMetricSlices) {
-        const standardSliceData = createAutoSliceDataForMetric({
-          parentMetric: getExperimentMetricById(metricId),
-          factTable: getFactTableById(
-            (getExperimentMetricById(metricId) as FactMetricInterface)
-              ?.numerator?.factTableId || "",
-          ),
-          includeOther: true,
-        });
-
-        const customSliceData = createCustomSliceDataForMetric({
-          metricId,
-          metricName: newMetric?.name || "",
-          customMetricSlices: customMetricSlices || [],
-          factTable: getFactTableById(
-            (metric as FactMetricInterface)?.numerator?.factTableId || "",
-          ),
-        });
-
-        // Dedupe (auto and custom slices sometimes overlap)
-        sliceData = dedupeSliceMetrics([
-          ...standardSliceData,
-          ...customSliceData,
-        ]);
-      }
-
-      // Update numSlices with actual count
-      numSlices = sliceData.length;
-
-      const parentRow: ExperimentTableRow = {
-        label: newMetric?.name,
-        metric: newMetric,
-        metricOverrideFields: overrideFields,
-        rowClass: newMetric?.inverse ? "inverse" : "",
-        variations: results.variations.map((v) => {
-          return (
-            v.metrics?.[metricId] || {
-              users: 0,
-              value: 0,
-              cr: 0,
-              errorMessage: "No data",
-            }
-          );
-        }),
-        metricSnapshotSettings,
+      return generateRowsForMetric({
+        metricId,
         resultGroup,
-        numSlices,
-      };
-
-      const rows: ExperimentTableRow[] = [parentRow];
-
-      if (numSlices > 0) {
-        sliceData.forEach((slice) => {
-          const expandedKey = `${metricId}:${resultGroup}`;
-          const isExpanded = expandedMetrics[expandedKey] || false;
-
-          // Generate pinned key from all slice levels
-          const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
-            column: dl.column,
-            datatype: dl.datatype,
-            levels: dl.levels,
-          }));
-          const pinnedKey = generatePinnedSliceKey(
-            metricId,
-            pinnedSliceLevels,
-            resultGroup,
-          );
-          const isPinned =
-            (enablePinning && pinnedMetricSlices?.includes(pinnedKey)) || false;
-
-          // Show level if metric is expanded OR if it's pinned
-          const shouldShowLevel = isExpanded || isPinned;
-
-          // Generate label from slice levels - we'll create a simple string for now
-          // The actual JSX rendering will be handled by the component using this hook
-          const labelParts = slice.sliceLevels.map((dl, _index) => {
-            if (dl.levels.length === 0) {
-              return `${dl.column}: null`;
-            }
-            const value = dl.levels[0];
-            if (dl.datatype === "boolean") {
-              return `${dl.column}: ${value}`;
-            }
-            return value;
-          });
-          const label = labelParts.join(" + ");
-
-          const sliceRow: ExperimentTableRow = {
-            label,
-            metric: {
-              ...newMetric,
-              name: slice.name, // Use the full slice metric name
-            },
-            metricOverrideFields: overrideFields,
-            rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
-            variations: results.variations.map((v) => {
-              // Use the slice metric's data instead of the parent metric's data
-              return (
-                v.metrics?.[slice.id] || {
-                  users: 0,
-                  value: 0,
-                  cr: 0,
-                  errorMessage: "No data",
-                }
-              );
-            }),
-            metricSnapshotSettings,
-            resultGroup,
-            numSlices: 0,
-            isSliceRow: true,
-            parentRowId: metricId,
-            sliceLevels: slice.sliceLevels.map((dl) => ({
-              column: dl.column,
-              datatype: dl.datatype,
-              levels: dl.levels,
-            })),
-            allSliceLevels: slice.allSliceLevels,
-            isHiddenByFilter: !shouldShowLevel, // Always add slice rows to the array, even if hidden by filter
-            isPinned: isPinned,
-          };
-
-          // Skip "other" slice rows with no data
-          if (
-            slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
-            sliceRow.variations.every((v) => v.value === 0)
-          ) {
-            return;
-          }
-          rows.push(sliceRow);
-        });
-      }
-
-      return rows;
+        results,
+        metricOverrides,
+        settingsForSnapshotMetrics,
+        shouldShowMetricSlices: _shouldShowMetricSlices,
+        customMetricSlices,
+        pinnedMetricSlices: enablePinning ? pinnedMetricSlices : undefined,
+        expandedMetrics,
+        getExperimentMetricById,
+        getFactTableById,
+      });
     }
 
     if (!results || !results.variations || (!ready && !ssrPolyfills)) return [];
@@ -455,17 +321,216 @@ export function useExperimentTableRows({
     expandedMetrics,
     _shouldShowMetricSlices,
     customMetricSlices,
+    enablePinning,
     sortBy,
     sortDirection,
     analysisBarSettings?.variationFilter,
     metricDefaults,
-    enablePinning,
   ]);
+
+  const getChildRowCounts = (metricId: string) => {
+    const childRows = rows.filter((row) => row.parentRowId === metricId);
+    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
+    return {
+      total: childRows.length,
+      pinned: pinnedChildRows.length,
+    };
+  };
 
   return {
     rows,
     expandedMetrics,
     toggleExpandedMetric,
     allMetricTags,
+    getChildRowCounts,
   };
+}
+
+// Shared row generation logic that can be used by both normal and dimension hooks
+export function generateRowsForMetric({
+  metricId,
+  resultGroup,
+  results,
+  metricOverrides,
+  settingsForSnapshotMetrics,
+  shouldShowMetricSlices,
+  customMetricSlices,
+  pinnedMetricSlices,
+  expandedMetrics,
+  getExperimentMetricById,
+  getFactTableById,
+}: {
+  metricId: string;
+  resultGroup: "goal" | "secondary" | "guardrail";
+  results: ExperimentReportResultDimension | ExperimentReportResultDimension[];
+  metricOverrides: MetricOverride[];
+  settingsForSnapshotMetrics: MetricSnapshotSettings[] | undefined;
+  shouldShowMetricSlices: boolean;
+  customMetricSlices:
+    | Array<{
+        slices: Array<{
+          column: string;
+          levels: string[];
+        }>;
+      }>
+    | undefined;
+  pinnedMetricSlices: string[] | undefined;
+  expandedMetrics: Record<string, boolean>;
+  getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
+  getFactTableById: (id: string) => FactTableInterface | null;
+}): ExperimentTableRow[] {
+  const resultsArray = Array.isArray(results) ? results : [results];
+  const metric = getExperimentMetricById(metricId);
+  if (!metric) return [];
+
+  const { newMetric, overrideFields } = applyMetricOverrides(
+    metric,
+    metricOverrides,
+  );
+  let metricSnapshotSettings: MetricSnapshotSettings | undefined;
+  if (settingsForSnapshotMetrics) {
+    metricSnapshotSettings = settingsForSnapshotMetrics.find(
+      (s) => s.metric === metricId,
+    );
+  }
+  // Calculate slice count (will be computed from actual slice data below)
+  let numSlices = 0;
+
+  let sliceData: SliceDataForMetric[] = [];
+
+  if (shouldShowMetricSlices) {
+    const standardSliceData = createAutoSliceDataForMetric({
+      parentMetric: getExperimentMetricById(metricId),
+      factTable: getFactTableById(
+        (getExperimentMetricById(metricId) as FactMetricInterface)?.numerator
+          ?.factTableId || "",
+      ),
+      includeOther: true,
+    });
+
+    const customSliceData = createCustomSliceDataForMetric({
+      metricId,
+      metricName: newMetric?.name || "",
+      customMetricSlices: customMetricSlices || [],
+      factTable: getFactTableById(
+        (metric as FactMetricInterface)?.numerator?.factTableId || "",
+      ),
+    });
+
+    // Dedupe (auto and custom slices sometimes overlap)
+    sliceData = dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
+  }
+
+  // Update numSlices with actual count
+  numSlices = sliceData.length;
+
+  const parentRow: ExperimentTableRow = {
+    label: newMetric?.name,
+    metric: newMetric,
+    metricOverrideFields: overrideFields,
+    rowClass: newMetric?.inverse ? "inverse" : "",
+    variations: resultsArray[0].variations.map((v) => {
+      return (
+        v.metrics?.[metricId] || {
+          users: 0,
+          value: 0,
+          cr: 0,
+          errorMessage: "No data",
+        }
+      );
+    }),
+    metricSnapshotSettings,
+    resultGroup,
+    numSlices,
+  };
+
+  const rows: ExperimentTableRow[] = [parentRow];
+
+  if (numSlices > 0) {
+    sliceData.forEach((slice) => {
+      const expandedKey = `${metricId}:${resultGroup}`;
+      const isExpanded = expandedMetrics[expandedKey] || false;
+
+      // Generate pinned key from all slice levels
+      const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
+        column: dl.column,
+        datatype: dl.datatype,
+        levels: dl.levels,
+      }));
+      const pinnedKey = generatePinnedSliceKey(
+        metricId,
+        pinnedSliceLevels,
+        resultGroup,
+      );
+      const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
+
+      // Show level if metric is expanded OR if it's pinned
+      const shouldShowLevel = isExpanded || isPinned;
+
+      // Generate label from slice levels
+      const label = slice.sliceLevels
+        .map((dl, index) => {
+          const content = (() => {
+            if (dl.levels.length === 0) {
+              // For "other" slice, show "column: NULL" with small caps styling
+              return `${dl.column}: null`;
+            }
+            const value = dl.levels[0];
+            // Only use colon notation for boolean columns
+            if (dl.datatype === "boolean") {
+              return `${dl.column}: ${value}`;
+            }
+            return value;
+          })();
+
+          return content + (index < slice.sliceLevels.length - 1 ? " + " : "");
+        })
+        .join("");
+
+      const sliceRow: ExperimentTableRow = {
+        label,
+        metric: {
+          ...newMetric,
+          name: slice.name, // Use the full slice metric name
+        },
+        metricOverrideFields: overrideFields,
+        rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+        variations: resultsArray[0].variations.map((v) => {
+          // Use the slice metric's data instead of the parent metric's data
+          return (
+            v.metrics?.[slice.id] || {
+              users: 0,
+              value: 0,
+              cr: 0,
+              errorMessage: "No data",
+            }
+          );
+        }),
+        metricSnapshotSettings,
+        resultGroup,
+        numSlices: 0,
+        isSliceRow: true,
+        parentRowId: metricId,
+        sliceLevels: slice.sliceLevels.map((dl) => ({
+          column: dl.column,
+          datatype: dl.datatype,
+          levels: dl.levels,
+        })),
+        allSliceLevels: slice.allSliceLevels,
+        isHiddenByFilter: !shouldShowLevel, // Always add slice rows to the array, even if hidden by filter
+        isPinned: isPinned,
+      };
+
+      // Skip "other" slice rows with no data
+      if (
+        slice.sliceLevels.every((dl) => dl.levels.length === 0) &&
+        sliceRow.variations.every((v) => v.value === 0)
+      ) {
+        return;
+      }
+      rows.push(sliceRow);
+    });
+  }
+
+  return rows;
 }
