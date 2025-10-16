@@ -16,6 +16,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
 import { applyMetricOverrides } from "@/services/experiments";
 import { BlockProps } from ".";
+import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
+import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 
 export default function ExperimentMetricBlock({
   isTabActive,
@@ -26,14 +28,15 @@ export default function ExperimentMetricBlock({
   ssrPolyfills,
   metrics,
 }: BlockProps<ExperimentMetricBlockInterface>) {
-  const { baselineRow, columnsFilter, variationIds } = block;
+  const { baselineRow, columnsFilter, variationIds, pinnedMetricSlices } = block;
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
     [block],
   );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const { metricGroups } = useDefinitions();
+  const { metricGroups, getExperimentMetricById, getFactTableById } = useDefinitions();
+  
   const goalMetrics = useMemo(
     () => expandMetricGroups(experiment.goalMetrics, metricGroups),
     [experiment, metricGroups],
@@ -48,20 +51,28 @@ export default function ExperimentMetricBlock({
   );
 
   const statsEngine = analysis.settings.statsEngine;
-
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
 
-  const sortedMetrics: ExperimentMetricInterface[] = useMemo(() => {
-    const metricMap = new Map(metrics.map((m) => [m.id, m]));
-    return [
-      ...new Set([
-        ...goalMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
-        ...secondaryMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
-        ...guardrailMetrics.map((mId) => metricMap.get(mId)).filter(isDefined),
-      ]),
-    ];
-  }, [metrics, goalMetrics, secondaryMetrics, guardrailMetrics]);
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  const result = analysis.results[0];
+
+  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
+    snapshot?.settings?.metricSettings?.map((m) => ({
+      metric: m.id,
+      properPrior: m.computedSettings?.properPrior ?? false,
+      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
+      properPriorStdDev:
+        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
+      regressionAdjustmentReason:
+        m.computedSettings?.regressionAdjustmentReason || "",
+      regressionAdjustmentDays:
+        m.computedSettings?.regressionAdjustmentDays || 0,
+      regressionAdjustmentEnabled:
+        !!m.computedSettings?.regressionAdjustmentEnabled,
+      regressionAdjustmentAvailable:
+        !!m.computedSettings?.regressionAdjustmentAvailable,
+    })) || [];
 
   const variations = experiment.variations.map((v, i) => ({
     id: v.key || i + "",
@@ -82,74 +93,35 @@ export default function ExperimentMetricBlock({
           .map((v) => v.index)
       : undefined;
 
-  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  // Use the new hook to generate rows with metric slice support
+  const { rows, expandedMetrics, toggleExpandedMetric, allMetricTags } =
+    useExperimentTableRows({
+      results: result,
+      goalMetrics: experiment.goalMetrics,
+      secondaryMetrics: experiment.secondaryMetrics,
+      guardrailMetrics: experiment.guardrailMetrics,
+      metricOverrides: experiment.metricOverrides ?? [],
+      ssrPolyfills,
+      customMetricSlices: experiment.customMetricSlices,
+      pinnedMetricSlices,
+      statsEngine,
+      pValueCorrection,
+      settingsForSnapshotMetrics,
+      shouldShowMetricSlices: true,
+      enableExpansion: true,
+      enablePinning: true,
+    });
 
-  const result = analysis.results[0];
+  const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
 
-  const settingsForSnapshotMetrics: MetricSnapshotSettings[] =
-    snapshot?.settings?.metricSettings?.map((m) => ({
-      metric: m.id,
-      properPrior: m.computedSettings?.properPrior ?? false,
-      properPriorMean: m.computedSettings?.properPriorMean ?? 0,
-      properPriorStdDev:
-        m.computedSettings?.properPriorStdDev ?? DEFAULT_PROPER_PRIOR_STDDEV,
-      regressionAdjustmentReason:
-        m.computedSettings?.regressionAdjustmentReason || "",
-      regressionAdjustmentDays:
-        m.computedSettings?.regressionAdjustmentDays || 0,
-      regressionAdjustmentEnabled:
-        !!m.computedSettings?.regressionAdjustmentEnabled,
-      regressionAdjustmentAvailable:
-        !!m.computedSettings?.regressionAdjustmentAvailable,
-    })) || [];
-
-  const allRows = sortedMetrics
-    .map((metric) => {
-      const { newMetric, overrideFields } = applyMetricOverrides(
-        metric,
-        experiment.metricOverrides ?? [],
-      );
-      let metricSnapshotSettings: MetricSnapshotSettings | undefined;
-      if (settingsForSnapshotMetrics) {
-        metricSnapshotSettings = settingsForSnapshotMetrics.find(
-          (s) => s.metric === metric.id,
-        );
-      }
-      return {
-        label: newMetric?.name,
-        metric: newMetric,
-        metricOverrideFields: overrideFields,
-        rowClass: newMetric?.inverse ? "inverse" : "",
-        variations: result.variations.map((v) => ({
-          value: v.metrics[metric.id]?.value || 0,
-          cr: v.metrics[metric.id]?.cr || 0,
-          users: v.users,
-          denominator: v.metrics[metric.id]?.denominator,
-          ci: v.metrics[metric.id]?.ci,
-          ciAdjusted: v.metrics[metric.id]?.ciAdjusted,
-          expected: v.metrics[metric.id]?.expected,
-          risk: v.metrics[metric.id]?.risk,
-          riskType: v.metrics[metric.id]?.riskType,
-          stats: v.metrics[metric.id]?.stats,
-          pValue: v.metrics[metric.id]?.pValue,
-          pValueAdjusted: v.metrics[metric.id]?.pValueAdjusted,
-          uplift: v.metrics[metric.id]?.uplift,
-          buckets: v.metrics[metric.id]?.buckets,
-          chanceToWin: v.metrics[metric.id]?.chanceToWin,
-          errorMessage: v.metrics[metric.id]?.errorMessage,
-          power: v.metrics[metric.id]?.power,
-        })),
-        resultGroup: getMetricResultGroup(
-          metric.id,
-          goalMetrics,
-          secondaryMetrics,
-        ),
-        metricSnapshotSettings,
-      };
-    })
-    .filter(isDefined);
-
-  const rowGroups = groupBy(allRows, ({ resultGroup }) => resultGroup);
+  const getChildRowCounts = (metricId: string) => {
+    const childRows = rows.filter((row) => row.parentRowId === metricId);
+    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
+    return {
+      total: childRows.length,
+      pinned: pinnedChildRows.length,
+    };
+  };
 
   return (
     <div>
@@ -173,7 +145,19 @@ export default function ExperimentMetricBlock({
           labelHeader={`${
             resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
           } Metrics`}
-          renderLabelColumn={({ label }) => label}
+          renderLabelColumn={getRenderLabelColumn({
+            statsEngine,
+            hideDetails: false,
+            experimentType: undefined,
+            pinnedMetricSlices,
+            togglePinnedMetricSlice: undefined, // No pinning toggle in dashboard blocks for now
+            expandedMetrics,
+            toggleExpandedMetric,
+            getExperimentMetricById,
+            getFactTableById,
+            shouldShowMetricSlices: true,
+            getChildRowCounts,
+          })}
           dateCreated={new Date()}
           statsEngine={statsEngine}
           pValueCorrection={pValueCorrection}

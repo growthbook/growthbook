@@ -120,6 +120,7 @@ const experimentMetricBlockInterface = baseBlockInterface
       ]),
     ),
     snapshotId: z.string(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
   })
   .strict();
 
