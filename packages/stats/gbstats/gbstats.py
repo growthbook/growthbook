@@ -1,4 +1,5 @@
 from dataclasses import asdict
+import dataclasses
 import re
 import traceback
 import copy
@@ -242,6 +243,7 @@ def get_configured_test(
     test_index: int,
     analysis: AnalysisSettingsForStatsEngine,
     metric: MetricSettingsForStatsEngine,
+    compel_unadjusted: bool = False,
 ) -> Union[
     EffectBayesianABTest,
     SequentialTwoSidedTTest,
@@ -252,8 +254,24 @@ def get_configured_test(
     SequentialOneSidedTreatmentGreaterTTest,
 ]:
 
-    stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
-    stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
+    if compel_unadjusted:
+        statistic_type = (
+            "mean_ra"
+            if metric.statistic_type == "mean_ra"
+            else (
+                "ratio"
+                if metric.statistic_type == "ratio_ra"
+                else metric.statistic_type
+            )
+        )
+        unadjusted_metric = dataclasses.replace(metric, statistic_type=statistic_type)
+        stat_a = variation_statistic_from_metric_row(row, "baseline", unadjusted_metric)
+        stat_b = variation_statistic_from_metric_row(
+            row, f"v{test_index}", unadjusted_metric
+        )
+    else:
+        stat_a = variation_statistic_from_metric_row(row, "baseline", metric)
+        stat_b = variation_statistic_from_metric_row(row, f"v{test_index}", metric)
 
     base_config = {
         "total_users": row["total_users"],
@@ -318,14 +336,11 @@ def decision_making_conditions(metric, analysis):
     )
 
 
-# Run A/B test analysis for each variation and dimension
-def analyze_metric_df(
-    df: pd.DataFrame,
-    metric: MetricSettingsForStatsEngine,
-    analysis: AnalysisSettingsForStatsEngine,
+def initialize_metric_df(
+    df: pd.DataFrame, analysis: AnalysisSettingsForStatsEngine
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
-    # Add new columns to the dataframe with placeholder values
+    df = df.copy()
     df["srm_p"] = 0
     df["engine"] = analysis.stats_engine
     for i in range(num_variations):
@@ -339,10 +354,14 @@ def analyze_metric_df(
             df[f"v{i}_stddev"] = None
             df[f"v{i}_expected"] = 0
             df[f"v{i}_p_value"] = None
+            df[f"v{i}_p_value_unadjusted"] = None
             df[f"v{i}_p_value_error_message"] = None
+            df[f"v{i}_p_value_error_message_unadjusted"] = None
             df[f"v{i}_risk"] = None
+            df[f"v{i}_risk_unadjusted"] = None
             df[f"v{i}_prob_beat_baseline"] = None
             df[f"v{i}_uplift"] = None
+            df[f"v{i}_uplift_unadjusted"] = None
             df[f"v{i}_error_message"] = None
             df[f"v{i}_decision_making_conditions"] = False
             df[f"v{i}_first_period_pairwise_users"] = None
@@ -355,6 +374,18 @@ def analyze_metric_df(
             df[f"v{i}_power_error_message"] = None
             df[f"v{i}_power_upper_bound_acheieved"] = None
             df[f"v{i}_scaling_factor"] = None
+    return df
+
+
+# Run A/B test analysis for each variation and dimension
+def analyze_metric_df(
+    df: pd.DataFrame,
+    metric: MetricSettingsForStatsEngine,
+    analysis: AnalysisSettingsForStatsEngine,
+) -> pd.DataFrame:
+    num_variations = df.at[0, "variations"]
+    # Add new columns to the dataframe with placeholder values
+    df = initialize_metric_df(df, num_variations)
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
@@ -364,7 +395,15 @@ def analyze_metric_df(
             test = get_configured_test(
                 row=s, test_index=i, analysis=analysis, metric=metric
             )
+            test_unadjusted = get_configured_test(
+                row=s,
+                test_index=i,
+                analysis=analysis,
+                metric=metric,
+                compel_unadjusted=True,
+            )
             res = test.compute_result()
+            res_unadjusted = test_unadjusted.compute_result()
             if decision_making_conditions(metric, analysis):
                 s[f"v{i}_decision_making_conditions"] = True
                 config = BaseConfig(
@@ -427,7 +466,6 @@ def analyze_metric_df(
             s[f"v{i}_cr"] = test.stat_b.unadjusted_mean
             s[f"v{i}_mean"] = test.stat_b.unadjusted_mean
             s[f"v{i}_stddev"] = test.stat_b.stddev
-
             # Unpack result in Pandas row
             if isinstance(res, BayesianTestResult):
                 s.at[f"v{i}_risk"] = res.risk
@@ -438,6 +476,19 @@ def analyze_metric_df(
                     s[f"v{i}_p_value"] = res.p_value
                 else:
                     s[f"v{i}_p_value_error_message"] = res.p_value_error_message
+
+            if isinstance(res_unadjusted, BayesianTestResult):
+                s.at[f"v{i}_risk"] = res_unadjusted.risk
+                s.at[f"v{i}_risk_type"] = res_unadjusted.risk_type
+                s.at[f"v{i}_prob_beat_baseline"] = res_unadjusted.chance_to_win
+            elif isinstance(res_unadjusted, FrequentistTestResult):
+                if res_unadjusted.p_value is not None:
+                    s[f"v{i}_p_value_unadjusted"] = res_unadjusted.p_value
+                else:
+                    s[f"v{i}_p_value_error_message_unadjusted"] = (
+                        res_unadjusted.p_value_error_message
+                    )
+
             if test.stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
@@ -449,9 +500,23 @@ def analyze_metric_df(
             else:
                 # return adjusted/prior-affected guess of expectation
                 s[f"v{i}_expected"] = res.expected
+            if test_unadjusted.stat_a.unadjusted_mean <= 0:
+                # negative or missing control mean
+                s[f"v{i}_expected_unadjusted"] = 0
+            elif res_unadjusted.expected == 0:
+                # if result is not valid, try to return at least the diff
+                s[f"v{i}_expected_unadjusted"] = (
+                    test_unadjusted.stat_b.mean - test_unadjusted.stat_a.mean
+                ) / test_unadjusted.stat_a.unadjusted_mean
+            else:
+                s[f"v{i}_expected_unadjusted"] = res_unadjusted.expected
+
             s.at[f"v{i}_ci"] = res.ci
             s.at[f"v{i}_uplift"] = asdict(res.uplift)
             s[f"v{i}_error_message"] = res.error_message
+            s.at[f"v{i}_ci_unadjusted"] = res_unadjusted.ci
+            s.at[f"v{i}_uplift_unadjusted"] = asdict(res_unadjusted.uplift)
+            s[f"v{i}_error_message_unadjusted"] = res_unadjusted.error_message
 
         # replace count with quantile_n for quantile metrics
         if metric.statistic_type in ["quantile_event", "quantile_unit"]:
@@ -508,13 +573,12 @@ def format_variation_result(row: Dict[Hashable, Any], v: int) -> VariationRespon
         "denominator": row[f"{prefix}_denominator_sum"],
         "stats": stats,
     }
-    metricResultUnadjusted = copy.deepcopy(metricResult)
 
     if v == 0:
         # baseline variation
         return BaselineResponseForComparison(
             response=BaselineResponse(**metricResult),
-            responseCupedUnadjusted=BaselineResponse(**metricResultUnadjusted),
+            responseCupedUnadjusted=BaselineResponse(**metricResult),
         )
     else:
         # non-baseline variation
@@ -541,11 +605,29 @@ def format_variation_result(row: Dict[Hashable, Any], v: int) -> VariationRespon
             None if np.isinf(row[f"{prefix}_ci"][0]) else row[f"{prefix}_ci"][0],
             None if np.isinf(row[f"{prefix}_ci"][1]) else row[f"{prefix}_ci"][1],
         )
+        ci_unadjusted: ResponseCI = (
+            (
+                None
+                if np.isinf(row[f"{prefix}_ci_unadjusted"][0])
+                else row[f"{prefix}_ci_unadjusted"][0]
+            ),
+            (
+                None
+                if np.isinf(row[f"{prefix}_ci_unadjusted"][1])
+                else row[f"{prefix}_ci_unadjusted"][1]
+            ),
+        )
         testResult = {
             "expected": row[f"{prefix}_expected"],
             "uplift": row[f"{prefix}_uplift"],
             "ci": ci,
             "errorMessage": row[f"{prefix}_error_message"],
+        }
+        testResultUnadjusted = {
+            "expected": row[f"{prefix}_expected_unadjusted"],
+            "uplift": row[f"{prefix}_uplift_unadjusted"],
+            "ci": ci_unadjusted,
+            "errorMessage": row[f"{prefix}_error_message_unadjusted"],
         }
         if row["engine"] == "frequentist":
             response = FrequentistVariationResponse(
@@ -555,7 +637,13 @@ def format_variation_result(row: Dict[Hashable, Any], v: int) -> VariationRespon
                 pValue=row[f"{prefix}_p_value"],
                 pValueErrorMessage=row[f"{prefix}_p_value_error_message"],
             )
-            response_cuped_unadjusted = copy.deepcopy(response)
+            response_cuped_unadjusted = FrequentistVariationResponse(
+                **metricResult,
+                **testResultUnadjusted,
+                power=None,
+                pValue=row[f"{prefix}_p_value_unadjusted"],
+                pValueErrorMessage=row[f"{prefix}_p_value_error_message_unadjusted"],
+            )
             return FrequentistVariationResponseForComparison(
                 response=response, responseCupedUnadjusted=response_cuped_unadjusted
             )
@@ -568,7 +656,14 @@ def format_variation_result(row: Dict[Hashable, Any], v: int) -> VariationRespon
                 risk=row[f"{prefix}_risk"],
                 riskType=row[f"{prefix}_risk_type"],
             )
-            response_cuped_unadjusted = copy.deepcopy(response)
+            response_cuped_unadjusted = BayesianVariationResponse(
+                **metricResult,
+                **testResultUnadjusted,
+                power=None,
+                chanceToWin=row[f"{prefix}_prob_beat_baseline_unadjusted"],
+                risk=row[f"{prefix}_risk_unadjusted"],
+                riskType=row[f"{prefix}_risk_type_unadjusted"],
+            )
             return BayesianVariationResponseForComparison(
                 response=response, responseCupedUnadjusted=response_cuped_unadjusted
             )

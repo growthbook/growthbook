@@ -34,6 +34,7 @@ export interface SnapshotMetric {
   denominator?: number;
   ci?: [number, number];
   ciAdjusted?: [number, number];
+  ciCupedUnadjusted?: [number, number];
   expected?: number;
   risk?: [number, number];
   riskType?: RiskType;

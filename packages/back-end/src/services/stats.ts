@@ -563,18 +563,32 @@ function parseStatsEngineResult({
 
         row.variations.forEach((v, i) => {
           const data = dim.variations[i] || {
-            users: v.users,
+            users: v.response.users,
             metrics: {},
           };
-          data.users = Math.max(data.users, v.users);
+          data.users = Math.max(data.users, v.response.users);
 
           // translate null in CI to infinity
-          const ci: [number, number] | undefined = v.ci
-            ? [v.ci[0] ?? -Infinity, v.ci[1] ?? Infinity]
+          const ci: [number, number] | undefined = v.response.ci
+            ? [v.response.ci[0] ?? -Infinity, v.response.ci[1] ?? Infinity]
             : undefined;
+          const ciCupedUnadjusted: [number, number] | undefined =
+            v.responseCupedUnadjusted.ci
+              ? [
+                  v.responseCupedUnadjusted.ci[0] ?? -Infinity,
+                  v.responseCupedUnadjusted.ci[1] ?? Infinity,
+                ]
+              : undefined;
+          const expectedCupedUnadjusted = v.responseCupedUnadjusted.expected;
+          const upliftCupedUnadjusted = v.responseCupedUnadjusted.uplift;
+          const errorMessageCupedUnadjusted = v.responseCupedUnadjusted.errorMessage;
           const parsedVariation = {
-            ...v,
+            ...v.response,
             ci,
+            expectedCupedUnadjusted,
+            upliftCupedUnadjusted,
+            errorMessageCupedUnadjusted,
+            ciCupedUnadjusted,
           };
           data.metrics[metric] = {
             ...parsedVariation,
