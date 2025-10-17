@@ -1,4 +1,4 @@
-import { FC, useMemo } from "react";
+import React, { FC, useMemo } from "react";
 import { format } from "date-fns";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
@@ -515,8 +515,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
   return (
     <ParentSizeModern>
       {({ width }) => {
-        const yMax = height - margin[0] - margin[2];
-        const xMax = width - margin[1] - margin[3];
+        const yMax = Math.max(0, height - margin[0] - margin[2]);
+        const xMax = Math.max(0, width - margin[1] - margin[3]);
         const numXTicks =
           datapoints.length < 7 ? datapoints.length : width > 768 ? 7 : 4;
         const numYTicks = 5;
@@ -600,8 +600,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
               ref={containerRef}
               className={styles.dategraph}
               style={{
-                width: width - margin[1] - margin[3],
-                height: height - margin[0] - margin[2],
+                width: Math.max(0, width - margin[1] - margin[3]),
+                height: Math.max(0, height - margin[0] - margin[2]),
                 marginLeft: margin[3],
                 marginTop: margin[0],
               }}
@@ -613,7 +613,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   {variationNames.map((variationName, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
-                      return;
+                      return null;
                     }
                     if (!tooltipData?.d.variations?.[i]) return null;
                     // Render a dot at the current x location for each variation
@@ -635,26 +635,30 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
 
               {sortedDatesWithData.map((d) => {
                 // Render a dot at the current x location for each variation
-                return variationNames.map((_, i) => {
-                  if (yaxis === "effect" && i === 0) {
-                    return;
-                  }
-                  if (!showVariations[i]) return null;
-                  const variation = d.variations?.[i];
-                  if (!variation) return null;
-                  return (
-                    <div
-                      key={`${d.d.getTime()}_${i}`}
-                      className={timeSeriesStyles.positionWithData}
-                      style={{
-                        transform: `translate(${xScale(d.d)}px, ${
-                          yScale(getYVal(variation, yaxis) ?? 0) ?? 0
-                        }px)`,
-                        background: getVariationColor(i, true),
-                      }}
-                    />
-                  );
-                });
+                return (
+                  <React.Fragment key={`date_${d.d.getTime()}`}>
+                    {variationNames.map((_, i) => {
+                      if (yaxis === "effect" && i === 0) {
+                        return null;
+                      }
+                      if (!showVariations[i]) return null;
+                      const variation = d.variations?.[i];
+                      if (!variation) return null;
+                      return (
+                        <div
+                          key={`${d.d.getTime()}_${i}`}
+                          className={timeSeriesStyles.positionWithData}
+                          style={{
+                            transform: `translate(${xScale(d.d)}px, ${
+                              yScale(getYVal(variation, yaxis) ?? 0) ?? 0
+                            }px)`,
+                            background: getVariationColor(i, true),
+                          }}
+                        />
+                      );
+                    })}
+                  </React.Fragment>
+                );
               })}
             </div>
             <svg width={width} height={height}>
@@ -663,8 +667,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
               </defs>
@@ -687,7 +691,9 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                   {variationNames.map((_, i) => {
                     if (!showVariations[i]) return null;
                     if (yaxis === "effect" && i === 0) {
-                      return <></>;
+                      return (
+                        <React.Fragment key={`empty_${i}`}></React.Fragment>
+                      );
                     }
 
                     const sortedDataForVariation = sortedDatesWithData
@@ -753,7 +759,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                       );
 
                     return (
-                      <>
+                      <React.Fragment key={`linepaths_${i}`}>
                         {/* Render a dotted line for the previous settings data points */}
                         <LinePath
                           key={`linepath_dashed_${i}`}
@@ -784,7 +790,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                           strokeWidth={2}
                           curve={curveLinear}
                         />
-                      </>
+                      </React.Fragment>
                     );
                   })}
 

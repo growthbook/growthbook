@@ -2,15 +2,9 @@ import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { PiInfo } from "react-icons/pi";
 import { FaCaretUp, FaCaretDown } from "react-icons/fa";
 import clsx from "clsx";
-import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { ExperimentMetricInterface } from "shared/src/experiments";
-import {
-  MetricSnapshotSettings,
-  ExperimentReportVariationWithIndex,
-} from "back-end/types/report";
 import React from "react";
-import { pValueFormatter, RowResults } from "@/services/experiments";
+import { pValueFormatter } from "@/services/experiments";
+import { AnalysisResultSummaryProps } from "@/ui/AnalysisResultSummary";
 import styles from "./FlagCard.module.scss";
 
 const numberFormatter = Intl.NumberFormat(undefined, {
@@ -33,21 +27,7 @@ export default function FlagCard({
   deltaFormatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   deltaFormatterOptions?: Intl.NumberFormatOptions;
   pValueThreshold: number;
-  data: {
-    metricRow: number;
-    metric: ExperimentMetricInterface;
-    metricSnapshotSettings?: MetricSnapshotSettings;
-    dimensionName?: string;
-    dimensionValue?: string;
-    variation: ExperimentReportVariationWithIndex;
-    stats: SnapshotMetric;
-    baseline: SnapshotMetric;
-    baselineVariation: ExperimentReportVariationWithIndex;
-    rowResults: RowResults;
-    statsEngine: StatsEngine;
-    pValueCorrection?: PValueCorrection;
-    isGuardrail: boolean;
-  };
+  data: NonNullable<AnalysisResultSummaryProps["data"]>;
 }) {
   const confidencePct = percentFormatter.format(1 - pValueThreshold);
   let pValText = (

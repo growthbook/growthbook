@@ -35,6 +35,7 @@ import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
+import { ReactElement } from "react";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm";
@@ -158,7 +159,7 @@ export function experimentDate(exp: ExperimentInterfaceStringDates): string {
 }
 
 export type ExperimentTableRow = {
-  label: string;
+  label: string | ReactElement;
   metric: ExperimentMetricInterface;
   metricOverrideFields: string[];
   variations: SnapshotMetric[];
@@ -172,6 +173,7 @@ export type ExperimentTableRow = {
   parentRowId?: string;
   sliceLevels?: Array<{
     column: string;
+    datatype: "string" | "boolean";
     levels: string[];
   }>;
   allSliceLevels?: string[];

@@ -30,6 +30,7 @@ import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validator
 import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
+  status = 403;
   constructor(message: string) {
     super(message);
     this.name = "PermissionError";
@@ -523,6 +524,15 @@ export class Permissions {
         projects: connectedExperiment.project
           ? [connectedExperiment.project]
           : [],
+      },
+      "createAnalyses",
+    );
+  };
+
+  public canCreateAnalyses = (projects?: string[]): boolean => {
+    return this.checkProjectFilterPermission(
+      {
+        projects: projects ? projects : [],
       },
       "createAnalyses",
     );
@@ -1086,6 +1096,13 @@ export class Permissions {
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects },
+      "bypassSavedGroupSizeLimit",
+    );
   };
 
   // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions

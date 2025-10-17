@@ -411,6 +411,26 @@ export default function FactTablesPage() {
                 <tr
                   key={f.id}
                   onClick={(e) => {
+                    // If clicking on a link or button, default to browser behavior
+                    if (
+                      e.target instanceof HTMLElement &&
+                      e.target.closest("a, button")
+                    ) {
+                      return;
+                    }
+
+                    // If cmd/ctrl/shift+click, open in new tab
+                    if (
+                      e.metaKey ||
+                      e.ctrlKey ||
+                      e.shiftKey ||
+                      e.button === 1
+                    ) {
+                      window.open(`/fact-tables/${f.id}`, "_blank");
+                      return;
+                    }
+
+                    // Otherwise, navigate to the fact table
                     e.preventDefault();
                     router.push(`/fact-tables/${f.id}`);
                   }}

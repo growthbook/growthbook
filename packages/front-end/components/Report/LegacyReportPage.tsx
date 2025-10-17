@@ -94,9 +94,6 @@ export default function LegacyReportPage({
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
-  const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment",
-  );
   const hasSequentialTestingFeature =
     hasCommercialFeature("sequential-testing");
 
@@ -141,12 +138,6 @@ export default function LegacyReportPage({
 
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
-
-  const regressionAdjustmentAvailable = hasRegressionAdjustmentFeature;
-  const regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature &&
-    regressionAdjustmentAvailable &&
-    !!report.args.regressionAdjustmentEnabled;
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
@@ -512,7 +503,6 @@ export default function LegacyReportPage({
                       report.args.statsEngine || DEFAULT_STATS_ENGINE
                     }
                     pValueCorrection={pValueCorrection}
-                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                     settingsForSnapshotMetrics={
                       report.args.settingsForSnapshotMetrics
                     }
@@ -586,7 +576,6 @@ export default function LegacyReportPage({
                         report.args.statsEngine || DEFAULT_STATS_ENGINE
                       }
                       pValueCorrection={pValueCorrection}
-                      regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                       settingsForSnapshotMetrics={
                         report.args.settingsForSnapshotMetrics
                       }

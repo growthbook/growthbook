@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import {
+import React, {
   CSSProperties,
   ReactElement,
   ReactNode,
@@ -95,7 +95,7 @@ export type ResultsTableProps = {
     maxRows,
     location,
   }: {
-    label: string;
+    label: string | ReactElement;
     metric: ExperimentMetricInterface;
     row: ExperimentTableRow;
     maxRows?: number;
@@ -831,7 +831,7 @@ export default function ResultsTable({
               );
 
               return (
-                <>
+                <React.Fragment key={rowId}>
                   {/* Skip rendering data if this row is hidden by dimension level filter */}
                   {!row.isHiddenByFilter && (
                     <>
@@ -1336,7 +1336,7 @@ export default function ResultsTable({
                       </tbody>
                     </>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </table>
