@@ -14,10 +14,7 @@ import {
   PValueCorrection,
   StatsEngine,
 } from "back-end/types/stats";
-import {
-  FactTableInterface,
-  FactMetricInterface,
-} from "back-end/types/fact-table";
+import { FactTableInterface } from "back-end/types/fact-table";
 import { FaAngleRight, FaUsers } from "react-icons/fa";
 import {
   PiCaretCircleRight,
@@ -29,18 +26,12 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   generatePinnedSliceKey,
-  createCustomSliceDataForMetric,
-  createAutoSliceDataForMetric,
 } from "shared/experiments";
-import { isDefined } from "shared/util";
 import { HiBadgeCheck } from "react-icons/hi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
-import {
-  ResultsMetricFilters,
-  sortAndFilterMetricsByTags,
-} from "@/components/Experiment/Results";
+import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTooltipBody from "@/components/Metrics/MetricTooltipBody";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
@@ -157,8 +148,12 @@ const CompactResults: FC<{
   setSortDirection,
   analysisBarSettings,
 }) => {
-  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
-    useDefinitions();
+  const {
+    getExperimentMetricById,
+    getFactTableById,
+    metricGroups,
+    ready: _ready,
+  } = useDefinitions();
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;
@@ -171,40 +166,68 @@ const CompactResults: FC<{
     return [totalUsers, variationUsers];
   }, [results]);
 
-  const { rows, expandedMetrics, toggleExpandedMetric, allMetricTags } =
-    useExperimentTableRows({
-      results,
-      goalMetrics,
-      secondaryMetrics,
-      guardrailMetrics,
-      metricOverrides,
-      ssrPolyfills,
-      customMetricSlices,
-      pinnedMetricSlices,
-      metricFilter,
-      sortBy,
-      sortDirection,
-      analysisBarSettings,
-      statsEngine,
-      pValueCorrection,
-      settingsForSnapshotMetrics,
-      shouldShowMetricSlices: true,
-      enableExpansion: true,
-      enablePinning: true,
-    });
+  // Manage expansion state externally
+  const [expandedMetrics, setExpandedMetrics] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleExpandedMetric = (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => {
+    const key = `${metricId}:${resultGroup}`;
+    setExpandedMetrics((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const { rows, allMetricTags } = useExperimentTableRows({
+    results,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
+    metricOverrides,
+    ssrPolyfills,
+    customMetricSlices,
+    pinnedMetricSlices,
+    metricFilter,
+    sortBy,
+    sortDirection,
+    analysisBarSettings,
+    statsEngine,
+    pValueCorrection,
+    settingsForSnapshotMetrics,
+    shouldShowMetricSlices: true,
+    enableExpansion: true,
+    enablePinning: true,
+    expandedMetrics,
+    toggleExpandedMetric,
+  });
 
   // Get expanded metric lists for conditional rendering
-  const expandedGoals = useMemo(() => 
-    expandMetricGroups(goalMetrics, ssrPolyfills?.metricGroups || metricGroups),
-    [goalMetrics, metricGroups, ssrPolyfills?.metricGroups]
+  const expandedGoals = useMemo(
+    () =>
+      expandMetricGroups(
+        goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      ),
+    [goalMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
-  const expandedSecondaries = useMemo(() => 
-    expandMetricGroups(secondaryMetrics, ssrPolyfills?.metricGroups || metricGroups),
-    [secondaryMetrics, metricGroups, ssrPolyfills?.metricGroups]
+  const expandedSecondaries = useMemo(
+    () =>
+      expandMetricGroups(
+        secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      ),
+    [secondaryMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
-  const expandedGuardrails = useMemo(() => 
-    expandMetricGroups(guardrailMetrics, ssrPolyfills?.metricGroups || metricGroups),
-    [guardrailMetrics, metricGroups, ssrPolyfills?.metricGroups]
+  const expandedGuardrails = useMemo(
+    () =>
+      expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      ),
+    [guardrailMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
 
   const getChildRowCounts = (metricId: string) => {

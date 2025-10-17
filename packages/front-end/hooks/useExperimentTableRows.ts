@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   ExperimentReportResultDimension,
   MetricSnapshotSettings,
@@ -75,6 +75,13 @@ export interface UseExperimentTableRowsParams {
   shouldShowMetricSlices?: boolean;
   enableExpansion?: boolean; // Whether to allow expand/collapse of slices
   enablePinning?: boolean; // Whether to allow pinning of slices
+
+  // External expansion state (required when enableExpansion is true)
+  expandedMetrics: Record<string, boolean>;
+  toggleExpandedMetric: (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => void;
 }
 
 export interface UseExperimentTableRowsReturn {
@@ -105,8 +112,10 @@ export function useExperimentTableRows({
   pValueCorrection,
   settingsForSnapshotMetrics,
   shouldShowMetricSlices = true,
-  enableExpansion = true,
+  enableExpansion: _enableExpansion = true,
   enablePinning = true,
+  expandedMetrics,
+  toggleExpandedMetric,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
     useDefinitions();
@@ -125,21 +134,6 @@ export function useExperimentTableRows({
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
     ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
-
-  const [expandedMetrics, setExpandedMetrics] = useState<
-    Record<string, boolean>
-  >({});
-  const toggleExpandedMetric = (
-    metricId: string,
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => {
-    if (!enableExpansion) return;
-    const key = `${metricId}:${resultGroup}`;
-    setExpandedMetrics((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {

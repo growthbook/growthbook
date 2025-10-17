@@ -1,23 +1,18 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { v4 as uuid4 } from "uuid";
 import { ExperimentMetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { isDefined, isString } from "shared/util";
+import { isString } from "shared/util";
 import { groupBy } from "lodash";
-import {
-  expandMetricGroups,
-  ExperimentMetricInterface,
-} from "shared/experiments";
 import { blockHasFieldOfType } from "shared/enterprise";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
-import { applyMetricOverrides } from "@/services/experiments";
-import { BlockProps } from ".";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
   isTabActive,
@@ -26,33 +21,31 @@ export default function ExperimentMetricBlock({
   snapshot,
   analysis,
   ssrPolyfills,
-  metrics,
+  metrics: _metrics,
 }: BlockProps<ExperimentMetricBlockInterface>) {
-  const { baselineRow, columnsFilter, variationIds, pinnedMetricSlices } = block;
+  const { baselineRow, columnsFilter, variationIds, pinnedMetricSlices } =
+    block;
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
     [block],
   );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const { metricGroups, getExperimentMetricById, getFactTableById } = useDefinitions();
-  
-  const goalMetrics = useMemo(
-    () => expandMetricGroups(experiment.goalMetrics, metricGroups),
-    [experiment, metricGroups],
-  );
-  const secondaryMetrics = useMemo(
-    () => expandMetricGroups(experiment.secondaryMetrics, metricGroups),
-    [experiment, metricGroups],
-  );
-  const guardrailMetrics = useMemo(
-    () => expandMetricGroups(experiment.guardrailMetrics, metricGroups),
-    [experiment, metricGroups],
-  );
+  const {
+    metricGroups: _metricGroups,
+    getExperimentMetricById,
+    getFactTableById,
+  } = useDefinitions();
 
   const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection =
     ssrPolyfills?.useOrgSettings()?.pValueCorrection || hookPValueCorrection;
+  const sequentialTestingEnabled = analysis?.settings?.sequentialTesting;
+
+  const queryStatusData = getQueryStatus(
+    snapshot.queries || [],
+    snapshot.error,
+  );
 
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const result = analysis.results[0];
@@ -93,24 +86,39 @@ export default function ExperimentMetricBlock({
           .map((v) => v.index)
       : undefined;
 
-  // Use the new hook to generate rows with metric slice support
-  const { rows, expandedMetrics, toggleExpandedMetric, allMetricTags } =
-    useExperimentTableRows({
-      results: result,
-      goalMetrics: experiment.goalMetrics,
-      secondaryMetrics: experiment.secondaryMetrics,
-      guardrailMetrics: experiment.guardrailMetrics,
-      metricOverrides: experiment.metricOverrides ?? [],
-      ssrPolyfills,
-      customMetricSlices: experiment.customMetricSlices,
-      pinnedMetricSlices,
-      statsEngine,
-      pValueCorrection,
-      settingsForSnapshotMetrics,
-      shouldShowMetricSlices: true,
-      enableExpansion: true,
-      enablePinning: true,
-    });
+  // Manage expansion state externally
+  const [expandedMetrics, setExpandedMetrics] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleExpandedMetric = (
+    metricId: string,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => {
+    const key = `${metricId}:${resultGroup}`;
+    setExpandedMetrics((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const { rows } = useExperimentTableRows({
+    results: result,
+    goalMetrics: experiment.goalMetrics,
+    secondaryMetrics: experiment.secondaryMetrics,
+    guardrailMetrics: experiment.guardrailMetrics,
+    metricOverrides: experiment.metricOverrides ?? [],
+    ssrPolyfills,
+    customMetricSlices: experiment.customMetricSlices,
+    pinnedMetricSlices,
+    statsEngine,
+    pValueCorrection,
+    settingsForSnapshotMetrics,
+    shouldShowMetricSlices: true,
+    enableExpansion: true,
+    enablePinning: true,
+    expandedMetrics,
+    toggleExpandedMetric,
+  });
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
 
@@ -158,12 +166,15 @@ export default function ExperimentMetricBlock({
             shouldShowMetricSlices: true,
             getChildRowCounts,
           })}
-          dateCreated={new Date()}
+          dateCreated={snapshot.dateCreated}
           statsEngine={statsEngine}
+          sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
           differenceType={analysis?.settings?.differenceType || "relative"}
+          queryStatusData={queryStatusData}
           isTabActive={isTabActive}
           isGoalMetrics={resultGroup === "goal"}
+          ssrPolyfills={ssrPolyfills}
         />
       ))}
     </div>
