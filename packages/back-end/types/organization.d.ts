@@ -330,6 +330,7 @@ export interface OrganizationInterface {
     hasPaymentMethod?: boolean;
   };
   licenseKey?: string;
+  installationName?: string;
   autoApproveMembers?: boolean;
   members: Member[];
   invites: Invite[];
@@ -374,6 +375,7 @@ export type GetOrganizationResponse = {
   licenseError: string;
   commercialFeatures: CommercialFeature[];
   license: Partial<LicenseInterface> | null;
+  installationName: string | null;
   subscription: SubscriptionInfo | null;
   licenseKey?: string;
   currentUserPermissions: UserPermissions;
