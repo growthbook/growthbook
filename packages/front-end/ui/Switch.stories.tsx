@@ -1,14 +1,13 @@
 import { useState } from "react";
-import { Flex, Grid, Text, TextField } from "@radix-ui/themes";
+import { Flex, Grid, Text } from "@radix-ui/themes";
 import SelectField from "@/components/Forms/SelectField";
 import Switch from "./Switch";
 
 export default function SwitchStories() {
+  const [switchDisabled, setSwitchDisabled] = useState(false);
   const [switchState, setSwitchState] = useState<
     "default" | "warning" | "error"
   >("default");
-  const [switchDisabled, setSwitchDisabled] = useState(false);
-  const [tooltipMessage, setTooltipMessage] = useState("");
 
   return (
     <Flex direction="row" gap="3">
@@ -102,11 +101,6 @@ export default function SwitchStories() {
             { label: "True", value: "true" },
           ]}
           onChange={(v) => setSwitchDisabled(v === "true")}
-        />
-        Tooltip Message
-        <TextField.Root
-          value={tooltipMessage !== "" ? tooltipMessage : undefined}
-          onChange={(e) => setTooltipMessage(e.currentTarget.value)}
         />
       </Flex>
     </Flex>
