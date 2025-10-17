@@ -1097,6 +1097,13 @@ export class Permissions {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
   };
 
+  public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects },
+      "bypassSavedGroupSizeLimit",
+    );
+  };
+
   // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions
   // and just takes in the current project
   public canViewCreateSDKConnectionModal = (project?: string): boolean => {

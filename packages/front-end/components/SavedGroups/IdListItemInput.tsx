@@ -11,15 +11,34 @@ import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import RadioGroup from "@/ui/RadioGroup";
 import Link from "@/ui/Link";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Checkbox from "@/ui/Checkbox";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";
 
 export const IdListItemInput: FC<{
   values: string[];
+  bypassSizeLimit: boolean;
+  projects: string[] | undefined;
   setValues: (newValues: string[]) => void;
+  setBypassSizeLimit: React.Dispatch<boolean>;
   openUpgradeModal?: () => void;
-}> = ({ values, setValues, openUpgradeModal }) => {
+}> = ({
+  values,
+  setValues,
+  openUpgradeModal,
+  projects,
+  bypassSizeLimit,
+  setBypassSizeLimit,
+}) => {
+  const { canBypassSavedGroupSizeLimit } = usePermissionsUtil();
+  const { savedGroupSizeLimit } = useOrgSettings();
+
+  const listAboveSizeLimit =
+    savedGroupSizeLimit && values.length > savedGroupSizeLimit;
+
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(values.join(", ") || "");
   useEffect(() => {
@@ -68,6 +87,17 @@ export const IdListItemInput: FC<{
           setValue={setImportMethod}
         />
       </Container>
+      {listAboveSizeLimit && (
+        <Container mb="2">
+          <Checkbox
+            disabled={!canBypassSavedGroupSizeLimit(projects)}
+            disabledMessage="You don't have permission to bypass the size limit for this saved group"
+            description={`Bypass the size limit of ${savedGroupSizeLimit} items`}
+            value={bypassSizeLimit}
+            setValue={setBypassSizeLimit}
+          />
+        </Container>
+      )}
       {importMethod === "file" && (
         <>
           <Text weight="bold">Upload CSV</Text>

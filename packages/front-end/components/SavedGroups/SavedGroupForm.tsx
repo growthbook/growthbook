@@ -23,6 +23,7 @@ import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectOwner from "../Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
@@ -31,6 +32,7 @@ const SavedGroupForm: FC<{
   type: SavedGroupType;
 }> = ({ close, current, type }) => {
   const { apiCall } = useAuth();
+  const { savedGroupSizeLimit } = useOrgSettings();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -43,6 +45,7 @@ const SavedGroupForm: FC<{
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
 
   useEffect(() => {
     if (current.description) {
@@ -68,10 +71,14 @@ const SavedGroupForm: FC<{
     value: p.id,
   }));
 
+  const listAboveSizeLimit =
+    savedGroupSizeLimit &&
+    (form.watch("values") ?? []).length > savedGroupSizeLimit;
   const isValid =
     !!form.watch("groupName") &&
     (type === "list"
-      ? !!form.watch("attributeKey")
+      ? !!form.watch("attributeKey") &&
+        (!listAboveSizeLimit || adminBypassSizeLimit)
       : !!form.watch("condition"));
 
   return upgradeModal ? (
@@ -256,6 +263,9 @@ const SavedGroupForm: FC<{
                 form.setValue("values", newValues);
               }}
               openUpgradeModal={() => setUpgradeModal(true)}
+              bypassSizeLimit={adminBypassSizeLimit}
+              setBypassSizeLimit={setAdminBypassSizeLimit}
+              projects={form.watch("projects")}
             />
           )}
         </>
