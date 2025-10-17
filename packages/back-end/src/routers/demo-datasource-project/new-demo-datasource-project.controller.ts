@@ -146,7 +146,7 @@ const DEMO_RATIO_METRIC: Pick<
   windowSettings: CONVERSION_WINDOW_SETTINGS,
 };
 
-const DEMO_DATA_FEATURE_ID = "add-to-cart-cta";
+const DEMO_DATA_FEATURE_ID = "gbdemo-add-to-cart-cta";
 
 // endregion Constants for Demo Datasource
 

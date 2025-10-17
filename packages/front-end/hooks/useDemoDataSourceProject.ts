@@ -49,7 +49,7 @@ export const useDemoDataSourceProject = (): UseDemoDataSourceProject => {
   const currentProjectIsDemo = currentProjectId === demoProjectId;
 
   const demoFeatureId = useNewSampleData
-    ? "add-to-cart-cta"
+    ? "gbdemo-add-to-cart-cta"
     : getDemoDataSourceFeatureId();
 
   // We assume the demo datasource is the one that has only one project and it's the demo datasource project
