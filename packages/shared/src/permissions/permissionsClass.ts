@@ -30,6 +30,7 @@ import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validator
 import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
+  status = 403;
   constructor(message: string) {
     super(message);
     this.name = "PermissionError";
