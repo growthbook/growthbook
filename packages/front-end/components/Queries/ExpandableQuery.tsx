@@ -143,11 +143,11 @@ const ExpandableQuery: FC<{
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : query.query.startsWith("SELECT") ? (
             <Callout status="warning" my="3">
               No rows returned
             </Callout>
-          )}
+          ) : null}
         </>
       )}
       {query.status === "succeeded" && (

@@ -372,7 +372,7 @@ export default abstract class SqlIntegration
     return `${col} IS ${value ? "TRUE" : "FALSE"}`;
   }
 
-  private getExposureQuery(
+  getExposureQuery(
     exposureQueryId: string,
     userIdType?: "anonymous" | "user",
   ): ExposureQuery {
@@ -6326,7 +6326,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return `DROP TABLE IF EXISTS ${tableFullName}`;
   }
 
-  private getAggregationMetadata({
+  getAggregationMetadata({
     metric,
     useDenominator,
   }: {
@@ -6597,10 +6597,10 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
+    // TODO(do we need to add options?): this.createUnitsTableOptions()
     return format(
       `
     CREATE TABLE ${params.unitsTableFullName}
-    ${this.createUnitsTableOptions()}
     (
       ${exposureQuery.userIdType} ${this.getSQLDataType("string")}
       , variation ${this.getSQLDataType("string")}
@@ -6616,6 +6616,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       , max_timestamp ${this.getSQLDataType("timestamp")}
     )
     ${this.createUnitsTablePartitions(["max_timestamp"])}
+    ${this.createUnitsTableOptions()}
     `,
       this.getFormatDialect(),
     );
@@ -6786,7 +6787,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           SELECT 
             ${this.castToString(`${baseIdType}`)} AS ${baseIdType}
             , variation_id AS variation
-            , ${this.castUserDateCol("timestamp")} AS timestamp
+            , \`timestamp\` AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map((d) => `, ${d.id} AS dim_exp_${d.id}`)
@@ -7119,7 +7120,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                     metricQuantileSettings: data.quantileMetric
                       ? data.metricQuantileSettings
                       : undefined,
-                    metricTimestampCol: "m.timestamp",
+                    metricTimestampCol: "cast(m.timestamp as timestamp)",
                     exposureTimestampCol: "d.first_exposure_timestamp",
                   })} AS ${data.alias}_value
                 ${
@@ -7130,7 +7131,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                         overrideConversionWindows:
                           data.overrideConversionWindows,
                         endDate: params.settings.endDate,
-                        metricTimestampCol: "m.timestamp",
+                        metricTimestampCol: "cast(m.timestamp as timestamp)",
                         exposureTimestampCol: "d.first_exposure_timestamp",
                       })} AS ${data.alias}_denominator`
                     : ""
@@ -7176,7 +7177,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
             )
             .join("\n")}
           , ${this.getCurrentTimestamp()} AS refresh_timestamp
-          , MAX(max_timestamp) OVER () AS max_timestamp
+          , cast(MAX(max_timestamp) OVER () AS timestamp) AS max_timestamp
           , metric_date
         FROM __newDailyValues
 )
@@ -7322,5 +7323,16 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       rows: this.processExperimentFactMetricsQueryRows(rows),
       statistics: statistics,
     };
+  }
+
+  getSampleUnitsCTE(): string {
+    return format(
+      `__experimentUnits AS (
+        SELECT 'user_1' AS user_id, 'A' AS variation, cast(CURRENT_TIMESTAMP(0) as timestamp) AS first_exposure_timestamp
+        UNION ALL
+        SELECT 'user_2' AS user_id, 'B' AS variation, cast(CURRENT_TIMESTAMP(0) as timestamp) AS first_exposure_timestamp
+      )`,
+      this.getFormatDialect(),
+    );
   }
 }

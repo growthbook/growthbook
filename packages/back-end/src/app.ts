@@ -114,12 +114,20 @@ import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router"
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
-import { getContextFromReq } from "./services/organizations";
+import {
+  getContextForAgendaJobByOrgId,
+  getContextFromReq,
+} from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
+import { getDataSourceById } from "./models/DataSourceModel";
+import { getFactTablesForDatasource } from "./models/FactTableModel";
+import { getSourceIntegrationObject } from "./services/datasource";
+import SqlIntegration from "./integrations/SqlIntegration";
+import { compileSqlTemplate } from "./util/sql";
 
 const app = express();
 
@@ -858,6 +866,11 @@ app.post(
   datasourcesController.postValidatePipelineQueries,
 );
 
+app.post(
+  "/datasource/:id/pipeline/validate-partitions",
+  datasourcesController.postValidatePipelinePartitions,
+);
+
 // Information Schemas
 app.get(
   "/datasource/:datasourceId/schema/table/:tableId",
@@ -1007,3 +1020,46 @@ const errorHandler: ErrorRequestHandler = (
 app.use(errorHandler);
 
 export default app;
+
+async function doTheThing() {
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  const context = await getContextForAgendaJobByOrgId("org_fzty723m0m8qbqj6y");
+
+  const datasource = await getDataSourceById(context, "ds_fzty7wmrmeug4a5i");
+  if (!datasource) {
+    return;
+  }
+
+  const factTables = await getFactTablesForDatasource(context, datasource.id);
+  const integration = getSourceIntegrationObject(context, datasource);
+  if (!(integration instanceof SqlIntegration)) {
+    return;
+  }
+
+  const exposureQueries = datasource.settings.queries?.exposure || [];
+  const factTableQueries = factTables.map((f) => f.sql);
+
+  try {
+    for (const query of [
+      ...exposureQueries.map((q) => q.query),
+      ...factTableQueries,
+    ]) {
+      // console.log(query);
+      // const { statistics } = await integration.runQuery(`
+      //   WITH __queryBeingTested AS (${query} LIMIT 0)
+      //   SELECT * FROM __queryBeingTested
+      //   WHERE \`timestamp\` = CURRENT_TIMESTAMP()`);
+      // if (statistics) {
+      //   console.log(statistics.partitionsUsed ? "yes" : "no");
+      // } else {
+      //   console.log(`${query} LIMIT 0 failed`);
+      // }
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  console.log("DONE");
+}
+
+doTheThing();

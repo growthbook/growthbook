@@ -220,8 +220,12 @@ export const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
+  function trimQuotes(str: string): string {
+    return str.replace(/^[`'"]+|[`'"]+$/g, "");
+  }
+
   const randomId = Math.random().toString(36).substring(2, 10);
-  const unitsTempTableFullName = `${unitsTableFullName}_temp_${randomId}`;
+  const unitsTempTableFullName = `\`${trimQuotes(unitsTableFullName)}_temp_${randomId}\``;
 
   const incrementalRefreshModel =
     await context.models.incrementalRefresh.getByExperimentId(
@@ -415,7 +419,9 @@ export const startExperimentIncrementalRefreshQueries = async (
   const unitsTablePartitionsName =
     integration.generateTablePath &&
     integration.generateTablePath(
-      `"${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}$partitions"`,
+      // TODO this needs to be dynamic
+      // Trino/Presto: `"${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}$partitions"`,
+      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}`,
       settings.pipelineSettings?.writeDataset,
       settings.pipelineSettings?.writeDatabase,
       true,
@@ -550,7 +556,8 @@ export const startExperimentIncrementalRefreshQueries = async (
       existingSource?.tableFullName ??
       (integration.generateTablePath &&
         integration.generateTablePath(
-          `"${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}$partitions"`,
+          // `"${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}$partitions"`,
+          `${INCREMENTAL_METRICS_TABLE_PREFIX}_${group.groupId}`,
           settings.pipelineSettings?.writeDataset,
           settings.pipelineSettings?.writeDatabase,
           true,

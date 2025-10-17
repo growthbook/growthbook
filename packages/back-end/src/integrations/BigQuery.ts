@@ -13,6 +13,9 @@ import {
   RawInformationSchema,
   DataType,
   QueryResponseColumnData,
+  AlterNewIncrementalUnitsQueryParams,
+  MaxTimestampIncrementalUnitsQueryParams,
+  CreateMetricSourceTableQueryParams,
 } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
 import { logger } from "back-end/src/util/logger";
@@ -21,6 +24,7 @@ import {
   getFactTableTypeFromBigQueryType,
 } from "../services/bigquery";
 import SqlIntegration from "./SqlIntegration";
+import { isRatioMetric } from "shared/experiments";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -282,6 +286,29 @@ export default class BigQuery extends SqlIntegration {
     }
   }
 
+  getSQLDataType(dataType: DataType): string {
+    switch (dataType) {
+      case "string":
+        return "STRING";
+      case "integer":
+        return "INT64";
+      case "float":
+        return "FLOAT64";
+      case "boolean":
+        return "BOOL";
+      case "date":
+        return "DATE";
+      case "timestamp":
+        return "TIMESTAMP";
+      case "hll":
+        return "BYTES";
+      default: {
+        const _: never = dataType;
+        throw new Error(`Unsupported data type: ${dataType}`);
+      }
+    }
+  }
+
   getQueryResultResponseColumns(
     bqQueryResultsResponse: QueryResultsResponse,
   ): QueryResponseColumnData[] | undefined {
@@ -307,5 +334,123 @@ export default class BigQuery extends SqlIntegration {
     return bqQueryResultsResponse.schema?.fields
       ?.filter((field) => field.name !== undefined)
       .map((field) => mapField(field));
+  }
+
+  getSampleUnitsCTE(): string {
+    return format(
+      `__experimentUnits AS (
+        SELECT 'user_1' AS user_id, 'A' AS variation, cast(CURRENT_TIMESTAMP() as timestamp) AS first_exposure_timestamp
+        UNION ALL
+        SELECT 'user_2' AS user_id, 'B' AS variation, cast(CURRENT_TIMESTAMP() as timestamp) AS first_exposure_timestamp
+      )`,
+      this.getFormatDialect(),
+    );
+  }
+
+  getAlterNewIncrementalUnitsQuery(
+    params: AlterNewIncrementalUnitsQueryParams,
+  ): string {
+    const newName = params.unitsTableFullName
+      .replace(/^[`'"]+|[`'"]+$/g, "")
+      .split(".");
+
+    return format(
+      `
+      ALTER TABLE ${params.unitsTempTableFullName}
+      SET OPTIONS (
+        expiration_timestamp = NULL
+      );
+
+      ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${newName.pop()}
+      `,
+      this.getFormatDialect(),
+    );
+    // TODO: if we can change in a single query taht would be nice
+  }
+
+  createUnitsTablePartitions(columns: string[]): string {
+    const partitionBy = `PARTITION BY DATE(\`${columns[0]}\`)`;
+    if (columns.length === 1) {
+      return partitionBy;
+    }
+    return `${partitionBy} CLUSTER BY ${columns
+      .slice(1)
+      .map((column) => `\`${column}\``)
+      .join(", ")}`;
+  }
+
+  // TODO: Likely should optimize this to query a single partition
+  // getMaxTimestampIncrementalUnitsQuery(
+  //   params: MaxTimestampIncrementalUnitsQueryParams,
+  // ): string {
+  // const something = params.unitsTablePartitionsName.split(".");
+  // return format(
+  //   `
+  //   WITH latest_partition AS (
+  //     SELECT
+  //       MAX(partition_id) AS max_partition
+  //     FROM
+  //       \`${something[0]}.${something[1]}.INFORMATION_SCHEMA.PARTITIONS\`
+  //     WHERE
+  //       table_name = '${something[2]}'
+  //       AND partition_id NOT IN ('__NULL__', '__UNPARTITIONED__')
+  //   )
+  //   SELECT MAX(\`max_timestamp\`) AS max_timestamp FROM ${params.unitsTablePartitionsName}
+  //   `,
+  //   this.getFormatDialect(),
+  // );
+  // }
+
+  getCreateMetricSourceTableQuery(
+    params: CreateMetricSourceTableQueryParams,
+  ): string {
+    const exposureQuery = this.getExposureQuery(
+      params.settings.exposureQueryId || "",
+      undefined,
+    );
+
+    const baseIdType = exposureQuery.userIdType;
+
+    const sortedMetrics = params.metrics
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((m) => ({
+        metric: m,
+        numeratorMetadata: this.getAggregationMetadata({ metric: m }),
+        ...(isRatioMetric(m)
+          ? {
+              denominatorMetadata: this.getAggregationMetadata({
+                metric: m,
+                useDenominator: true,
+              }),
+            }
+          : {}),
+      }));
+
+    // TODO(incremental-refresh)
+    // Compute data types and columns elsewhere and store in metadata to govern this query
+    // and for validating queries match going forward
+    return format(
+      `
+    CREATE TABLE ${params.metricSourceTableFullName}
+    (
+      ${baseIdType} ${this.getSQLDataType("string")}
+      ${sortedMetrics
+        .map(
+          (
+            m,
+          ) => `, ${m.metric.id}_value ${this.getSQLDataType(m.numeratorMetadata.dataType)}
+          ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getSQLDataType(m.denominatorMetadata.dataType)}` : ""}
+          `,
+        )
+        .join("\n")}
+        , refresh_timestamp ${this.getSQLDataType("timestamp")}
+        , max_timestamp ${this.getSQLDataType("timestamp")}
+        , metric_date ${this.getSQLDataType("date")}
+        )
+        ${this.createUnitsTablePartitions(["max_timestamp", "metric_date"])}
+        ${this.createUnitsTableOptions()}
+    `,
+      this.getFormatDialect(),
+    );
   }
 }

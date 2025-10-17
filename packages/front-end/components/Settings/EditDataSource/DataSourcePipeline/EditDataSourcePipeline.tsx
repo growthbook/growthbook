@@ -124,8 +124,8 @@ export const EditDataSourcePipeline = ({
     return isValid;
   };
 
-  const has2Pages =
-    form.watch("mode") === "incremental" && !!form.watch("partitionSettings");
+  const has2Pages = form.watch("mode") === "incremental";
+  // && !!form.watch("partitionSettings");
 
   const handleSubmit = async () => {
     if (currentPage === 0) {
@@ -200,6 +200,15 @@ export const EditDataSourcePipeline = ({
         ) : null
       }
     >
+      {form.watch("mode") !== "disabled" &&
+        validationResults &&
+        !allValidationsSucceeded && (
+          <ValidationResultsSection
+            validationResults={validationResults}
+            validationTableName={validationTableName}
+          />
+        )}
+
       <Box mt="5" mb="4" mx="4">
         {currentPage === 0 ? (
           <Flex direction="column" gap="6">
@@ -245,18 +254,9 @@ export const EditDataSourcePipeline = ({
                   form={form}
                   experimentOptions={experimentOptions}
                 />
-                <PartitionTypeSelect form={form} />
+                {/* <PartitionTypeSelect form={form} /> */}
               </>
             ) : null}
-
-            {form.watch("mode") !== "disabled" &&
-              validationResults &&
-              !allValidationsSucceeded && (
-                <ValidationResultsSection
-                  validationResults={validationResults}
-                  validationTableName={validationTableName}
-                />
-              )}
           </Flex>
         ) : null}
 
@@ -281,6 +281,21 @@ export const EditDataSourcePipeline = ({
                 onSaveDataSource={onSave}
               />
             </Flex>
+          </Flex>
+        ) : null}
+
+        {currentPage === 1 ? (
+          <Flex direction="column" gap="6">
+            <Text
+              size="5"
+              weight="bold"
+              style={{ color: "var(--color-text-high)" }}
+            >
+              Validate settings
+            </Text>
+            <Box>
+              <PipelinePartitionValidationStep />
+            </Box>
           </Flex>
         ) : null}
       </Box>
@@ -562,9 +577,6 @@ function ValidationResultsSection({
 
   return (
     <Box mt="4" ref={sectionRef}>
-      <Text weight="medium" size="3" mb="2">
-        Validation Results
-      </Text>
       <PipelineValidationResultsView
         results={validationResults}
         tableName={validationTableName}

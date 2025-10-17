@@ -21,7 +21,7 @@ export const PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES: Record<
   DataSourceType[]
 > = {
   ephemeral: ["bigquery", "databricks", "snowflake"],
-  incremental: ["presto"],
+  incremental: ["bigquery", "presto"],
 };
 
 export const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;
@@ -71,16 +71,9 @@ export function getPipelineValidationCreateTableQuery({
   //   "string",
   // )}, created_at ${this.getDataType("timestamp")})`;
 
-  // TODO: Validate it current_timestamp(0) works with BigQuery
-  const sampleUnitsCte = `__experimentUnits AS (
-    SELECT 'user_1' AS user_id, 'A' AS variation, cast(CURRENT_TIMESTAMP(0) as timestamp) AS first_exposure_timestamp
-    UNION ALL
-    SELECT 'user_2' AS user_id, 'B' AS variation, cast(CURRENT_TIMESTAMP(0) as timestamp) AS first_exposure_timestamp
-  )`;
-
   return integration.getExperimentUnitsTableQueryFromCte(
     tableFullName,
-    sampleUnitsCte,
+    integration.getSampleUnitsCTE(),
   );
 }
 
