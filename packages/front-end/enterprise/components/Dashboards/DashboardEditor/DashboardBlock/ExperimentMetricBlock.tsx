@@ -21,6 +21,7 @@ export default function ExperimentMetricBlock({
   snapshot,
   analysis,
   ssrPolyfills,
+  isEditing,
   metrics: _metrics,
 }: BlockProps<ExperimentMetricBlockInterface>) {
   const { baselineRow, columnsFilter, variationIds, pinnedMetricSlices } =
@@ -101,7 +102,7 @@ export default function ExperimentMetricBlock({
     }));
   };
 
-  const { rows } = useExperimentTableRows({
+  const { rows, getChildRowCounts } = useExperimentTableRows({
     results: result,
     goalMetrics: experiment.goalMetrics,
     secondaryMetrics: experiment.secondaryMetrics,
@@ -122,14 +123,7 @@ export default function ExperimentMetricBlock({
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
 
-  const getChildRowCounts = (metricId: string) => {
-    const childRows = rows.filter((row) => row.parentRowId === metricId);
-    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
-    return {
-      total: childRows.length,
-      pinned: pinnedChildRows.length,
-    };
-  };
+  console.log({ rows });
 
   return (
     <div>
@@ -150,6 +144,7 @@ export default function ExperimentMetricBlock({
           endDate={latestPhase?.dateEnded || ""}
           rows={rows}
           tableRowAxis="metric"
+          resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
           labelHeader={`${
             resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
           } Metrics`}
@@ -165,6 +160,7 @@ export default function ExperimentMetricBlock({
             getFactTableById,
             shouldShowMetricSlices: true,
             getChildRowCounts,
+            showPinCount: isEditing,
           })}
           dateCreated={snapshot.dateCreated}
           statsEngine={statsEngine}
@@ -175,6 +171,7 @@ export default function ExperimentMetricBlock({
           isTabActive={isTabActive}
           isGoalMetrics={resultGroup === "goal"}
           ssrPolyfills={ssrPolyfills}
+          disableTimeSeriesButton={true}
         />
       ))}
     </div>

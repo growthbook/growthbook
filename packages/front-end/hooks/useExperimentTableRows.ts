@@ -123,7 +123,6 @@ export function useExperimentTableRows({
   const growthbook = useGrowthBook<AppFeatures>();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  // Feature flag and commercial feature checks for slice analysis
   const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
   const _shouldShowMetricSlices =
@@ -461,25 +460,19 @@ export function generateRowsForMetric({
       // Show level if metric is expanded OR if it's pinned
       const shouldShowLevel = isExpanded || isPinned;
 
-      // Generate label from slice levels
+      // Generate simple string label - renderLabelColumn will handle formatting
       const label = slice.sliceLevels
-        .map((dl, index) => {
-          const content = (() => {
-            if (dl.levels.length === 0) {
-              // For "other" slice, show "column: NULL" with small caps styling
-              return `${dl.column}: null`;
-            }
-            const value = dl.levels[0];
-            // Only use colon notation for boolean columns
-            if (dl.datatype === "boolean") {
-              return `${dl.column}: ${value}`;
-            }
-            return value;
-          })();
-
-          return content + (index < slice.sliceLevels.length - 1 ? " + " : "");
+        .map((dl, _index) => {
+          if (dl.levels.length === 0) {
+            return `${dl.column}: null`;
+          }
+          const value = dl.levels[0];
+          if (dl.datatype === "boolean") {
+            return `${dl.column}: ${value}`;
+          }
+          return value;
         })
-        .join("");
+        .join(" + ");
 
       const sliceRow: ExperimentTableRow = {
         label,
@@ -489,6 +482,7 @@ export function generateRowsForMetric({
         },
         metricOverrideFields: overrideFields,
         rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
+        sliceDataId: slice.id, // Store the slice data ID
         variations: resultsArray[0].variations.map((v) => {
           // Use the slice metric's data instead of the parent metric's data
           return (

@@ -476,6 +476,7 @@ export function getRenderLabelColumn({
   toggleExpandedMetric,
   shouldShowMetricSlices,
   getChildRowCounts,
+  showPinCount = true,
   className = "pl-3",
 }: {
   statsEngine?: StatsEngine;
@@ -500,6 +501,7 @@ export function getRenderLabelColumn({
   getFactTableById?: (id: string) => null | FactTableInterface;
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
+  showPinCount?: boolean;
   className?: string;
 }) {
   return function renderLabelColumn({
@@ -583,7 +585,57 @@ export function getRenderLabelColumn({
               color: "var(--color-text-mid)",
             }}
           >
-            {label}
+            {row?.isSliceRow && row.sliceLevels ? (
+              <>
+                {row.sliceLevels.map((dl, index) => {
+                  const content = (() => {
+                    if (dl.levels.length === 0) {
+                      return (
+                        <>
+                          {dl.column}:{" "}
+                          <span
+                            style={{
+                              fontVariant: "small-caps",
+                              fontWeight: 600,
+                            }}
+                          >
+                            null
+                          </span>
+                        </>
+                      );
+                    }
+                    const value = dl.levels[0];
+                    if (dl.datatype === "boolean") {
+                      return (
+                        <>
+                          {dl.column}:{" "}
+                          <span
+                            style={{
+                              fontVariant: "small-caps",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {value}
+                          </span>
+                        </>
+                      );
+                    }
+                    return value;
+                  })();
+
+                  return (
+                    <span key={`${dl.column}-${index}`}>
+                      {content}
+                      {index < (row.sliceLevels?.length || 0) - 1 && (
+                        <span> + </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </>
+            ) : (
+              label
+            )}
           </div>
           <div className="ml-2 text-muted small">
             {row?.sliceLevels?.map((dl) => dl.column).join(" + ")}
@@ -607,7 +659,7 @@ export function getRenderLabelColumn({
           className={className}
           style={{
             position: "relative",
-            top: childRowCounts.total > 0 ? -6 : undefined,
+            top: childRowCounts.total > 0 && showPinCount ? -6 : undefined,
           }}
         >
           <span
@@ -641,7 +693,7 @@ export function getRenderLabelColumn({
                     body={
                       isExpanded
                         ? "Collapse metric slices"
-                        : "Explore metric slices"
+                        : "Expand metric slices"
                     }
                     tipPosition="top"
                   >
@@ -717,7 +769,7 @@ export function getRenderLabelColumn({
           </span>
         </div>
 
-        {childRowCounts.total > 0 && (
+        {childRowCounts.total > 0 && showPinCount && (
           <div
             className="text-muted small"
             style={{

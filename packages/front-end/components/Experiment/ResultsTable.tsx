@@ -12,7 +12,6 @@ import React, {
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
 import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
@@ -57,7 +56,6 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { AppFeatures } from "@/types/app-features";
 import HelperText from "@/ui/HelperText";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
@@ -296,14 +294,12 @@ export default function ResultsTable({
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
 
-  const gb = useGrowthBook<AppFeatures>();
   const { isAuthenticated } = useAuth();
   let showTimeSeriesButton =
     isAuthenticated &&
     baselineRow === 0 &&
     tableRowAxis === "metric" &&
-    !disableTimeSeriesButton &&
-    gb.isOn("experiment-results-timeseries");
+    !disableTimeSeriesButton;
 
   // Disable time series button for stopped experiments before we added this feature (& therefore data)
   if (status === "stopped" && endDate <= "2025-04-03") {
@@ -1291,11 +1287,7 @@ export default function ResultsTable({
                                       rows.length > 1
                                     }
                                     firstDateToRender={getValidDate(startDate)}
-                                    isSliceRow={row.isSliceRow}
-                                    sliceLevels={row.sliceLevels?.map((dl) => ({
-                                      dimension: dl.column,
-                                      levels: dl.levels,
-                                    }))}
+                                    sliceId={row.sliceDataId}
                                   />
                                 </div>
                               </div>

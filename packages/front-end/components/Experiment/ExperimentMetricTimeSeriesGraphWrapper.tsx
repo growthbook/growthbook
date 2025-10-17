@@ -8,11 +8,7 @@ import { MetricTimeSeries } from "back-end/src/validators/metric-time-series";
 import { daysBetween, getValidDate } from "shared/dates";
 import { addDays, min } from "date-fns";
 import { filterInvalidMetricTimeSeries } from "shared/util";
-import {
-  ExperimentMetricInterface,
-  getAdjustedCI,
-  generateSliceStringFromLevels,
-} from "shared/experiments";
+import { ExperimentMetricInterface, getAdjustedCI } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -36,12 +32,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   statsEngine: StatsEngine;
   pValueAdjustmentEnabled: boolean;
   firstDateToRender: Date;
-  // Slice row properties
-  isSliceRow?: boolean;
-  sliceLevels?: Array<{
-    dimension: string;
-    levels: string[];
-  }>;
+  sliceId?: string; // The slice data ID from SliceDataForMetric
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -72,8 +63,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   statsEngine,
   pValueAdjustmentEnabled,
   firstDateToRender,
-  isSliceRow,
-  sliceLevels,
+  sliceId,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const pValueThreshold = usePValueThreshold();
@@ -85,19 +75,7 @@ function ExperimentMetricTimeSeriesGraphWrapper({
     getFactTableById,
   );
 
-  // Construct the correct metric ID for dimensional rows
-  const metricId = useMemo(() => {
-    if (isSliceRow && sliceLevels && sliceLevels.length > 0) {
-      const dimensionKeyParts = generateSliceStringFromLevels(
-        sliceLevels.map((dl) => ({
-          column: dl.dimension,
-          levels: dl.levels,
-        })),
-      );
-      return `${metric.id}?${dimensionKeyParts}`;
-    }
-    return metric.id;
-  }, [isSliceRow, sliceLevels, metric.id]);
+  const metricId = sliceId ?? metric.id;
 
   const { data, isLoading, error } = useApi<{ timeSeries: MetricTimeSeries[] }>(
     `/experiments/${experimentId}/time-series?phase=${phase}&metricIds[]=${encodeURIComponent(metricId)}`,
