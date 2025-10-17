@@ -442,3 +442,33 @@ Now, the following queries will work as expected:
 - `type:^bool` - prefix match (actual type is "boolean")
 - `version:>2 version:<10 version:!5` - supports numbers and modifiers
 - `created:2024-01` - ISO date support with prefix matching by default
+
+
+
+
+## Troubleshooting (Local Dev)
+
+- **401/403 from API or a blank screen**  
+  Point the app to your local API:
+  ```bash
+  echo 'NEXT_PUBLIC_API_HOST=http://localhost:3100' > .env.local
+  ```
+  Then restart the front-end dev server:
+  ```bash
+  cd packages/front-end
+  yarn dev
+  ```
+
+- **Stale Next.js cache in dev**  
+  Clear the build cache and restart:
+  ```bash
+  rm -rf .next && yarn dev
+  ```
+
+- **TypeScript path/import errors after a fresh clone**  
+  From the repo root:
+  ```bash
+  yarn install
+  ```
+
+>
