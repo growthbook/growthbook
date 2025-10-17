@@ -1,0 +1,15 @@
+diff --git a/node_modules/@ephys/zod-to-ts/dist/utils.js b/node_modules/@ephys/zod-to-ts/dist/utils.js
+index 06fc4a2..37f022b 100644
+--- a/node_modules/@ephys/zod-to-ts/dist/utils.js
++++ b/node_modules/@ephys/zod-to-ts/dist/utils.js
+@@ -97,7 +97,9 @@ export function addTsDocComment(node, text) {
+     }
+ }
+ export function getSchemaDescription(schema, registry) {
+-    return registry.get(schema)?.description;
++    return schema.isOptional() ? schema.def.innerType.meta()?.description 
++    : schema.meta()?.description ? schema.meta()?.description 
++    : registry.get(schema)?.description;  
+ }
+ export function getSchemaIdentifier(schema, registry) {
+     const id = (registry ?? globalRegistry).get(schema)?.id;

@@ -176,7 +176,10 @@ export default function AddMaterializedColumnsModal({
           if (contextJsonFields && value in contextJsonFields) {
             let datatype = contextJsonFields[value].datatype;
 
-            if (!["string", "number", "boolean"].includes(datatype)) {
+            if (
+              !datatype ||
+              !["string", "number", "boolean"].includes(datatype)
+            ) {
               datatype = "other";
             }
 

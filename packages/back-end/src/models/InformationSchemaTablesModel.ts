@@ -1,5 +1,5 @@
 import omit from "lodash/omit";
-import z from "zod";
+import { z } from "zod";
 import mongoose from "mongoose";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { logger } from "back-end/src/util/logger";
