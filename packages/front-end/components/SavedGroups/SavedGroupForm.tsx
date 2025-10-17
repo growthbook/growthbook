@@ -71,9 +71,9 @@ const SavedGroupForm: FC<{
     value: p.id,
   }));
 
-  const listAboveSizeLimit =
-    savedGroupSizeLimit &&
-    (form.watch("values") ?? []).length > savedGroupSizeLimit;
+  const listAboveSizeLimit = savedGroupSizeLimit
+    ? (form.watch("values") ?? []).length > savedGroupSizeLimit
+    : false;
   const isValid =
     !!form.watch("groupName") &&
     (type === "list"
@@ -263,6 +263,7 @@ const SavedGroupForm: FC<{
                 form.setValue("values", newValues);
               }}
               openUpgradeModal={() => setUpgradeModal(true)}
+              listAboveSizeLimit={listAboveSizeLimit}
               bypassSizeLimit={adminBypassSizeLimit}
               setBypassSizeLimit={setAdminBypassSizeLimit}
               projects={form.watch("projects")}

@@ -20,6 +20,7 @@ import LargeSavedGroupPerformanceWarning, {
 
 export const IdListItemInput: FC<{
   values: string[];
+  listAboveSizeLimit: boolean;
   bypassSizeLimit: boolean;
   projects: string[] | undefined;
   setValues: (newValues: string[]) => void;
@@ -27,6 +28,7 @@ export const IdListItemInput: FC<{
   openUpgradeModal?: () => void;
 }> = ({
   values,
+  listAboveSizeLimit,
   setValues,
   openUpgradeModal,
   projects,
@@ -35,9 +37,6 @@ export const IdListItemInput: FC<{
 }) => {
   const { canBypassSavedGroupSizeLimit } = usePermissionsUtil();
   const { savedGroupSizeLimit } = useOrgSettings();
-
-  const listAboveSizeLimit =
-    savedGroupSizeLimit && values.length > savedGroupSizeLimit;
 
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(values.join(", ") || "");
