@@ -573,7 +573,7 @@ export const deleteSavedGroup = async (
 
 // endregion DELETE /saved-groups/:id
 
-function validateListSize(
+export function validateListSize(
   values: Array<unknown>,
   savedGroupSizeLimit: number | undefined,
   canBypassSizeLimit: boolean,
