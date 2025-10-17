@@ -416,6 +416,11 @@ export async function updateColumn({
     updatedColumn.autoSlices = [];
   }
 
+  // Ensure boolean columns only save ["true", "false"]
+  if (updatedColumn.datatype === "boolean" && updatedColumn.autoSlices) {
+    updatedColumn.autoSlices = ["true", "false"];
+  }
+
   factTable.columns[columnIndex] = updatedColumn;
 
   await FactTableModel.updateOne(
