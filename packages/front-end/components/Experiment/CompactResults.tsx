@@ -166,7 +166,6 @@ const CompactResults: FC<{
     return [totalUsers, variationUsers];
   }, [results]);
 
-  // Manage expansion state externally
   const [expandedMetrics, setExpandedMetrics] = useState<
     Record<string, boolean>
   >({});
@@ -204,7 +203,6 @@ const CompactResults: FC<{
     toggleExpandedMetric,
   });
 
-  // Get expanded metric lists for conditional rendering
   const expandedGoals = useMemo(
     () =>
       expandMetricGroups(
