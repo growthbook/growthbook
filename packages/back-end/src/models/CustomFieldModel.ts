@@ -70,6 +70,38 @@ export class CustomFieldModel extends BaseClass {
     );
   }
 
+  public async getCustomFieldsBySectionAndProject({
+    section,
+    project,
+  }: {
+    section: string;
+    project?: string;
+  }) {
+    const customFields = await this.getCustomFields();
+    const filteredCustomFields = customFields?.fields.filter(
+      (v) => v.section === section,
+    );
+    if (
+      !filteredCustomFields ||
+      filteredCustomFields.length === 0 ||
+      !project
+    ) {
+      return filteredCustomFields;
+    }
+    return filteredCustomFields.filter((v) => {
+      if (v.projects && v.projects.length && v.projects[0] !== "") {
+        let matched = false;
+        v.projects.forEach((p) => {
+          if (p === project) {
+            matched = true;
+          }
+        });
+        return matched;
+      }
+      return true;
+    });
+  }
+
   /**
    * Because each organization should only have one set of custom fields,
    * this method will either create a new set of custom fields or update

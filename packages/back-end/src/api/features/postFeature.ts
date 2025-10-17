@@ -20,6 +20,7 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { logger } from "back-end/src/util/logger";
+import { validateCustomFields } from "./validation";
 
 export type ApiFeatureEnvSettings = NonNullable<
   z.infer<typeof postFeatureValidator.bodySchema>["environments"]
@@ -133,6 +134,15 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     if (!projects.some((p) => p.id === req.body.project)) {
       throw new Error(`Project id ${req.body.project} is not a valid project.`);
     }
+  }
+
+  // check if the custom fields are valid
+  if (req.body.customFields) {
+    await validateCustomFields(
+      req.body.customFields,
+      req.context,
+      req.body.project,
+    );
   }
 
   const tags = req.body.tags || [];
