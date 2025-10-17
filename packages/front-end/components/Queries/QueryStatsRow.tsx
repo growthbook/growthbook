@@ -37,7 +37,7 @@ export default function QueryStatsRow({
   const usingPipelineMode = queries.some(
     (q) => q.queryType === "experimentUnits",
   );
-  const factTableOptimizedMetrics = hasOptimizedQueries
+  const factTableOptimizedMetrics = !hasOptimizedQueries
     ? 0
     : queries
         .filter((q) => q.queryType === "experimentMultiMetric")
