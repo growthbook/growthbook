@@ -6,6 +6,7 @@ import { groupBy } from "lodash";
 import { blockHasFieldOfType } from "shared/enterprise";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import { expandMetricGroups } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -32,11 +33,8 @@ export default function ExperimentMetricBlock({
   );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const {
-    metricGroups: _metricGroups,
-    getExperimentMetricById,
-    getFactTableById,
-  } = useDefinitions();
+  const { metricGroups, getExperimentMetricById, getFactTableById } =
+    useDefinitions();
 
   const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection =
@@ -87,7 +85,6 @@ export default function ExperimentMetricBlock({
           .map((v) => v.index)
       : undefined;
 
-  // Manage expansion state externally
   const [expandedMetrics, setExpandedMetrics] = useState<
     Record<string, boolean>
   >({});
@@ -102,11 +99,32 @@ export default function ExperimentMetricBlock({
     }));
   };
 
+  const expandedMetricIds = _metrics?.map((m) => m.id) || [];
+  const goalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    ssrPolyfills?.metricGroups || metricGroups,
+  ).filter((mId) => expandedMetricIds.includes(mId));
+  const secondaryMetrics = expandMetricGroups(
+    experiment.secondaryMetrics,
+    ssrPolyfills?.metricGroups || metricGroups,
+  ).filter(
+    (mId) => expandedMetricIds.includes(mId) && !goalMetrics.includes(mId),
+  );
+  const guardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics,
+    ssrPolyfills?.metricGroups || metricGroups,
+  ).filter(
+    (mId) =>
+      expandedMetricIds.includes(mId) &&
+      !goalMetrics.includes(mId) &&
+      !secondaryMetrics.includes(mId),
+  );
+
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results: result,
-    goalMetrics: experiment.goalMetrics,
-    secondaryMetrics: experiment.secondaryMetrics,
-    guardrailMetrics: experiment.guardrailMetrics,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
     metricOverrides: experiment.metricOverrides ?? [],
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
@@ -122,57 +140,57 @@ export default function ExperimentMetricBlock({
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
 
-  console.log({ rows });
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
-      {Object.entries(rowGroups).map(([resultGroup, rows]) => (
-        <ResultsTable
-          noStickyHeader
-          key={resultGroup}
-          id={blockId}
-          experimentId={experiment.id}
-          phase={experiment.phases.length - 1}
-          variations={variations}
-          variationFilter={variationFilter}
-          baselineRow={baselineRow}
-          columnsFilter={columnsFilter}
-          status={experiment.status}
-          isLatestPhase={true}
-          startDate={latestPhase?.dateStarted || ""}
-          endDate={latestPhase?.dateEnded || ""}
-          rows={rows}
-          tableRowAxis="metric"
-          resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
-          labelHeader={`${
-            resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
-          } Metrics`}
-          renderLabelColumn={getRenderLabelColumn({
-            statsEngine,
-            hideDetails: false,
-            experimentType: undefined,
-            pinnedMetricSlices,
-            togglePinnedMetricSlice: undefined, // No pinning toggle in dashboard blocks for now
-            expandedMetrics,
-            toggleExpandedMetric,
-            getExperimentMetricById,
-            getFactTableById,
-            shouldShowMetricSlices: true,
-            getChildRowCounts,
-            showPinCount: isEditing,
-          })}
-          dateCreated={snapshot.dateCreated}
-          statsEngine={statsEngine}
-          sequentialTestingEnabled={sequentialTestingEnabled}
-          pValueCorrection={pValueCorrection}
-          differenceType={analysis?.settings?.differenceType || "relative"}
-          queryStatusData={queryStatusData}
-          isTabActive={isTabActive}
-          isGoalMetrics={resultGroup === "goal"}
-          ssrPolyfills={ssrPolyfills}
-          disableTimeSeriesButton={true}
-        />
-      ))}
+      {Object.entries(rowGroups).map(([resultGroup, rows]) =>
+        !rows.length ? null : (
+          <ResultsTable
+            noStickyHeader
+            key={resultGroup}
+            id={blockId}
+            experimentId={experiment.id}
+            phase={experiment.phases.length - 1}
+            variations={variations}
+            variationFilter={variationFilter}
+            baselineRow={baselineRow}
+            columnsFilter={columnsFilter}
+            status={experiment.status}
+            isLatestPhase={true}
+            startDate={latestPhase?.dateStarted || ""}
+            endDate={latestPhase?.dateEnded || ""}
+            rows={rows}
+            tableRowAxis="metric"
+            resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
+            labelHeader={`${
+              resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)
+            } Metrics`}
+            renderLabelColumn={getRenderLabelColumn({
+              statsEngine,
+              hideDetails: false,
+              experimentType: undefined,
+              pinnedMetricSlices,
+              togglePinnedMetricSlice: undefined, // No pinning toggle in dashboard blocks for now
+              expandedMetrics,
+              toggleExpandedMetric,
+              getExperimentMetricById,
+              getFactTableById,
+              shouldShowMetricSlices: true,
+              getChildRowCounts,
+              showPinCount: isEditing,
+            })}
+            dateCreated={snapshot.dateCreated}
+            statsEngine={statsEngine}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            pValueCorrection={pValueCorrection}
+            differenceType={analysis?.settings?.differenceType || "relative"}
+            queryStatusData={queryStatusData}
+            isTabActive={isTabActive}
+            isGoalMetrics={resultGroup === "goal"}
+            ssrPolyfills={ssrPolyfills}
+            disableTimeSeriesButton={true}
+          />
+        ),
+      )}
     </div>
   );
 }

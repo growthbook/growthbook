@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { ExperimentTimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { expandMetricGroups as _expandMetricGroups } from "shared/experiments";
+import { expandMetricGroups } from "shared/experiments";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { groupBy } from "lodash";
@@ -37,7 +37,6 @@ export default function ExperimentTimeSeriesBlock({
 
   const result = analysis.results[0];
 
-  // Get the start date for the current phase to sync all graphs
   const currentPhase = experiment.phases[snapshot.phase];
   const phaseStartDate = currentPhase?.dateStarted
     ? getValidDate(currentPhase.dateStarted)
@@ -60,7 +59,6 @@ export default function ExperimentTimeSeriesBlock({
         !!m.computedSettings?.regressionAdjustmentAvailable,
     })) || [];
 
-  // Manage expansion state externally
   const [expandedMetrics, setExpandedMetrics] = useState<
     Record<string, boolean>
   >({});
@@ -75,11 +73,32 @@ export default function ExperimentTimeSeriesBlock({
     }));
   };
 
+  const expandedMetricIds = _metrics?.map((m) => m.id) || [];
+  const goalMetrics = expandMetricGroups(
+    experiment.goalMetrics,
+    ssrPolyfills?.metricGroups || _metricGroups,
+  ).filter((mId) => expandedMetricIds.includes(mId));
+  const secondaryMetrics = expandMetricGroups(
+    experiment.secondaryMetrics,
+    ssrPolyfills?.metricGroups || _metricGroups,
+  ).filter(
+    (mId) => expandedMetricIds.includes(mId) && !goalMetrics.includes(mId),
+  );
+  const guardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics,
+    ssrPolyfills?.metricGroups || _metricGroups,
+  ).filter(
+    (mId) =>
+      expandedMetricIds.includes(mId) &&
+      !goalMetrics.includes(mId) &&
+      !secondaryMetrics.includes(mId),
+  );
+
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results: result,
-    goalMetrics: experiment.goalMetrics,
-    secondaryMetrics: experiment.secondaryMetrics,
-    guardrailMetrics: experiment.guardrailMetrics,
+    goalMetrics,
+    secondaryMetrics,
+    guardrailMetrics,
     metricOverrides: experiment.metricOverrides ?? [],
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
@@ -113,127 +132,132 @@ export default function ExperimentTimeSeriesBlock({
 
   return (
     <>
-      {Object.entries(rowGroups).map(([resultGroup, rows]) => (
-        <div key={resultGroup} className="mb-4">
-          <h4 className="mb-3">
-            {resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics
-          </h4>
-          {rows.map((row) => {
-            // Only render parent rows (not slice rows) for time series
-            if (row.isSliceRow) return null;
+      {Object.entries(rowGroups).map(([resultGroup, rows]) =>
+        !rows.length ? null : (
+          <div key={resultGroup} className="mb-4">
+            <h4 className="mb-3">
+              {resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)}{" "}
+              Metrics
+            </h4>
+            {rows.map((row) => {
+              // Only render parent rows (not slice rows) for time series
+              if (row.isSliceRow) return null;
 
-            const metric = row.metric;
-            if (!metric) return null;
+              const metric = row.metric;
+              if (!metric) return null;
 
-            const appliedPValueCorrection =
-              resultGroup === "goal" ? (pValueCorrection ?? null) : null;
+              const appliedPValueCorrection =
+                resultGroup === "goal" ? (pValueCorrection ?? null) : null;
 
-            const showVariations = experiment.variations.map(
-              (v) => variationIds.length === 0 || variationIds.includes(v.id),
-            );
-            const variationNames = experiment.variations.map(
-              ({ name }) => name,
-            );
+              const showVariations = experiment.variations.map(
+                (v) => variationIds.length === 0 || variationIds.includes(v.id),
+              );
+              const variationNames = experiment.variations.map(
+                ({ name }) => name,
+              );
 
-            // Check if this metric has slices and if it's expanded
-            const expandedKey = `${metric.id}:${resultGroup}`;
-            const isExpanded = !!expandedMetrics[expandedKey];
-            const childRows = rows.filter((r) => r.parentRowId === metric.id);
-            const hasSlices = childRows.length > 0;
+              // Check if this metric has slices and if it's expanded
+              const expandedKey = `${metric.id}:${resultGroup}`;
+              const isExpanded = !!expandedMetrics[expandedKey];
+              const childRows = rows.filter((r) => r.parentRowId === metric.id);
+              const hasSlices = childRows.length > 0;
 
-            return (
-              <div key={metric.id} className="mb-2">
-                <div className="py-2">
-                  <div
-                    className="d-flex align-items-center position-relative pl-1"
-                    style={{ height: 40 }}
-                  >
-                    {renderLabelColumn({
-                      label: row.label,
-                      metric: row.metric,
-                      row,
-                      location: resultGroup as
-                        | "goal"
-                        | "secondary"
-                        | "guardrail",
-                    })}
+              return (
+                <div key={metric.id} className="mb-2">
+                  <div className="py-2">
+                    <div
+                      className="d-flex align-items-center position-relative pl-1"
+                      style={{ height: 40 }}
+                    >
+                      {renderLabelColumn({
+                        label: row.label,
+                        metric: row.metric,
+                        row,
+                        location: resultGroup as
+                          | "goal"
+                          | "secondary"
+                          | "guardrail",
+                      })}
+                    </div>
+
+                    {/* Parent metric time series */}
+                    <ExperimentMetricTimeSeriesGraphWrapper
+                      key={metric.id}
+                      experimentId={experiment.id}
+                      phase={snapshot.phase}
+                      experimentStatus={experiment.status}
+                      metric={metric}
+                      differenceType={
+                        analysis?.settings.differenceType || "relative"
+                      }
+                      showVariations={showVariations}
+                      variationNames={variationNames}
+                      statsEngine={statsEngine}
+                      pValueAdjustmentEnabled={!!appliedPValueCorrection}
+                      firstDateToRender={phaseStartDate}
+                      sliceId={row.sliceId}
+                    />
                   </div>
 
-                  {/* Parent metric time series */}
-                  <ExperimentMetricTimeSeriesGraphWrapper
-                    key={metric.id}
-                    experimentId={experiment.id}
-                    phase={snapshot.phase}
-                    experimentStatus={experiment.status}
-                    metric={metric}
-                    differenceType={
-                      analysis?.settings.differenceType || "relative"
-                    }
-                    showVariations={showVariations}
-                    variationNames={variationNames}
-                    statsEngine={statsEngine}
-                    pValueAdjustmentEnabled={!!appliedPValueCorrection}
-                    firstDateToRender={phaseStartDate}
-                    sliceId={row.sliceId}
-                  />
-                </div>
+                  {/* Slice time series (if expanded) */}
+                  {isExpanded && hasSlices && (
+                    <div>
+                      {childRows.map((sliceRow) => {
+                        if (!sliceRow.metric || !sliceRow.sliceLevels)
+                          return null;
 
-                {/* Slice time series (if expanded) */}
-                {isExpanded && hasSlices && (
-                  <div>
-                    {childRows.map((sliceRow) => {
-                      if (!sliceRow.metric || !sliceRow.sliceLevels)
-                        return null;
-
-                      return (
-                        <div
-                          key={`${metric.id}-${sliceRow.label}`}
-                          className="py-2"
-                          style={{
-                            backgroundColor: "var(--slate-a2)",
-                            borderTop: "1px solid rgba(102, 102, 102, 0.1)",
-                          }}
-                        >
-                          {/* Slice label with proper formatting */}
+                        return (
                           <div
-                            className="d-flex align-items-center position-relative pl-1"
-                            style={{ height: 40 }}
+                            key={`${metric.id}-${sliceRow.label}`}
+                            className="py-2"
+                            style={{
+                              backgroundColor: "var(--slate-a2)",
+                              borderTop: "1px solid rgba(102, 102, 102, 0.1)",
+                            }}
                           >
-                            {renderLabelColumn({
-                              label: sliceRow.label,
-                              metric: sliceRow.metric,
-                              row: sliceRow,
-                              location: resultGroup as
-                                | "goal"
-                                | "secondary"
-                                | "guardrail",
-                            })}
+                            {/* Slice label with proper formatting */}
+                            <div
+                              className="d-flex align-items-center position-relative pl-1"
+                              style={{ height: 40 }}
+                            >
+                              {renderLabelColumn({
+                                label: sliceRow.label,
+                                metric: sliceRow.metric,
+                                row: sliceRow,
+                                location: resultGroup as
+                                  | "goal"
+                                  | "secondary"
+                                  | "guardrail",
+                              })}
+                            </div>
+                            <ExperimentMetricTimeSeriesGraphWrapper
+                              experimentId={experiment.id}
+                              phase={snapshot.phase}
+                              experimentStatus={experiment.status}
+                              metric={sliceRow.metric}
+                              differenceType={
+                                analysis?.settings.differenceType || "relative"
+                              }
+                              showVariations={showVariations}
+                              variationNames={variationNames}
+                              statsEngine={statsEngine}
+                              pValueAdjustmentEnabled={
+                                !!appliedPValueCorrection
+                              }
+                              firstDateToRender={phaseStartDate}
+                              sliceId={sliceRow.sliceId}
+                            />
                           </div>
-                          <ExperimentMetricTimeSeriesGraphWrapper
-                            experimentId={experiment.id}
-                            phase={snapshot.phase}
-                            experimentStatus={experiment.status}
-                            metric={sliceRow.metric}
-                            differenceType={
-                              analysis?.settings.differenceType || "relative"
-                            }
-                            showVariations={showVariations}
-                            variationNames={variationNames}
-                            statsEngine={statsEngine}
-                            pValueAdjustmentEnabled={!!appliedPValueCorrection}
-                            firstDateToRender={phaseStartDate}
-                            sliceId={sliceRow.sliceId}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ))}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ),
+      )}
     </>
   );
 }
