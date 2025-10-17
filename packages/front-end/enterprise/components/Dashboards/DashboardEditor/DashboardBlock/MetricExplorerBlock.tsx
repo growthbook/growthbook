@@ -1,7 +1,7 @@
 import { MetricExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { useMemo } from "react";
-import { ago, getValidDate } from "shared/dates";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { getValidDate } from "shared/dates";
+import { Box, Text } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -9,8 +9,6 @@ import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/ui/Button";
-import { AreaWithHeader } from "@/components/SchemaBrowser/SqlExplorerModal";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
 import { useDashboardMetricAnalysis } from "../../DashboardSnapshotProvider";
 import { BlockProps } from ".";
@@ -23,10 +21,7 @@ export default function MetricExplorerBlock({
 }: BlockProps<MetricExplorerBlockInterface>) {
   const { visualizationType, valueType, analysisSettings } = block;
   const { getFactTableById } = useDefinitions();
-  const { refreshAnalysis, loading, error } = useDashboardMetricAnalysis(
-    block,
-    setBlock,
-  );
+  const { loading, error } = useDashboardMetricAnalysis(block, setBlock);
   const displayCurrency = useCurrency();
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
@@ -162,64 +157,45 @@ export default function MetricExplorerBlock({
   ]);
 
   return (
-    <AreaWithHeader
-      header={
-        <Flex align="center" width="100%">
-          <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-            Results
-          </Text>
-          <Box flexGrow={"1"} />
-          {metricAnalysis?.dateCreated && (
-            <Text style={{ color: "var(--color-text-muted)" }} size="1">
-              {ago(metricAnalysis.dateCreated)}
-            </Text>
-          )}
-          <Button
-            onClick={refreshAnalysis}
-            ml="4"
-            loading={
-              loading ||
-              ["running", "queued"].includes(metricAnalysis?.status || "")
-            }
-          >
-            Refresh
-          </Button>
-        </Flex>
-      }
+    <Box
+      p="4"
+      position="relative"
+      style={{
+        border: "1px solid var(--gray-a3)",
+        borderRadius: "var(--radius-4)",
+      }}
     >
-      <Box p="4" position="relative">
-        {error ? (
-          <Callout status="error">{error.toString()}</Callout>
-        ) : loading ? (
-          <LoadingOverlay />
-        ) : !metricAnalysis ? (
-          <Box p="4" style={{ textAlign: "center" }}>
-            <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
-              No cached data available. Refresh to see results.
-            </Text>
-          </Box>
-        ) : metricAnalysis.status === "error" ? (
-          <Callout status="error">
-            {metricAnalysis.error || "There was an error with the analysis"}
-          </Callout>
-        ) : ["running", "queued"].includes(metricAnalysis.status || "") ? (
-          <LoadingOverlay />
-        ) : visualizationType === "bigNumber" ? (
-          <BigValueChart
-            value={(chartData && "value" in chartData && chartData.value) || 0}
-            label={"Value"}
-            formatter={
-              (chartData as { formatter: (value: number) => string }).formatter
-            }
-          />
-        ) : (
-          <EChartsReact
-            key={JSON.stringify(chartData)}
-            option={chartData}
-            style={{ width: "100%", minHeight: "450px", height: "80%" }}
-          />
-        )}
-      </Box>
-    </AreaWithHeader>
+      {error ? (
+        <Callout status="error">{error.toString()}</Callout>
+      ) : loading ? (
+        <LoadingOverlay />
+      ) : !metricAnalysis ? (
+        <Box p="4" style={{ textAlign: "center" }}>
+          <Text style={{ color: "var(--color-text-mid)", fontWeight: 500 }}>
+            No cached data available. Refresh to see results.
+          </Text>
+        </Box>
+      ) : metricAnalysis.status === "error" ? (
+        <Callout status="error">
+          {metricAnalysis.error || "There was an error with the analysis"}
+        </Callout>
+      ) : ["running", "queued"].includes(metricAnalysis.status || "") ? (
+        <LoadingOverlay />
+      ) : visualizationType === "bigNumber" ? (
+        <BigValueChart
+          value={(chartData && "value" in chartData && chartData.value) || 0}
+          label={"Value"}
+          formatter={
+            (chartData as { formatter: (value: number) => string }).formatter
+          }
+        />
+      ) : (
+        <EChartsReact
+          key={JSON.stringify(chartData)}
+          option={chartData}
+          style={{ width: "100%", minHeight: "450px", height: "80%" }}
+        />
+      )}
+    </Box>
   );
 }

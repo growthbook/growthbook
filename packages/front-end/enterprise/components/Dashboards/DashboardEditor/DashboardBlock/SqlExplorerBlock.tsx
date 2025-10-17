@@ -1,4 +1,4 @@
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { DataVizConfig } from "back-end/src/validators/saved-queries";
 import {
@@ -45,12 +45,12 @@ export default function SqlExplorerBlock({
   }
 
   return (
-    <Flex direction="column" gap="4" p="4">
+    <Flex direction="column" gap="4">
       {block.showResultsTable ? (
         <>
-          <Text size="3" weight="medium">
+          <h2 style={{ width: "100%", textAlign: "center" }}>
             {savedQuery.name}
-          </Text>
+          </h2>
           <Box
             style={{
               height: 500,
@@ -76,9 +76,12 @@ export default function SqlExplorerBlock({
           py="5"
           align="center"
           justify="center"
-          className="border rounded"
+          style={{
+            border: "1px solid var(--gray-a3)",
+            borderRadius: "var(--radius-4)",
+          }}
         >
-          <Box>
+          <Box style={{ width: "100%", height: "100%" }}>
             <DataVisualizationDisplay
               rows={savedQuery.results.results}
               dataVizConfig={dataVizConfig}
