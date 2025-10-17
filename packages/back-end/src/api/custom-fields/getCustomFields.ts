@@ -26,7 +26,10 @@ export const getCustomFields = createApiRequestHandler(
   }
 
   const filteredCustomFields = customFields?.fields.filter(
-    (f) => f.projects?.includes(projectId) || f.projects?.length === 0,
+    (f) =>
+      f.projects?.includes(projectId) ||
+      f.projects?.[0] === "" ||
+      f.projects?.length === 0,
   );
 
   return (
