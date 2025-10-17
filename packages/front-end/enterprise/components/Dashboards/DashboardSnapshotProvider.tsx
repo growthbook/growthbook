@@ -375,9 +375,9 @@ export function useDashboardSnapshot(
 
 export function useDashboardMetricAnalysis(
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
-  setBlock: React.Dispatch<
-    DashboardBlockInterfaceOrData<DashboardBlockInterface>
-  >,
+  setBlock:
+    | undefined
+    | React.Dispatch<DashboardBlockInterfaceOrData<DashboardBlockInterface>>,
 ) {
   const {
     loading: contextLoading,
@@ -429,6 +429,7 @@ export function useDashboardMetricAnalysis(
 
   // Create a hook for refreshing, either due to settings changes or based on manual interaction
   const refreshAnalysis = useCallback(async () => {
+    if (!setBlock) return;
     if (
       !blockHasMetricAnalysis ||
       !block.factMetricId ||
