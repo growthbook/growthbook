@@ -91,7 +91,6 @@ export default function ExperimentTimeSeriesBlock({
     enableExpansion: true,
     enablePinning: true,
     expandedMetrics,
-    toggleExpandedMetric,
   });
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
@@ -175,7 +174,7 @@ export default function ExperimentTimeSeriesBlock({
                     statsEngine={statsEngine}
                     pValueAdjustmentEnabled={!!appliedPValueCorrection}
                     firstDateToRender={phaseStartDate}
-                    sliceId={row.sliceDataId}
+                    sliceId={row.sliceId}
                   />
                 </div>
 
@@ -223,7 +222,7 @@ export default function ExperimentTimeSeriesBlock({
                             statsEngine={statsEngine}
                             pValueAdjustmentEnabled={!!appliedPValueCorrection}
                             firstDateToRender={phaseStartDate}
-                            sliceId={sliceRow.sliceDataId}
+                            sliceId={sliceRow.sliceId}
                           />
                         </div>
                       );

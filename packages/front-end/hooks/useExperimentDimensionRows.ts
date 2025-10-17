@@ -26,36 +26,25 @@ import { RowError } from "@/components/Experiment/ResultsTable";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-// import { generateRowsForMetric } from "./useExperimentTableRows"; // Not used in dimension mode
+import { getAllMetricTags } from "./useExperimentTableRows";
 
 export interface UseExperimentDimensionRowsParams {
-  // Core experiment data
   results: ExperimentReportResultDimension[];
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
-
-  // Feature flags and permissions
   ssrPolyfills?: SSRPolyfills;
-
-  // Filtering and sorting
   metricFilter?: ResultsMetricFilters;
   sortBy?: "metric-tags" | "significance" | "change" | null;
   sortDirection?: "asc" | "desc" | null;
   analysisBarSettings?: {
     variationFilter: number[];
   };
-
-  // Statistical settings
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
-
-  // Dimension filtering
-  dimensionValuesFilter?: string[]; // Filter dimension values
-
-  // Error handling
+  dimensionValuesFilter?: string[];
   showErrorsOnQuantileMetrics?: boolean;
 }
 
@@ -117,18 +106,13 @@ export function useExperimentDimensionRows({
     ]);
 
   const allMetricTags = useMemo(() => {
-    const allMetricTagsSet: Set<string> = new Set();
-    [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
-      (metricId) => {
-        const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
-        metric?.tags?.forEach((tag) => {
-          allMetricTagsSet.add(tag);
-        });
-      },
+    return getAllMetricTags(
+      expandedGoals,
+      expandedSecondaries,
+      expandedGuardrails,
+      ssrPolyfills,
+      getExperimentMetricById,
     );
-    return [...allMetricTagsSet];
   }, [
     expandedGoals,
     expandedSecondaries,

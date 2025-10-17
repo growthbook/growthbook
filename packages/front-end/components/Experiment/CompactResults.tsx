@@ -176,7 +176,7 @@ const CompactResults: FC<{
     }));
   };
 
-  const { rows, allMetricTags } = useExperimentTableRows({
+  const { rows, allMetricTags, getChildRowCounts } = useExperimentTableRows({
     results,
     goalMetrics,
     secondaryMetrics,
@@ -196,7 +196,6 @@ const CompactResults: FC<{
     enableExpansion: true,
     enablePinning: true,
     expandedMetrics,
-    toggleExpandedMetric,
   });
 
   const expandedGoals = useMemo(
@@ -223,15 +222,6 @@ const CompactResults: FC<{
       ),
     [guardrailMetrics, metricGroups, ssrPolyfills?.metricGroups],
   );
-
-  const getChildRowCounts = (metricId: string) => {
-    const childRows = rows.filter((row) => row.parentRowId === metricId);
-    const pinnedChildRows = childRows.filter((row) => !!row.isPinned);
-    return {
-      total: childRows.length,
-      pinned: pinnedChildRows.length,
-    };
-  };
 
   const isBandit = experimentType === "multi-armed-bandit";
 

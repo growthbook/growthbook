@@ -1287,7 +1287,7 @@ export default function ResultsTable({
                                       rows.length > 1
                                     }
                                     firstDateToRender={getValidDate(startDate)}
-                                    sliceId={row.sliceDataId}
+                                    sliceId={row.sliceId}
                                   />
                                 </div>
                               </div>

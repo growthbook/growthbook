@@ -39,58 +39,36 @@ import { AppFeatures } from "@/types/app-features";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 export interface UseExperimentTableRowsParams {
-  // Core experiment data
   results: ExperimentReportResultDimension;
   goalMetrics: string[];
   secondaryMetrics: string[];
   guardrailMetrics: string[];
   metricOverrides: MetricOverride[];
-
-  // Feature flags and permissions
   ssrPolyfills?: SSRPolyfills;
-
-  // Slice configuration
   customMetricSlices?: Array<{
     slices: Array<{
       column: string;
       levels: string[];
     }>;
   }>;
-  pinnedMetricSlices?: string[];
-
-  // Filtering and sorting
   metricFilter?: ResultsMetricFilters;
   sortBy?: "metric-tags" | "significance" | "change" | null;
   sortDirection?: "asc" | "desc" | null;
   analysisBarSettings?: {
     variationFilter: number[];
   };
-
-  // Statistical settings
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
-
-  // UI behavior
   shouldShowMetricSlices?: boolean;
-  enableExpansion?: boolean; // Whether to allow expand/collapse of slices
-  enablePinning?: boolean; // Whether to allow pinning of slices
-
-  // External expansion state (required when enableExpansion is true)
+  enablePinning?: boolean;
+  pinnedMetricSlices?: string[];
+  enableExpansion?: boolean;
   expandedMetrics: Record<string, boolean>;
-  toggleExpandedMetric: (
-    metricId: string,
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => void;
 }
 
 export interface UseExperimentTableRowsReturn {
   rows: ExperimentTableRow[];
-  expandedMetrics: Record<string, boolean>;
-  toggleExpandedMetric: (
-    metricId: string,
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => void;
   allMetricTags: string[];
   getChildRowCounts: (metricId: string) => { total: number; pinned: number };
 }
@@ -115,7 +93,6 @@ export function useExperimentTableRows({
   enableExpansion: _enableExpansion = true,
   enablePinning = true,
   expandedMetrics,
-  toggleExpandedMetric,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
   const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
     useDefinitions();
@@ -159,18 +136,13 @@ export function useExperimentTableRows({
     ]);
 
   const allMetricTags = useMemo(() => {
-    const allMetricTagsSet: Set<string> = new Set();
-    [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
-      (metricId) => {
-        const metric =
-          ssrPolyfills?.getExperimentMetricById?.(metricId) ||
-          getExperimentMetricById(metricId);
-        metric?.tags?.forEach((tag) => {
-          allMetricTagsSet.add(tag);
-        });
-      },
+    return getAllMetricTags(
+      expandedGoals,
+      expandedSecondaries,
+      expandedGuardrails,
+      ssrPolyfills,
+      getExperimentMetricById,
     );
-    return [...allMetricTagsSet];
   }, [
     expandedGoals,
     expandedSecondaries,
@@ -332,14 +304,11 @@ export function useExperimentTableRows({
 
   return {
     rows,
-    expandedMetrics,
-    toggleExpandedMetric,
     allMetricTags,
     getChildRowCounts,
   };
 }
 
-// Shared row generation logic that can be used by both normal and dimension hooks
 export function generateRowsForMetric({
   metricId,
   resultGroup,
@@ -357,18 +326,16 @@ export function generateRowsForMetric({
   resultGroup: "goal" | "secondary" | "guardrail";
   results: ExperimentReportResultDimension | ExperimentReportResultDimension[];
   metricOverrides: MetricOverride[];
-  settingsForSnapshotMetrics: MetricSnapshotSettings[] | undefined;
+  settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   shouldShowMetricSlices: boolean;
-  customMetricSlices:
-    | Array<{
-        slices: Array<{
-          column: string;
-          levels: string[];
-        }>;
-      }>
-    | undefined;
-  pinnedMetricSlices: string[] | undefined;
-  expandedMetrics: Record<string, boolean>;
+  customMetricSlices?: Array<{
+    slices: Array<{
+      column: string;
+      levels: string[];
+    }>;
+  }>;
+  pinnedMetricSlices?: string[];
+  expandedMetrics?: Record<string, boolean>;
   getExperimentMetricById: (id: string) => ExperimentMetricInterface | null;
   getFactTableById: (id: string) => FactTableInterface | null;
 }): ExperimentTableRow[] {
@@ -414,7 +381,6 @@ export function generateRowsForMetric({
     sliceData = dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
   }
 
-  // Update numSlices with actual count
   numSlices = sliceData.length;
 
   const parentRow: ExperimentTableRow = {
@@ -442,7 +408,7 @@ export function generateRowsForMetric({
   if (numSlices > 0) {
     sliceData.forEach((slice) => {
       const expandedKey = `${metricId}:${resultGroup}`;
-      const isExpanded = expandedMetrics[expandedKey] || false;
+      const isExpanded = !!expandedMetrics?.[expandedKey];
 
       // Generate pinned key from all slice levels
       const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
@@ -455,12 +421,10 @@ export function generateRowsForMetric({
         pinnedSliceLevels,
         resultGroup,
       );
-      const isPinned = pinnedMetricSlices?.includes(pinnedKey) || false;
+      const isPinned = !!pinnedMetricSlices?.includes(pinnedKey);
 
-      // Show level if metric is expanded OR if it's pinned
       const shouldShowLevel = isExpanded || isPinned;
 
-      // Generate simple string label - renderLabelColumn will handle formatting
       const label = slice.sliceLevels
         .map((dl, _index) => {
           if (dl.levels.length === 0) {
@@ -478,11 +442,11 @@ export function generateRowsForMetric({
         label,
         metric: {
           ...newMetric,
-          name: slice.name, // Use the full slice metric name
+          name: slice.name,
         },
         metricOverrideFields: overrideFields,
         rowClass: `${newMetric?.inverse ? "inverse" : ""} slice-row`,
-        sliceDataId: slice.id, // Store the slice data ID
+        sliceId: slice.id,
         variations: resultsArray[0].variations.map((v) => {
           // Use the slice metric's data instead of the parent metric's data
           return (
@@ -521,4 +485,25 @@ export function generateRowsForMetric({
   }
 
   return rows;
+}
+
+export function getAllMetricTags(
+  expandedGoals: string[],
+  expandedSecondaries: string[],
+  expandedGuardrails: string[],
+  ssrPolyfills?: SSRPolyfills,
+  getExperimentMetricById?: (id: string) => ExperimentMetricInterface | null,
+): string[] {
+  const allMetricTagsSet: Set<string> = new Set();
+  [...expandedGoals, ...expandedSecondaries, ...expandedGuardrails].forEach(
+    (metricId) => {
+      const metric =
+        ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+        getExperimentMetricById?.(metricId);
+      metric?.tags?.forEach((tag) => {
+        allMetricTagsSet.add(tag);
+      });
+    },
+  );
+  return [...allMetricTagsSet];
 }

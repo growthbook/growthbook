@@ -118,7 +118,6 @@ export default function ExperimentMetricBlock({
     enableExpansion: true,
     enablePinning: true,
     expandedMetrics,
-    toggleExpandedMetric,
   });
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
