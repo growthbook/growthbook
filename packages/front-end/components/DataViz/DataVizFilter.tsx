@@ -406,7 +406,6 @@ export default function DataVizFilter({
                     whiteSpace: "normal",
                     wordBreak: "break-word",
                     lineHeight: "1.4",
-                    color: "var(--form-multivalue-text-color)",
                   }),
                 }}
                 onChange={(values) => {
