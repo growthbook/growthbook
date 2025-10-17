@@ -169,6 +169,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
       condition: `{"value": true}`,
     })),
     tags,
+    customFields: req.body.customFields,
   };
 
   const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(

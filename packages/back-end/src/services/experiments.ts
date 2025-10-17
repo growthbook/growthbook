@@ -2787,6 +2787,7 @@ export function updateExperimentApiPayloadToInterface(
     shareLevel,
     pinnedMetricSlices,
     customMetricSlices,
+    customFields,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2885,6 +2886,7 @@ export function updateExperimentApiPayloadToInterface(
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
+    ...(customFields !== undefined ? { customFields } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 

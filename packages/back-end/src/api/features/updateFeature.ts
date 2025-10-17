@@ -39,7 +39,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       throw new Error(`Feature id '${req.params.id}' not found.`);
     }
 
-    const { owner, archived, description, project, tags } = req.body;
+    const { owner, archived, description, project, tags, customFields } =
+      req.body;
 
     const effectiveProject =
       typeof project === "undefined" ? feature.project : project;
@@ -83,12 +84,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // check if the custom fields are valid
-    if (req.body.customFields) {
-      await validateCustomFields(
-        req.body.customFields,
-        req.context,
-        req.body.project,
-      );
+    if (customFields) {
+      await validateCustomFields(customFields, req.context, req.body.project);
     }
 
     // ensure environment keys are valid
@@ -162,6 +159,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       ...(environmentSettings != null ? { environmentSettings } : {}),
       ...(prerequisites != null ? { prerequisites } : {}),
       ...(jsonSchema != null ? { jsonSchema } : {}),
+      ...(customFields != null ? { customFields } : {}),
     };
 
     if (
