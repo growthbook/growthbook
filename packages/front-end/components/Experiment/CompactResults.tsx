@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, ReactElement, useMemo, useState } from "react";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
@@ -104,7 +104,11 @@ const CompactResults: FC<{
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
-    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: Array<{
+      dimension: string;
+      datatype: "string" | "boolean";
+      levels: string[];
+    }>,
     location?: "goal" | "secondary" | "guardrail",
   ) => void;
   customMetricSlices?: Array<{
@@ -289,6 +293,9 @@ const CompactResults: FC<{
           metricId,
           metricName: newMetric?.name || "",
           customMetricSlices: customMetricSlices || [],
+          factTable: getFactTableById(
+            (metric as FactMetricInterface)?.numerator?.factTableId || "",
+          ),
         });
 
         // Dedupe (auto and custom slices sometimes overlap)
@@ -331,6 +338,7 @@ const CompactResults: FC<{
           // Generate pinned key from all slice levels
           const pinnedSliceLevels = slice.sliceLevels.map((dl) => ({
             column: dl.column,
+            datatype: dl.datatype,
             levels: dl.levels,
           }));
           const pinnedKey = generatePinnedSliceKey(
@@ -344,9 +352,49 @@ const CompactResults: FC<{
           const shouldShowLevel = isExpanded || isPinned;
 
           // Generate label from slice levels
-          const label = slice.sliceLevels
-            .map((dl) => dl.levels[0] || "other")
-            .join(" + ");
+          const label: ReactElement = (
+            <>
+              {slice.sliceLevels.map((dl, index) => {
+                const content = (() => {
+                  if (dl.levels.length === 0) {
+                    // For "other" slice, show "column: NULL" with small caps styling
+                    return (
+                      <>
+                        {dl.column}:{" "}
+                        <span
+                          style={{ fontVariant: "small-caps", fontWeight: 600 }}
+                        >
+                          null
+                        </span>
+                      </>
+                    );
+                  }
+                  const value = dl.levels[0];
+                  // Only use colon notation for boolean columns
+                  if (dl.datatype === "boolean") {
+                    return (
+                      <>
+                        {dl.column}:{" "}
+                        <span
+                          style={{ fontVariant: "small-caps", fontWeight: 600 }}
+                        >
+                          {value}
+                        </span>
+                      </>
+                    );
+                  }
+                  return value;
+                })();
+
+                return (
+                  <span key={`${dl.column}-${index}`}>
+                    {content}
+                    {index < slice.sliceLevels.length - 1 && <span> + </span>}
+                  </span>
+                );
+              })}
+            </>
+          );
 
           const sliceRow: ExperimentTableRow = {
             label,
@@ -374,6 +422,7 @@ const CompactResults: FC<{
             parentRowId: metricId,
             sliceLevels: slice.sliceLevels.map((dl) => ({
               column: dl.column,
+              datatype: dl.datatype,
               levels: dl.levels,
             })),
             allSliceLevels: slice.allSliceLevels,
@@ -764,8 +813,6 @@ export function getRenderLabelColumn({
   togglePinnedMetricSlice,
   expandedMetrics,
   toggleExpandedMetric,
-  getExperimentMetricById,
-  getFactTableById,
   shouldShowMetricSlices,
   getChildRowCounts,
   className = "pl-3",
@@ -776,7 +823,11 @@ export function getRenderLabelColumn({
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
-    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: Array<{
+      dimension: string;
+      datatype: "string" | "boolean";
+      levels: string[];
+    }>,
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   expandedMetrics?: Record<string, boolean>;
@@ -797,7 +848,7 @@ export function getRenderLabelColumn({
     maxRows,
     location,
   }: {
-    label: string;
+    label: string | ReactElement;
     metric: ExperimentMetricInterface;
     row?: ExperimentTableRow;
     maxRows?: number;
@@ -816,6 +867,7 @@ export function getRenderLabelColumn({
             metric.id,
             row.sliceLevels.map((dl) => ({
               column: dl.column,
+              datatype: dl.datatype,
               levels: dl.levels,
             })),
             location || "goal",
@@ -850,6 +902,7 @@ export function getRenderLabelColumn({
                       metric.id,
                       row.sliceLevels.map((dl) => ({
                         dimension: dl.column,
+                        datatype: dl.datatype,
                         levels: dl.levels,
                       })),
                       location || "goal",
@@ -878,22 +931,13 @@ export function getRenderLabelColumn({
       );
     }
 
-    const hasSlices =
-      shouldShowMetricSlices &&
-      !!createAutoSliceDataForMetric({
-        parentMetric: getExperimentMetricById?.(metric.id),
-        factTable: getFactTableById?.(
-          (getExperimentMetricById?.(metric.id) as FactMetricInterface)
-            ?.numerator?.factTableId || "",
-        ),
-        includeOther: true,
-      }).length;
-
     // Get child row counts for pinned indicator
     const childRowCounts =
-      shouldShowMetricSlices && hasSlices && getChildRowCounts
+      shouldShowMetricSlices && getChildRowCounts
         ? getChildRowCounts(metric.id)
         : { total: 0, pinned: 0 };
+
+    const hasSlices = childRowCounts.total > 0;
 
     // Render non-slice metric
     return (

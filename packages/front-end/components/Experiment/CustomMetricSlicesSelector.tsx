@@ -32,6 +32,7 @@ interface MetricWithStringColumns extends FactMetricInterface {
   stringColumns: Array<{
     column: string;
     name: string;
+    datatype?: string;
     isAutoSliceColumn?: boolean;
     autoSlices?: string[];
     topValues?: string[];
@@ -108,7 +109,7 @@ export default function CustomMetricSlicesSelector({
         const factTable = factTableMap.get(metric!.numerator?.factTableId);
         const stringColumns = factTable?.columns?.filter(
           (col) =>
-            col.datatype === "string" &&
+            (col.datatype === "string" || col.datatype === "boolean") &&
             !col.deleted &&
             !factTable.userIdTypes.includes(col.column),
         );
@@ -118,6 +119,7 @@ export default function CustomMetricSlicesSelector({
             stringColumns?.map((col) => ({
               column: col.column,
               name: col.name || col.column,
+              datatype: col.datatype,
               isAutoSliceColumn: col.isAutoSliceColumn,
               autoSlices: col.autoSlices,
               topValues: col.topValues,
@@ -157,10 +159,25 @@ export default function CustomMetricSlicesSelector({
   const saveEditing = () => {
     if (editingSliceLevels.length === 0) return;
 
-    const sliceLevelsFormatted = editingSliceLevels.map((dl) => ({
-      column: dl.column,
-      levels: dl.levels[0] ? [dl.levels[0]] : [],
-    }));
+    const sliceLevelsFormatted = editingSliceLevels.map((dl) => {
+      // Find the column metadata to check if it's boolean
+      const columnMetadata = metricsWithStringColumns
+        .flatMap((metric) => metric.stringColumns || [])
+        .find((col) => col.column === dl.column);
+
+      // For boolean "null" slices, use empty array to generate correct pin ID
+      const levels =
+        dl.levels[0] === "null" && columnMetadata?.datatype === "boolean"
+          ? []
+          : dl.levels[0]
+            ? [dl.levels[0]]
+            : [];
+
+      return {
+        column: dl.column,
+        levels,
+      };
+    });
 
     const newLevels: CustomMetricSlice = {
       slices: editingSliceLevels.map((dl) => ({
@@ -259,10 +276,25 @@ export default function CustomMetricSlicesSelector({
     setCustomMetricSlices(updatedLevels);
 
     // Auto-unpin custom slice levels from all applicable metrics
-    const sliceLevelsFormatted = levelsToRemove.slices.map((dl) => ({
-      column: dl.column,
-      levels: dl.levels[0] ? [dl.levels[0]] : [],
-    }));
+    const sliceLevelsFormatted = levelsToRemove.slices.map((dl) => {
+      // Find the column metadata to check if it's boolean
+      const columnMetadata = metricsWithStringColumns
+        .flatMap((metric) => metric.stringColumns || [])
+        .find((col) => col.column === dl.column);
+
+      // For boolean "null" slices, use empty array to generate correct pin ID
+      const levels =
+        dl.levels[0] === "null" && columnMetadata?.datatype === "boolean"
+          ? []
+          : dl.levels[0]
+            ? [dl.levels[0]]
+            : [];
+
+      return {
+        column: dl.column,
+        levels,
+      };
+    });
 
     const keysToRemove: string[] = [];
     [
@@ -368,19 +400,41 @@ export default function CustomMetricSlicesSelector({
                   <div className="d-flex align-items-center">
                     <div className="flex-grow-1">
                       <Flex gap="2" align="center">
-                        {levels.slices.map((combo, comboIndex) => (
-                          <React.Fragment key={comboIndex}>
-                            {comboIndex > 0 && <Text size="1">AND</Text>}
-                            <Badge
-                              label={
-                                <Text style={{ color: "var(--slate-12)" }}>
-                                  {combo.column} = {combo.levels[0]}
-                                </Text>
-                              }
-                              color="gray"
-                            />
-                          </React.Fragment>
-                        ))}
+                        {levels.slices.map((combo, comboIndex) => {
+                          // Find the column datatype
+                          const columnMetadata = metricsWithStringColumns
+                            .flatMap((metric) => metric.stringColumns || [])
+                            .find((col) => col.column === combo.column);
+                          const isBoolean =
+                            columnMetadata?.datatype === "boolean";
+
+                          return (
+                            <React.Fragment key={comboIndex}>
+                              {comboIndex > 0 && <Text size="1">AND</Text>}
+                              <Badge
+                                label={
+                                  <Text style={{ color: "var(--slate-12)" }}>
+                                    {combo.column} ={" "}
+                                    {isBoolean ? (
+                                      <span
+                                        style={{
+                                          textTransform: "uppercase",
+                                          fontWeight: 600,
+                                          fontSize: "10px",
+                                        }}
+                                      >
+                                        {combo.levels[0]}
+                                      </span>
+                                    ) : (
+                                      combo.levels[0]
+                                    )}
+                                  </Text>
+                                }
+                                color="gray"
+                              />
+                            </React.Fragment>
+                          );
+                        })}
                       </Flex>
                     </div>
                     <div
@@ -473,30 +527,40 @@ function SliceSelector({
 
   const sliceMap = new Map<
     string,
-    { name: string; levels: Set<string>; column: string }
+    { name: string; levels: Set<string>; column: string; datatype?: string }
   >();
 
   metricsWithSlices.forEach((metric) => {
     (metric.stringColumns || []).forEach((col) => {
       const existing = sliceMap.get(col.column);
       if (existing) {
-        // UNION the levels from autoSlices and topValues
-        col.autoSlices?.forEach((level) => {
-          existing.levels.add(level);
-        });
-        col.topValues?.forEach((level) => {
-          existing.levels.add(level);
-        });
+        if (col.datatype === "boolean") {
+          existing.levels.add("true");
+          existing.levels.add("false");
+          existing.levels.add("null");
+        } else {
+          col.autoSlices?.forEach((level) => {
+            existing.levels.add(level);
+          });
+          col.topValues?.forEach((level) => {
+            existing.levels.add(level);
+          });
+        }
       } else {
-        // Create new entry with levels from autoSlices and topValues
-        const allLevels = new Set([
-          ...(col.autoSlices || []),
-          ...(col.topValues || []),
-        ]);
+        let allLevels: Set<string>;
+        if (col.datatype === "boolean") {
+          allLevels = new Set(["true", "false", "null"]);
+        } else {
+          allLevels = new Set([
+            ...(col.autoSlices || []),
+            ...(col.topValues || []),
+          ]);
+        }
         sliceMap.set(col.column, {
           column: col.column,
           name: col.name || col.column || "",
           levels: allLevels,
+          datatype: col.datatype,
         });
       }
     });
@@ -618,10 +682,14 @@ function EditingInterface({
         style={{ gap: "0.5rem", minHeight: "40px" }}
       >
         {editingSliceLevels.map((sliceLevel, levelIndex) => {
-          // Build the same slice map with unioned levels
           const sliceMap = new Map<
             string,
-            { name: string; levels: Set<string>; column: string }
+            {
+              name: string;
+              levels: Set<string>;
+              column: string;
+              datatype?: string;
+            }
           >();
 
           metricsWithSlices.forEach((metric) => {
@@ -630,32 +698,81 @@ function EditingInterface({
 
               const existing = sliceMap.get(col.column);
               if (existing) {
-                // UNION the levels from autoSlices and topValues
-                col.autoSlices?.forEach((level) => {
-                  existing.levels.add(level);
-                });
-                col.topValues?.forEach((level) => {
-                  existing.levels.add(level);
-                });
+                if (col.datatype === "boolean") {
+                  existing.levels.add("true");
+                  existing.levels.add("false");
+                  existing.levels.add("null");
+                } else {
+                  col.autoSlices?.forEach((level) => {
+                    existing.levels.add(level);
+                  });
+                  col.topValues?.forEach((level) => {
+                    existing.levels.add(level);
+                  });
+                }
               } else {
-                // Create new entry with levels from autoSlices and topValues
-                const allLevels = new Set([
-                  ...(col.autoSlices || []),
-                  ...(col.topValues || []),
-                ]);
+                let allLevels: Set<string>;
+                if (col.datatype === "boolean") {
+                  allLevels = new Set(["true", "false", "null"]);
+                } else {
+                  allLevels = new Set([
+                    ...(col.autoSlices || []),
+                    ...(col.topValues || []),
+                  ]);
+                }
                 sliceMap.set(col.column, {
                   column: col.column,
                   name: col.name || col.column || "",
                   levels: allLevels,
+                  datatype: col.datatype,
                 });
               }
             });
           });
 
           const sliceColumn = sliceMap.get(sliceLevel.column);
-          const availableLevels = sliceColumn
-            ? Array.from(sliceColumn.levels).sort()
-            : [];
+
+          if (!sliceColumn) return null;
+
+          if (sliceColumn.datatype === "boolean") {
+            const booleanOptions = [
+              { label: "TRUE", value: "true" },
+              { label: "FALSE", value: "false" },
+              { label: "NULL", value: "null" },
+            ];
+
+            return (
+              <div
+                key={levelIndex}
+                className="border rounded d-flex align-items-center bg-white"
+              >
+                <span className="px-2 font-weight-medium">
+                  {sliceColumn?.name || sliceLevel.column}:
+                </span>
+                <SelectField
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(value) =>
+                    updateSliceLevel(levelIndex, "level", value)
+                  }
+                  options={booleanOptions}
+                  className="mb-0"
+                  style={{ minWidth: "120px" }}
+                  placeholder="Select..."
+                  autoFocus={!sliceLevel.levels[0]}
+                  sort={false}
+                />
+                <button
+                  type="button"
+                  className="btn btn-link p-0 ml-1 text-muted"
+                  onClick={() => removeSliceLevel(levelIndex)}
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            );
+          }
+
+          const availableLevels = Array.from(sliceColumn.levels).sort();
 
           return (
             <div
@@ -680,6 +797,7 @@ function EditingInterface({
                   createable
                   placeholder=""
                   autoFocus={!sliceLevel.levels[0]}
+                  sort={false}
                 />
               ) : (
                 <Field
