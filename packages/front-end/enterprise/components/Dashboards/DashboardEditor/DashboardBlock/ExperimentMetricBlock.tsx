@@ -23,7 +23,7 @@ export default function ExperimentMetricBlock({
   analysis,
   ssrPolyfills,
   isEditing,
-  metrics: _metrics,
+  metrics,
 }: BlockProps<ExperimentMetricBlockInterface>) {
   const { baselineRow, columnsFilter, variationIds, pinnedMetricSlices } =
     block;
@@ -99,7 +99,7 @@ export default function ExperimentMetricBlock({
     }));
   };
 
-  const expandedMetricIds = _metrics?.map((m) => m.id) || [];
+  const expandedMetricIds = metrics?.map((m) => m.id) || [];
   const goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     ssrPolyfills?.metricGroups || metricGroups,
@@ -171,12 +171,13 @@ export default function ExperimentMetricBlock({
               pinnedMetricSlices,
               togglePinnedMetricSlice: undefined, // No pinning toggle in dashboard blocks for now
               expandedMetrics,
-              toggleExpandedMetric,
+              toggleExpandedMetric: isEditing
+                ? toggleExpandedMetric
+                : undefined,
               getExperimentMetricById,
               getFactTableById,
               shouldShowMetricSlices: true,
               getChildRowCounts,
-              showPinCount: isEditing,
             })}
             dateCreated={snapshot.dateCreated}
             statsEngine={statsEngine}

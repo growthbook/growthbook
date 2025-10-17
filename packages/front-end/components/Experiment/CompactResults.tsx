@@ -462,7 +462,6 @@ export function getRenderLabelColumn({
   toggleExpandedMetric,
   shouldShowMetricSlices,
   getChildRowCounts,
-  showPinCount = true,
   className = "pl-3",
 }: {
   statsEngine?: StatsEngine;
@@ -487,7 +486,6 @@ export function getRenderLabelColumn({
   getFactTableById?: (id: string) => null | FactTableInterface;
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
-  showPinCount?: boolean;
   className?: string;
 }) {
   return function renderLabelColumn({
@@ -645,11 +643,12 @@ export function getRenderLabelColumn({
           className={className}
           style={{
             position: "relative",
-            top: childRowCounts.total > 0 && showPinCount ? -6 : undefined,
+            top:
+              childRowCounts.total > 0 && toggleExpandedMetric ? -6 : undefined,
           }}
         >
           <span
-            className="ml-2"
+            className={hasSlices && toggleExpandedMetric ? "ml-2" : undefined}
             style={
               maxRows
                 ? {
@@ -661,15 +660,13 @@ export function getRenderLabelColumn({
                 : undefined
             }
           >
-            {hasSlices ? (
+            {hasSlices && toggleExpandedMetric ? (
               <a
                 className="link-purple"
                 role="button"
-                onClick={() => {
-                  if (toggleExpandedMetric) {
-                    toggleExpandedMetric(metric.id, location || "goal");
-                  }
-                }}
+                onClick={() =>
+                  toggleExpandedMetric(metric.id, location || "goal")
+                }
                 style={{
                   textDecoration: "none",
                 }}
@@ -755,7 +752,7 @@ export function getRenderLabelColumn({
           </span>
         </div>
 
-        {childRowCounts.total > 0 && showPinCount && (
+        {childRowCounts.total > 0 && toggleExpandedMetric && (
           <div
             className="text-muted small"
             style={{

@@ -20,7 +20,7 @@ export default function ExperimentTimeSeriesBlock({
   analysis,
   ssrPolyfills,
   isEditing,
-  metrics: _metrics,
+  metrics,
 }: BlockProps<ExperimentTimeSeriesBlockInterface>) {
   const { variationIds, pinnedMetricSlices } = block;
 
@@ -73,7 +73,7 @@ export default function ExperimentTimeSeriesBlock({
     }));
   };
 
-  const expandedMetricIds = _metrics?.map((m) => m.id) || [];
+  const expandedMetricIds = metrics?.map((m) => m.id) || [];
   const goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     ssrPolyfills?.metricGroups || _metricGroups,
@@ -122,12 +122,11 @@ export default function ExperimentTimeSeriesBlock({
     pinnedMetricSlices,
     togglePinnedMetricSlice: undefined, // No pinning toggle in dashboard blocks for now
     expandedMetrics,
-    toggleExpandedMetric,
+    toggleExpandedMetric: isEditing ? toggleExpandedMetric : undefined,
     getExperimentMetricById,
     getFactTableById,
     shouldShowMetricSlices: true,
     getChildRowCounts,
-    showPinCount: isEditing,
   });
 
   return (
