@@ -258,6 +258,7 @@ export interface OrganizationSettings {
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
   defaultFeatureRulesInAllEnvs?: boolean;
+  savedGroupSizeLimit?: number;
 }
 
 export interface OrganizationConnections {
