@@ -517,7 +517,7 @@ function DashboardEditor({
       {shareModalOpen && (
         <Modal
           open={true}
-          trackingEventModalType="product-analytics-dashboard"
+          trackingEventModalType="product-analytics-dashboard-share"
           header="Update Dashboard Access Settings"
           close={() => setShareModalOpen(false)}
           closeCta="Close"

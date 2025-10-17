@@ -217,7 +217,7 @@ export default function DashboardsPage() {
               <PremiumEmptyState
                 title="Explore & Share Custom Analyses"
                 description="Create curated dashboards to visualize key metrics and track performance."
-                commercialFeature="dashboards"
+                commercialFeature="product-analytics-dashboards"
               />
             ) : (
               <EmptyState
