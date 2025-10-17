@@ -34,6 +34,7 @@ const licenseSchema = new mongoose.Schema({
     of: {
       _id: false,
       date: Date,
+      installationName: String,
       userHashes: [String],
       licenseUserCodes: {
         invites: [String],

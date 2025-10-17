@@ -11,6 +11,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateSavedGroupValidator } from "back-end/src/validators/openapi";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
 import { UpdateSavedGroupProps } from "back-end/types/saved-group";
+import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
@@ -53,6 +54,11 @@ export const updateSavedGroup = createApiRequestHandler(
     !isEqual(values, savedGroup.values)
   ) {
     fieldsToUpdate.values = values;
+    validateListSize(
+      values,
+      req.context.org.settings?.savedGroupSizeLimit,
+      req.context.permissions.canBypassSavedGroupSizeLimit(projects),
+    );
   }
   if (
     savedGroup.type === "condition" &&
