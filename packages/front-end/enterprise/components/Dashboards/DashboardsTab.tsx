@@ -1,6 +1,9 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { useCallback, useEffect, useState } from "react";
-import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
+import {
+  DashboardInterface,
+  DashboardUpdateSchedule,
+} from "back-end/src/enterprise/validators/dashboard";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
@@ -21,7 +24,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { DropdownMenuSeparator } from "@/ui/DropdownMenu";
-import { useDashboards } from "@/hooks/useDashboards";
+import { useExperimentDashboards } from "@/hooks/useDashboards";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -39,8 +42,11 @@ export type CreateDashboardArgs = {
   data: {
     title: string;
     editLevel: DashboardInterface["editLevel"];
+    shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
+    updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
+    projects: string[];
   };
 };
 export type UpdateDashboardArgs = {
@@ -50,7 +56,10 @@ export type UpdateDashboardArgs = {
     title: string;
     blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     editLevel: DashboardInterface["editLevel"];
+    shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
+    updateSchedule?: DashboardUpdateSchedule;
+    projects: string[];
   }>;
 };
 export type SubmitDashboard<
@@ -88,7 +97,7 @@ function DashboardsTab({
     dashboards,
     mutateDashboards,
     loading: loadingDashboards,
-  } = useDashboards(experiment.id);
+  } = useExperimentDashboards(experiment.id);
   const defaultDashboard = dashboards.find((dash) => dash.isDefault);
   const [dashboardMounted, setDashboardMounted] = useState(false);
 
@@ -143,7 +152,7 @@ function DashboardsTab({
   const isAdmin = permissionsUtil.canSuperDeleteReport();
   const canManage = isOwner || isAdmin;
   const canEdit =
-    canManage || (dashboard.editLevel === "organization" && canUpdateDashboard);
+    canManage || (dashboard.editLevel === "published" && canUpdateDashboard);
 
   useEffect(() => {
     if (dashboard) {
@@ -153,9 +162,9 @@ function DashboardsTab({
     }
   }, [dashboard]);
 
-  const submitDashboard = useCallback<
-    SubmitDashboard<CreateDashboardArgs | UpdateDashboardArgs>
-  >(
+  const submitDashboard: SubmitDashboard<
+    CreateDashboardArgs | UpdateDashboardArgs
+  > = useCallback(
     async ({ method, dashboardId, data }) => {
       const res = await apiCall<{
         status: number;
@@ -169,12 +178,14 @@ function DashboardsTab({
                 title: data.title,
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
+                shareLevel: data.shareLevel,
               }
             : {
                 blocks: data.blocks ?? [],
                 title: data.title,
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
+                shareLevel: data.shareLevel,
                 experimentId: experiment.id,
               },
         ),
@@ -246,8 +257,10 @@ function DashboardsTab({
               close={() => setShowEditModal(false)}
               initial={{
                 editLevel: dashboard.editLevel,
+                shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: dashboard.title,
+                projects: dashboard.projects || [],
               }}
               submit={async (data) => {
                 await submitDashboard({
@@ -264,8 +277,10 @@ function DashboardsTab({
               close={() => setShowDuplicateModal(false)}
               initial={{
                 editLevel: dashboard.editLevel,
+                shareLevel: dashboard.shareLevel || "published",
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: `Copy of ${dashboard.title}`,
+                projects: dashboard.projects || [],
               }}
               submit={async (data) => {
                 await submitDashboard({
@@ -582,23 +597,20 @@ function DashboardsTab({
                     ) : (
                       <DashboardEditor
                         isTabActive={isTabActive}
-                        experiment={experiment}
+                        id={dashboard.id}
                         title={dashboard.title}
+                        initialEditLevel={dashboard.editLevel}
+                        initialShareLevel={dashboard.shareLevel}
+                        dashboardOwnerId={dashboard.userId}
                         blocks={blocks}
+                        projects={
+                          experiment.project ? [experiment.project] : []
+                        }
                         isEditing={false}
-                        scrollAreaRef={null}
                         enableAutoUpdates={dashboard.enableAutoUpdates}
                         nextUpdate={experiment.nextSnapshotAttempt}
+                        isGeneralDashboard={false}
                         setBlock={canEdit ? memoizedSetBlock : undefined}
-                        // TODO: reduce unnecessary props
-                        stagedBlockIndex={undefined}
-                        editSidebarDirty={false}
-                        moveBlock={(_i, _direction) => {}}
-                        addBlockType={() => {}}
-                        editBlock={() => {}}
-                        duplicateBlock={() => {}}
-                        deleteBlock={() => {}}
-                        focusedBlockIndex={undefined}
                         mutate={mutateDashboards}
                         switchToExperimentView={switchToExperimentView}
                       />

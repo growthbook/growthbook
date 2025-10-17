@@ -383,13 +383,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               <div className="col-auto form-inline pr-5">
                 <PopulationChooser
                   value={populationValue ?? "factTable"}
-                  setValue={(v) =>
+                  setValue={(v, populationId) => {
                     setValue(
                       "populationType",
                       v as MetricAnalysisPopulationType,
-                    )
-                  }
-                  setPopulationValue={(v) => setValue("populationId", v)}
+                    );
+                    setValue("populationId", populationId);
+                  }}
                   userIdType={watch("userIdType")}
                   datasourceId={factMetric.datasource}
                 />

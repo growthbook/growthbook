@@ -12,6 +12,7 @@ import {
   GBDatabase,
   GBExperiment,
   GBLibrary,
+  GBProductAnalytics,
   GBSettings,
 } from "@/components/Icons";
 import { inferDocUrl } from "@/components/DocLink";
@@ -124,20 +125,29 @@ const navlinks: SidebarLinkProps[] = [
         name: "SQL Explorer",
         href: "/sql-explorer",
         path: /^sql-explorer/,
-        filter: ({ gb }) => !!gb?.isOn("sql-explorer"),
+        filter: ({ gb, savedQueries }) =>
+          !!gb?.isOn("sql-explorer") &&
+          // Only show SQL Explorer for orgs with saved queries that weren't created by dashboards
+          savedQueries.some((sq) => (sq.linkedDashboardIds ?? []).length === 0),
       },
     ],
+  },
+  {
+    name: "Product Analytics",
+    href: "/dashboards",
+    path: /^(dashboards)/,
+    Icon: GBProductAnalytics,
   },
   {
     name: "Insights",
     href: "/dashboard",
     Icon: GBLibrary,
-    path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
+    path: /^(learnings|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
         name: "Dashboard",
         href: "/dashboard",
-        path: /^dashboard/,
+        path: /^dashboard$/,
       },
       {
         name: "Learnings",
@@ -182,7 +192,7 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "Dashboard",
         href: "/dashboard",
-        path: /^dashboard/,
+        path: /^dashboard$/,
       },
       {
         name: "Ideas",
@@ -383,7 +393,7 @@ const otherPageTitles = [
     title: "Get Started",
   },
   {
-    path: /^dashboard/,
+    path: /^dashboard$/,
     title: "Dashboard",
   },
 ];

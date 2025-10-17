@@ -109,6 +109,23 @@ const experimentTimeSeriesBlockSchema = new mongoose.Schema({
 const sqlExplorerBlockSchema = new mongoose.Schema({
   savedQueryId: String,
   dataVizConfigIndex: Number,
+  showResultsTable: Boolean,
+  blockConfig: [String],
+});
+
+const metricExplorerBlockSchema = new mongoose.Schema({
+  factMetricId: String,
+  analysisSettings: {
+    userIdType: String,
+    startDate: Date,
+    endDate: Date,
+    lookbackDays: Number,
+    populationType: String,
+    populationId: String,
+  },
+  visualizationType: String,
+  valueType: String,
+  metricAnalysisId: String,
 });
 
 dashboardBlockSchema.index({
@@ -162,6 +179,7 @@ DashboardBlockModel.discriminator(
   experimentTrafficBlockSchema,
 );
 DashboardBlockModel.discriminator("sql-explorer", sqlExplorerBlockSchema);
+DashboardBlockModel.discriminator("metric-explorer", metricExplorerBlockSchema);
 
 export const toInterface: ToInterface<DashboardBlockInterface> = (doc) => {
   return removeMongooseFields<DashboardBlockInterface>(doc);

@@ -25,6 +25,14 @@ router.post(
   metricAnalysisController.cancelMetricAnalysis,
 );
 
+router.post(
+  "/metric-analysis/:id/refreshStatus",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+  }),
+  metricAnalysisController.refreshMetricAnalysisStatus,
+);
+
 router.get(
   "/metric-analysis/metric/:metricid/",
   validateRequestMiddleware({

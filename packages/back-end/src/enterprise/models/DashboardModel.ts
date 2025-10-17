@@ -9,6 +9,7 @@ import {
   UpdateProps,
 } from "back-end/src/models/BaseModel";
 import {
+  getCollection,
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
@@ -38,6 +39,10 @@ const BaseClass = MakeModelClass({
   additionalIndexes: [
     { fields: { organization: 1, experimentId: 1 }, unique: false },
   ],
+  baseQuery: {
+    isDefault: false,
+    isDeleted: false,
+  },
 });
 
 export const toInterface: ToInterface<DashboardInterface> = (doc) => {
@@ -51,63 +56,143 @@ export class DashboardModel extends BaseClass {
     experimentId: string,
     additionalFilter: ScopedFilterQuery<typeof dashboardInterface> = {},
   ): Promise<DashboardInterface[]> {
-    return this._find({
-      experimentId,
-      isDeleted: false,
-      isDefault: false,
-      ...additionalFilter,
-    });
+    return this._find({ experimentId, ...additionalFilter });
+  }
+
+  public static async getDashboardsToUpdate(): Promise<
+    Array<{
+      id: string;
+      organization: string;
+    }>
+  > {
+    const dashboards = await getCollection(COLLECTION_NAME)
+      .find({
+        isDeleted: false,
+        isDefault: false,
+        enableAutoUpdates: true,
+        experimentId: null,
+        $or: [
+          {
+            nextUpdate: {
+              $exists: true,
+              $lte: new Date(),
+            },
+          },
+          {
+            nextUpdate: {
+              $exists: false,
+            },
+          },
+        ],
+      })
+      .project({
+        id: true,
+        organization: true,
+      })
+      .limit(100)
+      .sort({ nextUpdate: 1 })
+      .toArray();
+    return dashboards.map(({ id, organization }) => ({ id, organization }));
   }
 
   protected canCreate(doc: DashboardInterface): boolean {
-    if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error("Must have a commercial License Key to use Dashboards");
-    const { experiment } = this.getForeignRefs(doc);
-    if (!experiment) return true;
-    return this.context.permissions.canCreateReport(experiment);
+    if (doc.experimentId) {
+      if (!this.context.hasPremiumFeature("dashboards")) {
+        throw new Error("Your plan does not support creating dashboards.");
+      }
+      const { experiment } = this.getForeignRefs(doc);
+      if (!experiment) {
+        throw new Error("Experiment not found.");
+      }
+      return this.context.permissions.canCreateReport(experiment);
+    } else {
+      if (doc.editLevel === "private") {
+        if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
+          throw new Error(
+            "Your plan does not support creating private dashboards.",
+          );
+        }
+      } else {
+        if (
+          !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+        ) {
+          throw new Error(
+            "Your plan does not support creating shared dashboards.",
+          );
+        }
+      }
+      return this.context.permissions.canCreateGeneralDashboards(doc);
+    }
   }
 
   protected canRead(_doc: DashboardInterface): boolean {
-    return this.context.hasPermission("readData", "");
+    if (!this.context.permissions.canReadMultiProjectResource(_doc.projects)) {
+      return false;
+    }
+
+    if (_doc.shareLevel === "private" && _doc.userId !== this.context.userId) {
+      return false;
+    }
+
+    return true;
   }
 
   protected canUpdate(
     existing: DashboardInterface,
     updates: UpdateProps<DashboardInterface>,
   ): boolean {
-    if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error("Must have a commercial License Key to use Dashboards");
-
-    const isOwner = this.context.userId === existing.userId;
-    const isAdmin = this.context.permissions.canSuperDeleteReport();
-
-    const canManage = isOwner || isAdmin;
-    if (canManage) return true;
-    // Editing privileged fields (metadata/settings) requires canManage
-    if (
-      "title" in updates ||
-      "editLevel" in updates ||
-      "enableAutoUpdates" in updates
-    ) {
-      return false;
+    if (existing.experimentId) {
+      if (!this.context.hasPremiumFeature("dashboards")) {
+        throw new Error("Your plan does not support updating dashboards.");
+      }
+      const { experiment } = this.getForeignRefs(existing);
+      if (!experiment) throw new Error("Experiment not found.");
+      return this.context.permissions.canUpdateReport(experiment);
+    } else {
+      if (existing.editLevel === "private" || updates.editLevel === "private") {
+        if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
+          throw new Error(
+            "Your plan does not support updating private dashboards.",
+          );
+        }
+        // Safety check to prevent updating private dashboards that are not owned by the user
+        if (existing.userId !== this.context.userId) {
+          throw new Error(
+            "You are not authorized to edit this dashboard. This dashboard is private, and you are not the owner.",
+          );
+        }
+      }
+      if (
+        existing.editLevel === "published" ||
+        updates.editLevel === "published"
+      ) {
+        if (
+          !this.context.hasPremiumFeature("share-product-analytics-dashboards")
+        ) {
+          throw new Error(
+            "Your plan does not support updating shared dashboards.",
+          );
+        }
+      }
+      return this.context.permissions.canUpdateGeneralDashboards(
+        existing,
+        updates,
+      );
     }
-
-    if (existing.editLevel !== "organization") return false;
-    const { experiment } = this.getForeignRefs(existing);
-    if (!experiment) return true;
-    return this.context.permissions.canUpdateReport(experiment);
   }
 
   protected canDelete(doc: DashboardInterface): boolean {
-    if (!this.context.hasPremiumFeature("dashboards"))
-      throw new Error("Must have a commercial License Key to use Dashboards");
-
-    const isOwner = this.context.userId === doc.userId;
-    const isAdmin = this.context.permissions.canSuperDeleteReport();
-    if (!isOwner && !isAdmin) return false;
-    const { experiment } = this.getForeignRefs(doc);
-    if (!experiment) return true;
-    return this.context.permissions.canDeleteReport(experiment);
+    if (doc.experimentId) {
+      const { experiment } = this.getForeignRefs(doc);
+      if (!experiment) throw new Error("Experiment not found.");
+      return this.context.permissions.canDeleteReport(experiment);
+    } else {
+      // Safety check to prevent deleting private dashboards that are not owned by the user
+      if (doc.editLevel === "private" && doc.userId !== this.context.userId) {
+        return false;
+      }
+      return this.context.permissions.canDeleteGeneralDashboards(doc);
+    }
   }
 
   protected migrate(orig: LegacyDashboardDocument): DashboardInterface {
@@ -131,22 +216,13 @@ export class DashboardModel extends BaseClass {
   ) {
     const initialQueryIdSet = getSavedQueryIds(existing);
     const finalQueryIdSet = getSavedQueryIds(newDoc);
-    for (const queryId of initialQueryIdSet) {
-      if (finalQueryIdSet.has(queryId)) continue;
-      await this.unlinkSavedQuery(queryId, newDoc);
-    }
     for (const queryId of finalQueryIdSet) {
       if (initialQueryIdSet.has(queryId)) continue;
       await this.linkSavedQuery(queryId, newDoc);
     }
   }
 
-  protected async afterDelete(doc: DashboardDocument) {
-    const queryIdSet = getSavedQueryIds(doc);
-    for (const queryId of queryIdSet) {
-      await this.unlinkSavedQuery(queryId, doc);
-    }
-  }
+  protected async afterDelete(_doc: DashboardDocument) {}
 
   protected async linkSavedQuery(queryId: string, doc: DashboardDocument) {
     const savedQuery = await this.context.models.savedQueries.getById(queryId);
@@ -154,21 +230,6 @@ export class DashboardModel extends BaseClass {
       const linkedDashboardIds = savedQuery.linkedDashboardIds || [];
       if (!linkedDashboardIds.includes(doc.id)) {
         linkedDashboardIds.push(doc.id);
-        await this.context.models.savedQueries.updateById(queryId, {
-          linkedDashboardIds,
-        });
-      }
-    }
-  }
-
-  protected async unlinkSavedQuery(queryId: string, doc: DashboardDocument) {
-    const savedQuery = await this.context.models.savedQueries.getById(queryId);
-    if (savedQuery) {
-      if ((savedQuery.linkedDashboardIds || []).includes(doc.id)) {
-        const linkedDashboardIds = (savedQuery.linkedDashboardIds || []).filter(
-          (dashId) => dashId !== doc.id,
-        );
-
         await this.context.models.savedQueries.updateById(queryId, {
           linkedDashboardIds,
         });
