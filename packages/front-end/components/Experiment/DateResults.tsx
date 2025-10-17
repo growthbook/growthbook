@@ -24,7 +24,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "@/components/Forms/Toggle";
-import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
+import { getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Badge from "@/ui/Badge";

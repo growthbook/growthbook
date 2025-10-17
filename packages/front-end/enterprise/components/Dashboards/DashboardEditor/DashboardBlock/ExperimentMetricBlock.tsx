@@ -126,7 +126,7 @@ export default function ExperimentMetricBlock({
   console.log({ rows });
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
       {Object.entries(rowGroups).map(([resultGroup, rows]) => (
         <ResultsTable
           noStickyHeader

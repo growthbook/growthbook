@@ -148,12 +148,8 @@ const CompactResults: FC<{
   setSortDirection,
   analysisBarSettings,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactTableById,
-    metricGroups,
-    ready: _ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, metricGroups } =
+    useDefinitions();
 
   const [totalUsers, variationUsers] = useMemo(() => {
     let totalUsers = 0;

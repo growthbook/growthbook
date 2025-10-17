@@ -8,7 +8,7 @@ import { getValidDate } from "shared/dates";
 import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/ExperimentMetricTimeSeriesGraphWrapper";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getMetricResultGroup as _getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
+import { getMetricResultGroup as _getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { BlockProps } from ".";
