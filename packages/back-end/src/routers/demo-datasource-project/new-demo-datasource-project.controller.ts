@@ -383,7 +383,7 @@ spacing and headings.`,
         {
           id: "v0",
           key: "0",
-          name: "Current",
+          name: "Control",
           screenshots: [
             {
               path: "/images/demo-datasource/current.png",
@@ -393,7 +393,7 @@ spacing and headings.`,
         {
           id: "v1",
           key: "1",
-          name: "Dev-Compact",
+          name: "Treatment",
           screenshots: [
             {
               path: "/images/demo-datasource/dev-compact.png",
@@ -461,10 +461,6 @@ spacing and headings.`,
               },
               {
                 variationId: "v1",
-                value: "dev-compact",
-              },
-              {
-                variationId: "v2",
                 value: "dev",
               },
             ],
