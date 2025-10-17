@@ -33,6 +33,14 @@ export default function SavedGroupSettings() {
                     })}
                   />
                 </Box>
+                <p>
+                  <small className="text-muted mb-3">
+                    Limiting the number of items in an ID List can prevent SDK
+                    payloads from growing too large. Admins and users with the{" "}
+                    <i>Saved Groups Bypass Size Limit</i> policy can bypass this
+                    limit manually
+                  </small>
+                </p>
               </Box>
             </Flex>
           </Flex>
