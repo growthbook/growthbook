@@ -295,13 +295,6 @@ export async function postManagedWarehouse(
     context.permissions.throwPermissionError();
   }
 
-  if (!context.superAdmin && !context.hasPremiumFeature("managed-warehouse")) {
-    return res.status(403).json({
-      status: 403,
-      message: "This requires a Pro account.",
-    });
-  }
-
   // Start out with some default materialized columns
   // These can be changed by the user later
   const identifiers = ["device_id", "user_id"];
