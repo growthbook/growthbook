@@ -10,7 +10,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import React, { RefObject, useEffect, useState } from "react";
-import { generatePinnedSliceKey } from "shared/experiments";
+import { generatePinnedSliceKey, SliceLevelsData } from "shared/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -60,20 +60,14 @@ export default function ReportResults({
 
   const togglePinnedMetricSlice = async (
     metricId: string,
-    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: SliceLevelsData[],
     location?: "goal" | "secondary" | "guardrail",
   ) => {
     if (!canEdit || !mutateReport) return;
 
-    // Use the slice levels directly since they're already in the correct format
-    const formattedSliceLevels = sliceLevels.map((dl) => ({
-      column: dl.dimension,
-      levels: dl.levels,
-    }));
-
     const key = generatePinnedSliceKey(
       metricId,
-      formattedSliceLevels,
+      sliceLevels,
       location || "goal",
     );
     const newPinned = optimisticPinnedLevels.includes(key)

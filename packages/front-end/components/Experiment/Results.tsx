@@ -10,6 +10,7 @@ import {
 import {
   ExperimentMetricInterface,
   generatePinnedSliceKey,
+  SliceLevelsData,
 } from "shared/experiments";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "back-end/types/report";
@@ -104,20 +105,14 @@ const Results: FC<{
 
   const togglePinnedMetricSlice = async (
     metricId: string,
-    sliceLevels: Array<{ dimension: string; levels: string[] }>,
+    sliceLevels: SliceLevelsData[],
     location?: "goal" | "secondary" | "guardrail",
   ) => {
     if (!editMetrics || !mutateExperiment) return;
 
-    // Use the slice levels directly since they're already in the correct format
-    const formattedSliceLevels = sliceLevels.map((dl) => ({
-      column: dl.dimension,
-      levels: dl.levels,
-    }));
-
     const key = generatePinnedSliceKey(
       metricId,
-      formattedSliceLevels,
+      sliceLevels,
       location || "goal",
     );
     const newPinned = optimisticPinnedLevels.includes(key)

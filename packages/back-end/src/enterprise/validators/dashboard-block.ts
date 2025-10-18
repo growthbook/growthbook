@@ -14,6 +14,12 @@ const baseBlockInterface = z
   })
   .strict();
 
+export const pinSources = ["experiment", "custom", "none"] as const;
+const metricSliceSettingsInterface = z.object({
+  pinSource: z.enum(pinSources),
+  pinnedMetricSlices: z.array(z.string()),
+});
+
 const markdownBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("markdown"),
@@ -121,6 +127,7 @@ const experimentMetricBlockInterface = baseBlockInterface
     ),
     snapshotId: z.string(),
   })
+  .merge(metricSliceSettingsInterface)
   .strict();
 
 export type ExperimentMetricBlockInterface = z.infer<
@@ -128,9 +135,11 @@ export type ExperimentMetricBlockInterface = z.infer<
 >;
 type LegacyExperimentMetricBlockInterface = Omit<
   ExperimentMetricBlockInterface,
-  "metricSelector"
+  "metricSelector" | "pinSource" | "pinnedMetricSlices"
 > & {
   metricSelector?: (typeof metricSelectors)[number];
+  pinSource?: (typeof pinSources)[number];
+  pinnedMetricSlices?: string[];
 };
 
 const experimentDimensionBlockInterface = baseBlockInterface
@@ -178,6 +187,7 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
     variationIds: z.array(z.string()),
     snapshotId: z.string(),
   })
+  .merge(metricSliceSettingsInterface)
   .strict();
 
 export type ExperimentTimeSeriesBlockInterface = z.infer<
@@ -185,11 +195,13 @@ export type ExperimentTimeSeriesBlockInterface = z.infer<
 >;
 type LegacyExperimentTimeSeriesBlockInterface = Omit<
   ExperimentTimeSeriesBlockInterface,
-  "metricIds" | "metricSelector"
+  "metricIds" | "metricSelector" | "pinSource" | "pinnedMetricSlices"
 > & {
   metricIds?: string[];
   metricId: string;
   metricSelector?: (typeof metricSelectors)[number];
+  pinSource?: (typeof pinSources)[number];
+  pinnedMetricSlices?: string[];
 };
 
 const sqlExplorerBlockInterface = baseBlockInterface
