@@ -26,6 +26,7 @@ import {
   expandMetricGroups,
   ExperimentMetricInterface,
   generatePinnedSliceKey,
+  SliceLevelsData,
 } from "shared/experiments";
 import { HiBadgeCheck } from "react-icons/hi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -83,11 +84,7 @@ const CompactResults: FC<{
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
-    sliceLevels: Array<{
-      dimension: string;
-      datatype: "string" | "boolean";
-      levels: string[];
-    }>,
+    sliceLevels: SliceLevelsData[],
     location?: "goal" | "secondary" | "guardrail",
   ) => void;
   customMetricSlices?: Array<{
@@ -470,11 +467,7 @@ export function getRenderLabelColumn({
   pinnedMetricSlices?: string[];
   togglePinnedMetricSlice?: (
     metricId: string,
-    sliceLevels: Array<{
-      dimension: string;
-      datatype: "string" | "boolean";
-      levels: string[];
-    }>,
+    sliceLevels: SliceLevelsData[],
     resultGroup: "goal" | "secondary" | "guardrail",
   ) => void;
   expandedMetrics?: Record<string, boolean>;
@@ -547,11 +540,7 @@ export function getRenderLabelColumn({
                   if (togglePinnedMetricSlice && row?.sliceLevels) {
                     togglePinnedMetricSlice(
                       metric.id,
-                      row.sliceLevels.map((dl) => ({
-                        dimension: dl.column,
-                        datatype: dl.datatype,
-                        levels: dl.levels,
-                      })),
+                      row.sliceLevels,
                       location || "goal",
                     );
                   }

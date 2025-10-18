@@ -13,17 +13,10 @@ import {
   metricSelectors,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FactMetricInterface } from "back-end/types/fact-table";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
-import {
-  expandMetricGroups,
-  createAutoSliceDataForMetric,
-  createCustomSliceDataForMetric,
-  dedupeSliceMetrics,
-  generatePinnedSliceKey,
-} from "shared/experiments";
+import { expandMetricGroups } from "shared/experiments";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -44,7 +37,7 @@ import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "../../DashboardSnapshotProvider";
-import { BlockContext } from "./types";
+import { useBlockContext } from "./useBlockContext";
 
 type RequiredField = {
   field: string;
@@ -107,7 +100,6 @@ export default function EditSingleBlock({
     dimensions,
     metricGroups,
     getExperimentMetricById,
-    getFactTableById,
     getDatasourceById,
   } = useDefinitions();
   const {
@@ -129,115 +121,12 @@ export default function EditSingleBlock({
     useState<string>("");
 
   // Get snapshot and analysis data
-  const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
+  const { snapshot } = useDashboardSnapshot(block, setBlock);
   const { dimensionless } = useContext(DashboardSnapshotContext);
 
-  // Generate context based on block type
-  const context = useMemo((): BlockContext | undefined => {
-    if (!block) return undefined;
-
-    if (block.type === "experiment-metric") {
-      if (!snapshot || !analysis) {
-        return {
-          type: "experiment-metric",
-          sliceData: [],
-        };
-      }
-
-      // Generate slice data for all metrics in the block
-      const sliceData: Array<{
-        value: string;
-        label: string;
-        sliceLevels: Array<{
-          column: string;
-          datatype: "string" | "boolean";
-          levels: string[];
-        }>;
-      }> = [];
-
-      // Get all metrics for this block
-      const blockMetrics =
-        block.metricIds?.map(getExperimentMetricById).filter(isDefined) || [];
-
-      blockMetrics.forEach((metric) => {
-        // Get the fact table for this metric
-        const factTable = getFactTableById(
-          (metric as FactMetricInterface)?.numerator?.factTableId || "",
-        );
-
-        // Generate auto slice data
-        const autoSliceData = createAutoSliceDataForMetric({
-          parentMetric: metric,
-          factTable,
-          includeOther: true,
-        });
-
-        // Generate custom slice data
-        const customSliceData = createCustomSliceDataForMetric({
-          metricId: metric.id,
-          metricName: metric.name,
-          customMetricSlices: experiment.customMetricSlices || [],
-          factTable,
-        });
-
-        // Combine and dedupe
-        const allSliceData = dedupeSliceMetrics([
-          ...autoSliceData,
-          ...customSliceData,
-        ]);
-
-        // Convert to the format expected by the UI
-        allSliceData.forEach((slice) => {
-          // Determine the result group for this metric
-          let resultGroup: "goal" | "secondary" | "guardrail";
-          if (experiment.goalMetrics.includes(metric.id)) {
-            resultGroup = "goal";
-          } else if (experiment.secondaryMetrics.includes(metric.id)) {
-            resultGroup = "secondary";
-          } else if (experiment.guardrailMetrics.includes(metric.id)) {
-            resultGroup = "guardrail";
-          } else {
-            // Default to goal if not found in any group
-            resultGroup = "goal";
-          }
-
-          // Generate the pinned key
-          const pinnedKey = generatePinnedSliceKey(
-            metric.id,
-            slice.sliceLevels,
-            resultGroup,
-          );
-
-          sliceData.push({
-            value: pinnedKey,
-            label: slice.name,
-            sliceLevels: slice.sliceLevels.map((sl) => ({
-              column: sl.column,
-              datatype: sl.datatype,
-              levels: sl.levels,
-            })),
-          });
-        });
-      });
-
-      return {
-        type: "experiment-metric",
-        sliceData,
-      };
-    }
-
-    // For other block types, return appropriate context
-    return {
-      type: block.type as Exclude<DashboardBlockType, "experiment-metric">,
-    };
-  }, [
-    block,
-    snapshot,
-    analysis,
-    experiment,
-    getExperimentMetricById,
-    getFactTableById,
-  ]);
+  // Get block context from workspace level
+  const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
+  const blockContext = useBlockContext(blockId);
 
   const metricOptions = useMemo(() => {
     const getMetrics = (metricOrGroupIds: string[]) => {
@@ -408,27 +297,37 @@ export default function EditSingleBlock({
   const getSliceOptions = () => {
     if (!selectedMetricIdForPinning) return [];
 
-    // Check if we have experiment-metric context with slice data
-    if (!context || context.type !== "experiment-metric") {
-      return [];
+    // If we have context with sliceData, use it
+    if (
+      blockContext &&
+      "sliceData" in blockContext &&
+      Array.isArray(blockContext.sliceData)
+    ) {
+      // Filter slice data for the selected metric
+      const metricSliceData = blockContext.sliceData.filter((slice) => {
+        // Extract metric ID from the pinned key (format: metricId?slice_querystring&location=location)
+        const metricId = slice.value.split("?")[0];
+        return metricId === selectedMetricIdForPinning;
+      });
+      return metricSliceData;
     }
 
-    // Filter slice data for the selected metric
-    const metricSliceData = context.sliceData.filter((slice) => {
-      // Extract metric ID from the pinned key (format: metricId?slice_querystring&location=location)
-      const metricId = slice.value.split("?")[0];
-      return metricId === selectedMetricIdForPinning;
-    });
-
-    return metricSliceData;
+    return [];
   };
 
   const isSlicePinned = (pinKey: string) => {
     if (!block) return false;
 
-    const pinnedSlices =
-      (block as { pinnedMetricSlices?: string[] }).pinnedMetricSlices || [];
-    return pinnedSlices.includes(pinKey);
+    // If we have context with isSlicePinned function, use it
+    if (
+      blockContext &&
+      "isSlicePinned" in blockContext &&
+      typeof blockContext.isSlicePinned === "function"
+    ) {
+      return blockContext.isSlicePinned(pinKey) || false;
+    }
+
+    return false;
   };
 
   const toggleSlicePin = (pinKey: string, checked: boolean) => {
@@ -885,8 +784,7 @@ export default function EditSingleBlock({
               />
             )}
             {blockHasFieldOfType(block, "pinSource", isString) &&
-              (block as { pinSource?: string }).pinSource === "custom" &&
-              context?.type === "experiment-metric" && (
+              (block as { pinSource?: string }).pinSource === "custom" && (
                 <div className="border rounded mb-2">
                   <div className="px-3 pt-2 pb-1 border-bottom">
                     <Text weight="medium">Custom Pin Selection</Text>

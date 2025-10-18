@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState, useEffect } from "react";
 import { v4 as uuid4 } from "uuid";
 import { ExperimentMetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isString } from "shared/util";
@@ -6,13 +6,19 @@ import { groupBy } from "lodash";
 import { blockHasFieldOfType } from "shared/enterprise";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { expandMetricGroups, generatePinnedSliceKey } from "shared/experiments";
+import {
+  expandMetricGroups,
+  generatePinnedSliceKey,
+  SliceLevelsData,
+} from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import { ExperimentMetricBlockContext } from "../DashboardEditorSidebar/types";
+import { setBlockContextValue } from "../DashboardEditorSidebar/useBlockContext";
 import { BlockProps } from ".";
 
 export default function ExperimentMetricBlock({
@@ -159,58 +165,72 @@ export default function ExperimentMetricBlock({
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
 
-  // Toggle function for pinning metric slices
-  const togglePinnedMetricSlice = (
-    metricId: string,
-    sliceLevels: Array<{
-      dimension: string;
-      datatype: "string" | "boolean";
-      levels: string[];
-    }>,
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => {
-    if (!setBlock) return;
+  const sliceData = useMemo(() => {
+    return rows
+      .filter((row) => row.isSliceRow && row.sliceId)
+      .map((row) => ({
+        value: generatePinnedSliceKey(
+          row.metric.id,
+          row.sliceLevels || [],
+          row.resultGroup,
+        ),
+        label: typeof row.label === "string" ? row.label : row.metric.name,
+        sliceLevels: row.sliceLevels || [],
+      }));
+  }, [rows]);
 
-    // Convert dimension to column for generatePinnedSliceKey
-    const sliceLevelsWithColumn = sliceLevels.map(
-      ({ dimension, datatype, levels }) => ({
-        column: dimension,
-        datatype,
-        levels,
-      }),
-    );
+  const togglePinnedMetricSlice = useCallback(
+    (
+      metricId: string,
+      sliceLevels: SliceLevelsData[],
+      resultGroup: "goal" | "secondary" | "guardrail",
+    ) => {
+      if (!setBlock) return;
 
-    const pinnedKey = generatePinnedSliceKey(
-      metricId,
-      sliceLevelsWithColumn,
-      resultGroup,
-    );
-    const currentPinnedSlices = pinnedMetricSlices || [];
+      const pinnedKey = generatePinnedSliceKey(
+        metricId,
+        sliceLevels,
+        resultGroup,
+      );
+      const currentPinnedSlices = pinnedMetricSlices || [];
+      const isPinned = currentPinnedSlices.includes(pinnedKey);
+      const newPinnedSlices = isPinned
+        ? currentPinnedSlices.filter((key) => key !== pinnedKey)
+        : [...currentPinnedSlices, pinnedKey];
 
-    console.log("togglePinnedMetricSlice debug:", {
-      metricId,
-      sliceLevels,
-      resultGroup,
-      pinnedKey,
-      currentPinnedSlices,
-      isPinned: currentPinnedSlices.includes(pinnedKey),
-    });
+      setBlock({
+        ...block,
+        pinnedMetricSlices: newPinnedSlices,
+      });
+    },
+    [setBlock, block, pinnedMetricSlices],
+  );
 
-    const isPinned = currentPinnedSlices.includes(pinnedKey);
-    const newPinnedSlices = isPinned
-      ? currentPinnedSlices.filter((key) => key !== pinnedKey)
-      : [...currentPinnedSlices, pinnedKey];
+  const isSlicePinned = useCallback(
+    (pinKey: string) => {
+      const currentPinnedSlices = pinnedMetricSlices || [];
+      return currentPinnedSlices.includes(pinKey);
+    },
+    [pinnedMetricSlices],
+  );
 
-    console.log("togglePinnedMetricSlice update:", {
-      isPinned,
-      newPinnedSlices,
-    });
+  useEffect(() => {
+    if (blockId) {
+      const contextValue: ExperimentMetricBlockContext = {
+        type: "experiment-metric",
+        sliceData,
+        togglePinnedMetricSlice,
+        isSlicePinned,
+      };
+      setBlockContextValue(blockId, contextValue);
+    }
 
-    setBlock({
-      ...block,
-      pinnedMetricSlices: newPinnedSlices,
-    });
-  };
+    return () => {
+      if (blockId) {
+        setBlockContextValue(blockId, null);
+      }
+    };
+  }, [blockId, sliceData, togglePinnedMetricSlice, isSlicePinned]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
