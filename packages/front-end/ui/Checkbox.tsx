@@ -76,6 +76,7 @@ export default forwardRef<HTMLLabelElement, Props>(function Checkbox(
         ref={ref}
         as="label"
         size={labelSize}
+        mb="0"
         className={clsx(
           "rt-CheckboxItem",
           {

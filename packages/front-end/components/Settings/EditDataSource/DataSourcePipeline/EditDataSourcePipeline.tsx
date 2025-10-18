@@ -9,7 +9,7 @@ import {
 import { UNITS_TABLE_RETENTION_HOURS_DEFAULT } from "shared/enterprise";
 import Checkbox from "@/ui/Checkbox";
 import Modal from "@/components/Modal";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import Field from "@/components/Forms/Field";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -107,18 +107,14 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
         ) : null
       }
     >
-      <div>
-        <label className="mr-2">
-          Allow GrowthBook to write tables during experiment analyses?
-        </label>
-        <Toggle
-          id={"toggle-allowWriting"}
-          value={!!form.watch("allowWriting")}
-          setValue={(value) => {
-            form.setValue("allowWriting", value);
-          }}
-        />
-      </div>
+      <Switch
+        label="Allow GrowthBook to write tables during experiment analyses"
+        id={"toggle-allowWriting"}
+        value={!!form.watch("allowWriting")}
+        onChange={(value) => {
+          form.setValue("allowWriting", value);
+        }}
+      />
       {form.watch("allowWriting") ? (
         <div className="form-inline flex-column align-items-start mb-4 mt-4">
           <label>
@@ -145,10 +141,10 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             <>
               <div className="mt-4">
                 <label>Delete temporary units table (recommended)</label>
-                <Toggle
+                <Switch
                   id={"toggle-unitsTableDeletion"}
                   value={!!form.watch("unitsTableDeletion")}
-                  setValue={(value) => {
+                  onChange={(value) => {
                     form.setValue("unitsTableDeletion", value);
                   }}
                 />

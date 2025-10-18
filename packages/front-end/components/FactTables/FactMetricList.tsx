@@ -5,7 +5,7 @@ import {
 import React, { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
-import { Switch, Text } from "@radix-ui/themes";
+import { Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
@@ -17,6 +17,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
+import Switch from "@/ui/Switch";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
@@ -182,10 +183,13 @@ export default function FactMetricList({
           </div>
         )}
         {hasArchivedMetrics && (
-          <div className="col-auto text-muted">
-            <Switch checked={showArchived} onCheckedChange={setShowArchived} />
-            Show archived
-          </div>
+          <Switch
+            value={showArchived}
+            onChange={setShowArchived}
+            id="show-archived"
+            label="Show archived"
+            ml="2"
+          />
         )}
         <div className="col-auto ml-auto">
           <Tooltip

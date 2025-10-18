@@ -16,7 +16,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -461,21 +461,25 @@ const ImportExperimentList: FC<{
               />
             </div>
             <div className="col-auto align-self-center">
-              <Toggle
+              <Switch
                 id="hide-imported"
+                label="Hide Imported"
                 value={alreadyImportedFilter}
-                setValue={setAlreadyImportedFilter}
-              />{" "}
-              Hide Imported
+                onChange={setAlreadyImportedFilter}
+              />
             </div>
             <div className="col-auto align-self-center">
-              <Toggle
+              <Switch
                 id="dedupe-experiments"
+                label={
+                  <>
+                    <span>Group by Experiment Id</span>{" "}
+                    <Tooltip body="How to handle experiments that appear in multiple Assignment Queries. If toggled ON, collapse them into a single row. If OFF, show each one in a separate row." />
+                  </>
+                }
                 value={dedupeFilter}
-                setValue={setDedupeFilter}
-              />{" "}
-              Group by Experiment Id{" "}
-              <Tooltip body="How to handle experiments that appear in multiple Assignment Queries. If toggled ON, collapse them into a single row. If OFF, show each one in a separate row." />
+                onChange={setDedupeFilter}
+              />
             </div>
           </div>
           <small>

@@ -23,9 +23,9 @@ import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Badge from "@/ui/Badge";
 import ExperimentDateGraph, {
@@ -325,18 +325,17 @@ const DateResults: FC<{
           </div>
           <div>
             <Tooltip
-              body="Cumulative charts disabled for Scaled Impact difference type"
-              shouldDisplay={differenceType === "scaled"}
+              content="Cumulative charts disabled for Scaled Impact difference type"
+              enabled={differenceType === "scaled"}
             >
-              <Toggle
-                label="Cumulative"
+              <Switch
                 id="cumulative"
+                label="Cumulative"
                 value={cumulative}
-                setValue={setCumulative}
+                onChange={setCumulative}
                 disabled={differenceType === "scaled"}
               />
             </Tooltip>
-            Cumulative
           </div>
         </div>
       )}

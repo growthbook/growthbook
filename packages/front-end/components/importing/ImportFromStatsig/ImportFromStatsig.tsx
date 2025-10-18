@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { FaCheck, FaMinusCircle } from "react-icons/fa";
 import { MdPending } from "react-icons/md";
-import { Switch } from "@radix-ui/themes";
 import { FeatureInterface } from "back-end/types/feature";
 import { ProjectInterface } from "back-end/types/project";
 import {
@@ -23,6 +22,7 @@ import {
   useFeaturesList,
   useAttributeSchema,
 } from "@/services/features";
+import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useUser } from "@/services/UserContext";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
@@ -727,10 +727,8 @@ export default function ImportFromStatsig() {
                   <h5>Attribute Mapping</h5>
                   <div className="d-flex align-items-center mt-1 mr-3">
                     <Switch
-                      checked={!skipAttributeMapping}
-                      onCheckedChange={(checked) =>
-                        setSkipAttributeMapping(!checked)
-                      }
+                      value={!skipAttributeMapping}
+                      onChange={(checked) => setSkipAttributeMapping(!checked)}
                     />
                     <div className="d-flex flex-column">
                       <span className="ml-2">

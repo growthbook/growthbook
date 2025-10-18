@@ -142,6 +142,7 @@
                   "RadioCards",
                   "RadioGroup",
                   "Select",
+                  "Switch",
                   "Table",
                   "Tabs"
                 ]

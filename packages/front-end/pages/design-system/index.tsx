@@ -23,6 +23,7 @@ import RadioGroupStories from "@/ui/RadioGroup.stories";
 import SelectStories from "@/ui/Select.stories";
 import SliderStories from "@/ui/Slider.stories";
 import StepperStories from "@/ui/Stepper.stories";
+import SwitchStories from "@/ui/Switch.stories";
 import TabsStories from "@/ui/Tabs.stories";
 
 type StoryEntry = {
@@ -69,6 +70,7 @@ export default function DesignSystemPage() {
     { name: "Select", Stories: SelectStories },
     { name: "Slider", Stories: SliderStories },
     { name: "Stepper", Stories: StepperStories },
+    { name: "Switch", Stories: SwitchStories },
     { name: "Tabs", Stories: TabsStories },
   ] satisfies StoryEntry[];
 

@@ -3,7 +3,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
-import Toggle from "@/components/Forms/Toggle";
+import Checkbox from "@/ui/Checkbox";
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -173,10 +173,9 @@ const EditOrganization: FC<{
           </span>
         </div>
         <div className="mt-3">
-          Auto approve members with email domain
-          <Toggle
-            className="ml-2"
+          <Checkbox
             id="autoApproveMembers"
+            label="Auto approve members with email domain"
             value={autoApproveMembers}
             setValue={setAutoApproveMembers}
           />
@@ -210,10 +209,9 @@ const EditOrganization: FC<{
                 </div>
               </div>
               <div className="mt-3">
-                Enable Enterprise
-                <Toggle
-                  className="ml-2"
+                <Checkbox
                   id="legacyEnterpriseToggle"
+                  label="Enable Enterprise"
                   value={legacyEnterprise}
                   setValue={setLegacyEnterprise}
                 />

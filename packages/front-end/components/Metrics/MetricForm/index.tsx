@@ -1,4 +1,5 @@
 import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import {
   Condition,
   ManagedBy,
@@ -36,7 +37,7 @@ import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
@@ -1383,17 +1384,15 @@ const MetricForm: FC<MetricFormProps> = ({
                       }}
                     >
                       <div className="d-flex my-2 border-bottom"></div>
-                      <div className="form-group mt-3 mb-0 mr-2 form-inline">
-                        <label
-                          className="mr-1"
-                          htmlFor="toggle-regressionAdjustmentEnabled"
-                        >
-                          Apply regression adjustment for this metric
-                        </label>
-                        <Toggle
+                      <Flex
+                        direction="column"
+                        className="form-group mt-3 mb-0 mr-2"
+                      >
+                        <Switch
                           id={"toggle-regressionAdjustmentEnabled"}
+                          label="Apply regression adjustment for this metric"
                           value={!!form.watch("regressionAdjustmentEnabled")}
-                          setValue={(value) => {
+                          onChange={(value) => {
                             form.setValue("regressionAdjustmentEnabled", value);
                           }}
                           disabled={!hasRegressionAdjustmentFeature}
@@ -1402,7 +1401,8 @@ const MetricForm: FC<MetricFormProps> = ({
                           (organization default:{" "}
                           {settings.regressionAdjustmentEnabled ? "On" : "Off"})
                         </small>
-                      </div>
+                      </Flex>
+
                       <div
                         className="form-group mt-3 mb-1 mr-2"
                         style={{
