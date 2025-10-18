@@ -20,8 +20,6 @@ export default function PipelineValidationResultsView({
   return (
     <Callout status="warning" variant="surface">
       <Flex direction="column" gap="2">
-        <Text>Validation failed.</Text>
-
         <Text>
           We were unable to validate the current settings using a{" "}
           <abbr title={tableName}>temporary test table</abbr>.

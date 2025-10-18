@@ -16,12 +16,14 @@ export interface Props {
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
   noQuantileGoalMetrics?: boolean;
+  noLegacyMetrics?: boolean;
   disabled?: boolean;
   goalDisabled?: boolean;
   collapseSecondary?: boolean;
   collapseGuardrail?: boolean;
   goalMetricsDescription?: string;
   filterConversionWindowMetrics?: boolean;
+  excludeQuantiles?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -37,12 +39,14 @@ export default function ExperimentMetricsSelector({
   autoFocus = false,
   forceSingleGoalMetric = false,
   noQuantileGoalMetrics = false,
+  noLegacyMetrics = false,
   disabled,
   goalDisabled,
   collapseSecondary,
   collapseGuardrail,
   goalMetricsDescription,
   filterConversionWindowMetrics,
+  excludeQuantiles = false,
 }: Props) {
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
     !!collapseSecondary && secondaryMetrics.length === 0,
@@ -79,8 +83,9 @@ export default function ExperimentMetricsSelector({
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
             includeGroups={!forceSingleGoalMetric}
-            excludeQuantiles={noQuantileGoalMetrics}
+            excludeQuantiles={noQuantileGoalMetrics || excludeQuantiles}
             filterConversionWindowMetrics={filterConversionWindowMetrics}
+            noLegacyMetrics={noLegacyMetrics}
             disabled={disabled || goalDisabled}
           />
         </div>
@@ -118,6 +123,8 @@ export default function ExperimentMetricsSelector({
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
+                excludeQuantiles={excludeQuantiles}
+                noLegacyMetrics={noLegacyMetrics}
                 disabled={disabled}
               />
             </>
@@ -156,6 +163,8 @@ export default function ExperimentMetricsSelector({
                 project={project}
                 includeFacts={true}
                 filterConversionWindowMetrics={filterConversionWindowMetrics}
+                excludeQuantiles={excludeQuantiles}
+                noLegacyMetrics={noLegacyMetrics}
                 disabled={disabled}
               />
             </>
