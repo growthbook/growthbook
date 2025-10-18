@@ -400,6 +400,14 @@ export default function DataVizFilter({
                     value,
                   }),
                 )}
+                customStyles={{
+                  multiValueLabel: (styles) => ({
+                    ...styles,
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                    lineHeight: "1.4",
+                  }),
+                }}
                 onChange={(values) => {
                   updateFilterConfig({ values });
                 }}
