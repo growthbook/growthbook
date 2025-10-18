@@ -14,9 +14,10 @@ const baseBlockInterface = z
   })
   .strict();
 
-// Extension for blocks that support metric slices
+export const pinSources = ["experiment", "custom", "none"] as const;
 const metricSliceSettingsInterface = z.object({
-  pinnedMetricSlices: z.array(z.string()).optional(),
+  pinSource: z.enum(pinSources),
+  pinnedMetricSlices: z.array(z.string()),
 });
 
 const markdownBlockInterface = baseBlockInterface
@@ -134,9 +135,11 @@ export type ExperimentMetricBlockInterface = z.infer<
 >;
 type LegacyExperimentMetricBlockInterface = Omit<
   ExperimentMetricBlockInterface,
-  "metricSelector"
+  "metricSelector" | "pinSource" | "pinnedMetricSlices"
 > & {
   metricSelector?: (typeof metricSelectors)[number];
+  pinSource?: (typeof pinSources)[number];
+  pinnedMetricSlices?: string[];
 };
 
 const experimentDimensionBlockInterface = baseBlockInterface
@@ -192,11 +195,13 @@ export type ExperimentTimeSeriesBlockInterface = z.infer<
 >;
 type LegacyExperimentTimeSeriesBlockInterface = Omit<
   ExperimentTimeSeriesBlockInterface,
-  "metricIds" | "metricSelector"
+  "metricIds" | "metricSelector" | "pinSource" | "pinnedMetricSlices"
 > & {
   metricIds?: string[];
   metricId: string;
   metricSelector?: (typeof metricSelectors)[number];
+  pinSource?: (typeof pinSources)[number];
+  pinnedMetricSlices?: string[];
 };
 
 const sqlExplorerBlockInterface = baseBlockInterface

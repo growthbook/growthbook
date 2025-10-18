@@ -19,6 +19,7 @@ import {
   setAdjustedPValuesOnResults,
   dedupeSliceMetrics,
   SliceDataForMetric,
+  isFactMetric,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -358,7 +359,7 @@ export function generateRowsForMetric({
 
   let sliceData: SliceDataForMetric[] = [];
 
-  if (shouldShowMetricSlices) {
+  if (shouldShowMetricSlices && isFactMetric(metric)) {
     const standardSliceData = createAutoSliceDataForMetric({
       parentMetric: getExperimentMetricById(metricId),
       factTable: getFactTableById(

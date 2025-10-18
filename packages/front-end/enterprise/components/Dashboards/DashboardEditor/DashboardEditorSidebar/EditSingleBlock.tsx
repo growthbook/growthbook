@@ -3,8 +3,9 @@ import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
+  pinSources,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   blockHasFieldOfType,
   isDifferenceType,
@@ -12,11 +13,19 @@ import {
   metricSelectors,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FactMetricInterface } from "back-end/types/fact-table";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
-import { expandMetricGroups } from "shared/experiments";
+import {
+  expandMetricGroups,
+  createAutoSliceDataForMetric,
+  createCustomSliceDataForMetric,
+  dedupeSliceMetrics,
+  generatePinnedSliceKey,
+} from "shared/experiments";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -28,14 +37,14 @@ import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
-import Checkbox from "@/ui/Checkbox";
 import Avatar from "@/ui/Avatar";
 import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
-import {
-  DashboardSnapshotContext,
-  useDashboardSnapshot,
-} from "../../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "..";
+import {
+  useDashboardSnapshot,
+  DashboardSnapshotContext,
+} from "../../DashboardSnapshotProvider";
+import { BlockContext } from "./types";
 
 type RequiredField = {
   field: string;
@@ -98,6 +107,7 @@ export default function EditSingleBlock({
     dimensions,
     metricGroups,
     getExperimentMetricById,
+    getFactTableById,
     getDatasourceById,
   } = useDefinitions();
   const {
@@ -114,16 +124,120 @@ export default function EditSingleBlock({
     [metricGroups],
   );
 
-  const { analysis } = useDashboardSnapshot(block, setBlock);
-  const { defaultSnapshot, dimensionless } = useContext(
-    DashboardSnapshotContext,
-  );
-
-  const dimensionValueOptions = analysis?.results
-    ? analysis.results.map(({ name }) => ({ value: name, label: name }))
-    : [];
-
   const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
+  const [selectedMetricIdForPinning, setSelectedMetricIdForPinning] =
+    useState<string>("");
+
+  // Get snapshot and analysis data
+  const { snapshot, analysis } = useDashboardSnapshot(block, setBlock);
+  const { dimensionless } = useContext(DashboardSnapshotContext);
+
+  // Generate context based on block type
+  const context = useMemo((): BlockContext | undefined => {
+    if (!block) return undefined;
+
+    if (block.type === "experiment-metric") {
+      if (!snapshot || !analysis) {
+        return {
+          type: "experiment-metric",
+          sliceData: [],
+        };
+      }
+
+      // Generate slice data for all metrics in the block
+      const sliceData: Array<{
+        value: string;
+        label: string;
+        sliceLevels: Array<{
+          column: string;
+          datatype: "string" | "boolean";
+          levels: string[];
+        }>;
+      }> = [];
+
+      // Get all metrics for this block
+      const blockMetrics =
+        block.metricIds?.map(getExperimentMetricById).filter(isDefined) || [];
+
+      blockMetrics.forEach((metric) => {
+        // Get the fact table for this metric
+        const factTable = getFactTableById(
+          (metric as FactMetricInterface)?.numerator?.factTableId || "",
+        );
+
+        // Generate auto slice data
+        const autoSliceData = createAutoSliceDataForMetric({
+          parentMetric: metric,
+          factTable,
+          includeOther: true,
+        });
+
+        // Generate custom slice data
+        const customSliceData = createCustomSliceDataForMetric({
+          metricId: metric.id,
+          metricName: metric.name,
+          customMetricSlices: experiment.customMetricSlices || [],
+          factTable,
+        });
+
+        // Combine and dedupe
+        const allSliceData = dedupeSliceMetrics([
+          ...autoSliceData,
+          ...customSliceData,
+        ]);
+
+        // Convert to the format expected by the UI
+        allSliceData.forEach((slice) => {
+          // Determine the result group for this metric
+          let resultGroup: "goal" | "secondary" | "guardrail";
+          if (experiment.goalMetrics.includes(metric.id)) {
+            resultGroup = "goal";
+          } else if (experiment.secondaryMetrics.includes(metric.id)) {
+            resultGroup = "secondary";
+          } else if (experiment.guardrailMetrics.includes(metric.id)) {
+            resultGroup = "guardrail";
+          } else {
+            // Default to goal if not found in any group
+            resultGroup = "goal";
+          }
+
+          // Generate the pinned key
+          const pinnedKey = generatePinnedSliceKey(
+            metric.id,
+            slice.sliceLevels,
+            resultGroup,
+          );
+
+          sliceData.push({
+            value: pinnedKey,
+            label: slice.name,
+            sliceLevels: slice.sliceLevels.map((sl) => ({
+              column: sl.column,
+              datatype: sl.datatype,
+              levels: sl.levels,
+            })),
+          });
+        });
+      });
+
+      return {
+        type: "experiment-metric",
+        sliceData,
+      };
+    }
+
+    // For other block types, return appropriate context
+    return {
+      type: block.type as Exclude<DashboardBlockType, "experiment-metric">,
+    };
+  }, [
+    block,
+    snapshot,
+    analysis,
+    experiment,
+    getExperimentMetricById,
+    getFactTableById,
+  ]);
 
   const metricOptions = useMemo(() => {
     const getMetrics = (metricOrGroupIds: string[]) => {
@@ -188,13 +302,181 @@ export default function EditSingleBlock({
     ];
   }, [experiment, getExperimentMetricById, metricGroups, metricGroupMap]);
 
+  // Filtered metric options based on the block's metricSelector
+  const filteredMetricOptions = useMemo(() => {
+    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
+      return metricOptions;
+    }
+
+    const selector = block.metricSelector;
+
+    // For custom selector, show all metrics that are in the block's metricIds
+    if (
+      selector === "custom" &&
+      blockHasFieldOfType(block, "metricIds", isStringArray)
+    ) {
+      const customMetricIds = (block as { metricIds: string[] }).metricIds;
+      return metricOptions
+        .map((group) => ({
+          ...group,
+          options: group.options.filter((option) =>
+            customMetricIds.includes(option.value),
+          ),
+        }))
+        .filter((group) => group.options.length > 0);
+    }
+
+    // For specific selectors, filter to only show metrics from that category
+    if (selector === "experiment-goal") {
+      return metricOptions.filter(
+        (group) =>
+          group.label === "Goal Metrics" || group.label === "Metric Groups",
+      );
+    }
+    if (selector === "experiment-secondary") {
+      return metricOptions.filter(
+        (group) =>
+          group.label === "Secondary Metrics" ||
+          group.label === "Metric Groups",
+      );
+    }
+    if (selector === "experiment-guardrail") {
+      return metricOptions.filter(
+        (group) =>
+          group.label === "Guardrail Metrics" ||
+          group.label === "Metric Groups",
+      );
+    }
+
+    return metricOptions;
+  }, [metricOptions, block]);
+
+  // Reset selectedMetricIdForPinning if it's no longer allowed by the current metricSelector
+  useEffect(() => {
+    if (!selectedMetricIdForPinning) return;
+    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) return;
+
+    const selector = block.metricSelector;
+    let isAllowed = false;
+
+    // Check if the selected metric is allowed by the current selector
+    if (
+      selector === "custom" &&
+      blockHasFieldOfType(block, "metricIds", isStringArray)
+    ) {
+      isAllowed = (block as { metricIds: string[] }).metricIds.includes(
+        selectedMetricIdForPinning,
+      );
+    } else if (selector === "experiment-goal") {
+      isAllowed =
+        experiment.goalMetrics.includes(selectedMetricIdForPinning) ||
+        experiment.goalMetrics.some(
+          (mId) =>
+            metricGroupMap.has(mId) &&
+            metricGroupMap
+              .get(mId)
+              ?.metrics?.includes(selectedMetricIdForPinning),
+        );
+    } else if (selector === "experiment-secondary") {
+      isAllowed =
+        experiment.secondaryMetrics.includes(selectedMetricIdForPinning) ||
+        experiment.secondaryMetrics.some(
+          (mId) =>
+            metricGroupMap.has(mId) &&
+            metricGroupMap
+              .get(mId)
+              ?.metrics?.includes(selectedMetricIdForPinning),
+        );
+    } else if (selector === "experiment-guardrail") {
+      isAllowed =
+        experiment.guardrailMetrics.includes(selectedMetricIdForPinning) ||
+        experiment.guardrailMetrics.some(
+          (mId) =>
+            metricGroupMap.has(mId) &&
+            metricGroupMap
+              .get(mId)
+              ?.metrics?.includes(selectedMetricIdForPinning),
+        );
+    }
+
+    if (!isAllowed) {
+      setSelectedMetricIdForPinning("");
+    }
+  }, [block, selectedMetricIdForPinning, experiment, metricGroupMap]);
+
+  // Helper functions for custom pin selection
+  const getSliceOptions = () => {
+    if (!selectedMetricIdForPinning) return [];
+
+    // Check if we have experiment-metric context with slice data
+    if (!context || context.type !== "experiment-metric") {
+      return [];
+    }
+
+    // Filter slice data for the selected metric
+    const metricSliceData = context.sliceData.filter((slice) => {
+      // Extract metric ID from the pinned key (format: metricId?slice_querystring&location=location)
+      const metricId = slice.value.split("?")[0];
+      return metricId === selectedMetricIdForPinning;
+    });
+
+    return metricSliceData;
+  };
+
+  const isSlicePinned = (pinKey: string) => {
+    if (!block) return false;
+
+    const pinnedSlices =
+      (block as { pinnedMetricSlices?: string[] }).pinnedMetricSlices || [];
+    return pinnedSlices.includes(pinKey);
+  };
+
+  const toggleSlicePin = (pinKey: string, checked: boolean) => {
+    if (!block) return;
+
+    const currentPinnedSlices =
+      (block as { pinnedMetricSlices?: string[] }).pinnedMetricSlices || [];
+    const newPinnedSlices = checked
+      ? [...currentPinnedSlices, pinKey]
+      : currentPinnedSlices.filter((id) => id !== pinKey);
+
+    setBlock({
+      ...block,
+      pinnedMetricSlices: newPinnedSlices,
+    } as typeof block);
+  };
+
+  const getSelectAllState = () => {
+    if (!block) return false;
+
+    const sliceOptions = getSliceOptions();
+    const pinnedSlices =
+      (block as { pinnedMetricSlices?: string[] }).pinnedMetricSlices || [];
+    const pinnedCount = sliceOptions.filter((slice) =>
+      pinnedSlices.includes(slice.value),
+    ).length;
+
+    if (pinnedCount === 0) return false;
+    if (pinnedCount === sliceOptions.length) return true;
+    return "indeterminate";
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (!block) return;
+
+    const sliceOptions = getSliceOptions();
+    const pinKeys = sliceOptions.map((slice) => slice.value);
+
+    setBlock({
+      ...block,
+      pinnedMetricSlices: checked ? pinKeys : [],
+    } as typeof block);
+  };
+
   const dimensionOptions = useMemo(() => {
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
-      precomputedDimensions: getPrecomputedDimensions(
-        defaultSnapshot,
-        dimensionless,
-      ),
+      precomputedDimensions: getPrecomputedDimensions(snapshot, dimensionless),
       datasource,
       dimensions,
       exposureQueryId: experiment.exposureQueryId,
@@ -207,13 +489,7 @@ export default function EditSingleBlock({
         (option) => option.value !== "pre:date",
       ),
     }));
-  }, [
-    experiment,
-    dimensions,
-    getDatasourceById,
-    defaultSnapshot,
-    dimensionless,
-  ]);
+  }, [experiment, dimensions, getDatasourceById, snapshot, dimensionless]);
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -577,6 +853,138 @@ export default function EditSingleBlock({
                 }}
               />
             )}
+            {blockHasFieldOfType(block, "pinSource", isString) && (
+              <SelectField
+                label="Pin slice rows"
+                containerClassName="mb-2"
+                value={
+                  (block as { pinSource?: string }).pinSource || "experiment"
+                }
+                onChange={(value) =>
+                  setBlock({
+                    ...block,
+                    pinSource: value as (typeof pinSources)[number],
+                    // Reset pinnedMetricSlices when switching to experiment or none
+                    pinnedMetricSlices:
+                      value === "custom"
+                        ? (block as { pinnedMetricSlices?: string[] })
+                            .pinnedMetricSlices || []
+                        : [],
+                  })
+                }
+                options={pinSources.map((source) => ({
+                  value: source,
+                  label:
+                    source === "experiment"
+                      ? "Use Experiment"
+                      : source === "custom"
+                        ? "Custom"
+                        : "None",
+                }))}
+                sort={false}
+              />
+            )}
+            {blockHasFieldOfType(block, "pinSource", isString) &&
+              (block as { pinSource?: string }).pinSource === "custom" &&
+              context?.type === "experiment-metric" && (
+                <div className="border rounded mb-2">
+                  <div className="px-3 pt-2 pb-1 border-bottom">
+                    <Text weight="medium">Custom Pin Selection</Text>
+
+                    <SelectField
+                      key={block.metricSelector} // Force re-render when metricSelector changes
+                      label="Select Metric"
+                      containerClassName="mt-3"
+                      value={selectedMetricIdForPinning || ""}
+                      onChange={(value) => setSelectedMetricIdForPinning(value)}
+                      options={filteredMetricOptions}
+                      sort={false}
+                    />
+                  </div>
+                  {selectedMetricIdForPinning ? (
+                    <div
+                      className="p-3"
+                      style={{ maxHeight: 200, overflowY: "auto" }}
+                    >
+                      {getSliceOptions().length > 0 ? (
+                        <>
+                          <Checkbox
+                            label="Select All"
+                            value={getSelectAllState()}
+                            setValue={handleSelectAll}
+                            size="sm"
+                            mb="4"
+                          />
+                          <Flex direction="column" gap="0.5">
+                            {getSliceOptions().map((slice) => {
+                              // Generate label from column + level pairs
+                              const labelParts = slice.sliceLevels.map((sl) => {
+                                if (sl.datatype === "boolean") {
+                                  const value =
+                                    sl.levels.length === 0
+                                      ? "null"
+                                      : sl.levels[0] === "true"
+                                        ? "true"
+                                        : "false";
+                                  return (
+                                    <span key={sl.column}>
+                                      {sl.column}:{" "}
+                                      <span
+                                        style={{
+                                          fontVariant: "small-caps",
+                                          fontWeight: 600,
+                                          fontSize: "16px",
+                                        }}
+                                      >
+                                        {value}
+                                      </span>
+                                    </span>
+                                  );
+                                } else {
+                                  const value =
+                                    sl.levels.length === 0
+                                      ? "other"
+                                      : sl.levels[0];
+                                  return `${sl.column}: ${value}`;
+                                }
+                              });
+
+                              const label =
+                                labelParts.length === 1
+                                  ? labelParts[0]
+                                  : labelParts.reduce((acc, curr, index) => {
+                                      if (index === 0) return acc;
+                                      return (
+                                        <span key={index}>
+                                          {acc} + {curr}
+                                        </span>
+                                      );
+                                    });
+
+                              return (
+                                <Checkbox
+                                  key={slice.value}
+                                  label={label}
+                                  value={isSlicePinned(slice.value)}
+                                  setValue={(checked) =>
+                                    toggleSlicePin(slice.value, checked)
+                                  }
+                                  size="sm"
+                                  weight="regular"
+                                />
+                              );
+                            })}
+                          </Flex>
+                        </>
+                      ) : (
+                        <Text weight="regular">
+                          No slices available for this metric
+                        </Text>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
                 label="Dimension Values"
@@ -586,7 +994,7 @@ export default function EditSingleBlock({
                 onChange={(value) =>
                   setBlock({ ...block, dimensionValues: value })
                 }
-                options={dimensionValueOptions}
+                options={dimensionOptions}
               />
             )}
             {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (

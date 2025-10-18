@@ -189,6 +189,8 @@ export function migrate(
       return {
         ...doc,
         metricSelector: doc.metricSelector || "custom",
+        pinSource: doc.pinSource || "experiment",
+        pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
     case "experiment-dimension":
       return {
@@ -201,6 +203,8 @@ export function migrate(
         metricIds: doc.metricIds || [doc.metricId],
         metricId: undefined,
         metricSelector: doc.metricSelector || "custom",
+        pinSource: doc.pinSource || "experiment",
+        pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
     case "experiment-description":
       return {

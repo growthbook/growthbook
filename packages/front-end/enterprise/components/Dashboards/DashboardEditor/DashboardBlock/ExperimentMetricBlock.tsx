@@ -6,7 +6,7 @@ import { groupBy } from "lodash";
 import { blockHasFieldOfType } from "shared/enterprise";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import { expandMetricGroups } from "shared/experiments";
+import { expandMetricGroups, generatePinnedSliceKey } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -18,6 +18,7 @@ import { BlockProps } from ".";
 export default function ExperimentMetricBlock({
   isTabActive,
   block,
+  setBlock,
   experiment,
   snapshot,
   analysis,
@@ -25,8 +26,13 @@ export default function ExperimentMetricBlock({
   isEditing,
   metrics,
 }: BlockProps<ExperimentMetricBlockInterface>) {
-  const { baselineRow, columnsFilter, variationIds, pinnedMetricSlices } =
-    block;
+  const {
+    baselineRow,
+    columnsFilter,
+    variationIds,
+    pinnedMetricSlices,
+    pinSource,
+  } = block;
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
     [block],
@@ -99,6 +105,19 @@ export default function ExperimentMetricBlock({
     }));
   };
 
+  // Determine which pinned slices to use based on pinSource
+  const effectivePinnedMetricSlices = useMemo(() => {
+    const source = pinSource || "experiment"; // Default to "experiment" if undefined
+    if (source === "experiment") {
+      return experiment.pinnedMetricSlices;
+    } else if (source === "custom") {
+      return pinnedMetricSlices;
+    } else {
+      // source === "none"
+      return undefined;
+    }
+  }, [pinSource, experiment.pinnedMetricSlices, pinnedMetricSlices]);
+
   const expandedMetricIds = metrics?.map((m) => m.id) || [];
   const goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
@@ -128,7 +147,7 @@ export default function ExperimentMetricBlock({
     metricOverrides: experiment.metricOverrides ?? [],
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
-    pinnedMetricSlices,
+    pinnedMetricSlices: effectivePinnedMetricSlices,
     statsEngine,
     pValueCorrection,
     settingsForSnapshotMetrics,
@@ -139,6 +158,59 @@ export default function ExperimentMetricBlock({
   });
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
+
+  // Toggle function for pinning metric slices
+  const togglePinnedMetricSlice = (
+    metricId: string,
+    sliceLevels: Array<{
+      dimension: string;
+      datatype: "string" | "boolean";
+      levels: string[];
+    }>,
+    resultGroup: "goal" | "secondary" | "guardrail",
+  ) => {
+    if (!setBlock) return;
+
+    // Convert dimension to column for generatePinnedSliceKey
+    const sliceLevelsWithColumn = sliceLevels.map(
+      ({ dimension, datatype, levels }) => ({
+        column: dimension,
+        datatype,
+        levels,
+      }),
+    );
+
+    const pinnedKey = generatePinnedSliceKey(
+      metricId,
+      sliceLevelsWithColumn,
+      resultGroup,
+    );
+    const currentPinnedSlices = pinnedMetricSlices || [];
+
+    console.log("togglePinnedMetricSlice debug:", {
+      metricId,
+      sliceLevels,
+      resultGroup,
+      pinnedKey,
+      currentPinnedSlices,
+      isPinned: currentPinnedSlices.includes(pinnedKey),
+    });
+
+    const isPinned = currentPinnedSlices.includes(pinnedKey);
+    const newPinnedSlices = isPinned
+      ? currentPinnedSlices.filter((key) => key !== pinnedKey)
+      : [...currentPinnedSlices, pinnedKey];
+
+    console.log("togglePinnedMetricSlice update:", {
+      isPinned,
+      newPinnedSlices,
+    });
+
+    setBlock({
+      ...block,
+      pinnedMetricSlices: newPinnedSlices,
+    });
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
@@ -168,8 +240,10 @@ export default function ExperimentMetricBlock({
               statsEngine,
               hideDetails: false,
               experimentType: undefined,
-              pinnedMetricSlices,
-              togglePinnedMetricSlice: undefined, // No pinning toggle in dashboard blocks for now
+              pinnedMetricSlices: effectivePinnedMetricSlices,
+              togglePinnedMetricSlice: isEditing
+                ? togglePinnedMetricSlice
+                : undefined,
               expandedMetrics,
               toggleExpandedMetric: isEditing
                 ? toggleExpandedMetric

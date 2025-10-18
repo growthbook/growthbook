@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ExperimentTimeSeriesBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { expandMetricGroups } from "shared/experiments";
 import { MetricSnapshotSettings } from "back-end/types/report";
@@ -22,7 +22,7 @@ export default function ExperimentTimeSeriesBlock({
   isEditing,
   metrics,
 }: BlockProps<ExperimentTimeSeriesBlockInterface>) {
-  const { variationIds, pinnedMetricSlices } = block;
+  const { variationIds, pinnedMetricSlices, pinSource } = block;
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const {
@@ -94,6 +94,19 @@ export default function ExperimentTimeSeriesBlock({
       !secondaryMetrics.includes(mId),
   );
 
+  // Determine which pinned slices to use based on pinSource
+  const effectivePinnedMetricSlices = useMemo(() => {
+    const source = pinSource || "experiment"; // Default to "experiment" if undefined
+    if (source === "experiment") {
+      return experiment.pinnedMetricSlices;
+    } else if (source === "custom") {
+      return pinnedMetricSlices;
+    } else {
+      // source === "none"
+      return undefined;
+    }
+  }, [pinSource, experiment.pinnedMetricSlices, pinnedMetricSlices]);
+
   const { rows, getChildRowCounts } = useExperimentTableRows({
     results: result,
     goalMetrics,
@@ -102,7 +115,7 @@ export default function ExperimentTimeSeriesBlock({
     metricOverrides: experiment.metricOverrides ?? [],
     ssrPolyfills,
     customMetricSlices: experiment.customMetricSlices,
-    pinnedMetricSlices,
+    pinnedMetricSlices: effectivePinnedMetricSlices,
     statsEngine,
     pValueCorrection,
     settingsForSnapshotMetrics,
@@ -119,7 +132,7 @@ export default function ExperimentTimeSeriesBlock({
     statsEngine,
     hideDetails: false,
     experimentType: undefined,
-    pinnedMetricSlices,
+    pinnedMetricSlices: effectivePinnedMetricSlices,
     togglePinnedMetricSlice: undefined, // No pinning toggle in dashboard blocks for now
     expandedMetrics,
     toggleExpandedMetric: isEditing ? toggleExpandedMetric : undefined,
