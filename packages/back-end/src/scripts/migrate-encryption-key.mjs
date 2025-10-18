@@ -1,13 +1,23 @@
-import { AES, enc } from "crypto-js";
-import {
-  updateDataSource,
-  _dangerousGetAllDatasources,
-} from "back-end/src/models/DataSourceModel";
-import { usingFileConfig } from "back-end/src/init/config";
-import { ENCRYPTION_KEY, IS_CLOUD } from "back-end/src/util/secrets";
-import { init } from "back-end/src/init";
-import { encryptParams } from "back-end/src/services/datasource";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import pkg from "crypto-js";
+const { AES, enc } = pkg;
+
+import dataSourcePkg from "../../dist/models/DataSourceModel.js";
+const { updateDataSource, _dangerousGetAllDatasources } = dataSourcePkg;
+
+import configPkg from "../../dist/init/config.js";
+const { usingFileConfig } = configPkg;
+
+import secretsPkg from "../../dist/util/secrets.js";
+const { ENCRYPTION_KEY, IS_CLOUD } = secretsPkg;
+
+import initPkg from "../../dist/init/index.js";
+const { init } = initPkg;
+
+import datasourcePkg from "../../dist/services/datasource.js";
+const { encryptParams } = datasourcePkg;
+
+import orgPkg from "../../dist/services/organizations.js";
+const { getContextForAgendaJobByOrgId } = orgPkg;
 
 const [oldEncryptionKey] = process.argv.slice(2);
 if (IS_CLOUD) {
