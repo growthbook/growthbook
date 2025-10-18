@@ -114,6 +114,7 @@ export default function TabbedPage({
   const [tabPath, setTabPath] = useState(
     window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
   );
+  const [isFirstTabNavigation, setIsFirstTabNavigation] = useState(true);
 
   const router = useRouter();
 
@@ -215,6 +216,39 @@ export default function TabbedPage({
     return () => window.removeEventListener("hashchange", handler, false);
   }, [setTab, dashboardsEnabled]);
 
+  // Handle initial page load - ensure the initial tab state is properly recorded in history
+  useEffect(() => {
+    if (isFirstTabNavigation) {
+      const currentHash = window.location.hash.replace(/^#/, "");
+      const currentTab = currentHash.split("/")[0] || "overview";
+
+      // Only replace state if there's no hash or if the hash doesn't match the current tab
+      if (!currentHash || currentTab !== tab) {
+        const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
+        window.history.replaceState(
+          {
+            isTabNavigation: true,
+            experimentId: experiment.id,
+            isInitial: true,
+          },
+          "",
+          newUrl,
+        );
+      } else {
+        // If the URL already has the correct hash, just mark it as a tab navigation entry
+        window.history.replaceState(
+          {
+            isTabNavigation: true,
+            experimentId: experiment.id,
+            isInitial: true,
+          },
+          "",
+        );
+      }
+      setIsFirstTabNavigation(false);
+    }
+  }, [tab, experiment.id, isFirstTabNavigation]);
+
   // If experiment now has a default dashboard, show the dashboard view
   useEffect(() => {
     if (experiment.defaultDashboardId) {
@@ -239,7 +273,13 @@ export default function TabbedPage({
     setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
     if (newUrl === window.location.href) return;
-    window.history.pushState("", "", newUrl);
+
+    window.history.pushState(
+      { isTabNavigation: true, experimentId: experiment.id },
+      "",
+      newUrl,
+    );
+
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -252,9 +292,14 @@ export default function TabbedPage({
       const newUrl =
         window.location.href.replace(/#.*/, "") + "#" + tab + "/" + path;
       if (newUrl === window.location.href) return;
-      window.history.pushState("", "", newUrl);
+
+      window.history.replaceState(
+        { isTabNavigation: true, experimentId: experiment.id },
+        "",
+        newUrl,
+      );
     },
-    [tab],
+    [tab, experiment.id],
   );
 
   const handleIncrementHealthNotifications = useCallback(() => {
