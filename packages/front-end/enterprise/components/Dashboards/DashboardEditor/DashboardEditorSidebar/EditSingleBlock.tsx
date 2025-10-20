@@ -10,6 +10,7 @@ import {
   isDifferenceType,
   isMetricSelector,
   metricSelectors,
+  BLOCK_CONFIG_ITEM_TYPES,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
@@ -90,6 +91,43 @@ interface Props {
     DashboardBlockInterfaceOrData<DashboardBlockInterface>
   >;
 }
+
+function isBlockConfigItemSelected(
+  blockConfig: string[] | undefined,
+  itemId: string,
+): boolean {
+  return !!blockConfig?.includes(itemId);
+}
+
+function toggleBlockConfigItem(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+  setBlock: React.Dispatch<
+    DashboardBlockInterfaceOrData<DashboardBlockInterface>
+  >,
+  itemId: string,
+  value: boolean,
+) {
+  if (value) {
+    // Add item to blockConfig
+    const newBlockConfig = block.blockConfig
+      ? [...block.blockConfig, itemId]
+      : [itemId];
+    setBlock({
+      ...block,
+      blockConfig: newBlockConfig,
+    });
+  } else {
+    // Remove item from blockConfig
+    const filteredBlockConfig = (block.blockConfig || []).filter(
+      (id) => id !== itemId,
+    );
+    setBlock({
+      ...block,
+      blockConfig: filteredBlockConfig,
+    });
+  }
+}
+
 export default function EditSingleBlock({
   dashboardId,
   experiment,
@@ -321,7 +359,7 @@ export default function EditSingleBlock({
               setBlock({
                 ...block,
                 savedQueryId,
-                showResultsTable: true,
+                blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
               });
               // Switch to "existing" mode since we now have a saved query
               setSqlExplorerType("existing");
@@ -765,7 +803,7 @@ export default function EditSingleBlock({
                         setBlock({
                           ...block,
                           savedQueryId: val,
-                          showResultsTable: true,
+                          blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
                         })
                       }
                       isClearable
@@ -797,9 +835,17 @@ export default function EditSingleBlock({
                           <Checkbox
                             label="Query results table"
                             size="md"
-                            value={!!block.showResultsTable}
+                            value={isBlockConfigItemSelected(
+                              block.blockConfig,
+                              BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                            )}
                             setValue={(value) =>
-                              setBlock({ ...block, showResultsTable: value })
+                              toggleBlockConfigItem(
+                                block,
+                                setBlock,
+                                BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                                value,
+                              )
                             }
                           />
                           {savedQuery?.dataVizConfig?.map((config, index) => {
@@ -810,34 +856,18 @@ export default function EditSingleBlock({
                                 key={index}
                                 label={title}
                                 size="md"
-                                value={
-                                  // This isn't great, but we don't have an id right now
-                                  !!block.blockConfig?.includes(title)
+                                value={isBlockConfigItemSelected(
+                                  block.blockConfig,
+                                  title,
+                                )}
+                                setValue={(value) =>
+                                  toggleBlockConfigItem(
+                                    block,
+                                    setBlock,
+                                    title,
+                                    value,
+                                  )
                                 }
-                                setValue={(value) => {
-                                  if (value) {
-                                    // This isn't great, the order will be based on the order added
-                                    const newBlockConfig: string[] =
-                                      block.blockConfig
-                                        ? [...block.blockConfig, title]
-                                        : [title];
-
-                                    setBlock({
-                                      ...block,
-                                      blockConfig: newBlockConfig,
-                                    });
-                                  } else {
-                                    const filteredBlockConfig = (
-                                      block.blockConfig || []
-                                    ).filter(
-                                      (configTitle) => configTitle !== title,
-                                    );
-                                    setBlock({
-                                      ...block,
-                                      blockConfig: filteredBlockConfig,
-                                    });
-                                  }
-                                }}
                               />
                             );
                           })}

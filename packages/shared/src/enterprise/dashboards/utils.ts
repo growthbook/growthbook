@@ -26,6 +26,30 @@ export const metricSelectors = [
   "custom",
 ] as const;
 
+// BlockConfig item types for sql-explorer blocks
+export const BLOCK_CONFIG_ITEM_TYPES = {
+  RESULTS_TABLE: "results_table",
+  VISUALIZATION: "visualization",
+} as const;
+
+export function isResultsTableItem(
+  item: string | { type: string; id: string },
+): boolean {
+  if (typeof item === "string") {
+    return item === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
+  }
+  return item.type === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
+}
+
+export function isVisualizationItem(
+  item: string | { type: string; id: string },
+): boolean {
+  if (typeof item === "string") {
+    return item !== BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
+  }
+  return item.type === BLOCK_CONFIG_ITEM_TYPES.VISUALIZATION;
+}
+
 export interface BlockSnapshotSettings {
   dimensionId?: string;
 }
@@ -217,8 +241,7 @@ export const CREATE_BLOCK_TYPE: {
     title: "",
     description: "",
     savedQueryId: "",
-    showResultsTable: true,
-    blockConfig: [],
+    blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
     ...(initialValues || {}),
   }),
   "metric-explorer": ({ initialValues }) => ({

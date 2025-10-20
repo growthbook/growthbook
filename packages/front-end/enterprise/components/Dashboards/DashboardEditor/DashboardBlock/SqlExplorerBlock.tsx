@@ -1,6 +1,6 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { SqlExplorerBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
-import { DataVizConfig } from "back-end/src/validators/saved-queries";
+import { isResultsTableItem } from "shared/enterprise";
 import {
   DataVisualizationDisplay,
   SqlExplorerDataVisualization,
@@ -32,22 +32,12 @@ export default function SqlExplorerBlock({
 
   const blockConfig = block.blockConfig || [];
 
-  // Find the dataVizConfig objects that match the titles in blockConfig
-  const visualizations: { title: string; dataVizConfig: DataVizConfig }[] = [];
-
-  for (const title of blockConfig) {
-    const dataVizConfig = savedQuery.dataVizConfig?.find(
-      (config) => config.title === title,
-    );
-    if (dataVizConfig) {
-      visualizations.push({ title, dataVizConfig });
-    }
-  }
-
-  return (
-    <Flex direction="column" gap="4">
-      {block.showResultsTable ? (
-        <>
+  // Process blockConfig to render items in order
+  const renderItems = blockConfig.map((configId, index) => {
+    if (isResultsTableItem(configId)) {
+      // Render results table
+      return (
+        <div key={`${configId}-${index}`}>
           <h2 style={{ width: "100%", textAlign: "center" }}>
             {savedQuery.name}
           </h2>
@@ -68,11 +58,20 @@ export default function SqlExplorerBlock({
               renderedSQLLabel="SQL"
             />
           </Box>
-        </>
-      ) : null}
-      {visualizations.map(({ title, dataVizConfig }, index) => (
+        </div>
+      );
+    } else {
+      // Render visualization
+      //MKTODO: We need to add ids to each visualization so we can reference by that instead
+      // But we'll still need to fall back to the title if the visualization doesn't have an id
+      const dataVizConfig = savedQuery.dataVizConfig?.find(
+        (config) => config.title === configId,
+      );
+      if (!dataVizConfig) return null;
+
+      return (
         <Flex
-          key={`${title}-${index}`}
+          key={`${configId}-${index}`}
           py="5"
           align="center"
           justify="center"
@@ -88,7 +87,13 @@ export default function SqlExplorerBlock({
             />
           </Box>
         </Flex>
-      ))}
+      );
+    }
+  });
+
+  return (
+    <Flex direction="column" gap="4">
+      {renderItems}
     </Flex>
   );
 }

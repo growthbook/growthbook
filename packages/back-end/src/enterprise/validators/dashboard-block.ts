@@ -201,7 +201,6 @@ const sqlExplorerBlockInterface = baseBlockInterface
     type: z.literal("sql-explorer"),
     savedQueryId: z.string(),
     dataVizConfigIndex: z.number().optional(), // Deprecated with the release of product analytics dashboards as we now allow users to show multiple visualizations
-    showResultsTable: z.boolean().optional(),
     blockConfig: z.array(z.string()).optional(),
   })
   .strict();
