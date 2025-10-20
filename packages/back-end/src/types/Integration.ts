@@ -813,6 +813,7 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentFactMetricsQueryResponse>;
   // Pipeline validation helpers
   getPipelineValidationInsertQuery?(params: { tableFullName: string }): string;
+  getCurrentTimestamp(): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   getUserExperimentExposuresQuery(
     params: UserExperimentExposuresQueryParams,

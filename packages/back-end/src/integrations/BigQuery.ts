@@ -318,16 +318,8 @@ export default class BigQuery extends SqlIntegration {
       .map((field) => mapField(field));
   }
 
-  getPipelineValidationInsertQuery({
-    tableFullName,
-  }: {
-    tableFullName: string;
-  }): string {
-    return `INSERT INTO
-      ${tableFullName}
-      (user_id, variation, first_exposure_timestamp)
-      VALUES
-      ('user_3', 'A', CURRENT_TIMESTAMP())`;
+  getCurrentTimestamp(): string {
+    return `CURRENT_TIMESTAMP()`;
   }
 
   getAlterNewIncrementalUnitsQuery(

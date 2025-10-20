@@ -6305,12 +6305,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   }: {
     tableFullName: string;
   }): string {
-    // TODO(adriel): Update current_timestamp to be engine-aware
     return `INSERT INTO
       ${tableFullName}
       (user_id, variation, first_exposure_timestamp)
       VALUES
-      ('user_3', 'A', CURRENT_TIMESTAMP(0))
+      ('user_3', 'A', ${this.getCurrentTimestamp()})
     `;
   }
 
@@ -6916,9 +6915,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
-  // TODO(incremental-refresh): current timestamp for other engines
   getCurrentTimestamp(): string {
-    return `current_timestamp`;
+    return `CURRENT_TIMESTAMP`;
   }
 
   getInsertMetricSourceDataQuery(
@@ -7205,9 +7203,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   getSampleUnitsCTE(): string {
     return format(
       `__experimentUnits AS (
-        SELECT 'user_1' AS user_id, 'A' AS variation, cast(CURRENT_TIMESTAMP(0) as timestamp) AS first_exposure_timestamp
+        SELECT 'user_1' AS user_id, 'A' AS variation, cast(${this.getCurrentTimestamp()} as timestamp) AS first_exposure_timestamp
         UNION ALL
-        SELECT 'user_2' AS user_id, 'B' AS variation, cast(CURRENT_TIMESTAMP(0) as timestamp) AS first_exposure_timestamp
+        SELECT 'user_2' AS user_id, 'B' AS variation, cast(${this.getCurrentTimestamp()} as timestamp) AS first_exposure_timestamp
       )`,
       this.getFormatDialect(),
     );
