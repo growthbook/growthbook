@@ -292,6 +292,8 @@ export default function DashboardsPage() {
                           let canDuplicate =
                             permissionsUtil.canCreateGeneralDashboards(d);
 
+                          const canCopy = d.shareLevel !== "private";
+
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
                             d.editLevel === "private" &&
@@ -395,6 +397,7 @@ export default function DashboardsPage() {
                                             `${HOST}/dashboards/${d.id}`,
                                           );
                                         }}
+                                        disabled={!canCopy}
                                       >
                                         <Tooltip
                                           state={copySuccess}
