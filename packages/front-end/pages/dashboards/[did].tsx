@@ -6,7 +6,6 @@ import {
   DashboardBlockInterfaceOrData,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { withErrorBoundary } from "@sentry/nextjs";
-import { Flex, Text } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DashboardEditor from "@/enterprise/components/Dashboards/DashboardEditor";
@@ -19,7 +18,6 @@ import Callout from "@/ui/Callout";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PremiumCallout from "@/ui/PremiumCallout";
-import Button from "@/ui/Button";
 
 function SingleDashboardPage() {
   const router = useRouter();
@@ -115,16 +113,7 @@ function SingleDashboardPage() {
         dismissable={false}
         commercialFeature="product-analytics-dashboards"
       >
-        <Flex direction="column">
-          <Text>Use of Product Analytics Dashboards requires a paid plan</Text>
-          <Button
-            onClick={() => {
-              setShowUpgradeModal(true);
-            }}
-          >
-            Upgrade Plan
-          </Button>
-        </Flex>
+        Use of Product Analytics Dashboards requires a paid plan
       </PremiumCallout>
     );
   }
