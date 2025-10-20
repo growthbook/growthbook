@@ -15,8 +15,11 @@ import clsx from "clsx";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   isFactMetric,
   isMetricJoinable,
+  expandAllSliceMetricsInMap,
+  ExperimentMetricInterface,
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -40,6 +43,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDashboards } from "@/hooks/useDashboards";
 import OverflowText from "./OverflowText";
 
 export interface Props {
@@ -51,7 +55,6 @@ export interface Props {
   setVariationFilter?: (variationFilter: number[]) => void;
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
-  differenceType: DifferenceType;
   setDifferenceType: (differenceType: DifferenceType) => void;
   reportArgs?: ExperimentSnapshotReportArgs;
 }
@@ -65,7 +68,6 @@ export default function AnalysisSettingsSummary({
   baselineRow,
   setVariationFilter,
   setBaselineRow,
-  differenceType,
   setDifferenceType,
   reportArgs,
 }: Props) {
@@ -75,6 +77,8 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
     factTables,
     metricGroups,
+    factMetrics,
+    metrics,
   } = useDefinitions();
 
   const datasourceSettings = experiment.datasource
@@ -103,6 +107,8 @@ export default function AnalysisSettingsSummary({
     setSnapshotType,
     phase,
   } = useSnapshot();
+
+  const { mutateDashboards } = useDashboards(experiment.id);
 
   const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
     experiment,
@@ -421,6 +427,7 @@ export default function AnalysisSettingsSummary({
                       mutate={() => {
                         mutateSnapshot();
                         mutate();
+                        mutateDashboards();
                       }}
                       model={latest}
                       icon="refresh"
@@ -533,7 +540,6 @@ export default function AnalysisSettingsSummary({
             <div className="col-auto px-0">
               <ResultMoreMenu
                 experiment={experiment}
-                differenceType={differenceType}
                 snapshotId={snapshot?.id || ""}
                 datasource={datasource}
                 forceRefresh={
@@ -582,7 +588,40 @@ export default function AnalysisSettingsSummary({
                 queryError={snapshot?.error}
                 supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
                 hasData={hasData}
-                metrics={getAllMetricIdsFromExperiment(experiment, false)}
+                metrics={useMemo(() => {
+                  const metricMap = new Map<
+                    string,
+                    ExperimentMetricInterface
+                  >();
+                  const allBaseMetrics = [...metrics, ...factMetrics];
+                  allBaseMetrics.forEach((metric) =>
+                    metricMap.set(metric.id, metric),
+                  );
+                  const factTableMap = new Map(
+                    factTables.map((table) => [table.id, table]),
+                  );
+
+                  // Expand slice metrics and add them to the map
+                  expandAllSliceMetricsInMap({
+                    metricMap,
+                    factTableMap,
+                    experiment,
+                    metricGroups,
+                  });
+
+                  return getAllExpandedMetricIdsFromExperiment({
+                    exp: experiment,
+                    expandedMetricMap: metricMap,
+                    includeActivationMetric: false,
+                    metricGroups,
+                  });
+                }, [
+                  experiment,
+                  metrics,
+                  factMetrics,
+                  factTables,
+                  metricGroups,
+                ])}
                 results={analysis?.results}
                 variations={variations}
                 trackingKey={experiment.trackingKey}

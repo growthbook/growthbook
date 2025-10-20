@@ -651,7 +651,7 @@ pre {
   }
 }
 
-.dimension-header-label {
+.slice-header-label {
   margin-top: 30px;
   padding: 0 10px;
 }
@@ -666,33 +666,33 @@ pre {
 .experiment-results,
 .bandit-summary-results {
   tbody {
-    &.dimension-row {
+    &.slice-row {
       background-color: var(--slate-a2);
     }
     tr {
-      &:not(.dimension-header-row) {
+      &:not(.slice-header-row) {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
       }
 
-      &.dimension-collapsed {
+      &.slice-collapsed {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
-        &.last-dimension-header {
+        &.last-slice-header {
           box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
         }
       }
-      &.dimension-expanded {
+      &.slice-expanded {
         box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
       }
 
-      &:last-of-type:not(.dimension-collapsed):not(.dimension-expanded) {
+      &:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
         box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
       }
 
-      &.last-before-dimension-header {
+      &.last-before-slice-header {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
       }
 
-      &:not(.results-label-row):not(.dimension-header-row) {
+      &:not(.results-label-row):not(.slice-header-row) {
         td:not(.graph-cell):not(:last-child) {
           box-shadow: rgba(102, 102, 102, 0.05) -1px 0 inset;
         }

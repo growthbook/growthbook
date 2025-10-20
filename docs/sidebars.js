@@ -291,6 +291,11 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "experimentation-analysis/sql-templates",
+          label: "SQL Templates",
+        },
+        {
+          type: "doc",
           id: "experimentation-analysis/data-pipeline",
           label: "Data Pipeline",
         },
@@ -570,17 +575,15 @@ const sidebars = {
       type: "category",
       label: "Self-Hosting",
       collapsed: true,
-      link: {
-        type: "doc",
-        id: "self-host/index",
-      },
       items: [
+        "self-host/index",
         "self-host/environment-variables",
-        "self-host/config-yml",
         "self-host/production",
+        "self-host/kubernetes",
         { type: "doc", id: "self-host/cdn" },
         { type: "doc", id: "self-host/proxy", label: "Proxy" },
         { type: "doc", id: "self-host/ferretdb", label: "FerretDB" },
+        "self-host/config-yml",
       ],
     },
     { type: "doc", id: "api-overview", label: "API" },
@@ -731,6 +734,11 @@ const sidebars = {
       },
       className: "top-divider",
       items: [
+        {
+          type: "doc",
+          id: "guide/migrate-from-statsig",
+          label: "Migrate from Statsig",
+        },
         {
           type: "doc",
           id: "guide/sanity",

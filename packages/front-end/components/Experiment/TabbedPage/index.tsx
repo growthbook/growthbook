@@ -111,7 +111,9 @@ export default function TabbedPage({
     `tabbedPageTab__${experiment.id}`,
     "overview",
   );
-  const [tabPath, setTabPath] = useState("");
+  const [tabPath, setTabPath] = useState(
+    window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
+  );
 
   const router = useRouter();
 
@@ -147,6 +149,49 @@ export default function TabbedPage({
       filterByTag: false,
     },
   );
+  const [sortBy, setSortBy] = useLocalStorage<
+    "metric-tags" | "significance" | "change" | null
+  >(`experiment-page__${experiment.id}__sort_by`, null);
+  const [sortDirection, setSortDirection] = useLocalStorage<
+    "asc" | "desc" | null
+  >(`experiment-page__${experiment.id}__sort_direction`, null);
+
+  const setSortByWithPriority = (
+    newSortBy: "metric-tags" | "significance" | "change" | null,
+  ) => {
+    if (newSortBy === "significance" || newSortBy === "change") {
+      // When sorting by significance or change, clear tag order to avoid conflicts
+      setMetricFilter((prev) => ({
+        ...(prev || {}),
+        tagOrder: [],
+      }));
+    }
+    setSortBy(newSortBy);
+  };
+
+  const setSortDirectionDirect = (direction: "asc" | "desc" | null) => {
+    setSortDirection(direction);
+  };
+
+  const setMetricFilterWithPriority = (
+    newMetricFilter: ResultsMetricFilters,
+  ) => {
+    // If tagOrder has items and we're not already sorting by metric-tags, switch to metric-tags
+    if (
+      (newMetricFilter.tagOrder?.length ?? 0) > 0 &&
+      sortBy !== "metric-tags"
+    ) {
+      setSortBy("metric-tags");
+    }
+    // If tagOrder is empty and we're sorting by metric-tags, switch to null
+    else if (
+      (newMetricFilter.tagOrder?.length ?? 0) === 0 &&
+      sortBy === "metric-tags"
+    ) {
+      setSortBy(null);
+    }
+    setMetricFilter(newMetricFilter);
+  };
 
   useEffect(() => {
     const handler = () => {
@@ -163,9 +208,7 @@ export default function TabbedPage({
         const tabPath = tabPathSegments.join("/");
         setTab(tabName);
         setTabPath(tabPath);
-        // Drop the tab path from the URL after reading it into state
       }
-      window.history.replaceState({}, "", `#${tabName}`);
     };
     handler();
     window.addEventListener("hashchange", handler, false);
@@ -193,6 +236,7 @@ export default function TabbedPage({
 
   const setTabAndScroll = (tab: ExperimentTab) => {
     setTab(tab);
+    setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
     if (newUrl === window.location.href) return;
     window.history.pushState("", "", newUrl);
@@ -201,6 +245,17 @@ export default function TabbedPage({
       behavior: "smooth",
     });
   };
+
+  const persistTabPath = useCallback(
+    (path: string) => {
+      setTabPath(path);
+      const newUrl =
+        window.location.href.replace(/#.*/, "") + "#" + tab + "/" + path;
+      if (newUrl === window.location.href) return;
+      window.history.pushState("", "", newUrl);
+    },
+    [tab],
+  );
 
   const handleIncrementHealthNotifications = useCallback(() => {
     setHealthNotificationCount((prev) => prev + 1);
@@ -444,6 +499,7 @@ export default function TabbedPage({
             isTabActive
             showDashboardView
             switchToExperimentView={() => setShowDashboardView(false)}
+            updateTabPath={persistTabPath}
           />
         )}
         <div
@@ -553,7 +609,11 @@ export default function TabbedPage({
           metricFilter={metricFilter}
           analysisBarSettings={analysisBarSettings}
           setAnalysisBarSettings={setAnalysisBarSettings}
-          setMetricFilter={setMetricFilter}
+          setMetricFilter={setMetricFilterWithPriority}
+          sortBy={sortBy}
+          setSortBy={setSortByWithPriority}
+          sortDirection={sortDirection}
+          setSortDirection={setSortDirectionDirect}
         />
       </div>
       <div
@@ -568,6 +628,7 @@ export default function TabbedPage({
           initialDashboardId={tabPath}
           isTabActive={tab === "dashboards"}
           mutateExperiment={mutate}
+          updateTabPath={persistTabPath}
         />
       </div>
       <div

@@ -44,8 +44,8 @@ export const createColumnPropsValidator = z
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
-    isDimension: z.boolean().optional(),
-    dimensionLevels: z.array(z.string()).optional(),
+    isAutoSliceColumn: z.boolean().optional(),
+    autoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -59,8 +59,8 @@ export const updateColumnPropsValidator = z
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
-    isDimension: z.boolean().optional(),
-    dimensionLevels: z.array(z.string()).optional(),
+    isAutoSliceColumn: z.boolean().optional(),
+    autoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -77,7 +77,7 @@ export const createFactTablePropsValidator = z
     sql: z.string(),
     eventName: z.string(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
   })
   .strict();
 
@@ -92,7 +92,7 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
   })
@@ -193,7 +193,7 @@ export const factMetricValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     owner: z.string().default(""),
     datasource: z.string(),
     dateCreated: z.date(),
@@ -226,7 +226,7 @@ export const factMetricValidator = z
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),
 
-    enableMetricDimensions: z.boolean().optional(),
+    metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
 

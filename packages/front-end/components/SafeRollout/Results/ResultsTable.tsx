@@ -2,6 +2,7 @@ import clsx from "clsx";
 import {
   CSSProperties,
   ReactElement,
+  ReactNode,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -70,7 +71,7 @@ export type ResultsTableProps = {
     row,
     maxRows,
   }: {
-    label: string;
+    label: string | ReactNode;
     metric: ExperimentMetricInterface;
     row: ExperimentTableRow;
     maxRows?: number;
@@ -293,7 +294,7 @@ export default function ResultsTable({
   const changeTitle = getEffectLabel(differenceType);
 
   const urlFormattedMetricIds = rows
-    .map((row) => row.metric.id)
+    .map((row) => encodeURIComponent(row.metric.id))
     .join("&metricIds[]=");
   const { data: metricTimeSeries, mutate: mutateMetricTimeSeries } = useApi<{
     status: number;
@@ -540,7 +541,19 @@ export default function ResultsTable({
                           sideOffset={-5}
                         >
                           <AnalysisResultSummary
-                            data={tooltipData}
+                            data={
+                              tooltipData
+                                ? {
+                                    ...tooltipData,
+                                    sliceLevels: tooltipData.sliceLevels?.map(
+                                      (dl) => ({
+                                        dimension: dl.column,
+                                        levels: dl.levels,
+                                      }),
+                                    ),
+                                  }
+                                : undefined
+                            }
                             differenceType={differenceType}
                             isBandit={isBandit}
                             ssrPolyfills={ssrPolyfills}

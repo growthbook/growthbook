@@ -1,7 +1,7 @@
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import { z } from "zod";
-import { isEqual } from "lodash";
+import { isEqual, uniqWith } from "lodash";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_METRIC_CAPPING,
@@ -22,6 +22,7 @@ import {
   getSnapshotAnalysis,
   isAnalysisAllowed,
   isDefined,
+  isString,
   MatchingRule,
   validateCondition,
 } from "shared/util";
@@ -31,7 +32,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
-  createDimensionMetrics,
+  expandAllSliceMetricsInMap,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
@@ -39,15 +40,22 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
-  parseDimensionMetricId,
+  parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
-  createFunnelMetrics,
   parseFunnelMetricId,
 } from "shared/experiments";
 import { hoursBetween } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
 import { differenceInHours } from "date-fns";
+import {
+  blockHasFieldOfType,
+  BlockSnapshotSettings,
+  getBlockAnalysisSettings,
+  getBlockSnapshotAnalysis,
+  getBlockSnapshotSettings,
+  snapshotSatisfiesBlock,
+} from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { MetricPriorSettings } from "back-end/types/fact-table";
 import {
@@ -74,7 +82,6 @@ import {
   DimensionForSnapshot,
 } from "back-end/types/experiment-snapshot";
 import {
-  expandDimensionMetricsInMap,
   getMetricById,
   getMetricMap,
   getMetricsByIds,
@@ -85,6 +92,7 @@ import { addTags } from "back-end/src/models/TagModel";
 import {
   addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
+  findSnapshotsByIds,
   getLatestSnapshotMultipleExperiments,
   updateSnapshotAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -149,9 +157,13 @@ import { ExperimentRefRule, FeatureRule } from "back-end/types/feature";
 import { ApiReqContext } from "back-end/types/api";
 import { ProjectInterface } from "back-end/types/project";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  getDataSourceById,
+  getDataSourcesByIds,
+} from "back-end/src/models/DataSourceModel";
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
+import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -199,10 +211,10 @@ export async function getExperimentMetricById(
   context: Context,
   metricId: string,
 ): Promise<ExperimentMetricInterface | null> {
-  // Handle dimension metric IDs by extracting the parent metric ID
-  const dimensionInfo = parseDimensionMetricId(metricId);
-  let actualMetricId = dimensionInfo.isDimensionMetric
-    ? dimensionInfo.parentMetricId
+  // Handle slice metric IDs by extracting the base metric ID
+  const sliceInfo = parseSliceMetricId(metricId);
+  let actualMetricId = sliceInfo.isSliceMetric
+    ? sliceInfo.baseMetricId
     : metricId;
 
   // dimension and funnel are mutually exclusive, so we can just
@@ -210,7 +222,7 @@ export async function getExperimentMetricById(
   // Handle funnel metric IDs by extracting the parent metric ID
   const funnelInfo = parseFunnelMetricId(metricId);
   actualMetricId = funnelInfo.isFunnelStepMetric
-    ? funnelInfo.parentMetricId
+    ? funnelInfo.baseMetricId
     : actualMetricId;
 
   if (isFactMetricId(actualMetricId)) {
@@ -528,7 +540,9 @@ export function getSnapshotSettings({
   if (precomputeDimensions) {
     // if standard snapshot with no dimension set, we should pre-compute dimensions
     const predefinedDimensions = getPredefinedDimensionSlicesByExperiment(
-      exposureQuery.dimensionMetadata ?? [],
+      (exposureQuery.dimensionMetadata ?? []).filter((d) =>
+        exposureQuery.dimensions.includes(d.dimension),
+      ),
       experiment.variations.length,
     );
     dimensions =
@@ -592,24 +606,28 @@ export function getSnapshotSettings({
   // Set currentDate in a const to use the same date for all metric settings
   const currentDate = new Date();
 
-  // Expand dimension metrics for fact metrics with enableMetricDimensions
-  const baseMetricIds = getAllMetricIdsFromExperiment(
-    experiment,
-    false,
-    metricGroups,
-  );
-  const baseMetrics = baseMetricIds
-    .map((m) => metricMap.get(m) || null)
-    .filter(isDefined);
-  expandDimensionMetricsInMap(metricMap, factTableMap, baseMetrics);
+  // Expand all slice metrics (auto and custom) and add them to the metricMap
+  // Skip slice expansion for dimension snapshots
+  if (!dimension) {
+    expandAllSliceMetricsInMap({
+      metricMap,
+      factTableMap,
+      experiment,
+      metricGroups,
+    });
+  }
 
-  const metricSettings = getAllExpandedMetricIdsFromExperiment(
-    experiment,
-    metricMap,
-    factTableMap,
-    true,
+  const metricSettings = getAllExpandedMetricIdsFromExperiment({
+    exp: {
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      activationMetric: experiment.activationMetric,
+    },
+    expandedMetricMap: metricMap,
+    includeActivationMetric: true,
     metricGroups,
-  )
+  })
     .map((m) =>
       getMetricForSnapshot({
         id: m,
@@ -631,6 +649,28 @@ export function getSnapshotSettings({
       }),
     )
     .filter(isDefined);
+
+  // JIT initialize banditEvents in memory if missing
+  if (
+    experiment.type === "multi-armed-bandit" &&
+    phase &&
+    (!phase.banditEvents || phase.banditEvents.length === 0)
+  ) {
+    logger.warn(
+      "JIT initializing banditEvents in memory (getSnapshotSettings)",
+    );
+    const weights =
+      phase.variationWeights || getEqualWeights(experiment.variations.length);
+    const initialBanditEvent = {
+      date: phase.dateStarted || new Date(),
+      banditResult: {
+        currentWeights: weights,
+        updatedWeights: weights,
+        bestArmProbabilities: weights,
+      },
+    };
+    phase.banditEvents = [initialBanditEvent];
+  }
 
   const banditSettings: SnapshotBanditSettings | undefined =
     experiment.type === "multi-armed-bandit"
@@ -674,6 +714,10 @@ export function getSnapshotSettings({
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
+    phase: {
+      index: phaseIndex + "",
+    },
+    customFields: experiment.customFields,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
@@ -953,6 +997,36 @@ export function resetExperimentBanditSettings({
         },
       },
     ];
+  } else {
+    // Even when preserving existing events, ensure banditEvents exists and has at least one event
+    const changesBanditEvents = changes.phases[phase]?.banditEvents;
+    const experimentBanditEvents = experiment.phases[phase]?.banditEvents;
+    const hasValidBanditEvents =
+      (changesBanditEvents && changesBanditEvents.length > 0) ||
+      (experimentBanditEvents && experimentBanditEvents.length > 0);
+
+    if (!hasValidBanditEvents) {
+      logger.warn(
+        "initializing missing banditEvents (resetExperimentBanditSettings)",
+      );
+      const weights =
+        changes.phases[phase].variationWeights ||
+        experiment.phases[phase]?.variationWeights ||
+        getEqualWeights(experiment.variations.length ?? 0);
+      changes.phases[phase].banditEvents = [
+        {
+          date:
+            changes.phases[phase].dateStarted ||
+            experiment.phases[phase]?.dateStarted ||
+            new Date(),
+          banditResult: {
+            currentWeights: weights,
+            updatedWeights: weights,
+            bestArmProbabilities: weights,
+          },
+        },
+      ];
+    }
   }
 
   // Scheduling
@@ -1094,6 +1168,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  preventStartingAnalysis,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1107,6 +1182,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
+  preventStartingAnalysis?: boolean;
 }): Promise<ExperimentResultsQueryRunner> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1204,14 +1280,35 @@ export async function createSnapshot({
     integration,
     useCache,
   );
-  await queryRunner.startAnalysis({
-    snapshotType: type,
-    snapshotSettings: data.settings,
-    variationNames: experiment.variations.map((v) => v.name),
-    metricMap,
-    queryParentId: snapshot.id,
-    factTableMap,
-  });
+  if (!preventStartingAnalysis) {
+    await queryRunner.startAnalysis({
+      snapshotType: type,
+      snapshotSettings: data.settings,
+      variationNames: experiment.variations.map((v) => v.name),
+      metricMap,
+      queryParentId: snapshot.id,
+      factTableMap,
+    });
+  }
+
+  const runningSnapshot = queryRunner.model;
+  // Whenever the standard snapshot for an experiment is refreshed, also refresh the associated dashboards in the background
+  if (
+    runningSnapshot.type === "standard" &&
+    runningSnapshot.triggeredBy !== "manual-dashboard"
+  ) {
+    updateExperimentDashboards({
+      context,
+      experiment,
+      mainSnapshot: runningSnapshot,
+      statsEngine: defaultAnalysisSettings.statsEngine,
+      regressionAdjustmentEnabled:
+        defaultAnalysisSettings.regressionAdjusted ?? false,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+    });
+  }
 
   return queryRunner;
 }
@@ -1430,7 +1527,11 @@ function getExperimentMetric(
   experiment: ExperimentInterface,
   id: string,
 ): ApiExperimentMetric {
-  const overrides = experiment.metricOverrides?.find((o) => o.id === id);
+  // For slice metrics, use the base metric ID for lookups
+  const { baseMetricId } = parseSliceMetricId(id);
+  const overrides = experiment.metricOverrides?.find(
+    (o) => o.id === baseMetricId,
+  );
   const ret: ApiExperimentMetric = {
     metricId: id,
     overrides: {},
@@ -2624,7 +2725,8 @@ export function postExperimentApiPayloadToInterface(
       payload.regressionAdjustmentEnabled ??
       !!organization?.settings?.regressionAdjustmentEnabled,
     shareLevel: payload.shareLevel,
-    pinnedMetricDimensionLevels: payload.pinnedMetricDimensionLevels || [],
+    pinnedMetricSlices: payload.pinnedMetricSlices || [],
+    customMetricSlices: payload.customMetricSlices || [],
   };
 
   const { settings } = getScopedSettings({
@@ -2692,7 +2794,8 @@ export function updateExperimentApiPayloadToInterface(
     sequentialTestingTuningParameter,
     secondaryMetrics,
     shareLevel,
-    pinnedMetricDimensionLevels,
+    pinnedMetricSlices,
+    customMetricSlices,
   } = payload;
   let changes: ExperimentInterface = {
     ...(trackingKey ? { trackingKey } : {}),
@@ -2789,9 +2892,8 @@ export function updateExperimentApiPayloadToInterface(
         }
       : {}),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
-    ...(pinnedMetricDimensionLevels !== undefined
-      ? { pinnedMetricDimensionLevels }
-      : {}),
+    ...(pinnedMetricSlices !== undefined ? { pinnedMetricSlices } : {}),
+    ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
     dateUpdated: new Date(),
   } as ExperimentInterface;
 
@@ -2844,7 +2946,6 @@ export async function getSettingsForSnapshotMetrics(
   const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [];
 
   const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
@@ -2854,62 +2955,14 @@ export async function getSettingsForSnapshotMetrics(
     .map((id) => metricMap.get(id))
     .filter(isDefined);
 
-  // Expand dimension metrics for fact metrics with enableMetricDimensions
-  const expandedMetrics: ExperimentMetricInterface[] = [];
-  for (const metric of allExperimentMetrics) {
-    if (!metric) continue;
-
-    // Add the original metric
-    expandedMetrics.push(metric);
-
-    // If this is a fact metric with dimension analysis enabled, expand it
-    if (isFactMetric(metric) && metric.enableMetricDimensions) {
-      const factTable = factTableMap.get(metric.numerator.factTableId);
-      if (factTable) {
-        const dimensionMetrics = createDimensionMetrics({
-          parentMetric: metric,
-          factTable,
-          includeOther: true,
-        });
-
-        dimensionMetrics.forEach((dimensionMetric) => {
-          const expandedMetric: ExperimentMetricInterface = {
-            ...metric,
-            id: dimensionMetric.id,
-            name: dimensionMetric.name,
-            description: dimensionMetric.description,
-          };
-          expandedMetrics.push(expandedMetric);
-          metricMap.set(expandedMetric.id, expandedMetric);
-        });
-      }
-    }
-    // if this is a fact metric with funnel type, expand it
-    if (isFactMetric(metric) && metric.metricType === "funnel") {
-      const funnelMetrics = createFunnelMetrics({
-        parentMetric: metric,
-      });
-      funnelMetrics.forEach((funnelMetric) => {
-        const expandedMetric: ExperimentMetricInterface = {
-          ...metric,
-          id: funnelMetric.id,
-          name: funnelMetric.name,
-          description: funnelMetric.description,
-        };
-        expandedMetrics.push(expandedMetric);
-        metricMap.set(expandedMetric.id, expandedMetric);
-      });
-    }
-  }
-
-  const denominatorMetrics = expandedMetrics
+  const denominatorMetrics = allExperimentMetrics
     .filter((m) => m && !isFactMetric(m) && m.denominator)
     .map((m: ExperimentMetricInterface) =>
       metricMap.get(m.denominator as string),
     )
     .filter(Boolean) as MetricInterface[];
 
-  for (const metric of expandedMetrics) {
+  for (const metric of allExperimentMetrics) {
     if (!metric) continue;
     const { metricSnapshotSettings } = getMetricSnapshotSettings({
       metric: metric,
@@ -3417,4 +3470,144 @@ export async function validateExperimentData(
   }
 
   return { metricIds, datasource };
+}
+
+// To be run after creating the main/standard snapshot. Re-uses some of the variables for efficiency
+export async function updateExperimentDashboards({
+  context,
+  experiment,
+  mainSnapshot,
+  statsEngine,
+  regressionAdjustmentEnabled,
+  settingsForSnapshotMetrics,
+  metricMap,
+  factTableMap,
+}: {
+  context: ReqContext | ApiReqContext;
+  experiment: ExperimentInterface;
+  mainSnapshot: ExperimentSnapshotInterface;
+  statsEngine: StatsEngine;
+  regressionAdjustmentEnabled: boolean;
+  settingsForSnapshotMetrics: MetricSnapshotSettings[];
+  metricMap: Map<string, ExperimentMetricInterface>;
+  factTableMap: FactTableMap;
+}) {
+  const associatedDashboards = await context.models.dashboards.findByExperiment(
+    experiment.id,
+    {
+      enableAutoUpdates: true,
+    },
+  );
+
+  // Can group and dedupe across dashboards because they won't be modified directly here, instead
+  // the snapshot model will update the blocks' snapshotId field after completion
+  const allBlocks = associatedDashboards.flatMap((dash) => dash.blocks);
+  // Note: blocks for other experiments won't be updated during this flow.
+  // Expected behavior is that dashboards tied to experiments don't include references to other experiments
+  const blocksWithSnapshots = allBlocks
+    .filter((block) => blockHasFieldOfType(block, "snapshotId", isString))
+    .filter((block) => block.experimentId === experiment.id);
+  const blocksNeedingSnapshot = blocksWithSnapshots.filter(
+    (block) =>
+      block.snapshotId.length > 0 &&
+      !snapshotSatisfiesBlock(mainSnapshot, block),
+  );
+  const previousSnapshotIds = [
+    ...new Set(blocksNeedingSnapshot.map((block) => block.snapshotId)),
+  ];
+  const previousSnapshots = await findSnapshotsByIds(
+    context,
+    previousSnapshotIds,
+  );
+  const previousSnapshotMap = new Map(
+    previousSnapshots.map((snap) => [snap.id, snap]),
+  );
+
+  const snapshotAndAnalysisSettingPairs = blocksNeedingSnapshot.map<
+    [BlockSnapshotSettings, ExperimentSnapshotAnalysisSettings]
+  >((block) => {
+    const blockSnapshot = previousSnapshotMap.get(block.snapshotId);
+    if (!blockSnapshot)
+      throw new Error(
+        "Error updating dashboard results, could not find snapshot",
+      );
+    if (!blockSnapshot.analyses[0])
+      throw new Error(
+        "Error updating dashboard results, referenced snapshot missing analysis",
+      );
+    const defaultAnalysis = blockSnapshot.analyses[0];
+    return [
+      getBlockSnapshotSettings(block),
+      getBlockAnalysisSettings(
+        block,
+        (getBlockSnapshotAnalysis(blockSnapshot, block) ?? defaultAnalysis)
+          .settings,
+      ),
+    ];
+  });
+
+  const uniqueSnapshotSettings = uniqWith<BlockSnapshotSettings>(
+    snapshotAndAnalysisSettingPairs.map(
+      ([snapshotSettings]) => snapshotSettings,
+    ),
+    isEqual,
+  );
+
+  for (const snapshotSettings of uniqueSnapshotSettings) {
+    const additionalAnalysisSettings =
+      uniqWith<ExperimentSnapshotAnalysisSettings>(
+        snapshotAndAnalysisSettingPairs
+          .filter(([targetSettings]) =>
+            isEqual(snapshotSettings, targetSettings),
+          )
+          .map(([_, analysisSettings]) => analysisSettings),
+        isEqual,
+      );
+
+    const analysisSettings = getDefaultExperimentAnalysisSettings(
+      statsEngine,
+      experiment,
+      context.org,
+      regressionAdjustmentEnabled,
+      snapshotSettings.dimensionId,
+    );
+
+    const queryRunner = await createSnapshot({
+      experiment,
+      context,
+      phaseIndex: experiment.phases.length - 1,
+      defaultAnalysisSettings: analysisSettings,
+      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+        analysisSettings,
+      ).concat(additionalAnalysisSettings),
+      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
+      metricMap,
+      factTableMap,
+      useCache: true,
+      type: "exploratory",
+      triggeredBy: "update-dashboards",
+    });
+    await queryRunner.waitForResults();
+  }
+
+  const blocksWithSavedQueries = allBlocks.filter((block) =>
+    blockHasFieldOfType(block, "savedQueryId", isString),
+  );
+
+  const savedQueries = await context.models.savedQueries.getByIds(
+    blocksWithSavedQueries.map(({ savedQueryId }) => savedQueryId),
+  );
+  const datasourceIds: string[] = [
+    ...new Set<string>(savedQueries.map(({ datasourceId }) => datasourceId)),
+  ];
+  const datasources = await getDataSourcesByIds(context, datasourceIds);
+  const datasourceMap = new Map(datasources.map((ds) => [ds.id, ds]));
+  await Promise.all(
+    savedQueries.map(async (savedQuery) => {
+      const savedQueryDataSource = datasourceMap.get(savedQuery.datasourceId);
+      if (savedQueryDataSource) {
+        await executeAndSaveQuery(context, savedQuery, savedQueryDataSource);
+      }
+    }),
+  );
 }

@@ -66,7 +66,7 @@ export type CommercialFeature =
   | "metric-correlations"
   | "dashboards"
   | "precomputed-dimensions"
-  | "metric-dimensions"
+  | "metric-slices"
   | "manage-official-resources"
   | "funnel-metrics";
 
@@ -140,6 +140,7 @@ export interface LicenseInterface {
   installationUsers: {
     [installationId: string]: {
       date: string;
+      installationName?: string;
       userHashes: string[];
       licenseUserCodes?: LicenseUserCodes;
     };
@@ -301,7 +302,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "metric-correlations",
     "dashboards",
     "precomputed-dimensions",
-    "metric-dimensions",
+    "metric-slices",
     "manage-official-resources",
     "funnel-metrics",
   ]),
@@ -321,6 +322,7 @@ export interface LicenseUserCodes {
 
 export interface LicenseMetaData {
   installationId: string;
+  installationName?: string;
   gitSha: string;
   gitCommitDate: string;
   sdkLanguages: string[];

@@ -10,55 +10,27 @@ import MaxWidthImage from '@site/src/components/MaxWidthImage'
 
 # Quick Start Guide
 
-This guide walks you through the basics of a full integration of GrowthBook for both feature flagging and A/B testing.
-You can use GrowthBook for feature flags, running no-code experiments with a visual editor, analyzing experiment results, or any combination of the above. Feel free to skip to the sections that best apply to your use case.
-
-:::note
-
-In our documentation, we use **A/B test** and **experiment** interchangeably.
-
-:::
+This guide walks you through the basics of a full integration of GrowthBook for both feature flagging and experimentation.
 
 ## Set Up GrowthBook
 
-Use GrowthBook hosted on our **cloud** or **self-host** it. For the easiest setup, [sign up for a free account](https://app.growthbook.io). If you prefer to self-host, follow the [instructions here](/self-host) or on our GitHub page.
+You can either **self-host** GrowthBook or use our **Cloud**.
 
-Once you have a GrowthBook account set up, you're ready to start feature flagging and experimenting!
+For the easiest setup, [sign up for a free Cloud account](https://app.growthbook.io).
+
+If you prefer to self-host, follow the [instructions here](/self-host) or on our GitHub page.
+
+After creating your account, it will walk you through the initial setup steps, including integrating one of our SDKs into your application.
 
 ## Feature Flags
 
-### Step 1. Add an SDK Connection
+### Step 1. Integrate the GrowthBook SDK
 
-To use Feature Flags, use an SDK Connection to connect GrowthBook to your app.
+As part of the initial setup, you should have created an initial SDK Connection. If not, you can do so now by going to **SDK Configuration** &rarr; **SDK Connections**. Then, click **Add SDK Connection**. Follow the directions based on your application's language and platform.
 
-From the menu, choose **SDK Configuration** &rarr; **SDK Connections**. Then, click **Add SDK Connection**.
+The [full SDK docs](/lib) are also available if you want to dive deeper.
 
-Name your SDK connection, select the language you're using in your application, and configure additional options. Don't worry! These settings can be changed at any time. To use GrowthBook with multiple languages, create a separate SDK Connection for each one.
-
-<MaxWidthImage maxWidth={600}>
-    ![New SDK Connection](/images/quick-start/quick-start-new-sdk-connection.png)
-</MaxWidthImage>
-
-With the SDK Connection created, you're now ready to install the SDK in your application.
-
-### Step 2. Integrate GrowthBook Into Your Application
-
-Use GrowthBook SDKs to evaluate feature flags and run experiments. Tailored instructions based on your selected language and settings will guide you through the installation process. The [full SDK docs](/lib) are also available.
-
-The basics of installing the SDKs are:
-
-- Grab the [GrowthBook SDK](/lib) package for your language.
-- Add the basic initialization code to your application.
-- Make sure `clientKey` and `apiHost` are set correctly.
-- Optionally, add any targeting attributes you wish to use for feature flags and experiments.
-
-:::tip
-
-If your application has multiple languages or platforms, you can create a separate SDK Connection for each one. GrowthBook features and experiments will work the same across all languages, platforms, and environments!
-
-:::
-
-### Step 3. Create a Feature Flag
+### Step 2. Create a Feature Flag
 
 On the **Features** page, create your first feature flag.
 
@@ -70,7 +42,7 @@ The **Feature Key** is what you will reference in your application and cannot be
 
 Feature flags in GrowthBook are robust, supporting advanced [targeting](/features/targeting), powerful [rule evaluation](/features/rules), [prerequisite features](/features/prerequisites), JSON schema validation, and more. In this quick start, we'll just stick with a simple boolean feature flag that is always `on` or `off` for everyone.
 
-### Step 4. Use the Feature in Your Application
+### Step 3. Use the Feature in Your Application
 
 When you create your first feature, you'll see instructions on how to use it in your application. Here's an example using our JavaScript SDK:
 
@@ -84,59 +56,12 @@ It really is that simple to get started! For next steps, we recommend reading ou
 
 Feature flags are the foundation for powerful experimentation. In the next section, we show you how to use them to run no-code experimentation using our Visual Editor. Need more advanced options? Dive into our [complete guide for code-based experimentation](/feature-flag-experiments).
 
-## No-Code Experimentation
-
-:::info
-Requires a Pro or Enterprise license.
-:::
-
-### Step 1. Create an SDK Connection
-
-Navigate to **SDK Configuration** &rarr; **SDK Connections**. Then, add a new SDK Connection. For the language, choose any no/low-code options: **Webflow**, **Wordpress**, **Shopify**, or **Script Tag**.
-
-<MaxWidthImage maxWidth={600} border>
-    ![Add SDK Connection](/images/integrations/webflow/webflow-sdk-connection.png)
-</MaxWidthImage>
-
-### Step 2. Add the Script Tag to Your Website's Head
-
-When you create an SDK Connection, GrowthBook displays tailored instructions based on your no-code platform and settings. Typically, these instructions involve adding a single script tag to the head of your website. It will look something like the example below (replace `YOUR_CLIENT_KEY` with your uniquely generated client ID):
-
-```html
-<script async
-  data-client-key="YOUR_CLIENT_KEY"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js"
-></script>
-```
-
-### Step 3. Install the GrowthBook Chrome or Firefox Extension
-
-Before using the Visual Editor, you must install our [Chrome](https://chromewebstore.google.com/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) browser extension.
-
-This extension enables you to make changes to your website by pointing and clicking. Use it to test different headlines, CTA text, hero images, and more.
-
-### Step 4. Create a New Visual Experiment
-
-To use the visual editor, add a new experiment. Go to **Experiments** and click **Add Experiment**.
-
-Choose **Design a New Experiment**. Then, fill out the fields (hypothesis, variation names, goal metrics, etc.). Don't worry, you can change these values later.
-
-Once you created an experiment, you will be prompted to launch the Visual Editor.
-
-Use the editor to make changes to your site. To return to GrowthBook, click the **Done** button. We have an entire guide dedicated to [setting up and using the Visual Editor](/app/visual), so check it out if you get stuck or want to try some of the more advanced features like drag-and-drop reordering.
-
-### Step 5. Start Your Experiment!
-
-When you are ready, click the **Start Experiment** button. Within seconds, GrowthBook will begin to bucket users into your variations. You can just as easily stop or make changes if needed.
-
-Follow the Experiment Analysis section below to learn how to connect GrowthBook to your data and view results. Depending on the analytics tool and data warehouse that you use, it can take up to 24 hours for results to start showing up after you start an experiment.
-
 ## Experiment Analysis
 
 ### Step 1. Connect to Your Data Warehouse
 
-GrowthBook is warehouse native: it connects to your data warehouse and queries it to get the results of your experiments.
-We support all the popular SQL data warehouses such as BigQuery, Snowflake, Postgres, MySQL, Redshift, Databricks, and even Mixpanel.
+GrowthBook is warehouse native: it connects to your data warehouse and queries it to get the results of your experiments. We support all major SQL data warehouses such as BigQuery, Snowflake, Postgres, MySQL, Redshift, Databricks, and ClickHouse.
+
 GrowthBook is extremely flexible and can support almost any schema structure with a bit of configuration.
 
 :::info **Don't have a data warehouse?**
@@ -145,14 +70,15 @@ Our most popular option is to have [Google Analytics 4 (GA4) sync data to BigQue
 
 :::
 
-To connect GrowthBook to your data warehouse, add a data source. Go to **Metrics and Data** &rarr; **Data Sources**. From here, click **Add Data Source**. Follow the instructions to connect to your data warehouse and event trackers. Providing your data warehouse information enables GrowthBook to connect to your data warehouse and execute queries. The event tracker information allows GrowthBook to
-generate more accurate SQL templates given the schema the event tracker uses.
+To connect GrowthBook to your data warehouse, go to **Metrics and Data** &rarr; **Data Sources**. Select the type of data source to get started. We then ask you to select your event tracker. This step is optional, but highly recommended as it allows us to generate initial SQL that works out of the box. If you want to skip, just select **Custom**.
+
+Lastly, fill out the connection details. This typically includes the host, port, database name, username, and password, although this varies by data warehouse type. GrowthBook only requires read-only access to the tables and views needed for your experiments and metrics.
 
 Additional guides on [how to set up the data source for your specific data warehouse](/warehouses) are available.
 
 ### Step 2. Add a Metric or Two
 
-GrowthBook needs to know what metrics you want to measure for your experiments. For the easiest setup, we recommend using Fact Tables. Most users create a Fact Table for each type of event (Sign Up, Purchase, etc.). With Fact Tables in place, you can then quickly create a library of metrics (Sign-Up Rate, Revenue per User, Items per Order, etc.).
+GrowthBook needs to know what metrics you want to measure for your experiments. This starts by creating one or more Fact Tables using SQL, which selects raw data from your warehouse. Metrics are then built on top of these Fact Tables.
 
 Go to **Metrics and Data** &rarr; **Fact Tables**. Click **Add a Fact Table** and edit the default SQL if needed. Here's an example SQL query for an Orders fact table.
 
@@ -167,11 +93,11 @@ FROM orders
 
 Once the fact table is created, you can easily add metrics on top of it. For example, consider a simple proportion metric, which measures the percentage of experiment users who complete an action at least once. In this case, it'd measure the percentage of users who made a purchase.
 
-Metrics in GrowthBook are powerful and have many advanced settings. Read about them on our [Fact Tables page](/app/metrics).
+Metrics in GrowthBook are powerful and have many advanced settings. Read about them on our [Metrics page](/app/metrics).
 
 ### Step 3. View Experiment Results
 
-Go to the **Experiments** page. If you implemented an experiment using feature flags or our Visual Editor, your experiment will already be listed. Click through to it. If you ran your experiment outside of GrowthBook instead, that's fine, too! Add a new experiment and select the **Analyze Existing** option.
+Go to the **Experiments** page. If you implemented an experiment using feature flags, your experiment will already be listed. Click through to it. If you ran your experiment outside of GrowthBook instead, that's fine, too! Add a new experiment and select the **Import Existing** option.
 
 Once inside your experiment, go to the **Results** tab. Edit your analysis settings and pick the metrics you created earlier. The results will show up in a table like this:
 

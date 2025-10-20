@@ -30,6 +30,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
@@ -41,7 +42,6 @@ export default function BanditRefNewFields({
   source,
   feature,
   project,
-  environment,
   environments,
   revisions,
   version,
@@ -67,8 +67,7 @@ export default function BanditRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
+  environments: string[];
   revisions?: FeatureRevisionInterface[];
   version?: number;
   prerequisiteValue: FeaturePrerequisite[];
@@ -241,7 +240,7 @@ export default function BanditRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={environment ? [environment] : (environments ?? [])}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -351,6 +350,20 @@ export default function BanditRefNewFields({
             }
             collapseSecondary={true}
             collapseGuardrail={true}
+          />
+
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
+            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
+            setPinnedMetricSlices={(slices) =>
+              form.setValue("pinnedMetricSlices", slices)
+            }
           />
 
           <hr className="mt-4" />

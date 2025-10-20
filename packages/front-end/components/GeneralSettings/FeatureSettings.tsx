@@ -15,7 +15,7 @@ import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
 import Frame from "@/ui/Frame";
 
-export default function FeaturesSettings() {
+export default function FeatureSettings() {
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
 
@@ -55,7 +55,7 @@ export default function FeaturesSettings() {
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
-            Features Settings
+            Feature Settings
           </Heading>
         </Box>
 
@@ -221,6 +221,84 @@ export default function FeaturesSettings() {
               </Flex>
             </Box>
           )}
+
+          <Box mb="6" width="100%">
+            <Flex align="start" justify="start" gap="3">
+              <Box>
+                <Checkbox
+                  id="toggle-defaultFeatureRulesInAllEnvs"
+                  value={!!form.watch("defaultFeatureRulesInAllEnvs")}
+                  setValue={(value) => {
+                    form.setValue("defaultFeatureRulesInAllEnvs", value, {
+                      shouldDirty: true,
+                    });
+                  }}
+                  mt="1"
+                />
+              </Box>
+              <Flex
+                direction="column"
+                justify="start"
+                style={{ marginTop: "1px" }}
+              >
+                <Box>
+                  <Text
+                    size="3"
+                    className="font-weight-semibold"
+                    htmlFor="toggle-defaultFeatureRulesInAllEnvs"
+                    as="label"
+                    mb="2"
+                  >
+                    Create rules in all environments by default
+                  </Text>
+                </Box>
+                <Box>
+                  <Text size="2" color="gray">
+                    If enabled, new feature rules will be created in all
+                    environments by default.
+                  </Text>
+                </Box>
+              </Flex>
+            </Flex>
+          </Box>
+
+          <Box mb="5">
+            <Text
+              as="label"
+              size="2"
+              className="font-weight-semibold"
+              htmlFor="preferredEnvironment"
+            >
+              Preferred environment for feature pages:
+            </Text>
+            <Flex>
+              <SelectField
+                className="my-2"
+                value={form.watch("preferredEnvironment") || ""}
+                isClearable
+                options={[
+                  {
+                    label: "Remember previous environment",
+                    value: "",
+                  },
+                  ...environments.map((env) => ({
+                    label: env.id,
+                    value: env.id,
+                  })),
+                ]}
+                formatOptionLabel={(option) => {
+                  if (option.value === "") {
+                    return <em>{option.label}</em>;
+                  }
+                  return option.label;
+                }}
+                onChange={(v: string) =>
+                  form.setValue("preferredEnvironment", v)
+                }
+                sort={false}
+              />
+            </Flex>
+          </Box>
 
           {hasRequireApprovals && (
             <>

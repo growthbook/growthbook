@@ -116,15 +116,15 @@ export default function FactTablesPage() {
     (table) => {
       const sortedUserIdTypes = [...table.userIdTypes];
       sortedUserIdTypes.sort();
-      const numDimensions = table.columns.filter(
-        (col) => col.isDimension && !col.deleted,
+      const numAutoSlices = table.columns.filter(
+        (col) => col.isAutoSliceColumn && !col.deleted,
       ).length;
       return {
         ...table,
         datasourceName: getDatasourceById(table.datasource)?.name || "Unknown",
         numMetrics: factMetricCounts[table.id] || 0,
         numFilters: table.filters.length,
-        numDimensions,
+        numAutoSlices,
         userIdTypes: sortedUserIdTypes,
       };
     },
@@ -401,7 +401,7 @@ export default function FactTablesPage() {
                 <th>Projects</th>
                 <SortableTH field="userIdTypes">Identifier Types</SortableTH>
                 <SortableTH field="numMetrics">Metrics</SortableTH>
-                <SortableTH field="numDimensions">Dimensions</SortableTH>
+                <SortableTH field="numAutoSlices">Auto Slices</SortableTH>
                 <SortableTH field="numFilters">Filters</SortableTH>
                 <SortableTH field="owner">Owner</SortableTH>
                 <SortableTH field="dateUpdated">Last Updated</SortableTH>
@@ -412,6 +412,26 @@ export default function FactTablesPage() {
                 <tr
                   key={f.id}
                   onClick={(e) => {
+                    // If clicking on a link or button, default to browser behavior
+                    if (
+                      e.target instanceof HTMLElement &&
+                      e.target.closest("a, button")
+                    ) {
+                      return;
+                    }
+
+                    // If cmd/ctrl/shift+click, open in new tab
+                    if (
+                      e.metaKey ||
+                      e.ctrlKey ||
+                      e.shiftKey ||
+                      e.button === 1
+                    ) {
+                      window.open(`/fact-tables/${f.id}`, "_blank");
+                      return;
+                    }
+
+                    // Otherwise, navigate to the fact table
                     e.preventDefault();
                     router.push(`/fact-tables/${f.id}`);
                   }}
@@ -419,7 +439,11 @@ export default function FactTablesPage() {
                 >
                   <td>
                     <Link href={`/fact-tables/${f.id}`}>{f.name}</Link>
-                    <OfficialBadge type="fact table" managedBy={f.managedBy} />
+                    <OfficialBadge
+                      type="fact table"
+                      managedBy={f.managedBy}
+                      leftGap={true}
+                    />
                   </td>
                   <td>{f.datasourceName}</td>
                   <td>
@@ -443,7 +467,7 @@ export default function FactTablesPage() {
                     ))}
                   </td>
                   <td>{f.numMetrics}</td>
-                  <td>{f.numDimensions}</td>
+                  <td>{f.numAutoSlices}</td>
                   <td>{f.numFilters}</td>
                   <td>{f.owner}</td>
                   <td>{f.dateUpdated ? date(f.dateUpdated) : null}</td>

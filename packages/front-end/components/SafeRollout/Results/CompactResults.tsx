@@ -290,7 +290,6 @@ export function getRenderLabelColumn({
             metric={metric}
             row={row}
             statsEngine={statsEngine}
-            reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
             hideDetails={hideDetails}
           />
         }

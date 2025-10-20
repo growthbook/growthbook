@@ -161,9 +161,16 @@ export function useCombinedMetrics({
       return item;
     }),
     ...factMetrics.map((m) => {
-      const canDuplicate = permissionsUtil.canCreateFactMetric(m);
-      const canEdit = permissionsUtil.canUpdateFactMetric(m, {});
-      const canDelete = permissionsUtil.canDeleteFactMetric(m);
+      const canDuplicate = permissionsUtil.canCreateFactMetric({
+        projects: m.projects,
+      });
+      let canEdit = permissionsUtil.canUpdateFactMetric(m, {});
+      let canDelete = permissionsUtil.canDeleteFactMetric(m);
+
+      if (m.managedBy && ["admin", "api"].includes(m.managedBy)) {
+        canEdit = false;
+        canDelete = false;
+      }
 
       const item: MetricTableItem = {
         id: m.id,
@@ -538,6 +545,21 @@ const MetricsList = (): React.ReactElement => {
               <tr
                 key={metric.id}
                 onClick={(e) => {
+                  // If clicking on a link or button, default to browser behavior
+                  if (
+                    e.target instanceof HTMLElement &&
+                    e.target.closest("a, button")
+                  ) {
+                    return;
+                  }
+
+                  // If cmd/ctrl/shift+click, open in new tab
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+                    window.open(getMetricLink(metric.id), "_blank");
+                    return;
+                  }
+
+                  // Otherwise, navigate to the metric
                   e.preventDefault();
                   router.push(getMetricLink(metric.id));
                 }}
@@ -551,7 +573,7 @@ const MetricsList = (): React.ReactElement => {
                       metric.archived ? "text-muted" : "text-dark"
                     } font-weight-bold`}
                   >
-                    <MetricName id={metric.id} />
+                    <MetricName id={metric.id} officialBadgePosition="left" />
                   </Link>
                 </td>
                 <td>{metric.type}</td>
