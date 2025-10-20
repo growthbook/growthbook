@@ -1,3 +1,5 @@
+import "../../dist/init/aliases.js";
+
 import pkg from "crypto-js";
 const { AES, enc } = pkg;
 
