@@ -120,9 +120,10 @@ export default function EditSingleBlock({
   const [selectedMetricIdForPinning, setSelectedMetricIdForPinning] =
     useState<string>("");
 
-  // Get snapshot and analysis data
-  const { snapshot } = useDashboardSnapshot(block, setBlock);
-  const { dimensionless } = useContext(DashboardSnapshotContext);
+  const { analysis } = useDashboardSnapshot(block, setBlock);
+  const { defaultSnapshot, dimensionless } = useContext(
+    DashboardSnapshotContext,
+  );
 
   // Get block context from workspace level
   const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
@@ -375,7 +376,10 @@ export default function EditSingleBlock({
   const dimensionOptions = useMemo(() => {
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
-      precomputedDimensions: getPrecomputedDimensions(snapshot, dimensionless),
+      precomputedDimensions: getPrecomputedDimensions(
+        defaultSnapshot,
+        dimensionless,
+      ),
       datasource,
       dimensions,
       exposureQueryId: experiment.exposureQueryId,
@@ -388,7 +392,17 @@ export default function EditSingleBlock({
         (option) => option.value !== "pre:date",
       ),
     }));
-  }, [experiment, dimensions, getDatasourceById, snapshot, dimensionless]);
+  }, [
+    experiment,
+    dimensions,
+    getDatasourceById,
+    defaultSnapshot,
+    dimensionless,
+  ]);
+
+  const dimensionValueOptions = analysis?.results
+    ? analysis.results.map(({ name }) => ({ value: name, label: name }))
+    : [];
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -892,7 +906,7 @@ export default function EditSingleBlock({
                 onChange={(value) =>
                   setBlock({ ...block, dimensionValues: value })
                 }
-                options={dimensionOptions}
+                options={dimensionValueOptions}
               />
             )}
             {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
