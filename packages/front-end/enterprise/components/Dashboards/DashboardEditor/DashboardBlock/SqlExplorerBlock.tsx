@@ -61,11 +61,9 @@ export default function SqlExplorerBlock({
         </div>
       );
     } else {
-      // Render visualization
-      //MKTODO: We need to add ids to each visualization so we can reference by that instead
-      // But we'll still need to fall back to the title if the visualization doesn't have an id
+      // Render visualization - try to find by ID first, then fallback to title
       const dataVizConfig = savedQuery.dataVizConfig?.find(
-        (config) => config.title === configId,
+        (config) => config.id === configId || config.title === configId,
       );
       if (!dataVizConfig) return null;
 

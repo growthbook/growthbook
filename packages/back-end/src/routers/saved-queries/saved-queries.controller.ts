@@ -1,17 +1,29 @@
 import { Response } from "express";
 import { getValidDate } from "shared/dates";
 import { z } from "zod";
+import { v4 as uuidv4 } from "uuid";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import {
+  DataVizConfig,
+  SavedQuery,
+  SavedQueryCreateProps,
+  SavedQueryUpdateProps,
+} from "back-end/src/validators/saved-queries";
+
+/**
+ * Ensures all dataVizConfig items have IDs. Adds IDs to any items that don't have them.
+ */
+function ensureDataVizIds(dataVizConfig: DataVizConfig[]): DataVizConfig[] {
+  return dataVizConfig.map((config) => ({
+    ...config,
+    id: config.id || `data-viz_${uuidv4()}`,
+  }));
+}
 import {
   getAISettingsForOrg,
   getContextFromReq,
 } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  SavedQuery,
-  SavedQueryCreateProps,
-  SavedQueryUpdateProps,
-} from "back-end/src/validators/saved-queries";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { runFreeFormQuery } from "back-end/src/services/datasource";
 import {
@@ -112,7 +124,7 @@ export async function postSavedQuery(
     datasourceId,
     dateLastRan: getValidDate(dateLastRan),
     results,
-    dataVizConfig,
+    dataVizConfig: ensureDataVizIds(dataVizConfig || []),
     linkedDashboardIds,
   });
   res.status(200).json({
@@ -136,6 +148,9 @@ export async function putSavedQuery(
     ...req.body,
     dateLastRan: req.body.dateLastRan
       ? getValidDate(req.body.dateLastRan)
+      : undefined,
+    dataVizConfig: req.body.dataVizConfig
+      ? ensureDataVizIds(req.body.dataVizConfig)
       : undefined,
   };
 
