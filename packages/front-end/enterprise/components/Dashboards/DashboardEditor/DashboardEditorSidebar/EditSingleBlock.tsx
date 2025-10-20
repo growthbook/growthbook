@@ -15,7 +15,7 @@ import {
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import { PiPencilSimpleFill, PiPlus, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
@@ -801,6 +801,7 @@ export default function EditSingleBlock({
               (block as { pinSource?: string }).pinSource === "custom" && (
                 <div className="border rounded mb-2">
                   <div className="px-3 pt-2 pb-1 border-bottom">
+                    <PiPushPinFill className="mr-1" style={{ marginTop: -2 }} />
                     <Text weight="medium">Custom Pin Selection</Text>
 
                     <SelectField
