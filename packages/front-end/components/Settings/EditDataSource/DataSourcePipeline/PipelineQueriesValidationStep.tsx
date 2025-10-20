@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState, useEffect, useRef } from "react";
-import { getRequiredColumnsForPipelineSettings } from "shared/enterprise";
 import { PiArrowClockwise } from "react-icons/pi";
 import cloneDeep from "lodash/cloneDeep";
 import { FactTableInterface } from "back-end/types/fact-table";
@@ -82,11 +81,8 @@ const PipelineQueriesValidationStep = ({
   });
 
   const requiredColumns = useMemo(() => {
-    if (!dataSource.settings.pipelineSettings) return [];
-    return getRequiredColumnsForPipelineSettings(
-      dataSource.settings.pipelineSettings,
-    );
-  }, [dataSource.settings.pipelineSettings]);
+    return [];
+  }, []);
 
   const [editExposureSqlIdx, setEditExposureSqlIdx] = useState<number | null>(
     null,

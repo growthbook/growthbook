@@ -20,7 +20,7 @@ export default function PipelinePartitionValidationStep({
   );
 
   const validateByIds = useCallback(
-    async (ids: string[]): Promise<Record<string, string>> => {
+    async (ids: string[]): Promise<Record<string, unknown>> => {
       if (!ids.length) return {};
       try {
         const res = await apiCall<{
@@ -35,7 +35,7 @@ export default function PipelinePartitionValidationStep({
           method: "POST",
           body: JSON.stringify({ queryIds: ids }),
         });
-        const map: Record<string, ValidationStatus> = {};
+        const map: Record<string, unknown> = {};
         (res.queryResults || []).forEach((r) => {
           map[r.id] = {
             id: r.id,
@@ -46,7 +46,7 @@ export default function PipelinePartitionValidationStep({
         });
         return map;
       } catch (e) {
-        const map: Record<string, ValidationStatus> = {};
+        const map: Record<string, unknown> = {};
         ids.forEach((id) => {
           map[id] = {
             id,

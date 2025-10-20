@@ -300,7 +300,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "dashboards",
     "precomputed-dimensions",
     "incremental-refresh",
-    "metric-dimensions",
     "metric-slices",
     "manage-official-resources",
   ]),

@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { DataSourceType } from "back-end/types/datasource";
 import { Box, Card, Flex, Heading, Text } from "@radix-ui/themes";
-import type { PartitionSettings } from "back-end/src/types/Integration";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
@@ -49,6 +48,7 @@ export default function DataSourcePipeline({
       if (pipelineSettings?.mode === "ephemeral") {
         return "Enabled (Ephemeral)";
       }
+      const _exhaustiveCheck: never = pipelineSettings?.mode;
       return "Enabled";
     }
     return "Disabled";
@@ -62,6 +62,7 @@ export default function DataSourcePipeline({
       if (pipelineSettings?.mode === "ephemeral") {
         return "Create temporary tables per-experiment refresh.";
       }
+      const _exhaustiveCheck: never = pipelineSettings?.mode;
       return "Create intermediate tables to improve query performance.";
     }
     return "Run read queries only, no intermediate tables written.";
@@ -126,15 +127,6 @@ export default function DataSourcePipeline({
                   }${pipelineSettings.writeDataset}`}
                 </code>
               </Box>
-
-              {pipelineSettings?.partitionSettings ? (
-                <Box>
-                  <Text weight="medium">Partition: </Text>
-                  <PartitionSettingsSummary
-                    settings={pipelineSettings.partitionSettings}
-                  />
-                </Box>
-              ) : null}
             </Flex>
           )}
         </Flex>
@@ -149,45 +141,4 @@ export default function DataSourcePipeline({
       ) : null}
     </Box>
   );
-}
-
-function PartitionSettingsSummary({
-  settings,
-}: {
-  settings: PartitionSettings;
-}) {
-  switch (settings.type) {
-    case "timestamp":
-      return (
-        <>
-          <code>timestamp</code>
-        </>
-      );
-    case "yearMonthDay":
-      return (
-        <>
-          <code>yearMonthDate</code>
-          {" ["}
-          <code>year={settings.yearColumn}</code>
-          {", "}
-          <code>month={settings.monthColumn}</code>
-          {", "}
-          <code>day={settings.dayColumn}</code>
-          {"]"}
-        </>
-      );
-    case "date":
-      return (
-        <>
-          <code>date</code>
-          {" ["}
-          <code>date={settings.dateColumn}</code>
-          {"]"}
-        </>
-      );
-    default: {
-      const _exhaustiveCheck: never = settings as never;
-      return _exhaustiveCheck;
-    }
-  }
 }

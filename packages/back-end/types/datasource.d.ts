@@ -1,4 +1,3 @@
-import { PartitionSettings } from "../src/types/Integration";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";

@@ -194,12 +194,6 @@ export const startExperimentIncrementalRefreshQueries = async (
     hasIncrementalRefreshFeature &&
     settings.pipelineSettings?.mode === "incremental";
 
-  // TODO(incremental-refresh): error instead of fall back?
-  const partitionSettings = integration.datasource.settings.pipelineSettings
-    ?.partitionSettings ?? {
-    type: "timestamp",
-  };
-
   const queries: Queries = [];
 
   if (!canRunIncrementalRefreshQueries) {
@@ -339,8 +333,6 @@ export const startExperimentIncrementalRefreshQueries = async (
     segment: segmentObj,
     factTableMap: params.factTableMap,
     lastMaxTimestamp: lastMaxTimestamp,
-    partitionSettings:
-      integration.datasource.settings.pipelineSettings?.partitionSettings,
   };
 
   let createUnitsTableQuery: QueryPointer | null = null;
@@ -514,7 +506,6 @@ export const startExperimentIncrementalRefreshQueries = async (
           settings: snapshotSettings,
           metrics: group.metrics,
           factTableMap: params.factTableMap,
-          partitionSettings: partitionSettings,
           metricSourceTableFullName,
         }),
         dependencies: [alterUnitsTableQuery.query],
@@ -534,7 +525,6 @@ export const startExperimentIncrementalRefreshQueries = async (
       metricSourceTableFullName,
       unitsSourceTableFullName: unitsTableFullName,
       metrics: group.metrics,
-      partitionSettings: partitionSettings,
       lastMaxTimestamp: existingSource?.maxTimestamp ?? undefined,
     };
 

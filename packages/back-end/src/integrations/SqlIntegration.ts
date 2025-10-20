@@ -99,9 +99,7 @@ import {
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
   InsertMetricSourceDataQueryParams,
-  DropMetricSourceTableQueryParams,
   DimensionColumnData,
-  PartitionSettings,
   MaxTimestampQueryResponse,
   ExperimentFactMetricsQueryResponseRows,
   IncrementalRefreshStatisticsQueryParams,
@@ -372,7 +370,7 @@ export default abstract class SqlIntegration
     return `${col} IS ${value ? "TRUE" : "FALSE"}`;
   }
 
-  getExposureQuery(
+  protected getExposureQuery(
     exposureQueryId: string,
     userIdType?: "anonymous" | "user",
   ): ExposureQuery {
@@ -1869,13 +1867,13 @@ export default abstract class SqlIntegration
     unitsTableFullName: string,
     cteSql: string,
   ): string {
+    // TODO: How to ensure the partition matches the CTE? same with table name
     return format(
-      `
-    CREATE TABLE ${unitsTableFullName}
-    ${this.createUnitsTableOptions()}
-    AS (
-      WITH
-        ${cteSql}
+      `CREATE TABLE ${unitsTableFullName}
+      ${this.createUnitsTablePartitions(["first_exposure_timestamp"])}
+      ${this.createUnitsTableOptions()}
+      AS (
+        WITH ${cteSql}
       SELECT * FROM __experimentUnits
     )
     `,
@@ -1884,10 +1882,14 @@ export default abstract class SqlIntegration
   }
 
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
+    if (!params.unitsTableFullName) {
+      throw new Error("Units table full name is required");
+    }
+
     const cteSql = this.getExperimentUnitsQuery(params);
 
     return this.getExperimentUnitsTableQueryFromCte(
-      params.unitsTableFullName || "",
+      params.unitsTableFullName,
       cteSql,
     );
   }
@@ -4810,6 +4812,7 @@ export default abstract class SqlIntegration
   getDefaultDatabase() {
     return "";
   }
+
   generateTablePath(
     tableName: string,
     schema?: string,
@@ -5432,6 +5435,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     if (startDate) {
       const operator = exclusiveStartDateFilter ? ">" : ">=";
       where.push(`m.timestamp ${operator} ${this.toTimestamp(startDate)}`);
+      // TODO(adriel): Should we keep this here? Or can we remove if we are supporting only timestamp/date partition?
       if (additionalPartitionFilters) {
         where.push(additionalPartitionFilters);
       }
@@ -5906,16 +5910,16 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     overrideConversionWindows,
     endDate,
     metricQuantileSettings,
-    metricTimestampCol = "m.timestamp",
-    exposureTimestampCol = "d.timestamp",
+    metricTimestampCol,
+    exposureTimestampCol,
   }: {
     col: string;
     metric: ExperimentMetricInterface;
     overrideConversionWindows: boolean;
     endDate: Date;
     metricQuantileSettings?: MetricQuantileSettings;
-    metricTimestampCol?: string;
-    exposureTimestampCol?: string;
+    metricTimestampCol: string;
+    exposureTimestampCol: string;
   }): string {
     return `${this.ifElse(
       `${this.getConversionWindowClause(
@@ -6295,36 +6299,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     throw new Error(`Missing identifier join table for '${id1}' and '${id2}'.`);
   }
 
-  // Incremental Refresh Queries
-  hllDataType(): string {
-    return "VARBINARY"; // TODO(incremental-refresh): check for all engines
-  }
-
   // Pipeline validation queries (engine-aware)
-  getPipelineValidationCreateTableQuery({
-    tableFullName,
-  }: {
-    tableFullName: string;
-  }): string {
-    return `CREATE TABLE ${tableFullName} (test_col ${this.getSQLDataType(
-      "string",
-    )}, created_at ${this.getSQLDataType("timestamp")})`;
-  }
-
   getPipelineValidationInsertQuery({
     tableFullName,
   }: {
     tableFullName: string;
   }): string {
-    return `INSERT INTO ${tableFullName} (user_id, variation, first_exposure_timestamp) VALUES ('user_3', 'A', CURRENT_TIMESTAMP(0))`;
-  }
-
-  getPipelineValidationDropTableQuery({
-    tableFullName,
-  }: {
-    tableFullName: string;
-  }): string {
-    return `DROP TABLE IF EXISTS ${tableFullName}`;
+    // TODO(adriel): Update current_timestamp to be engine-aware
+    return `INSERT INTO
+      ${tableFullName}
+      (user_id, variation, first_exposure_timestamp)
+      VALUES
+      ('user_3', 'A', CURRENT_TIMESTAMP(0))
+    `;
   }
 
   getAggregationMetadata({
@@ -6488,7 +6475,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     settings: ExperimentSnapshotSettings;
     factTableMap: FactTableMap;
     metricSourceTableFullName: string;
-    partitionSettings: PartitionSettings | undefined;
     forcedUserIdType?: string;
   }): {
     metricData: FactMetricData[];
@@ -6598,23 +6584,22 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
-    // TODO(do we need to add options?): this.createUnitsTableOptions()
     return format(
       `
     CREATE TABLE ${params.unitsTableFullName}
     (
-      ${exposureQuery.userIdType} ${this.getSQLDataType("string")}
-      , variation ${this.getSQLDataType("string")}
-      , first_exposure_timestamp ${this.getSQLDataType("timestamp")}
+      ${exposureQuery.userIdType} ${this.getDataType("string")}
+      , variation ${this.getDataType("string")}
+      , first_exposure_timestamp ${this.getDataType("timestamp")}
       ${
         activationMetric
-          ? `, first_activation_timestamp ${this.getSQLDataType("timestamp")}`
+          ? `, first_activation_timestamp ${this.getDataType("timestamp")}`
           : ""
       }
       ${experimentDimensions
-        .map((d) => `, dim_exp_${d.id} ${this.getSQLDataType("string")}`)
+        .map((d) => `, dim_exp_${d.id} ${this.getDataType("string")}`)
         .join("\n")}
-      , max_timestamp ${this.getSQLDataType("timestamp")}
+      , max_timestamp ${this.getDataType("timestamp")}
     )
     ${this.createUnitsTablePartitions(["max_timestamp"])}
     ${this.createUnitsTableOptions()}
@@ -6623,70 +6608,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
-  getPartitionWhereClause(
-    partitionSettings: PartitionSettings,
-    date: Date,
-    type: "onOrAfter" | "onOrBefore",
-  ): string {
-    // TODO(incremental-refresh): put behind a feature flag
-    // as year month day has particular needs (string datatype, 0 padded)
-    // if (partitionSettings.type === "yearMonthDay") {
-    //   const year = date.getFullYear();
-    //   const month = date.getMonth() + 1;
-    //   const day = date.getDate();
-    //   switch (type) {
-    //     case "onOrAfter":
-    //       return `
-    //         (
-    //           ${partitionSettings.yearColumn} >= '${year}'
-    //           AND ${
-    //             partitionSettings.monthColumn
-    //           } >= '${month.toString().padStart(2, "0")}'
-    //           AND ${partitionSettings.dayColumn} >= '${day
-    //             .toString()
-    //             .padStart(2, "0")}'
-    //         ) OR (
-    //           ${partitionSettings.yearColumn} >= '${year}'
-    //           AND ${
-    //             partitionSettings.monthColumn
-    //           } > '${month.toString().padStart(2, "0")}'
-    //         ) OR (
-    //           ${partitionSettings.yearColumn} > '${year}'
-    //         )
-    //       `;
-    //     case "onOrBefore":
-    //       return `
-    //         (
-    //           ${partitionSettings.yearColumn} <= '${year}'
-    //           AND ${
-    //             partitionSettings.monthColumn
-    //           } <= '${month.toString().padStart(2, "0")}'
-    //           AND ${partitionSettings.dayColumn} <= '${day
-    //             .toString()
-    //             .padStart(2, "0")}'
-    //         ) OR (
-    //           ${partitionSettings.yearColumn} <= '${year}'
-    //           AND ${
-    //             partitionSettings.monthColumn
-    //           } < '${month.toString().padStart(2, "0")}'
-    //         ) OR (
-    //           ${partitionSettings.yearColumn} < '${year}'
-    //         )
-    //       `;
-    //   }
-    // }
-    // if (partitionSettings.type === "date") {
-    //   switch (type) {
-    //     case "onOrAfter":
-    //       return `
-    //         ${partitionSettings.dateColumn} >= '${date.toISOString()}'
-    //       `;
-    //     case "onOrBefore":
-    //       return `
-    //         ${partitionSettings.dateColumn} <= '${date.toISOString()}'
-    //       `;
-    //   }
-    // }
+  getPartitionWhereClause(): string {
     // TODO(incremental-refresh): this works for "timestamp" type
     // because we always pair the result of this partition clause
     // with a timestamp filter; but we should probably combine the logic to
@@ -6698,20 +6620,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   getUpdateExperimentIncrementalUnitsQuery(
     params: UpdateExperimentIncrementalUnitsQueryParams,
   ): string {
-    const { settings, partitionSettings, segment, factTableMap } = params;
+    const { settings, segment, factTableMap } = params;
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
-    // if (!partitionSettings) {
-    //   throw new Error(
-    //     "Partition settings are required for incremental refresh",
-    //   );
-    // }
-    const partitionWhereClause = this.getPartitionWhereClause(
-      partitionSettings,
-      params.lastMaxTimestamp,
-      "onOrAfter",
-    );
+    const partitionWhereClause = this.getPartitionWhereClause();
 
     const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE({
       objects: [
@@ -6737,7 +6650,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const endDate = this.getExperimentEndDate(settings, 0);
 
     const endDatePartitionFilter = endDate
-      ? this.getPartitionWhereClause(partitionSettings, endDate, "onOrBefore")
+      ? this.getPartitionWhereClause()
       : "";
 
     // Segment and SQL filter only check against new exposures
@@ -6903,6 +6816,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     };
   }
 
+  // TODO(adriel): How can we simplify this? We have many wrappers around runQuery
   async runIncrementalWithNoOutputQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
@@ -6911,7 +6825,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     return results;
   }
 
-  getSQLDataType(dataType: DataType): string {
+  // TODO(adriel): Should we add this method to SourceIntegrationInterface ?
+  getDataType(dataType: DataType): string {
     switch (dataType) {
       case "string":
         return "VARCHAR";
@@ -6926,7 +6841,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       case "timestamp":
         return "TIMESTAMP";
       case "hll":
-        return this.hllDataType();
+        return "VARBINARY";
       default: {
         const _: never = dataType;
         throw new Error(`Unsupported data type: ${dataType}`);
@@ -6934,6 +6849,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     }
   }
 
+  // TODO(adriel): Is it worth merging this with getMaxTimestampIncrementalUnitsQuery?
   getMaxTimestampMetricSourceQuery(
     params: MaxTimestampMetricSourceQueryParams,
   ): string {
@@ -6945,6 +6861,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
+  // TODO(adriel): This includes options that will expire the table by default.
+  // We need to find a better way to handle it
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
   ): string {
@@ -6978,19 +6896,19 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     CREATE TABLE ${params.metricSourceTableFullName}
     ${this.createUnitsTableOptions()}
     (
-      ${baseIdType} ${this.getSQLDataType("string")}
+      ${baseIdType} ${this.getDataType("string")}
       ${sortedMetrics
         .map(
           (
             m,
-          ) => `, ${m.metric.id}_value ${this.getSQLDataType(m.numeratorMetadata.dataType)}
-        ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getSQLDataType(m.denominatorMetadata.dataType)}` : ""}
+          ) => `, ${m.metric.id}_value ${this.getDataType(m.numeratorMetadata.dataType)}
+        ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getDataType(m.denominatorMetadata.dataType)}` : ""}
         `,
         )
         .join("\n")}
-      , refresh_timestamp ${this.getSQLDataType("timestamp")}
-      , max_timestamp ${this.getSQLDataType("timestamp")}
-      , metric_date ${this.getSQLDataType("date")}
+      , refresh_timestamp ${this.getDataType("timestamp")}
+      , max_timestamp ${this.getDataType("timestamp")}
+      , metric_date ${this.getDataType("date")}
     )
     ${this.createUnitsTablePartitions(["max_timestamp", "metric_date"])}
     `,
@@ -7051,19 +6969,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         ? params.lastMaxTimestamp
         : metricStart;
 
-    const metricStartDatePartitionFilter = this.getPartitionWhereClause(
-      params.partitionSettings,
-      startDate,
-      "onOrAfter",
-    );
+    const metricStartDatePartitionFilter = this.getPartitionWhereClause();
 
     let metricEndDatePartitionFilter: string | undefined;
     if (metricEnd) {
-      metricEndDatePartitionFilter = this.getPartitionWhereClause(
-        params.partitionSettings,
-        metricEnd,
-        "onOrBefore",
-      );
+      metricEndDatePartitionFilter = this.getPartitionWhereClause();
     }
 
     const additionalPartitionFilters = [
@@ -7121,6 +7031,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
                     metricQuantileSettings: data.quantileMetric
                       ? data.metricQuantileSettings
                       : undefined,
+                    // TODO(adriel): Should this be timestamp or something? as this is not a col name
                     metricTimestampCol: "cast(m.timestamp as timestamp)",
                     exposureTimestampCol: "d.first_exposure_timestamp",
                   })} AS ${data.alias}_value
@@ -7278,41 +7189,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       `,
       this.getFormatDialect(),
     );
-  }
-
-  getDropMetricSourceTableQuery(
-    params: DropMetricSourceTableQueryParams,
-  ): string {
-    return format(
-      `
-      DROP TABLE IF EXISTS ${params.metricSourceTableFullName}
-      `,
-      this.getFormatDialect(),
-    );
-  }
-
-  async runCreateMetricSourceTableQuery(
-    sql: string,
-    setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
-    const results = await this.runQuery(sql, setExternalId);
-    return results;
-  }
-
-  async runInsertMetricSourceDataQuery(
-    sql: string,
-    setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
-    const results = await this.runQuery(sql, setExternalId);
-    return results;
-  }
-
-  async runDropMetricSourceTableQuery(
-    sql: string,
-    setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
-    const results = await this.runQuery(sql, setExternalId);
-    return results;
   }
 
   async runIncrementalRefreshStatisticsQuery(

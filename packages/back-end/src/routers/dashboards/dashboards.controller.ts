@@ -215,6 +215,8 @@ export async function refreshDashboardData(
       metricMap: await getMetricMap(context),
       queryParentId: mainSnapshot.id,
       factTableMap: await getFactTableMap(context),
+      // TODO(adriel): Is this correct?
+      fullRefresh: false,
     });
   } else {
     await deleteSnapshotById(context.org.id, mainSnapshot.id);

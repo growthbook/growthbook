@@ -20,12 +20,6 @@ export default class Presto extends SqlIntegration {
   getFormatDialect(): FormatDialect {
     return "trino";
   }
-  isWritingTablesSupported(): boolean {
-    return true;
-  }
-  dropUnitsTable(): boolean {
-    return true;
-  }
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
@@ -93,9 +87,6 @@ export default class Presto extends SqlIntegration {
             statistics.executionDurationMs = Number(stats.wallTimeMillis);
             statistics.bytesProcessed = Number(stats.processedBytes);
             statistics.rowsProcessed = Number(stats.processedRows);
-            statistics.physicalWrittenBytes = Number(
-              stats.physicalWrittenBytes,
-            );
           }
         },
         success: () => {

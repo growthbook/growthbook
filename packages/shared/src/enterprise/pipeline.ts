@@ -95,14 +95,18 @@ export function getPipelineValidationDropTableQuery({
 }
 
 export function bigQueryCreateTablePartitions(columns: string[]) {
+  // TODO: How to ensure the first argument is always a date column?
   const partitionBy = `PARTITION BY DATE(\`${columns[0]}\`)`;
 
+  // NB: BigQuery only supports one column for partitioning, so use cluster for the rest.
   if (columns.length === 1) {
     return partitionBy;
   } else {
-    return `${partitionBy} CLUSTER BY ${columns
+    const clusterBy = columns
       .slice(1)
       .map((column) => `\`${column}\``)
-      .join(", ")}`;
+      .join(", ");
+
+    return `${partitionBy} CLUSTER BY ${clusterBy}`;
   }
 }

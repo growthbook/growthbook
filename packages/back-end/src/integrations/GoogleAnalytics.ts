@@ -23,13 +23,11 @@ import {
   CreateExperimentIncrementalUnitsQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
-  DropTempIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
   InsertMetricSourceDataQueryParams,
-  DropMetricSourceTableQueryParams,
   IncrementalRefreshStatisticsQueryParams,
   DimensionSlicesQueryParams,
   PastExperimentParams,
@@ -177,11 +175,6 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): string {
     throw new Error("Method not implemented.");
   }
-  getDropTempIncrementalUnitsQuery(
-    _: DropTempIncrementalUnitsQueryParams,
-  ): string {
-    throw new Error("Method not implemented.");
-  }
   getAlterNewIncrementalUnitsQuery(
     _: AlterNewIncrementalUnitsQueryParams,
   ): string {
@@ -205,9 +198,6 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   getInsertMetricSourceDataQuery(_: InsertMetricSourceDataQueryParams): string {
     throw new Error("Method not implemented.");
   }
-  getDropMetricSourceTableQuery(_: DropMetricSourceTableQueryParams): string {
-    throw new Error("Method not implemented.");
-  }
   getIncrementalRefreshStatisticsQuery(
     _: IncrementalRefreshStatisticsQueryParams,
   ): string {
@@ -229,24 +219,6 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
     _query: string,
     _setExternalId: ExternalIdCallback,
   ): Promise<MaxTimestampQueryResponse> {
-    throw new Error("Method not implemented.");
-  }
-  runCreateMetricSourceTableQuery(
-    _query: string,
-    _setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
-    throw new Error("Method not implemented.");
-  }
-  runInsertMetricSourceDataQuery(
-    _query: string,
-    _setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
-    throw new Error("Method not implemented.");
-  }
-  runDropMetricSourceTableQuery(
-    _query: string,
-    _setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getUserExperimentExposuresQuery(): string {

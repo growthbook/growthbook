@@ -35,13 +35,11 @@ import {
   CreateExperimentIncrementalUnitsQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
   DropOldIncrementalUnitsQueryParams,
-  DropTempIncrementalUnitsQueryParams,
   AlterNewIncrementalUnitsQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
   CreateMetricSourceTableQueryParams,
   InsertMetricSourceDataQueryParams,
-  DropMetricSourceTableQueryParams,
   IncrementalRefreshStatisticsQueryParams,
   DimensionSlicesQueryParams,
   PastExperimentParams,
@@ -147,11 +145,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): string {
     throw new Error("Method not implemented.");
   }
-  getDropTempIncrementalUnitsQuery(
-    _params: DropTempIncrementalUnitsQueryParams,
-  ): string {
-    throw new Error("Method not implemented.");
-  }
   getAlterNewIncrementalUnitsQuery(
     _params: AlterNewIncrementalUnitsQueryParams,
   ): string {
@@ -177,11 +170,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): string {
     throw new Error("Method not implemented.");
   }
-  getDropMetricSourceTableQuery(
-    _params: DropMetricSourceTableQueryParams,
-  ): string {
-    throw new Error("Method not implemented.");
-  }
   getIncrementalRefreshStatisticsQuery(
     _params: IncrementalRefreshStatisticsQueryParams,
   ): string {
@@ -199,24 +187,6 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<
     import("back-end/src/types/Integration").MaxTimestampQueryResponse
   > {
-    throw new Error("Method not implemented.");
-  }
-  runCreateMetricSourceTableQuery(
-    _query: string,
-    _setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
-    throw new Error("Method not implemented.");
-  }
-  runInsertMetricSourceDataQuery(
-    _query: string,
-    _setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
-    throw new Error("Method not implemented.");
-  }
-  runDropMetricSourceTableQuery(
-    _query: string,
-    _setExternalId: ExternalIdCallback,
-  ): Promise<IncrementalWithNoOutputQueryResponse> {
     throw new Error("Method not implemented.");
   }
   runIncrementalRefreshStatisticsQuery(

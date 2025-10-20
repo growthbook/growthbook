@@ -1,6 +1,10 @@
 import * as bq from "@google-cloud/bigquery";
 import { QueryResultsResponse } from "@google-cloud/bigquery/build/src/bigquery";
-import { bigQueryCreateTableOptions } from "shared/enterprise";
+import {
+  bigQueryCreateTableOptions,
+  bigQueryCreateTablePartitions,
+} from "shared/enterprise";
+import { isRatioMetric } from "shared/experiments";
 import { FormatDialect } from "shared/src/types";
 import { format } from "shared/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -14,7 +18,6 @@ import {
   DataType,
   QueryResponseColumnData,
   AlterNewIncrementalUnitsQueryParams,
-  MaxTimestampIncrementalUnitsQueryParams,
   CreateMetricSourceTableQueryParams,
 } from "back-end/src/types/Integration";
 import { formatInformationSchema } from "back-end/src/util/informationSchemas";
@@ -24,7 +27,6 @@ import {
   getFactTableTypeFromBigQueryType,
 } from "../services/bigquery";
 import SqlIntegration from "./SqlIntegration";
-import { isRatioMetric } from "shared/experiments";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
@@ -203,7 +205,7 @@ export default class BigQuery extends SqlIntegration {
       database,
     );
   }
-  // TODO: Should we keep this?
+  // TODO(adriel): Should we keep this or rely on option(expiration_timestamp)?)
   dropUnitsTable() {
     return true;
   }
@@ -266,7 +268,7 @@ export default class BigQuery extends SqlIntegration {
     return formatInformationSchema(results as RawInformationSchema[]);
   }
 
-  getSQLDataType(dataType: DataType): string {
+  getDataType(dataType: DataType): string {
     switch (dataType) {
       case "string":
         return "STRING";
@@ -321,24 +323,17 @@ export default class BigQuery extends SqlIntegration {
   }: {
     tableFullName: string;
   }): string {
-    return `INSERT INTO ${tableFullName} (user_id, variation, first_exposure_timestamp) VALUES ('user_3', 'A', CURRENT_TIMESTAMP())`;
-  }
-
-  getSampleUnitsCTE(): string {
-    return format(
-      `__experimentUnits AS (
-        SELECT 'user_1' AS user_id, 'A' AS variation, cast(CURRENT_TIMESTAMP() as timestamp) AS first_exposure_timestamp
-        UNION ALL
-        SELECT 'user_2' AS user_id, 'B' AS variation, cast(CURRENT_TIMESTAMP() as timestamp) AS first_exposure_timestamp
-      )`,
-      this.getFormatDialect(),
-    );
+    return `INSERT INTO
+      ${tableFullName}
+      (user_id, variation, first_exposure_timestamp)
+      VALUES
+      ('user_3', 'A', CURRENT_TIMESTAMP())`;
   }
 
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams,
   ): string {
-    // TODO: How can we do this better for BigQuery?
+    // TODO(adriel): How can we do this better for BigQuery?
     // NB: For BQ the new name is not the full path, just the table name.
     const newName = params.unitsTableFullName
       .replace(/^[`'"]+|[`'"]+$/g, "")
@@ -360,37 +355,8 @@ export default class BigQuery extends SqlIntegration {
   }
 
   createUnitsTablePartitions(columns: string[]): string {
-    const partitionBy = `PARTITION BY DATE(\`${columns[0]}\`)`;
-    if (columns.length === 1) {
-      return partitionBy;
-    }
-    return `${partitionBy} CLUSTER BY ${columns
-      .slice(1)
-      .map((column) => `\`${column}\``)
-      .join(", ")}`;
+    return bigQueryCreateTablePartitions(columns);
   }
-
-  // TODO: Likely should optimize this to query a single partition
-  // getMaxTimestampIncrementalUnitsQuery(
-  //   params: MaxTimestampIncrementalUnitsQueryParams,
-  // ): string {
-  // const something = params.unitsTablePartitionsName.split(".");
-  // return format(
-  //   `
-  //   WITH latest_partition AS (
-  //     SELECT
-  //       MAX(partition_id) AS max_partition
-  //     FROM
-  //       \`${something[0]}.${something[1]}.INFORMATION_SCHEMA.PARTITIONS\`
-  //     WHERE
-  //       table_name = '${something[2]}'
-  //       AND partition_id NOT IN ('__NULL__', '__UNPARTITIONED__')
-  //   )
-  //   SELECT MAX(\`max_timestamp\`) AS max_timestamp FROM ${params.unitsTablePartitionsName}
-  //   `,
-  //   this.getFormatDialect(),
-  // );
-  // }
 
   getCreateMetricSourceTableQuery(
     params: CreateMetricSourceTableQueryParams,
@@ -420,23 +386,24 @@ export default class BigQuery extends SqlIntegration {
     // TODO(incremental-refresh)
     // Compute data types and columns elsewhere and store in metadata to govern this query
     // and for validating queries match going forward
+    // TODO(adriel): The only difference to SQLIntegration is where options go
     return format(
       `
     CREATE TABLE ${params.metricSourceTableFullName}
     (
-      ${baseIdType} ${this.getSQLDataType("string")}
+      ${baseIdType} ${this.getDataType("string")}
       ${sortedMetrics
         .map(
           (
             m,
-          ) => `, ${m.metric.id}_value ${this.getSQLDataType(m.numeratorMetadata.dataType)}
-          ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getSQLDataType(m.denominatorMetadata.dataType)}` : ""}
+          ) => `, ${m.metric.id}_value ${this.getDataType(m.numeratorMetadata.dataType)}
+          ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getDataType(m.denominatorMetadata.dataType)}` : ""}
           `,
         )
         .join("\n")}
-        , refresh_timestamp ${this.getSQLDataType("timestamp")}
-        , max_timestamp ${this.getSQLDataType("timestamp")}
-        , metric_date ${this.getSQLDataType("date")}
+        , refresh_timestamp ${this.getDataType("timestamp")}
+        , max_timestamp ${this.getDataType("timestamp")}
+        , metric_date ${this.getDataType("date")}
         )
         ${this.createUnitsTablePartitions(["max_timestamp", "metric_date"])}
         ${this.createUnitsTableOptions()}

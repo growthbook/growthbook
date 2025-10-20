@@ -91,7 +91,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   });
 
   const pipelineSettings = dataSource?.settings?.pipelineSettings;
-  const partitionSettings = pipelineSettings?.partitionSettings;
 
   const requiredColumns = useMemo(() => {
     const base = new Set<string>(
@@ -108,29 +107,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     // Include extra required columns if provided (e.g., from a wizard flow)
     for (const col of extraRequiredColumns.filter(Boolean)) base.add(col);
 
-    // Fallback: if no extraRequiredColumns passed, include datasource pipeline partition columns when applicable
-    if (!extraRequiredColumns.length) {
-      if (
-        pipelineSettings?.mode === "incremental" &&
-        partitionSettings?.type === "yearMonthDay"
-      ) {
-        [
-          partitionSettings.yearColumn,
-          partitionSettings.monthColumn,
-          partitionSettings.dayColumn,
-        ]
-          .filter(Boolean)
-          .forEach((c) => base.add(c));
-      }
-    }
-
     return base;
   }, [
     userEnteredUserIdType,
     userEnteredDimensions,
     userEnteredHasNameCol,
-    pipelineSettings,
-    partitionSettings,
     extraRequiredColumns,
   ]);
 

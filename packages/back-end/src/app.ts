@@ -114,20 +114,12 @@ import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router"
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
 import { findOrCreateGeneratedHypothesis } from "./models/GeneratedHypothesis";
-import {
-  getContextForAgendaJobByOrgId,
-  getContextFromReq,
-} from "./services/organizations";
+import { getContextFromReq } from "./services/organizations";
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
-import { getDataSourceById } from "./models/DataSourceModel";
-import { getFactTablesForDatasource } from "./models/FactTableModel";
-import { getSourceIntegrationObject } from "./services/datasource";
-import SqlIntegration from "./integrations/SqlIntegration";
-import { compileSqlTemplate } from "./util/sql";
 
 const app = express();
 
@@ -860,16 +852,6 @@ app.post(
   "/datasource/:id/pipeline/validate",
   datasourcesController.postValidatePipelineSettings,
 );
-
-app.post(
-  "/datasource/:id/pipeline/validate-queries",
-  datasourcesController.postValidatePipelineQueries,
-);
-
-// app.post(
-//   "/datasource/:id/pipeline/validate-partitions",
-//   datasourcesController.postValidatePipelinePartitions,
-// );
 
 // Information Schemas
 app.get(

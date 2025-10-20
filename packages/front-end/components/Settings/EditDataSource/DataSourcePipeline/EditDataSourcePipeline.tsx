@@ -6,7 +6,6 @@ import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineMode,
 } from "back-end/types/datasource";
-import { PartitionSettings } from "back-end/src/types/Integration";
 import {
   UNITS_TABLE_RETENTION_HOURS_DEFAULT,
   type PipelineValidationResults,
@@ -37,7 +36,6 @@ type FormValues = {
   writeDataset: string;
   unitsTableRetentionHours: number;
   unitsTableDeletion: boolean;
-  partitionSettings?: PartitionSettings;
   applyToAllExperiments: boolean;
   includedExperimentIds?: string[];
 };
@@ -85,7 +83,6 @@ export const EditDataSourcePipeline = ({
         initialPipelineSettings?.unitsTableRetentionHours ??
         UNITS_TABLE_RETENTION_HOURS_DEFAULT,
       unitsTableDeletion: initialPipelineSettings?.unitsTableDeletion ?? true,
-      partitionSettings: initialPipelineSettings?.partitionSettings,
       includedExperimentIds: initialPipelineSettings?.includedExperimentIds,
       applyToAllExperiments:
         initialPipelineSettings?.includedExperimentIds === undefined,
@@ -93,10 +90,7 @@ export const EditDataSourcePipeline = ({
   });
 
   const [currentPage, setCurrentPage] = useState(
-    initialPipelineSettings?.allowWriting &&
-      initialPipelineSettings?.partitionSettings
-      ? 1
-      : 0,
+    initialPipelineSettings?.allowWriting ? 1 : 0,
   );
 
   const validatePipelinePermissions = async (): Promise<boolean> => {
@@ -114,7 +108,6 @@ export const EditDataSourcePipeline = ({
         writeDataset: formValues.writeDataset,
         unitsTableRetentionHours: formValues.unitsTableRetentionHours,
         unitsTableDeletion: formValues.unitsTableDeletion,
-        partitionSettings: formValues.partitionSettings,
         includedExperimentIds: formValues.applyToAllExperiments
           ? undefined
           : formValues.includedExperimentIds,
@@ -125,7 +118,6 @@ export const EditDataSourcePipeline = ({
   };
 
   const has2Pages = form.watch("mode") === "incremental";
-  // && !!form.watch("partitionSettings");
 
   const handleSubmit = async () => {
     if (currentPage === 0) {
@@ -143,7 +135,6 @@ export const EditDataSourcePipeline = ({
           writeDataset: formValues.writeDataset,
           unitsTableRetentionHours: formValues.unitsTableRetentionHours,
           unitsTableDeletion: formValues.unitsTableDeletion,
-          partitionSettings: formValues.partitionSettings,
           includedExperimentIds: formValues.applyToAllExperiments
             ? undefined
             : formValues.includedExperimentIds,
@@ -293,9 +284,6 @@ export const EditDataSourcePipeline = ({
             >
               Validate settings
             </Text>
-            <Box>
-              <PipelinePartitionValidationStep />
-            </Box>
           </Flex>
         ) : null}
       </Box>
@@ -430,136 +418,6 @@ function IncrementalScopeSelector({
         </Box>
       ) : null}
     </Box>
-  );
-}
-
-function PartitionTypeSelect({
-  form,
-}: {
-  form: ReturnType<typeof useForm<FormValues>>;
-}) {
-  return (
-    <Flex direction="column" gap="2">
-      <Flex align="center" gap="1" mt="3">
-        <Text weight="medium" size="3">
-          Partition Type
-        </Text>
-        <Tooltip body="Tell us how your data is partitioned to reduce the amount of data scanned." />
-      </Flex>
-      <Select
-        value={form.watch("partitionSettings")?.type || "none"}
-        setValue={(v) => {
-          if (!v || v === "none") {
-            form.setValue("partitionSettings", undefined);
-            return;
-          }
-          if (v === "timestamp") {
-            form.setValue("partitionSettings", { type: "timestamp" });
-          }
-          if (v === "date") {
-            form.setValue("partitionSettings", {
-              type: "date",
-              dateColumn: "",
-            });
-          }
-          if (v === "yearMonthDay") {
-            form.setValue("partitionSettings", {
-              type: "yearMonthDay",
-              yearColumn: "",
-              monthColumn: "",
-              dayColumn: "",
-            });
-          }
-        }}
-        size="3"
-        placeholder="Select partition type"
-      >
-        <SelectItem value="none">None</SelectItem>
-        <SelectItem value="timestamp">Timestamp</SelectItem>
-        <SelectItem value="date">Date</SelectItem>
-        <SelectItem value="yearMonthDay">Year/Month/Day</SelectItem>
-      </Select>
-      {form.watch("partitionSettings")?.type === "date" ? (
-        <DatePartitionInputs form={form} />
-      ) : null}
-      {form.watch("partitionSettings")?.type === "yearMonthDay" ? (
-        <YMDPartitionInputs form={form} />
-      ) : null}
-    </Flex>
-  );
-}
-
-function DatePartitionInputs({
-  form,
-}: {
-  form: ReturnType<typeof useForm<FormValues>>;
-}) {
-  return (
-    <Grid columns="3" gap="2" mt="3">
-      <Flex direction="column" gap="1">
-        <Text size="3" weight="medium">
-          Date column name
-        </Text>
-        <TextField.Root
-          size="3"
-          required
-          value={form.watch("partitionSettings.dateColumn") || ""}
-          onChange={(e) =>
-            form.setValue("partitionSettings.dateColumn", e.target.value)
-          }
-        />
-      </Flex>
-    </Grid>
-  );
-}
-
-function YMDPartitionInputs({
-  form,
-}: {
-  form: ReturnType<typeof useForm<FormValues>>;
-}) {
-  return (
-    <Grid columns="3" gap="2" mt="3">
-      <Flex direction="column" gap="1">
-        <Text size="3" weight="medium">
-          Year column name
-        </Text>
-        <TextField.Root
-          size="3"
-          required
-          value={form.watch("partitionSettings.yearColumn") || ""}
-          onChange={(e) =>
-            form.setValue("partitionSettings.yearColumn", e.target.value)
-          }
-        />
-      </Flex>
-      <Flex direction="column" gap="1">
-        <Text size="3" weight="medium">
-          Month column name
-        </Text>
-        <TextField.Root
-          size="3"
-          required
-          value={form.watch("partitionSettings.monthColumn") || ""}
-          onChange={(e) =>
-            form.setValue("partitionSettings.monthColumn", e.target.value)
-          }
-        />
-      </Flex>
-      <Flex direction="column" gap="1">
-        <Text size="3" weight="medium">
-          Day column name
-        </Text>
-        <TextField.Root
-          size="3"
-          required
-          value={form.watch("partitionSettings.dayColumn") || ""}
-          onChange={(e) =>
-            form.setValue("partitionSettings.dayColumn", e.target.value)
-          }
-        />
-      </Flex>
-    </Grid>
   );
 }
 
