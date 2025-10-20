@@ -81,6 +81,8 @@ export default function DashboardsPage() {
     timeout: 1500,
   });
 
+  const HOST = globalThis?.window?.location?.origin;
+
   useEffect(() => {
     if (dashboard) {
       setBlocks(dashboard.blocks);
@@ -389,12 +391,9 @@ export default function DashboardsPage() {
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
                                         onClick={() => {
-                                          const url =
-                                            window.location.href.replace(
-                                              /[?#].*/,
-                                              `#dashboards/${d.id}`,
-                                            );
-                                          performCopy(url);
+                                          performCopy(
+                                            `${HOST}/dashboards/${d.id}`,
+                                          );
                                         }}
                                       >
                                         <Tooltip
