@@ -21,11 +21,6 @@ export type ExperimentMetricBlockContext = BlockContext & {
   isSlicePinned?: (pinKey: string) => boolean;
 };
 
-export type ExperimentDimensionBlockContext = BlockContext & {
-  type: "experiment-dimension";
-  // Add dimension-specific context here if needed
-};
-
 export type ExperimentTimeSeriesBlockContext = BlockContext & {
   type: "experiment-time-series";
   sliceData: Array<{
@@ -41,31 +36,8 @@ export type ExperimentTimeSeriesBlockContext = BlockContext & {
   isSlicePinned?: (pinKey: string) => boolean;
 };
 
-export type ExperimentMetadataBlockContext = BlockContext & {
-  type: "experiment-metadata";
-  // Add metadata-specific context here if needed
-};
-
-export type ExperimentTrafficBlockContext = BlockContext & {
-  type: "experiment-traffic";
-  // Add traffic-specific context here if needed
-};
-
-export type MarkdownBlockContext = BlockContext & {
-  type: "markdown";
-  // Add markdown-specific context here if needed
-};
-
-export type SqlExplorerBlockContext = BlockContext & {
-  type: "sql-explorer";
-  // Add SQL explorer-specific context here if needed
-};
+// add more block-specific contexts here
 
 export type SpecificBlockContext =
   | ExperimentMetricBlockContext
-  | ExperimentDimensionBlockContext
-  | ExperimentTimeSeriesBlockContext
-  | ExperimentMetadataBlockContext
-  | ExperimentTrafficBlockContext
-  | MarkdownBlockContext
-  | SqlExplorerBlockContext;
+  | ExperimentTimeSeriesBlockContext;

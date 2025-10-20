@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { DistributiveOmit } from "shared/util";
-import { differenceTypes, metricSelectors } from "shared/enterprise";
+import {
+  differenceTypes,
+  metricSelectors,
+  pinSources,
+} from "shared/enterprise";
 
 const baseBlockInterface = z
   .object({
@@ -14,7 +18,6 @@ const baseBlockInterface = z
   })
   .strict();
 
-export const pinSources = ["experiment", "custom", "none"] as const;
 const metricSliceSettingsInterface = z.object({
   pinSource: z.enum(pinSources).optional(),
   pinnedMetricSlices: z.array(z.string()).optional(),

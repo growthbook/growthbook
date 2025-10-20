@@ -1,9 +1,8 @@
-import { Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
-  pinSources,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
@@ -11,6 +10,7 @@ import {
   isDifferenceType,
   isMetricSelector,
   metricSelectors,
+  pinSources,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
@@ -37,6 +37,10 @@ import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
 } from "../../DashboardSnapshotProvider";
+import {
+  ExperimentMetricBlockContext,
+  ExperimentTimeSeriesBlockContext,
+} from "./types";
 import { useBlockContext } from "./useBlockContext";
 
 type RequiredField = {
@@ -294,9 +298,8 @@ export default function EditSingleBlock({
     }
   }, [block, selectedMetricIdForPinning, experiment, metricGroupMap]);
 
-  // Helper functions for custom pin selection
-  const getSliceOptions = () => {
-    if (!selectedMetricIdForPinning) return [];
+  const getSliceOptions = (metricId: string) => {
+    if (!metricId) return [];
 
     // If we have context with sliceData, use it
     if (
@@ -305,10 +308,14 @@ export default function EditSingleBlock({
       Array.isArray(blockContext.sliceData)
     ) {
       // Filter slice data for the selected metric
-      const metricSliceData = blockContext.sliceData.filter((slice) => {
+      const metricSliceData = (
+        blockContext as
+          | ExperimentMetricBlockContext
+          | ExperimentTimeSeriesBlockContext
+      ).sliceData.filter((slice) => {
         // Extract metric ID from the pinned key (format: metricId?slice_querystring&location=location)
-        const metricId = slice.value.split("?")[0];
-        return metricId === selectedMetricIdForPinning;
+        const sliceMetricId = slice.value.split("?")[0];
+        return sliceMetricId === metricId;
       });
       return metricSliceData;
     }
@@ -349,7 +356,7 @@ export default function EditSingleBlock({
   const getSelectAllState = () => {
     if (!block) return false;
 
-    const sliceOptions = getSliceOptions();
+    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
     const pinnedSlices =
       (block as { pinnedMetricSlices?: string[] }).pinnedMetricSlices || [];
     const pinnedCount = sliceOptions.filter((slice) =>
@@ -364,7 +371,7 @@ export default function EditSingleBlock({
   const handleSelectAll = (checked: boolean) => {
     if (!block) return;
 
-    const sliceOptions = getSliceOptions();
+    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
     const pinKeys = sliceOptions.map((slice) => slice.value);
 
     setBlock({
@@ -766,7 +773,7 @@ export default function EditSingleBlock({
                 }}
               />
             )}
-            {blockHasFieldOfType(block, "pinSource", isString) && (
+            {blockHasFieldOfType(block, "pinSource", isString) ? (
               <SelectField
                 label="Pin slice rows"
                 containerClassName="mb-2"
@@ -775,7 +782,7 @@ export default function EditSingleBlock({
                 }
                 onChange={(value) =>
                   setBlock({
-                    ...block,
+                    ...(block as DashboardBlockInterface),
                     pinSource: value as (typeof pinSources)[number],
                     // Reset pinnedMetricSlices when switching to experiment or none
                     pinnedMetricSlices:
@@ -783,7 +790,7 @@ export default function EditSingleBlock({
                         ? (block as { pinnedMetricSlices?: string[] })
                             .pinnedMetricSlices || []
                         : [],
-                  })
+                  } as DashboardBlockInterface & { pinSource: string })
                 }
                 options={pinSources.map((source) => ({
                   value: source,
@@ -796,22 +803,43 @@ export default function EditSingleBlock({
                 }))}
                 sort={false}
               />
-            )}
+            ) : null}
             {blockHasFieldOfType(block, "pinSource", isString) &&
-              (block as { pinSource?: string }).pinSource === "custom" && (
+              (block as DashboardBlockInterface & { pinSource: string })
+                .pinSource === "custom" && (
                 <div className="border rounded mb-2">
                   <div className="px-3 pt-2 pb-1 border-bottom">
                     <PiPushPinFill className="mr-1" style={{ marginTop: -2 }} />
                     <Text weight="medium">Custom Pin Selection</Text>
 
                     <SelectField
-                      key={block.metricSelector} // Force re-render when metricSelector changes
                       label="Select Metric"
                       containerClassName="mt-3"
                       value={selectedMetricIdForPinning || ""}
                       onChange={(value) => setSelectedMetricIdForPinning(value)}
                       options={filteredMetricOptions}
                       sort={false}
+                      formatOptionLabel={({ label, value }) => (
+                        <Flex align="center" justify="between" gap="3">
+                          <Box
+                            flexGrow="1"
+                            overflow="hidden"
+                            style={{ textOverflow: "ellipsis" }}
+                          >
+                            <Text>{label}</Text>
+                          </Box>
+                          <Box flexShrink="0">
+                            <Text size="1" color="gray">
+                              {
+                                getSliceOptions(value)
+                                  .map((slice) => isSlicePinned(slice.value))
+                                  .filter(Boolean).length
+                              }{" "}
+                              of {getSliceOptions(value).length} pinned
+                            </Text>
+                          </Box>
+                        </Flex>
+                      )}
                     />
                   </div>
                   {selectedMetricIdForPinning ? (
@@ -819,7 +847,8 @@ export default function EditSingleBlock({
                       className="p-3"
                       style={{ maxHeight: 200, overflowY: "auto" }}
                     >
-                      {getSliceOptions().length > 0 ? (
+                      {getSliceOptions(selectedMetricIdForPinning).length >
+                      0 ? (
                         <>
                           <Checkbox
                             label="Select All"
@@ -829,73 +858,87 @@ export default function EditSingleBlock({
                             mb="4"
                           />
                           <Flex direction="column" gap="0.5">
-                            {getSliceOptions().map((slice) => {
-                              // Generate label from column + level pairs
-                              const labelParts = slice.sliceLevels.map((sl) => {
-                                if (sl.datatype === "boolean") {
-                                  const value =
-                                    sl.levels.length === 0
-                                      ? "null"
-                                      : sl.levels[0] === "true"
-                                        ? "true"
-                                        : "false";
-                                  return (
-                                    <span key={sl.column}>
-                                      {sl.column}:{" "}
-                                      <span
-                                        style={{
-                                          fontVariant: "small-caps",
-                                          fontWeight: 600,
-                                          fontSize: "16px",
-                                        }}
-                                      >
-                                        {value}
-                                      </span>
-                                    </span>
-                                  );
-                                } else {
-                                  const value =
-                                    sl.levels.length === 0
-                                      ? "other"
-                                      : sl.levels[0];
-                                  return `${sl.column}: ${value}`;
-                                }
-                              });
-
-                              const label =
-                                labelParts.length === 1
-                                  ? labelParts[0]
-                                  : labelParts.reduce((acc, curr, index) => {
-                                      if (index === 0) return acc;
+                            {getSliceOptions(selectedMetricIdForPinning).map(
+                              (slice) => {
+                                // Generate label from column + level pairs
+                                const labelParts = slice.sliceLevels.map(
+                                  (sl) => {
+                                    if (sl.datatype === "boolean") {
+                                      const value =
+                                        sl.levels.length === 0
+                                          ? "null"
+                                          : sl.levels[0] === "true"
+                                            ? "true"
+                                            : "false";
                                       return (
-                                        <span key={index}>
-                                          {acc} + {curr}
+                                        <span key={sl.column}>
+                                          {sl.column}:{" "}
+                                          <span
+                                            style={{
+                                              fontVariant: "small-caps",
+                                              fontWeight: 600,
+                                              fontSize: "16px",
+                                            }}
+                                          >
+                                            {value}
+                                          </span>
                                         </span>
                                       );
-                                    });
+                                    } else {
+                                      const value =
+                                        sl.levels.length === 0
+                                          ? "other"
+                                          : sl.levels[0];
+                                      return `${sl.column}: ${value}`;
+                                    }
+                                  },
+                                );
 
-                              return (
-                                <Checkbox
-                                  key={slice.value}
-                                  label={label}
-                                  value={isSlicePinned(slice.value)}
-                                  setValue={(checked) =>
-                                    toggleSlicePin(slice.value, checked)
-                                  }
-                                  size="sm"
-                                  weight="regular"
-                                />
-                              );
-                            })}
+                                const label =
+                                  labelParts.length === 1
+                                    ? labelParts[0]
+                                    : labelParts.reduce((acc, curr, index) => {
+                                        if (index === 0) return acc;
+                                        return (
+                                          <span key={index}>
+                                            {acc} + {curr}
+                                          </span>
+                                        );
+                                      });
+
+                                return (
+                                  <Checkbox
+                                    key={slice.value}
+                                    label={label}
+                                    value={isSlicePinned(slice.value)}
+                                    setValue={(checked) =>
+                                      toggleSlicePin(slice.value, checked)
+                                    }
+                                    size="sm"
+                                    weight="regular"
+                                  />
+                                );
+                              },
+                            )}
                           </Flex>
                         </>
                       ) : (
-                        <Text weight="regular">
+                        <Text
+                          weight="regular"
+                          color="gray"
+                          as="p"
+                          mx="4"
+                          my="2"
+                        >
                           No slices available for this metric
                         </Text>
                       )}
                     </div>
-                  ) : null}
+                  ) : (
+                    <Text weight="regular" color="gray" as="p" mx="4" my="2">
+                      No metric selected
+                    </Text>
+                  )}
                 </div>
               )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
