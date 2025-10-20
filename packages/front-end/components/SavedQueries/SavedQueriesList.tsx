@@ -198,7 +198,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                                       href={
                                                         dashboard.experimentId
                                                           ? `/experiment/${dashboard.experimentId}#dashboards/${dashboard.id}`
-                                                          : `/dashboards/${dashboard.id}`
+                                                          : `/product-analytics/dashboards/${dashboard.id}`
                                                       }
                                                     >
                                                       {dashboard.title}
@@ -302,7 +302,7 @@ export default function SavedQueriesList({ savedQueries, mutate }: Props) {
                                               href={
                                                 dashboard.experimentId
                                                   ? `/experiment/${dashboard.experimentId}#dashboards/${dashId}`
-                                                  : `/dashboards/${dashId}`
+                                                  : `/product-analytics/dashboards/${dashId}`
                                               }
                                             >
                                               {dashboard.title}

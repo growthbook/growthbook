@@ -308,7 +308,9 @@ export default function DashboardsPage() {
                             <tr key={d.id}>
                               <td>
                                 {canViewDashboards ? (
-                                  <Link href={`/dashboards/${d.id}`}>
+                                  <Link
+                                    href={`/product-analytics/dashboards/${d.id}`}
+                                  >
                                     <span
                                       style={{
                                         color: "var(--color-text-high)",
@@ -394,7 +396,7 @@ export default function DashboardsPage() {
                                       <DropdownMenuItem
                                         onClick={() => {
                                           performCopy(
-                                            `${HOST}/dashboards/${d.id}`,
+                                            `${HOST}/product-analytics/dashboards/${d.id}`,
                                           );
                                         }}
                                         disabled={!canCopy}

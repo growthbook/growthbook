@@ -67,7 +67,7 @@ export default function SqlExplorer() {
               <Link
                 underline="always"
                 style={{ display: "flex", alignItems: "center", gap: 3 }}
-                href="/dashboards"
+                href="/product-analytics/dashboards"
               >
                 Take me there
                 <PiArrowSquareOut />

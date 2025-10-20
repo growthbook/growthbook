@@ -134,8 +134,8 @@ const navlinks: SidebarLinkProps[] = [
   },
   {
     name: "Product Analytics",
-    href: "/dashboards",
-    path: /^(dashboards)/,
+    href: "/product-analytics/dashboards",
+    path: /^(product-analytics\/dashboards)/,
     Icon: GBProductAnalytics,
   },
   {

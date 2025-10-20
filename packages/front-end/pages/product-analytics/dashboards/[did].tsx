@@ -139,7 +139,10 @@ function SingleDashboardPage() {
     <div className="p-3 container-fluid pagecontents">
       <PageHead
         breadcrumb={[
-          { display: "Product Analytics", href: "/dashboards" },
+          {
+            display: "Product Analytics",
+            href: "/product-analytics/dashboards",
+          },
           { display: dashboard.title },
         ]}
       />

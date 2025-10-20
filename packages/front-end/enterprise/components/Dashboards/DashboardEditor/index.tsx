@@ -506,7 +506,7 @@ function DashboardEditor({
             });
             if (res.status === 200) {
               if (typeof window !== "undefined") {
-                window.location.href = `/dashboards/${res.dashboard.id}`;
+                window.location.href = `/product-analytics/dashboards/${res.dashboard.id}`;
               }
             } else {
               console.error(res);
@@ -698,7 +698,8 @@ function DashboardEditor({
                           method: "DELETE",
                         });
                         if (typeof window !== "undefined") {
-                          window.location.href = "/dashboards";
+                          window.location.href =
+                            "/product-analytics/dashboards";
                         }
                       }}
                     />
