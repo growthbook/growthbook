@@ -1541,6 +1541,7 @@ export default abstract class SqlIntegration
     }
     return `DROP TABLE IF EXISTS ${params.fullTablePath}`;
   }
+
   async runDropTableQuery(
     sql: string,
     setExternalId: ExternalIdCallback,
@@ -6315,7 +6316,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   }: {
     tableFullName: string;
   }): string {
-    return `INSERT INTO ${tableFullName} (test_col, created_at) VALUES ('growthbook', CURRENT_TIMESTAMP)`;
+    return `INSERT INTO ${tableFullName} (user_id, variation, first_exposure_timestamp) VALUES ('user_3', 'A', CURRENT_TIMESTAMP(0))`;
   }
 
   getPipelineValidationDropTableQuery({
@@ -6629,63 +6630,63 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   ): string {
     // TODO(incremental-refresh): put behind a feature flag
     // as year month day has particular needs (string datatype, 0 padded)
-    if (partitionSettings.type === "yearMonthDay") {
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
-      const day = date.getDate();
-      switch (type) {
-        case "onOrAfter":
-          return `
-            (
-              ${partitionSettings.yearColumn} >= '${year}'
-              AND ${
-                partitionSettings.monthColumn
-              } >= '${month.toString().padStart(2, "0")}'
-              AND ${partitionSettings.dayColumn} >= '${day
-                .toString()
-                .padStart(2, "0")}'
-            ) OR (
-              ${partitionSettings.yearColumn} >= '${year}'
-              AND ${
-                partitionSettings.monthColumn
-              } > '${month.toString().padStart(2, "0")}'
-            ) OR (
-              ${partitionSettings.yearColumn} > '${year}'
-            )
-          `;
-        case "onOrBefore":
-          return `
-            (
-              ${partitionSettings.yearColumn} <= '${year}'
-              AND ${
-                partitionSettings.monthColumn
-              } <= '${month.toString().padStart(2, "0")}'
-              AND ${partitionSettings.dayColumn} <= '${day
-                .toString()
-                .padStart(2, "0")}'
-            ) OR (
-              ${partitionSettings.yearColumn} <= '${year}'
-              AND ${
-                partitionSettings.monthColumn
-              } < '${month.toString().padStart(2, "0")}'
-            ) OR (
-              ${partitionSettings.yearColumn} < '${year}'
-            )
-          `;
-      }
-    }
-    if (partitionSettings.type === "date") {
-      switch (type) {
-        case "onOrAfter":
-          return `
-            ${partitionSettings.dateColumn} >= '${date.toISOString()}'
-          `;
-        case "onOrBefore":
-          return `
-            ${partitionSettings.dateColumn} <= '${date.toISOString()}'
-          `;
-      }
-    }
+    // if (partitionSettings.type === "yearMonthDay") {
+    //   const year = date.getFullYear();
+    //   const month = date.getMonth() + 1;
+    //   const day = date.getDate();
+    //   switch (type) {
+    //     case "onOrAfter":
+    //       return `
+    //         (
+    //           ${partitionSettings.yearColumn} >= '${year}'
+    //           AND ${
+    //             partitionSettings.monthColumn
+    //           } >= '${month.toString().padStart(2, "0")}'
+    //           AND ${partitionSettings.dayColumn} >= '${day
+    //             .toString()
+    //             .padStart(2, "0")}'
+    //         ) OR (
+    //           ${partitionSettings.yearColumn} >= '${year}'
+    //           AND ${
+    //             partitionSettings.monthColumn
+    //           } > '${month.toString().padStart(2, "0")}'
+    //         ) OR (
+    //           ${partitionSettings.yearColumn} > '${year}'
+    //         )
+    //       `;
+    //     case "onOrBefore":
+    //       return `
+    //         (
+    //           ${partitionSettings.yearColumn} <= '${year}'
+    //           AND ${
+    //             partitionSettings.monthColumn
+    //           } <= '${month.toString().padStart(2, "0")}'
+    //           AND ${partitionSettings.dayColumn} <= '${day
+    //             .toString()
+    //             .padStart(2, "0")}'
+    //         ) OR (
+    //           ${partitionSettings.yearColumn} <= '${year}'
+    //           AND ${
+    //             partitionSettings.monthColumn
+    //           } < '${month.toString().padStart(2, "0")}'
+    //         ) OR (
+    //           ${partitionSettings.yearColumn} < '${year}'
+    //         )
+    //       `;
+    //   }
+    // }
+    // if (partitionSettings.type === "date") {
+    //   switch (type) {
+    //     case "onOrAfter":
+    //       return `
+    //         ${partitionSettings.dateColumn} >= '${date.toISOString()}'
+    //       `;
+    //     case "onOrBefore":
+    //       return `
+    //         ${partitionSettings.dateColumn} <= '${date.toISOString()}'
+    //       `;
+    //   }
+    // }
     // TODO(incremental-refresh): this works for "timestamp" type
     // because we always pair the result of this partition clause
     // with a timestamp filter; but we should probably combine the logic to
@@ -6701,11 +6702,11 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
-    if (!partitionSettings) {
-      throw new Error(
-        "Partition settings are required for incremental refresh",
-      );
-    }
+    // if (!partitionSettings) {
+    //   throw new Error(
+    //     "Partition settings are required for incremental refresh",
+    //   );
+    // }
     const partitionWhereClause = this.getPartitionWhereClause(
       partitionSettings,
       params.lastMaxTimestamp,

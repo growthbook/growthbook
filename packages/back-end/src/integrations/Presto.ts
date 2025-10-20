@@ -1,7 +1,6 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
 import { FormatDialect } from "shared/src/types";
-import { trinoCreateTablePartitions } from "shared/enterprise";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
@@ -148,8 +147,5 @@ export default class Presto extends SqlIntegration {
   }
   getDefaultDatabase() {
     return this.params.catalog || "";
-  }
-  createUnitsTablePartitions(columns: string[]) {
-    return trinoCreateTablePartitions(columns);
   }
 }

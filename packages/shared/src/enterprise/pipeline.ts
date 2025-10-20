@@ -13,6 +13,7 @@ export type PipelineValidationResult = {
 // If optional, means the validation is not needed
 export type PipelineValidationResults = {
   create: PipelineValidationResult;
+  insert: PipelineValidationResult;
   drop?: PipelineValidationResult;
 };
 
@@ -21,7 +22,7 @@ export const PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES: Record<
   DataSourceType[]
 > = {
   ephemeral: ["bigquery", "databricks", "snowflake"],
-  incremental: ["bigquery", "presto"],
+  incremental: ["bigquery"],
 };
 
 export const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;
@@ -30,25 +31,23 @@ export function bigQueryCreateTableOptions(
   settings: DataSourcePipelineSettings,
 ) {
   return `OPTIONS(
-        expiration_timestamp=TIMESTAMP_ADD(
-          CURRENT_TIMESTAMP(), 
-          INTERVAL ${
-            settings.unitsTableRetentionHours ??
-            UNITS_TABLE_RETENTION_HOURS_DEFAULT
-          } HOUR
-        )
-      )`;
+    expiration_timestamp=TIMESTAMP_ADD(
+      CURRENT_TIMESTAMP(), 
+      INTERVAL ${
+        settings.unitsTableRetentionHours ?? UNITS_TABLE_RETENTION_HOURS_DEFAULT
+      } HOUR
+    )
+  )`;
 }
 
 export function databricksCreateTableOptions(
   settings: DataSourcePipelineSettings,
 ) {
   return `OPTIONS(
-        delta.deletedFileRetentionDuration='INTERVAL ${
-          settings.unitsTableRetentionHours ??
-          UNITS_TABLE_RETENTION_HOURS_DEFAULT
-        } HOURS'
-          )`;
+    delta.deletedFileRetentionDuration='INTERVAL ${
+      settings.unitsTableRetentionHours ?? UNITS_TABLE_RETENTION_HOURS_DEFAULT
+    } HOURS'
+  )`;
 }
 
 export function snowflakeCreateTableOptions(
@@ -67,18 +66,21 @@ export function getPipelineValidationCreateTableQuery({
   tableFullName: string;
   integration: SqlIntegration;
 }): string {
-  // return `CREATE TABLE ${tableFullName} (test_col ${this.getDataType(
-  //   "string",
-  // )}, created_at ${this.getDataType("timestamp")})`;
-
   return integration.getExperimentUnitsTableQueryFromCte(
     tableFullName,
     integration.getSampleUnitsCTE(),
   );
 }
 
-// Insert
-// return `INSERT INTO ${tableFullName} (test_col, created_at) VALUES ('growthbook', CURRENT_TIMESTAMP)`;
+export function getPipelineValidationInsertQuery({
+  tableFullName,
+  integration,
+}: {
+  tableFullName: string;
+  integration: SqlIntegration;
+}): string {
+  return integration.getPipelineValidationInsertQuery({ tableFullName });
+}
 
 export function getPipelineValidationDropTableQuery({
   tableFullName,
@@ -92,36 +94,15 @@ export function getPipelineValidationDropTableQuery({
   });
 }
 
-export function getRequiredColumnsForPipelineSettings(
-  settings: DataSourcePipelineSettings,
-): string[] {
-  const partitionSettings = settings.partitionSettings;
-  const type = partitionSettings?.type;
-  if (!type) return [];
+export function bigQueryCreateTablePartitions(columns: string[]) {
+  const partitionBy = `PARTITION BY DATE(\`${columns[0]}\`)`;
 
-  switch (type) {
-    case "yearMonthDay":
-      return [
-        partitionSettings.yearColumn,
-        partitionSettings.monthColumn,
-        partitionSettings.dayColumn,
-      ];
-
-    case "date":
-      return [partitionSettings.dateColumn];
-
-    case "timestamp":
-      return [];
-
-    default:
-      return (type satisfies never) ? [] : [];
+  if (columns.length === 1) {
+    return partitionBy;
+  } else {
+    return `${partitionBy} CLUSTER BY ${columns
+      .slice(1)
+      .map((column) => `\`${column}\``)
+      .join(", ")}`;
   }
-}
-
-// Incremental Refresh
-export function trinoCreateTablePartitions(columns: string[]) {
-  return `WITH (
-    format = 'ORC',
-    partitioned_by = ARRAY[${columns.map((column) => `'${column}'`).join(", ")}]
-  )`;
 }

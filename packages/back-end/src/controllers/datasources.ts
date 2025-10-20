@@ -6,6 +6,7 @@ import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
+  getPipelineValidationInsertQuery,
   getRequiredColumnsForPipelineSettings,
   type PipelineValidationResults,
 } from "shared/enterprise";
@@ -586,6 +587,10 @@ export async function postValidatePipelineSettings(
           result: "skipped",
           resultMessage: "Skipped because allowWriting is false",
         },
+        insert: {
+          result: "skipped",
+          resultMessage: "Skipped because allowWriting is false",
+        },
       },
     });
   }
@@ -620,6 +625,7 @@ export async function postValidatePipelineSettings(
 
   const results: PipelineValidationResults = {
     create: { result: "skipped" },
+    insert: { result: "skipped" },
   };
 
   try {
@@ -637,9 +643,26 @@ export async function postValidatePipelineSettings(
     };
   }
 
+  try {
+    await integration.runTestQuery(
+      getPipelineValidationInsertQuery({
+        tableFullName: fullTestTablePath,
+        integration,
+      }),
+    );
+    results.insert.result = "success";
+  } catch (e) {
+    results.insert = {
+      result: "failed",
+      resultMessage: "message" in e ? e.message : String(e),
+    };
+  }
+
   if (
     integration.dropUnitsTable() &&
-    pipelineSettings.unitsTableDeletion === true
+    (pipelineSettings.mode === "incremental" ||
+      (pipelineSettings.mode === "ephemeral" &&
+        pipelineSettings.unitsTableDeletion === true))
   ) {
     if (results.create.result !== "success") {
       results.drop = {
@@ -662,6 +685,11 @@ export async function postValidatePipelineSettings(
         };
       }
     }
+  } else {
+    results.drop = {
+      result: "skipped",
+      resultMessage: "Skipped because dropUnitsTable is false",
+    };
   }
 
   res.status(200).json({ tableName: fullTestTablePath, results });
@@ -692,114 +720,101 @@ export async function postValidatePipelineQueries(
     | { status: number; message: string }
   >,
 ): Promise<void> {
-  const { id } = req.params;
-  const context = getContextFromReq(req);
-
-  const datasource = await getDataSourceById(context, id);
-  if (!datasource) {
-    res.status(404).json({ status: 404, message: "Cannot find data source" });
-    return;
-  }
-
-  if (!context.permissions.canRunPipelineValidationQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (
-    !PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES["incremental"].includes(
-      datasource.type,
-    )
-  ) {
-    res.status(400).json({
-      status: 400,
-      message: "This datasource is not supported at the moment.",
-    });
-  }
-
-  const requiredColumnsFromPipelineSettings = datasource.settings
-    .pipelineSettings
-    ? getRequiredColumnsForPipelineSettings(
-        datasource.settings.pipelineSettings,
-      )
-    : [];
-
-  const { queryIds } = req.body;
-  if (!queryIds || !queryIds.length) {
-    res.status(400).json({ status: 400, message: "No queries provided" });
-    return;
-  }
-
-  const factTables = await getFactTablesForDatasource(context, datasource.id);
-  const integration = getSourceIntegrationObject(context, datasource);
-  if (!(integration instanceof SqlIntegration)) {
-    res.status(400).json({
-      status: 400,
-      message: "This data source does not support ad-hoc validation.",
-    });
-    return;
-  }
-
-  const results = await Promise.all(
-    queryIds.map(async (queryId) => {
-      const exposureQuery = datasource.settings.queries?.exposure?.find(
-        (q) => q.id === queryId,
-      );
-      const factTableQuery = factTables.find((f) => f.id === queryId);
-
-      if (exposureQuery && factTableQuery) {
-        return {
-          id: queryId,
-          error: `Multiple queries with id found`,
-        };
-      }
-
-      if (!exposureQuery && !factTableQuery) {
-        return {
-          id: queryId,
-          error: `Query not found`,
-        };
-      }
-
-      const query = exposureQuery?.query || factTableQuery?.sql;
-      if (!query) {
-        return {
-          id: queryId,
-          error: `Query is in an invalid state`,
-        };
-      }
-
-      const sql = `
-        WITH __rawQuery AS (
-          ${compileSqlTemplate(query, {
-            startDate: new Date(),
-          })}
-        )
-        SELECT * FROM __rawQuery
-        LIMIT 0
-      `;
-
-      try {
-        const response = await integration.runQuery(sql);
-        return {
-          id: queryId,
-          columnsFound: response.columns,
-          missingColumns: requiredColumnsFromPipelineSettings.filter(
-            (c) => !response.columns?.includes(c),
-          ),
-        };
-      } catch (e) {
-        return {
-          id: queryId,
-          error: "message" in e ? e.message : String(e),
-        };
-      }
-    }),
-  );
-
-  res.status(200).json({
-    status: 200,
-    queryResults: results,
-  });
+  // const { id } = req.params;
+  // const context = getContextFromReq(req);
+  // const datasource = await getDataSourceById(context, id);
+  // if (!datasource) {
+  //   res.status(404).json({ status: 404, message: "Cannot find data source" });
+  //   return;
+  // }
+  // if (!context.permissions.canRunPipelineValidationQueries(datasource)) {
+  //   context.permissions.throwPermissionError();
+  // }
+  // if (
+  //   !PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES["incremental"].includes(
+  //     datasource.type,
+  //   )
+  // ) {
+  //   res.status(400).json({
+  //     status: 400,
+  //     message: "This datasource is not supported at the moment.",
+  //   });
+  // }
+  // const requiredColumnsFromPipelineSettings = datasource.settings
+  //   .pipelineSettings
+  //   ? getRequiredColumnsForPipelineSettings(
+  //       datasource.settings.pipelineSettings,
+  //     )
+  //   : [];
+  // const { queryIds } = req.body;
+  // if (!queryIds || !queryIds.length) {
+  //   res.status(400).json({ status: 400, message: "No queries provided" });
+  //   return;
+  // }
+  // const factTables = await getFactTablesForDatasource(context, datasource.id);
+  // const integration = getSourceIntegrationObject(context, datasource);
+  // if (!(integration instanceof SqlIntegration)) {
+  //   res.status(400).json({
+  //     status: 400,
+  //     message: "This data source does not support ad-hoc validation.",
+  //   });
+  //   return;
+  // }
+  // const results = await Promise.all(
+  //   queryIds.map(async (queryId) => {
+  //     const exposureQuery = datasource.settings.queries?.exposure?.find(
+  //       (q) => q.id === queryId,
+  //     );
+  //     const factTableQuery = factTables.find((f) => f.id === queryId);
+  //     if (exposureQuery && factTableQuery) {
+  //       return {
+  //         id: queryId,
+  //         error: `Multiple queries with id found`,
+  //       };
+  //     }
+  //     if (!exposureQuery && !factTableQuery) {
+  //       return {
+  //         id: queryId,
+  //         error: `Query not found`,
+  //       };
+  //     }
+  //     const query = exposureQuery?.query || factTableQuery?.sql;
+  //     if (!query) {
+  //       return {
+  //         id: queryId,
+  //         error: `Query is in an invalid state`,
+  //       };
+  //     }
+  //     const sql = `
+  //       WITH __rawQuery AS (
+  //         ${compileSqlTemplate(query, {
+  //           startDate: new Date(),
+  //         })}
+  //       )
+  //       SELECT * FROM __rawQuery
+  //       LIMIT 0
+  //     `;
+  //     try {
+  //       const response = await integration.runQuery(sql);
+  //       return {
+  //         id: queryId,
+  //         columnsFound: response.columns,
+  //         missingColumns: requiredColumnsFromPipelineSettings.filter(
+  //           (c) => !response.columns?.includes(c),
+  //         ),
+  //       };
+  //     } catch (e) {
+  //       return {
+  //         id: queryId,
+  //         error: "message" in e ? e.message : String(e),
+  //       };
+  //     }
+  //   }),
+  // );
+  // res.status(200).json({
+  //   status: 200,
+  //   queryResults: results,
+  // });
 }
 
 export async function updateExposureQuery(
@@ -1701,121 +1716,121 @@ WHERE
   });
 }
 
-/**
- * For Incremental to work, the Exposure Queries and Fact Tables
- * need to return the partition columns.
- * This validates that they are correct, or returns the missing columns.
- */
-export async function postValidatePipelinePartitions(
-  req: AuthRequest<null, { id: string }>,
-  res: Response<
-    | {
-        status: 200;
-        queryResults: {
-          id: string;
-          columnsFound?: string[];
-          missingColumns?: string[];
-          error?: string;
-        }[];
-      }
-    | { status: number; message: string }
-  >,
-): Promise<void> {
-  const { id } = req.params;
-  const context = getContextFromReq(req);
+// /**
+//  * For Incremental to work, the Exposure Queries and Fact Tables
+//  * need to return the partition columns.
+//  * This validates that they are correct, or returns the missing columns.
+//  */
+// export async function postValidatePipelinePartitions(
+//   req: AuthRequest<null, { id: string }>,
+//   res: Response<
+//     | {
+//         status: 200;
+//         queryResults: {
+//           id: string;
+//           columnsFound?: string[];
+//           missingColumns?: string[];
+//           error?: string;
+//         }[];
+//       }
+//     | { status: number; message: string }
+//   >,
+// ): Promise<void> {
+//   const { id } = req.params;
+//   const context = getContextFromReq(req);
 
-  const datasource = await getDataSourceById(context, id);
-  if (!datasource) {
-    res.status(404).json({ status: 404, message: "Cannot find data source" });
-    return;
-  }
+//   const datasource = await getDataSourceById(context, id);
+//   if (!datasource) {
+//     res.status(404).json({ status: 404, message: "Cannot find data source" });
+//     return;
+//   }
 
-  if (!context.permissions.canRunPipelineValidationQueries(datasource)) {
-    context.permissions.throwPermissionError();
-  }
+//   if (!context.permissions.canRunPipelineValidationQueries(datasource)) {
+//     context.permissions.throwPermissionError();
+//   }
 
-  if (
-    !PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES["incremental"].includes(
-      datasource.type,
-    )
-  ) {
-    res.status(400).json({
-      status: 400,
-      message: "This datasource is not supported at the moment.",
-    });
-  }
+//   if (
+//     !PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES["incremental"].includes(
+//       datasource.type,
+//     )
+//   ) {
+//     res.status(400).json({
+//       status: 400,
+//       message: "This datasource is not supported at the moment.",
+//     });
+//   }
 
-  const factTables = await getFactTablesForDatasource(context, datasource.id);
-  const integration = getSourceIntegrationObject(context, datasource);
-  if (!(integration instanceof SqlIntegration)) {
-    res.status(400).json({
-      status: 400,
-      message: "This data source does not support ad-hoc validation.",
-    });
-    return;
-  }
+//   const factTables = await getFactTablesForDatasource(context, datasource.id);
+//   const integration = getSourceIntegrationObject(context, datasource);
+//   if (!(integration instanceof SqlIntegration)) {
+//     res.status(400).json({
+//       status: 400,
+//       message: "This data source does not support ad-hoc validation.",
+//     });
+//     return;
+//   }
 
-  integration.runQuery("SELECT 1");
+//   integration.runQuery("SELECT 1");
 
-  // const results = await Promise.all(
-  //   queryIds.map(async (queryId) => {
-  //     const exposureQuery = datasource.settings.queries?.exposure?.find(
-  //       (q) => q.id === queryId,
-  //     );
-  //     const factTableQuery = factTables.find((f) => f.id === queryId);
+//   // const results = await Promise.all(
+//   //   queryIds.map(async (queryId) => {
+//   //     const exposureQuery = datasource.settings.queries?.exposure?.find(
+//   //       (q) => q.id === queryId,
+//   //     );
+//   //     const factTableQuery = factTables.find((f) => f.id === queryId);
 
-  //     if (exposureQuery && factTableQuery) {
-  //       return {
-  //         id: queryId,
-  //         error: `Multiple queries with id found`,
-  //       };
-  //     }
+//   //     if (exposureQuery && factTableQuery) {
+//   //       return {
+//   //         id: queryId,
+//   //         error: `Multiple queries with id found`,
+//   //       };
+//   //     }
 
-  //     if (!exposureQuery && !factTableQuery) {
-  //       return {
-  //         id: queryId,
-  //         error: `Query not found`,
-  //       };
-  //     }
+//   //     if (!exposureQuery && !factTableQuery) {
+//   //       return {
+//   //         id: queryId,
+//   //         error: `Query not found`,
+//   //       };
+//   //     }
 
-  //     const query = exposureQuery?.query || factTableQuery?.sql;
-  //     if (!query) {
-  //       return {
-  //         id: queryId,
-  //         error: `Query is in an invalid state`,
-  //       };
-  //     }
+//   //     const query = exposureQuery?.query || factTableQuery?.sql;
+//   //     if (!query) {
+//   //       return {
+//   //         id: queryId,
+//   //         error: `Query is in an invalid state`,
+//   //       };
+//   //     }
 
-  //     const sql = `
-  //       WITH __rawQuery AS (
-  //         ${compileSqlTemplate(query, {
-  //           startDate: new Date(),
-  //         })}
-  //       )
-  //       SELECT * FROM __rawQuery
-  //       LIMIT 0
-  //     `;
+//   //     const sql = `
+//   //       WITH __rawQuery AS (
+//   //         ${compileSqlTemplate(query, {
+//   //           startDate: new Date(),
+//   //         })}
+//   //       )
+//   //       SELECT * FROM __rawQuery
+//   //       LIMIT 0
+//   //     `;
 
-  //     try {
-  //       const response = await integration.runQuery(sql);
-  //       return {
-  //         id: queryId,
-  //         columnsFound: response.columns,
-  //         missingColumns: requiredColumnsFromPipelineSettings.filter(
-  //           (c) => !response.columns?.includes(c),
-  //         ),
-  //       };
-  //     } catch (e) {
-  //       return {
-  //         id: queryId,
-  //         error: "message" in e ? e.message : String(e),
-  //       };
-  //     }
-  //   }),
-  // );
+//   //     try {
+//   //       const response = await integration.runQuery(sql);
+//   //       return {
+//   //         id: queryId,
+//   //         columnsFound: response.columns,
+//   //         missingColumns: requiredColumnsFromPipelineSettings.filter(
+//   //           (c) => !response.columns?.includes(c),
+//   //         ),
+//   //       };
+//   //     } catch (e) {
+//   //       return {
+//   //         id: queryId,
+//   //         error: "message" in e ? e.message : String(e),
+//   //       };
+//   //     }
+//   //   }),
+//   // );
 
-  // res.status(200).json({
-  //   status: 200,
-  //   queryResults: results,
-  // });
-}
+//   // res.status(200).json({
+//   //   status: 200,
+//   //   queryResults: results,
+//   // });
+// }

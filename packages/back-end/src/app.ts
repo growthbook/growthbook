@@ -866,10 +866,10 @@ app.post(
   datasourcesController.postValidatePipelineQueries,
 );
 
-app.post(
-  "/datasource/:id/pipeline/validate-partitions",
-  datasourcesController.postValidatePipelinePartitions,
-);
+// app.post(
+//   "/datasource/:id/pipeline/validate-partitions",
+//   datasourcesController.postValidatePipelinePartitions,
+// );
 
 // Information Schemas
 app.get(
@@ -1020,46 +1020,3 @@ const errorHandler: ErrorRequestHandler = (
 app.use(errorHandler);
 
 export default app;
-
-async function doTheThing() {
-  await new Promise((resolve) => setTimeout(resolve, 2000));
-  const context = await getContextForAgendaJobByOrgId("org_fzty723m0m8qbqj6y");
-
-  const datasource = await getDataSourceById(context, "ds_fzty7wmrmeug4a5i");
-  if (!datasource) {
-    return;
-  }
-
-  const factTables = await getFactTablesForDatasource(context, datasource.id);
-  const integration = getSourceIntegrationObject(context, datasource);
-  if (!(integration instanceof SqlIntegration)) {
-    return;
-  }
-
-  const exposureQueries = datasource.settings.queries?.exposure || [];
-  const factTableQueries = factTables.map((f) => f.sql);
-
-  try {
-    for (const query of [
-      ...exposureQueries.map((q) => q.query),
-      ...factTableQueries,
-    ]) {
-      // console.log(query);
-      // const { statistics } = await integration.runQuery(`
-      //   WITH __queryBeingTested AS (${query} LIMIT 0)
-      //   SELECT * FROM __queryBeingTested
-      //   WHERE \`timestamp\` = CURRENT_TIMESTAMP()`);
-      // if (statistics) {
-      //   console.log(statistics.partitionsUsed ? "yes" : "no");
-      // } else {
-      //   console.log(`${query} LIMIT 0 failed`);
-      // }
-    }
-  } catch (e) {
-    console.error(e);
-  }
-
-  console.log("DONE");
-}
-
-doTheThing();

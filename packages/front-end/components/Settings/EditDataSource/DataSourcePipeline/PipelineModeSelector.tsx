@@ -30,7 +30,7 @@ const PipelineModeSelector = ({
     {
       value: "disabled",
       label: "Disabled",
-      description: "Run standard queries only—do not write tables",
+      description: "Run standard queries only — do not write tables",
     },
     {
       value: "ephemeral",

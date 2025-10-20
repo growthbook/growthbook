@@ -203,7 +203,10 @@ export default class BigQuery extends SqlIntegration {
       database,
     );
   }
-
+  // TODO: Should we keep this?
+  dropUnitsTable() {
+    return true;
+  }
   async listDatasets(): Promise<string[]> {
     const [datasets] = await this.getClient().getDatasets();
 
@@ -263,29 +266,6 @@ export default class BigQuery extends SqlIntegration {
     return formatInformationSchema(results as RawInformationSchema[]);
   }
 
-  getDataType(dataType: DataType): string {
-    switch (dataType) {
-      case "string":
-        return "STRING";
-      case "integer":
-        return "INT64";
-      case "float":
-        return "FLOAT64";
-      case "boolean":
-        return "BOOL";
-      case "date":
-        return "DATE";
-      case "timestamp":
-        return "TIMESTAMP";
-      case "hll":
-        return "BYTES";
-      default: {
-        const _: never = dataType;
-        throw new Error(`Unsupported data type: ${dataType}`);
-      }
-    }
-  }
-
   getSQLDataType(dataType: DataType): string {
     switch (dataType) {
       case "string":
@@ -336,6 +316,14 @@ export default class BigQuery extends SqlIntegration {
       .map((field) => mapField(field));
   }
 
+  getPipelineValidationInsertQuery({
+    tableFullName,
+  }: {
+    tableFullName: string;
+  }): string {
+    return `INSERT INTO ${tableFullName} (user_id, variation, first_exposure_timestamp) VALUES ('user_3', 'A', CURRENT_TIMESTAMP())`;
+  }
+
   getSampleUnitsCTE(): string {
     return format(
       `__experimentUnits AS (
@@ -350,10 +338,14 @@ export default class BigQuery extends SqlIntegration {
   getAlterNewIncrementalUnitsQuery(
     params: AlterNewIncrementalUnitsQueryParams,
   ): string {
+    // TODO: How can we do this better for BigQuery?
+    // NB: For BQ the new name is not the full path, just the table name.
     const newName = params.unitsTableFullName
       .replace(/^[`'"]+|[`'"]+$/g, "")
       .split(".");
 
+    // NB: We remove the expiration timestamp when we consider this the new default table.
+    // and then we rename it.
     return format(
       `
       ALTER TABLE ${params.unitsTempTableFullName}
@@ -365,7 +357,6 @@ export default class BigQuery extends SqlIntegration {
       `,
       this.getFormatDialect(),
     );
-    // TODO: if we can change in a single query taht would be nice
   }
 
   createUnitsTablePartitions(columns: string[]): string {
