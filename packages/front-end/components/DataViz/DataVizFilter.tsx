@@ -405,7 +405,7 @@ export default function DataVizFilter({
                     ...styles,
                     whiteSpace: "normal",
                     wordBreak: "break-word",
-                    lineHeight: "1.4",
+                    color: "var(--color-text-high)",
                   }),
                 }}
                 onChange={(values) => {
