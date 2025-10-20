@@ -404,6 +404,10 @@ export default function SqlExplorerModal({
         }),
       });
       mutate();
+      // Call the onSave callback after successful save
+      if (onSave) {
+        onSave(id);
+      }
       close();
     } catch (error) {
       setLoading(false);

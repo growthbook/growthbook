@@ -107,19 +107,25 @@ function toggleBlockConfigItem(
   itemId: string,
   value: boolean,
 ) {
+  // Only handle blockConfig for sql-explorer blocks
+  if (block.type !== "sql-explorer") return;
+
+  // Type guard to ensure we have a sql-explorer block with blockConfig
+  if (!("blockConfig" in block)) return;
+
+  const currentBlockConfig = block.blockConfig || [];
+
   if (value) {
     // Add item to blockConfig
-    const newBlockConfig = block.blockConfig
-      ? [...block.blockConfig, itemId]
-      : [itemId];
+    const newBlockConfig = [...currentBlockConfig, itemId];
     setBlock({
       ...block,
       blockConfig: newBlockConfig,
     });
   } else {
     // Remove item from blockConfig
-    const filteredBlockConfig = (block.blockConfig || []).filter(
-      (id) => id !== itemId,
+    const filteredBlockConfig = currentBlockConfig.filter(
+      (id: string) => id !== itemId,
     );
     setBlock({
       ...block,
@@ -161,9 +167,12 @@ export default function EditSingleBlock({
   );
 
   const { analysis } = useDashboardSnapshot(block, setBlock);
-  const { defaultSnapshot, dimensionless } = useContext(
-    DashboardSnapshotContext,
-  );
+  const {
+    defaultSnapshot,
+    dimensionless,
+    updateAllSnapshots,
+    savedQueriesMap,
+  } = useContext(DashboardSnapshotContext);
 
   const dimensionValueOptions = analysis?.results
     ? analysis.results.map(({ name }) => ({ value: name, label: name }))
@@ -353,7 +362,7 @@ export default function EditSingleBlock({
           initial={savedQuery}
           id={savedQuery?.id}
           dashboardId={dashboardId}
-          onSave={(savedQueryId: string | undefined) => {
+          onSave={async (savedQueryId: string | undefined) => {
             if (savedQueryId && block && block.type === "sql-explorer") {
               // When the user creates a new query, update the block with the new query ID
               setBlock({
@@ -364,6 +373,38 @@ export default function EditSingleBlock({
               // Switch to "existing" mode since we now have a saved query
               setSqlExplorerType("existing");
             }
+
+            // Refresh dashboard data to show updated visualizations
+            await updateAllSnapshots();
+
+            // If this is an update to an existing saved query, update blockConfig to include new visualizations
+            if (
+              savedQueryId &&
+              block &&
+              block.type === "sql-explorer" &&
+              block.savedQueryId === savedQueryId
+            ) {
+              // Get the updated saved query data
+              const updatedSavedQuery = savedQueriesMap.get(savedQueryId);
+              if (updatedSavedQuery?.dataVizConfig) {
+                // Create new blockConfig with all visualization IDs
+                const visualizationIds = updatedSavedQuery.dataVizConfig
+                  .map((viz) => viz.id)
+                  .filter((id): id is string => Boolean(id));
+
+                const newBlockConfig = [
+                  BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
+                  ...visualizationIds,
+                ];
+
+                setBlock({
+                  ...block,
+                  blockConfig: newBlockConfig,
+                });
+              }
+            }
+
+            mutateQuery();
           }}
         />
       )}
