@@ -113,8 +113,10 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
-  sortBy?: "metric-tags" | "significance" | "change" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  setSortBy?: (
+    s: "metric-tags" | "significance" | "change" | "custom" | null,
+  ) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
 };

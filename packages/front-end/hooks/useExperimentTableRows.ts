@@ -53,8 +53,9 @@ export interface UseExperimentTableRowsParams {
     }>;
   }>;
   metricFilter?: ResultsMetricFilters;
-  sortBy?: "metric-tags" | "significance" | "change" | null;
+  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
+  customMetricOrder?: string[];
   analysisBarSettings?: {
     variationFilter: number[];
   };
@@ -86,6 +87,7 @@ export function useExperimentTableRows({
   metricFilter,
   sortBy,
   sortDirection,
+  customMetricOrder,
   analysisBarSettings,
   statsEngine,
   pValueCorrection,
@@ -190,7 +192,9 @@ export function useExperimentTableRows({
     const sortedFilteredMetrics =
       sortBy === "metric-tags"
         ? sortAndFilterMetricsByTags(metricDefs, metricFilter)
-        : metricDefs.map((m) => m.id);
+        : sortBy === "custom" && customMetricOrder
+          ? sortMetricsByCustomOrder(metricDefs, customMetricOrder)
+          : metricDefs.map((m) => m.id);
 
     const secondaryDefs = expandedSecondaries
       .map(
@@ -202,7 +206,9 @@ export function useExperimentTableRows({
     const sortedFilteredSecondary =
       sortBy === "metric-tags"
         ? sortAndFilterMetricsByTags(secondaryDefs, metricFilter)
-        : secondaryDefs.map((m) => m.id);
+        : sortBy === "custom" && customMetricOrder
+          ? sortMetricsByCustomOrder(secondaryDefs, customMetricOrder)
+          : secondaryDefs.map((m) => m.id);
 
     const guardrailDefs = expandedGuardrails
       .map(
@@ -214,7 +220,9 @@ export function useExperimentTableRows({
     const sortedFilteredGuardrails =
       sortBy === "metric-tags"
         ? sortAndFilterMetricsByTags(guardrailDefs, metricFilter)
-        : guardrailDefs.map((m) => m.id);
+        : sortBy === "custom" && customMetricOrder
+          ? sortMetricsByCustomOrder(guardrailDefs, customMetricOrder)
+          : guardrailDefs.map((m) => m.id);
 
     const retMetrics = sortedFilteredMetrics.flatMap((metricId) =>
       getRowsForMetric(metricId, "goal"),
@@ -290,6 +298,7 @@ export function useExperimentTableRows({
     enablePinning,
     sortBy,
     sortDirection,
+    customMetricOrder,
     analysisBarSettings?.variationFilter,
     metricDefaults,
   ]);
@@ -507,4 +516,14 @@ export function getAllMetricTags(
     },
   );
   return [...allMetricTagsSet];
+}
+
+function sortMetricsByCustomOrder(
+  metrics: ExperimentMetricInterface[],
+  customOrder: string[],
+): string[] {
+  const metricIds = metrics.map((m) => m.id);
+  const orderedMetrics = customOrder.filter((id) => metricIds.includes(id));
+  const unorderedMetrics = metricIds.filter((id) => !customOrder.includes(id));
+  return [...orderedMetrics, ...unorderedMetrics];
 }

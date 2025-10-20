@@ -36,8 +36,9 @@ export interface UseExperimentDimensionRowsParams {
   metricOverrides: MetricOverride[];
   ssrPolyfills?: SSRPolyfills;
   metricFilter?: ResultsMetricFilters;
-  sortBy?: "metric-tags" | "significance" | "change" | null;
+  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
+  customMetricOrder?: string[];
   analysisBarSettings?: {
     variationFilter: number[];
   };
@@ -67,6 +68,7 @@ export function useExperimentDimensionRows({
   metricFilter,
   sortBy,
   sortDirection,
+  customMetricOrder,
   analysisBarSettings,
   statsEngine,
   pValueCorrection,
@@ -146,7 +148,9 @@ export function useExperimentDimensionRows({
           const ret =
             sortBy === "metric-tags"
               ? sortAndFilterMetricsByTags([metric], metricFilter)
-              : [metric.id];
+              : sortBy === "custom" && customMetricOrder
+                ? sortMetricsByCustomOrder([metric], customMetricOrder)
+                : [metric.id];
           if (ret.length === 0) return null;
 
           const { newMetric, overrideFields } = applyMetricOverrides(
@@ -231,6 +235,7 @@ export function useExperimentDimensionRows({
     metricFilter,
     sortBy,
     sortDirection,
+    customMetricOrder,
     analysisBarSettings,
     statsEngine,
     pValueCorrection,
@@ -323,4 +328,14 @@ export function generateDimensionRowsForMetric({
   });
 
   return rows;
+}
+
+function sortMetricsByCustomOrder(
+  metrics: ExperimentMetricInterface[],
+  customOrder: string[],
+): string[] {
+  const metricIds = metrics.map((m) => m.id);
+  const orderedMetrics = customOrder.filter((id) => metricIds.includes(id));
+  const unorderedMetrics = metricIds.filter((id) => !customOrder.includes(id));
+  return [...orderedMetrics, ...unorderedMetrics];
 }

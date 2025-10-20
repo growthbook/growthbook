@@ -79,10 +79,13 @@ const BreakDownResults: FC<{
     metric: ExperimentMetricInterface,
   ) => React.ReactElement | string;
   noStickyHeader?: boolean;
-  sortBy?: "metric-tags" | "significance" | "change" | null;
-  setSortBy?: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  setSortBy?: (
+    s: "metric-tags" | "significance" | "change" | "custom" | null,
+  ) => void;
   sortDirection?: "asc" | "desc" | null;
   setSortDirection?: (d: "asc" | "desc" | null) => void;
+  customMetricOrder?: string[];
   analysisBarSettings?: {
     variationFilter: number[];
   };
@@ -125,6 +128,7 @@ const BreakDownResults: FC<{
   setSortBy,
   sortDirection,
   setSortDirection,
+  customMetricOrder,
   analysisBarSettings,
 }) => {
   const [showMetricFilter, setShowMetricFilter] = useState<boolean>(false);
@@ -160,6 +164,7 @@ const BreakDownResults: FC<{
     metricFilter,
     sortBy,
     sortDirection,
+    customMetricOrder,
     analysisBarSettings,
     statsEngine,
     pValueCorrection,

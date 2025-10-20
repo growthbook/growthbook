@@ -30,6 +30,8 @@ export default function ExperimentDimensionBlock({
     dimensionId,
     dimensionValues,
     differenceType,
+    metricSelector,
+    metricIds,
   } = block;
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
@@ -142,6 +144,8 @@ export default function ExperimentDimensionBlock({
       showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
         d.startsWith("precomputed:"),
       )}
+      sortBy={metricSelector === "custom" ? "custom" : null}
+      customMetricOrder={metricSelector === "custom" ? metricIds : undefined}
     />
   );
 }

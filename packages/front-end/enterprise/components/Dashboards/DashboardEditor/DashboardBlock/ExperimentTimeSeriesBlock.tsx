@@ -31,7 +31,13 @@ export default function ExperimentTimeSeriesBlock({
   metrics,
   setBlock,
 }: BlockProps<ExperimentTimeSeriesBlockInterface>) {
-  const { variationIds, pinnedMetricSlices, pinSource } = block;
+  const {
+    variationIds,
+    pinnedMetricSlices,
+    pinSource,
+    metricSelector,
+    metricIds,
+  } = block;
 
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
@@ -137,6 +143,8 @@ export default function ExperimentTimeSeriesBlock({
     enableExpansion: true,
     enablePinning: true,
     expandedMetrics,
+    sortBy: metricSelector === "custom" ? "custom" : null,
+    customMetricOrder: metricSelector === "custom" ? metricIds : undefined,
   });
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);

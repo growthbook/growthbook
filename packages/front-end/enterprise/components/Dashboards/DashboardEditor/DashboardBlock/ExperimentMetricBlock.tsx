@@ -38,6 +38,8 @@ export default function ExperimentMetricBlock({
     variationIds,
     pinnedMetricSlices,
     pinSource,
+    metricSelector,
+    metricIds,
   } = block;
   const blockId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
@@ -161,6 +163,8 @@ export default function ExperimentMetricBlock({
     enableExpansion: true,
     enablePinning: true,
     expandedMetrics,
+    sortBy: metricSelector === "custom" ? "custom" : null,
+    customMetricOrder: metricSelector === "custom" ? metricIds : undefined,
   });
 
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
