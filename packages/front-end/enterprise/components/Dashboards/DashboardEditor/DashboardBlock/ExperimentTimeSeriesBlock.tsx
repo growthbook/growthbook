@@ -229,6 +229,7 @@ export default function ExperimentTimeSeriesBlock({
     getFactTableById,
     shouldShowMetricSlices: true,
     getChildRowCounts,
+    pinSource,
   });
 
   return (

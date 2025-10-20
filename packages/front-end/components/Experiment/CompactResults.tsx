@@ -459,6 +459,7 @@ export function getRenderLabelColumn({
   toggleExpandedMetric,
   shouldShowMetricSlices,
   getChildRowCounts,
+  pinSource,
   className = "pl-3",
 }: {
   statsEngine?: StatsEngine;
@@ -479,6 +480,7 @@ export function getRenderLabelColumn({
   getFactTableById?: (id: string) => null | FactTableInterface;
   shouldShowMetricSlices?: boolean;
   getChildRowCounts?: (metricId: string) => { total: number; pinned: number };
+  pinSource?: "experiment" | "custom" | "none";
   className?: string;
 }) {
   return function renderLabelColumn({
@@ -517,13 +519,9 @@ export function getRenderLabelColumn({
 
       return (
         <div className={className} style={{ position: "relative" }}>
-          {isExpanded && togglePinnedMetricSlice ? (
+          {isExpanded && pinSource === "experiment" && isPinned && (
             <Tooltip
-              body={
-                isPinned
-                  ? "Pinned: will be visible when the metric is collapsed"
-                  : "Not pinned: will be hidden when the metric is collapsed"
-              }
+              body="Pinned: will be visible when the metric is collapsed"
               tipPosition="top"
               tipMinWidth="50px"
             >
@@ -532,22 +530,45 @@ export function getRenderLabelColumn({
                   position: "absolute",
                   left: 4,
                   top: 3,
-                  cursor: "pointer",
                 }}
                 size={14}
-                className={isPinned ? "link-purple" : "text-muted opacity50"}
-                onClick={() => {
-                  if (togglePinnedMetricSlice && row?.sliceLevels) {
-                    togglePinnedMetricSlice(
-                      metric.id,
-                      row.sliceLevels,
-                      location || "goal",
-                    );
-                  }
-                }}
+                className="link-purple"
               />
             </Tooltip>
-          ) : null}
+          )}
+          {isExpanded &&
+            (pinSource === "custom" || !pinSource) &&
+            togglePinnedMetricSlice && (
+              <Tooltip
+                body={
+                  isPinned
+                    ? "Pinned: will be visible when the metric is collapsed"
+                    : "Not pinned: will be hidden when the metric is collapsed"
+                }
+                tipPosition="top"
+                tipMinWidth="50px"
+              >
+                <PiPushPinFill
+                  style={{
+                    position: "absolute",
+                    left: 4,
+                    top: 3,
+                    cursor: "pointer",
+                  }}
+                  size={14}
+                  className={isPinned ? "link-purple" : "text-muted opacity50"}
+                  onClick={() => {
+                    if (togglePinnedMetricSlice && row?.sliceLevels) {
+                      togglePinnedMetricSlice(
+                        metric.id,
+                        row.sliceLevels,
+                        location || "goal",
+                      );
+                    }
+                  }}
+                />
+              </Tooltip>
+            )}
           <div
             className="ml-2 font-weight-bold"
             style={{

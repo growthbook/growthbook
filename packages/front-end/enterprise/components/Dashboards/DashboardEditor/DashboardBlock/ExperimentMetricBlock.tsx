@@ -276,6 +276,7 @@ export default function ExperimentMetricBlock({
               getFactTableById,
               shouldShowMetricSlices: true,
               getChildRowCounts,
+              pinSource,
             })}
             dateCreated={snapshot.dateCreated}
             statsEngine={statsEngine}
