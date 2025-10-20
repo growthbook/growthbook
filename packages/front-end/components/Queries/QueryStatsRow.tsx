@@ -30,9 +30,12 @@ export default function QueryStatsRow({
 
   if (!queryStats.length) return null;
 
-  const usingPipelineMode = queries.some(
-    (q) => q.queryType === "experimentUnits",
-  );
+  const usingPipelineMode = queries.some((q) => {
+    if (q.queryType === "experimentUnits") return true;
+    if (q.queryType?.includes("experimentIncrementalRefresh")) return true;
+    return false;
+  });
+
   const factTableOptimizedMetrics = queries
     .filter((q) => q.queryType === "experimentMultiMetric")
     .map((q) => getNumberOfMetricsInQuery(q))
@@ -120,6 +123,11 @@ export default function QueryStatsRow({
         stat="Rows Processed"
         values={queryStats.map((q) => q.rowsProcessed)}
         format="number"
+      />
+      <NumericQueryStatDisplay
+        stat="Physical Written Bytes"
+        values={queryStats.map((q) => q.physicalWrittenBytes)}
+        format="bytes"
       />
       <BooleanQueryStatDisplay
         stat="Warehouse Cached"
