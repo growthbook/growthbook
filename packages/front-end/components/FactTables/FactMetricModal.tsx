@@ -714,6 +714,7 @@ function ColumnRefSelector({
                           value={v}
                           onChange={onValuesChange}
                           placeholder="Any"
+                          delimiters={["Enter", "Tab"]}
                           autoFocus
                         />
                       )}
