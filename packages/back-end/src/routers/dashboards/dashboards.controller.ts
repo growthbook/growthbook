@@ -13,9 +13,13 @@ import {
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { createDashboardBlock } from "back-end/src/enterprise/models/DashboardBlockModel";
+import {
+  createDashboardBlock,
+  migrate,
+} from "back-end/src/enterprise/models/DashboardBlockModel";
 import {
   DashboardBlockInterface,
+  LegacyDashboardBlockInterface,
   SqlExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
@@ -121,6 +125,10 @@ export async function updateDashboard(
   if (!experiment) throw new Error("Cannot find connected experiment");
 
   if (updates.blocks) {
+    updates.blocks = updates.blocks.map((block) =>
+      migrate(block as LegacyDashboardBlockInterface),
+    );
+
     // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
     const isOwner = context.userId === dashboard.userId || !dashboard.userId;
     const isAdmin = context.permissions.canSuperDeleteReport();

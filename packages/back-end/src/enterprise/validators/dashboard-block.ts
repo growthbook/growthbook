@@ -16,8 +16,8 @@ const baseBlockInterface = z
 
 export const pinSources = ["experiment", "custom", "none"] as const;
 const metricSliceSettingsInterface = z.object({
-  pinSource: z.enum(pinSources),
-  pinnedMetricSlices: z.array(z.string()),
+  pinSource: z.enum(pinSources).optional(),
+  pinnedMetricSlices: z.array(z.string()).optional(),
 });
 
 const markdownBlockInterface = baseBlockInterface
