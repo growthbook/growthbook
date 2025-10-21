@@ -51,6 +51,7 @@ const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
           {
             dimension: "browser",
             specifiedSlices: ["Chrome", "Firefox", "Safari", "Edge"],
+            customSlices: true,
           },
         ],
       },
