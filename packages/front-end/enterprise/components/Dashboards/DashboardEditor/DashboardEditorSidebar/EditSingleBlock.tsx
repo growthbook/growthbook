@@ -205,11 +205,8 @@ export default function EditSingleBlock({
     const selector = block.metricSelector;
 
     // For custom selector, show all metrics that are in the block's metricIds
-    if (
-      selector === "custom" &&
-      blockHasFieldOfType(block, "metricIds", isStringArray)
-    ) {
-      const customMetricIds = (block as { metricIds: string[] }).metricIds;
+    if (selector === "custom") {
+      const customMetricIds = block.metricIds ?? [];
       return metricOptions
         .map((group) => ({
           ...group,
@@ -254,13 +251,8 @@ export default function EditSingleBlock({
     let isAllowed = false;
 
     // Check if the selected metric is allowed by the current selector
-    if (
-      selector === "custom" &&
-      blockHasFieldOfType(block, "metricIds", isStringArray)
-    ) {
-      isAllowed = (block as { metricIds: string[] }).metricIds.includes(
-        selectedMetricIdForPinning,
-      );
+    if (selector === "custom") {
+      isAllowed = (block.metricIds ?? []).includes(selectedMetricIdForPinning);
     } else if (selector === "experiment-goal") {
       isAllowed =
         experiment.goalMetrics.includes(selectedMetricIdForPinning) ||
@@ -339,13 +331,15 @@ export default function EditSingleBlock({
   };
 
   const toggleSlicePin = (pinKey: string, checked: boolean) => {
-    if (!block) return;
+    if (
+      !block ||
+      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
+    )
+      return;
 
-    const currentPinnedSlices =
-      (block as { pinnedMetricSlices?: string[] }).pinnedMetricSlices || [];
     const newPinnedSlices = checked
-      ? [...currentPinnedSlices, pinKey]
-      : currentPinnedSlices.filter((id) => id !== pinKey);
+      ? [...block.pinnedMetricSlices, pinKey]
+      : block.pinnedMetricSlices.filter((id) => id !== pinKey);
 
     setBlock({
       ...block,
@@ -354,13 +348,15 @@ export default function EditSingleBlock({
   };
 
   const getSelectAllState = () => {
-    if (!block) return false;
+    if (
+      !block ||
+      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
+    )
+      return false;
 
     const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
-    const pinnedSlices =
-      (block as { pinnedMetricSlices?: string[] }).pinnedMetricSlices || [];
     const pinnedCount = sliceOptions.filter((slice) =>
-      pinnedSlices.includes(slice.value),
+      block.pinnedMetricSlices.includes(slice.value),
     ).length;
 
     if (pinnedCount === 0) return false;
@@ -777,19 +773,14 @@ export default function EditSingleBlock({
               <SelectField
                 label="Pin slice rows"
                 containerClassName="mb-2"
-                value={
-                  (block as { pinSource?: string }).pinSource || "experiment"
-                }
+                value={block.pinSource || "experiment"}
                 onChange={(value) =>
                   setBlock({
-                    ...(block as DashboardBlockInterface),
+                    ...block,
                     pinSource: value as (typeof pinSources)[number],
                     // Reset pinnedMetricSlices when switching to experiment or none
                     pinnedMetricSlices:
-                      value === "custom"
-                        ? (block as { pinnedMetricSlices?: string[] })
-                            .pinnedMetricSlices || []
-                        : [],
+                      value === "custom" ? block.pinnedMetricSlices || [] : [],
                   } as DashboardBlockInterface & { pinSource: string })
                 }
                 options={pinSources.map((source) => ({
@@ -805,8 +796,7 @@ export default function EditSingleBlock({
               />
             ) : null}
             {blockHasFieldOfType(block, "pinSource", isString) &&
-              (block as DashboardBlockInterface & { pinSource: string })
-                .pinSource === "custom" && (
+              block.pinSource === "custom" && (
                 <div className="border rounded mb-2">
                   <div className="px-3 pt-2 pb-1 border-bottom">
                     <PiPushPinFill className="mr-1" style={{ marginTop: -2 }} />

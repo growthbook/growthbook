@@ -19,7 +19,6 @@ import {
 } from "back-end/src/enterprise/models/DashboardBlockModel";
 import {
   DashboardBlockInterface,
-  LegacyDashboardBlockInterface,
   SqlExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
@@ -125,9 +124,7 @@ export async function updateDashboard(
   if (!experiment) throw new Error("Cannot find connected experiment");
 
   if (updates.blocks) {
-    updates.blocks = updates.blocks.map((block) =>
-      migrate(block as LegacyDashboardBlockInterface),
-    );
+    const migratedBlocks = updates.blocks.map((block) => migrate(block));
 
     // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
     const isOwner = context.userId === dashboard.userId || !dashboard.userId;
@@ -150,7 +147,7 @@ export async function updateDashboard(
     }
 
     const createdBlocks = await Promise.all(
-      updates.blocks.map((blockData) =>
+      migratedBlocks.map((blockData) =>
         isPersistedDashboardBlock(blockData)
           ? blockData
           : createDashboardBlock(context.org.id, blockData),

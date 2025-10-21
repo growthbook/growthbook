@@ -19,8 +19,8 @@ const baseBlockInterface = z
   .strict();
 
 const metricSliceSettingsInterface = z.object({
-  pinSource: z.enum(pinSources).optional(),
-  pinnedMetricSlices: z.array(z.string()).optional(),
+  pinSource: z.enum(pinSources),
+  pinnedMetricSlices: z.array(z.string()),
 });
 
 const markdownBlockInterface = baseBlockInterface
@@ -136,14 +136,15 @@ const experimentMetricBlockInterface = baseBlockInterface
 export type ExperimentMetricBlockInterface = z.infer<
   typeof experimentMetricBlockInterface
 >;
-type LegacyExperimentMetricBlockInterface = Omit<
-  ExperimentMetricBlockInterface,
-  "metricSelector" | "pinSource" | "pinnedMetricSlices"
-> & {
-  metricSelector?: (typeof metricSelectors)[number];
-  pinSource?: (typeof pinSources)[number];
-  pinnedMetricSlices?: string[];
-};
+const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
+  .omit({ metricSelector: true, pinSource: true, pinnedMetricSlices: true })
+  .extend({
+    metricSelector: z.enum(metricSelectors).optional(),
+  })
+  .merge(metricSliceSettingsInterface.partial());
+export type LegacyExperimentMetricBlockInterface = z.infer<
+  typeof legacyExperimentMetricBlockInterface
+>;
 
 const experimentDimensionBlockInterface = baseBlockInterface
   .extend({
@@ -173,12 +174,13 @@ const experimentDimensionBlockInterface = baseBlockInterface
 export type ExperimentDimensionBlockInterface = z.infer<
   typeof experimentDimensionBlockInterface
 >;
-type LegacyExperimentDimensionBlockInterface = Omit<
-  ExperimentDimensionBlockInterface,
-  "metricSelector"
-> & {
-  metricSelector?: (typeof metricSelectors)[number];
-};
+const legacyExperimentDimensionBlockInterface =
+  experimentDimensionBlockInterface.omit({ metricSelector: true }).extend({
+    metricSelector: z.enum(metricSelectors).optional(),
+  });
+export type LegacyExperimentDimensionBlockInterface = z.infer<
+  typeof legacyExperimentDimensionBlockInterface
+>;
 
 const experimentTimeSeriesBlockInterface = baseBlockInterface
   .extend({
@@ -196,16 +198,16 @@ const experimentTimeSeriesBlockInterface = baseBlockInterface
 export type ExperimentTimeSeriesBlockInterface = z.infer<
   typeof experimentTimeSeriesBlockInterface
 >;
-type LegacyExperimentTimeSeriesBlockInterface = Omit<
-  ExperimentTimeSeriesBlockInterface,
-  "metricIds" | "metricSelector" | "pinSource" | "pinnedMetricSlices"
-> & {
-  metricIds?: string[];
-  metricId: string;
-  metricSelector?: (typeof metricSelectors)[number];
-  pinSource?: (typeof pinSources)[number];
-  pinnedMetricSlices?: string[];
-};
+const legacyExperimentTimeSeriesBlockInterface =
+  experimentTimeSeriesBlockInterface
+    .omit({ metricSelector: true, pinSource: true, pinnedMetricSlices: true })
+    .extend({
+      metricSelector: z.enum(metricSelectors).optional(),
+    })
+    .merge(metricSliceSettingsInterface.partial());
+export type LegacyExperimentTimeSeriesBlockInterface = z.infer<
+  typeof legacyExperimentTimeSeriesBlockInterface
+>;
 
 const sqlExplorerBlockInterface = baseBlockInterface
   .extend({
@@ -228,27 +230,23 @@ export const dashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTrafficBlockInterface,
   sqlExplorerBlockInterface,
 ]);
+export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [
+  legacyExperimentDescriptionBlockInterface,
+  legacyExperimentHypothesisBlockInterface,
+  legacyExperimentVariationImageBlockInterface,
+  legacyExperimentMetricBlockInterface,
+  legacyExperimentDimensionBlockInterface,
+  legacyExperimentTimeSeriesBlockInterface,
+  legacyExperimentTrafficGraphBlockInterface,
+  legacyExperimentTrafficTableBlockInterface,
+]);
 
 export type DashboardBlockInterface = z.infer<typeof dashboardBlockInterface>;
 export type DashboardBlockType = DashboardBlockInterface["type"];
 
-export type LegacyDashboardBlockInterface =
-  | Exclude<
-      DashboardBlockInterface,
-      | ExperimentMetricBlockInterface
-      | ExperimentDimensionBlockInterface
-      | ExperimentTimeSeriesBlockInterface
-      | ExperimentMetadataBlockInterface
-      | ExperimentTrafficBlockInterface
-    >
-  | LegacyExperimentMetricBlockInterface
-  | LegacyExperimentDimensionBlockInterface
-  | LegacyExperimentTimeSeriesBlockInterface
-  | LegacyExperimentDescriptionBlockInterface
-  | LegacyExperimentHypothesisBlockInterface
-  | LegacyExperimentVariationImageBlockInterface
-  | LegacyExperimentTrafficGraphBlockInterface
-  | LegacyExperimentTrafficTableBlockInterface;
+export type LegacyDashboardBlockInterface = z.infer<
+  typeof legacyDashboardBlockInterface
+>;
 
 // Utility type for the discriminated union without the backend-generated fields
 const createOmits = {
