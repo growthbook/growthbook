@@ -16,10 +16,12 @@ export const getCustomFields = createApiRequestHandler(
           name: f.name,
           type: f.type,
           section: f.section,
+          values: f.values,
           dateCreated: f.dateCreated.toISOString(),
           dateUpdated: f.dateUpdated.toISOString(),
           active: f.active ?? true,
           required: f.required,
+          projects: f.projects?.filter((p) => p !== ""),
         };
       }) ?? []
     );
@@ -39,10 +41,12 @@ export const getCustomFields = createApiRequestHandler(
         name: f.name,
         type: f.type,
         section: f.section,
+        values: f.values,
         dateCreated: f.dateCreated.toISOString(),
         dateUpdated: f.dateUpdated.toISOString(),
         active: f.active ?? true,
         required: f.required,
+        projects: f.projects?.filter((p) => p !== ""),
       };
     }) ?? []
   );

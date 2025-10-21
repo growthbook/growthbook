@@ -27,3 +27,9 @@ properties:
     type: boolean
   required:
     type: boolean
+  projects:
+    type: array
+    items:
+      type: string
+  values:
+    type: string
