@@ -385,7 +385,7 @@ def analyze_metric_df(
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
     # Add new columns to the dataframe with placeholder values
-    df = initialize_metric_df(df, num_variations)
+    df = initialize_metric_df(df, analysis)
 
     def analyze_row(s: pd.Series) -> pd.Series:
         s = s.copy()
