@@ -4,11 +4,283 @@ description: Learn about GrowthBook's supported SDKs
 sidebar_label: SDKs
 ---
 
-# SDKs
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import Stepper, { StepperStep } from '../../src/components/Stepper';
 
-We offer official SDKs for many popular languages and frameworks:
+# SDK Overview
 
-## Back-end
+GrowthBook SDKs are small, fast libraries you install in your application. They give you a powerful and performant way to use feature flags and run experiments.
+
+## Core Responsibilities
+
+At a high level, the SDK has two primary jobs:
+
+1. **Feature Flagging**: The SDK fetches your features from the GrowthBook API and caches them. It then uses attributes you provide to evaluate these features locally.
+2. **Experimentation**: When running an experiment, the SDK assigns a user to a variation (e.g., "A" or "B"). It then triggers a Tracking Callback to log this exposure event to your data warehouse. This is the critical step that links the user's assigned variation to their subsequent actions (metrics) for proper experiment analysis.
+
+### Key Vocabulary
+
+Here are the main concepts you need to know:
+
+- **Features**: The flags you define in GrowthBook that can include targeting rules, rollouts, and/or experiments.
+- **Attributes**: The properties you pass into your SDK. They are used for targeting and assignment. Common attributes include `id`, `browser`, `country`, `loggedIn`, `plan`, etc.
+- **Tracking Callback**: A function the SDK runs immediately after assigning a user to an experiment variation. Its purpose is to send an exposure event to your analytics system (like Segment or GA4). This event is essential as it marks the "starting line" of the experiment, allowing GrowthBook to determine the test's success or failure. You can provide a custom function or use a [pre-built plugin](/lib/js#plugins).
+
+## Choosing the Right SDK: Client vs. Server vs. Edge
+
+The main differences between GrowthBook's client-side, server-side, and edge SDKs are where they run, their use cases, and how they handle feature flag and experiment evaluation.
+
+### Client-Side SDKs
+
+- **Where they run**: In the user's browser or mobile device (e.g., React).
+- **Use case**: Feature flagging and experimentation for UI/visual changes. The SDK downloads the feature/experiment payload and evaluates which features/variations a user should see based on their attributes.
+- **Pros**: Fast feedback, easy integration with frontend frameworks.
+- **Cons**: Feature rules and targeting logic are exposed to the client, which may have privacy/security implications. (See [remote evaluation](/lib/js#remote-evaluation) and [secure attributes](/lib/swift#encrypted-features) for more options.) There can be flickering as experiments load unless mitigated by techniques like inline payloads or moving SDK initialization earlier in the page load process.
+
+### Server-Side SDKs
+
+- **Where they run**: On your server or backend infrastructure (e.g., Python).
+- **Use case**: Feature flagging and experimentation for backend logic, API responses, or when you need to keep rules and targeting private. The SDK fetches the feature/experiment payload and evaluates flags/experiments server-side using user attributes available on the backend.
+- **Pros**: Keeps feature logic private, avoids flickering, suitable for sensitive or complex experiments (e.g., API changes, ML model rollout).
+- **Cons**: Requires integration to pass results to the frontend if needed for UI changes.
+
+### Edge SDKs
+
+- **Where they run**: On edge compute platforms/CDNs (e.g., Cloudflare Workers, Fastly Compute, AWS Lambda@Edge).
+- **Use case**: Ultra-low-latency feature flagging and experimentation, such as URL redirects or visual experiments, before the request reaches your origin server. The SDK evaluates experiments and feature flags at the edge, often before the page is served or redirected.
+- **Pros**: Eliminates flicker for visual/redirect experiments, enables high cache hit ratios, keeps logic off the origin server, and can inject a bootstrapped SDK payload into the HTML for the frontend to use.
+- **Cons**: Edge environments have resource constraints (CPU/memory), and integration may be more complex.
+
+:::info
+All GrowthBook SDKs use the same deterministic hashing and evaluation logic, so as long as you provide the same user attributes, the same user will get the same variation regardless of where the evaluation happens.
+:::
+
+## Getting Started
+
+<Tabs>
+  <TabItem value="React">
+    <Stepper>
+      <StepperStep>
+        **Install the React SDK**
+
+        ```bash npm2yarn
+        npm install @growthbook/growthbook-react
+        ```
+      </StepperStep>
+
+      <StepperStep>
+        **Initialize and Wrap Your App**
+
+        In your app's main entry point, create a `GrowthBook` instance and wrap your app with the `GrowthBookProvider`.
+
+        ```tsx
+        import { GrowthBook } from "@growthbook/growthbook";
+        import { GrowthBookProvider } from "@growthbook/growthbook-react";
+        import { useEffect } from "react";
+
+        // Create the GrowthBook instance
+        const growthbook = new GrowthBook({
+          apiHost: "https://cdn.growthbook.io",
+          clientKey: "sdk-abc123",
+        });
+
+        export default function MyApp() {
+          useEffect(() => {
+            // Load features asynchronously
+            growthbook.init({ streaming: true });
+          }, []);
+
+          return (
+            <GrowthBookProvider growthbook={growthbook}>
+              <MyComponent />
+            </GrowthBookProvider>
+          );
+        }
+        ```
+
+        :::tip
+        **Automate Analytics with Plugins**
+
+        You can use optional [plugins](/lib/react#plugins) to automatically capture common attributes and send experiment data to tools like Google Analytics or Segment.
+        :::
+      </StepperStep>
+
+      <StepperStep>
+        **Use Feature Flags in Your Component**
+
+        Use the `useFeatureIsOn` hook to check if a feature is enabled.
+
+        ```tsx
+        import { useFeatureIsOn } from "@growthbook/growthbook-react";
+
+        function MyComponent() {
+          const enabled = useFeatureIsOn("my-feature");
+
+          if (enabled) {
+            return <div>On!</div>;
+          } else {
+            return <div>Off!</div>;
+          }
+        }
+        ```
+      </StepperStep>
+    </Stepper>
+
+  </TabItem>
+
+  <TabItem value="Python">
+    <Stepper>
+        <StepperStep>
+        **Install the Python SDK**
+
+        ```bash
+        pip install growthbook
+        ```
+        </StepperStep>
+
+        <StepperStep>
+        **Initialize the Async Client (Recommended)**
+
+        For modern Python applications, use the `GrowthBookClient` and initialize it asynchronously.
+
+        ```python
+        from growthbook import GrowthBookClient, Options
+        import asyncio
+
+        options = Options(
+            api_host="[https://cdn.growthbook.io](https://cdn.growthbook.io)",
+            client_key="sdk-abc123",
+        )
+
+        # Create a single client instance (e.g., in application startup)
+        client = GrowthBookClient(options)
+
+        # Load features asynchronously
+        async def load_features():
+            await client.initialize()
+            print("GrowthBook client initialized.")
+
+        asyncio.run(load_features())
+        ```
+        </StepperStep>
+
+        <StepperStep>
+        **Use Feature Flags with `UserContext`**
+
+        Create a new `UserContext` instance for each user/request to pass attributes for targeting, and use `await` when evaluating features.
+
+        ```python
+        from growthbook import UserContext
+
+        # Create user context for the request
+        user = UserContext(
+            attributes={
+                "id": "user-123",
+                "loggedIn": True,
+                "plan": "pro"
+            }
+        )
+
+        async def check_features():
+            # Simple on/off feature gating
+            if await client.is_on("my-new-feature", user):
+                print("My feature is ON")
+            else:
+                print("My feature is OFF")
+
+        asyncio.run(check_features())
+
+        # Remember to call await client.close() when the application shuts down.
+        ```
+        Learn more about the [Python SDK](/lib/python).
+        </StepperStep>
+    </Stepper>
+
+</TabItem>
+
+  <TabItem value="Node">
+  <Stepper>
+    <StepperStep>
+      **Install the Node SDK**
+
+      ```bash npm2yarn
+      npm install @growthbook/growthbook
+      ```
+    </StepperStep>
+
+    <StepperStep>
+      **Initialize the Async Client**
+
+      For server environments, use the `GrowthBookClient` singleton and initialize it once during your server's startup to fetch and cache features.
+
+      ```javascript
+      import { GrowthBookClient } from "@growthbook/growthbook";
+
+      // 1. Create a single client instance
+      const gbClient = new GrowthBookClient({
+        apiHost: "[https://cdn.growthbook.io](https://cdn.growthbook.io)",
+        clientKey: "sdk-abc123"
+      });
+
+      // 2. Load features asynchronously during startup (e.g., in server init)
+      async function initializeClient() {
+        // Init waits for features to download with an optional timeout
+        await gbClient.init({ timeout: 3000 });
+        console.log("GrowthBook client initialized.");
+      }
+
+      initializeClient();
+      ```
+    </StepperStep>
+
+    <StepperStep>
+      **Evaluate Features with a User Context**
+
+      For each incoming request, define a `userContext` containing the relevant attributes, and pass it to your evaluation calls.
+
+      ```javascript
+      // Example of evaluation within a request handler or API route
+
+      // User attributes for targeting and assignment
+      const userContext = {
+        attributes: {
+          id: "user-123",
+          loggedIn: true,
+          country: "US"
+        }
+      };
+
+      // Simple boolean on/off flag check
+      if (gbClient.isOn("my-feature", userContext)) {
+        console.log("My feature is ON");
+      }
+
+      ```
+      Learn more about the [Node SDK](/lib/node).
+    </StepperStep>
+
+  </Stepper>
+</TabItem>
+</Tabs>
+
+## All SDKs
+
+### Client
+
+- [HTML Script Tag](/lib/script-tag)
+- [Javascript/Typescript](/lib/js)
+- [React](/lib/react)
+- [Vue](/lib/vue)
+
+### Mobile
+
+- [Kotlin (Android)](/lib/kotlin)
+- [Flutter](/lib/flutter)
+- [Swift (iOS)](/lib/swift)
+- [React Native](/lib/react-native)
+
+### Server
 
 - [Node.js](/lib/node)
 - [Next.js](/lib/nextjs)
@@ -20,21 +292,7 @@ We offer official SDKs for many popular languages and frameworks:
 - [Go](/lib/go)
 - [Elixir](/lib/elixir)
 
-## Front-end
-
-- [HTML Script Tag](/lib/script-tag)
-- [Javascript/Typescript](/lib/js)
-- [React](/lib/react)
-- [Vue](/lib/vue)
-
-## Mobile
-
-- [Kotlin (Android)](/lib/kotlin)
-- [Flutter](/lib/flutter)
-- [Swift (iOS)](/lib/swift)
-- [React Native](/lib/react-native)
-
-## Edge
+### Edge
 
 - [Cloudflare Workers](/lib/edge/cloudflare)
 - [Fastly Compute](/lib/edge/fastly)
@@ -42,7 +300,3 @@ We offer official SDKs for many popular languages and frameworks:
 
 🛠️ **Want to build your own SDK?**
 Follow our [guide to integrate GrowthBook into any platform](/lib/build-your-own).
-
-:::info
-**You don’t have to use an SDK.** GrowthBook works as long as you track when users enter an experiment and which variation they receive in your datasource.
-:::
