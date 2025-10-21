@@ -17,6 +17,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import DashboardModal from "@/enterprise/components/Dashboards/DashboardModal";
+import DashboardShareModal from "@/enterprise/components/Dashboards/DashboardShareModal";
 import {
   CreateDashboardArgs,
   SubmitDashboard,
@@ -46,6 +47,10 @@ export default function DashboardsPage() {
   const { apiCall } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedDashboard, setSelectedDashboard] = useState<
+    DashboardInterface | undefined
+  >(undefined);
   const [dashboardId, setDashboardId] = useState<string | undefined>(undefined);
   const [showEditModal, setShowEditModal] = useState<
     DashboardInterface | undefined
@@ -76,12 +81,6 @@ export default function DashboardsPage() {
     }) && hasCommercialFeature("product-analytics-dashboards");
 
   const dashboard = dashboards.find((d) => d.id === dashboardId);
-
-  const { performCopy, copySuccess } = useCopyToClipboard({
-    timeout: 1500,
-  });
-
-  const HOST = globalThis?.window?.location?.origin;
 
   useEffect(() => {
     if (dashboard) {
@@ -201,6 +200,31 @@ export default function DashboardsPage() {
           }}
         />
       )}
+      {shareModalOpen && selectedDashboard && (
+        <DashboardShareModal
+          isOpen={shareModalOpen}
+          onClose={() => {
+            setShareModalOpen(false);
+            setSelectedDashboard(undefined);
+          }}
+          onSubmit={async (data) => {
+            await apiCall(`/dashboards/${selectedDashboard.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                shareLevel: data.shareLevel,
+                editLevel: data.editLevel,
+              }),
+            });
+            mutateDashboards();
+          }}
+          initialValues={{
+            shareLevel: selectedDashboard.shareLevel,
+            editLevel: selectedDashboard.editLevel,
+          }}
+          isGeneralDashboard={true}
+          dashboardId={selectedDashboard.id}
+        />
+      )}
       <div className="p-3 container-fluid pagecontents">
         <Flex justify="between" align="center">
           <h1>Product Analytics Dashboards</h1>
@@ -291,8 +315,6 @@ export default function DashboardsPage() {
                             permissionsUtil.canDeleteGeneralDashboards(d);
                           let canDuplicate =
                             permissionsUtil.canCreateGeneralDashboards(d);
-
-                          const canCopy = d.shareLevel !== "private";
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
@@ -395,22 +417,11 @@ export default function DashboardsPage() {
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
                                         onClick={() => {
-                                          performCopy(
-                                            `${HOST}/product-analytics/dashboards/${d.id}`,
-                                          );
+                                          setSelectedDashboard(d);
+                                          setShareModalOpen(true);
                                         }}
-                                        disabled={!canCopy}
                                       >
-                                        <Tooltip
-                                          state={copySuccess}
-                                          ignoreMouseEvents
-                                          delay={0}
-                                          tipPosition="left"
-                                          body="URL copied to clipboard"
-                                          innerClassName="px-2 py-1"
-                                        >
-                                          Copy link
-                                        </Tooltip>
+                                        Share...
                                       </DropdownMenuItem>
 
                                       <DropdownMenuSeparator />
