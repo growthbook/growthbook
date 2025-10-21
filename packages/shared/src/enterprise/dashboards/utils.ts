@@ -32,24 +32,9 @@ export const BLOCK_CONFIG_ITEM_TYPES = {
   VISUALIZATION: "visualization",
 } as const;
 
-export function isResultsTableItem(
-  item: string | { type: string; id: string },
-): boolean {
-  if (typeof item === "string") {
-    return item === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
-  }
-  return item.type === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
+export function isResultsTableItem(item: string): boolean {
+  return item === BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
 }
-
-export function isVisualizationItem(
-  item: string | { type: string; id: string },
-): boolean {
-  if (typeof item === "string") {
-    return item !== BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE;
-  }
-  return item.type === BLOCK_CONFIG_ITEM_TYPES.VISUALIZATION;
-}
-
 export interface BlockSnapshotSettings {
   dimensionId?: string;
 }
