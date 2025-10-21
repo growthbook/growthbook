@@ -101,7 +101,6 @@ const BreakDownResults: FC<{
   status: ExperimentStatus;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
-  regressionAdjustmentEnabled?: boolean;
   settingsForSnapshotMetrics?: MetricSnapshotSettings[];
   sequentialTestingEnabled?: boolean;
   showErrorsOnQuantileMetrics?: boolean;
@@ -146,7 +145,6 @@ const BreakDownResults: FC<{
   reportDate,
   statsEngine,
   pValueCorrection,
-  regressionAdjustmentEnabled,
   settingsForSnapshotMetrics,
   sequentialTestingEnabled,
   showErrorsOnQuantileMetrics,
@@ -464,8 +462,6 @@ const BreakDownResults: FC<{
                 ) : (
                   <div style={{ marginBottom: 2 }}>
                     {getRenderLabelColumn({
-                      regressionAdjustmentEnabled:
-                        !!regressionAdjustmentEnabled,
                       statsEngine,
                       hideDetails,
                       experimentType,

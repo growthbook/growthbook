@@ -164,7 +164,9 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                         <div style={{ position: "relative" }}>
                           <Tooltip
                             body={
-                              !col.autoSlices || col.autoSlices.length === 0
+                              (!col.autoSlices ||
+                                col.autoSlices.length === 0) &&
+                              col.datatype !== "boolean"
                                 ? "Auto slices enabled, no slice levels configured"
                                 : "Auto slices enabled"
                             }
@@ -179,7 +181,9 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                               <PiStackBold size={14} />
                             </Avatar>
                           </Tooltip>
-                          {(!col.autoSlices || col.autoSlices.length === 0) && (
+                          {(!col.autoSlices ||
+                            (col.autoSlices.length === 0 &&
+                              col.datatype !== "boolean")) && (
                             <div
                               style={{
                                 position: "absolute",

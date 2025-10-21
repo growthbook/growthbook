@@ -16,6 +16,7 @@ import {
   getMetricSnapshotSettings,
   isBinomialMetric,
   isFactMetric,
+  parseSliceMetricId,
 } from "shared/experiments";
 import { getSafeRolloutSRMValue } from "shared/health";
 import {
@@ -72,8 +73,10 @@ export function getMetricForSafeRolloutSnapshot(
   if (!id) return null;
   const metric = metricMap.get(id);
   if (!metric) return null;
+  // For slice metrics, use the base metric ID for lookups
+  const { baseMetricId } = parseSliceMetricId(id);
   const metricSnapshotSettings = settingsForSnapshotMetrics?.find(
-    (s) => s.metric === id,
+    (s) => s.metric === baseMetricId,
   );
   return {
     id,

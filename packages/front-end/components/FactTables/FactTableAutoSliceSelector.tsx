@@ -147,15 +147,19 @@ export default function FactTableAutoSliceSelector({
               );
               if (!column || column.deleted) return null;
 
-              const levels = column?.autoSlices;
-              const hasNoLevels = !levels?.length;
+              const levels =
+                column?.datatype === "boolean"
+                  ? ["true", "false"]
+                  : column?.autoSlices;
+              const hasNoLevels =
+                !levels?.length && column?.datatype !== "boolean";
               return (
                 <Tooltip
                   key={slice}
                   body={
                     hasNoLevels
                       ? "No slice levels configured"
-                      : levels.join(", ")
+                      : levels?.join(", ") || "No levels"
                   }
                 >
                   <Badge

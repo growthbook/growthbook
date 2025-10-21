@@ -1,6 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { canInlineFilterColumn } from "shared/experiments";
-import { MAX_METRIC_SLICE_LEVELS } from "shared/constants";
+import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/constants";
 import { ReqContext } from "back-end/types/organization";
 import {
   getFactTable,
@@ -78,7 +78,11 @@ export async function runColumnTopValuesQuery(
   const sql = integration.getColumnTopValuesQuery({
     factTable,
     column,
-    limit: Math.max(100, MAX_METRIC_SLICE_LEVELS),
+    limit: Math.max(
+      100,
+      context.org.settings?.maxMetricSliceLevels ??
+        DEFAULT_MAX_METRIC_SLICE_LEVELS,
+    ),
   });
   const result = await integration.runColumnTopValuesQuery(sql);
 
@@ -88,17 +92,20 @@ export async function runColumnTopValuesQuery(
 export function populateAutoSlices(
   col: ColumnInterface,
   topValues: string[],
+  maxValues?: number,
 ): string[] {
+  if (col.datatype === "boolean") {
+    return ["true", "false"];
+  }
+
   // Use existing autoSlices if they exist, otherwise use topValues up to the max
   if (col.autoSlices && col.autoSlices.length > 0) {
     return col.autoSlices;
   }
-
-  // If no autoSlices set, use topValues up to the max
-  const maxValues = MAX_METRIC_SLICE_LEVELS;
+  const maxSliceLevels = maxValues ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
   const autoSlices: string[] = [];
   for (const value of topValues) {
-    if (autoSlices.length >= maxValues) break;
+    if (autoSlices.length >= maxSliceLevels) break;
     if (!autoSlices.includes(value)) {
       autoSlices.push(value);
     }
@@ -241,7 +248,9 @@ export async function runRefreshColumnsQuery(
       col.numberFormat = "";
     }
 
-    if (
+    if (col.datatype === "boolean" && col.isAutoSliceColumn) {
+      col.autoSlices = ["true", "false"];
+    } else if (
       (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
       canInlineFilterColumn(factTable, col.column) &&
       col.datatype === "string"
@@ -258,7 +267,11 @@ export async function runRefreshColumnsQuery(
         col.topValuesDate = new Date();
 
         if (col.isAutoSliceColumn) {
-          col.autoSlices = populateAutoSlices(col, topValues);
+          col.autoSlices = populateAutoSlices(
+            col,
+            topValues,
+            context.org.settings?.maxMetricSliceLevels,
+          );
         }
       } catch (e) {
         logger.error(e, "Error running top values query", {

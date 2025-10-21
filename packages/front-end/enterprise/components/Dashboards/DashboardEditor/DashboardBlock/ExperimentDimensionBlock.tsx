@@ -135,7 +135,6 @@ export default function ExperimentDimensionBlock({
       status={experiment.status}
       statsEngine={analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE}
       pValueCorrection={pValueCorrection}
-      regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
       settingsForSnapshotMetrics={settingsForSnapshotMetrics}
       sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
       differenceType={differenceType}
