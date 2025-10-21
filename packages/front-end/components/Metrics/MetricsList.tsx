@@ -545,6 +545,21 @@ const MetricsList = (): React.ReactElement => {
               <tr
                 key={metric.id}
                 onClick={(e) => {
+                  // If clicking on a link or button, default to browser behavior
+                  if (
+                    e.target instanceof HTMLElement &&
+                    e.target.closest("a, button")
+                  ) {
+                    return;
+                  }
+
+                  // If cmd/ctrl/shift+click, open in new tab
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+                    window.open(getMetricLink(metric.id), "_blank");
+                    return;
+                  }
+
+                  // Otherwise, navigate to the metric
                   e.preventDefault();
                   router.push(getMetricLink(metric.id));
                 }}
