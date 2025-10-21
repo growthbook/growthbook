@@ -428,7 +428,7 @@ spacing and headings.`,
       dateCreated: new Date(),
       dateUpdated: new Date(),
       description:
-        "Controls checkout layout UI. Employees forced to see new UI, other users randomly assigned to one of three designs.",
+        "Controls checkout layout UI. Employees forced to see new UI, other users randomly to either the control or treatment.",
       owner: ASSET_OWNER,
       valueType: "boolean",
       defaultValue: "false",
