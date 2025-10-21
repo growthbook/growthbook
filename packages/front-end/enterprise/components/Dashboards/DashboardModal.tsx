@@ -264,27 +264,39 @@ export default function DashboardModal({
           // Creating a dashboard: show view access for general dashboards only, edit access for all
           <>
             {isGeneralDashboard && (
-              <SelectField
-                label="View access"
-                disabled={
-                  !hasCommercialFeature("share-product-analytics-dashboards")
-                }
-                options={[
-                  { label: "Organization members", value: "published" },
-                  { label: "Only me", value: "private" },
-                  // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
-                ]}
-                value={form.watch("shareLevel")}
-                onChange={(value) =>
-                  form.setValue("shareLevel", value as DashboardShareLevel)
-                }
-              />
+              <>
+                <SelectField
+                  label="View access"
+                  disabled={
+                    !hasCommercialFeature("share-product-analytics-dashboards")
+                  }
+                  helpText={
+                    !hasCommercialFeature("share-product-analytics-dashboards")
+                      ? "Only available with an Enterprise plan"
+                      : undefined
+                  }
+                  options={[
+                    { label: "Organization members", value: "published" },
+                    { label: "Only me", value: "private" },
+                    // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
+                  ]}
+                  value={form.watch("shareLevel")}
+                  onChange={(value) =>
+                    form.setValue("shareLevel", value as DashboardShareLevel)
+                  }
+                />
+              </>
             )}
             <SelectField
               label="Edit access"
               disabled={
                 !hasCommercialFeature("share-product-analytics-dashboards") ||
                 form.watch("shareLevel") === "private"
+              }
+              helpText={
+                !hasCommercialFeature("share-product-analytics-dashboards")
+                  ? "Only available with an Enterprise plan"
+                  : undefined
               }
               options={[
                 {
