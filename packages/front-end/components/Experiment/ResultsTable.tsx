@@ -756,9 +756,12 @@ export default function ResultsTable({
                     {columnsToDisplay.includes("Lift") && (
                       <th
                         style={{ width: 150 * tableCellScale }}
-                        className={clsx("axis-col label text-right", {
-                          noStickyHeader,
-                        })}
+                        className={clsx(
+                          "axis-col label text-right text-nowrap",
+                          {
+                            noStickyHeader,
+                          },
+                        )}
                       >
                         <div style={{ lineHeight: "15px", marginBottom: 2 }}>
                           <Tooltip
