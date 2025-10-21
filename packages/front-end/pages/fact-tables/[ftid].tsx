@@ -76,7 +76,7 @@ export default function FactTablePage() {
     mutateDefinitions,
     getProjectById,
     projects,
-    factMetrics,
+    _factMetricsIncludingArchived: factMetrics,
     getDatasourceById,
   } = useDefinitions();
   const factTable = getFactTableById(ftid as string);
