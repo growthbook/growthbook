@@ -3776,6 +3776,8 @@ export interface components {
       dateUpdated: string;
       active: boolean;
       required: boolean;
+      projects?: (string)[];
+      values?: string;
     };
   };
   responses: {
@@ -13887,6 +13889,8 @@ export interface operations {
               dateUpdated: string;
               active: boolean;
               required: boolean;
+              projects?: (string)[];
+              values?: string;
             })[];
         };
       };

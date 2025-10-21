@@ -81,11 +81,7 @@ export class CustomFieldModel extends BaseClass {
     const filteredCustomFields = customFields?.fields.filter(
       (v) => v.section === section,
     );
-    if (
-      !filteredCustomFields ||
-      filteredCustomFields.length === 0 ||
-      !project
-    ) {
+    if (!filteredCustomFields || filteredCustomFields.length === 0) {
       return filteredCustomFields;
     }
     return filteredCustomFields.filter((v) => {

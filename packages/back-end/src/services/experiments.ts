@@ -2718,6 +2718,7 @@ export function postExperimentApiPayloadToInterface(
     shareLevel: payload.shareLevel,
     pinnedMetricSlices: payload.pinnedMetricSlices || [],
     customMetricSlices: payload.customMetricSlices || [],
+    customFields: payload.customFields,
   };
 
   const { settings } = getScopedSettings({
