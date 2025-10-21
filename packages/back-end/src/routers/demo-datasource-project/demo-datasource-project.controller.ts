@@ -47,6 +47,12 @@ const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
         query:
           "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id,\nbrowser\nFROM experiment_viewed",
         dimensions: ["browser"],
+        dimensionMetadata: [
+          {
+            dimension: "browser",
+            specifiedSlices: ["Chrome", "Firefox", "Safari", "Edge"],
+          },
+        ],
       },
     ],
   },
