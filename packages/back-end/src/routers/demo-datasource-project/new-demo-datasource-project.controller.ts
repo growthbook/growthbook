@@ -369,6 +369,7 @@ export const postDemoDatasourceProject = async (
       | "trackingKey"
       | "variations"
       | "phases"
+      | "regressionAdjustmentEnabled"
     > = {
       name: DEMO_DATA_FEATURE_ID,
       trackingKey: DEMO_DATA_FEATURE_ID,
@@ -386,6 +387,7 @@ spacing and headings.`,
       exposureQueryId: "user_id",
       status: "running",
       tags: DEMO_TAGS,
+      regressionAdjustmentEnabled: true,
       variations: [
         {
           id: "v0",
