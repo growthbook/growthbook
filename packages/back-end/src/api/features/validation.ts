@@ -1,3 +1,4 @@
+import { validateCustomFieldValues } from "back-end/src/util/custom-fields";
 import { ApiReqContext } from "back-end/types/api";
 
 export const validateCustomFields = async (
@@ -22,4 +23,6 @@ export const validateCustomFields = async (
       );
     }
   }
+
+  validateCustomFieldValues(validCustomFields, customFieldValues);
 };
