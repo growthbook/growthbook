@@ -2,10 +2,11 @@ import clsx from "clsx";
 import { config, MetricParams, PartialMetricParams } from "shared/power";
 import Field from "@/components/Forms/Field";
 import PercentField from "@/components/Forms/PercentField";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import { PowerCalculationForm } from "@/components/PowerCalculation/PowerCalculationSettingsModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ensureAndReturn } from "@/types/utils";
+import Checkbox from "@/ui/Checkbox";
 
 const sortParams = (params: PartialMetricParams): PartialMetricParams => {
   const overridePrior = {
@@ -130,21 +131,15 @@ export const InputField = ({
         />
       )}
       {c.type === "boolean" && (
-        <div className="form-group">
-          <div className="row align-items-center mt-4 self-start">
-            <div className="col-auto">
-              <Toggle
-                id={`input-value-${metricId}-${entry}`}
-                value={entryValue}
-                setValue={(v) => {
-                  form.setValue(`metrics.${metricId}.${entry}`, v);
-                }}
-                disabled={disabled}
-              />
-            </div>
-            <div>{title}</div>
-          </div>
-        </div>
+        <Switch
+          id={`input-value-${metricId}-${entry}`}
+          label={title}
+          value={entryValue}
+          onChange={(v) => {
+            form.setValue(`metrics.${metricId}.${entry}`, v);
+          }}
+          disabled={disabled}
+        />
       )}
     </div>
   );
@@ -200,11 +195,11 @@ export const MetricParamsInput = ({
         <>
           <div className="row align-items-center h-100 mb-2">
             <div className="col-auto">
-              <input
+              <Checkbox
                 id={`input-value-${metricId}-overrideMetricLevelSettings`}
-                type="checkbox"
-                checked={params.overrideMetricLevelSettings}
-                onChange={() =>
+                label="Override metric-level settings"
+                value={params.overrideMetricLevelSettings ?? false}
+                setValue={() =>
                   form.setValue(
                     `metrics.${metricId}.overrideMetricLevelSettings`,
                     !params.overrideMetricLevelSettings,
@@ -212,7 +207,6 @@ export const MetricParamsInput = ({
                 }
               />
             </div>
-            <div>Override metric-level settings</div>
           </div>
           <div className="row">
             {params.overrideMetricLevelSettings &&
