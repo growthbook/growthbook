@@ -351,7 +351,11 @@ export function quantileMetricType(
   return "";
 }
 
-export function isFunnelMetric(
+export function isFunnelMetric(m: ExperimentMetricInterface): boolean {
+  return isFactMetric(m) && m.metricType === "funnel";
+}
+
+export function isLegacyFunnelMetric(
   m: ExperimentMetricInterface,
   denominatorMetric?: ExperimentMetricInterface,
 ): boolean {
@@ -558,7 +562,7 @@ export type FunnelMetricInfo =
   | {
       isFunnelStepMetric: true;
       baseMetricId: string;
-      stepNumber: number;
+      stepId: string;
     };
 
 export function parseFunnelMetricId(metricId: string): FunnelMetricInfo {
@@ -578,14 +582,13 @@ export function parseFunnelMetricId(metricId: string): FunnelMetricInfo {
   const params = new URLSearchParams(queryString);
 
   for (const [key, value] of params.entries()) {
-    // TODO check
-    if (key === "stepNumber") {
-      const stepNumber = parseInt(decodeURIComponent(value));
-      if (stepNumber !== undefined) {
+    if (key === "stepId") {
+      const stepId = decodeURIComponent(value);
+      if (stepId !== undefined) {
         return {
           isFunnelStepMetric: true,
           baseMetricId,
-          stepNumber,
+          stepId,
         };
       }
     }
@@ -601,8 +604,6 @@ export function buildFunnelStepColumnRef(
   factMetric: FactMetricInterface,
   stepNumber: number,
 ): ColumnRef {
-  // stepNumber is one indexed
-
   if (factMetric.metricType !== "funnel" || !factMetric.funnelSettings) {
     return factMetric.numerator;
   }
@@ -1211,7 +1212,7 @@ export function getAllMetricIdsFromExperiment(
 }
 
 // Extracts all metric ids from an experiment, excluding ephemeral metrics (slices)
-// NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllSliceMetricsInMap() before calling this function
+// NOTE: The expandedMetricMap should be expanded with slice metrics via expandAllEphemeralMetricsInMap() before calling this function
 export function getAllExpandedMetricIdsFromExperiment({
   exp,
   expandedMetricMap,
@@ -1435,17 +1436,14 @@ export function generateSliceStringFromLevels(
   return generateSliceString(slices);
 }
 
-export function createFunnelMetrics({
-  parentMetric,
-}: {
-  parentMetric: FactMetricInterface;
-}): Array<{
+export function createFunnelDataForMetric(parentMetric: FactMetricInterface): {
   id: string;
   name: string;
   description: string;
   stepNumber: number;
   stepName: string;
-}> {
+  stepId: string;
+}[] {
   if (parentMetric.metricType !== "funnel" || !parentMetric.funnelSettings) {
     return [];
   }
@@ -1453,10 +1451,11 @@ export function createFunnelMetrics({
   return parentMetric.funnelSettings.funnelSteps.map((step, i) => {
     const stepName = step.name ?? "Step " + i + 1;
     return {
-      id: `${parentMetric.id}?funnelStep=${i + 1}`,
+      id: `${parentMetric.id}?stepId=${encodeURIComponent(step.id)}`,
       name: `${parentMetric.name} (${stepName})`,
       description: `${step.name ? `${step.name}: ` : ""}Step ${i + 1} of ${parentMetric.name}`,
       stepNumber: i,
+      stepId: step.id,
       stepName: stepName,
     };
   });
@@ -1794,10 +1793,12 @@ export function dedupeSliceMetrics(
   });
 }
 
-export function expandAllSliceMetricsInMap({
+// expand auto, custom, and funnel metrics in map
+export function expandAllEphemeralMetricsInMap({
   metricMap,
   factTableMap,
   experiment,
+  addSliceMetrics,
   metricGroups = [],
 }: {
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -1810,6 +1811,7 @@ export function expandAllSliceMetricsInMap({
     | "activationMetric"
     | "customMetricSlices"
   >;
+  addSliceMetrics: boolean;
   metricGroups?: MetricGroupInterface[];
 }): void {
   // Get base metrics
@@ -1828,7 +1830,7 @@ export function expandAllSliceMetricsInMap({
     if (!factTable) continue;
 
     // 1. Add auto slice metrics
-    if (metric.metricAutoSlices?.length) {
+    if (addSliceMetrics && metric.metricAutoSlices?.length) {
       const autoSliceColumns = factTable.columns.filter(
         (col) =>
           col.isAutoSliceColumn &&
@@ -1871,7 +1873,7 @@ export function expandAllSliceMetricsInMap({
     }
 
     // 2. Add custom slice metrics
-    if (experiment.customMetricSlices) {
+    if (addSliceMetrics && experiment.customMetricSlices) {
       experiment.customMetricSlices.forEach((customSliceGroup) => {
         // Sort slices alphabetically for consistent ID generation
         const sortedSliceGroups = customSliceGroup.slices.sort((a, b) =>
@@ -1915,6 +1917,20 @@ export function expandAllSliceMetricsInMap({
           description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
         };
         metricMap.set(customSliceMetric.id, customSliceMetric);
+      });
+    }
+
+    // 3. Funnel metrics
+    if (isFunnelMetric(metric)) {
+      const funnelStepData = createFunnelDataForMetric(metric);
+      funnelStepData.forEach((fd) => {
+        const funnelStepMetric: FactMetricInterface = {
+          ...metric,
+          id: fd.id,
+          name: fd.name,
+          description: fd.description,
+        };
+        metricMap.set(fd.id, funnelStepMetric);
       });
     }
   }

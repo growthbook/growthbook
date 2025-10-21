@@ -18,7 +18,7 @@ import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetric,
   isMetricJoinable,
-  expandAllSliceMetricsInMap,
+  expandAllEphemeralMetricsInMap,
   ExperimentMetricInterface,
 } from "shared/experiments";
 import { ExperimentSnapshotReportArgs } from "back-end/types/report";
@@ -602,11 +602,12 @@ export default function AnalysisSettingsSummary({
                   );
 
                   // Expand slice metrics and add them to the map
-                  expandAllSliceMetricsInMap({
+                  expandAllEphemeralMetricsInMap({
                     metricMap,
                     factTableMap,
                     experiment,
                     metricGroups,
+                    addSliceMetrics: true,
                   });
 
                   return getAllExpandedMetricIdsFromExperiment({

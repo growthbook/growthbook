@@ -32,7 +32,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   getAllExpandedMetricIdsFromExperiment,
-  expandAllSliceMetricsInMap,
+  expandAllEphemeralMetricsInMap,
   getEqualWeights,
   getMetricResultStatus,
   getMetricSnapshotSettings,
@@ -607,15 +607,13 @@ export function getSnapshotSettings({
   const currentDate = new Date();
 
   // Expand all slice metrics (auto and custom) and add them to the metricMap
-  // Skip slice expansion for dimension snapshots
-  if (!dimension) {
-    expandAllSliceMetricsInMap({
-      metricMap,
-      factTableMap,
-      experiment,
-      metricGroups,
-    });
-  }
+  expandAllEphemeralMetricsInMap({
+    metricMap,
+    factTableMap,
+    experiment,
+    metricGroups,
+    addSliceMetrics: !dimension,
+  });
 
   const metricSettings = getAllExpandedMetricIdsFromExperiment({
     exp: {

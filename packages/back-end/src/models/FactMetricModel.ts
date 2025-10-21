@@ -275,6 +275,33 @@ export class FactMetricModel extends BaseClass {
       throw new Error("Denominator not allowed for non-ratio metric");
     }
 
+    // funnel metric validation
+    if (data.metricType === "funnel") {
+      if (!this.context.hasPremiumFeature("funnel-metrics")) {
+        throw new Error("Funnel metrics are a premium feature");
+      }
+      if (!data.funnelSettings || data.funnelSettings.funnelSteps.length <= 1) {
+        throw new Error(
+          "Must specify more than one funnel step for funnel metrics",
+        );
+      }
+      // TODO(funnel): support consecutive funnel order
+      if (data.funnelSettings.order === "consecutive") {
+        throw new Error("Consecutive funnel order is not yet supported");
+      }
+
+      const stepIds = new Set<string>();
+      data.funnelSettings.funnelSteps.forEach((step) => {
+        if (!step.id) {
+          throw new Error("Funnel step id is required");
+        }
+        if (stepIds.has(step.id)) {
+          throw new Error(`Funnel step id ${step.id} is not unique`);
+        }
+        stepIds.add(step.id);
+      });
+    }
+
     // quantile metric validation
     if (data.metricType === "quantile") {
       if (!this.context.hasPremiumFeature("quantile-metrics")) {

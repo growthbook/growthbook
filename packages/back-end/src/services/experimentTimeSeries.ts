@@ -2,7 +2,7 @@ import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
-  expandAllSliceMetricsInMap,
+  expandAllEphemeralMetricsInMap,
 } from "shared/experiments";
 import { ReqContext } from "back-end/types/organization";
 import {
@@ -44,12 +44,12 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
+  const dimension =
+    experimentSnapshot.dimension !== null &&
+    experimentSnapshot.dimension !== "";
   // Only update time series for dimensionless snapshots, but if we want to
   // support dimensions for time series, we should revisit this
-  if (
-    experimentSnapshot.dimension !== null &&
-    experimentSnapshot.dimension !== ""
-  ) {
+  if (dimension) {
     return;
   }
 
@@ -58,11 +58,12 @@ export async function updateExperimentTimeSeries({
   const factTableMap = await getFactTableMap(context);
 
   // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  expandAllEphemeralMetricsInMap({
     metricMap,
     factTableMap,
     experiment,
     metricGroups,
+    addSliceMetrics: !dimension,
   });
 
   const allMetricIds = getAllExpandedMetricIdsFromExperiment({

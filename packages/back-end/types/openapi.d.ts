@@ -3569,6 +3569,8 @@ export interface components {
             optional?: boolean;
             /** @description The name of the step */
             name?: string;
+            /** @description The id of the step. Must be unique within the funnel. */
+            id: string;
           })[];
         /** @enum {string} */
         order: "any" | "consecutive";
@@ -12680,6 +12682,8 @@ export interface operations {
                       optional?: boolean;
                       /** @description The name of the step */
                       name?: string;
+                      /** @description The id of the step. Must be unique within the funnel. */
+                      id: string;
                     })[];
                   /** @enum {string} */
                   order: "any" | "consecutive";
@@ -12810,6 +12814,8 @@ export interface operations {
                 optional?: boolean;
                 /** @description The name of the step */
                 name?: string;
+                /** @description The id of the step. Must be unique within the funnel. */
+                id: string;
               })[];
             /** @enum {string} */
             order: "any" | "consecutive";
@@ -12967,6 +12973,8 @@ export interface operations {
                     optional?: boolean;
                     /** @description The name of the step */
                     name?: string;
+                    /** @description The id of the step. Must be unique within the funnel. */
+                    id: string;
                   })[];
                 /** @enum {string} */
                 order: "any" | "consecutive";
@@ -13101,6 +13109,8 @@ export interface operations {
                     optional?: boolean;
                     /** @description The name of the step */
                     name?: string;
+                    /** @description The id of the step. Must be unique within the funnel. */
+                    id: string;
                   })[];
                 /** @enum {string} */
                 order: "any" | "consecutive";
@@ -13360,6 +13370,8 @@ export interface operations {
                     optional?: boolean;
                     /** @description The name of the step */
                     name?: string;
+                    /** @description The id of the step. Must be unique within the funnel. */
+                    id: string;
                   })[];
                 /** @enum {string} */
                 order: "any" | "consecutive";
@@ -13591,6 +13603,8 @@ export interface operations {
                       optional?: boolean;
                       /** @description The name of the step */
                       name?: string;
+                      /** @description The id of the step. Must be unique within the funnel. */
+                      id: string;
                     })[];
                   /** @enum {string} */
                   order: "any" | "consecutive";

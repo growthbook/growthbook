@@ -15,7 +15,7 @@ import {
   getAllMetricSettingsForSnapshot,
   expandMetricGroups,
   generateSliceString,
-  expandAllSliceMetricsInMap,
+  expandAllEphemeralMetricsInMap,
   parseSliceMetricId,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
@@ -191,12 +191,13 @@ export function getSnapshotSettingsFromReportArgs(
 
   // Expand slice metrics if factTableMap is provided
   if (factTableMap) {
-    // Expand all slice metrics (auto and custom) and add them to the metricMap
-    expandAllSliceMetricsInMap({
+    // Expand all slice and funnel metrics and add them to the metricMap
+    expandAllEphemeralMetricsInMap({
       metricMap,
       factTableMap,
       experiment: experiment ?? args,
       metricGroups,
+      addSliceMetrics: true,
     });
   }
 
@@ -459,12 +460,13 @@ export async function createReportSnapshot({
 
   const metricGroups = await context.models.metricGroups.getAll();
 
-  // Expand all slice metrics (auto and custom) and add them to the metricMap
-  expandAllSliceMetricsInMap({
+  // Expand all slice and funnel metrics and add them to the metricMap
+  expandAllEphemeralMetricsInMap({
     metricMap,
     factTableMap,
     experiment: report.experimentAnalysisSettings,
     metricGroups,
+    addSliceMetrics: true,
   });
 
   const metricIds = getAllExpandedMetricIdsFromExperiment({

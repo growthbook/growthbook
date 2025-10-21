@@ -173,6 +173,8 @@ export const funnelStepValidator = columnRefValidator
   .extend({
     optional: z.boolean().optional(),
     name: z.string().optional(),
+    description: z.string().optional(),
+    id: z.string(),
   });
 
 export const funnelSettingsValidator = z.object({

@@ -4945,6 +4945,7 @@ paths:
                         type: object
                         required:
                           - factTableId
+                          - id
                         properties:
                           factTableId:
                             type: string
@@ -4964,6 +4965,9 @@ paths:
                           name:
                             type: string
                             description: The name of the step
+                          id:
+                            type: string
+                            description: The id of the step. Must be unique within the funnel.
                     order:
                       type: string
                       enum:
@@ -8074,6 +8078,7 @@ components:
                 type: object
                 required:
                   - factTableId
+                  - id
                 properties:
                   factTableId:
                     type: string
@@ -8093,6 +8098,9 @@ components:
                   name:
                     type: string
                     description: The name of the step
+                  id:
+                    type: string
+                    description: The id of the step. Must be unique within the funnel.
             order:
               type: string
               enum:

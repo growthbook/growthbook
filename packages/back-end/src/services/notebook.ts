@@ -2,7 +2,7 @@ import { promisify } from "util";
 import { PythonShell } from "python-shell";
 import { getSnapshotAnalysis } from "shared/util";
 import { hoursBetween } from "shared/dates";
-import { expandAllSliceMetricsInMap } from "shared/experiments";
+import { expandAllEphemeralMetricsInMap } from "shared/experiments";
 import { APP_ORIGIN } from "back-end/src/util/secrets";
 import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -173,11 +173,12 @@ export async function generateNotebook({
 
   // Expand slice metrics if we have experiment data
   if (experiment) {
-    expandAllSliceMetricsInMap({
+    expandAllEphemeralMetricsInMap({
       metricMap,
       factTableMap,
       experiment,
       metricGroups,
+      addSliceMetrics: true,
     });
   }
 

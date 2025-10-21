@@ -92,6 +92,7 @@ export async function getCreateMetricPropsFromBody(
     factTable: factTable,
   });
 
+  // TODO(funnel): detect if anything important changed and if so regenerate ids
   const cleanedFunnelSettings = funnelSettings
     ? {
         ...funnelSettings,

@@ -6,7 +6,7 @@ import {
   getConversionWindowHours,
   getUserIdTypes,
   isFactMetric,
-  isFunnelMetric,
+  isLegacyFunnelMetric,
   isRatioMetric,
   isRegressionAdjusted,
   ExperimentMetricInterface,
@@ -2539,7 +2539,7 @@ export default abstract class SqlIntegration
     alias: string,
   ): FactMetricData {
     const ratioMetric = isRatioMetric(metric);
-    const funnelMetric = isFunnelMetric(metric);
+    const funnelMetric = isLegacyFunnelMetric(metric);
     const quantileMetric = quantileMetricType(metric);
     const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
       metric,
@@ -3451,7 +3451,7 @@ export default abstract class SqlIntegration
     // When the denominator is a count, it's a real ratio, dividing two quantities
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
     const ratioMetric = isRatioMetric(metric, denominator);
-    const funnelMetric = isFunnelMetric(metric, denominator);
+    const funnelMetric = isLegacyFunnelMetric(metric, denominator);
 
     const banditDates = settings.banditSettings?.historicalWeights.map(
       (w) => w.date,
