@@ -45,6 +45,11 @@ export default function ExperimentMetricBlock({
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
     [block],
   );
+  // The actual ID of the block which might be null in the case of a block being created
+  const blockInherentId = useMemo(
+    () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
+    [block],
+  );
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups, getExperimentMetricById, getFactTableById } =
@@ -219,22 +224,18 @@ export default function ExperimentMetricBlock({
   );
 
   useEffect(() => {
-    if (blockId) {
-      const contextValue: ExperimentMetricBlockContext = {
-        type: "experiment-metric",
-        sliceData,
-        togglePinnedMetricSlice,
-        isSlicePinned,
-      };
-      setBlockContextValue(blockId, contextValue);
-    }
+    const contextValue: ExperimentMetricBlockContext = {
+      type: "experiment-metric",
+      sliceData,
+      togglePinnedMetricSlice,
+      isSlicePinned,
+    };
+    setBlockContextValue(blockInherentId, contextValue);
 
     return () => {
-      if (blockId) {
-        setBlockContextValue(blockId, null);
-      }
+      setBlockContextValue(blockInherentId, null);
     };
-  }, [blockId, sliceData, togglePinnedMetricSlice, isSlicePinned]);
+  }, [blockInherentId, sliceData, togglePinnedMetricSlice, isSlicePinned]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>

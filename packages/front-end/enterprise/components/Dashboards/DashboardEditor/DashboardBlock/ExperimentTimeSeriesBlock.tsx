@@ -39,7 +39,8 @@ export default function ExperimentTimeSeriesBlock({
     metricIds,
   } = block;
 
-  const blockId = useMemo(
+  // The actual ID of the block which might be null in the case of a block being created
+  const blockInherentId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
     [block],
   );
@@ -199,22 +200,18 @@ export default function ExperimentTimeSeriesBlock({
   );
 
   useEffect(() => {
-    if (blockId) {
-      const contextValue: ExperimentTimeSeriesBlockContext = {
-        type: "experiment-time-series",
-        sliceData,
-        togglePinnedMetricSlice,
-        isSlicePinned,
-      };
-      setBlockContextValue(blockId, contextValue);
-    }
+    const contextValue: ExperimentTimeSeriesBlockContext = {
+      type: "experiment-time-series",
+      sliceData,
+      togglePinnedMetricSlice,
+      isSlicePinned,
+    };
+    setBlockContextValue(blockInherentId, contextValue);
 
     return () => {
-      if (blockId) {
-        setBlockContextValue(blockId, null);
-      }
+      setBlockContextValue(blockInherentId, null);
     };
-  }, [blockId, sliceData, togglePinnedMetricSlice, isSlicePinned]);
+  }, [blockInherentId, sliceData, togglePinnedMetricSlice, isSlicePinned]);
 
   // Create the render label function
   const renderLabelColumn = getRenderLabelColumn({
