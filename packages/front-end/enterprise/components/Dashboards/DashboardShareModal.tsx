@@ -8,13 +8,12 @@ import {
 import Modal from "@/components/Modal";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
+import PremiumCallout from "@/ui/PremiumCallout";
 
 interface DashboardShareModalProps {
   /** Whether the modal is open */
@@ -50,7 +49,6 @@ export default function DashboardShareModal({
   dashboardId,
 }: DashboardShareModalProps) {
   const { hasCommercialFeature } = useUser();
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [shareLevel, setShareLevel] = useState<DashboardShareLevel>(
     initialValues?.shareLevel || "private",
   );
@@ -175,16 +173,9 @@ export default function DashboardShareModal({
 
   return (
     <>
-      {showUpgradeModal && (
-        <UpgradeModal
-          close={() => setShowUpgradeModal(false)}
-          source="product-analytics-dashboard-share"
-          commercialFeature="share-product-analytics-dashboards"
-        />
-      )}
       <Modal
         open={isOpen}
-        size="md"
+        size="lg"
         trackingEventModalType="product-analytics-dashboard-share"
         header="Update Dashboard Access Settings"
         close={onClose}
@@ -194,86 +185,91 @@ export default function DashboardShareModal({
       >
         <Flex direction="column" gap="1">
           {!hasCommercialFeature("share-product-analytics-dashboards") ? (
-            <UpgradeMessage
-              isEnterprise={true}
-              showUpgradeModal={() => setShowUpgradeModal(true)}
+            <PremiumCallout
               commercialFeature="share-product-analytics-dashboards"
-              upgradeMessage="share product dashboards with other members of your organization. You can also control who can edit the dashboard."
-            />
-          ) : (
-            <>
-              <div className="mb-1">
-                {shareLevel === "private" ? (
-                  <Callout status="info" size="sm">
-                    Currently only you can view or edit this dashboard.
-                  </Callout>
-                ) : (
-                  <Callout status="warning" size="sm">
-                    {`This report is discoverable within your organization. ${editLevel === "private" ? "Only you can edit it." : "Anybody in your organization with permissions can edit it."}`}
-                  </Callout>
-                )}
-              </div>
-              <div>
-                {isGeneralDashboard && (
-                  <SelectField
-                    label="View access"
-                    options={[
-                      { label: "Organization members", value: "published" },
-                      { label: "Only me", value: "private" },
-                      // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
-                    ]}
-                    value={shareLevel}
-                    onChange={(value) => handleFieldChange("shareLevel", value)}
-                  />
-                )}
-                <div className="mb-1" style={{ height: 24 }}>
-                  {saveShareLevelStatus === "loading" ? (
-                    <div className="position-relative" style={{ top: -6 }}>
-                      <LoadingSpinner />
-                    </div>
-                  ) : saveShareLevelStatus === "success" ? (
-                    <HelperText status="success" size="sm">
-                      Sharing status has been updated
-                    </HelperText>
-                  ) : saveShareLevelStatus === "fail" ? (
-                    <HelperText status="error" size="sm">
-                      Unable to update sharing status
-                    </HelperText>
-                  ) : null}
-                </div>
-              </div>
-              <div>
+              id="dashboard-share-modal"
+            >
+              Contact us for a free Enterprise Trial to use this feature.
+            </PremiumCallout>
+          ) : null}
+          <>
+            <div className="mb-1">
+              {shareLevel === "private" ? (
+                <Callout status="info" size="sm">
+                  Currently only you can view or edit this dashboard.
+                </Callout>
+              ) : (
+                <Callout status="warning" size="sm">
+                  {`This report is discoverable within your organization. ${editLevel === "private" ? "Only you can edit it." : "Anybody in your organization with permissions can edit it."}`}
+                </Callout>
+              )}
+            </div>
+            <div>
+              {isGeneralDashboard && (
                 <SelectField
-                  label="Edit access"
-                  disabled={shareLevel === "private"}
+                  label="View access"
+                  disabled={
+                    !hasCommercialFeature("share-product-analytics-dashboards")
+                  }
                   options={[
-                    {
-                      label: "Any organization members with editing permission",
-                      value: "published",
-                    },
+                    { label: "Organization members", value: "published" },
                     { label: "Only me", value: "private" },
+                    // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
                   ]}
-                  value={editLevel}
-                  onChange={(value) => handleFieldChange("editLevel", value)}
+                  value={shareLevel}
+                  onChange={(value) => handleFieldChange("shareLevel", value)}
                 />
-                <div className="mb-1" style={{ height: 24 }}>
-                  {saveEditLevelStatus === "loading" ? (
-                    <div className="position-relative" style={{ top: -6 }}>
-                      <LoadingSpinner />
-                    </div>
-                  ) : saveEditLevelStatus === "success" ? (
-                    <HelperText status="success" size="sm">
-                      Edit access has been updated
-                    </HelperText>
-                  ) : saveEditLevelStatus === "fail" ? (
-                    <HelperText status="error" size="sm">
-                      Unable to update edit access
-                    </HelperText>
-                  ) : null}
-                </div>
+              )}
+              <div className="mb-1" style={{ height: 24 }}>
+                {saveShareLevelStatus === "loading" ? (
+                  <div className="position-relative" style={{ top: -6 }}>
+                    <LoadingSpinner />
+                  </div>
+                ) : saveShareLevelStatus === "success" ? (
+                  <HelperText status="success" size="sm">
+                    Sharing status has been updated
+                  </HelperText>
+                ) : saveShareLevelStatus === "fail" ? (
+                  <HelperText status="error" size="sm">
+                    Unable to update sharing status
+                  </HelperText>
+                ) : null}
               </div>
-            </>
-          )}
+            </div>
+            <div>
+              <SelectField
+                label="Edit access"
+                disabled={
+                  shareLevel === "private" ||
+                  !hasCommercialFeature("share-product-analytics-dashboards")
+                }
+                options={[
+                  {
+                    label: "Any organization members with editing permission",
+                    value: "published",
+                  },
+                  { label: "Only me", value: "private" },
+                ]}
+                value={editLevel}
+                onChange={(value) => handleFieldChange("editLevel", value)}
+              />
+              <div className="mb-1" style={{ height: 24 }}>
+                {saveEditLevelStatus === "loading" ? (
+                  <div className="position-relative" style={{ top: -6 }}>
+                    <LoadingSpinner />
+                  </div>
+                ) : saveEditLevelStatus === "success" ? (
+                  <HelperText status="success" size="sm">
+                    Edit access has been updated
+                  </HelperText>
+                ) : saveEditLevelStatus === "fail" ? (
+                  <HelperText status="error" size="sm">
+                    Unable to update edit access
+                  </HelperText>
+                ) : null}
+              </div>
+            </div>
+          </>
         </Flex>
       </Modal>
     </>
