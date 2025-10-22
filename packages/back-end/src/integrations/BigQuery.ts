@@ -335,11 +335,6 @@ export default class BigQuery extends SqlIntegration {
     // and then we rename it.
     return format(
       `
-      ALTER TABLE ${params.unitsTempTableFullName}
-      SET OPTIONS (
-        expiration_timestamp = NULL
-      );
-
       ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${newName.pop()}
       `,
       this.getFormatDialect(),

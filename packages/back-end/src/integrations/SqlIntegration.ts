@@ -6600,6 +6600,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const { exposureQuery, activationMetric, experimentDimensions } =
       this.parseExperimentParams(params);
 
+    // TODO(adriel): (should we add options here?)
     return format(
       `
     CREATE TABLE ${params.unitsTableFullName}
@@ -6618,7 +6619,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       , max_timestamp ${this.getDataType("timestamp")}
     )
     ${this.createUnitsTablePartitions(["max_timestamp"])}
-    ${this.createUnitsTableOptions()}
     `,
       this.getFormatDialect(),
     );
