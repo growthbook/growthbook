@@ -3436,22 +3436,14 @@ export default abstract class SqlIntegration
     const factTableMap = params.factTableMap;
 
     // clone the metrics before we mutate them
-    const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
-    let denominatorMetrics = cloneDeep<ExperimentMetricInterface[]>(
+    const metric = cloneDeep<MetricInterface>(metricDoc);
+    const denominatorMetrics = cloneDeep<MetricInterface[]>(
       denominatorMetricsDocs,
     );
     const activationMetric = this.processActivationMetric(
       activationMetricDoc,
       settings,
     );
-
-    // Fact metrics are self-contained, so they don't need to reference other metrics for the denominator
-    if (isFactMetric(metric)) {
-      denominatorMetrics = [];
-      if (isRatioMetric(metric)) {
-        denominatorMetrics.push(metric);
-      }
-    }
 
     applyMetricOverrides(metric, settings);
     denominatorMetrics.forEach((m) => applyMetricOverrides(m, settings));
@@ -3474,20 +3466,6 @@ export default abstract class SqlIntegration
     // e.g. "Pages/Session" is dividing number of page views by number of sessions
     const ratioMetric = isRatioMetric(metric, denominator);
     const funnelMetric = isFunnelMetric(metric, denominator);
-
-    const quantileMetric = quantileMetricType(metric);
-    if (quantileMetric && !this.hasQuantileTesting()) {
-      throw new Error("Quantile metrics not supported by this warehouse type");
-    }
-    const metricQuantileSettings: MetricQuantileSettings = (isFactMetric(
-      metric,
-    ) && !!quantileMetric
-      ? metric.quantileSettings
-      : undefined) ?? {
-      type: "unit",
-      quantile: 0,
-      ignoreZeros: false,
-    };
 
     const banditDates = settings.banditSettings?.historicalWeights.map(
       (w) => w.date,
@@ -3521,23 +3499,24 @@ export default abstract class SqlIntegration
       !!denominator.cappingSettings.value &&
       denominator.cappingSettings.value < 1 &&
       isCappableMetricType(denominator);
+
     const capCoalesceMetric = this.capCoalesceValue({
       valueCol: "m.value",
       metric,
       capTablePrefix: "cap",
-      columnRef: isFactMetric(metric) ? metric.numerator : null,
+      columnRef: null,
     });
     const capCoalesceDenominator = this.capCoalesceValue({
       valueCol: "d.value",
       metric: denominator,
       capTablePrefix: "capd",
-      columnRef: isFactMetric(metric) ? metric.denominator : null,
+      columnRef: null,
     });
     const capCoalesceCovariate = this.capCoalesceValue({
       valueCol: "c.value",
       metric: metric,
       capTablePrefix: "cap",
-      columnRef: isFactMetric(metric) ? metric.numerator : null,
+      columnRef: null,
     });
 
     // Get rough date filter for metrics to improve performance
@@ -3619,9 +3598,7 @@ export default abstract class SqlIntegration
     }
 
     return format(
-      `-- ${metric.name} (${
-        isFactMetric(metric) ? metric.metricType : metric.type
-      })
+      `-- ${metric.name} (${metric.type})
     WITH
       ${idJoinSQL}
       ${
@@ -3718,7 +3695,6 @@ export default abstract class SqlIntegration
             metric,
             overrideConversionWindows,
             settings.endDate,
-            quantileMetric ? metricQuantileSettings : undefined,
           )} as value
         FROM
           ${funnelMetric ? "__denominatorUsers" : "__distinctUsers"} d
@@ -3726,24 +3702,6 @@ export default abstract class SqlIntegration
           m.${baseIdType} = d.${baseIdType}
         )
       )
-      ${
-        quantileMetric === "event" // TODO(sql): put quantiles in their own query
-          ? `
-          , __quantileMetric AS (
-            SELECT
-              m.variation
-              ${dimensionCols
-                .map((c) => `, m.${c.alias} AS ${c.alias}`)
-                .join("")}
-              ${this.getQuantileGridColumns(metricQuantileSettings, "")}
-          FROM
-            __userMetricJoin m
-          GROUP BY
-            m.variation
-            ${dimensionCols.map((c) => `, m.${c.alias}`).join("")}
-          )`
-          : ""
-      }
       , __userMetricAgg as (
         -- Add in the aggregate metric value for each user
         SELECT
@@ -3755,18 +3713,8 @@ export default abstract class SqlIntegration
             metric,
             valueColumn: "umj.value",
           })} as value
-          ${quantileMetric === "event" ? `, COUNT(umj.value) AS n_events` : ""}
         FROM
           __userMetricJoin umj
-        ${
-          quantileMetric === "event"
-            ? `
-        LEFT JOIN __quantileMetric qm
-        ON (qm.variation = umj.variation ${dimensionCols
-          .map((c) => `AND qm.${c.alias} = umj.${c.alias}`)
-          .join("\n")})`
-            : ""
-        }
         GROUP BY
           umj.variation
           ${dimensionCols.map((c) => `, umj.${c.alias}`).join("")}
@@ -3924,25 +3872,6 @@ export default abstract class SqlIntegration
     , SUM(${capCoalesceMetric}) AS main_sum
     , SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
     ${
-      quantileMetric === "event"
-        ? `, SUM(COALESCE(m.n_events, 0)) AS denominator_sum
-      , SUM(POWER(COALESCE(m.n_events, 0), 2)) AS denominator_sum_squares
-      , SUM(COALESCE(m.n_events, 0) * ${capCoalesceMetric}) AS main_denominator_sum_product
-      , SUM(COALESCE(m.n_events, 0)) AS quantile_n
-      , MAX(qm.quantile) AS quantile
-        ${N_STAR_VALUES.map(
-          (n) => `, MAX(qm.quantile_lower_${n}) AS quantile_lower_${n}
-                , MAX(qm.quantile_upper_${n}) AS quantile_upper_${n}`,
-        ).join("\n")}`
-        : ""
-    }
-    ${
-      quantileMetric === "unit"
-        ? `${this.getQuantileGridColumns(metricQuantileSettings, "")}
-        , COUNT(m.value) AS quantile_n`
-        : ""
-    }
-    ${
       ratioMetric
         ? `
       ${
@@ -3967,15 +3896,6 @@ export default abstract class SqlIntegration
     }
   FROM
     __userMetricAgg m
-    ${
-      quantileMetric === "event"
-        ? `LEFT JOIN __quantileMetric qm ON (
-      qm.variation = m.variation ${dimensionCols
-        .map((c) => `AND qm.${c.alias} = m.${c.alias}`)
-        .join("\n")}
-        )`
-        : ""
-    }
   ${
     ratioMetric
       ? `LEFT JOIN __userDenominatorAgg d ON (

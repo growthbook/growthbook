@@ -63,6 +63,12 @@ export function isFactMetric(
   return "metricType" in m;
 }
 
+export function isLegacyMetric(
+  m: ExperimentMetricInterface,
+): m is MetricInterface {
+  return !isFactMetric(m);
+}
+
 export function canInlineFilterColumn(
   factTable: Pick<FactTableInterface, "userIdTypes" | "columns">,
   column: string,
