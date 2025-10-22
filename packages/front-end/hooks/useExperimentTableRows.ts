@@ -94,7 +94,6 @@ export function useExperimentTableRows({
   enablePinning = true,
   expandedMetrics,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
-  console.log("here 1", { enablePinning, pinnedMetricSlices });
   const {
     getExperimentMetricById: _getExperimentMetricById,
     getFactTableById: _getFactTableById,
