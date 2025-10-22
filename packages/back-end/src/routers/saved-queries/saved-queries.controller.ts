@@ -9,16 +9,6 @@ import {
   SavedQueryCreateProps,
   SavedQueryUpdateProps,
 } from "back-end/src/validators/saved-queries";
-
-/**
- * Ensures all dataVizConfig items have IDs. Adds IDs to any items that don't have them.
- */
-function ensureDataVizIds(dataVizConfig: DataVizConfig[]): DataVizConfig[] {
-  return dataVizConfig.map((config) => ({
-    ...config,
-    id: config.id || `data-viz_${uuidv4()}`,
-  }));
-}
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -46,6 +36,16 @@ import { fetchTableData } from "back-end/src/services/informationSchema";
 import { ReqContext } from "back-end/types/organization";
 import { DataSourceInterface } from "back-end/types/datasource";
 import { ApiReqContext } from "back-end/types/api";
+
+/**
+ * Ensures all dataVizConfig items have IDs. Adds IDs to any items that don't have them.
+ */
+function ensureDataVizIds(dataVizConfig: DataVizConfig[]): DataVizConfig[] {
+  return dataVizConfig.map((config) => ({
+    ...config,
+    id: config.id || `data-viz_${uuidv4()}`,
+  }));
+}
 
 export async function getSavedQueries(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);

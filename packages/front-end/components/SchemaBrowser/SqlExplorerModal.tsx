@@ -400,7 +400,6 @@ export default function SqlExplorerModal({
           dateLastRan: form.watch("dateLastRan"),
           dataVizConfig: dataVizConfig,
           results: form.watch("results"),
-          //MKTODO: Support updating the linkedDashboardIds?
         }),
       });
       mutate();
