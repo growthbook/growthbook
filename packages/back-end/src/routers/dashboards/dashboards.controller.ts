@@ -220,6 +220,7 @@ export async function refreshDashboardData(
       metricMap: await getMetricMap(context),
       queryParentId: mainSnapshot.id,
       factTableMap: await getFactTableMap(context),
+      experiment: experiment,
     });
   } else {
     await deleteSnapshotById(context.org.id, mainSnapshot.id);

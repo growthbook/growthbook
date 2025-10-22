@@ -1279,6 +1279,7 @@ export async function createSnapshot({
       metricMap,
       queryParentId: snapshot.id,
       factTableMap,
+      experiment,
     });
   }
 

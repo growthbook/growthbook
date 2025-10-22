@@ -394,6 +394,7 @@ export async function refreshReport(
       metricMap,
       factTableMap,
       metricGroups,
+      experiment: null,
     });
 
     return res.status(200).json({
@@ -573,6 +574,7 @@ export async function putReport(
         metricMap,
         factTableMap,
         metricGroups,
+        experiment: experiment ?? null,
       });
     }
 

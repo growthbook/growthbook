@@ -21,7 +21,12 @@ import {
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
+import {
+  AdditionalQueryMetadata,
+  Queries,
+  QueryPointer,
+  QueryStatus,
+} from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
 import {
   findSnapshotById,
@@ -50,7 +55,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { BanditResult } from "back-end/types/experiment";
+import { BanditResult, ExperimentInterface } from "back-end/types/experiment";
 import {
   QueryRunner,
   QueryMap,
@@ -74,6 +79,8 @@ export type ExperimentResultsQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   queryParentId: string;
+  // used for metadata
+  experiment: ExperimentInterface | null;
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
@@ -427,6 +434,16 @@ export const startExperimentResultQueries = async (
   return queries;
 };
 
+function getAdditionalQueryMetadataForExperiment(
+  experiment: ExperimentInterface,
+): AdditionalQueryMetadata {
+  return {
+    experimentOwner: experiment.owner,
+    experimentProject: experiment.project ?? "All",
+    experimentTags: experiment.tags,
+  };
+}
+
 export class ExperimentResultsQueryRunner extends QueryRunner<
   ExperimentSnapshotInterface,
   ExperimentResultsQueryParams,
@@ -444,6 +461,11 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+    if (params.experiment) {
+      this.integration.setAdditionalQueryMetadata?.(
+        getAdditionalQueryMetadataForExperiment(params.experiment),
+      );
+    }
     if (
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
