@@ -207,7 +207,7 @@ export function migrate(
     case "experiment-time-series":
       return {
         ...doc,
-        metricIds: doc.metricIds || [doc.metricId!],
+        metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
         metricId: undefined,
         metricSelector: doc.metricSelector || "custom",
         pinSource: doc.pinSource || "experiment",
