@@ -206,7 +206,10 @@ export default function EditSingleBlock({
 
     // For custom selector, show all metrics that are in the block's metricIds
     if (selector === "custom") {
-      const customMetricIds = block.metricIds ?? [];
+      const customMetricIds = expandMetricGroups(
+        block.metricIds ?? [],
+        metricGroups,
+      );
       return metricOptions
         .map((group) => ({
           ...group,
@@ -219,28 +222,21 @@ export default function EditSingleBlock({
 
     // For specific selectors, filter to only show metrics from that category
     if (selector === "experiment-goal") {
-      return metricOptions.filter(
-        (group) =>
-          group.label === "Goal Metrics" || group.label === "Metric Groups",
-      );
+      return metricOptions.filter((group) => group.label === "Goal Metrics");
     }
     if (selector === "experiment-secondary") {
       return metricOptions.filter(
-        (group) =>
-          group.label === "Secondary Metrics" ||
-          group.label === "Metric Groups",
+        (group) => group.label === "Secondary Metrics",
       );
     }
     if (selector === "experiment-guardrail") {
       return metricOptions.filter(
-        (group) =>
-          group.label === "Guardrail Metrics" ||
-          group.label === "Metric Groups",
+        (group) => group.label === "Guardrail Metrics",
       );
     }
 
     return metricOptions;
-  }, [metricOptions, block]);
+  }, [metricOptions, block, metricGroups]);
 
   // Reset selectedMetricIdForPinning if it's no longer allowed by the current metricSelector
   useEffect(() => {
@@ -252,43 +248,31 @@ export default function EditSingleBlock({
 
     // Check if the selected metric is allowed by the current selector
     if (selector === "custom") {
-      isAllowed = (block.metricIds ?? []).includes(selectedMetricIdForPinning);
+      isAllowed = expandMetricGroups(
+        block.metricIds ?? [],
+        metricGroups,
+      ).includes(selectedMetricIdForPinning);
     } else if (selector === "experiment-goal") {
-      isAllowed =
-        experiment.goalMetrics.includes(selectedMetricIdForPinning) ||
-        experiment.goalMetrics.some(
-          (mId) =>
-            metricGroupMap.has(mId) &&
-            metricGroupMap
-              .get(mId)
-              ?.metrics?.includes(selectedMetricIdForPinning),
-        );
+      isAllowed = expandMetricGroups(
+        experiment.goalMetrics,
+        metricGroups,
+      ).includes(selectedMetricIdForPinning);
     } else if (selector === "experiment-secondary") {
-      isAllowed =
-        experiment.secondaryMetrics.includes(selectedMetricIdForPinning) ||
-        experiment.secondaryMetrics.some(
-          (mId) =>
-            metricGroupMap.has(mId) &&
-            metricGroupMap
-              .get(mId)
-              ?.metrics?.includes(selectedMetricIdForPinning),
-        );
+      isAllowed = expandMetricGroups(
+        experiment.secondaryMetrics,
+        metricGroups,
+      ).includes(selectedMetricIdForPinning);
     } else if (selector === "experiment-guardrail") {
-      isAllowed =
-        experiment.guardrailMetrics.includes(selectedMetricIdForPinning) ||
-        experiment.guardrailMetrics.some(
-          (mId) =>
-            metricGroupMap.has(mId) &&
-            metricGroupMap
-              .get(mId)
-              ?.metrics?.includes(selectedMetricIdForPinning),
-        );
+      isAllowed = expandMetricGroups(
+        experiment.guardrailMetrics,
+        metricGroups,
+      ).includes(selectedMetricIdForPinning);
     }
 
     if (!isAllowed) {
       setSelectedMetricIdForPinning("");
     }
-  }, [block, selectedMetricIdForPinning, experiment, metricGroupMap]);
+  }, [block, selectedMetricIdForPinning, experiment, metricGroups]);
 
   const getSliceOptions = (metricId: string) => {
     if (!metricId) return [];
