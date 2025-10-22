@@ -129,3 +129,7 @@ html {
 [data-theme="dark"] img[src$="#gh-light-mode-only"] {
   display: none;
 }
+
+[class^="docItemContainer"] {
+  max-width: 70ch;
+}

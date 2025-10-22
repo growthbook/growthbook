@@ -29,9 +29,7 @@
   &::before {
     content: "";
     position: absolute;
-    left: calc(
-      var(--stepper-line-left) - 1px
-    ); // Half of step number width (2.5rem / 2)
+    left: calc(var(--stepper-line-left) - 1px);
     top: var(--stepper-number-size); // Start right after the step number circle
     width: 2px;
     height: calc(
@@ -84,7 +82,7 @@
     translate: -10px -10px;
 
     &:not(:last-child) {
-      margin-top: 0.15rem;
+      margin-top: 0.015rem;
     }
   }
 

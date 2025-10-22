@@ -7,7 +7,8 @@
   --tw-shadow: 0 1px 2px 0 #0000000d;
   --tw-ring-color: #0f172a0d;
 }
-html[data-theme="light"] {
+
+[data-theme="light"] {
   --buttoncard-default-background-color: rgba(232, 232, 232, 0.18);
   --buttoncard-default-border-color: rgba(218, 217, 217, 0.47);
   --buttoncard-primary-background-color: #edf1fb;
@@ -20,7 +21,7 @@ html[data-theme="light"] {
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
 }
 
-html[data-theme="dark"] {
+[data-theme="dark"] {
   --buttoncard-default-background-color: rgba(232, 232, 232, 0.07);
   --buttoncard-default-border-color: rgba(218, 217, 217, 0.16);
   --buttoncard-primary-background-color: rgba(16, 38, 91, 0.79);
@@ -38,10 +39,10 @@ html[data-theme="dark"] {
   //   color: none !important;
   // }
   height: 100%;
-  padding-bottom: var(--ifm-spacing-horizontal) !important;
+  // padding-bottom: var(--ifm-spacing-horizontal) !important;
 
   border-radius: 6px;
-  box-shadow: var(--ifm-global-shadow-lw);
+  // box-shadow: var(--ifm-global-shadow-lw);
   overflow: hidden;
 
   &.button-card--vertical .button-card__inner {
@@ -97,6 +98,20 @@ html[data-theme="dark"] {
     // box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow),
     //   var(--tw-shadow, 0 0 #0000);
 
+    header {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-bottom: 0.3rem;
+
+      svg {
+        width: 1em;
+        height: 1em;
+        // filter: grayscale(100%) contrast(120%);
+        // flex-shrink: 0;
+      }
+    }
+
     img {
       margin-bottom: 0.8rem;
     }
@@ -104,7 +119,7 @@ html[data-theme="dark"] {
     h3 {
       color: var(--custom-content-color-emphasis);
       font-size: var(--custom-font-size-lg);
-      margin-bottom: 0.3rem;
+      margin-block-end: 0;
     }
 
     p {
@@ -122,9 +137,6 @@ html[data-theme="dark"] {
 
 [data-theme="light"] {
   .button-card {
-    .button-card__inner {
-    }
-
     &:hover {
       text-decoration: none;
 
@@ -135,6 +147,30 @@ html[data-theme="dark"] {
           var(--tw-ring-offset-shadow), var(--tw-ring-shadow),
           var(--tw-shadow, 0 0 #0000);
       }
+    }
+  }
+}
+
+.button-card-grid {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1rem;
+
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.button-card-grid-2-3 {
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+
+    & > * {
+      grid-column: span 3;
+    }
+
+    & > *:last-child {
+      grid-column: span 6;
     }
   }
 }
