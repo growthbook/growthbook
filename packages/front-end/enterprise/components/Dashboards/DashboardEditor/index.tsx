@@ -262,8 +262,6 @@ function DashboardEditor({
     useState<DashboardShareLevel>(initialShareLevel);
   const [editLevel, setEditLevel] =
     useState<DashboardEditLevel>(initialEditLevel);
-  console.log("initialEditLevel", initialEditLevel);
-  console.log("editLevel", editLevel);
   const { apiCall } = useAuth();
   const { userId, getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();

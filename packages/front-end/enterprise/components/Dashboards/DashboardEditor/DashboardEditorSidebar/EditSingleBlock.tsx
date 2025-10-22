@@ -65,10 +65,6 @@ const REQUIRED_FIELDS: {
       field: "savedQueryId",
       validation: (sqId) => typeof sqId === "string" && sqId.length > 0,
     },
-    // {
-    //   field: "dataVizConfigIndex",
-    //   validation: (idx) => typeof idx === "number" && idx >= 0,
-    // },
   ],
 };
 
@@ -348,8 +344,6 @@ export default function EditSingleBlock({
           : value,
     });
   };
-
-  console.log("block", block);
 
   return (
     <>

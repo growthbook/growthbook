@@ -193,7 +193,6 @@ export default function DashboardsPage() {
           type="general"
           close={() => setShowCreateModal(false)}
           submit={async (data) => {
-            console.log("data", data);
             await submitDashboard({ method: "POST", data });
             setIsEditing(true);
           }}
