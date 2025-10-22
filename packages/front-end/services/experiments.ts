@@ -171,6 +171,7 @@ export type ExperimentTableRow = {
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;
+  sliceId?: string;
   sliceLevels?: Array<{
     column: string;
     datatype: "string" | "boolean";
