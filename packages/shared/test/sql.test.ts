@@ -246,6 +246,10 @@ describe("isReadOnlySQL", () => {
     const sql = "/* Outer comment -- */ DROP TABLE users;\nSELECT * FROM users";
     expect(isReadOnlySQL(sql)).toBe(false);
   });
+  it("handles block comment inside line comment", () => {
+    const sql = `-- /*\nDROP TABLE users\n-- */ SELECT 1`;
+    expect(isReadOnlySQL(sql)).toBe(false);
+  });
 });
 describe("isMultiStatementSQL", () => {
   it("should return true for multiple statements", () => {
