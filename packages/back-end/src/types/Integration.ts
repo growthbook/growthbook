@@ -287,8 +287,8 @@ export interface IncrementalRefreshStatisticsQueryParams
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
-  metric: ExperimentMetricInterface;
-  denominatorMetrics: ExperimentMetricInterface[];
+  metric: MetricInterface;
+  denominatorMetrics: MetricInterface[];
   unitsSource: UnitsSource;
   unitsSql?: string;
   forcedUserIdType?: string;

@@ -2,6 +2,7 @@ import { QueryInterface, QueryStatistics } from "back-end/types/query";
 import { ReactElement } from "react";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";
+import { useUser } from "@/services/UserContext";
 
 const numberFormatter = Intl.NumberFormat();
 
@@ -24,6 +25,9 @@ export default function QueryStatsRow({
   queries: QueryInterface[];
   showPipelineMode?: boolean;
 }) {
+  const { hasCommercialFeature } = useUser();
+  const hasOptimizedQueries = hasCommercialFeature("multi-metric-queries");
+
   const queryStats: QueryStatistics[] = queries
     .map((q) => q.statistics)
     .filter((q): q is QueryStatistics => !!q);
@@ -35,11 +39,14 @@ export default function QueryStatsRow({
     if (q.queryType?.includes("experimentIncrementalRefresh")) return true;
     return false;
   });
+  
+  const factTableOptimizedMetrics = !hasOptimizedQueries
+    ? 0
+    : queries
+        .filter((q) => q.queryType === "experimentMultiMetric")
+        .map((q) => getNumberOfMetricsInQuery(q))
+        .reduce((sum, n) => sum + n, 0);
 
-  const factTableOptimizedMetrics = queries
-    .filter((q) => q.queryType === "experimentMultiMetric")
-    .map((q) => getNumberOfMetricsInQuery(q))
-    .reduce((sum, n) => sum + n, 0);
   const totalMetrics = queries
     .map((q) => getNumberOfMetricsInQuery(q))
     .reduce((sum, n) => sum + n, 0);

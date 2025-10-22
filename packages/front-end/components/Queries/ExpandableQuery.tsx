@@ -15,6 +15,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import { useUser } from "@/services/UserContext";
 import QueryStatsRow from "./QueryStatsRow";
 
 const ExpandableQuery: FC<{
@@ -31,6 +32,9 @@ const ExpandableQuery: FC<{
   }
 
   const { getFactMetricById } = useDefinitions();
+
+  const { hasCommercialFeature } = useUser();
+  const hasOptimizedQueries = hasCommercialFeature("multi-metric-queries");
 
   return (
     <div className="mb-4">
@@ -52,7 +56,7 @@ const ExpandableQuery: FC<{
           {title && " - "}
           Query {i + 1} of {total}
         </span>
-        {query.queryType === "experimentMultiMetric" && (
+        {query.queryType === "experimentMultiMetric" && hasOptimizedQueries && (
           <div className="ml-auto">
             <Tooltip
               body={
@@ -62,12 +66,6 @@ const ExpandableQuery: FC<{
                     Multiple metrics in the same Fact Table are being combined
                     into a single query, which is much faster and more
                     efficient.
-                  </p>
-                  <p>
-                    This is a new feature, so please report any issues you
-                    encounter. You can disable this optimization under{" "}
-                    <strong>Settings</strong> -&gt; <strong>General</strong>{" "}
-                    -&gt; <strong>Experiment Settings</strong>.
                   </p>
                 </>
               }
