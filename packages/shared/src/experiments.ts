@@ -424,18 +424,16 @@ export function getUserIdTypes(
   return metric.userIdTypes || [];
 }
 
-export interface SliceLevel {
-  column: string;
-  levels: string[]; // empty array for "other", single element for now
-}
-
 export interface SliceMetricInfo {
   isSliceMetric: boolean;
   baseMetricId: string;
-  sliceLevels: SliceLevel[];
+  sliceLevels: SliceLevelsData[];
 }
 
-export function parseSliceMetricId(metricId: string): SliceMetricInfo {
+export function parseSliceMetricId(
+  metricId: string,
+  factTableMap?: Record<string, FactTableInterface>,
+): SliceMetricInfo {
   const questionMarkIndex = metricId.indexOf("?");
   if (questionMarkIndex === -1) {
     return {
@@ -449,14 +447,32 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
   const queryString = metricId.substring(questionMarkIndex + 1);
 
   // Parse query parameters using URLSearchParams
-  const sliceLevels: SliceLevel[] = [];
+  const sliceLevels: SliceLevelsData[] = [];
   const params = new URLSearchParams(queryString);
 
   for (const [key, value] of params.entries()) {
     if (key.startsWith("dim:")) {
       const column = decodeURIComponent(key.substring(4)); // Remove 'dim:' prefix
       const level = value === "" ? null : decodeURIComponent(value);
-      sliceLevels.push({ column: column, levels: level ? [level] : [] });
+      // Look up datatype from factTableMap if available
+      let datatype: "string" | "boolean" = "string";
+      if (factTableMap) {
+        for (const factTable of Object.values(factTableMap)) {
+          const columnInfo = factTable.columns.find(
+            (col) => col.column === column,
+          );
+          if (columnInfo) {
+            datatype = columnInfo.datatype === "boolean" ? "boolean" : "string";
+            break;
+          }
+        }
+      }
+
+      sliceLevels.push({
+        column: column,
+        datatype,
+        levels: level ? [level] : [],
+      });
     }
   }
 
@@ -480,48 +496,20 @@ export function parseSliceMetricId(metricId: string): SliceMetricInfo {
  */
 export function generatePinnedSliceKey(
   metricId: string,
-  sliceLevels: SliceLevel[],
+  sliceLevels: SliceLevelsData[],
   location: "goal" | "secondary" | "guardrail",
 ): string {
-  const sliceKeyParts = generateSliceStringFromLevels(sliceLevels);
+  // Convert SliceLevelsData to SliceLevel format, handling boolean "null" values
+  const sliceLevelsForString = sliceLevels.map((dl) => {
+    // For boolean "null" slices, use empty array to generate ?dim:col= format
+    const isBooleanNull = dl.levels[0] === "null" && dl.datatype === "boolean";
+
+    const levels = isBooleanNull ? [] : dl.levels;
+    return { column: dl.column, datatype: dl.datatype, levels };
+  });
+
+  const sliceKeyParts = generateSliceStringFromLevels(sliceLevelsForString);
   return `${metricId}?${sliceKeyParts}&location=${location}`;
-}
-
-/**
- * Parses a pinned slice key to extract metric ID, slice levels, and location
- */
-export function parsePinnedSliceKey(pinnedKey: string): {
-  metricId: string;
-  sliceLevels: Array<{ column: string; level: string | null }>;
-  location: "goal" | "secondary" | "guardrail";
-} | null {
-  const questionMarkIndex = pinnedKey.indexOf("?");
-  if (questionMarkIndex === -1) return null;
-
-  const metricId = pinnedKey.substring(0, questionMarkIndex);
-  const queryString = pinnedKey.substring(questionMarkIndex + 1);
-
-  const params = new URLSearchParams(queryString);
-  const locationParam = params.get("location");
-  if (
-    locationParam !== "goal" &&
-    locationParam !== "secondary" &&
-    locationParam !== "guardrail"
-  ) {
-    return null;
-  }
-  const location = locationParam as "goal" | "secondary" | "guardrail";
-  params.delete("location");
-
-  const sliceLevels: Array<{ column: string; level: string | null }> = [];
-  for (const [key, value] of params.entries()) {
-    if (!key.startsWith("dim:")) continue;
-    const column = decodeURIComponent(key.substring(4));
-    const level = value === "" ? null : decodeURIComponent(value);
-    sliceLevels.push({ column, level });
-  }
-
-  return { metricId, sliceLevels, location };
 }
 
 export function getMetricLink(id: string): string {
@@ -1138,16 +1126,18 @@ export function getAllExpandedMetricIdsFromExperiment({
   return Array.from(expandedMetricIds);
 }
 
+export interface SliceLevelsData {
+  column: string;
+  datatype: "string" | "boolean";
+  levels: string[];
+}
+
 // For building slice metric rows (FE)
 export interface SliceDataForMetric {
   id: string; // Format: `${parentId}?dim:${encodedColumnId}=${encodedValue}` or `${parentId}?dim:${encodedColumnId}=` for "other"
   name: string; // Format: `${parentName} (${columnName}: ${value})` or `${parentName} (${columnName}: other)`
   description: string;
-  sliceLevels: Array<{
-    column: string;
-    datatype: "string" | "boolean";
-    levels: string[];
-  }>;
+  sliceLevels: SliceLevelsData[];
   allSliceLevels: string[];
 }
 
@@ -1270,7 +1260,13 @@ export function createCustomSliceDataForMetric({
         d.levels[0] === "null" && column?.datatype === "boolean"
           ? []
           : d.levels;
-      return { column: d.column, levels };
+      return {
+        column: d.column,
+        datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
+          | "string"
+          | "boolean",
+        levels,
+      };
     });
 
     const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
@@ -1317,7 +1313,7 @@ export function generateSliceString(slices: Record<string, string>): string {
 }
 
 export function generateSliceStringFromLevels(
-  sliceLevels: SliceLevel[],
+  sliceLevels: SliceLevelsData[],
 ): string {
   const slices: Record<string, string> = {};
   sliceLevels.forEach((dl) => {
@@ -1767,7 +1763,13 @@ export function expandAllSliceMetricsInMap({
             column?.datatype === "boolean" && d.levels[0] === "null"
               ? []
               : d.levels;
-          return { column: d.column, levels };
+          return {
+            column: d.column,
+            datatype: (column?.datatype === "boolean"
+              ? "boolean"
+              : "string") as "string" | "boolean",
+            levels,
+          };
         });
 
         const sliceString = generateSliceStringFromLevels(sliceLevelsForString);

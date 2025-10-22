@@ -5374,7 +5374,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           "m",
         ).value;
 
-        const sliceInfo = parseSliceMetricId(m.id);
+        const sliceInfo = parseSliceMetricId(m.id, {
+          [factTable.id]: factTable,
+        });
         const filters = getColumnRefWhereClause({
           factTable,
           columnRef: m.numerator,
@@ -5414,7 +5416,9 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           "m",
         ).value;
 
-        const sliceInfo = parseSliceMetricId(m.id);
+        const sliceInfo = parseSliceMetricId(m.id, {
+          [factTable.id]: factTable,
+        });
         const filters = getColumnRefWhereClause({
           factTable,
           columnRef: m.denominator,
