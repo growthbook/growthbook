@@ -41,15 +41,12 @@ export default function ExperimentMetricBlock({
     metricSelector,
     metricIds,
   } = block;
-  const blockId = useMemo(
-    () => (blockHasFieldOfType(block, "id", isString) ? block.id : uuid4()),
-    [block],
-  );
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
     () => (blockHasFieldOfType(block, "id", isString) ? block.id : null),
     [block],
   );
+  const blockId = useMemo(() => blockInherentId ?? uuid4(), [blockInherentId]);
 
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
   const { metricGroups, getExperimentMetricById, getFactTableById } =
