@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState, useEffect } from "react";
+import React, { useMemo, useEffect } from "react";
 import { v4 as uuid4 } from "uuid";
 import { ExperimentMetricBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { isString } from "shared/util";
@@ -6,17 +6,17 @@ import { groupBy } from "lodash";
 import { blockHasFieldOfType } from "shared/enterprise";
 import { MetricSnapshotSettings } from "back-end/types/report";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
-import {
-  expandMetricGroups,
-  generatePinnedSliceKey,
-  SliceLevelsData,
-} from "shared/experiments";
+import { expandMetricGroups } from "shared/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import {
+  useDashboardMetricSliceData,
+  useDashboardPinnedMetricSlices,
+} from "@/enterprise/hooks/useDashboardMetricSlices";
 import { ExperimentMetricBlockContext } from "../DashboardEditorSidebar/types";
 import { setBlockContextValue } from "../DashboardEditorSidebar/useBlockContext";
 import { BlockProps } from ".";
@@ -36,10 +36,9 @@ export default function ExperimentMetricBlock({
     baselineRow,
     columnsFilter,
     variationIds,
-    pinnedMetricSlices,
     pinSource,
     metricSelector,
-    metricIds,
+    metricIds: blockMetricIds,
   } = block;
   // The actual ID of the block which might be null in the case of a block being created
   const blockInherentId = useMemo(
@@ -101,50 +100,24 @@ export default function ExperimentMetricBlock({
           .map((v) => v.index)
       : undefined;
 
-  const [expandedMetrics, setExpandedMetrics] = useState<
-    Record<string, boolean>
-  >({});
-  const toggleExpandedMetric = (
-    metricId: string,
-    resultGroup: "goal" | "secondary" | "guardrail",
-  ) => {
-    const key = `${metricId}:${resultGroup}`;
-    setExpandedMetrics((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
+  const { expandedMetrics, toggleExpandedMetric, effectivePinnedMetricSlices } =
+    useDashboardPinnedMetricSlices(block, experiment);
 
-  // Determine which pinned slices to use based on pinSource
-  const effectivePinnedMetricSlices = useMemo(() => {
-    const source = pinSource || "experiment"; // Default to "experiment" if undefined
-    if (source === "experiment") {
-      return experiment.pinnedMetricSlices;
-    } else if (source === "custom") {
-      return pinnedMetricSlices;
-    } else {
-      // source === "none"
-      return undefined;
-    }
-  }, [pinSource, experiment.pinnedMetricSlices, pinnedMetricSlices]);
-
-  const expandedMetricIds = metrics?.map((m) => m.id) || [];
+  const metricIds = metrics?.map((m) => m.id) || [];
   const goalMetrics = expandMetricGroups(
     experiment.goalMetrics,
     ssrPolyfills?.metricGroups || metricGroups,
-  ).filter((mId) => expandedMetricIds.includes(mId));
+  ).filter((mId) => metricIds.includes(mId));
   const secondaryMetrics = expandMetricGroups(
     experiment.secondaryMetrics,
     ssrPolyfills?.metricGroups || metricGroups,
-  ).filter(
-    (mId) => expandedMetricIds.includes(mId) && !goalMetrics.includes(mId),
-  );
+  ).filter((mId) => metricIds.includes(mId) && !goalMetrics.includes(mId));
   const guardrailMetrics = expandMetricGroups(
     experiment.guardrailMetrics,
     ssrPolyfills?.metricGroups || metricGroups,
   ).filter(
     (mId) =>
-      expandedMetricIds.includes(mId) &&
+      metricIds.includes(mId) &&
       !goalMetrics.includes(mId) &&
       !secondaryMetrics.includes(mId),
   );
@@ -166,59 +139,13 @@ export default function ExperimentMetricBlock({
     enablePinning: true,
     expandedMetrics,
     sortBy: metricSelector === "custom" ? "custom" : null,
-    customMetricOrder: metricSelector === "custom" ? metricIds : undefined,
+    customMetricOrder: metricSelector === "custom" ? blockMetricIds : undefined,
   });
 
+  const { sliceData, togglePinnedMetricSlice, isSlicePinned } =
+    useDashboardMetricSliceData(block, setBlock, rows);
+
   const rowGroups = groupBy(rows, ({ resultGroup }) => resultGroup);
-
-  const sliceData = useMemo(() => {
-    return rows
-      .filter((row) => row.isSliceRow && row.sliceId)
-      .map((row) => ({
-        value: generatePinnedSliceKey(
-          row.metric.id,
-          row.sliceLevels || [],
-          row.resultGroup,
-        ),
-        label: typeof row.label === "string" ? row.label : row.metric.name,
-        sliceLevels: row.sliceLevels || [],
-      }));
-  }, [rows]);
-
-  const togglePinnedMetricSlice = useCallback(
-    (
-      metricId: string,
-      sliceLevels: SliceLevelsData[],
-      resultGroup: "goal" | "secondary" | "guardrail",
-    ) => {
-      if (!setBlock) return;
-
-      const pinnedKey = generatePinnedSliceKey(
-        metricId,
-        sliceLevels,
-        resultGroup,
-      );
-      const currentPinnedSlices = pinnedMetricSlices || [];
-      const isPinned = currentPinnedSlices.includes(pinnedKey);
-      const newPinnedSlices = isPinned
-        ? currentPinnedSlices.filter((key) => key !== pinnedKey)
-        : [...currentPinnedSlices, pinnedKey];
-
-      setBlock({
-        ...block,
-        pinnedMetricSlices: newPinnedSlices,
-      });
-    },
-    [setBlock, block, pinnedMetricSlices],
-  );
-
-  const isSlicePinned = useCallback(
-    (pinKey: string) => {
-      const currentPinnedSlices = pinnedMetricSlices || [];
-      return currentPinnedSlices.includes(pinKey);
-    },
-    [pinnedMetricSlices],
-  );
 
   useEffect(() => {
     const contextValue: ExperimentMetricBlockContext = {
