@@ -142,12 +142,12 @@ const navlinks: SidebarLinkProps[] = [
     name: "Insights",
     href: "/dashboard",
     Icon: GBLibrary,
-    path: /^(learnings|timeline|metric-effect|correlations|presentation)/,
+    path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
         name: "Dashboard",
         href: "/dashboard",
-        path: /^dashboard$/,
+        path: /^dashboard/,
       },
       {
         name: "Learnings",
@@ -192,7 +192,7 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "Dashboard",
         href: "/dashboard",
-        path: /^dashboard$/,
+        path: /^dashboard/,
       },
       {
         name: "Ideas",
@@ -393,7 +393,7 @@ const otherPageTitles = [
     title: "Get Started",
   },
   {
-    path: /^dashboard$/,
+    path: /^dashboard/,
     title: "Dashboard",
   },
 ];
