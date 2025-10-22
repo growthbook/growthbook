@@ -84,6 +84,7 @@ export default function SqlExplorerModal({
   trackingEventModalSource = "",
   onSave,
 }: Props) {
+  console.log("initial", initial);
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
   const [loading, setLoading] = useState(false);
@@ -391,6 +392,7 @@ export default function SqlExplorerModal({
 
     // Something changed, so save the updates
     try {
+      const results = form.watch("results");
       await apiCall(`/saved-queries/${id}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -399,7 +401,10 @@ export default function SqlExplorerModal({
           datasourceId: form.watch("datasourceId"),
           dateLastRan: form.watch("dateLastRan"),
           dataVizConfig: dataVizConfig,
-          results: form.watch("results"),
+          results: {
+            ...results,
+            error: results.error || undefined, // Convert null/empty to undefined
+          },
         }),
       });
       mutate();
