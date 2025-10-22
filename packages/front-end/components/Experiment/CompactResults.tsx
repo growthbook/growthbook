@@ -743,7 +743,7 @@ export function getRenderLabelColumn({
                   />
                 }
                 tipPosition="right"
-                className="d-inline-block font-weight-bold metric-label"
+                className="d-inline-block font-weight-bold metric-label pl-2"
                 flipTheme={false}
                 usePortal={true}
               >
