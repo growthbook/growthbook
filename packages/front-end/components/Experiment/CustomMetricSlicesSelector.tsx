@@ -16,6 +16,7 @@ import {
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { CustomMetricSlice } from "back-end/src/validators/experiments";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -147,7 +148,10 @@ export default function CustomMetricSlicesSelector({
 
           return {
             column: s.column,
-            levels: s.levels,
+            levels:
+              s.levels.length === 1 && s.levels[0] === "*"
+                ? ["__ALL_SLICES__"]
+                : s.levels,
             datatype: (columnMetadata?.datatype === "boolean"
               ? "boolean"
               : "string") as "string" | "boolean",
@@ -169,6 +173,15 @@ export default function CustomMetricSlicesSelector({
     if (editingSliceLevels.length === 0) return;
 
     const sliceLevelsFormatted = editingSliceLevels.map((dl) => {
+      // Wildcards
+      if (dl.levels[0] === "__ALL_SLICES__") {
+        return {
+          column: dl.column,
+          datatype: dl.datatype,
+          levels: ["*"],
+        };
+      }
+
       // For boolean "null" slices, use empty array to generate correct pin ID
       const levels =
         dl.levels[0] === "null" && dl.datatype === "boolean"
@@ -187,7 +200,7 @@ export default function CustomMetricSlicesSelector({
     const newLevels: CustomMetricSlice = {
       slices: editingSliceLevels.map((dl) => ({
         column: dl.column,
-        levels: dl.levels,
+        levels: dl.levels[0] === "__ALL_SLICES__" ? ["*"] : dl.levels,
       })),
     };
 
@@ -296,6 +309,17 @@ export default function CustomMetricSlicesSelector({
       const columnMetadata = metricsWithStringColumns
         .flatMap((metric) => metric.stringColumns || [])
         .find((col) => col.column === dl.column);
+
+      // Wildcards
+      if (dl.levels.length === 1 && dl.levels[0] === "*") {
+        return {
+          column: dl.column,
+          datatype: (columnMetadata?.datatype === "boolean"
+            ? "boolean"
+            : "string") as "string" | "boolean",
+          levels: ["*"],
+        };
+      }
 
       // For boolean "null" slices, use empty array to generate correct pin ID
       const levels =
@@ -441,19 +465,26 @@ export default function CustomMetricSlicesSelector({
                               <Badge
                                 label={
                                   <Text style={{ color: "var(--slate-12)" }}>
-                                    {combo.column} ={" "}
-                                    {isBoolean ? (
-                                      <span
-                                        style={{
-                                          textTransform: "uppercase",
-                                          fontWeight: 600,
-                                          fontSize: "10px",
-                                        }}
-                                      >
-                                        {combo.levels[0]}
-                                      </span>
+                                    {combo.levels.length === 1 &&
+                                    combo.levels[0] === "*" ? (
+                                      <>{combo.column}: ＊</>
                                     ) : (
-                                      combo.levels[0]
+                                      <>
+                                        {combo.column} ={" "}
+                                        {isBoolean ? (
+                                          <span
+                                            style={{
+                                              textTransform: "uppercase",
+                                              fontWeight: 600,
+                                              fontSize: "10px",
+                                            }}
+                                          >
+                                            {combo.levels[0]}
+                                          </span>
+                                        ) : (
+                                          combo.levels[0]
+                                        )}
+                                      </>
                                     )}
                                   </Text>
                                 }
@@ -771,6 +802,7 @@ function EditingInterface({
 
           if (sliceColumn.datatype === "boolean") {
             const booleanOptions = [
+              { label: "All slices", value: "__ALL_SLICES__" },
               { label: "TRUE", value: "true" },
               { label: "FALSE", value: "false" },
               { label: "NULL", value: "null" },
@@ -795,6 +827,21 @@ function EditingInterface({
                   placeholder="Select..."
                   autoFocus={!sliceLevel.levels[0]}
                   sort={false}
+                  formatOptionLabel={({ label, value }) => {
+                    if (value === "__ALL_SLICES__") {
+                      return (
+                        <Tooltip
+                          body="Generate rows for all possible slice levels"
+                          tipPosition="top"
+                        >
+                          <>
+                            ＊ <span className="small">(3)</span>
+                          </>
+                        </Tooltip>
+                      );
+                    }
+                    return label;
+                  }}
                 />
                 <button
                   type="button"
@@ -823,16 +870,37 @@ function EditingInterface({
                   onChange={(value) =>
                     updateSliceLevel(levelIndex, "level", value)
                   }
-                  options={availableLevels.map((level) => ({
-                    label: level,
-                    value: level,
-                  }))}
+                  options={[
+                    { label: "All slices", value: "__ALL_SLICES__" },
+                    ...availableLevels.map((level) => ({
+                      label: level,
+                      value: level,
+                    })),
+                  ]}
                   className="mb-0"
                   style={{ minWidth: "120px" }}
                   createable
                   placeholder=""
                   autoFocus={!sliceLevel.levels[0]}
                   sort={false}
+                  formatOptionLabel={({ label, value }) => {
+                    if (value === "__ALL_SLICES__") {
+                      return (
+                        <Tooltip
+                          body="Generate rows for all possible slice levels"
+                          tipPosition="top"
+                        >
+                          <>
+                            ＊{" "}
+                            <span className="small">
+                              ({availableLevels.length} levels)
+                            </span>
+                          </>
+                        </Tooltip>
+                      );
+                    }
+                    return label;
+                  }}
                 />
               ) : (
                 <Field

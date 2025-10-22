@@ -1227,6 +1227,66 @@ export function createAutoSliceDataForMetric({
   return sliceData;
 }
 
+// Helper function to generate all combinations of arrays
+function generateCombinations<T>(arrays: T[][]): T[][] {
+  if (arrays.length === 0) return [[]];
+  if (arrays.length === 1) {
+    const singleArrayResult = arrays[0].map((item) => [item]);
+    return singleArrayResult;
+  }
+
+  const result: T[][] = [];
+  const firstArray = arrays[0];
+  const restCombinations = generateCombinations(arrays.slice(1));
+
+  for (const item of firstArray) {
+    for (const combination of restCombinations) {
+      result.push([item, ...combination]);
+    }
+  }
+
+  return result;
+}
+
+// Utility function to expand wildcard levels to all available levels
+function expandWildcardLevels(
+  slice: { column: string; levels: string[] },
+  factTable: FactTableInterface | null | undefined,
+): string[] {
+  // Check if levels is ["*"] (wildcard)
+  if (slice.levels.length !== 1 || slice.levels[0] !== "*") {
+    return slice.levels;
+  }
+
+  const column = factTable?.columns.find((col) => col.column === slice.column);
+  if (!column) {
+    return [];
+  }
+
+  if (column.datatype === "boolean") {
+    return ["true", "false", "null"];
+  } else {
+    // For string columns, use autoSlices and topValues
+    const allLevels = new Set([
+      ...(column?.autoSlices || []),
+      ...(column?.topValues || []),
+    ]);
+    return Array.from(allLevels);
+  }
+}
+
+// Utility function to expand wildcard slices to all combinations
+function expandWildcardSlices(
+  slices: Array<{ column: string; levels: string[] }>,
+  factTable: FactTableInterface | null | undefined,
+): string[][] {
+  const wildcardSlices = slices.map((slice) =>
+    expandWildcardLevels(slice, factTable),
+  );
+  const combinations = generateCombinations(wildcardSlices);
+  return combinations;
+}
+
 // Creates custom slice data for a fact metric by using the experiment's customMetricSlices
 export function createCustomSliceDataForMetric({
   metricId,
@@ -1258,34 +1318,66 @@ export function createCustomSliceDataForMetric({
       a.column.localeCompare(b.column),
     );
 
-    // Create slice levels with proper handling for boolean "null" values
-    const sliceLevelsForString = sortedSlices.map((d) => {
-      const column = factTable?.columns.find((col) => col.column === d.column);
-      // For boolean "null" slices, use empty array to generate ?dim:col= format
-      const levels =
-        d.levels[0] === "null" && column?.datatype === "boolean"
-          ? []
-          : d.levels;
-      return {
-        column: d.column,
-        datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
-          | "string"
-          | "boolean",
-        levels,
-      };
-    });
+    // Check if any slice has wildcard levels
+    const hasWildcard = sortedSlices.some(
+      (slice) => slice.levels.length === 1 && slice.levels[0] === "*",
+    );
 
-    const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
+    if (hasWildcard) {
+      // For wildcard slices, expand them to all available levels and generate combinations
+      const combinations = expandWildcardSlices(sortedSlices, factTable);
 
-    const customSliceMetric = {
-      id: `${metricId}?${sliceString}`,
-      name: `${metricName} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
-      description: `Slice analysis of ${metricName} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-      sliceLevels: sortedSlices.map((d) => {
+      combinations.forEach((combination) => {
+        const sliceLevelsForString = combination.map((level, index) => {
+          const slice = sortedSlices[index];
+          const column = factTable?.columns.find(
+            (col) => col.column === slice.column,
+          );
+          // For boolean "null" slices, use empty array to generate ?dim:col= format
+          const processedLevels =
+            level === "null" && column?.datatype === "boolean" ? [] : [level];
+          return {
+            column: slice.column,
+            datatype: (column?.datatype === "boolean"
+              ? "boolean"
+              : "string") as "string" | "boolean",
+            levels: processedLevels as string[],
+          };
+        });
+
+        const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
+
+        const customSliceMetric = {
+          id: `${metricId}?${sliceString}`,
+          name: `${metricName} (${combination.map((level, index) => `${sortedSlices[index].column}: ${level || ""}`).join(", ")})`,
+          description: `Slice analysis of ${metricName} for ${combination.map((level, index) => `${sortedSlices[index].column} = ${level || ""}`).join(" and ")}`,
+          sliceLevels: combination.map((level, index) => {
+            const slice = sortedSlices[index];
+            const column = factTable?.columns.find(
+              (col) => col.column === slice.column,
+            );
+            // For boolean "null" slices, use empty array to match "other" slice format
+            const processedLevels =
+              level === "null" && column?.datatype === "boolean" ? [] : [level];
+            return {
+              column: slice.column,
+              datatype: (column?.datatype === "boolean"
+                ? "boolean"
+                : "string") as "string" | "boolean",
+              levels: processedLevels as string[],
+            };
+          }),
+          allSliceLevels: combination,
+        };
+        customSliceData.push(customSliceMetric);
+      });
+    } else {
+      // Original logic for non-wildcard slices
+      const sliceLevelsForString = sortedSlices.map((d) => {
         const column = factTable?.columns.find(
           (col) => col.column === d.column,
         );
-        // For boolean "null" slices, use empty array to match "other" slice format
+        // For boolean "null" slices, use empty array to generate ?dim:col= format
         const levels =
           d.levels[0] === "null" && column?.datatype === "boolean"
             ? []
@@ -1297,10 +1389,35 @@ export function createCustomSliceDataForMetric({
             | "boolean",
           levels,
         };
-      }),
-      allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
-    };
-    customSliceData.push(customSliceMetric);
+      });
+
+      const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
+
+      const customSliceMetric = {
+        id: `${metricId}?${sliceString}`,
+        name: `${metricName} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
+        description: `Slice analysis of ${metricName} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
+        sliceLevels: sortedSlices.map((d) => {
+          const column = factTable?.columns.find(
+            (col) => col.column === d.column,
+          );
+          // For boolean "null" slices, use empty array to match "other" slice format
+          const levels =
+            d.levels[0] === "null" && column?.datatype === "boolean"
+              ? []
+              : d.levels;
+          return {
+            column: d.column,
+            datatype: (column?.datatype === "boolean"
+              ? "boolean"
+              : "string") as "string" | "boolean",
+            levels,
+          };
+        }),
+        allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
+      };
+      customSliceData.push(customSliceMetric);
+    }
   });
 
   return customSliceData;
@@ -1759,34 +1876,80 @@ export function expandAllSliceMetricsInMap({
 
         if (!hasAllRequiredColumns) return;
 
-        // Create slice levels
-        const sliceLevelsForString = sortedSliceGroups.map((d) => {
-          const column = factTable.columns.find(
-            (col) => col.column === d.column,
+        // Check if any slice has wildcard levels
+        const hasWildcard = sortedSliceGroups.some(
+          (slice) => slice.levels.length === 1 && slice.levels[0] === "*",
+        );
+
+        if (hasWildcard) {
+          // For wildcard slices, expand them to all available levels and generate combinations
+          const combinations = expandWildcardSlices(
+            sortedSliceGroups,
+            factTable,
           );
-          // For boolean "null" slices, use empty array to generate ?dim:col= format
-          const levels =
-            column?.datatype === "boolean" && d.levels[0] === "null"
-              ? []
-              : d.levels;
-          return {
-            column: d.column,
-            datatype: (column?.datatype === "boolean"
-              ? "boolean"
-              : "string") as "string" | "boolean",
-            levels,
+
+          combinations.forEach((combination) => {
+            const sliceLevelsForString = combination.map((level, index) => {
+              const slice = sortedSliceGroups[index];
+              const column = factTable.columns.find(
+                (col) => col.column === slice.column,
+              );
+              // For boolean "null" slices, use empty array to generate ?dim:col= format
+              const processedLevels =
+                level === "null" && column?.datatype === "boolean"
+                  ? []
+                  : [level];
+              return {
+                column: slice.column,
+                datatype: (column?.datatype === "boolean"
+                  ? "boolean"
+                  : "string") as "string" | "boolean",
+                levels: processedLevels as string[],
+              };
+            });
+
+            const sliceString =
+              generateSliceStringFromLevels(sliceLevelsForString);
+
+            const customSliceMetric: ExperimentMetricInterface = {
+              ...metric,
+              id: `${metric.id}?${sliceString}`,
+              name: `${metric.name} (${combination.map((level, index) => `${sortedSliceGroups[index].column}: ${level || ""}`).join(", ")})`,
+              description: `Slice analysis of ${metric.name} for ${combination.map((level, index) => `${sortedSliceGroups[index].column} = ${level || ""}`).join(" and ")}`,
+            };
+            metricMap.set(customSliceMetric.id, customSliceMetric);
+          });
+        } else {
+          // Original logic for non-wildcard slices
+          const sliceLevelsForString = sortedSliceGroups.map((d) => {
+            const column = factTable.columns.find(
+              (col) => col.column === d.column,
+            );
+            // For boolean "null" slices, use empty array to generate ?dim:col= format
+            const levels =
+              column?.datatype === "boolean" && d.levels[0] === "null"
+                ? []
+                : d.levels;
+            return {
+              column: d.column,
+              datatype: (column?.datatype === "boolean"
+                ? "boolean"
+                : "string") as "string" | "boolean",
+              levels,
+            };
+          });
+
+          const sliceString =
+            generateSliceStringFromLevels(sliceLevelsForString);
+
+          const customSliceMetric: ExperimentMetricInterface = {
+            ...metric,
+            id: `${metric.id}?${sliceString}`,
+            name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
+            description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
           };
-        });
-
-        const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
-
-        const customSliceMetric: ExperimentMetricInterface = {
-          ...metric,
-          id: `${metric.id}?${sliceString}`,
-          name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
-          description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-        };
-        metricMap.set(customSliceMetric.id, customSliceMetric);
+          metricMap.set(customSliceMetric.id, customSliceMetric);
+        }
       });
     }
   }
