@@ -9,13 +9,37 @@ import {
   UPLOAD_METHOD,
   GCS_BUCKET_NAME,
   GCS_DOMAIN,
+  AWS_ASSUME_ROLE,
 } from "back-end/src/util/secrets";
 
 let s3: AWS.S3;
-function getS3(): AWS.S3 {
+async function getS3(): Promise<AWS.S3> {
   if (!s3) {
     AWS.config.update({ region: S3_REGION });
-    s3 = new AWS.S3({ signatureVersion: "v4" });
+    if (AWS_ASSUME_ROLE) {
+      const sts = new AWS.STS();
+      const response = await sts
+        .assumeRole({
+          RoleArn: AWS_ASSUME_ROLE,
+          RoleSessionName: "growthbook-uploads",
+        })
+        .promise();
+
+      const awsCredentials = response.Credentials;
+      if (!awsCredentials) {
+        throw new Error("Failed to assume role");
+      }
+      s3 = new AWS.S3({
+        signatureVersion: "v4",
+        credentials: {
+          accessKeyId: awsCredentials.AccessKeyId,
+          secretAccessKey: awsCredentials.SecretAccessKey,
+          sessionToken: awsCredentials.SessionToken,
+        },
+      });
+    } else {
+      s3 = new AWS.S3({ signatureVersion: "v4" });
+    }
   }
   return s3;
 }
@@ -43,7 +67,8 @@ export async function uploadFile(
       Body: contents,
       ContentType: contentType,
     };
-    await getS3().upload(params).promise();
+    const s3Client = await getS3();
+    await s3Client.upload(params).promise();
     fileURL = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
@@ -112,7 +137,8 @@ export async function getSignedImageUrl(
       Expires: expiresInMinutes * 60, // Convert to seconds
     };
 
-    const signedUrl = getS3().getSignedUrl("getObject", params);
+    const s3Client = await getS3();
+    const signedUrl = s3Client.getSignedUrl("getObject", params);
 
     return signedUrl;
   } else if (UPLOAD_METHOD === "google-cloud") {
@@ -150,8 +176,8 @@ export async function getSignedUploadUrl(
       Expires: expiresInMinutes * 60, // Convert to seconds
       ContentType: contentType,
     };
-
-    const signedUrl = getS3().getSignedUrl("putObject", params);
+    const s3Client = await getS3();
+    const signedUrl = s3Client.getSignedUrl("putObject", params);
     const fileUrl = S3_DOMAIN + (S3_DOMAIN.endsWith("/") ? "" : "/") + filePath;
 
     return { signedUrl, fileUrl };
