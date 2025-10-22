@@ -28,7 +28,12 @@ import {
   BANDIT_SRM_DIMENSION_NAME,
   SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
 } from "shared/constants";
-import { ensureLimit, format, SQL_ROW_LIMIT } from "shared/sql";
+import {
+  ensureLimit,
+  format,
+  isMultiStatementSQL,
+  SQL_ROW_LIMIT,
+} from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { MetricAnalysisSettings } from "back-end/types/metric-analysis";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
@@ -153,6 +158,7 @@ export default abstract class SqlIntegration
   abstract getSensitiveParamKeys(): string[];
 
   constructor(context: ReqContextClass, datasource: DataSourceInterface) {
+    this.wrapRunQuery();
     this.datasource = datasource;
     this.context = context;
     this.decryptionError = false;
@@ -163,6 +169,17 @@ export default abstract class SqlIntegration
       this.decryptionError = true;
     }
   }
+
+  private wrapRunQuery() {
+    const originalRunQuery = this.runQuery;
+    this.runQuery = async (sql: string, setExternalId?: ExternalIdCallback) => {
+      if (isMultiStatementSQL(sql)) {
+        throw new Error("Multi-statement queries are not supported");
+      }
+      return originalRunQuery.call(this, sql, setExternalId);
+    };
+  }
+
   getSourceProperties(): DataSourceProperties {
     return {
       queryLanguage: "sql",
