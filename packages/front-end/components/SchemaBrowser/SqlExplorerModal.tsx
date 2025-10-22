@@ -84,7 +84,6 @@ export default function SqlExplorerModal({
   trackingEventModalSource = "",
   onSave,
 }: Props) {
-  console.log("initial", initial);
   const [showSidePanel, setSidePanel] = useState(true);
   const [dirty, setDirty] = useState(id ? false : true);
   const [loading, setLoading] = useState(false);
