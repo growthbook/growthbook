@@ -66,8 +66,9 @@ export const useAppearanceUITheme = (): AppearanceUIThemeContextType =>
 export const AppearanceUIThemeProvider: FC<PropsWithChildren> = ({
   children,
 }) => {
+  const _window = typeof window !== "undefined" ? window : null;
   const [systemTheme, setSystemTheme] = useState<AppearanceUITheme>(
-    window.matchMedia("(prefers-color-scheme: dark)").matches
+    _window?.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light",
   );
