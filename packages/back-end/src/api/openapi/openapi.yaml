@@ -122,7 +122,7 @@ tags:
     description: Get the organization settings.
   - name: attributes
     x-displayName: Attributes
-    description: Used when targetting feature flags and experiments.
+    description: Used when targeting feature flags and experiments.
 paths:
   /features:
     get:

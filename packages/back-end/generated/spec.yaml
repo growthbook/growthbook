@@ -119,7 +119,7 @@ tags:
     description: Get the organization settings.
   - name: attributes
     x-displayName: Attributes
-    description: Used when targetting feature flags and experiments.
+    description: Used when targeting feature flags and experiments.
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
