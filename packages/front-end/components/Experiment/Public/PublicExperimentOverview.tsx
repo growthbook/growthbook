@@ -53,6 +53,8 @@ export default function PublicExperimentOverview({
         <VariationsTable
           experiment={experiment}
           canEditExperiment={false}
+          isPublic={true}
+          experimentUid={experiment.uid}
         />
       </div>
 
