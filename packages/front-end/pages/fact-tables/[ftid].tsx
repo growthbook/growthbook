@@ -485,7 +485,7 @@ export default function FactTablePage() {
             <h3>Row Filters</h3>
             <Text as="div" mb="2" color="gray">
               Row Filters let you write SQL to limit the rows that are included
-              in a metric. Save commonly used filters here and resue them across
+              in a metric. Save commonly used filters here and reuse them across
               multiple metrics.
             </Text>
             <div className="appbox p-3 flex-1">

@@ -39,7 +39,7 @@ import {
 // Datasource constants
 const DATASOURCE_TYPE = "postgres";
 const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
-  userIdTypes: [{ userIdType: "user_id" }],
+  userIdTypes: [{ userIdType: "user_id", description: "Logged-in user id" }],
   queries: {
     exposure: [
       {
@@ -94,23 +94,23 @@ const DEMO_METRICS: Pick<
   "name" | "description" | "metricType" | "numerator" | "windowSettings"
 >[] = [
   {
-    name: "Purchases - Any Order",
-    description: "Whether the user places any order or not (0/1)",
-    metricType: "proportion",
-    numerator: {
-      factTableId: "",
-      column: "$$distinctUsers",
-      filters: [],
-    },
-    windowSettings: EMPTY_WINDOW_SETTINGS,
-  },
-  {
     name: "Revenue per User",
     description: "The total amount of USD spent aggregated at the user level",
     metricType: "mean",
     numerator: {
       factTableId: "",
       column: "value",
+      filters: [],
+    },
+    windowSettings: EMPTY_WINDOW_SETTINGS,
+  },
+  {
+    name: "Any Purchases",
+    description: "Whether the user places any order or not (0/1)",
+    metricType: "proportion",
+    numerator: {
+      factTableId: "",
+      column: "$$distinctUsers",
       filters: [],
     },
     windowSettings: EMPTY_WINDOW_SETTINGS,
