@@ -103,33 +103,18 @@ export function isMultiStatementSQL(sql: string) {
         // Skip escaped character (e.g. \' or \\)
         i++;
       } else if (char === "'") {
-        // Check for escaped single quote by doubling
-        if (nextChar === "'") {
-          i++; // Skip the escaped quote
-        } else {
-          state = null; // End of single quote
-        }
+        state = null;
       }
     } else if (state === "doubleQuote") {
       if (char === "\\") {
         // Skip escaped character (e.g. \" or \\)
         i++;
       } else if (char === '"') {
-        // Check for escaped double quote by doubling
-        if (nextChar === '"') {
-          i++; // Skip the escaped quote
-        } else {
-          state = null; // End of double quote
-        }
+        state = null;
       }
     } else if (state === "backtickQuote") {
       if (char === "`") {
-        // Ignore doubled backticks
-        if (nextChar === "`") {
-          i++; // Skip the escaped backtick
-        } else {
-          state = null; // End of backtick quote
-        }
+        state = null;
       }
     } else if (state === "lineComment") {
       if (char === "\n" || char === "\r") {
