@@ -148,10 +148,11 @@ const CompactResults: FC<{
   const {
     getExperimentMetricById: _getExperimentMetricById,
     getFactTableById: _getFactTableById,
-    metricGroups:_metricGroups,
+    metricGroups: _metricGroups,
   } = useDefinitions();
 
-  const getExperimentMetricById = ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
+  const getExperimentMetricById =
+    ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
   const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
   const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
 
