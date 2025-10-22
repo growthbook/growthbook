@@ -7,14 +7,16 @@ import {
 } from "shared/enterprise";
 import { isDefined, isString, stringToBoolean } from "shared/util";
 import { groupBy } from "lodash";
-import { getValidDate } from "shared/dates";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { createDashboardBlock } from "back-end/src/enterprise/models/DashboardBlockModel";
+import {
+  createDashboardBlock,
+  migrate,
+} from "back-end/src/enterprise/models/DashboardBlockModel";
 import { DashboardBlockInterface } from "back-end/src/enterprise/validators/dashboard-block";
 import { createExperimentSnapshot } from "back-end/src/controllers/experiments";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
@@ -203,35 +205,14 @@ export async function updateDashboard(
           );
         }
       }
-
-      if (
-        dashboard.editLevel === "published" ||
-        updates.editLevel === "published"
-      ) {
-        if (!context.hasPremiumFeature("share-product-analytics-dashboards")) {
-          throw new Error(
-            "Your plan does not support updating shared dashboards.",
-          );
-        }
-      }
-      if (!context.permissions.canUpdateGeneralDashboards(dashboard, updates)) {
-        context.permissions.throwPermissionError();
-      }
     }
+    const migratedBlocks = updates.blocks.map((block) => migrate(block));
     const createdBlocks = await Promise.all(
-      updates.blocks.map((blockData) => {
-        if (blockData.type === "metric-explorer") {
-          blockData.analysisSettings.startDate = getValidDate(
-            blockData.analysisSettings.startDate,
-          );
-          blockData.analysisSettings.endDate = getValidDate(
-            blockData.analysisSettings.endDate,
-          );
-        }
-        return isPersistedDashboardBlock(blockData as DashboardBlockInterface)
+      migratedBlocks.map((blockData) =>
+        isPersistedDashboardBlock(blockData)
           ? blockData
-          : createDashboardBlock(context.org.id, blockData);
-      }),
+          : createDashboardBlock(context.org.id, blockData),
+      ),
     );
     updates.blocks = createdBlocks;
   }

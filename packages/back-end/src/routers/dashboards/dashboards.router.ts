@@ -5,6 +5,7 @@ import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRe
 import {
   createDashboardBlockInterface,
   dashboardBlockInterface,
+  legacyDashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import {
   dashboardEditLevel,
@@ -39,7 +40,13 @@ export const updateDashboardBody = z
     updateSchedule: dashboardUpdateSchedule.optional(),
     projects: z.array(z.string()).optional(),
     blocks: z
-      .array(z.union([createDashboardBlockInterface, dashboardBlockInterface]))
+      .array(
+        z.union([
+          createDashboardBlockInterface,
+          dashboardBlockInterface,
+          legacyDashboardBlockInterface,
+        ]),
+      )
       .optional(),
   })
   .strict();
