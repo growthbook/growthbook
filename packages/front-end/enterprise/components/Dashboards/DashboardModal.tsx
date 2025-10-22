@@ -146,15 +146,15 @@ export default function DashboardModal({
           placeholder="Dashboard name"
           {...form.register("title")}
         />
-        <MultiSelectField
-          label="Projects"
-          placeholder="All projects"
-          options={projectsOptions}
-          value={form.watch("projects")}
-          onChange={(value) => form.setValue("projects", value)}
-        />
         {isGeneralDashboard ? (
           <>
+            <MultiSelectField
+              label="Projects"
+              placeholder="All projects"
+              options={projectsOptions}
+              value={form.watch("projects")}
+              onChange={(value) => form.setValue("projects", value)}
+            />
             {/* Refresh with its own interval for product analytics dashboards */}
             <Checkbox
               label="Auto-update dashboard data"
