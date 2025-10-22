@@ -27,6 +27,9 @@ export default function PipelineValidationResultsView({
 
         <Flex direction="column" mt="1" gap="3">
           <ResultStepSummary title="Create table" result={results.create} />
+          {results.insert && (
+            <ResultStepSummary title="Insert data" result={results.insert} />
+          )}
           {results.drop && (
             <ResultStepSummary title="Drop table" result={results.drop} />
           )}
