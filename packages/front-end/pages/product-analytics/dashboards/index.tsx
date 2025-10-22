@@ -36,7 +36,6 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 
