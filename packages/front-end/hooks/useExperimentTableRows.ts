@@ -22,7 +22,6 @@ import {
   isFactMetric,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -35,8 +34,6 @@ import {
 } from "@/components/Experiment/Results";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useUser } from "@/services/UserContext";
-import { AppFeatures } from "@/types/app-features";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 export interface UseExperimentTableRowsParams {
@@ -97,18 +94,19 @@ export function useExperimentTableRows({
   enablePinning = true,
   expandedMetrics,
 }: UseExperimentTableRowsParams): UseExperimentTableRowsReturn {
-  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
-    useDefinitions();
-  const { hasCommercialFeature } = useUser();
-  const growthbook = useGrowthBook<AppFeatures>();
-  const { metricDefaults } = useOrganizationMetricDefaults();
+  console.log("here 1", { enablePinning, pinnedMetricSlices });
+  const {
+    getExperimentMetricById: _getExperimentMetricById,
+    getFactTableById: _getFactTableById,
+    metricGroups: _metricGroups,
+    ready,
+  } = useDefinitions();
 
-  const isMetricSlicesFeatureEnabled = growthbook?.isOn("metric-slices");
-  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
-  const _shouldShowMetricSlices =
-    shouldShowMetricSlices &&
-    isMetricSlicesFeatureEnabled &&
-    hasMetricSlicesFeature;
+  const getExperimentMetricById =
+    ssrPolyfills?.getExperimentMetricById || _getExperimentMetricById;
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const metricGroups = ssrPolyfills?.metricGroups || _metricGroups;
+  const { metricDefaults } = useOrganizationMetricDefaults();
 
   const _pValueThreshold = usePValueThreshold();
   const pValueThreshold =
@@ -165,7 +163,7 @@ export function useExperimentTableRows({
         results,
         metricOverrides,
         settingsForSnapshotMetrics,
-        shouldShowMetricSlices: _shouldShowMetricSlices,
+        shouldShowMetricSlices: shouldShowMetricSlices,
         customMetricSlices,
         pinnedMetricSlices: enablePinning ? pinnedMetricSlices : undefined,
         expandedMetrics,
@@ -293,7 +291,7 @@ export function useExperimentTableRows({
     metricFilter,
     pinnedMetricSlices,
     expandedMetrics,
-    _shouldShowMetricSlices,
+    shouldShowMetricSlices,
     customMetricSlices,
     enablePinning,
     sortBy,
