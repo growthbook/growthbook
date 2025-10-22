@@ -107,7 +107,7 @@ Store uploads in a Google Cloud Storage bucket.
 
 GrowthBook container instances are stateless and can be horizontally scaled behind a load balancer. We recommend each instance have at least 2GB of RAM and 1vCPU (some may need more RAM not to get Out Of Memory errors). You should run at least 3 instances at a time for maximum fault tolerance.
 
-The most intensive part of GrowthBook is the stats engine and background jobs. If you are running a high volume of experiments, processing those experiments may impact other requests to growthbook. If you notice this, you can separate concerns by starting one "Jobs Server" with the env vars `PYTHON_SERVER_MODE=true`, `GB_STATS_ENGINE_POOL_SIZE=<number of vCPUs>` on the "Jobs Server" and the others with `GB_STATS_ENGINE_MIN_POOL_SIZE=0`, `EXTERNAL_PYTHON_SERVER_URL=<url of jobs server>`, and `CRON_DISABLED=true`.
+The most intensive part of GrowthBook is the stats engine and background jobs. If you are running a high volume of experiments, processing those experiments may impact other requests to growthbook. If you notice this, you can separate concerns by starting one "Jobs Server" with increased resourced as needed and the env vars `PYTHON_SERVER_MODE=true`, `GB_STATS_ENGINE_POOL_SIZE=<number of vCPUs>` on the "Jobs Server" and the others with `GB_STATS_ENGINE_MIN_POOL_SIZE=0`, `EXTERNAL_PYTHON_SERVER_URL=<url of jobs server>`, and `CRON_DISABLED=true`.
 
 ### MongoDB
 
