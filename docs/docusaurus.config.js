@@ -43,7 +43,7 @@ const config = {
       "data-website-id": "c4406b9f-35c5-43ca-b0c1-e7c0e261831f", // Safe to expose publicly
       "data-user-analytics-cookie-enabled": "false",
       "data-project-name": "GrowthBook",
-      "data-project-color": "#7817d3",
+      "data-project-color": "#6550b9",
       "data-modal-example-questions":
         "How do I create a feature flag?, How do I run an experiment?",
       "data-project-logo": "/img/gb-logo-white.svg",
@@ -153,8 +153,7 @@ const config = {
                 rel: null,
               },
               {
-                href:
-                  "https://github.com/growthbook/growthbook/issues/new/choose",
+                href: "https://github.com/growthbook/growthbook/issues/new/choose",
                 label: "Open an issue",
                 target: "_blank",
                 rel: null,
