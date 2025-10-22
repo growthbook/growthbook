@@ -94,12 +94,14 @@ export function populateAutoSlices(
   topValues: string[],
   maxValues?: number,
 ): string[] {
+  if (col.datatype === "boolean") {
+    return ["true", "false"];
+  }
+
   // Use existing autoSlices if they exist, otherwise use topValues up to the max
   if (col.autoSlices && col.autoSlices.length > 0) {
     return col.autoSlices;
   }
-
-  // If no autoSlices set, use topValues up to the max
   const maxSliceLevels = maxValues ?? DEFAULT_MAX_METRIC_SLICE_LEVELS;
   const autoSlices: string[] = [];
   for (const value of topValues) {
@@ -246,7 +248,9 @@ export async function runRefreshColumnsQuery(
       col.numberFormat = "";
     }
 
-    if (
+    if (col.datatype === "boolean" && col.isAutoSliceColumn) {
+      col.autoSlices = ["true", "false"];
+    } else if (
       (col.alwaysInlineFilter || col.isAutoSliceColumn) &&
       canInlineFilterColumn(factTable, col.column) &&
       col.datatype === "string"

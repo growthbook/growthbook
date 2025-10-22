@@ -123,6 +123,11 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           })}
           href={props.href}
           onClick={(e) => {
+            // Allow browser default behavior for modifier keys (cmd/ctrl/shift) or middle mouse button
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+              return;
+            }
+
             e.preventDefault();
             if (props.subLinks) {
               // If it's currently closed and it's set to navigate on expand

@@ -29,6 +29,7 @@ export const POLICIES = [
   "EnvironmentsFullAccess",
   "NamespacesFullAccess",
   "SavedGroupsFullAccess",
+  "SavedGroupsBypassSizeLimit",
   "GeneralSettingsFullAccess",
   "NorthStarMetricFullAccess",
   "TeamManagementFullAccess",
@@ -114,6 +115,11 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
   EnvironmentsFullAccess: ["readData", "manageEnvironments"],
   NamespacesFullAccess: ["readData", "manageNamespaces"],
   SavedGroupsFullAccess: ["readData", "manageSavedGroups"],
+  SavedGroupsBypassSizeLimit: [
+    "readData",
+    "manageSavedGroups",
+    "bypassSavedGroupSizeLimit",
+  ],
   GeneralSettingsFullAccess: ["readData", "organizationSettings"],
   NorthStarMetricFullAccess: ["readData", "manageNorthStarMetric"],
   TeamManagementFullAccess: ["readData", "manageTeam"],
@@ -188,6 +194,7 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
       "EnvironmentsFullAccess",
       "NamespacesFullAccess",
       "SavedGroupsFullAccess",
+      "SavedGroupsBypassSizeLimit",
     ],
   },
   {
@@ -326,6 +333,11 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "Saved Groups Full Access",
     description: "Create, edit, and delete saved groups",
   },
+  SavedGroupsBypassSizeLimit: {
+    displayName: "Saved Groups Bypass Size Limit",
+    description: "Bypass org-defined size limits for saved groups",
+  },
+
   GeneralSettingsFullAccess: {
     displayName: "General Settings Full Access",
     description: "Edit organization general settings",
@@ -561,6 +573,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageExecReports",
   "manageGeneralDashboards",
   "manageOfficialResources",
+  "bypassSavedGroupSizeLimit",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
