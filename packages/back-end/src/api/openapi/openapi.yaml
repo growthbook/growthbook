@@ -120,6 +120,9 @@ tags:
   - name: settings
     x-displayName: Settings
     description: Get the organization settings.
+  - name: attributes
+    x-displayName: Attributes
+    description: Used when targetting feature flags and experiments.
 paths:
   /features:
     get:
