@@ -162,7 +162,7 @@ export function useExperimentTableRows({
         results,
         metricOverrides,
         settingsForSnapshotMetrics,
-        shouldShowMetricSlices: shouldShowMetricSlices,
+        shouldShowMetricSlices,
         customMetricSlices,
         pinnedMetricSlices: enablePinning ? pinnedMetricSlices : undefined,
         expandedMetrics,
