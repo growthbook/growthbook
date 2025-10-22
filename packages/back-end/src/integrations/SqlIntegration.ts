@@ -153,6 +153,7 @@ export default abstract class SqlIntegration
   abstract getSensitiveParamKeys(): string[];
 
   constructor(context: ReqContextClass, datasource: DataSourceInterface) {
+    this.wrapRunQuery();
     this.datasource = datasource;
     this.context = context;
     this.decryptionError = false;
@@ -163,6 +164,27 @@ export default abstract class SqlIntegration
       this.decryptionError = true;
     }
   }
+
+  private wrapRunQuery() {
+    const originalRunQuery = this.runQuery;
+    this.runQuery = async (sql: string, setExternalId?: ExternalIdCallback) => {
+      // Strip out comments since they may contain semi-colons and we don't want false positives
+      const normalized = sql
+        .trim()
+        .replace(/\/\*[\s\S]*?\*\//g, "") // remove block comments
+        .replace(/--.*$/gm, "") // remove line comments
+        .replace(/\s*;\s*$/, "") // trim trailing semicolon
+        .toLowerCase();
+
+      // If there's a semi-colon, it is a multi-statement query
+      if (normalized.includes(";")) {
+        throw new Error("Multi-statement queries are not supported");
+      }
+
+      return originalRunQuery.call(this, sql, setExternalId);
+    };
+  }
+
   getSourceProperties(): DataSourceProperties {
     return {
       queryLanguage: "sql",

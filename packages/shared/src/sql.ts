@@ -72,8 +72,8 @@ export function ensureLimit(sql: string, limit: number): string {
 export function isReadOnlySQL(sql: string) {
   const normalized = sql
     .trim()
-    .replace(/--.*$/gm, "") // remove line comments
     .replace(/\/\*[\s\S]*?\*\//g, "") // remove block comments
+    .replace(/--.*$/gm, "") // remove line comments
     .toLowerCase();
 
   // Check the first keyword (e.g. "select", "with", etc.)
