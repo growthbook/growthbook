@@ -1,29 +1,5 @@
 @import "../mixins";
 
-html[data-theme="light"] {
-  --sidebar-category-c: var(--c-gray-100);
-  --sidebar-border-c: var(--c-gray-0);
-
-  --ifm-menu-color: #445b78; //var(--c-indigo-80);
-
-  --ifm-menu-color-background-active: #f0f6ff;
-  // --ifm-menu-color-active: #7817d3;
-  --sidebar-menu-active-bg: #f0f6ff;
-  --sidebar-menu-active-text-c: #fff;
-}
-
-html[data-theme="dark"] {
-  --sidebar-category-c: var(--c-gray-0);
-  --sidebar-border-c: var(--c-gray-90);
-
-  --ifm-menu-color: var(--c-gray-20);
-
-  --ifm-menu-color-background-active: rgb(73, 33, 175);
-  // --ifm-menu-color-active: #fff;
-  --sidebar-menu-active-bg: rgb(73, 33, 175);
-  --sidebar-menu-active-text-c: #7817d3;
-}
-
 :root {
   --doc-sidebar-width: 17.5rem;
 
@@ -32,10 +8,17 @@ html[data-theme="dark"] {
   --dropdown-icon-gap: 0.688rem;
 
   --ifm-menu-link-padding-vertical: 0.5rem;
-  --ifm-menu-color-active: var(--ifm-link-color);
+  --ifm-menu-color-active: var(--color-text-high);
 
   --sidebar-spacing-horizontal: 1.5rem;
-  --ifm-menu-color-active: var(--violet-11);
+
+  --sidebar-category-c: var(--c-gray-100);
+  --sidebar-border-c: var(--c-gray-0);
+  --ifm-menu-color: var(--color-text-high); //var(--c-indigo-80);
+  --ifm-menu-color-background-active: var(--violet-a4);
+  --sidebar-menu-active-bg: var(--violet-a4);
+  --sidebar-menu-active-text-c: #fff;
+  --ifm-menu-color-background-hover: var(--violet-a4);
 }
 
 .menu {
@@ -88,7 +71,7 @@ html[data-theme="dark"] {
       &.pill-new > div > .menu__link {
         &::after {
           content: "new";
-          @include pill(#30a46c, #fff);
+          @include pill(var(--green-a9), #fff);
         }
       }
 
@@ -116,19 +99,11 @@ html[data-theme="dark"] {
 
     transition: opacity 0.2s ease-out;
 
-    &--active {
-      //background: rgb(240, 246, 255);
-    }
-
-    //&:not(.menu__link--active:not(.menu__link--sublist)) {
-    //  background: initial;
-    //}
-
     &:not(.menu__link--active):not(.menu__link--sublist) {
       &:hover,
       &:active,
       &:focus {
-        opacity: 0.7;
+        // opacity: 0.7;
       }
     }
   }

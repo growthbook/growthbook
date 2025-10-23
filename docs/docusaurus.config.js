@@ -107,6 +107,14 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     {
+      // announcementBar: {
+      //   id: "announcement-bar",
+      //   content:
+      //     '<a href="https://blog.growthbook.io/growthbook-version-4-1" target="_blank">🆕 GrowthBook v4.1 is now available</a>',
+      //   backgroundColor: "var(--violet-a3)",
+      //   textColor: "var(--violet-a11)",
+      //   isCloseable: true,
+      // },
       navbar: {
         //hideOnScroll: true,
         //title: 'GrowthBook Docs',
