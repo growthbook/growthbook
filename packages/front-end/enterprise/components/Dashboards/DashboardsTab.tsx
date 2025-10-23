@@ -43,6 +43,7 @@ export type CreateDashboardArgs = {
     title: string;
     editLevel: DashboardInterface["editLevel"];
     shareLevel: DashboardInterface["shareLevel"];
+    userId: string;
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     blocks?: DashboardBlockData<DashboardBlockInterface>[];
@@ -56,6 +57,7 @@ export type UpdateDashboardArgs = {
     title: string;
     blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[];
     editLevel: DashboardInterface["editLevel"];
+    userId: string;
     shareLevel: DashboardInterface["shareLevel"];
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
@@ -149,9 +151,14 @@ function DashboardsTab({
   const canUpdateExperiment = permissionsUtil.canViewExperimentModal(
     experiment.project,
   );
-  const isOwner = userId === dashboard?.userId || !dashboard?.userId;
-
-  if (dashboard?.editLevel === "private" && !isOwner) {
+  const isOwner = userId === dashboard?.userId;
+  const isAdmin = permissionsUtil.canManageOrgSettings();
+  const canDelete =
+    permissionsUtil.canDeleteGeneralDashboards({
+      projects: experiment.project ? [experiment.project] : [],
+    }) &&
+    (isOwner || isAdmin);
+  if (dashboard?.editLevel === "private" && (!isOwner || !isAdmin)) {
     canEdit = false;
   }
 
@@ -180,6 +187,7 @@ function DashboardsTab({
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 shareLevel: data.shareLevel,
+                userId: data.userId,
               }
             : {
                 blocks: data.blocks ?? [],
@@ -262,6 +270,7 @@ function DashboardsTab({
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: dashboard.title,
                 projects: dashboard.projects || [],
+                userId: dashboard.userId,
               }}
               submit={async (data) => {
                 await submitDashboard({
@@ -282,6 +291,7 @@ function DashboardsTab({
                 enableAutoUpdates: dashboard.enableAutoUpdates,
                 title: `Copy of ${dashboard.title}`,
                 projects: dashboard.projects || [],
+                userId: dashboard.userId,
               }}
               submit={async (data) => {
                 await submitDashboard({
@@ -527,7 +537,7 @@ function DashboardsTab({
                               </Flex>
                             </Button>
                           )}
-                          {canEdit && (
+                          {canDelete && (
                             <>
                               <DeleteButton
                                 displayName="Dashboard"
@@ -595,6 +605,7 @@ function DashboardsTab({
                         id={dashboard.id}
                         title={dashboard.title}
                         initialEditLevel={dashboard.editLevel}
+                        ownerId={dashboard.userId}
                         initialShareLevel={dashboard.shareLevel}
                         dashboardOwnerId={dashboard.userId}
                         blocks={blocks}

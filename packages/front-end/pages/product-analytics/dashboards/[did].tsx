@@ -173,6 +173,7 @@ function SingleDashboardPage() {
             isTabActive
             id={dashboard.id}
             initialEditLevel={dashboard.editLevel}
+            ownerId={dashboard.userId}
             initialShareLevel={dashboard.shareLevel}
             dashboardOwnerId={dashboard.userId}
             isGeneralDashboard={true}

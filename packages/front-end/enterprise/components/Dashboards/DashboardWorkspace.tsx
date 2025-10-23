@@ -304,6 +304,7 @@ export default function DashboardWorkspace({
           <DashboardEditor
             isTabActive={isTabActive}
             id={dashboard.id}
+            ownerId={dashboard.userId}
             initialEditLevel={dashboard.editLevel}
             initialShareLevel={dashboard.shareLevel}
             dashboardOwnerId={dashboard.userId}

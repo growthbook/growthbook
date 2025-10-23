@@ -205,6 +205,7 @@ interface Props {
   isEditing: boolean;
   projects: string[];
   enableAutoUpdates: boolean;
+  ownerId: string;
   initialEditLevel: DashboardEditLevel;
   initialShareLevel: DashboardShareLevel;
   dashboardOwnerId: string;
@@ -229,6 +230,7 @@ function DashboardEditor({
   blocks,
   isEditing,
   enableAutoUpdates,
+  ownerId,
   initialEditLevel,
   initialShareLevel,
   id,
@@ -265,13 +267,17 @@ function DashboardEditor({
   const { apiCall } = useAuth();
   const { userId, getUserDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const isOwner = dashboardOwnerId === userId;
+  const isAdmin = permissionsUtil.canManageOrgSettings();
   let canEdit = permissionsUtil.canUpdateGeneralDashboards(
     { projects: projects || [] },
     {},
   );
-  let canDelete = permissionsUtil.canDeleteGeneralDashboards({
-    projects: projects || [],
-  });
+  let canDelete =
+    permissionsUtil.canDeleteGeneralDashboards({
+      projects: projects || [],
+    }) &&
+    (isOwner || isAdmin);
   if (editLevel === "private" && dashboardOwnerId !== userId) {
     canEdit = false;
     canDelete = false;
@@ -390,6 +396,7 @@ function DashboardEditor({
             enableAutoUpdates: enableAutoUpdates,
             shareLevel: initialShareLevel,
             projects: projects,
+            userId: ownerId,
           }}
           close={() => setEditDashboard(false)}
           submit={async (data) => {
@@ -411,6 +418,7 @@ function DashboardEditor({
             enableAutoUpdates: enableAutoUpdates,
             shareLevel: initialShareLevel,
             projects: projects,
+            userId: ownerId,
           }}
           close={() => setDuplicateDashboard(false)}
           submit={async (data) => {
@@ -424,6 +432,7 @@ function DashboardEditor({
                 editLevel: data.editLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
                 blocks: data.blocks || [],
+                userId: data.userId,
               }),
             });
             if (res.status === 200) {

@@ -35,6 +35,7 @@ export const updateDashboardBody = z
   .object({
     title: z.string().optional(),
     editLevel: dashboardEditLevel.optional(),
+    userId: z.string().optional(),
     shareLevel: dashboardShareLevel.optional(),
     enableAutoUpdates: z.boolean().optional(),
     updateSchedule: dashboardUpdateSchedule.optional(),

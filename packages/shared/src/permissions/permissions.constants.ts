@@ -485,6 +485,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
     ],
   },
   experimenter: {
@@ -517,6 +518,7 @@ export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
       "TemplatesFullAccess",
       "DecisionCriteriaFullAccess",
       "HoldoutsFullAccess",
+      "GeneralDashboardsFullAccess",
     ],
   },
   admin: {

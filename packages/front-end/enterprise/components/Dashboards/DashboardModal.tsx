@@ -16,6 +16,7 @@ import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import RadioGroup from "@/ui/RadioGroup";
+import SelectOwner from "@/components/Owner/SelectOwner";
 import {
   autoUpdateDisabledMessage,
   CreateDashboardArgs,
@@ -31,6 +32,7 @@ const defaultFormInit = {
   editLevel: "private",
   shareLevel: "private",
   projects: [],
+  userId: "",
 } as const;
 
 export default function DashboardModal({
@@ -51,9 +53,14 @@ export default function DashboardModal({
   const {
     settings: { updateSchedule },
     hasCommercialFeature,
+    userId,
+    permissionsUtil,
   } = useUser();
 
   const { projects } = useDefinitions();
+  const isAdmin = permissionsUtil.canManageOrgSettings();
+  const isOwner = userId === initial?.userId;
+  const canManageSharingAndEditLevels = isOwner || isAdmin;
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
@@ -84,6 +91,7 @@ export default function DashboardModal({
     enableAutoUpdates: boolean;
     updateSchedule?: DashboardUpdateSchedule;
     projects: string[];
+    userId: string;
   }>({
     defaultValues: initial ?? {
       ...defaultFormInit,
@@ -146,6 +154,14 @@ export default function DashboardModal({
           placeholder="Dashboard name"
           {...form.register("title")}
         />
+        {mode !== "create" ? (
+          <SelectOwner
+            disabled={!canManageSharingAndEditLevels}
+            resourceType="dashboard"
+            value={form.watch("userId")}
+            onChange={(v) => form.setValue("userId", v)}
+          />
+        ) : null}
         {isGeneralDashboard ? (
           <>
             <MultiSelectField
@@ -317,6 +333,7 @@ export default function DashboardModal({
             {!isGeneralDashboard && (
               <SelectField
                 label="Edit access"
+                disabled={!canManageSharingAndEditLevels}
                 options={[
                   {
                     label: "Any organization members with editing permission",

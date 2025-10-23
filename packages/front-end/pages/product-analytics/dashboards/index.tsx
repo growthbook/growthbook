@@ -108,6 +108,7 @@ export default function DashboardsPage() {
                 enableAutoUpdates: data.enableAutoUpdates,
                 updateSchedule: data.updateSchedule,
                 projects: data.projects,
+                userId: data.userId,
               }
             : {
                 blocks: data.blocks ?? [],
@@ -157,6 +158,7 @@ export default function DashboardsPage() {
             enableAutoUpdates: showEditModal.enableAutoUpdates,
             projects: showEditModal.projects || [],
             updateSchedule: showEditModal.updateSchedule,
+            userId: showEditModal.userId,
           }}
           close={() => setShowEditModal(undefined)}
           submit={async (data) => {
@@ -179,6 +181,7 @@ export default function DashboardsPage() {
             editLevel: showDuplicateModal.editLevel,
             shareLevel: showDuplicateModal.shareLevel,
             enableAutoUpdates: showDuplicateModal.enableAutoUpdates,
+            userId: userId || "",
             projects: showDuplicateModal.projects || [],
           }}
           submit={async (data) => {
@@ -306,18 +309,24 @@ export default function DashboardsPage() {
                       </thead>
                       <tbody>
                         {items.map((d) => {
+                          const isOwner = d.userId === userId;
+                          const isAdmin =
+                            permissionsUtil.canManageOrgSettings();
                           const ownerName = getUserDisplay(d.userId);
                           let canEdit =
                             permissionsUtil.canUpdateGeneralDashboards(d, {});
                           let canDelete =
-                            permissionsUtil.canDeleteGeneralDashboards(d);
+                            permissionsUtil.canDeleteGeneralDashboards(d) &&
+                            (isOwner || isAdmin);
                           let canDuplicate =
                             permissionsUtil.canCreateGeneralDashboards(d);
+                          const canManageSharingAndEditLevels =
+                            canEdit && (isOwner || isAdmin);
 
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
                             d.editLevel === "private" &&
-                            d.userId !== userId
+                            (!isOwner || !isAdmin)
                           ) {
                             canEdit = false;
                             canDelete = false;
@@ -415,7 +424,7 @@ export default function DashboardsPage() {
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
                                         disabled={
-                                          !canEdit || d.userId !== userId
+                                          !canManageSharingAndEditLevels
                                         }
                                         onClick={() => {
                                           setSelectedDashboard(d);

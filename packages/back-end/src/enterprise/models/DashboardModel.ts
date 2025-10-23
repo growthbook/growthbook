@@ -141,38 +141,48 @@ export class DashboardModel extends BaseClass {
     existing: DashboardInterface,
     updates: UpdateProps<DashboardInterface>,
   ): boolean {
+    const isOwner = this.context.userId === existing.userId;
+    const isAdmin = this.context.permissions.canSuperDeleteReport();
+    const canManageOwnerAndSharing = isOwner || isAdmin;
+
+    // Non-owners & non-admins can't update owner or sharing/edit levels for Dashboards
+    if (!canManageOwnerAndSharing) {
+      if ("userId" in updates && updates.userId !== existing.userId) {
+        throw new Error(
+          "You are not authorized to change the owner of this dashboard.",
+        );
+      }
+      if ("editLevel" in updates && updates.editLevel !== existing.editLevel) {
+        throw new Error(
+          "You are not authorized to change the sharing level of this dashboard.",
+        );
+      }
+      if (
+        "shareLevel" in updates &&
+        updates.shareLevel !== existing.shareLevel
+      ) {
+        throw new Error(
+          "You are not authorized to change the sharing level of this dashboard.",
+        );
+      }
+    }
+
     if (existing.experimentId) {
+      // Check that the org has the commerical feature
       if (!this.context.hasPremiumFeature("dashboards")) {
         throw new Error("Your plan does not support updating dashboards.");
-      }
-
-      const isOwner = existing.userId === this.context.userId;
-
-      if (!isOwner) {
-        if (
-          "title" in updates ||
-          "editLevel" in updates ||
-          "enableAutoUpdates" in updates
-        ) {
-          return false;
-        }
       }
 
       const { experiment } = this.getForeignRefs(existing);
       if (!experiment) throw new Error("Experiment not found.");
 
+      // Check that the user has permission to update experiment reports
       return this.context.permissions.canUpdateReport(experiment);
     } else {
       if (existing.editLevel === "private" || updates.editLevel === "private") {
         if (!this.context.hasPremiumFeature("product-analytics-dashboards")) {
           throw new Error(
             "Your plan does not support updating private dashboards.",
-          );
-        }
-        // Safety check to prevent updating private dashboards that are not owned by the user
-        if (existing.userId !== this.context.userId) {
-          throw new Error(
-            "You are not authorized to edit this dashboard. This dashboard is private, and you are not the owner.",
           );
         }
       }
@@ -196,15 +206,17 @@ export class DashboardModel extends BaseClass {
   }
 
   protected canDelete(doc: DashboardInterface): boolean {
+    // A user must have the permission, and be the owner or an admin to delete a dashboard
+    const isOwner = this.context.userId === doc.userId;
+    const isAdmin = this.context.permissions.canManageOrgSettings();
+    if (!isOwner && !isAdmin) {
+      return false;
+    }
     if (doc.experimentId) {
       const { experiment } = this.getForeignRefs(doc);
       if (!experiment) throw new Error("Experiment not found.");
       return this.context.permissions.canDeleteReport(experiment);
     } else {
-      // Safety check to prevent deleting private dashboards that are not owned by the user
-      if (doc.editLevel === "private" && doc.userId !== this.context.userId) {
-        return false;
-      }
       return this.context.permissions.canDeleteGeneralDashboards(doc);
     }
   }
