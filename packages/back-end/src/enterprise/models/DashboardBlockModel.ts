@@ -84,6 +84,8 @@ const experimentMetricBlockSchema = new mongoose.Schema({
   baselineRow: Number,
   differenceType: String,
   columnsFilter: [String],
+  pinSource: String,
+  pinnedMetricSlices: [String],
 });
 
 const experimentDimensionBlockSchema = new mongoose.Schema({
@@ -104,6 +106,8 @@ const experimentTimeSeriesBlockSchema = new mongoose.Schema({
   metricSelector: String,
   metricIds: [String],
   variationIds: [String],
+  pinSource: String,
+  pinnedMetricSlices: [String],
 });
 
 const sqlExplorerBlockSchema = new mongoose.Schema({
@@ -182,13 +186,18 @@ export async function createDashboardBlock(
 }
 
 export function migrate(
-  doc: LegacyDashboardBlockInterface,
-): DashboardBlockInterface {
+  doc:
+    | LegacyDashboardBlockInterface
+    | DashboardBlockInterface
+    | CreateDashboardBlockInterface,
+): DashboardBlockInterface | CreateDashboardBlockInterface {
   switch (doc.type) {
     case "experiment-metric":
       return {
         ...doc,
         metricSelector: doc.metricSelector || "custom",
+        pinSource: doc.pinSource || "experiment",
+        pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
     case "experiment-dimension":
       return {
@@ -198,9 +207,11 @@ export function migrate(
     case "experiment-time-series":
       return {
         ...doc,
-        metricIds: doc.metricIds || [doc.metricId],
+        metricIds: doc.metricId ? [doc.metricId] : doc.metricIds,
         metricId: undefined,
         metricSelector: doc.metricSelector || "custom",
+        pinSource: doc.pinSource || "experiment",
+        pinnedMetricSlices: doc.pinnedMetricSlices || [],
       };
     case "experiment-description":
       return {

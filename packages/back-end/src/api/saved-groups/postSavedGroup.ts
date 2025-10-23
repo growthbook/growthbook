@@ -6,6 +6,7 @@ import {
 } from "back-end/src/models/SavedGroupModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { postSavedGroupValidator } from "back-end/src/validators/openapi";
+import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
@@ -68,6 +69,11 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       if (condition) {
         throw new Error("Cannot specify a condition for list groups");
       }
+      validateListSize(
+        values,
+        req.context.org.settings?.savedGroupSizeLimit,
+        req.context.permissions.canBypassSavedGroupSizeLimit(projects),
+      );
     } else {
       throw new Error("Must specify a saved group type");
     }

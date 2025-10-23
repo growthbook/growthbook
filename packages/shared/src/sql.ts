@@ -70,11 +70,7 @@ export function ensureLimit(sql: string, limit: number): string {
 }
 
 export function isReadOnlySQL(sql: string) {
-  const normalized = sql
-    .trim()
-    .replace(/--.*$/gm, "") // remove line comments
-    .replace(/\/\*[\s\S]*?\*\//g, "") // remove block comments
-    .toLowerCase();
+  const normalized = stripSQLComments(sql).toLowerCase();
 
   // Check the first keyword (e.g. "select", "with", etc.)
   const match = normalized.match(
@@ -83,4 +79,95 @@ export function isReadOnlySQL(sql: string) {
   if (!match) return false;
 
   return true;
+}
+
+export function isMultiStatementSQL(sql: string) {
+  let state:
+    | "singleQuote"
+    | "doubleQuote"
+    | "backtickQuote"
+    | "lineComment"
+    | "blockComment"
+    | null = null;
+
+  const n = sql.length;
+
+  let foundSemicolon = false;
+
+  for (let i = 0; i < n; i++) {
+    const char = sql[i];
+    const nextChar = i + 1 < n ? sql[i + 1] : null;
+
+    if (state === "singleQuote") {
+      if (char === "\\") {
+        // Skip escaped character (e.g. \' or \\)
+        i++;
+      } else if (char === "'") {
+        state = null;
+      }
+    } else if (state === "doubleQuote") {
+      if (char === "\\") {
+        // Skip escaped character (e.g. \" or \\)
+        i++;
+      } else if (char === '"') {
+        state = null;
+      }
+    } else if (state === "backtickQuote") {
+      if (char === "`") {
+        state = null;
+      }
+    } else if (state === "lineComment") {
+      if (char === "\n" || char === "\r") {
+        state = null; // End of line comment
+      }
+    } else if (state === "blockComment") {
+      if (char === "*" && nextChar === "/") {
+        state = null; // End of block comment
+        i++; // Skip the '/'
+      }
+    } else {
+      // Not in any special state
+      if (char === "'") {
+        state = "singleQuote";
+      } else if (char === '"') {
+        state = "doubleQuote";
+      } else if (char === "`") {
+        state = "backtickQuote";
+      } else if (char === "-" && nextChar === "-") {
+        state = "lineComment";
+        i++; // Skip the second '-'
+      } else if (char === "/" && nextChar === "*") {
+        state = "blockComment";
+        i++; // Skip the '*'
+      } else if (char === ";") {
+        foundSemicolon = true;
+      } else {
+        // Check for any non-whitespace character after a semicolon
+        if (foundSemicolon && /\S/.test(char)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // If we finish in an invalid state, something went wrong. Be conservative by searching for a semicolon in the entire string
+  if (
+    state === "singleQuote" ||
+    state === "doubleQuote" ||
+    state === "backtickQuote" ||
+    state === "blockComment"
+  ) {
+    // Ignore final trailing semicolon when searching to avoid common false positive
+    return sql.replace(/\s*;\s*/, "").includes(";");
+  }
+
+  return false;
+}
+
+export function stripSQLComments(sql: string): string {
+  return sql
+    .trim()
+    .replace(/\/\*[\s\S]*?\*\//g, "") // remove block comments
+    .replace(/--.*$/gm, "") // remove line comments
+    .replace(/\s*;\s*$/, ""); // trim trailing semicolon
 }

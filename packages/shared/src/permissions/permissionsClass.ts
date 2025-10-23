@@ -31,6 +31,7 @@ import { CustomHookInterface } from "back-end/src/routers/custom-hooks/custom-ho
 import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
+  status = 403;
   constructor(message: string) {
     super(message);
     this.name = "PermissionError";
@@ -1096,6 +1097,13 @@ export class Permissions {
     savedGroup: Pick<SavedGroupInterface, "projects">,
   ): boolean => {
     return this.checkProjectFilterPermission(savedGroup, "manageSavedGroups");
+  };
+
+  public canBypassSavedGroupSizeLimit = (projects?: string[]): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects },
+      "bypassSavedGroupSizeLimit",
+    );
   };
 
   // UI helper - when determining if we can show the `Create SDK Connection` button, this ignores any env level restrictions

@@ -5,6 +5,7 @@ import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRe
 import {
   createDashboardBlockInterface,
   dashboardBlockInterface,
+  legacyDashboardBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import { dashboardEditLevel } from "back-end/src/enterprise/validators/dashboard";
 import * as rawDashboardsController from "./dashboards.controller";
@@ -29,7 +30,13 @@ export const updateDashboardBody = z
     editLevel: dashboardEditLevel.optional(),
     enableAutoUpdates: z.boolean().optional(),
     blocks: z
-      .array(z.union([createDashboardBlockInterface, dashboardBlockInterface]))
+      .array(
+        z.union([
+          createDashboardBlockInterface,
+          dashboardBlockInterface,
+          legacyDashboardBlockInterface,
+        ]),
+      )
       .optional(),
   })
   .strict();

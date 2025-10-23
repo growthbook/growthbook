@@ -270,12 +270,6 @@ pre {
   color: #8fb3a8;
   margin-left: 8px;
   cursor: not-allowed !important;
-  .toggle-switch.teal + label {
-    background: #cfe6de;
-  }
-  .toggle-switch.teal input:checked + label {
-    background: #cfe6de;
-  }
 }
 .btn-outline-selected:not(:disabled):not(.disabled) {
   background-color: rgba(69, 196, 234, 0.1);
@@ -991,7 +985,7 @@ main.main {
 
 .link-purple {
   color: var(--violet-a11);
-  text-decoration: none;
+  text-decoration: var(--violet-a5);
   &:hover {
     color: var(--violet-a10);
     text-decoration: underline;
@@ -1706,82 +1700,6 @@ main.main {
     box-shadow: rgba(6, 6, 6, 0.365) 0px 0px 1px;
     clip-path: polygon(0% 0%, 104% -4%, 100% 100%);
     border: 1px inset var(--border-color-300);
-  }
-}
-
-.toggle-switch {
-  display: inline-block;
-  margin-right: 5px;
-  vertical-align: middle;
-  height: 25px;
-  width: 50px;
-  position: relative;
-
-  input[type="checkbox"] {
-    height: 0;
-    width: 0;
-    visibility: hidden;
-  }
-
-  label {
-    position: absolute;
-    top: 0;
-    left: 0;
-    cursor: pointer;
-    text-indent: -9999px;
-    width: 50px;
-    height: 25px;
-    background: var(--form-switch-background);
-    display: block;
-    border-radius: 100px;
-    margin-bottom: 0;
-    padding-bottom: 0;
-  }
-
-  label:after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 21px;
-    height: 21px;
-    background: var(--surface-background-color);
-    border-radius: 90px;
-    transition: 0.3s;
-  }
-
-  input:checked + label:after {
-    left: calc(100% - 2px);
-    transform: translateX(-100%);
-  }
-
-  input:checked + label {
-    background: var(--form-switch-background-active);
-  }
-  &.toggle-featureValue input:checked + label {
-    background: colors.$blue;
-  }
-
-  label:active:after {
-    width: 30px;
-  }
-
-  &.disabled {
-    label {
-      cursor: not-allowed;
-    }
-    label:active:after {
-      width: 21px;
-    }
-  }
-
-  &.teal {
-    label {
-      background: #cfe6de;
-    }
-    input:checked + label {
-      background: colors.$teal;
-    }
   }
 }
 
