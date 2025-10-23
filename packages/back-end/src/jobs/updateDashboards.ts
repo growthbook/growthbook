@@ -58,21 +58,8 @@ const updateSingleDashboard = async (job: UpdateSingleDashJob) => {
 
   const context = await getContextForAgendaJobByOrgId(orgId);
 
-  const { org: organization } = context;
-
   const dashboard = await context.models.dashboards.getById(dashboardId);
   if (!dashboard) return;
-
-  // Disable auto snapshots for the dashboard so it doesn't keep trying to update if schedule is off
-  if (organization?.settings?.updateSchedule?.type === "never") {
-    await context.models.dashboards.dangerousUpdateByIdBypassPermission(
-      dashboardId,
-      {
-        enableAutoUpdates: false,
-      },
-    );
-    return;
-  }
 
   try {
     logger.info("Start Refreshing Results for dashboard " + dashboardId);
