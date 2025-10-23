@@ -97,7 +97,8 @@
         ]
       }
     ],
-    "@typescript-eslint/prefer-ts-expect-error": "error"
+    "@typescript-eslint/prefer-ts-expect-error": "error",
+    "@typescript-eslint/no-non-null-assertion": "error"
   },
   "overrides": [
     {
