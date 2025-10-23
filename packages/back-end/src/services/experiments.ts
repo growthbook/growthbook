@@ -185,6 +185,7 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
+import { ExperimentQueryMetadata } from "back-end/types/query";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -1146,6 +1147,16 @@ export function updateExperimentBanditSettings({
   return changes;
 }
 
+export function getAdditionalQueryMetadataForExperiment(
+  experiment: ExperimentInterface,
+): ExperimentQueryMetadata {
+  return {
+    experimentOwner: experiment.owner || undefined,
+    experimentProject: experiment.project || undefined,
+    experimentTags: experiment.tags.length > 0 ? experiment.tags : undefined,
+  };
+}
+
 export async function createSnapshot({
   experiment,
   context,
@@ -1279,7 +1290,7 @@ export async function createSnapshot({
       metricMap,
       queryParentId: snapshot.id,
       factTableMap,
-      experiment,
+      experimentQueryMetadata: getAdditionalQueryMetadataForExperiment(experiment),
     });
   }
 

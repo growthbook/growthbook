@@ -1,6 +1,10 @@
 import { ExperimentMetricInterface } from "shared/experiments";
 import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
-import { Queries, QueryStatus } from "back-end/types/query";
+import {
+  ExperimentQueryMetadata,
+  Queries,
+  QueryStatus,
+} from "back-end/types/query";
 import {
   ExperimentReportInterface,
   ExperimentReportResults,
@@ -10,7 +14,6 @@ import { MetricGroupInterface } from "back-end/types/metric-groups";
 import { getReportById, updateReport } from "back-end/src/models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "back-end/src/services/reports";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
-import { ExperimentInterface } from "back-end/types/experiment";
 import {
   ExperimentResultsQueryParams,
   startExperimentResultQueries,
@@ -27,8 +30,7 @@ export type ReportQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   metricGroups: MetricGroupInterface[];
-  // used for metadata
-  experiment: ExperimentInterface | null;
+  experimentQueryMetadata: ExperimentQueryMetadata | null;
 };
 
 export class ExperimentReportQueryRunner extends QueryRunner<
@@ -66,7 +68,7 @@ export class ExperimentReportQueryRunner extends QueryRunner<
       variationNames: this.model.args.variations.map((v) => v.name),
       queryParentId: this.model.id,
       factTableMap: params.factTableMap,
-      experiment: params.experiment,
+      experimentQueryMetadata: params.experimentQueryMetadata,
     };
 
     return startExperimentResultQueries(

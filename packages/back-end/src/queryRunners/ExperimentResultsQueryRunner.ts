@@ -22,7 +22,7 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import {
-  AdditionalQueryMetadata,
+  ExperimentQueryMetadata,
   Queries,
   QueryPointer,
   QueryStatus,
@@ -55,7 +55,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
-import { BanditResult, ExperimentInterface } from "back-end/types/experiment";
+import { BanditResult } from "back-end/types/experiment";
 import {
   QueryRunner,
   QueryMap,
@@ -79,8 +79,7 @@ export type ExperimentResultsQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   queryParentId: string;
-  // used for metadata
-  experiment: ExperimentInterface | null;
+  experimentQueryMetadata: ExperimentQueryMetadata | null;
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
@@ -434,16 +433,6 @@ export const startExperimentResultQueries = async (
   return queries;
 };
 
-function getAdditionalQueryMetadataForExperiment(
-  experiment: ExperimentInterface,
-): AdditionalQueryMetadata {
-  return {
-    experimentOwner: experiment.owner,
-    experimentProject: experiment.project ?? "All",
-    experimentTags: experiment.tags,
-  };
-}
-
 export class ExperimentResultsQueryRunner extends QueryRunner<
   ExperimentSnapshotInterface,
   ExperimentResultsQueryParams,
@@ -461,9 +450,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
-    if (params.experiment) {
+    if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
-        getAdditionalQueryMetadataForExperiment(params.experiment),
+        params.experimentQueryMetadata,
       );
     }
     if (

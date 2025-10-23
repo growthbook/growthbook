@@ -21,11 +21,13 @@ export type QueryStatistics = {
   partitionsUsed?: boolean;
 };
 
-export type AdditionalQueryMetadata = {
+export type ExperimentQueryMetadata = {
   experimentProject?: string;
   experimentOwner?: string;
   experimentTags?: string[];
 };
+
+export type AdditionalQueryMetadata = ExperimentQueryMetadata;
 
 export type QueryMetadata = AdditionalQueryMetadata & {
   userName?: string;
