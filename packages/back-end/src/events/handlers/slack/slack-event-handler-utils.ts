@@ -1714,12 +1714,13 @@ export function formatDiffForSlack(
                     (change as unknown as { newValue?: unknown }).newValue ||
                       change,
                   );
-                  const fieldLines = (
-                    change as unknown as { fieldChanges?: ItemFieldChange[] }
-                  ).fieldChanges!.map(
-                    (fc) =>
-                      `\t\t- ${fc.field}: ${getItemLabel(fc.oldValue)} → ${getItemLabel(fc.newValue)}`,
-                  );
+                  const fieldLines =
+                    (
+                      change as unknown as { fieldChanges?: ItemFieldChange[] }
+                    ).fieldChanges?.map(
+                      (fc) =>
+                        `\t\t- ${fc.field}: ${getItemLabel(fc.oldValue)} → ${getItemLabel(fc.newValue)}`,
+                    ) || [];
                   const newValue = (change as unknown as { newValue?: unknown })
                     .newValue;
                   const index =

@@ -60,9 +60,9 @@ export default function ExperimentTrafficBlock({
           srm={results?.srm}
         />
       )}
-      {showTimeseries && (
+      {showTimeseries && snapshot.health && (
         <TrafficCard
-          traffic={snapshot.health!.traffic}
+          traffic={snapshot.health.traffic}
           variations={variations}
           isBandit={experiment.type !== "multi-armed-bandit"}
           cardTitle={""}

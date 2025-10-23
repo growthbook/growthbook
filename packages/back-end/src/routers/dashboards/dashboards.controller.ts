@@ -273,7 +273,7 @@ export async function refreshDashboardData(
     ...new Set(
       dashboard.blocks
         .filter((block) => block.type === "sql-explorer" && block.savedQueryId)
-        .map((block: SqlExplorerBlockInterface) => block.savedQueryId!),
+        .map((block: SqlExplorerBlockInterface) => block.savedQueryId || ""),
     ),
   ]);
 

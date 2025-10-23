@@ -292,7 +292,8 @@ export default function FactMetricList({
                                     {column?.name || slice}
                                   </Text>
                                 </Tooltip>
-                                {i < metric.metricAutoSlices!.length - 1 &&
+                                {i <
+                                  (metric.metricAutoSlices?.length || 0) - 1 &&
                                   ", "}
                               </span>
                             );

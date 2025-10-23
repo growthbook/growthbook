@@ -142,7 +142,8 @@ const parseQueryParams = (
       paramGroups.set(groupId, { idx, metric: "", diff: "relative" });
     }
 
-    const group = paramGroups.get(groupId)!;
+    const group = paramGroups.get(groupId);
+    if (!group) continue;
     if (paramType === "metric") group.metric = value;
     else if (paramType === "diff") group.diff = value as DifferenceType;
   });

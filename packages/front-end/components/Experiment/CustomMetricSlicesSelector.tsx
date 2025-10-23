@@ -102,7 +102,7 @@ export default function CustomMetricSlicesSelector({
         return !!metric && isFactMetric(metric) && hasColumns;
       })
       .map((metric) => {
-        const factTable = factTableMap.get(metric!.numerator?.factTableId);
+        const factTable = factTableMap.get(metric?.numerator?.factTableId);
         const stringColumns = factTable?.columns?.filter(
           (col) =>
             (col.datatype === "string" || col.datatype === "boolean") &&
@@ -110,7 +110,7 @@ export default function CustomMetricSlicesSelector({
             !factTable.userIdTypes.includes(col.column),
         );
         return {
-          ...metric!,
+          ...metric,
           stringColumns:
             stringColumns?.map((col) => ({
               column: col.column,
