@@ -29,9 +29,25 @@ export default function TrafficAndTargeting({
 
   const phase = experiment.phases?.[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
+
+  // Calculate total namespace allocation - support both old (single range) and new (multiple ranges) formats
   const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
+    ? (() => {
+        const ns = phase.namespace!;
+        if ("ranges" in ns && ns.ranges && ns.ranges.length > 0) {
+          // New format: sum all ranges
+          return ns.ranges.reduce(
+            (sum, [start, end]) => sum + (end - start),
+            0,
+          );
+        } else if ("range" in ns && ns.range) {
+          // Old format: single range
+          return ns.range[1] - ns.range[0];
+        }
+        return 1;
+      })()
     : 1;
+
   const namespaceName = hasNamespace
     ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
       phase.namespace!.name
@@ -133,7 +149,7 @@ export default function TrafficAndTargeting({
                     Namespace{" "}
                     <Tooltip
                       popperStyle={{ lineHeight: 1.5 }}
-                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces"
+                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces"
                     >
                       <GBInfo />
                     </Tooltip>
