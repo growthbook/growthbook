@@ -76,6 +76,7 @@
     "googleapis": "^59.0.0",
     "handlebars": "^4.7.8",
     "js-yaml": "^4.1.0",
+    "json5": "^2.2.3",
     "jsonwebtoken": "^8.5.1",
     "jwks-rsa": "^1.8.0",
     "lodash": "^4.17.21",
