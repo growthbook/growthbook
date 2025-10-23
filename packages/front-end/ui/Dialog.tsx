@@ -15,7 +15,6 @@ export type Props = {
   open: boolean;
   header: string;
   subheader: string;
-  trigger: ReactNode;
   cta?: string;
   ctaEnabled?: boolean;
   size?: Size;
@@ -24,7 +23,7 @@ export type Props = {
   children: ReactNode;
 };
 
-type Size = "md" | "lg";
+export type Size = "md" | "lg";
 
 export function getRadixSize(size: Size): Responsive<"3" | "4"> {
   switch (size) {
