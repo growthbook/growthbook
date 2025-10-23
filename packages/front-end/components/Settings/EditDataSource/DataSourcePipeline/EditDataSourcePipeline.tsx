@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Box, Flex, Grid, Separator, Text, TextField } from "@radix-ui/themes";
+import { Box, Flex, Separator, Text, TextField } from "@radix-ui/themes";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DataSourceInterfaceWithParams,
@@ -14,7 +14,6 @@ import { PiArrowLeft, PiCaretRight } from "react-icons/pi";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useExperiments } from "@/hooks/useExperiments";
 import PipelineValidationResultsView from "@/enterprise/components/DataPipeline/PipelineValidationResults";
@@ -22,7 +21,6 @@ import { useDataSourcePipelineSettingsValidation } from "@/enterprise/components
 import Modal from "@/components/Modal";
 import PipelineQueriesValidationStep from "@/components/Settings/EditDataSource/DataSourcePipeline/PipelineQueriesValidationStep";
 import RadioGroup from "@/ui/RadioGroup";
-import { Select, SelectItem } from "@/ui/Select";
 import Link from "@/ui/Link";
 import PipelineModeSelector from "./PipelineModeSelector";
 import { dataSourcePathNames } from "./DataSourcePipeline";
@@ -90,7 +88,8 @@ export const EditDataSourcePipeline = ({
   });
 
   const [currentPage, setCurrentPage] = useState(
-    initialPipelineSettings?.allowWriting ? 1 : 0,
+    // initialPipelineSettings?.allowWriting ? 1 : 0,
+    0,
   );
 
   const validatePipelinePermissions = async (): Promise<boolean> => {
@@ -167,8 +166,11 @@ export const EditDataSourcePipeline = ({
       cta={
         has2Pages && currentPage === 0 ? (
           <>
-            Next <PiCaretRight />
+            {validateBeforeSaving ? "Validate & " : ""}
+            Advance <PiCaretRight />
           </>
+        ) : validateBeforeSaving ? (
+          "Validate & Save"
         ) : (
           "Save"
         )
