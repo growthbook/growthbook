@@ -8,7 +8,8 @@ a,
   text-decoration-color: var(--accent-a5);
 
   &:hover {
-    color: var(--accent-a11);
+    color: var(--accent-a10);
+    text-decoration: underline;
   }
 }
 
