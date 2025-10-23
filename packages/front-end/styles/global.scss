@@ -985,7 +985,7 @@ main.main {
 
 .link-purple {
   color: var(--violet-a11);
-  text-decoration: none;
+  text-decoration: var(--violet-a5);
   &:hover {
     color: var(--violet-a10);
     text-decoration: underline;
