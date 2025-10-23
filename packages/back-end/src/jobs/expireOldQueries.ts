@@ -19,6 +19,7 @@ import {
 } from "back-end/src/models/ReportModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
+import { MetricAnalysisModel } from "../models/MetricAnalysisModel";
 const JOB_NAME = "expireOldQueries";
 
 function updateQueryStatus(queries: Queries, ids: Set<string>) {
@@ -96,6 +97,22 @@ const expireOldQueries = async () => {
     await updatePastExperiments(pastExperiment, {
       queries: pastExperiment.queries,
       error: "Queries were interupted. Please try refreshing the list.",
+    });
+  }
+
+  const metricAnalyses = await MetricAnalysisModel.findByQueryIds(
+    [...orgIds],
+    [...queryIds],
+  );
+  for (const metricAnalysis of metricAnalyses) {
+    logger.info("Updating status of metricAnalysis " + metricAnalysis.id);
+    const context = await getContextForAgendaJobByOrgId(
+      metricAnalysis.organization,
+    );
+    updateQueryStatus(metricAnalysis.queries, queryIds);
+    await context.models.metricAnalysis.update(metricAnalysis, {
+      queries: metricAnalysis.queries,
+      error: "Queries were interupted. Please try refreshing the results.",
     });
   }
 };

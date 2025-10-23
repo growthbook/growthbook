@@ -27,6 +27,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import { SegmentInterface } from "back-end/types/segment";
 import { HoldoutInterface } from "back-end/src/routers/holdout/holdout.validators";
+import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
 import { SavedGroupInterface } from "../types";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
 class PermissionError extends Error {
@@ -986,6 +987,35 @@ export class Permissions {
     return this.checkProjectFilterPermission(
       datasource,
       "runSqlExplorerQueries",
+    );
+  };
+
+  public canCreateGeneralDashboards = (
+    dashboard: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      dashboard,
+      "manageGeneralDashboards",
+    );
+  };
+
+  public canUpdateGeneralDashboards = (
+    existing: Pick<DashboardInterface, "projects">,
+    updates: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      existing,
+      updates,
+      "manageGeneralDashboards",
+    );
+  };
+
+  public canDeleteGeneralDashboards = (
+    dashboard: Pick<DashboardInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      dashboard,
+      "manageGeneralDashboards",
     );
   };
 

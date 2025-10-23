@@ -17,7 +17,8 @@ interface Props {
     | "metric"
     | "factMetric"
     | "archetype"
-    | "factTable";
+    | "factTable"
+    | "dashboard";
   placeholder?: string;
   disabled?: boolean;
 }
@@ -37,6 +38,7 @@ export default function SelectOwner({
     "experimentTemplate",
     "factTable",
     "archetype",
+    "dashboard",
   ].includes(resourceType)
     ? "id"
     : "name";

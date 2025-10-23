@@ -5,6 +5,10 @@ import {
   metricSelectors,
   pinSources,
 } from "shared/enterprise";
+import {
+  metricAnalysisSettingsStringDatesValidator,
+  metricAnalysisSettingsValidator,
+} from "back-end/src/routers/metric-analysis/metric-analysis.validators";
 
 const baseBlockInterface = z
   .object({
@@ -213,12 +217,31 @@ const sqlExplorerBlockInterface = baseBlockInterface
   .extend({
     type: z.literal("sql-explorer"),
     savedQueryId: z.string(),
-    dataVizConfigIndex: z.number(),
+    dataVizConfigIndex: z.number().optional(), // Deprecated with the release of product analytics dashboards as we now allow users to show multiple visualizations
+    blockConfig: z.array(z.string()).optional(),
   })
   .strict();
 
 export type SqlExplorerBlockInterface = z.infer<
   typeof sqlExplorerBlockInterface
+>;
+
+const metricExplorerBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("metric-explorer"),
+    factMetricId: z.string(),
+    analysisSettings: z.union([
+      metricAnalysisSettingsValidator,
+      metricAnalysisSettingsStringDatesValidator,
+    ]),
+    visualizationType: z.enum(["histogram", "bigNumber", "timeseries"]),
+    valueType: z.enum(["avg", "sum"]),
+    metricAnalysisId: z.string(),
+  })
+  .strict();
+
+export type MetricExplorerBlockInterface = z.infer<
+  typeof metricExplorerBlockInterface
 >;
 
 export const dashboardBlockInterface = z.discriminatedUnion("type", [
@@ -229,6 +252,7 @@ export const dashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTimeSeriesBlockInterface,
   experimentTrafficBlockInterface,
   sqlExplorerBlockInterface,
+  metricExplorerBlockInterface,
 ]);
 export const legacyDashboardBlockInterface = z.discriminatedUnion("type", [
   legacyExperimentDescriptionBlockInterface,
@@ -262,6 +286,7 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   experimentTimeSeriesBlockInterface.omit(createOmits),
   experimentTrafficBlockInterface.omit(createOmits),
   sqlExplorerBlockInterface.omit(createOmits),
+  metricExplorerBlockInterface.omit(createOmits),
 ]);
 export type CreateDashboardBlockInterface = z.infer<
   typeof createDashboardBlockInterface
@@ -291,6 +316,10 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .partial()
     .required({ type: true }),
   sqlExplorerBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  metricExplorerBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),
