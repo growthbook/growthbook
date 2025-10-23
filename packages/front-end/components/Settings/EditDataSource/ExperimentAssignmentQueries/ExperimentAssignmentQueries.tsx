@@ -5,7 +5,6 @@ import {
 } from "back-end/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { FaChevronRight, FaPlus } from "react-icons/fa";
-import { useRouter } from "next/router";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import { DimensionSlicesInterface } from "back-end/types/dimension";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
@@ -25,14 +24,9 @@ type UIMode = "view" | "edit" | "add" | "dimension";
 export const ExperimentAssignmentQueries: FC<
   ExperimentAssignmentQueriesProps
 > = ({ dataSource, onSave, onCancel, canEdit = true }) => {
-  const router = useRouter();
-
-  let intitialOpenIndexes: boolean[] = [];
-  if (router.query.openAll === "1") {
-    intitialOpenIndexes = Array.from(
-      Array(dataSource.settings?.queries?.exposure?.length || 0),
-    ).fill(true);
-  }
+  const intitialOpenIndexes: boolean[] = Array.from(
+    Array(dataSource.settings?.queries?.exposure?.length || 0),
+  ).fill(true);
 
   const [uiMode, setUiMode] = useState<UIMode>("view");
   const [editingIndex, setEditingIndex] = useState<number>(-1);
@@ -282,6 +276,7 @@ export const ExperimentAssignmentQueries: FC<
                   language="sql"
                   code={query.query}
                   containerClassName="mb-0"
+                  expandable
                 />
               </Box>
             )}
