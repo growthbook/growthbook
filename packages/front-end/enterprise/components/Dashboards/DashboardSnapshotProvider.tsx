@@ -403,10 +403,13 @@ export function useDashboardMetricAnalysis(
     [blockHasMetricAnalysis, block, metricAnalysesMap],
   );
 
-  const shouldFetchMetricAnalysis = () =>
-    blockHasMetricAnalysis &&
-    block.metricAnalysisId.length > 0 &&
-    !metricAnalysisFromMap;
+  const shouldFetchMetricAnalysis = useCallback(
+    () =>
+      blockHasMetricAnalysis &&
+      block.metricAnalysisId.length > 0 &&
+      !metricAnalysisFromMap,
+    [metricAnalysisFromMap, blockHasMetricAnalysis, block],
+  );
   const {
     data: existingMetricAnalysisData,
     error: existingMetricAnalysisError,
@@ -426,6 +429,34 @@ export function useDashboardMetricAnalysis(
     () => metricAnalysisFromMap ?? existingMetricAnalysisData?.metricAnalysis,
     [metricAnalysisFromMap, existingMetricAnalysisData],
   );
+
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      if (
+        // If using manually fetched analysis & it's still running, update it on an interval
+        shouldFetchMetricAnalysis() &&
+        metricAnalysis &&
+        ["running", "queued"].includes(
+          getQueryStatus(metricAnalysis.queries, metricAnalysis.error).status,
+        )
+      ) {
+        await apiCall(`/metric-analysis/${metricAnalysis.id}/refreshStatus`, {
+          method: "POST",
+        });
+        mutateSingleAnalysis();
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 2000);
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [
+    metricAnalysis,
+    mutateSingleAnalysis,
+    shouldFetchMetricAnalysis,
+    apiCall,
+  ]);
 
   // Create a hook for refreshing, either due to settings changes or based on manual interaction
   const refreshAnalysis = useCallback(async () => {
