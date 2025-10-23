@@ -270,6 +270,9 @@ export const postDemoDatasourceProject = async (
       DEMO_METRICS.map(async (m) => {
         return context.models.factMetrics.create({
           ...m,
+          ...(m.metricType === "retention"
+            ? { id: `fact__demo-d7-purchase-retention` }
+            : {}),
           owner: ASSET_OWNER,
           datasource: datasource.id,
           projects: [project.id],

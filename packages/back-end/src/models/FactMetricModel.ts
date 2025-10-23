@@ -267,7 +267,8 @@ export class FactMetricModel extends BaseClass {
     }
     if (
       data.metricType === "retention" &&
-      !this.context.hasPremiumFeature("retention-metrics")
+      !this.context.hasPremiumFeature("retention-metrics") &&
+      data.id !== "fact__demo-d7-purchase-retention" // Allows demo retention metric to be created without premium feature
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
