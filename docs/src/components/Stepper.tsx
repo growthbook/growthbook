@@ -10,7 +10,7 @@ interface StepperStepProps {
   children: React.ReactNode;
 }
 
-export default function Stepper({ children, className }: StepperProps) {
+export function Stepper({ children, className }: StepperProps) {
   return <div className={clsx("stepper", className)}>{children}</div>;
 }
 

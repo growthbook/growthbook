@@ -4,9 +4,22 @@
 .theme-admonition {
   border: none;
   border-radius: 8px;
+  box-shadow: none;
 
-  svg {
-    fill: currentColor !important;
+  [class^="admonitionHeading"] {
+    font-size: 0.8rem;
+    line-height: 1;
+  }
+
+  [class^="admonitionIcon"] {
+    width: 1em;
+    height: 1em;
+    translate: 0 -0.05em;
+    svg {
+      fill: currentColor;
+      width: 1em;
+      height: 1em;
+    }
   }
 
   a {
