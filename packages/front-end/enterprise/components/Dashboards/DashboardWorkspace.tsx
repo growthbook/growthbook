@@ -18,29 +18,15 @@ import { cloneDeep, pick } from "lodash";
 import { CREATE_BLOCK_TYPE, getBlockData } from "shared/enterprise";
 import { isDefined } from "shared/util";
 
-// Block types that are allowed in general dashboards (non-experiment specific)
-const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
-  "markdown",
-  "sql-explorer",
-  "metric-explorer",
-];
-
-// Helper function to check if a block type is allowed for the given dashboard type
-const isBlockTypeAllowed = (
-  blockType: DashboardBlockType,
-  isGeneralDashboard: boolean,
-): boolean => {
-  if (isGeneralDashboard) {
-    return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
-  } else {
-    return true; // All block types are allowed for experiment dashboards
-  }
-};
 import Button from "@/ui/Button";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import DashboardEditor, { DASHBOARD_TOPBAR_HEIGHT } from "./DashboardEditor";
+import DashboardEditor, {
+  DASHBOARD_TOPBAR_HEIGHT,
+  GENERAL_DASHBOARD_BLOCK_TYPES,
+  isBlockTypeAllowed,
+} from "./DashboardEditor";
 import { SubmitDashboard, UpdateDashboardArgs } from "./DashboardsTab";
 import DashboardEditorSidebar from "./DashboardEditor/DashboardEditorSidebar";
 

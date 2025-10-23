@@ -96,14 +96,14 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
 ];
 
 // Block types that are allowed in general dashboards (non-experiment specific)
-const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
+export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "markdown",
   "sql-explorer",
   "metric-explorer",
 ];
 
 // Helper function to check if a block type is allowed for the given dashboard type
-const isBlockTypeAllowed = (
+export const isBlockTypeAllowed = (
   blockType: DashboardBlockType,
   isGeneralDashboard: boolean,
 ): boolean => {
