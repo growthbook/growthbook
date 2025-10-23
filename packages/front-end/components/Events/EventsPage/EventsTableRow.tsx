@@ -27,7 +27,7 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
       data.keys
         .filter((key) => (key.id ?? "").length > 0)
         .map((key) => {
-          return [key.id!, key.description];
+          return [key.id || "", key.description];
         }),
     );
   }, [data]);

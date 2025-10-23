@@ -50,16 +50,19 @@ export default function TargetingInfo({
 
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
-  const namespaceRanges: [number, number] = hasNamespace
-    ? [phase.namespace!.range[1] || 0, phase.namespace!.range[0] || 0]
-    : [0, 1];
-  const namespaceName = hasNamespace
-    ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
-      phase.namespace!.name
-    : "";
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? phase.namespace.range[1] - phase.namespace.range[0]
+      : 1;
+  const namespaceRanges: [number, number] =
+    hasNamespace && phase.namespace
+      ? [phase.namespace.range[1] || 0, phase.namespace.range[0] || 0]
+      : [0, 1];
+  const namespaceName =
+    hasNamespace && phase.namespace
+      ? namespaces?.find((n) => n.name === phase.namespace.name)?.label ||
+        phase.namespace.name
+      : "";
 
   const hasSavedGroupsChanges =
     showChanges &&
@@ -96,10 +99,11 @@ export default function TargetingInfo({
   const changesNamespaceRanges: [number, number] = changes?.namespace
     ? [changes.namespace.range[1] || 0, changes.namespace.range[0] || 0]
     : [0, 1];
-  const changesNamespaceName = changesHasNamespace
-    ? namespaces?.find((n) => n.name === changes.namespace!.name)?.label ||
-      changes.namespace!.name
-    : "";
+  const changesNamespaceName =
+    changesHasNamespace && changes.namespace
+      ? namespaces?.find((n) => n.name === changes.namespace.name)?.label ||
+        changes.namespace.name
+      : "";
 
   return (
     <div>

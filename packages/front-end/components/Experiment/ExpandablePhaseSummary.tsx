@@ -21,9 +21,10 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
-  const namespaceRange = hasNamespace
-    ? phase.namespace!.range[1] - phase.namespace!.range[0]
-    : 1;
+  const namespaceRange =
+    hasNamespace && phase.namespace
+      ? phase.namespace.range[1] - phase.namespace.range[0]
+      : 1;
 
   return (
     <div className={i ? "border-top" : ""}>
@@ -88,8 +89,8 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
             <tr>
               <th className="small">Namespace</th>
               <td>
-                {hasNamespace ? (
-                  `${phase.namespace!.name} (${percentFormatter.format(
+                {hasNamespace && phase.namespace ? (
+                  `${phase.namespace.name} (${percentFormatter.format(
                     namespaceRange,
                   )})`
                 ) : (

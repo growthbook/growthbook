@@ -65,12 +65,12 @@ export default function ExecReport() {
   defaultStartDate.setDate(defaultStartDate.getDate() - parseInt(dateRange));
   const [startDate, setStartDate] = useState<Date>(
     searchParams.get("startDate")
-      ? parseDateFromURL(searchParams.get("startDate")!)
+      ? parseDateFromURL(searchParams.get("startDate") || "")
       : defaultStartDate,
   );
   const [endDate, setEndDate] = useState<Date>(
     searchParams.get("endDate")
-      ? parseDateFromURL(searchParams.get("endDate")!)
+      ? parseDateFromURL(searchParams.get("endDate") || "")
       : new Date(),
   );
   // const [tag, setTag] = useState("");

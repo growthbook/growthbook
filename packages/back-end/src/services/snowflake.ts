@@ -37,7 +37,7 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
   if (conn.authMethod === "key-pair") {
     try {
       const privateKeyObject = createPrivateKey({
-        key: conn.privateKey!,
+        key: conn.privateKey || "",
         format: "pem",
         passphrase: conn.privateKeyPassword,
       });

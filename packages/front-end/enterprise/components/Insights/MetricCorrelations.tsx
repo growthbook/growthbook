@@ -99,7 +99,8 @@ const parseQueryParams = (
       });
     }
 
-    const group = paramGroups.get(groupId)!;
+    const group = paramGroups.get(groupId);
+    if (!group) continue;
     if (paramType === "m1") group.m1 = value;
     else if (paramType === "m2") group.m2 = value;
     else if (paramType === "diff") group.diff = value as DifferenceType;

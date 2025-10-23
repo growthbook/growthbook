@@ -296,7 +296,7 @@ export default class BigQuery extends SqlIntegration {
         : undefined;
 
       return {
-        name: field.name!.toLowerCase(),
+        name: (field.name || "").toLowerCase(),
         ...(dataType && { dataType }),
         ...(childFields && { fields: childFields }),
       };

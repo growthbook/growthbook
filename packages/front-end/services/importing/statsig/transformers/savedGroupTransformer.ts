@@ -115,9 +115,10 @@ export async function transformStatsigSegmentToSavedGroup(
           });
         }
         if (cond.operator) {
-          attributeOperatorMap
-            .get(attributeName)!
-            .operators.push(cond.operator);
+          const attrMap = attributeOperatorMap.get(attributeName);
+          if (attrMap) {
+            attrMap.operators.push(cond.operator);
+          }
         }
       });
 

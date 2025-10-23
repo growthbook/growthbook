@@ -117,9 +117,10 @@ export class MetricTimeSeriesModel extends BaseClass {
           metricIds: [mts.metricId],
         });
       } else {
-        metricTimeSeriesPerSource
-          .get(sourceIdentifier)!
-          .metricIds.push(mts.metricId);
+        const existing = metricTimeSeriesPerSource.get(sourceIdentifier);
+        if (existing) {
+          existing.metricIds.push(mts.metricId);
+        }
       }
     });
 
@@ -294,7 +295,10 @@ export class MetricTimeSeriesModel extends BaseClass {
           if (!acc.has(dateKey)) {
             acc.set(dateKey, []);
           }
-          acc.get(dateKey)!.push(dataPoint);
+          const existing = acc.get(dateKey);
+          if (existing) {
+            existing.push(dataPoint);
+          }
         } else {
           if (!acc.has(dateKey)) {
             acc.set(dateKey, [dataPoint]);
