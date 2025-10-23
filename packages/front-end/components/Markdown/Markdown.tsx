@@ -7,9 +7,19 @@ import styles from "./Markdown.module.scss";
 
 const imageCache = {};
 
-const Markdown: FC<
-  DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>
-> = ({ children, className, ...props }) => {
+interface MarkdownProps
+  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
+  isPublic?: boolean;
+  experimentUid?: string;
+}
+
+const Markdown: FC<MarkdownProps> = ({
+  children,
+  className,
+  isPublic = false,
+  experimentUid,
+  ...props
+}) => {
   if (typeof children !== "string") {
     console.error(
       "The Markdown component expects a single string as child. Received",
@@ -54,7 +64,12 @@ const Markdown: FC<
             </a>
           ),
           img: ({ ...props }) => (
-            <AuthorizedImage imageCache={imageCache} {...props} />
+            <AuthorizedImage
+              imageCache={imageCache}
+              isPublic={isPublic}
+              experimentUid={experimentUid}
+              {...props}
+            />
           ),
         }}
       >

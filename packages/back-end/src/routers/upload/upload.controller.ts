@@ -254,8 +254,10 @@ export async function getSignedPublicImageToken(
     return;
   }
 
-  // Verify the image path exists in one of the experiment's variation screenshots
+  // Verify the image path exists in the experiment (variations or description markdown)
   let imageFound = false;
+
+  // Check variation screenshots
   for (const variation of experiment.variations) {
     if (variation.screenshots) {
       for (const screenshot of variation.screenshots) {
@@ -285,10 +287,19 @@ export async function getSignedPublicImageToken(
     }
   }
 
+  // Check description for image references
+  if (
+    !imageFound &&
+    experiment.description &&
+    experiment.description.includes(fullPath)
+  ) {
+    imageFound = true;
+  }
+
   if (!imageFound) {
     res.status(404).json({
       status: 404,
-      message: "Image not found in experiment variations",
+      message: "Image not found in experiment data",
     });
     return;
   }

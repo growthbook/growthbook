@@ -131,22 +131,22 @@ const AuthorizedImage: FC<AuthorizedImageProps> = ({
       return onErrorMsg(errorMsg);
     }
     return (
-      <div {...props}>
+      <span {...props} style={{ ...props.style, display: "inline-block" }}>
         <FaExclamationTriangle
           size={14}
           className="text-danger ml-1"
           style={{ marginTop: -2 }}
         />
         <span className="ml-2"> Error: {errorMsg} </span>{" "}
-      </div>
+      </span>
     );
   }
 
   if (!imageSrc) {
     return (
-      <div {...props}>
+      <span {...props} style={{ ...props.style, display: "inline-block" }}>
         <LoadingSpinner className={"center"} />
-      </div>
+      </span>
     );
   }
 
