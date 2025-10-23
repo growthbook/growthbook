@@ -267,7 +267,7 @@ export default abstract class SqlIntegration
 
   requiresDatabase = true;
   requiresSchema = true;
-  requiresEscapingPath = false;
+  escapePathCharacter: string | null = null;
 
   getSchema(): string {
     return "";
@@ -4778,7 +4778,9 @@ export default abstract class SqlIntegration
 
     // Add table name
     path += tableName;
-    return this.requiresEscapingPath ? `\`${path}\`` : path;
+    return this.escapePathCharacter
+      ? `${this.escapePathCharacter}${path}${this.escapePathCharacter}`
+      : path;
   }
 
   getInformationSchemaTable(schema?: string, database?: string): string {
@@ -6639,7 +6641,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
           SELECT 
             ${this.castToString(`${baseIdType}`)} AS ${baseIdType}
             , variation_id AS variation
-            , \`timestamp\` AS timestamp
+            , timestamp AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map((d) => `, ${d.id} AS dim_exp_${d.id}`)

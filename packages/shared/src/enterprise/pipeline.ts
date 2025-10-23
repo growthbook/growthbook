@@ -22,7 +22,7 @@ export const PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES: Record<
   DataSourceType[]
 > = {
   ephemeral: ["bigquery", "databricks", "snowflake"],
-  incremental: ["bigquery"],
+  incremental: ["bigquery", "presto"],
 };
 
 export const UNITS_TABLE_RETENTION_HOURS_DEFAULT = 24;

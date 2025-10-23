@@ -1,5 +1,6 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
+import { format } from "shared/sql";
 import { FormatDialect } from "shared/src/types";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -25,6 +26,12 @@ export default class Presto extends SqlIntegration {
   }
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
+  }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
+  dropUnitsTable(): boolean {
+    return true;
   }
   runQuery(sql: string): Promise<QueryResponse> {
     const configOptions: IPrestoClientOptions = {
@@ -87,6 +94,9 @@ export default class Presto extends SqlIntegration {
             statistics.executionDurationMs = Number(stats.wallTimeMillis);
             statistics.bytesProcessed = Number(stats.processedBytes);
             statistics.rowsProcessed = Number(stats.processedRows);
+            statistics.physicalWrittenBytes = Number(
+              stats.physicalWrittenBytes,
+            );
           }
         },
         success: () => {
@@ -138,5 +148,23 @@ export default class Presto extends SqlIntegration {
   }
   getDefaultDatabase() {
     return this.params.catalog || "";
+  }
+  // TODO(adriel): Find a better way for this
+  getExperimentUnitsTableQueryFromCte(
+    unitsTableFullName: string,
+    cteSql: string,
+  ): string {
+    // TODO: How to ensure the partition matches the CTE? same with table name
+    return format(
+      `CREATE TABLE ${unitsTableFullName} (
+        user_id ${this.getDataType("string")},
+        variation ${this.getDataType("string")},
+        first_exposure_timestamp ${this.getDataType("timestamp")}
+      )
+      ${this.createUnitsTablePartitions(["first_exposure_timestamp"])}
+      ${this.createUnitsTableOptions()}
+    `,
+      this.getFormatDialect(),
+    );
   }
 }

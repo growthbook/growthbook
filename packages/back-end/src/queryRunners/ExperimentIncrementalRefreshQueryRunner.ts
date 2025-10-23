@@ -214,12 +214,20 @@ export const startExperimentIncrementalRefreshQueries = async (
     );
   }
 
-  function trimQuotes(str: string): string {
-    return str.replace(/^[`'"]+|[`'"]+$/g, "");
-  }
-
   const randomId = Math.random().toString(36).substring(2, 10);
-  const unitsTempTableFullName = `\`${trimQuotes(unitsTableFullName)}_temp_${randomId}\``;
+  const unitsTempTableFullName =
+    integration.generateTablePath &&
+    integration.generateTablePath(
+      `${INCREMENTAL_UNITS_TABLE_PREFIX}_${queryParentId}_temp_${randomId}`,
+      settings.pipelineSettings?.writeDataset,
+      settings.pipelineSettings?.writeDatabase,
+      true,
+    );
+  if (!unitsTempTableFullName) {
+    throw new Error(
+      "Unable to generate table; table path generator not specified.",
+    );
+  }
 
   const incrementalRefreshModel =
     await context.models.incrementalRefresh.getByExperimentId(
