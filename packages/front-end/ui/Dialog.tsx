@@ -7,20 +7,31 @@ import {
   Text,
 } from "@radix-ui/themes";
 import { Responsive } from "@radix-ui/themes/dist/esm/props/prop-def.js";
-import { ReactNode, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { v4 as uuidv4 } from "uuid";
+import { truncateString } from "shared/util";
+import track, { TrackEventProps } from "@/services/track";
 import Button from "./Button";
 import ErrorDisplay from "./ErrorDisplay";
 
 export type Props = {
   open: boolean;
   header: string;
-  subheader: string;
+  subheader?: string;
   cta?: string;
   ctaEnabled?: boolean;
   size?: Size;
   submit: () => void | Promise<void>;
   close: () => void;
   children: ReactNode;
+  // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
+  trackingEventModalType: string;
+  // The source (likely page or component) causing the modal to be shown
+  trackingEventModalSource?: string;
+  // Currently the allowlist for what event props are valid is controlled outside of the codebase.
+  // Make sure you've checked that any props you pass here are in the list!
+  allowlistedTrackingEventProps?: TrackEventProps;
+  trackOnSubmit?: boolean;
 };
 
 export type Size = "md" | "lg";
@@ -53,9 +64,35 @@ export default function Dialog({
   submit,
   close,
   children,
+  trackingEventModalType,
+  trackingEventModalSource,
+  allowlistedTrackingEventProps = {},
+  trackOnSubmit = true,
 }: Props) {
+  const [modalUuid] = useState(uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const sendTrackingEvent = useCallback(
+    (eventName: string, additionalProps?: Record<string, unknown>) => {
+      if (trackingEventModalType === "") {
+        return;
+      }
+      track(eventName, {
+        type: trackingEventModalType,
+        source: trackingEventModalSource,
+        eventGroupUuid: modalUuid,
+        ...allowlistedTrackingEventProps,
+        ...(additionalProps || {}),
+      });
+    },
+    [
+      trackingEventModalType,
+      trackingEventModalSource,
+      allowlistedTrackingEventProps,
+      modalUuid,
+    ],
+  );
 
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +103,12 @@ export default function Dialog({
       }
     }, 50);
   };
+  useEffect(() => {
+    if (open) {
+      sendTrackingEvent("modal-open");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,18 +122,18 @@ export default function Dialog({
       setLoading(false);
       close();
 
-      //   if (trackOnSubmit) {
-      //     sendTrackingEvent("modal-submit-success");
-      //   }
+      if (trackOnSubmit) {
+        sendTrackingEvent("modal-submit-success");
+      }
     } catch (e) {
       setError(e.message);
       scrollToTop();
       setLoading(false);
-      //   if (trackOnSubmit) {
-      //     sendTrackingEvent("modal-submit-error", {
-      //       error: truncateString(e.message, 32),
-      //     });
-      //   }
+      if (trackOnSubmit) {
+        sendTrackingEvent("modal-submit-error", {
+          error: truncateString(e.message, 32),
+        });
+      }
     }
   };
 
