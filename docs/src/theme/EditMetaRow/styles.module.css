@@ -1,0 +1,14 @@
+.docFooter {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2rem;
+}
+
+@media (width > 576px) {
+  .docFooter {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+}

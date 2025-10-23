@@ -1,4 +1,5 @@
 import { AES, enc } from "crypto-js";
+import { isReadOnlySQL } from "shared/sql";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 import GoogleAnalytics from "back-end/src/integrations/GoogleAnalytics";
 import Athena from "back-end/src/integrations/Athena";
@@ -14,6 +15,7 @@ import Mixpanel from "back-end/src/integrations/Mixpanel";
 import {
   SourceIntegrationInterface,
   TestQueryRow,
+  UserExperimentExposuresQueryResponseRows,
 } from "back-end/src/types/Integration";
 import {
   DataSourceInterface,
@@ -26,9 +28,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { TemplateVariables } from "back-end/types/sql";
 import { ReqContext } from "back-end/types/organization";
 import { ApiReqContext } from "back-end/types/api";
+import { QueryStatistics } from "back-end/types/query";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
-  encrypted: string
+  encrypted: string,
 ): T {
   return JSON.parse(AES.decrypt(encrypted, ENCRYPTION_KEY).toString(enc.Utf8));
 }
@@ -49,7 +52,7 @@ export function getNonSensitiveParams(integration: SourceIntegrationInterface) {
 
 export function mergeParams(
   integration: SourceIntegrationInterface,
-  newParams: Partial<DataSourceParams>
+  newParams: Partial<DataSourceParams>,
 ) {
   const secretKeys = integration.getSensitiveParamKeys();
   Object.keys(newParams).forEach((k: keyof DataSourceParams) => {
@@ -61,7 +64,7 @@ export function mergeParams(
 
 function getIntegrationObj(
   context: ReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ): SourceIntegrationInterface {
   switch (datasource.type) {
     case "growthbook_clickhouse":
@@ -98,7 +101,7 @@ function getIntegrationObj(
 export async function getIntegrationFromDatasourceId(
   context: ReqContext | ApiReqContext,
   id: string,
-  throwOnDecryptionError: boolean = false
+  throwOnDecryptionError: boolean = false,
 ) {
   const datasource = await getDataSourceById(context, id);
   if (!datasource) {
@@ -107,14 +110,14 @@ export async function getIntegrationFromDatasourceId(
   return getSourceIntegrationObject(
     context,
     datasource,
-    throwOnDecryptionError
+    throwOnDecryptionError,
   );
 }
 
 export function getSourceIntegrationObject(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
-  throwOnDecryptionError: boolean = false
+  throwOnDecryptionError: boolean = false,
 ) {
   const obj = getIntegrationObj(context, datasource);
 
@@ -125,7 +128,7 @@ export function getSourceIntegrationObject(
 
   if (throwOnDecryptionError && obj.decryptionError) {
     throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
+      "Could not decrypt data source credentials. View the data source settings for more info.",
     );
   }
 
@@ -134,17 +137,111 @@ export function getSourceIntegrationObject(
 
 export async function testDataSourceConnection(
   context: ReqContext,
-  datasource: DataSourceInterface
+  datasource: DataSourceInterface,
 ) {
   const integration = getSourceIntegrationObject(context, datasource);
   await integration.testConnection();
+}
+
+export async function runFreeFormQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  query: string,
+  limit?: number,
+): Promise<{
+  results?: TestQueryRow[];
+  duration?: number;
+  error?: string;
+  sql?: string;
+  limit?: number;
+}> {
+  if (!context.permissions.canRunSqlExplorerQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  if (!isReadOnlySQL(query)) {
+    throw new Error("Only SELECT queries are allowed.");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel integration does not support test queries
+  if (!integration.getFreeFormQuery || !integration.runTestQuery) {
+    throw new Error("Unable to test query.");
+  }
+
+  const sql = integration.getFreeFormQuery(query, limit);
+  try {
+    const { results, duration } = await integration.runTestQuery(sql, [
+      "timestamp",
+    ]);
+    return {
+      results,
+      duration,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
+}
+
+export async function runUserExposureQuery(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  unitId: string,
+  userIdType: string,
+  lookbackDays: number,
+): Promise<{
+  rows?: UserExperimentExposuresQueryResponseRows;
+  statistics?: QueryStatistics;
+  error?: string;
+  sql?: string;
+}> {
+  if (!context.permissions.canRunExperimentQueries(datasource)) {
+    throw new Error("Permission denied");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+
+  // The Mixpanel and GA integrations do not support user exposures queries
+  if (
+    !integration.getUserExperimentExposuresQuery ||
+    !integration.runUserExperimentExposuresQuery
+  ) {
+    throw new Error("Unable to run user exposures query.");
+  }
+
+  const sql = integration.getUserExperimentExposuresQuery({
+    unitId,
+    userIdType,
+    lookbackDays,
+  });
+
+  try {
+    const { rows, statistics } =
+      await integration.runUserExperimentExposuresQuery(sql);
+    return {
+      rows,
+      statistics,
+      sql,
+    };
+  } catch (e) {
+    return {
+      error: e.message,
+      sql,
+    };
+  }
 }
 
 export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
   query: string,
-  templateVariables?: TemplateVariables
+  templateVariables?: TemplateVariables,
+  limit?: number,
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -166,6 +263,7 @@ export async function testQuery(
     query,
     templateVariables,
     testDays: context.org.settings?.testQueryDays,
+    limit,
   });
   try {
     const { results, duration } = await integration.runTestQuery(sql, [
@@ -187,7 +285,8 @@ export async function testQuery(
 // Return any errors that result when running the query otherwise return undefined
 export async function testQueryValidity(
   integration: SourceIntegrationInterface,
-  query: ExposureQuery
+  query: ExposureQuery,
+  testDays?: number,
 ): Promise<string | undefined> {
   // The Mixpanel integration does not support test queries
   if (!integration.getTestValidityQuery || !integration.runTestQuery) {
@@ -203,7 +302,7 @@ export async function testQueryValidity(
     ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
   ]);
 
-  const sql = integration.getTestValidityQuery(query.query);
+  const sql = integration.getTestValidityQuery(query.query, testDays);
   try {
     const results = await integration.runTestQuery(sql);
     if (results.results.length === 0) {
@@ -220,7 +319,7 @@ export async function testQueryValidity(
 
     if (missingColumns.length > 0) {
       return `Missing required columns in response: ${missingColumns.join(
-        ", "
+        ", ",
       )}`;
     }
 

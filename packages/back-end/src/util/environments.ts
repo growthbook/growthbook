@@ -12,10 +12,10 @@ export const addEnvironmentToOrganizationEnvironments = (
   context: ReqContext,
   env: Environment,
   orgEnvironments: Environment[],
-  shouldReplace: boolean = false
+  shouldReplace: boolean = false,
 ): Environment[] => {
   const existingMatchingEnvIndex = orgEnvironments.findIndex(
-    (e) => e.id === env.id
+    (e) => e.id === env.id,
   );
 
   if (existingMatchingEnvIndex === -1) {
@@ -29,7 +29,7 @@ export const addEnvironmentToOrganizationEnvironments = (
     if (
       !context.permissions.canUpdateEnvironment(
         orgEnvironments[existingMatchingEnvIndex],
-        env
+        env,
       )
     ) {
       context.permissions.throwPermissionError();

@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { isFactMetric } from "shared/experiments";
 import { getValidDate } from "shared/dates";
+import { stringToBoolean } from "shared/util";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -12,10 +13,11 @@ import { getExperimentMetricById } from "back-end/src/services/experiments";
 import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { metricAnalysisSettingsValidator } from "./metric-analysis.validators";
 
 export const postMetricAnalysis = async (
   req: AuthRequest<CreateMetricAnalysisProps>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>
+  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>,
 ) => {
   const data = req.body;
   const context = getContextFromReq(req);
@@ -36,7 +38,7 @@ export const postMetricAnalysis = async (
   const integration = await getIntegrationFromDatasourceId(
     context,
     metricObj.datasource,
-    true
+    true,
   );
   if (
     !context.permissions.canRunMetricAnalysisQueries(integration.datasource)
@@ -62,7 +64,7 @@ export const postMetricAnalysis = async (
     metricObj,
     metricAnalysisSettings,
     data.source,
-    !data.force
+    !data.force,
   );
 
   const model = metricAnalysis.model;
@@ -74,12 +76,12 @@ export const postMetricAnalysis = async (
 
 export const getMetricAnalysis = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>
+  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface }>,
 ) => {
   const context = getContextFromReq(req);
 
   const metricAnalysis = await context.models.metricAnalysis.getById(
-    req.params.id
+    req.params.id,
   );
 
   if (!metricAnalysis) {
@@ -94,12 +96,12 @@ export const getMetricAnalysis = async (
 
 export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response,
 ) {
   const context = getContextFromReq(req);
 
   const metricAnalysis = await context.models.metricAnalysis.getById(
-    req.params.id
+    req.params.id,
   );
 
   if (!metricAnalysis) {
@@ -113,13 +115,13 @@ export async function cancelMetricAnalysis(
   }
   const integration = await getIntegrationFromDatasourceId(
     context,
-    metric.datasource
+    metric.datasource,
   );
 
   const queryRunner = new MetricAnalysisQueryRunner(
     context,
     metricAnalysis,
-    integration
+    integration,
   );
   await queryRunner.cancelQueries();
 
@@ -129,14 +131,66 @@ export async function cancelMetricAnalysis(
 }
 
 export async function getLatestMetricAnalysis(
-  req: AuthRequest<null, { metricid: string }>,
-  res: Response<{ status: 200; metricAnalysis: MetricAnalysisInterface | null }>
+  req: AuthRequest<
+    null,
+    { metricid: string },
+    { settings?: string; withHistogram?: string }
+  >,
+  res: Response<{
+    status: 200;
+    metricAnalysis: MetricAnalysisInterface | null;
+  }>,
 ) {
   const context = getContextFromReq(req);
 
+  // If we're trying to match specific analysis settings
+  if (req.query.settings) {
+    const rawSettings = JSON.parse(req.query.settings || "{}");
+    // Fix dates
+    rawSettings.startDate = getValidDate(rawSettings.startDate);
+    rawSettings.endDate = getValidDate(rawSettings.endDate);
+
+    const settings = metricAnalysisSettingsValidator.parse(rawSettings);
+
+    const metricAnalysis =
+      await context.models.metricAnalysis.findLatestBySettings(
+        req.params.metricid,
+        { settings, withHistogram: stringToBoolean(req.query.withHistogram) },
+      );
+    res.status(200).json({
+      status: 200,
+      metricAnalysis,
+    });
+    return;
+  }
+
+  // Otherwise, just find the latest one, regardless of settings
   const metricAnalysis = await context.models.metricAnalysis.findLatestByMetric(
-    req.params.metricid
+    req.params.metricid,
   );
+
+  res.status(200).json({
+    status: 200,
+    metricAnalysis,
+  });
+}
+
+export async function getMetricAnalysisById(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    metricAnalysis: MetricAnalysisInterface | null;
+  }>,
+) {
+  const context = getContextFromReq(req);
+
+  const metricAnalysis = await context.models.metricAnalysis.getById(
+    req.params.id,
+  );
+
+  if (!metricAnalysis) {
+    throw new Error("Metric analysis not found");
+  }
 
   res.status(200).json({
     status: 200,

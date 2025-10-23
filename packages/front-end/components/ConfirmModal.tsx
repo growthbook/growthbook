@@ -35,7 +35,7 @@ const ConfirmModal = ({
           styles.modalbackground,
           "modal-backdrop fade",
           { show: modalState },
-          { [styles.modalhide]: !modalState }
+          { [styles.modalhide]: !modalState },
         )}
         onClick={closeModal}
       />
@@ -44,7 +44,7 @@ const ConfirmModal = ({
           styles.modalwrap,
           "modal fade bd-example-modal-lg",
           { [styles.modalopen]: modalState },
-          { show: modalState }
+          { show: modalState },
         )}
         id="exampleModal"
         role="dialog"

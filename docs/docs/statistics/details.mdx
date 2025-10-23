@@ -97,6 +97,14 @@ $$
 
 where $\Phi_{posterior}$ is the CDF of the distribution $N(\Delta_{posterior}, \sigma^2_{posterior})$.
 
+### Risk
+
+Risk is the expected loss, where loss is considered to be 0 if the variation is beneficial.
+Define $p$ as the probability that treatment is worse than the control (i.e., 1 - Chance to Win).
+Define $L$ as the average loss under the scenario where treatment is worse than control.
+Then the risk is $p \cdot L$.
+We model the loss $L$ as the mean of a truncated normal distribution with mean $\Delta_{posterior}$, variance $\sigma^2_{posterior}$, and boundaries at $-\infty$ and 0 for a variation, and 0 and $\infty$ for baseline.
+
 ### Confidence Interval
 
 Our “confidence interval” in the Bayesian engine is an interval from the 2.5th to the 97.5th percentile of the posterior distribution (e.g. $\Phi^{-1}_{posterior}(0.025)$ and $\Phi^{-1}_{posterior}(0.975)$). We plot the posterior between these two points in the GrowthBook UI.
@@ -181,7 +189,7 @@ In these cases, we have
 $$
 \begin{align}
 \hat\mu_C &= \frac{\sum^{n_C}_{i=1} {M_{i}}}{\sum^{n_C}_{i=1} {D_{i}}} \\
-\hat\sigma^2_C &= \frac{1}{n_{C}\hat\mu^2_D}\left(\hat\sigma^2_M - 2 \frac{\hat\mu_M}{\hat\mu_D}\hat\sigma_{MD} +  \hat\sigma^2_D\frac{\hat\mu^2_M}{\hat\mu^2_D} \right)
+\hat\sigma^2_C &= \frac{1}{\hat\mu^2_D}\left(\hat\sigma^2_M - 2 \frac{\hat\mu_M}{\hat\mu_D}\hat\sigma_{MD} +  \hat\sigma^2_D\frac{\hat\mu^2_M}{\hat\mu^2_D} \right)
 \end{align}
 $$
 
@@ -190,3 +198,18 @@ where $M_i$ and $D_i$ are the $i^{\text{th}}$ units' values for the numerator an
 ### Quantile metrics
 
 The statistics for quantile metrics are covered more in detail in the [Quantile documentation](/statistics/quantile). But in the end we arrive at both a $\hat\mu$ and $\hat\sigma^2$ for the desired quantile and its variance and use those in our lift calculations.
+
+## References
+
+For further reading on the statistical methods referenced throughout this document, see the sources below:
+
+- [Delta Method – Wikipedia](https://en.wikipedia.org/wiki/Delta_method)
+- [Effect Size: Difference in Means – Wikipedia](https://en.wikipedia.org/wiki/Effect_size)
+- [Bayesian Inference – Wikipedia](https://en.wikipedia.org/wiki/Bayesian_inference)
+- [Posterior Predictive Distribution – Wikipedia](https://en.wikipedia.org/wiki/Posterior_predictive_distribution)
+- [Truncated Normal Distribution – Wikipedia](https://en.wikipedia.org/wiki/Truncated_normal_distribution)
+- [Credible Interval – Wikipedia](https://en.wikipedia.org/wiki/Credible_interval)
+- [P-value – Wikipedia](https://en.wikipedia.org/wiki/P-value)
+- [Welch–Satterthwaite Equation – Wikipedia](https://en.wikipedia.org/wiki/Welch%E2%80%93Satterthwaite_equation)
+- [Confidence Interval – Wikipedia](https://en.wikipedia.org/wiki/Confidence_interval)
+- [Sample Mean and Covariance – Wikipedia](https://en.wikipedia.org/wiki/Sample_mean_and_covariance)

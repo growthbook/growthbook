@@ -1,6 +1,6 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { FaAngleRight, FaBars, FaBuilding } from "react-icons/fa";
+import { FaAngleRight, FaBars } from "react-icons/fa";
 import {
   PiPlusBold,
   PiCaretDownFill,
@@ -10,6 +10,7 @@ import {
   PiListChecks,
   PiMoon,
   PiSunDim,
+  PiBuildingFill,
 } from "react-icons/pi";
 import Link from "next/link";
 import Head from "next/head";
@@ -23,7 +24,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownSubMenu,
-} from "@/components/Radix/DropdownMenu";
+} from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import {
@@ -39,8 +40,7 @@ import Avatar from "@/components/Avatar/Avatar";
 import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
@@ -56,10 +56,9 @@ const TopNav: FC<{
 }> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-  const [
-    enableCelebrations,
-    setEnableCelebrations,
-  ] = useCelebrationLocalStorage();
+  const [enableCelebrations, setEnableCelebrations] =
+    useCelebrationLocalStorage();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
 
@@ -153,6 +152,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         key="edit-profile"
         onClick={() => {
+          setDropdownOpen(false);
           setEditUserOpen(true);
         }}
       >
@@ -183,6 +183,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/account/personal-access-tokens");
         }}
       >
@@ -198,6 +199,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/reports");
         }}
       >
@@ -213,6 +215,7 @@ const TopNav: FC<{
       <DropdownMenuItem
         className={styles.dropdownItemIconColor}
         onClick={() => {
+          setDropdownOpen(false);
           router.push("/activity");
         }}
       >
@@ -234,6 +237,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="system"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("system");
           }}
         >
@@ -246,6 +250,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="light"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("light");
           }}
         >
@@ -258,6 +263,7 @@ const TopNav: FC<{
           className={styles.dropdownItemIconColor}
           key="dark"
           onClick={() => {
+            setDropdownOpen(false);
             setTheme("dark");
           }}
         >
@@ -273,7 +279,7 @@ const TopNav: FC<{
     if (organizations && organizations.length === 1) {
       return (
         <div className="top-nav-org-menu mr-2">
-          <FaBuilding className="text-muted mr-1" />
+          <PiBuildingFill className="text-muted mr-1" />
           <span className="d-none d-lg-inline">{orgName}</span>
         </div>
       );
@@ -290,7 +296,7 @@ const TopNav: FC<{
             }}
             style={{ cursor: "pointer" }}
           >
-            <FaBuilding className="text-muted mr-1" />
+            <PiBuildingFill className="text-muted mr-1" />
             <span className="d-none d-lg-inline">
               <OverflowText maxWidth={200}>{orgName}</OverflowText>
             </span>
@@ -380,7 +386,12 @@ const TopNav: FC<{
   const renderChangePassword = () => {
     if (!usingSSO()) {
       return (
-        <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+        <DropdownMenuItem
+          onClick={() => {
+            setDropdownOpen(false);
+            setChangePasswordOpen(true);
+          }}
+        >
           Change Password
         </DropdownMenuItem>
       );
@@ -401,17 +412,10 @@ const TopNav: FC<{
           open={true}
         >
           <Field label="Name" {...form.register("name")} />
-          <label className="mr-3">
-            Allow Celebrations{" "}
-            <Tooltip
-              body={
-                "GrowthBook adds on-screen confetti celebrations randomly when you complete certain actions like launching an experiment. You can disable this if you find it distracting."
-              }
-            />
-          </label>
-          <Toggle
+          <Checkbox
             id="allowCelebration"
             label="Allow celebration"
+            description="Show confetti celebrations randomly when you complete certain actions like launching an experiment."
             value={form.watch("enableCelebrations")}
             setValue={(v) => form.setValue("enableCelebrations", v)}
           />
@@ -464,6 +468,10 @@ const TopNav: FC<{
           {renderOrganizationDropDown()}
           <DropdownMenu
             variant="solid"
+            open={dropdownOpen}
+            onOpenChange={(o) => {
+              setDropdownOpen(!!o);
+            }}
             trigger={
               <div className="nav-link d-flex">
                 <Avatar

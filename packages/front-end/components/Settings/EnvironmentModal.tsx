@@ -2,6 +2,7 @@ import { useForm } from "react-hook-form";
 import { Environment } from "back-end/types/organization";
 import React, { useMemo } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { DEFAULT_ENVIRONMENT_IDS } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
@@ -10,7 +11,9 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
+import SelectField from "@/components/Forms/SelectField";
+import { DocLink } from "../DocLink";
 
 export default function EnvironmentModal({
   existing,
@@ -28,6 +31,7 @@ export default function EnvironmentModal({
       toggleOnList: existing.toggleOnList || false,
       defaultState: existing.defaultState ?? true,
       projects: existing.projects || [],
+      parent: existing.parent,
     },
   });
   const { apiCall } = useAuth();
@@ -44,10 +48,10 @@ export default function EnvironmentModal({
 
   const selectedProjects = form.watch("projects") ?? [];
   const removedProjects = (existing?.projects ?? []).filter(
-    (p) => !selectedProjects.includes(p)
+    (p) => !selectedProjects.includes(p),
   );
   const addedProjects = selectedProjects.filter(
-    (p) => !(existing?.projects ?? []).includes(p)
+    (p) => !(existing?.projects ?? []).includes(p),
   );
   const hasMoreSpecificProjectFilter =
     (removedProjects.length > 0 && selectedProjects.length > 0) ||
@@ -92,7 +96,7 @@ export default function EnvironmentModal({
         } else {
           if (!value.id?.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
             throw new Error(
-              "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
+              "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores.",
             );
           }
           if (newEnvs.find((e) => e.id === value.id)) {
@@ -104,6 +108,7 @@ export default function EnvironmentModal({
             toggleOnList: value.toggleOnList,
             defaultState: value.defaultState,
             projects: value.projects,
+            parent: value.parent,
           };
           await apiCall(`/environment`, {
             method: "POST",
@@ -120,12 +125,28 @@ export default function EnvironmentModal({
       })}
     >
       {!existing.id && (
-        <Field
+        <SelectField
+          value={form.watch("id") || ""}
+          options={DEFAULT_ENVIRONMENT_IDS.map((id) => ({
+            label: id,
+            value: id,
+          }))}
+          sort={false}
+          createable
+          isClearable
+          formatCreateLabel={(value) =>
+            `Use custom environment name "${value}"`
+          }
+          onChange={(value) => {
+            form.setValue("id", value);
+            if (!DEFAULT_ENVIRONMENT_IDS.includes(value)) {
+              form.setValue("parent", undefined);
+            }
+          }}
           maxLength={30}
           required
           pattern="^[A-Za-z][A-Za-z0-9_-]*$"
           title="Must start with a letter. Can only contain letters, numbers, hyphens, and underscores. No spaces or special characters."
-          {...form.register("id")}
           label="Id"
           helpText={
             <>
@@ -147,6 +168,34 @@ export default function EnvironmentModal({
         placeholder=""
         textarea
       />
+      {!existing.id && (
+        <div className="mb-3">
+          <SelectField
+            label="Parent"
+            value={form.watch("parent") || ""}
+            onChange={(value) => {
+              form.setValue("parent", value || undefined);
+            }}
+            options={environments.map((e) => ({ label: e.id, value: e.id }))}
+            isClearable
+            disabled={!DEFAULT_ENVIRONMENT_IDS.includes(form.watch("id") || "")}
+            helpText={
+              <>
+                <div>
+                  Environment to inherit Feature Rules from.{" "}
+                  {`Only allowed when creating one of the default environments.`}
+                </div>
+                <div>
+                  For programmatic control of environment inheritance, use the{" "}
+                  <DocLink docSection="apiPostEnvironment">
+                    API endpoint instead
+                  </DocLink>
+                </div>
+              </>
+            }
+          />
+        </div>
+      )}
       <div className="mb-4">
         <MultiSelectField
           label="Projects"
@@ -166,26 +215,23 @@ export default function EnvironmentModal({
           </div>
         )}
       </div>
-      <div className="mb-3">
-        <Toggle
-          id={"defaultToggle"}
-          label="Identifier"
-          value={!!form.watch("defaultState")}
-          setValue={(value) => {
-            form.setValue("defaultState", value);
-          }}
-        />{" "}
-        <label htmlFor="defaultToggle">Default state for new features</label>
-      </div>
-      <Toggle
+      <Switch
+        id={"defaultToggle"}
+        label="Default state for new features"
+        value={!!form.watch("defaultState")}
+        onChange={(value) => {
+          form.setValue("defaultState", value);
+        }}
+        mb="3"
+      />
+      <Switch
         id={"toggle"}
-        label="Identifier"
+        label="Show toggle on feature list"
         value={!!form.watch("toggleOnList")}
-        setValue={(value) => {
+        onChange={(value) => {
           form.setValue("toggleOnList", value);
         }}
-      />{" "}
-      <label htmlFor="toggle">Show toggle on feature list </label>
+      />
     </Modal>
   );
 }

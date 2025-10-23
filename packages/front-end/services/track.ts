@@ -10,7 +10,6 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
-import { v4 as uuidv4 } from "uuid";
 import { StatsEngine } from "back-end/types/stats";
 import {
   ExperimentSnapshotAnalysis,
@@ -18,17 +17,14 @@ import {
 } from "back-end/types/experiment-snapshot";
 import { ExperimentReportInterface } from "back-end/types/report";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import Cookies from "js-cookie";
+import { growthbook } from "@/services/utils";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
   hasFileConfig,
-  inTelemetryDebugMode,
   isCloud,
   isTelemetryEnabled,
-  dataWarehouseUrl,
 } from "./env";
-import { GB_SDK_ID } from "./utils";
 
 export type TrackEventProps = Record<string, unknown>;
 
@@ -50,89 +46,11 @@ export interface TrackSnapshotProps {
   error?: string;
 }
 
-interface DataWarehouseTrackedEvent {
-  // Core event data
-  event_name: string;
-  properties_json: string; // JSON-encoded string of event properties
-
-  // UUIDs generated and tracked automatically in the SDK
-  device_id: string;
-  page_id: string;
-  session_id: string;
-
-  // Metadata gathered automatically by SDK
-  sdk_language: string;
-  sdk_version: string;
-  url: string;
-  page_title?: string;
-  utm_source?: string;
-  utm_medium?: string;
-  utm_campaign?: string;
-  utm_term?: string;
-  utm_content?: string;
-
-  // User-supplied targeting attributes
-  user_id?: string;
-  user_attributes_json: string; // JSON-encoded string
-}
-
-const DEVICE_ID_COOKIE = "gb_device_id";
-const SESSION_ID_COOKIE = "gb_session_id";
-const pageIds: Record<string, string> = {};
-
-const dataWareHouseTrack = async (event: DataWarehouseTrackedEvent) => {
-  if (!dataWarehouseUrl) return;
-  try {
-    await fetch(`${dataWarehouseUrl}/track?client_key=${GB_SDK_ID}`, {
-      method: "POST",
-      body: JSON.stringify(event),
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-    });
-  } catch (e) {
-    if (inTelemetryDebugMode()) {
-      console.error("Failed to fire tracking event");
-      console.error(e);
-    }
-  }
-};
-
-function getOrGenerateDeviceId() {
-  const deviceId = Cookies.get(DEVICE_ID_COOKIE) || uuidv4();
-  Cookies.set(DEVICE_ID_COOKIE, deviceId, {
-    expires: 365,
-    sameSite: "strict",
+const PAGE_VIEW_EVENT = "Page View";
+export function trackPageView(pathName: string) {
+  track(PAGE_VIEW_EVENT, {
+    pathName,
   });
-  return deviceId;
-}
-
-function getOrGeneratePageId() {
-  // On initial load if the router hasn't initialized a state change yet then history.state will be null.
-  // Since this only happens on one pageload, using a hardcoded default key should still work as its own key
-  const pageIdKey = window.history.state?.key || "";
-  if (!(pageIdKey in pageIds)) {
-    pageIds[pageIdKey] = uuidv4();
-  }
-  return pageIds[pageIdKey];
-}
-
-function getOrGenerateSessionId() {
-  const sessionId = Cookies.get(SESSION_ID_COOKIE) || uuidv4();
-  const now = new Date();
-  Cookies.set(SESSION_ID_COOKIE, sessionId, {
-    expires: new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      now.getHours(),
-      now.getMinutes() + 30,
-      now.getSeconds()
-    ),
-    sameSite: "strict",
-  });
-  return sessionId;
 }
 
 let _jitsu: JitsuClient;
@@ -153,9 +71,21 @@ export function getJitsuClient(): JitsuClient | null {
   return _jitsu;
 }
 
+const getHost = () => {
+  // Mask the hostname and sanitize URLs to avoid leaking private info
+  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
+  return isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
+};
+
+const getURL = () => {
+  const host = getHost();
+  return document.location.protocol + "//" + host + location.pathname;
+};
+
 export default function track(
   event: string,
-  props: TrackEventProps = {}
+  props: TrackEventProps = {},
+  skipGrowthBookLogging = false,
 ): void {
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
@@ -169,16 +99,13 @@ export default function track(
   const effectiveAccountPlan = currentUser?.effectiveAccountPlan;
   const orgCreationDate = currentUser?.orgCreationDate;
 
-  // Mask the hostname and sanitize URLs to avoid leaking private info
-  const isLocalhost = !!location.hostname.match(/(localhost|127\.0\.0\.1)/i);
-  const host = isLocalhost ? "localhost" : isCloud() ? "cloud" : "self-hosted";
   const trackProps = {
     ...props,
     page_url: location.pathname,
     page_title: "",
     source_ip: "",
-    url: document.location.protocol + "//" + host + location.pathname,
-    doc_host: host,
+    url: getURL(),
+    doc_host: getHost(),
     doc_search: "",
     doc_path: location.pathname,
     referer: document?.referrer?.match(/weblens\.ai/) ? document.referrer : "",
@@ -197,27 +124,14 @@ export default function track(
     org: isCloud() ? org : "",
   };
 
-  void dataWareHouseTrack({
-    event_name: event,
-    properties_json: JSON.stringify(trackProps),
-    device_id: getOrGenerateDeviceId(),
-    page_id: getOrGeneratePageId(),
-    session_id: getOrGenerateSessionId(),
-    sdk_language: "react",
-    // TODO: programmatically get sdk version. Importing from _app breaks tests
-    sdk_version: "1.2.0",
-    url: trackProps.url,
-    user_id: id,
-    user_attributes_json: "{}",
-  });
-
-  if (inTelemetryDebugMode()) {
-    console.log("Telemetry Event - ", event, trackProps);
+  if (!skipGrowthBookLogging) {
+    growthbook.logEvent(event, props);
   }
 
   const jitsu = getJitsuClient();
   if (jitsu) {
-    jitsu.track(event, trackProps);
+    // Rename page load events for backwards compatibility in Jitsu
+    jitsu.track(event === PAGE_VIEW_EVENT ? "page-load" : event, trackProps);
   }
 }
 
@@ -225,7 +139,7 @@ export function trackSnapshot(
   event: "create" | "update" | "delete",
   source: string,
   datasourceType: string | null,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
 ): void {
   const trackingProps = snapshot
     ? getTrackingPropsFromSnapshot(snapshot, source, datasourceType)
@@ -240,7 +154,7 @@ export function trackReport(
   event: "create" | "update" | "delete",
   source: string,
   datasourceType: string | null,
-  report: ExperimentReportInterface
+  report: ExperimentReportInterface,
 ): void {
   const trackingProps = report
     ? getTrackingPropsFromReport(report, source, datasourceType)
@@ -254,10 +168,10 @@ export function trackReport(
 function getTrackingPropsFromSnapshot(
   snapshot: ExperimentSnapshotInterface,
   source: string,
-  datasourceType: string | null
+  datasourceType: string | null,
 ): TrackSnapshotProps {
   const parsedDim = parseSnapshotDimension(
-    snapshot.settings.dimensions.map((d) => d.id).join(", ") || ""
+    snapshot.settings.dimensions.map((d) => d.id).join(", ") || "",
   );
   const analysis = snapshot.analyses?.[0] as
     | ExperimentSnapshotAnalysis
@@ -268,8 +182,8 @@ function getTrackingPropsFromSnapshot(
     experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
     engine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
     datasource_type: datasourceType,
-    regression_adjustment_enabled: !!snapshot.settings
-      .regressionAdjustmentEnabled,
+    regression_adjustment_enabled:
+      !!snapshot.settings.regressionAdjustmentEnabled,
     sequential_testing_enabled: !!analysis?.settings?.sequentialTesting,
     sequential_testing_tuning_parameter:
       analysis?.settings?.sequentialTestingTuningParameter ?? -99,
@@ -285,7 +199,7 @@ function getTrackingPropsFromSnapshot(
 function getTrackingPropsFromReport(
   report: ExperimentReportInterface,
   source: string,
-  datasourceType: string | null
+  datasourceType: string | null,
 ): TrackSnapshotProps {
   const parsedDim = parseSnapshotDimension(report.args.dimension ?? "");
   return {
@@ -307,9 +221,7 @@ function getTrackingPropsFromReport(
   };
 }
 
-export function parseSnapshotDimension(
-  dimension: string
-): {
+export function parseSnapshotDimension(dimension: string): {
   type: string;
   id: string;
 } {

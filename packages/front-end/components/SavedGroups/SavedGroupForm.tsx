@@ -5,7 +5,7 @@ import {
 } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import {
-  isIdListSupportedDatatype,
+  isIdListSupportedAttribute,
   validateAndFixCondition,
 } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
@@ -13,7 +13,6 @@ import { SavedGroupInterface, SavedGroupType } from "shared/src/types";
 import clsx from "clsx";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { useAuth } from "@/services/auth";
-import useMembers from "@/hooks/useMembers";
 import { useAttributeSchema } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
@@ -24,6 +23,8 @@ import { IdListItemInput } from "@/components/SavedGroups/IdListItemInput";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import SelectOwner from "../Owner/SelectOwner";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -31,7 +32,7 @@ const SavedGroupForm: FC<{
   type: SavedGroupType;
 }> = ({ close, current, type }) => {
   const { apiCall } = useAuth();
-  const { memberUsernameOptions } = useMembers();
+  const { savedGroupSizeLimit } = useOrgSettings();
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -44,6 +45,7 @@ const SavedGroupForm: FC<{
   const [errorMessage, setErrorMessage] = useState("");
   const [showDescription, setShowDescription] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
 
   useEffect(() => {
     if (current.description) {
@@ -69,17 +71,21 @@ const SavedGroupForm: FC<{
     value: p.id,
   }));
 
+  const listAboveSizeLimit = savedGroupSizeLimit
+    ? (form.watch("values") ?? []).length > savedGroupSizeLimit
+    : false;
   const isValid =
     !!form.watch("groupName") &&
     (type === "list"
-      ? !!form.watch("attributeKey")
+      ? !!form.watch("attributeKey") &&
+        (!listAboveSizeLimit || adminBypassSizeLimit)
       : !!form.watch("condition"));
 
   return upgradeModal ? (
     <UpgradeModal
       close={() => setUpgradeModal(false)}
-      reason=""
       source="large-saved-groups"
+      commercialFeature="large-saved-groups"
     />
   ) : (
     <Modal
@@ -133,10 +139,10 @@ const SavedGroupForm: FC<{
             (responseData) => {
               if (responseData.status === 413) {
                 setErrorMessage(
-                  "Cannot import such a large CSV. Try again with a smaller payload"
+                  "Cannot import such a large CSV. Try again with a smaller payload",
                 );
               }
-            }
+            },
           );
         }
         mutateDefinitions({});
@@ -187,16 +193,11 @@ const SavedGroupForm: FC<{
         closeMenuOnSelect={true}
       />
       {current.id && (
-        <SelectField
-          label="Owner"
-          labelClassName="font-weight-bold"
-          value={form.watch("owner") || ""}
-          onChange={(v) => form.setValue("owner", v)}
+        <SelectOwner
+          resourceType="savedGroup"
           placeholder="Optional"
-          options={memberUsernameOptions.map((m) => ({
-            value: m.display,
-            label: m.display,
-          }))}
+          value={form.watch("owner")}
+          onChange={(v) => form.setValue("owner", v)}
         />
       )}
       {type === "condition" ? (
@@ -225,17 +226,18 @@ const SavedGroupForm: FC<{
             }))}
             isOptionDisabled={({ label }) => {
               const attr = attributeSchema.find(
-                (attr) => attr.property === label
+                (attr) => attr.property === label,
               );
               if (!attr) return false;
-              return !isIdListSupportedDatatype(attr.datatype);
+              return !isIdListSupportedAttribute(attr);
             }}
+            sort={false}
             formatOptionLabel={({ label }) => {
               const attr = attributeSchema.find(
-                (attr) => attr.property === label
+                (attr) => attr.property === label,
               );
               if (!attr) return label;
-              const unsupported = !isIdListSupportedDatatype(attr.datatype);
+              const unsupported = !isIdListSupportedAttribute(attr);
               return (
                 <div className={clsx(unsupported ? "disabled" : "")}>
                   {label}
@@ -261,6 +263,10 @@ const SavedGroupForm: FC<{
                 form.setValue("values", newValues);
               }}
               openUpgradeModal={() => setUpgradeModal(true)}
+              listAboveSizeLimit={listAboveSizeLimit}
+              bypassSizeLimit={adminBypassSizeLimit}
+              setBypassSizeLimit={setAdminBypassSizeLimit}
+              projects={form.watch("projects")}
             />
           )}
         </>

@@ -14,9 +14,11 @@ export const segmentValidator = z
     description: z.string(),
     userIdType: z.string(),
     type: z.enum(TYPES),
+    managedBy: z.enum(["", "api", "config"]).optional(),
     sql: z.string().optional(),
     factTableId: z.string().optional(),
     filters: z.array(z.string()).optional(),
+    projects: z.array(z.string()).optional(),
   })
   .strict();
 

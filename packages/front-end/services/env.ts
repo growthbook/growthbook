@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { EnvironmentInitValue } from "@/./pages/api/init";
 
 const env: EnvironmentInitValue = {
@@ -9,6 +9,7 @@ const env: EnvironmentInitValue = {
   showMultiOrgSelfSelector: true,
   appOrigin: "",
   apiHost: "",
+  environment: "",
   s3domain: "",
   gcsDomain: "",
   cdnHost: "",
@@ -18,22 +19,26 @@ const env: EnvironmentInitValue = {
   usingSSO: false,
   storeSegmentsInMongo: false,
   allowCreateMetrics: true,
-  usingFileProxy: false,
+  allowCreateDimensions: true,
   superadminDefaultRole: "readonly",
+  ingestorOverride: "",
+  stripePublishableKey: "",
+  experimentRefreshFrequency: 6,
+  hasOpenAIKey: false,
+  uploadMethod: "local",
 };
-
-export let dataWarehouseUrl;
 
 export async function initEnv() {
   const res = await fetch("/api/init");
   const json = await res.json();
   Object.assign(env, json);
 
-  dataWarehouseUrl = env.dataWarehouseUrl;
-
   if (env.sentryDSN) {
     Sentry.init({
       dsn: env.sentryDSN,
+      sendDefaultPii: true,
+      environment: env.environment,
+      release: env.build?.sha,
     });
   }
 }
@@ -67,16 +72,19 @@ export function showMultiOrgSelfSelector(): boolean {
   return env.showMultiOrgSelfSelector;
 }
 export function isTelemetryEnabled(): boolean {
-  return env.telemetry === "enable";
+  return env.telemetry === "enable" || env.telemetry === "enable-with-debug";
 }
 export function inTelemetryDebugMode(): boolean {
-  return env.telemetry === "debug";
+  return env.telemetry === "debug" || env.telemetry === "enable-with-debug";
 }
 export function hasFileConfig() {
   return env.config === "file";
 }
 export function envAllowsCreatingMetrics() {
   return env.allowCreateMetrics;
+}
+export function envAllowsCreatingDimensions() {
+  return env.allowCreateDimensions;
 }
 export function getDefaultConversionWindowHours() {
   return env.defaultConversionWindowHours;
@@ -97,9 +105,24 @@ export function isSentryEnabled() {
 export function storeSegmentsInMongo() {
   return env.storeSegmentsInMongo;
 }
-export function usingFileProxy() {
-  return env.usingFileProxy;
-}
 export function getSuperadminDefaultRole() {
   return env.superadminDefaultRole;
+}
+export function getIngestorHost() {
+  return env.ingestorOverride || "https://us1.gb-ingest.com";
+}
+
+export function getStripePublishableKey() {
+  return env.stripePublishableKey;
+}
+export function hasOpenAIKey() {
+  return env.hasOpenAIKey || false;
+}
+
+export function getExperimentRefreshFrequency() {
+  return env.experimentRefreshFrequency;
+}
+
+export function getUploadMethod(): "local" | "s3" | "google-cloud" {
+  return env.uploadMethod;
 }

@@ -1,5 +1,9 @@
 import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
-import { Athena, ResultSet } from "@aws-sdk/client-athena";
+import {
+  Athena,
+  ResultSet,
+  StartQueryExecutionCommandInput,
+} from "@aws-sdk/client-athena";
 import { AthenaConnectionParams } from "back-end/types/integrations/athena";
 import { logger } from "back-end/src/util/logger";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -56,7 +60,7 @@ async function getAthenaInstance(params: AthenaConnectionParams) {
 
 export async function cancelAthenaQuery(
   conn: AthenaConnectionParams,
-  id: string
+  id: string,
 ) {
   const athena = await getAthenaInstance(conn);
   await athena.stopQueryExecution({
@@ -67,7 +71,7 @@ export async function cancelAthenaQuery(
 export async function runAthenaQuery(
   conn: AthenaConnectionParams,
   sql: string,
-  setExternalId: ExternalIdCallback
+  setExternalId: ExternalIdCallback,
 ): Promise<QueryResponse> {
   const athena = await getAthenaInstance(conn);
 
@@ -76,7 +80,7 @@ export async function runAthenaQuery(
   const retryWaitTime =
     (parseInt(process.env.ATHENA_RETRY_WAIT_TIME || "60") || 60) * 1000;
 
-  const { QueryExecutionId } = await athena.startQueryExecution({
+  const startQueryExecutionArgs: StartQueryExecutionCommandInput = {
     QueryString: sql,
     QueryExecutionContext: {
       Database: database || undefined,
@@ -89,7 +93,25 @@ export async function runAthenaQuery(
       OutputLocation: bucketUri,
     },
     WorkGroup: workGroup || "primary",
-  });
+  };
+
+  const resultReuseMaxAgeInMinutes = conn.resultReuseMaxAgeInMinutes
+    ? parseInt(conn.resultReuseMaxAgeInMinutes)
+    : undefined;
+
+  // Skipped when parsed setting is 0, NaN, or not present
+  if (resultReuseMaxAgeInMinutes) {
+    startQueryExecutionArgs.ResultReuseConfiguration = {
+      ResultReuseByAgeConfiguration: {
+        Enabled: true,
+        MaxAgeInMinutes: resultReuseMaxAgeInMinutes,
+      },
+    };
+  }
+
+  const { QueryExecutionId } = await athena.startQueryExecution(
+    startQueryExecutionArgs,
+  );
 
   if (!QueryExecutionId) {
     throw new Error("Failed to start query");
@@ -115,7 +137,7 @@ export async function runAthenaQuery(
                 logger.debug(
                   `Athena query (${QueryExecutionId}) recovered from SlowDown error in ${
                     timeWaitingForFailure + delay
-                  }ms`
+                  }ms`,
                 );
               }
               timeWaitingForFailure = 0;
@@ -126,7 +148,7 @@ export async function runAthenaQuery(
               if (StateChangeReason?.includes("SlowDown")) {
                 if (timeWaitingForFailure === 0) {
                   logger.debug(
-                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`
+                    `Athena query (${QueryExecutionId}) received SlowDown error, waiting up to ${retryWaitTime}ms for transition back to running`,
                   );
                 }
 
@@ -134,7 +156,7 @@ export async function runAthenaQuery(
 
                 if (timeWaitingForFailure >= retryWaitTime) {
                   logger.debug(
-                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`
+                    `Athena query (${QueryExecutionId}) received SlowDown error, has not recovered within ${timeWaitingForFailure}ms, failing query`,
                   );
                   reject(new Error(StateChangeReason));
                 } else {

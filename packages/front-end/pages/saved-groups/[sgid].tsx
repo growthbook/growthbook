@@ -3,9 +3,18 @@ import { useRouter } from "next/router";
 import { SavedGroupInterface } from "shared/src/types";
 import { ago } from "shared/dates";
 import { FaPlusCircle } from "react-icons/fa";
+import { BiShow } from "react-icons/bi";
 import { PiArrowsDownUp, PiWarningFill } from "react-icons/pi";
-import { getMatchingRules, isIdListSupportedDatatype } from "shared/util";
-import Link from "next/link";
+import {
+  experimentsReferencingSavedGroups,
+  featuresReferencingSavedGroups,
+  isIdListSupportedAttribute,
+} from "shared/util";
+import { FeatureInterface } from "back-end/types/feature";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { isEmpty } from "lodash";
+import { Container, Flex, Text } from "@radix-ui/themes";
+import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import PageHead from "@/components/Layout/PageHead";
 import Pagination from "@/components/Pagination";
@@ -14,7 +23,10 @@ import { useAuth } from "@/services/auth";
 import SavedGroupForm from "@/components/SavedGroups/SavedGroupForm";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments, useFeaturesList } from "@/services/features";
-import { getSavedGroupMessage } from "@/pages/saved-groups";
+import {
+  getSavedGroupMessage,
+  getListOfReferences,
+} from "@/pages/saved-groups";
 import EditButton from "@/components/EditButton/EditButton";
 import Modal from "@/components/Modal";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -26,6 +38,11 @@ import LargeSavedGroupPerformanceWarning, {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { DocLink } from "@/components/DocLink";
+import Callout from "@/ui/Callout";
+import { useExperiments } from "@/hooks/useExperiments";
+import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
 
 const NUM_PER_PAGE = 10;
 
@@ -33,17 +50,22 @@ export default function EditSavedGroupPage() {
   const router = useRouter();
   const { sgid } = router.query;
   const { data, error, mutate } = useApi<{ savedGroup: SavedGroupInterface }>(
-    `/saved-groups/${sgid}`
+    `/saved-groups/${sgid}`,
   );
   const savedGroup = data?.savedGroup;
   const { features } = useFeaturesList(false);
+  const { experiments } = useExperiments();
   const environments = useEnvironments();
   const [sortNewestFirst, setSortNewestFirst] = useState<boolean>(true);
   const [addItems, setAddItems] = useState<boolean>(false);
   const [itemsToAdd, setItemsToAdd] = useState<string[]>([]);
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
+  const [showReferencesModal, setShowReferencesModal] =
+    useState<boolean>(false);
+  const [adminBypassSizeLimit, setAdminBypassSizeLimit] = useState(false);
+  const { savedGroupSizeLimit } = useOrgSettings();
 
-  const values = savedGroup?.values || [];
+  const values = useMemo(() => savedGroup?.values ?? [], [savedGroup]);
   const [currentPage, setCurrentPage] = useState(1);
   const [filter, setFilter] = useState("");
   const filteredValues = values.filter((v) => v.match(filter));
@@ -57,21 +79,16 @@ export default function EditSavedGroupPage() {
   const end = start + NUM_PER_PAGE;
   const valuesPage = sortedValues.slice(start, end);
   const [importOperation, setImportOperation] = useState<"replace" | "append">(
-    "replace"
+    "replace",
   );
   const { attributeSchema } = useOrgSettings();
   const { projects } = useDefinitions();
 
-  const {
-    hasLargeSavedGroupFeature,
-    supportedConnections,
-    unsupportedConnections,
-  } = useLargeSavedGroupSupport();
+  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+    useLargeSavedGroupSupport();
 
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -85,37 +102,45 @@ export default function EditSavedGroupPage() {
         },
       });
     },
-    [mutate, savedGroup]
+    [mutate, savedGroup],
   );
 
-  const featuresReferencingSavedGroup = useMemo(() => {
-    const featuresReferencingSavedGroup: Set<string> = new Set();
-    if (!savedGroup) return featuresReferencingSavedGroup;
-    features.forEach((feature) => {
-      const matches = getMatchingRules(
-        feature,
-        (rule) =>
-          rule.condition?.includes(savedGroup.id) ||
-          rule.savedGroups?.some((g) => g.ids.includes(savedGroup.id)) ||
-          false,
-        environments.map((e) => e.id)
-      );
-
-      if (matches.length > 0) {
-        featuresReferencingSavedGroup.add(feature.id);
-      }
-    });
-    return featuresReferencingSavedGroup;
+  const referencingFeatures = useMemo(() => {
+    if (!savedGroup) return [] as FeatureInterface[];
+    return (
+      featuresReferencingSavedGroups({
+        savedGroups: [savedGroup],
+        features,
+        environments,
+      })[savedGroup.id] || []
+    );
   }, [savedGroup, features, environments]);
 
+  const referencingExperiments = useMemo(() => {
+    if (!savedGroup) return [] as ExperimentInterfaceStringDates[];
+    return (
+      experimentsReferencingSavedGroups({
+        savedGroups: [savedGroup],
+        experiments,
+      })[savedGroup.id] || []
+    );
+  }, [savedGroup, experiments]);
+
   const getConfirmationContent = useMemo(() => {
-    return getSavedGroupMessage(featuresReferencingSavedGroup);
-  }, [featuresReferencingSavedGroup]);
+    return getSavedGroupMessage(referencingFeatures, referencingExperiments);
+  }, [referencingFeatures, referencingExperiments]);
 
   const attr = (attributeSchema || []).find(
-    (attr) => attr.property === savedGroup?.attributeKey
+    (attr) => attr.property === savedGroup?.attributeKey,
   );
-  const dataType = attr?.datatype;
+
+  const listAboveSizeLimit = useMemo(
+    () =>
+      savedGroupSizeLimit
+        ? [...new Set(itemsToAdd.concat(values))].length > savedGroupSizeLimit
+        : false,
+    [savedGroupSizeLimit, itemsToAdd, values],
+  );
 
   if (!data || !savedGroup) {
     return <LoadingOverlay />;
@@ -145,22 +170,29 @@ export default function EditSavedGroupPage() {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="large-saved-groups"
+          commercialFeature="large-saved-groups"
         />
       )}
       {addItems && (
         <Modal
-          trackingEventModalType="edit-saved-group-add-items"
+          trackingEventModalType={`edit-saved-group-${importOperation}-items`}
           close={() => {
             setAddItems(false);
             setItemsToAdd([]);
           }}
           open={addItems}
           size="lg"
-          header="Add Items to List"
+          header={
+            importOperation === "append"
+              ? "Add List Items"
+              : "Overwrite List Contents"
+          }
           cta="Save"
-          ctaEnabled={itemsToAdd.length > 0}
+          ctaEnabled={
+            itemsToAdd.length > 0 &&
+            (!listAboveSizeLimit || adminBypassSizeLimit)
+          }
           submit={async () => {
             let newValues: Set<string>;
             if (importOperation === "append") {
@@ -189,43 +221,14 @@ export default function EditSavedGroupPage() {
               Updating this list will automatically update any associated
               Features and Experiments.
             </div>
-            <label className="form-group font-weight-bold">Choose one:</label>
-            <div className="row ml-0 mr-0 form-group">
-              <div className="form-check-inline mr-5">
-                <input
-                  type="radio"
-                  id="replaceItems"
-                  checked={importOperation === "replace"}
-                  readOnly={true}
-                  className="mr-1"
-                  onChange={() => {
-                    setImportOperation("replace");
-                  }}
-                />
-                <label className="m-0 cursor-pointer" htmlFor="replaceItems">
-                  Replace all items
-                </label>
-              </div>
-              <div className="form-check-inline">
-                <input
-                  type="radio"
-                  id="appendItems"
-                  checked={importOperation === "append"}
-                  readOnly={true}
-                  className="mr-1"
-                  onChange={() => {
-                    setImportOperation("append");
-                  }}
-                />
-                <label className="m-0 cursor-pointer" htmlFor="appendItems">
-                  Append new items to list
-                </label>
-              </div>
-            </div>
             <IdListItemInput
               values={itemsToAdd}
               setValues={(newValues) => setItemsToAdd(newValues)}
               openUpgradeModal={() => setUpgradeModal(true)}
+              listAboveSizeLimit={listAboveSizeLimit}
+              bypassSizeLimit={adminBypassSizeLimit}
+              setBypassSizeLimit={setAdminBypassSizeLimit}
+              projects={savedGroup.projects}
             />
           </>
         </Modal>
@@ -239,6 +242,22 @@ export default function EditSavedGroupPage() {
           current={savedGroupForm}
           type="list"
         />
+      )}
+      {showReferencesModal && (
+        <Modal
+          header={`'${savedGroup.groupName}' References`}
+          trackingEventModalType="show-saved-group-references"
+          close={() => setShowReferencesModal(false)}
+          open={showReferencesModal}
+          useRadixButton={true}
+          closeCta="Close"
+        >
+          <Text as="p" mb="3">
+            This saved group is referenced by the following features and
+            experiments.
+          </Text>
+          {getListOfReferences(referencingFeatures, referencingExperiments)}
+        </Modal>
       )}
       <PageHead
         breadcrumb={[
@@ -255,7 +274,9 @@ export default function EditSavedGroupPage() {
               text="Delete"
               title="Delete this Saved Group"
               getConfirmationContent={getConfirmationContent}
-              canDelete={(featuresReferencingSavedGroup?.size || 0) === 0}
+              canDelete={
+                isEmpty(referencingFeatures) && isEmpty(referencingExperiments)
+              }
               onClick={async () => {
                 await apiCall(`/saved-groups/${savedGroup.id}`, {
                   method: "DELETE",
@@ -291,10 +312,7 @@ export default function EditSavedGroupPage() {
                     />
                   </div>
                 ) : (
-                  <ProjectBadges
-                    resourceType="saved group"
-                    className="badge-ellipsis short align-middle"
-                  />
+                  <ProjectBadges resourceType="saved group" />
                 )}
               </div>
             </div>
@@ -308,7 +326,7 @@ export default function EditSavedGroupPage() {
           </div>
         </div>
         <div>{savedGroup.description}</div>
-        {!isIdListSupportedDatatype(dataType) && (
+        {!isIdListSupportedAttribute(attr) && (
           <div className="alert alert-danger">
             <PiWarningFill style={{ marginTop: "-2px" }} />
             The attribute for this saved group has an unsupported datatype. It
@@ -322,9 +340,7 @@ export default function EditSavedGroupPage() {
         )}
         <hr />
         <LargeSavedGroupPerformanceWarning
-          style="banner"
           hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-          supportedConnections={supportedConnections}
           unsupportedConnections={unsupportedConnections}
           openUpgradeModal={() => setUpgradeModal(true)}
         />
@@ -339,22 +355,56 @@ export default function EditSavedGroupPage() {
               }}
             />
           </div>
-          <div className="">
-            <button
-              className="btn btn-outline-primary"
-              onClick={(e) => {
-                e.preventDefault();
+          <Flex>
+            <Tooltip
+              content="Currently, no active features or experiments reference this Saved Group."
+              enabled={
+                referencingFeatures.length === 0 &&
+                referencingExperiments.length === 0
+              }
+            >
+              <Button
+                variant="ghost"
+                disabled={
+                  referencingFeatures.length === 0 &&
+                  referencingExperiments.length === 0
+                }
+                onClick={() => {
+                  setShowReferencesModal(true);
+                }}
+              >
+                <BiShow />{" "}
+                {referencingFeatures.length + referencingExperiments.length}{" "}
+                reference
+                {referencingFeatures.length + referencingExperiments.length !==
+                  1 && "s"}
+              </Button>
+            </Tooltip>
+            <Container mr="4">
+              <Button
+                variant="ghost"
+                color="red"
+                onClick={() => {
+                  setImportOperation("replace");
+                  setAddItems(true);
+                }}
+              >
+                Overwrite list
+              </Button>
+            </Container>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setImportOperation("append");
                 setAddItems(true);
               }}
             >
-              <div className="row align-items-center m-0 p-1">
-                <span className="mr-1 lh-full">
-                  <FaPlusCircle />
-                </span>
-                <span className="lh-full">Edit List Items</span>
-              </div>
-            </button>
-          </div>
+              <span className="mr-1 lh-full">
+                <FaPlusCircle />
+              </span>
+              <span className="lh-full">Add items</span>
+            </Button>
+          </Flex>
         </div>
         <h4>ID List Items</h4>
         <div className="row m-0 mb-3 align-items-center justify-content-between">
@@ -371,10 +421,10 @@ export default function EditSavedGroupPage() {
                       {
                         method: "POST",
                         body: JSON.stringify({ items: [...selected] }),
-                      }
+                      },
                     );
                     const newValues = values.filter(
-                      (value) => !selected.has(value)
+                      (value) => !selected.has(value),
                     );
                     mutateValues(newValues);
                     setSelected(new Set());
@@ -405,7 +455,9 @@ export default function EditSavedGroupPage() {
             >
               <PiArrowsDownUp className="mr-1 lh-full align-middle" />
               <span className="lh-full align-middle">
-                {sortNewestFirst ? "Newest" : "Oldest"}
+                {sortNewestFirst
+                  ? "Most Recently Added"
+                  : "Least Recently Added"}
               </span>
             </div>
           </div>
@@ -480,6 +532,13 @@ export default function EditSavedGroupPage() {
               setCurrentPage(d);
             }}
           />
+        )}
+        {!savedGroup.values?.length && !savedGroup.useEmptyListGroup && (
+          <Callout status="info">
+            This saved group has legacy behavior when empty and will be
+            completely ignored when used for targeting.{" "}
+            <DocLink docSection="idLists">Learn More</DocLink>
+          </Callout>
         )}
       </div>
     </>

@@ -1,22 +1,19 @@
 import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import Button from "@/components/Button";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 
 const ViewSampleDataButton = ({
   resource = "experiment",
 }: {
   resource?: "experiment" | "feature";
 }) => {
-  const {
-    demoExperimentId,
-    demoFeatureId,
-    exists,
-  } = useDemoDataSourceProject();
+  const { demoExperimentId, demoFeatureId, exists } =
+    useDemoDataSourceProject();
   const router = useRouter();
   const { apiCall } = useAuth();
 
@@ -56,13 +53,7 @@ const ViewSampleDataButton = ({
 
   return (
     <Button
-      style={{
-        width: "250px",
-        background: "#EDE9FE",
-        color: "#5746AF",
-        fontWeight: 400,
-        border: "1px solid #C4B8F3",
-      }}
+      variant="outline"
       onClick={openSample}
       disabled={
         (!exists || !demoExperimentId) && !permissionsUtils.canCreateProjects()

@@ -1,9 +1,6 @@
 import { ReactElement } from "react";
-import {
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaQuestionCircle,
-} from "react-icons/fa";
+import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import { teal, red } from "@radix-ui/colors";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function ConnectionStatus({
@@ -22,12 +19,12 @@ export default function ConnectionStatus({
   return (
     <div
       className="mx-3 text-center"
-      style={{ zIndex: 10, marginTop: -8, whiteSpace: "nowrap" }}
+      style={{ zIndex: 10, marginTop: -12, whiteSpace: "nowrap" }}
     >
       {connected ? (
         <>
-          <span className="text-success">
-            <FaCheckCircle /> connected
+          <span className="text-success" style={{ color: teal.teal11 }}>
+            <FaCheckCircle /> Connected
           </span>
         </>
       ) : (
@@ -62,13 +59,13 @@ export default function ConnectionStatus({
               )}
             </>
           ) : (
-            <span className="text-secondary">
-              <FaQuestionCircle /> not connected
+            <span style={{ color: red.red11, fontWeight: 500, fontSize: 12 }}>
+              Not connected
             </span>
           )}
         </>
       )}
-      <div style={{ marginTop: 10, textAlign: "center" }}>
+      <div style={{ marginTop: 24, textAlign: "center" }}>
         {canRefresh && refresh ? refresh : <>&nbsp;</>}
       </div>
     </div>

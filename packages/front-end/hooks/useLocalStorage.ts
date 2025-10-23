@@ -3,7 +3,7 @@ import { useState, useEffect, Dispatch, SetStateAction } from "react";
 const getValueFromLocalStorage = (key: string, defaultValue) => {
   let value = defaultValue;
   try {
-    const item = localStorage.getItem(key);
+    const item = globalThis?.localStorage?.getItem(key) || null;
     if (item !== null) {
       value = JSON.parse(item) ?? value;
     }
@@ -15,7 +15,7 @@ const getValueFromLocalStorage = (key: string, defaultValue) => {
 
 export const useLocalStorage = <T>(
   key: string,
-  defaultValue: T
+  defaultValue: T,
 ): [T, Dispatch<SetStateAction<T>>] => {
   const [value, setValue] = useState(() => {
     return getValueFromLocalStorage(key, defaultValue);
@@ -23,7 +23,7 @@ export const useLocalStorage = <T>(
 
   useEffect(() => {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      globalThis?.localStorage?.setItem(key, JSON.stringify(value));
     } catch (e) {
       console.error(e);
     }

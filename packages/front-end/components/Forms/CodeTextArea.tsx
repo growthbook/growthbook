@@ -1,27 +1,175 @@
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { Ace } from "ace-builds";
+import { useEffect, useState, useRef, createElement } from "react";
+import type { Ace } from "ace-builds";
+import type { IAceEditorProps } from "react-ace";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { CursorData } from "@/components/Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
+export type AceCompletion = {
+  caption: string;
+  value: string;
+  meta: string;
+  score: number;
+};
+
+interface AceEditorProps extends IAceEditorProps {
+  completions?: AceCompletion[];
+}
+
 const AceEditor = dynamic(
   async () => {
-    const reactAce = await import("react-ace");
-    await import("ace-builds/src-min-noconflict/ext-language_tools");
-    await import("ace-builds/src-noconflict/mode-sql");
-    await import("ace-builds/src-noconflict/mode-javascript");
-    await import("ace-builds/src-noconflict/mode-python");
-    await import("ace-builds/src-noconflict/mode-yaml");
-    await import("ace-builds/src-noconflict/mode-json");
-    await import("ace-builds/src-noconflict/theme-textmate");
-    await import("ace-builds/src-noconflict/theme-tomorrow_night");
+    const [ace, reactAce, jsonWorkerUrl, jsWorkerUrl, yamlWorkerUrl] =
+      await Promise.all([
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/ace"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "react-ace"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/worker-json"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/worker-javascript"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/worker-yaml"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/ext-language_tools"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/ext-searchbox"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-sql"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-javascript"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-python"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-yaml"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/mode-json"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/theme-textmate"
+        ),
+        import(
+          /* webpackChunkName: "ace-editor" */
+          "ace-builds/src-min-noconflict/theme-tomorrow_night"
+        ),
+      ]);
 
-    return reactAce;
+    ace.config.setModuleUrl("ace/mode/json_worker", jsonWorkerUrl.default);
+    ace.config.setModuleUrl("ace/mode/javascript_worker", jsWorkerUrl.default);
+    ace.config.setModuleUrl("ace/mode/yaml_worker", yamlWorkerUrl.default);
+
+    const langTools = ace.require("ace/ext/language_tools");
+
+    // Return a wrapper component that handles completions
+    const AceEditorWithCompletions = (props: AceEditorProps) => {
+      const { completions, onLoad, ...otherProps } = props;
+      const [editor, setEditor] = useState<Ace.Editor | null>(null);
+
+      const handleLoad = (editorInstance: Ace.Editor) => {
+        setEditor(editorInstance);
+        // Call the original onLoad if provided
+        if (onLoad) {
+          onLoad(editorInstance);
+        }
+      };
+
+      // Update completions whenever they change
+      useEffect(() => {
+        if (editor) {
+          // Clear existing completers and set up fresh one
+          langTools.setCompleters([]);
+
+          // Only add our custom completer if we have completions
+          if (
+            completions &&
+            Array.isArray(completions) &&
+            completions.length > 0
+          ) {
+            const customCompleter = {
+              getCompletions: (
+                editor: Ace.Editor,
+                session: Ace.EditSession,
+                pos: Ace.Position,
+                prefix: string,
+                callback: (err: unknown, results: AceCompletion[]) => void,
+              ) => {
+                const filteredCompletions = completions.filter(
+                  (completion: AceCompletion) => {
+                    if (!prefix || prefix.trim() === "") {
+                      return true;
+                    }
+
+                    const lowerPrefix = prefix.toLowerCase();
+                    const lowerValue = completion.value.toLowerCase();
+                    const lowerCaption = completion.caption.toLowerCase();
+
+                    const checkParts = (text: string) => {
+                      if (text.includes(".")) {
+                        return text
+                          .split(".")
+                          .some((part) => part.startsWith(lowerPrefix));
+                      }
+                      return text.startsWith(lowerPrefix);
+                    };
+
+                    // Safety net - if the value is empty, don't show it
+                    // This can happen for Data Sources that don't support all 3 levels (db, schema, table) like MySQL & Clickhouse
+                    if (lowerValue === "") {
+                      return false;
+                    }
+
+                    return checkParts(lowerValue) || checkParts(lowerCaption);
+                  },
+                );
+
+                callback(null, filteredCompletions);
+              },
+              identifierRegexps: [/[a-zA-Z_0-9{]/],
+            };
+
+            langTools.addCompleter(customCompleter);
+          }
+        }
+      }, [editor, completions]); // Depend on both editor and completions
+
+      return createElement(reactAce.default, {
+        ...otherProps,
+        onLoad: handleLoad,
+      });
+    };
+
+    AceEditorWithCompletions.displayName = "AceEditorWithCompletions";
+
+    return AceEditorWithCompletions;
   },
   {
-    ssr: false, // react-ace doesn't support server side rendering as it uses the window object.
-  }
+    ssr: false,
+  },
 );
 
 export type Language = "sql" | "json" | "javascript" | "python" | "yml";
@@ -38,7 +186,8 @@ export type Props = Omit<
   maxLines?: number;
   fullHeight?: boolean;
   onCtrlEnter?: () => void;
-  resizeDependency?: boolean;
+  wrapperClassName?: string;
+  completions?: AceCompletion[];
 };
 
 const LIGHT_THEME = "textmate";
@@ -54,27 +203,19 @@ export default function CodeTextArea({
   setCursorData,
   fullHeight,
   onCtrlEnter,
-  resizeDependency,
+  wrapperClassName,
+  completions,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
-
   const { theme } = useAppearanceUITheme();
-
   const [editor, setEditor] = useState<null | Ace.Editor>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // HACK: AceEditor doesn't automatically resize when the parent div resizes
-  // Also because we dynamically load the AceEditor component, we can't use
-  // useRef to get a reference to the editor object, which would allow us to
-  // call the resize() method on the editor object. So instead we change the
-  // height ever so slightly whenever the resizeDependency variable changes.
-  const heightProps = fullHeight
-    ? resizeDependency
-      ? { height: "99.999%" }
-      : { height: "100%" }
-    : { minLines, maxLines };
+  const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
 
+  // Handle Ctrl+Enter binding
   useEffect(() => {
     if (!editor) return;
     if (!onCtrlEnter) return;
@@ -87,9 +228,24 @@ export default function CodeTextArea({
       {
         exec: onCtrlEnter,
         name: "ctrl-enter",
-      }
+      },
     );
   }, [editor, onCtrlEnter]);
+
+  // Auto-resize editor when container size changes
+  useEffect(() => {
+    if (!editor || !containerRef.current || !fullHeight) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      editor.resize();
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [editor, fullHeight]);
 
   return (
     <Field
@@ -98,7 +254,12 @@ export default function CodeTextArea({
       render={(id) => {
         return (
           <>
-            <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
+            <div
+              ref={containerRef}
+              className={`border rounded ${wrapperClassName} ${
+                fullHeight ? "h-100" : ""
+              }`}
+            >
               <AceEditor
                 name={id}
                 onLoad={(e) => setEditor(e)}
@@ -109,7 +270,16 @@ export default function CodeTextArea({
                 onChange={(newValue) => setValue(newValue)}
                 placeholder={placeholder}
                 fontSize="1em"
+                completions={completions}
                 {...heightProps}
+                setOptions={
+                  language === "sql"
+                    ? {
+                        enableBasicAutocompletion: true,
+                        enableLiveAutocompletion: true,
+                      }
+                    : undefined
+                }
                 readOnly={fieldProps.disabled}
                 onCursorChange={(e) =>
                   setCursorData &&

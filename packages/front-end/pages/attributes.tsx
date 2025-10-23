@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { Fragment, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
 import { recursiveWalk } from "shared/util";
@@ -18,7 +18,7 @@ import ProjectBadges from "@/components/ProjectBadges";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useExperiments } from "@/hooks/useExperiments";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 
 const MAX_REFERENCES = 100;
 const MAX_REFERENCES_PER_TYPE = 10;
@@ -37,89 +37,89 @@ const FeatureAttributesPage = (): React.ReactElement => {
   const { features } = useFeaturesList(false);
   const { experiments } = useExperiments();
 
-  const {
-    attributeFeatures,
-    attributeExperiments,
-    attributeGroups,
-  } = useMemo(() => {
-    const attributeKeys = attributeSchema.map((as) => as.property);
-    const attributeFeatureIds: Record<string, Set<string>> = {};
-    const attributeExperimentIds: Record<string, Set<string>> = {};
-    const attributeGroupIds: Record<string, Set<string>> = {};
+  const { attributeFeatures, attributeExperiments, attributeGroups } =
+    useMemo(() => {
+      const attributeKeys = attributeSchema.map((as) => as.property);
+      const attributeFeatureIds: Record<string, Set<string>> = {};
+      const attributeExperimentIds: Record<string, Set<string>> = {};
+      const attributeGroupIds: Record<string, Set<string>> = {};
 
-    for (const feature of features) {
-      for (const envid in feature.environmentSettings) {
-        const env = feature.environmentSettings?.[envid];
-        env?.rules?.forEach((rule) => {
-          try {
-            const parsedCondition = JSON.parse(rule?.condition ?? "{}");
-            recursiveWalk(parsedCondition, (node) => {
-              if (attributeKeys.includes(node[0])) {
-                if (!attributeFeatureIds[node[0]])
-                  attributeFeatureIds[node[0]] = new Set<string>();
-                attributeFeatureIds[node[0]].add(feature.id);
-              }
-            });
-          } catch (e) {
-            // ignore
-          }
-        });
+      for (const feature of features) {
+        for (const envid in feature.environmentSettings) {
+          const env = feature.environmentSettings?.[envid];
+          env?.rules?.forEach((rule) => {
+            try {
+              const parsedCondition = JSON.parse(rule?.condition ?? "{}");
+              recursiveWalk(parsedCondition, (node) => {
+                if (attributeKeys.includes(node[0])) {
+                  if (!attributeFeatureIds[node[0]])
+                    attributeFeatureIds[node[0]] = new Set<string>();
+                  attributeFeatureIds[node[0]].add(feature.id);
+                }
+              });
+            } catch (e) {
+              // ignore
+            }
+          });
+        }
       }
-    }
 
-    for (const experiment of experiments) {
-      try {
-        const phase = experiment.phases?.[experiment.phases.length - 1];
-        const parsedCondition = JSON.parse(phase?.condition ?? "{}");
-        recursiveWalk(parsedCondition, (node) => {
-          if (attributeKeys.includes(node[0])) {
-            if (!attributeExperimentIds[node[0]])
-              attributeExperimentIds[node[0]] = new Set<string>();
-            attributeExperimentIds[node[0]].add(experiment.id);
-          }
-        });
-      } catch (e) {
-        // ignore
+      for (const experiment of experiments) {
+        try {
+          attributeExperimentIds[experiment.hashAttribute] ||=
+            new Set<string>();
+          attributeExperimentIds[experiment.hashAttribute].add(experiment.id);
+          const phase = experiment.phases?.[experiment.phases.length - 1];
+          const parsedCondition = JSON.parse(phase?.condition ?? "{}");
+          recursiveWalk(parsedCondition, (node) => {
+            if (attributeKeys.includes(node[0])) {
+              if (!attributeExperimentIds[node[0]])
+                attributeExperimentIds[node[0]] = new Set<string>();
+              attributeExperimentIds[node[0]].add(experiment.id);
+            }
+          });
+        } catch (e) {
+          // ignore
+        }
       }
-    }
 
-    const conditionGroups = savedGroups.filter((g) => g.type === "condition");
-    for (const group of conditionGroups) {
-      try {
-        const parsedCondition = JSON.parse(group?.condition ?? "{}");
-        recursiveWalk(parsedCondition, (node) => {
-          if (attributeKeys.includes(node[0])) {
-            if (!attributeGroupIds[node[0]])
-              attributeGroupIds[node[0]] = new Set<string>();
-            attributeGroupIds[node[0]].add(group.id);
-          }
-        });
-      } catch (e) {
-        // ignore
+      const conditionGroups = savedGroups.filter((g) => g.type === "condition");
+      for (const group of conditionGroups) {
+        try {
+          const parsedCondition = JSON.parse(group?.condition ?? "{}");
+          recursiveWalk(parsedCondition, (node) => {
+            if (attributeKeys.includes(node[0])) {
+              if (!attributeGroupIds[node[0]])
+                attributeGroupIds[node[0]] = new Set<string>();
+              attributeGroupIds[node[0]].add(group.id);
+            }
+          });
+        } catch (e) {
+          // ignore
+        }
       }
-    }
 
-    const attributeFeatures: Record<string, FeatureInterface[]> = {};
-    const attributeExperiments: Record<
-      string,
-      ExperimentInterfaceStringDates[]
-    > = {};
-    const attributeGroups: Record<string, SavedGroupInterface[]> = {};
+      const attributeFeatures: Record<string, FeatureInterface[]> = {};
+      const attributeExperiments: Record<
+        string,
+        ExperimentInterfaceStringDates[]
+      > = {};
+      const attributeGroups: Record<string, SavedGroupInterface[]> = {};
 
-    attributeKeys.forEach((a) => {
-      attributeFeatures[a] = [...(attributeFeatureIds?.[a] ?? [])]
-        .map((fid) => features.find((feature) => feature.id === fid))
-        .filter(Boolean) as FeatureInterface[];
-      attributeExperiments[a] = [...(attributeExperimentIds?.[a] ?? [])]
-        .map((fid) => experiments.find((exp) => exp.id === fid))
-        .filter(Boolean) as ExperimentInterfaceStringDates[];
-      attributeGroups[a] = [...(attributeGroupIds?.[a] ?? [])]
-        .map((gid) => savedGroups.find((group) => group.id === gid))
-        .filter(Boolean) as SavedGroupInterface[];
-    });
+      attributeKeys.forEach((a) => {
+        attributeFeatures[a] = [...(attributeFeatureIds?.[a] ?? [])]
+          .map((fid) => features.find((feature) => feature.id === fid))
+          .filter(Boolean) as FeatureInterface[];
+        attributeExperiments[a] = [...(attributeExperimentIds?.[a] ?? [])]
+          .map((fid) => experiments.find((exp) => exp.id === fid))
+          .filter(Boolean) as ExperimentInterfaceStringDates[];
+        attributeGroups[a] = [...(attributeGroupIds?.[a] ?? [])]
+          .map((gid) => savedGroups.find((group) => group.id === gid))
+          .filter(Boolean) as SavedGroupInterface[];
+      });
 
-    return { attributeFeatures, attributeExperiments, attributeGroups };
-  }, [features, experiments, savedGroups, attributeSchema]);
+      return { attributeFeatures, attributeExperiments, attributeGroups };
+    }, [features, experiments, savedGroups, attributeSchema]);
 
   const [showReferences, setShowReferences] = useState<number | null>(null);
 
@@ -131,14 +131,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
     const numReferences = features.length + experiments.length + groups.length;
 
     return (
-      <tr className={v.archived ? "disabled" : ""} key={i}>
-        <td className="text-gray font-weight-bold">
+      <tr className={v.archived ? "disabled" : ""} key={"attr-row-" + i}>
+        <td className="text-gray font-weight-bold" style={{ width: "17%" }}>
           {v.property}{" "}
           {v.archived && (
             <span className="badge badge-secondary ml-2">archived</span>
           )}
         </td>
-        <td className="text-gray">{v.description}</td>
+        <td className="text-gray" style={{ width: "38%" }}>
+          {v.description}
+        </td>
         <td
           className="text-gray"
           style={{ maxWidth: "20vw", wordWrap: "break-word" }}
@@ -151,27 +153,29 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </p>
           )}
         </td>
-        <td className="col-2">
+        <td className="">
           <ProjectBadges
             resourceType="attribute"
             projectIds={(v.projects || []).length > 0 ? v.projects : undefined}
-            className="badge-ellipsis short align-middle"
           />
         </td>
-        <td className="text-gray col-2">
+        <td className="text-gray">
           <Tooltip
+            delay={0}
             tipPosition="bottom"
             state={showReferences === i}
-            popperStyle={{ marginLeft: 50 }}
+            popperStyle={{ marginLeft: 50, marginTop: 15 }}
+            flipTheme={false}
+            ignoreMouseEvents={true}
             body={
               <div
-                className="px-3 py-2"
+                className="pl-3 pr-0 py-2"
                 style={{ minWidth: 250, maxWidth: 350 }}
               >
                 <a
                   role="button"
                   style={{ top: 3, right: 5 }}
-                  className="position-absolute text-gray cursor-pointer"
+                  className="position-absolute text-dark-gray cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
                     setShowReferences(null);
@@ -188,7 +192,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {features.map((feature, j) => (
-                            <>
+                            <Fragment key={"features-" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"f_" + j}
@@ -204,7 +208,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{features.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
@@ -218,7 +222,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {experiments.map((exp, j) => (
-                            <>
+                            <Fragment key={"exps-" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"e_" + j}
@@ -234,7 +238,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{experiments.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
@@ -248,7 +252,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <div className="mb-2">
                         <ul className="pl-3 mb-0">
                           {groups.map((group, j) => (
-                            <>
+                            <Fragment key={"saved-groups" + j}>
                               {j < MAX_REFERENCES_PER_TYPE ? (
                                 <li
                                   key={"g_" + j}
@@ -264,7 +268,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   <em>{groups.length - j} more...</em>
                                 </li>
                               ) : null}
-                            </>
+                            </Fragment>
                           ))}
                         </ul>
                       </div>
@@ -416,7 +420,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               ) : (
                 <>
                   <tr>
-                    <td colSpan={3} className="text-center text-gray">
+                    <td colSpan={7} className="text-center text-gray">
                       <em>No attributes defined.</em>
                     </td>
                   </tr>

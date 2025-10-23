@@ -10,8 +10,11 @@ import {
 import clsx from "clsx";
 import { truncateString } from "shared/util";
 import { v4 as uuidv4 } from "uuid";
+import { Flex, Text } from "@radix-ui/themes";
 import track, { TrackEventProps } from "@/services/track";
 import ConditionalWrapper from "@/components/ConditionalWrapper";
+import ErrorDisplay from "@/ui/ErrorDisplay";
+import Button from "@/ui/Button";
 import LoadingOverlay from "./LoadingOverlay";
 import Portal from "./Modal/Portal";
 import Tooltip from "./Tooltip/Tooltip";
@@ -20,7 +23,9 @@ import { DocLink, DocSection } from "./DocLink";
 type ModalProps = {
   header?: "logo" | string | ReactNode | boolean;
   subHeader?: string | ReactNode;
+  showHeaderCloseButton?: boolean;
   open: boolean;
+  hideCta?: boolean;
   // An empty string will prevent firing a tracking event, but the prop is still required to encourage developers to add tracking
   trackingEventModalType: string;
   // The source (likely page or component) causing the modal to be shown
@@ -58,21 +63,28 @@ type ModalProps = {
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
+  headerClassName?: string;
   formRef?: React.RefObject<HTMLFormElement>;
   customValidation?: () => Promise<boolean> | boolean;
   increasedElevation?: boolean;
   stickyFooter?: boolean;
+  aboveBodyContent?: ReactNode;
+  useRadixButton?: boolean;
+  borderlessHeader?: boolean;
+  borderlessFooter?: boolean;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
   subHeader = "",
+  showHeaderCloseButton = true,
   children,
   close,
   submit,
   fullWidthSubmit = false,
   submitColor = "primary",
   open = true,
-  cta = "Submit",
+  hideCta = false,
+  cta = "Save",
   ctaEnabled = true,
   closeCta = "Cancel",
   onClickCloseCta,
@@ -95,6 +107,7 @@ const Modal: FC<ModalProps> = ({
   backCTA,
   successMessage,
   bodyClassName = "",
+  headerClassName = "",
   formRef,
   customValidation,
   increasedElevation,
@@ -104,11 +117,25 @@ const Modal: FC<ModalProps> = ({
   allowlistedTrackingEventProps = {},
   modalUuid: _modalUuid,
   trackOnSubmit = true,
+  useRadixButton,
+  aboveBodyContent = null,
+  borderlessHeader = false,
+  borderlessFooter = false,
 }) => {
   const [modalUuid] = useState(_modalUuid || uuidv4());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const scrollToTop = () => {
+    setTimeout(() => {
+      if (bodyRef.current) {
+        bodyRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }, 50);
+  };
 
   if (inline) {
     size = "fill";
@@ -116,13 +143,13 @@ const Modal: FC<ModalProps> = ({
 
   useEffect(() => {
     setError(externalError || null);
+    externalError && scrollToTop();
   }, [externalError]);
 
   useEffect(() => {
     setLoading(externalLoading || false);
   }, [externalLoading]);
 
-  const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setTimeout(() => {
       if (!autoFocusSelector) return;
@@ -142,15 +169,18 @@ const Modal: FC<ModalProps> = ({
 
   const contents = (
     <div
-      className={`modal-content ${className}`}
+      className={clsx("modal-content", className, {
+        "modal-borderless-header": borderlessHeader,
+        "modal-borderless-footer": borderlessFooter,
+      })}
       style={{
-        height: sizeY === "max" ? "93vh" : "",
-        maxHeight: sizeY ? "" : size === "fill" ? "" : "93vh",
+        height: sizeY === "max" ? "95vh" : "",
+        maxHeight: sizeY ? "" : size === "fill" ? "" : "95vh",
       }}
     >
       {loading && <LoadingOverlay />}
       {header ? (
-        <div className="modal-header">
+        <div className={clsx("modal-header", headerClassName)}>
           <div>
             <h4 className="modal-title">
               {header === "logo" ? (
@@ -170,7 +200,7 @@ const Modal: FC<ModalProps> = ({
             </h4>
             {subHeader ? <div className="mt-1">{subHeader}</div> : null}
           </div>
-          {close && (
+          {close && showHeaderCloseButton && (
             <button
               type="button"
               className="close"
@@ -186,23 +216,29 @@ const Modal: FC<ModalProps> = ({
         </div>
       ) : (
         <>
-          {close && (
-            <button
-              type="button"
-              className="close"
-              onClick={(e) => {
-                e.preventDefault();
-                close();
-              }}
-              aria-label="Close"
-            >
-              <span aria-hidden="true">&times;</span>
-            </button>
+          {close && showHeaderCloseButton && (
+            <Flex justify="end">
+              <button
+                type="button"
+                className="close px-3 py-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  close();
+                }}
+                aria-label="Close"
+              >
+                <Text aria-hidden="true" size="6">
+                  &times;
+                </Text>
+              </button>
+            </Flex>
           )}
         </>
       )}
       <div
-        className={`modal-body ${bodyClassName}`}
+        className={`modal-body ${bodyClassName} ${
+          !header && (!close || !showHeaderCloseButton) ? "ml-4 mt-2" : ""
+        }`}
         ref={bodyRef}
         style={
           overflowAuto
@@ -217,14 +253,19 @@ const Modal: FC<ModalProps> = ({
         {isSuccess ? (
           <div className="alert alert-success">{successMessage}</div>
         ) : (
-          children
+          <>
+            {aboveBodyContent}
+            {error && <ErrorDisplay error={error} mb="3" />}
+            {children}
+          </>
         )}
       </div>
-      {submit ||
-      secondaryCTA ||
-      tertiaryCTA ||
-      backCTA ||
-      (close && includeCloseCta) ? (
+      {!hideCta &&
+      (submit ||
+        secondaryCTA ||
+        tertiaryCTA ||
+        backCTA ||
+        (close && includeCloseCta)) ? (
         <div
           className={clsx("modal-footer", { "sticky-footer": stickyFooter })}
         >
@@ -234,16 +275,6 @@ const Modal: FC<ModalProps> = ({
               <div className="flex-1" />
             </>
           ) : null}
-          {error && (
-            <div className="alert alert-danger mr-auto">
-              {error
-                .split("\n")
-                .filter((v) => !!v.trim())
-                .map((s, i) => (
-                  <div key={i}>{s}</div>
-                ))}
-            </div>
-          )}
           <ConditionalWrapper
             condition={stickyFooter}
             wrapper={
@@ -254,17 +285,33 @@ const Modal: FC<ModalProps> = ({
             }
           >
             {close && includeCloseCta ? (
-              <button
-                type="button"
-                className={closeCtaClassName}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await onClickCloseCta?.();
-                  close();
-                }}
-              >
-                {isSuccess && successMessage ? "Close" : closeCta}
-              </button>
+              <>
+                {useRadixButton ? (
+                  <div className="mr-1">
+                    <Button
+                      variant="ghost"
+                      onClick={async () => {
+                        await onClickCloseCta?.();
+                        close();
+                      }}
+                    >
+                      {isSuccess && successMessage ? "Close" : closeCta}
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={closeCtaClassName}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      await onClickCloseCta?.();
+                      close();
+                    }}
+                  >
+                    {isSuccess && successMessage ? "Close" : closeCta}
+                  </button>
+                )}
+              </>
             ) : null}
             {secondaryCTA}
             {submit && !isSuccess ? (
@@ -274,15 +321,21 @@ const Modal: FC<ModalProps> = ({
                 tipPosition="top"
                 className={fullWidthSubmit ? "w-100" : ""}
               >
-                <button
-                  className={`btn btn-${submitColor} ${
-                    fullWidthSubmit ? "w-100" : ""
-                  } ${stickyFooter ? "ml-auto mr-5" : ""}`}
-                  type="submit"
-                  disabled={!ctaEnabled}
-                >
-                  {cta}
-                </button>
+                {useRadixButton ? (
+                  <Button type="submit" disabled={!ctaEnabled} ml="3">
+                    {cta}
+                  </Button>
+                ) : (
+                  <button
+                    className={`btn btn-${submitColor} ${
+                      fullWidthSubmit ? "w-100" : ""
+                    } ${stickyFooter ? "ml-auto mr-5" : ""}`}
+                    type="submit"
+                    disabled={!ctaEnabled}
+                  >
+                    {cta}
+                  </button>
+                )}
               </Tooltip>
             ) : null}
             {tertiaryCTA}
@@ -320,7 +373,7 @@ const Modal: FC<ModalProps> = ({
       trackingEventModalSource,
       allowlistedTrackingEventProps,
       modalUuid,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -338,6 +391,9 @@ const Modal: FC<ModalProps> = ({
         position: inline ? "relative" : undefined,
         zIndex: inline ? 1 : increasedElevation ? 1550 : undefined,
       }}
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
     >
       <div
         className={`modal-dialog modal-${size}`}
@@ -345,8 +401,8 @@ const Modal: FC<ModalProps> = ({
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
             : size === "fill"
-            ? { width: "100%", maxWidth: "100%" }
-            : {}
+              ? { width: "100%", maxWidth: "100%" }
+              : {}
         }
       >
         {submit && !isSuccess ? (
@@ -379,6 +435,7 @@ const Modal: FC<ModalProps> = ({
                 }
               } catch (e) {
                 setError(e.message);
+                scrollToTop();
                 setLoading(false);
                 if (trackOnSubmit) {
                   sendTrackingEvent("modal-submit-error", {

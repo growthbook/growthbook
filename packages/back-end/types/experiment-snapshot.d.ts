@@ -1,11 +1,18 @@
+import { MidExperimentPowerCalculationResult } from "shared/enterprise";
 import { BanditResult } from "back-end/src/validators/experiments";
 import {
   MetricSettingsForStatsEngine,
   QueryResultsForStatsEngine,
 } from "back-end/src/services/stats";
+import { PhaseSQLVar } from "back-end/types/sql";
 import { QueryLanguage } from "./datasource";
 import { MetricInterface, MetricStats } from "./metric";
-import { DifferenceType, RiskType, StatsEngine } from "./stats";
+import {
+  DifferenceType,
+  RiskType,
+  StatsEngine,
+  MetricPowerResponseFromStatsEngine,
+} from "./stats";
 import { Queries } from "./query";
 import {
   ExperimentReportResultDimension,
@@ -13,7 +20,11 @@ import {
   LegacyMetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
-import { AttributionModel, ExperimentInterfaceStringDates } from "./experiment";
+import {
+  AttributionModel,
+  ExperimentInterfaceStringDates,
+  LegacyBanditResult,
+} from "./experiment";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
 
 export interface SnapshotMetric {
@@ -40,6 +51,7 @@ export interface SnapshotMetric {
   }[];
   chanceToWin?: number;
   errorMessage?: string;
+  power?: MetricPowerResponseFromStatsEngine;
 }
 
 export interface SnapshotVariation {
@@ -57,6 +69,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   results?: ExperimentReportResultDimension[];
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: LegacyMetricRegressionAdjustmentStatus[];
+  banditResult?: LegacyBanditResult;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   queryFilter?: string;
@@ -81,6 +94,7 @@ export interface MetricForSnapshot {
     | "type"
   >;
   // Computed settings that take into account overrides
+  // see MetricSnapshotSettings
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
     regressionAdjustmentAvailable: boolean;
@@ -90,6 +104,7 @@ export interface MetricForSnapshot {
     properPriorMean: number;
     properPriorStdDev: number;
     windowSettings: MetricWindowSettings;
+    targetMDE?: number;
   };
 }
 
@@ -97,6 +112,8 @@ export interface DimensionForSnapshot {
   // The same format we use today that encodes both the type and id
   // For example: `exp:country` or `pre:date`
   id: string;
+  // Pre-defined dimension levels, if they exist
+  slices?: string[];
   // Dimension settings at the time the snapshot was created
   // Used to show an "out-of-date" warning on the front-end
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
@@ -112,10 +129,20 @@ export interface ExperimentSnapshotAnalysisSettings {
   pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
   pValueThreshold?: number;
   baselineVariationIndex?: number;
+  numGoalMetrics: number;
+  oneSidedIntervals?: boolean;
+  holdoutAnalysisWindow?: {
+    start: Date;
+    end: Date;
+  };
 }
 
-export type SnapshotType = "standard" | "exploratory";
-export type SnapshotTriggeredBy = "schedule" | "manual"; // todo: add "report" type?
+export type SnapshotType = "standard" | "exploratory" | "report";
+export type SnapshotTriggeredBy =
+  | "schedule"
+  | "manual"
+  | "manual-dashboard"
+  | "update-dashboards";
 
 export interface ExperimentSnapshotAnalysis {
   // Determines which analysis this is
@@ -165,6 +192,8 @@ export interface ExperimentSnapshotSettings {
   exposureQueryId: string;
   startDate: Date;
   endDate: Date;
+  phase?: PhaseSQLVar;
+  customFields?: Record<string, unknown>;
   variations: SnapshotSettingsVariation[];
   coverage?: number;
   banditSettings?: SnapshotBanditSettings;
@@ -186,6 +215,7 @@ export interface ExperimentSnapshotInterface {
   settings: ExperimentSnapshotSettings;
   type?: SnapshotType;
   triggeredBy?: SnapshotTriggeredBy;
+  report?: string;
 
   // List of queries that were run as part of this snapshot
   queries: Queries;
@@ -205,6 +235,7 @@ export interface ExperimentWithSnapshot extends ExperimentInterfaceStringDates {
 
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
+  power?: MidExperimentPowerCalculationResult;
 }
 
 export interface ExperimentSnapshotTraffic {

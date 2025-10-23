@@ -21,12 +21,11 @@ import MetricName from "@/components/Metrics/MetricName";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 const NorthStarMetricDisplay = ({
   metricId,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  window,
+  window: _window,
   smoothBy,
   hoverDate,
   onHoverCallback,
@@ -68,9 +67,10 @@ const NorthStarMetricDisplay = ({
 
   // @todo: get the metric period in days from the 'window'.
   // Disabled window range for now.
-  const experiments = (project
-    ? data.data.experiments.filter((e) => e.project === project)
-    : data.data.experiments
+  const experiments = (
+    project
+      ? data.data.experiments.filter((e) => e.project === project)
+      : data.data.experiments
   ).filter((e) => e.status !== "draft");
 
   const analysis = data.data.analysis;

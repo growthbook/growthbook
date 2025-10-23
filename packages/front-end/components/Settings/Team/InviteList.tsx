@@ -76,7 +76,7 @@ const InviteList: FC<{
           <div className="alert alert-danger">
             {dismissButton}
             {message || "Error re-sending the invitation"}
-          </div>
+          </div>,
         );
       } else if (!emailSent) {
         setResendMessage(
@@ -89,7 +89,7 @@ const InviteList: FC<{
             <div>
               <code>{inviteUrl}</code>
             </div>
-          </div>
+          </div>,
         );
       }
     } catch (e) {
@@ -97,7 +97,7 @@ const InviteList: FC<{
         <div className="alert alert-danger">
           {dismissButton}
           {e.message}
-        </div>
+        </div>,
       );
     }
 
@@ -183,7 +183,6 @@ const InviteList: FC<{
                               <ProjectBadges
                                 resourceType="member"
                                 projectIds={[p.id]}
-                                className="badge-ellipsis short align-middle font-weight-normal"
                               />{" "}
                               — {pr.role}
                             </div>
@@ -197,7 +196,7 @@ const InviteList: FC<{
                     const access = roleHasAccessToEnv(
                       roleInfo,
                       env.id,
-                      organization
+                      organization,
                     );
                     return (
                       <td key={env.id}>

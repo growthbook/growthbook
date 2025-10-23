@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FaPlusCircle } from "react-icons/fa";
-import MetricsSelector, { MetricsSelectorTooltip } from "./MetricsSelector";
+import { Text } from "@radix-ui/themes";
+import MetricsSelector from "./MetricsSelector";
 
 export interface Props {
   datasource?: string;
@@ -14,11 +15,13 @@ export interface Props {
   setGuardrailMetrics?: (guardrailMetrics: string[]) => void;
   autoFocus?: boolean;
   forceSingleGoalMetric?: boolean;
-  noPercentileGoalMetrics?: boolean;
+  noQuantileGoalMetrics?: boolean;
   disabled?: boolean;
   goalDisabled?: boolean;
   collapseSecondary?: boolean;
   collapseGuardrail?: boolean;
+  goalMetricsDescription?: string;
+  filterConversionWindowMetrics?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -33,36 +36,39 @@ export default function ExperimentMetricsSelector({
   setGuardrailMetrics,
   autoFocus = false,
   forceSingleGoalMetric = false,
-  noPercentileGoalMetrics = false,
+  noQuantileGoalMetrics = false,
   disabled,
   goalDisabled,
   collapseSecondary,
   collapseGuardrail,
+  goalMetricsDescription,
+  filterConversionWindowMetrics,
 }: Props) {
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(
-    !!collapseSecondary && secondaryMetrics.length === 0
+    !!collapseSecondary && secondaryMetrics.length === 0,
   );
   const [guardrailCollapsed, setGuardrailCollapsed] = useState<boolean>(
-    !!collapseGuardrail && guardrailMetrics.length === 0
+    !!collapseGuardrail && guardrailMetrics.length === 0,
   );
   return (
     <>
       {setGoalMetrics !== undefined && (
-        <div className="form-group">
+        <div className="form-group flex-1">
           <label className="font-weight-bold mb-1">
             {!forceSingleGoalMetric ? "Goal Metrics" : "Decision Metric"}
           </label>
-          <div className="mb-1">
-            <span className="font-italic">
-              {!forceSingleGoalMetric
+          <Text
+            as="p"
+            size="2"
+            style={{ color: "var(--color-text-mid)" }}
+            className="mb-1"
+          >
+            {goalMetricsDescription
+              ? goalMetricsDescription
+              : !forceSingleGoalMetric
                 ? "The primary metrics you are trying to improve with this experiment. "
                 : "Choose the goal metric that will be used to update variation weights. "}
-            </span>
-            <MetricsSelectorTooltip
-              isSingular={true}
-              noPercentileGoalMetrics={noPercentileGoalMetrics}
-            />
-          </div>
+          </Text>
           <MetricsSelector
             selected={goalMetrics}
             onChange={setGoalMetrics}
@@ -73,14 +79,15 @@ export default function ExperimentMetricsSelector({
             includeFacts={true}
             forceSingleMetric={forceSingleGoalMetric}
             includeGroups={!forceSingleGoalMetric}
-            noPercentile={noPercentileGoalMetrics}
+            excludeQuantiles={noQuantileGoalMetrics}
+            filterConversionWindowMetrics={filterConversionWindowMetrics}
             disabled={disabled || goalDisabled}
           />
         </div>
       )}
 
       {setSecondaryMetrics !== undefined && (
-        <div className="form-group">
+        <div className="form-group flex-1">
           {secondaryCollapsed ? (
             <a
               role="button"
@@ -93,14 +100,16 @@ export default function ExperimentMetricsSelector({
           ) : (
             <>
               <label className="font-weight-bold mb-1">Secondary Metrics</label>
-              <div className="mb-1">
-                <span className="font-italic">
-                  {!forceSingleGoalMetric
-                    ? "Additional metrics to learn about experiment impacts, but not primary objectives. "
-                    : "Additional metrics to learn about experiment impacts. "}
-                </span>
-                <MetricsSelectorTooltip />
-              </div>
+              <Text
+                as="p"
+                size="2"
+                style={{ color: "var(--color-text-mid)" }}
+                className="mb-1"
+              >
+                {!forceSingleGoalMetric
+                  ? "Additional metrics to learn about experiment impacts, but not primary objectives."
+                  : "Additional metrics to learn about experiment impacts. "}
+              </Text>
               <MetricsSelector
                 selected={secondaryMetrics}
                 onChange={setSecondaryMetrics}
@@ -108,6 +117,7 @@ export default function ExperimentMetricsSelector({
                 exposureQueryId={exposureQueryId}
                 project={project}
                 includeFacts={true}
+                filterConversionWindowMetrics={filterConversionWindowMetrics}
                 disabled={disabled}
               />
             </>
@@ -116,7 +126,7 @@ export default function ExperimentMetricsSelector({
       )}
 
       {setGuardrailMetrics !== undefined && (
-        <div className="form-group">
+        <div className="form-group flex-1">
           {guardrailCollapsed ? (
             <a
               role="button"
@@ -129,13 +139,15 @@ export default function ExperimentMetricsSelector({
           ) : (
             <>
               <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-              <div className="mb-1">
-                <span className="font-italic">
-                  Metrics you want to monitor, but are NOT specifically trying
-                  to improve.{" "}
-                </span>
-                <MetricsSelectorTooltip />
-              </div>
+              <Text
+                as="p"
+                size="2"
+                style={{ color: "var(--color-text-mid)" }}
+                className="mb-1"
+              >
+                Metrics you want to monitor, but are NOT specifically trying to
+                improve.
+              </Text>
               <MetricsSelector
                 selected={guardrailMetrics}
                 onChange={setGuardrailMetrics}
@@ -143,6 +155,7 @@ export default function ExperimentMetricsSelector({
                 exposureQueryId={exposureQueryId}
                 project={project}
                 includeFacts={true}
+                filterConversionWindowMetrics={filterConversionWindowMetrics}
                 disabled={disabled}
               />
             </>

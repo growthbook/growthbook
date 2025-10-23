@@ -5,7 +5,17 @@ import {
   namespaceValue,
   featurePrerequisite,
   savedGroupTargeting,
-} from "./features";
+} from "./shared";
+
+export const customMetricSlice = z.object({
+  slices: z.array(
+    z.object({
+      column: z.string(),
+      levels: z.array(z.string()),
+    }),
+  ),
+});
+export type CustomMetricSlice = z.infer<typeof customMetricSlice>;
 
 export const experimentResultsType = [
   "dnf",
@@ -13,7 +23,7 @@ export const experimentResultsType = [
   "lost",
   "inconclusive",
 ] as const;
-export type ExperimentResultsType = typeof experimentResultsType[number];
+export type ExperimentResultsType = (typeof experimentResultsType)[number];
 
 export const singleVariationResult = z.object({
   users: z.number().optional(),
@@ -25,19 +35,25 @@ export const banditResult = z.object({
   singleVariationResults: z.array(singleVariationResult).optional(),
   currentWeights: z.array(z.number()),
   updatedWeights: z.array(z.number()),
-  srm: z.number().optional(),
   bestArmProbabilities: z.array(z.number()).optional(),
   seed: z.number().optional(),
   updateMessage: z.string().optional(),
   error: z.string().optional(),
   reweight: z.boolean().optional(),
   weightsWereUpdated: z.boolean().optional(),
+  /** @deprecated */
+  srm: z.number().optional(),
 });
 
 export const banditEvent = z
   .object({
     date: z.date(),
     banditResult: banditResult,
+    health: z
+      .object({
+        srm: z.number().optional(),
+      })
+      .optional(),
     snapshotId: z.string().optional(), // 0th may not have snapshot
   })
   .strict();
@@ -55,16 +71,17 @@ export const experimentPhase = z
     condition: z.string(),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
-    namespace: namespaceValue,
+    namespace: namespaceValue.optional(),
     seed: z.string().optional(),
     variationWeights: z.array(z.number()),
     banditEvents: z.array(banditEvent).optional(),
+    lookbackStartDate: z.date().optional(),
   })
   .strict();
 export type ExperimentPhase = z.infer<typeof experimentPhase>;
 
 export const experimentStatus = ["draft", "running", "stopped"] as const;
-export type ExperimentStatus = typeof experimentStatus[number];
+export type ExperimentStatus = (typeof experimentStatus)[number];
 
 export const screenshot = z
   .object({
@@ -91,7 +108,7 @@ export const attributionModel = [
   "firstExposure",
   "experimentDuration",
 ] as const;
-export type AttributionModel = typeof attributionModel[number];
+export type AttributionModel = (typeof attributionModel)[number];
 
 export const implementationType = [
   "visual",
@@ -99,7 +116,7 @@ export const implementationType = [
   "configuration",
   "custom",
 ] as const;
-export type ImplementationType = typeof implementationType[number];
+export type ImplementationType = (typeof implementationType)[number];
 
 export const experimentNotification = [
   "auto-update",
@@ -107,7 +124,7 @@ export const experimentNotification = [
   "srm",
   "significance",
 ] as const;
-export type ExperimentNotification = typeof experimentNotification[number];
+export type ExperimentNotification = (typeof experimentNotification)[number];
 
 export const metricOverride = z
   .object({
@@ -128,28 +145,139 @@ export const metricOverride = z
   .strict();
 export type MetricOverride = z.infer<typeof metricOverride>;
 
-export const experimentType = ["standard", "multi-armed-bandit"] as const;
-export type ExperimentType = typeof experimentType[number];
+export const experimentType = [
+  "standard",
+  "multi-armed-bandit",
+  "holdout",
+] as const;
+export type ExperimentType = (typeof experimentType)[number];
 
 export const banditStageType = ["explore", "exploit", "paused"] as const;
-export type banditStageType = typeof banditStageType[number];
+export type BanditStageType = (typeof banditStageType)[number];
+
+export const decisionFrameworkMetricOverrides = z.object({
+  id: z.string(),
+  targetMDE: z.number().optional(),
+});
+export type DecisionFrameworkMetricOverrides = z.infer<
+  typeof decisionFrameworkMetricOverrides
+>;
+
+export const experimentDecisionFrameworkSettings = z.object({
+  decisionCriteriaId: z.string().optional(),
+  decisionFrameworkMetricOverrides: z
+    .array(decisionFrameworkMetricOverrides)
+    .optional(),
+});
+export type ExperimentDecisionFrameworkSettings = z.infer<
+  typeof experimentDecisionFrameworkSettings
+>;
+
+export const experimentAnalysisSettings = z
+  .object({
+    trackingKey: z.string(),
+    datasource: z.string(),
+    exposureQueryId: z.string(),
+    goalMetrics: z.array(z.string()),
+    secondaryMetrics: z.array(z.string()),
+    guardrailMetrics: z.array(z.string()),
+    activationMetric: z.string().optional(),
+    metricOverrides: z.array(metricOverride).optional(),
+    decisionFrameworkSettings: experimentDecisionFrameworkSettings,
+    segment: z.string().optional(),
+    queryFilter: z.string().optional(),
+    skipPartialData: z.boolean().optional(),
+    attributionModel: z.enum(attributionModel).optional(),
+    regressionAdjustmentEnabled: z.boolean().optional(),
+    sequentialTestingEnabled: z.boolean().optional(),
+    sequentialTestingTuningParameter: z.number().optional(),
+    statsEngine: z.enum(statsEngines).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+  })
+  .strict();
+export type ExperimentAnalysisSettings = z.infer<
+  typeof experimentAnalysisSettings
+>;
+
+export const experimentAnalysisSummaryHealth = z.object({
+  srm: z.number(),
+  multipleExposures: z.number(),
+  totalUsers: z.number().nullable(),
+  power: z
+    .discriminatedUnion("type", [
+      z.object({
+        type: z.literal("error"),
+        errorMessage: z.string(),
+      }),
+      z.object({
+        type: z.literal("success"),
+        isLowPowered: z.boolean(),
+        additionalDaysNeeded: z.number(),
+      }),
+    ])
+    .optional(),
+});
+export type ExperimentAnalysisSummaryHealth = z.infer<
+  typeof experimentAnalysisSummaryHealth
+>;
+
+export const goalMetricStatus = ["won", "lost", "neutral"] as const;
+export type GoalMetricStatus = (typeof goalMetricStatus)[number];
+
+export const guardrailMetricStatus = ["safe", "lost", "neutral"] as const;
+export type GuardrailMetricStatus = (typeof guardrailMetricStatus)[number];
+
+export const goalMetricResult = z.object({
+  status: z.enum(goalMetricStatus),
+  superStatSigStatus: z.enum(goalMetricStatus),
+});
+export type GoalMetricResult = z.infer<typeof goalMetricResult>;
+
+export const experimentAnalysisSummaryVariationStatus = z.object({
+  variationId: z.string(),
+  goalMetrics: z.record(z.string(), goalMetricResult).optional(),
+  guardrailMetrics: z
+    .record(z.string(), z.object({ status: z.enum(guardrailMetricStatus) }))
+    .optional(),
+});
+export type ExperimentAnalysisSummaryVariationStatus = z.infer<
+  typeof experimentAnalysisSummaryVariationStatus
+>;
+
+export const experimentAnalysisSummaryResultsStatus = z.object({
+  variations: z.array(experimentAnalysisSummaryVariationStatus),
+  settings: z.object({
+    sequentialTesting: z.boolean(),
+  }),
+});
+export type ExperimentAnalysisSummaryResultsStatus = z.infer<
+  typeof experimentAnalysisSummaryResultsStatus
+>;
+
+export const experimentAnalysisSummary = z
+  .object({
+    snapshotId: z.string(),
+    health: experimentAnalysisSummaryHealth.optional(),
+    resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
+    precomputedDimensions: z.array(z.string()).optional(),
+  })
+  .strict();
+
+export type ExperimentAnalysisSummary = z.infer<
+  typeof experimentAnalysisSummary
+>;
 
 export const experimentInterface = z
   .object({
     id: z.string(),
-    trackingKey: z.string(),
+    uid: z.string().optional(),
     organization: z.string(),
     project: z.string().optional(),
     owner: z.string(),
-    datasource: z.string(),
-    exposureQueryId: z.string(),
-    /**
-     * @deprecated Always set to 'code'
-     */
+    /** @deprecated Always set to 'code' */
     implementation: z.enum(implementationType),
-    /**
-     * @deprecated
-     */
+    /** @deprecated */
     userIdType: z.enum(["anonymous", "user"]).optional(),
     hashAttribute: z.string(),
     fallbackAttribute: z.string().optional(),
@@ -164,15 +292,7 @@ export const experimentInterface = z
     tags: z.array(z.string()),
     description: z.string().optional(),
     hypothesis: z.string().optional(),
-    goalMetrics: z.array(z.string()),
-    secondaryMetrics: z.array(z.string()),
-    guardrailMetrics: z.array(z.string()),
-    activationMetric: z.string().optional(),
-    metricOverrides: z.array(metricOverride).optional(),
-    segment: z.string().optional(),
-    queryFilter: z.string().optional(),
-    skipPartialData: z.boolean().optional(),
-    attributionModel: z.enum(attributionModel).optional(),
+    /** @deprecated related to HypGen */
     autoAssign: z.boolean(),
     previewURL: z.string(),
     targetURLRegex: z.string(),
@@ -192,10 +312,6 @@ export const experimentInterface = z
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
     linkedFeatures: z.array(z.string()).optional(),
-    regressionAdjustmentEnabled: z.boolean().optional(),
-    sequentialTestingEnabled: z.boolean().optional(),
-    sequentialTestingTuningParameter: z.number().optional(),
-    statsEngine: z.enum(statsEngines).optional(),
     manualLaunchChecklist: z
       .array(
         z
@@ -203,7 +319,7 @@ export const experimentInterface = z
             key: z.string(),
             status: z.enum(["complete", "incomplete"]),
           })
-          .strict()
+          .strict(),
       )
       .optional(),
     type: z.enum(experimentType).optional(),
@@ -213,6 +329,24 @@ export const experimentInterface = z
     banditScheduleUnit: z.enum(["hours", "days"]).optional(),
     banditBurnInValue: z.number().optional(),
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
+    customFields: z.record(z.any()).optional(),
+    templateId: z.string().optional(),
+    shareLevel: z.enum(["public", "organization"]).optional(),
+    analysisSummary: experimentAnalysisSummary.optional(),
+    dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
+    holdoutId: z.string().optional(),
+    defaultDashboardId: z.string().optional(),
+    pinnedMetricSlices: z.array(z.string()).optional(),
+    customMetricSlices: z.array(customMetricSlice).optional(),
   })
-  .strict();
+  .strict()
+  .merge(experimentAnalysisSettings);
 export type ExperimentInterface = z.infer<typeof experimentInterface>;
+
+// Excludes "holdout" from the type property for the experiments API
+export type ExperimentInterfaceExcludingHoldouts = Omit<
+  ExperimentInterface,
+  "type"
+> & {
+  type?: Exclude<ExperimentInterface["type"], "holdout">;
+};

@@ -15,9 +15,13 @@ import clsx from "clsx";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
+  getAllExpandedMetricIdsFromExperiment,
   isFactMetric,
   isMetricJoinable,
+  expandAllSliceMetricsInMap,
+  ExperimentMetricInterface,
 } from "shared/experiments";
+import { ExperimentSnapshotReportArgs } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
@@ -37,12 +41,14 @@ import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricName from "@/components/Metrics/MetricName";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDashboards } from "@/hooks/useDashboards";
 import OverflowText from "./OverflowText";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  envs: string[];
   mutate: () => void;
   statsEngine: StatsEngine;
   editMetrics?: () => void;
@@ -50,17 +56,20 @@ export interface Props {
   baselineRow?: number;
   setBaselineRow?: (baselineRow: number) => void;
   setDifferenceType: (differenceType: DifferenceType) => void;
+  reportArgs?: ExperimentSnapshotReportArgs;
 }
 
 export default function AnalysisSettingsSummary({
   experiment,
+  envs,
   mutate,
   statsEngine,
   editMetrics,
-  setVariationFilter,
   baselineRow,
+  setVariationFilter,
   setBaselineRow,
   setDifferenceType,
+  reportArgs,
 }: Props) {
   const {
     getDatasourceById,
@@ -68,13 +77,15 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
     factTables,
     metricGroups,
+    factMetrics,
+    metrics,
   } = useDefinitions();
 
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   )?.userIdType;
 
   const orgSettings = useOrgSettings();
@@ -82,7 +93,7 @@ export default function AnalysisSettingsSummary({
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
@@ -97,9 +108,11 @@ export default function AnalysisSettingsSummary({
     phase,
   } = useSnapshot();
 
+  const { mutateDashboards } = useDashboards(experiment.id);
+
   const canEditAnalysisSettings = permissionsUtil.canUpdateExperiment(
     experiment,
-    {}
+    {},
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -128,9 +141,9 @@ export default function AnalysisSettingsSummary({
     new Set(
       expandMetricGroups(
         getAllMetricIdsFromExperiment(experiment, false),
-        metricGroups
-      )
-    )
+        metricGroups,
+      ),
+    ),
   );
 
   const unjoinableMetrics = useMemo(() => {
@@ -159,6 +172,18 @@ export default function AnalysisSettingsSummary({
     getExperimentMetricById,
   ]);
 
+  const conversionWindowMetrics = useMemo(() => {
+    const conversionWindowMetrics = new Set<string>();
+    allExpandedMetrics.forEach((m) => {
+      const metric = getExperimentMetricById(m);
+      if (!metric) return;
+      if (metric?.windowSettings?.type === "conversion") {
+        conversionWindowMetrics.add(m);
+      }
+    });
+    return conversionWindowMetrics;
+  }, [allExpandedMetrics, getExperimentMetricById]);
+
   const { outdated, reasons } = isOutdated({
     experiment,
     snapshot,
@@ -169,16 +194,17 @@ export default function AnalysisSettingsSummary({
     hasSequentialFeature,
     phase,
     unjoinableMetrics,
+    conversionWindowMetrics,
   });
 
   const ds = getDatasourceById(experiment.datasource);
   const assignmentQuery = ds?.settings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId
+    (e) => e.id === experiment.exposureQueryId,
   );
   const segment = getSegmentById(experiment.segment || "");
 
   const activationMetric = getExperimentMetricById(
-    experiment.activationMetric || ""
+    experiment.activationMetric || "",
   );
 
   const goals: string[] = [];
@@ -186,21 +212,21 @@ export default function AnalysisSettingsSummary({
     (m) => {
       const name = getExperimentMetricById(m)?.name;
       if (name) goals.push(name);
-    }
+    },
   );
   const secondary: string[] = [];
   expandMetricGroups(experiment.secondaryMetrics ?? [], metricGroups).forEach(
     (m) => {
       const name = getExperimentMetricById(m)?.name;
       if (name) secondary.push(name);
-    }
+    },
   );
   const guardrails: string[] = [];
   expandMetricGroups(experiment.guardrailMetrics ?? [], metricGroups).forEach(
     (m) => {
       const name = getExperimentMetricById(m)?.name;
       if (name) guardrails.push(name);
-    }
+    },
   );
 
   const numMetrics = goals.length + secondary.length + guardrails.length;
@@ -218,7 +244,7 @@ export default function AnalysisSettingsSummary({
     tooltip: ds ? "Data Source" : "",
   });
 
-  if (assignmentQuery) {
+  if (assignmentQuery && ds?.type !== "mixpanel") {
     items.push({
       value: assignmentQuery.name,
       icon: <FaTable className="mr-1" />,
@@ -284,30 +310,33 @@ export default function AnalysisSettingsSummary({
               </>
             )}
           </div>
-          <div className="text-left">
-            <strong>Guardrails:</strong>
-            {guardrails.length > 0 ? (
-              <ul className="ml-0 pl-3 mb-0">
-                {guardrails.map((m, i) => (
-                  <li key={i}>{m}</li>
-                ))}
-              </ul>
-            ) : (
-              <>
-                {" "}
-                <em>none</em>
-              </>
-            )}
-          </div>
+          {experiment.type !== "holdout" ? (
+            <div className="text-left">
+              <strong>Guardrails:</strong>
+              {guardrails.length > 0 ? (
+                <ul className="ml-0 pl-3 mb-0">
+                  {guardrails.map((m, i) => (
+                    <li key={i}>{m}</li>
+                  ))}
+                </ul>
+              ) : (
+                <>
+                  {" "}
+                  <em>none</em>
+                </>
+              )}
+            </div>
+          ) : null}
         </>
       ) : undefined,
   });
 
   return (
-    <div className="px-3 py-2 bg-light border-bottom">
+    <div className="px-3 py-2 analysis-settings-top border-bottom">
       {analysisModal && (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
+          envs={envs}
           experiment={experiment}
           mutate={mutate}
           phase={experiment.phases.length - 1}
@@ -317,240 +346,290 @@ export default function AnalysisSettingsSummary({
           source={"analysis-settings-summary"}
         />
       )}
-      <div className="row align-items-center text-muted">
+      <div className="row align-items-center justify-content-end">
         <div className="col-auto">
-          {!(isBandit && experiment.status === "running") &&
-          canEditAnalysisSettings ? (
-            <div className="cursor-pointer">
-              <Link
-                onClick={(e) => {
-                  e.preventDefault();
-                  setAnalysisModal(true);
-                }}
-              >
-                <span className="text-dark">Analysis Settings</span>
-                <GBEdit className="ml-2" />
-              </Link>
-            </div>
-          ) : (
-            <span>Analysis Settings</span>
-          )}
-        </div>
-        {items.map((item, i) => (
-          <Tooltip
-            body={
-              item.tooltip && item.noTransform ? (
-                <div>{item.tooltip}</div>
-              ) : item.tooltip ? (
-                <div className="text-center">
-                  <strong>{item.tooltip}:</strong>
-                  <div>{item.value}</div>
+          <div className="row align-items-center text-muted">
+            <div className="col-auto">
+              {!(isBandit && experiment.status === "running") &&
+              canEditAnalysisSettings ? (
+                <div className="cursor-pointer">
+                  <Link
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setAnalysisModal(true);
+                    }}
+                  >
+                    <span className="text-dark">Analysis Settings</span>
+                    <GBEdit className="ml-2" />
+                  </Link>
                 </div>
               ) : (
-                ""
-              )
-            }
-            key={i}
-          >
-            <div
-              key={i}
-              className={`col-auto px-3 ${i > 0 ? "border-left" : ""}`}
-            >
-              <div style={{ cursor: "default" }}>
-                {item.icon ? <>{item.icon} </> : null}
-                {item.noTransform ? (
-                  item.value
-                ) : (
-                  <OverflowText maxWidth={150}>{item.value}</OverflowText>
-                )}
-              </div>
-            </div>
-          </Tooltip>
-        ))}
-        <div className="flex-1" />
-
-        <div className="col-auto">
-          {hasData &&
-            (outdated && status !== "running" ? (
-              <OutdatedBadge reasons={reasons} />
-            ) : (
-              <QueriesLastRun
-                status={status}
-                dateCreated={snapshot?.dateCreated}
-              />
-            ))}
-        </div>
-
-        {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
-          numMetrics > 0 && (
-            <div className="col-auto">
-              {experiment.datasource && latest && latest.queries?.length > 0 ? (
-                <RunQueriesButton
-                  cta="Update"
-                  cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                  mutate={mutateSnapshot}
-                  model={latest}
-                  icon="refresh"
-                  color="outline-primary"
-                  resetFilters={async () => {
-                    // todo: remove baseline resetter (here and below) once refactored.
-                    if (baselineRow !== 0) {
-                      setBaselineRow?.(0);
-                      setVariationFilter?.([]);
-                    }
-                    setDifferenceType("relative");
-                    experiment.type === "multi-armed-bandit"
-                      ? setSnapshotType("exploratory")
-                      : setSnapshotType(undefined);
-                  }}
-                  onSubmit={async () => {
-                    await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                      `/experiment/${experiment.id}/snapshot`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                        }),
-                      }
-                    )
-                      .then((res) => {
-                        trackSnapshot(
-                          "create",
-                          "RunQueriesButton",
-                          datasource?.type || null,
-                          res.snapshot
-                        );
-
-                        setAnalysisSettings(null);
-                        mutateSnapshot();
-                        setRefreshError("");
-                      })
-                      .catch((e) => {
-                        setRefreshError(e.message);
-                      });
-                  }}
-                />
-              ) : (
-                <RefreshSnapshotButton
-                  mutate={mutateSnapshot}
-                  phase={phase}
-                  experiment={experiment}
-                  lastAnalysis={analysis}
-                  dimension={dimension}
-                  setAnalysisSettings={setAnalysisSettings}
-                  resetFilters={() => {
-                    if (baselineRow !== 0) {
-                      setBaselineRow?.(0);
-                      setVariationFilter?.([]);
-                    }
-                    setDifferenceType("relative");
-                    experiment.type === "multi-armed-bandit"
-                      ? setSnapshotType("exploratory")
-                      : setSnapshotType(undefined);
-                  }}
-                />
+                <span>Analysis Settings</span>
               )}
             </div>
-          )}
-
-        {ds &&
-          permissionsUtil.canRunExperimentQueries(ds) &&
-          latest &&
-          (status === "failed" || status === "partially-succeeded") && (
-            <div className="col-auto pl-1">
-              <ViewAsyncQueriesButton
-                queries={latest.queries.map((q) => q.query)}
-                error={latest.error}
-                color={clsx(
-                  {
-                    "outline-danger":
-                      status === "failed" || status === "partially-succeeded",
-                  },
-                  " "
-                )}
-                display={null}
-                status={status}
-                icon={
-                  <span
-                    className="position-relative pr-2"
-                    style={{ marginRight: 6 }}
-                  >
-                    <span className="text-main">
-                      <FaDatabase />
-                    </span>
-                    <FaExclamationTriangle
-                      className="position-absolute"
-                      style={{
-                        top: -6,
-                        right: -4,
-                      }}
-                    />
-                  </span>
+            {items.map((item, i) => (
+              <Tooltip
+                body={
+                  item.tooltip && item.noTransform ? (
+                    <div>{item.tooltip}</div>
+                  ) : item.tooltip ? (
+                    <div className="text-center">
+                      <strong>{item.tooltip}:</strong>
+                      <div>{item.value}</div>
+                    </div>
+                  ) : (
+                    ""
+                  )
                 }
-                condensed={true}
-              />
+                key={i}
+              >
+                <div
+                  key={i}
+                  className={`col-auto px-3 ${i > 0 ? "border-left" : ""}`}
+                >
+                  <div style={{ cursor: "default" }}>
+                    {item.icon ? <>{item.icon} </> : null}
+                    {item.noTransform ? (
+                      item.value
+                    ) : (
+                      <OverflowText maxWidth={150}>{item.value}</OverflowText>
+                    )}
+                  </div>
+                </div>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
+        <div className="col flex-1" />
+        <div className="col-auto">
+          <div className="row align-items-center justify-content-end">
+            <div className="col-auto">
+              {hasData &&
+                (outdated && status !== "running" ? (
+                  <OutdatedBadge reasons={reasons} />
+                ) : (
+                  <QueriesLastRun
+                    status={status}
+                    dateCreated={snapshot?.dateCreated}
+                  />
+                ))}
             </div>
-          )}
 
-        <div className="col-auto px-0">
-          <ResultMoreMenu
-            experiment={experiment}
-            id={snapshot?.id || ""}
-            datasource={datasource}
-            forceRefresh={
-              numMetrics > 0
-                ? async () => {
-                    await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                      `/experiment/${experiment.id}/snapshot?force=true`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                        }),
-                      }
-                    )
-                      .then((res) => {
-                        setAnalysisSettings(null);
+            {(!ds || permissionsUtil.canRunExperimentQueries(ds)) &&
+              numMetrics > 0 && (
+                <div className="col-auto">
+                  {experiment.datasource &&
+                  latest &&
+                  latest.queries?.length > 0 ? (
+                    <RunQueriesButton
+                      cta="Update"
+                      cancelEndpoint={`/snapshot/${latest.id}/cancel`}
+                      mutate={() => {
+                        mutateSnapshot();
+                        mutate();
+                        mutateDashboards();
+                      }}
+                      model={latest}
+                      icon="refresh"
+                      color="outline-primary"
+                      resetFilters={async () => {
+                        // todo: remove baseline resetter (here and below) once refactored.
                         if (baselineRow !== 0) {
                           setBaselineRow?.(0);
                           setVariationFilter?.([]);
                         }
                         setDifferenceType("relative");
-                        trackSnapshot(
-                          "create",
-                          "ForceRerunQueriesButton",
-                          datasource?.type || null,
-                          res.snapshot
-                        );
+                        experiment.type === "multi-armed-bandit"
+                          ? setSnapshotType("exploratory")
+                          : setSnapshotType(undefined);
+                      }}
+                      onSubmit={async () => {
+                        await apiCall<{
+                          snapshot: ExperimentSnapshotInterface;
+                        }>(`/experiment/${experiment.id}/snapshot`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            phase,
+                            dimension,
+                          }),
+                        })
+                          .then((res) => {
+                            trackSnapshot(
+                              "create",
+                              "RunQueriesButton",
+                              datasource?.type || null,
+                              res.snapshot,
+                            );
+
+                            setAnalysisSettings(null);
+                            mutateSnapshot();
+                            mutate();
+                            setRefreshError("");
+                          })
+                          .catch((e) => {
+                            setRefreshError(e.message);
+                          });
+                      }}
+                    />
+                  ) : (
+                    <RefreshSnapshotButton
+                      mutate={() => {
                         mutateSnapshot();
-                      })
-                      .catch((e) => {
-                        console.error(e);
-                      });
-                  }
-                : undefined
-            }
-            editMetrics={editMetrics}
-            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
-            notebookFilename={experiment.trackingKey}
-            generateReport={true}
-            queries={
-              latest && latest.status !== "error" && latest.queries
-                ? latest.queries
-                : snapshot?.queries
-            }
-            queryError={snapshot?.error}
-            supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-            hasData={hasData}
-            metrics={getAllMetricIdsFromExperiment(experiment, false)}
-            results={analysis?.results}
-            variations={variations}
-            trackingKey={experiment.trackingKey}
-            dimension={dimension}
-            project={experiment.project}
-          />
+                        mutate();
+                      }}
+                      phase={phase}
+                      experiment={experiment}
+                      lastAnalysis={analysis}
+                      dimension={dimension}
+                      setAnalysisSettings={setAnalysisSettings}
+                      resetFilters={() => {
+                        if (baselineRow !== 0) {
+                          setBaselineRow?.(0);
+                          setVariationFilter?.([]);
+                        }
+                        setDifferenceType("relative");
+                        experiment.type === "multi-armed-bandit"
+                          ? setSnapshotType("exploratory")
+                          : setSnapshotType(undefined);
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+            {ds &&
+              permissionsUtil.canRunExperimentQueries(ds) &&
+              latest &&
+              (status === "failed" || status === "partially-succeeded") && (
+                <div className="col-auto pl-1">
+                  <ViewAsyncQueriesButton
+                    queries={latest.queries.map((q) => q.query)}
+                    error={latest.error}
+                    color={clsx(
+                      {
+                        "outline-danger":
+                          status === "failed" ||
+                          status === "partially-succeeded",
+                      },
+                      " ",
+                    )}
+                    display={null}
+                    status={status}
+                    icon={
+                      <span
+                        className="position-relative pr-2"
+                        style={{ marginRight: 6 }}
+                      >
+                        <span className="text-main">
+                          <FaDatabase />
+                        </span>
+                        <FaExclamationTriangle
+                          className="position-absolute"
+                          style={{
+                            top: -6,
+                            right: -4,
+                          }}
+                        />
+                      </span>
+                    }
+                    condensed={true}
+                  />
+                </div>
+              )}
+
+            <div className="col-auto px-0">
+              <ResultMoreMenu
+                experiment={experiment}
+                snapshotId={snapshot?.id || ""}
+                datasource={datasource}
+                forceRefresh={
+                  numMetrics > 0
+                    ? async () => {
+                        await apiCall<{
+                          snapshot: ExperimentSnapshotInterface;
+                        }>(`/experiment/${experiment.id}/snapshot?force=true`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            phase,
+                            dimension,
+                          }),
+                        })
+                          .then((res) => {
+                            setAnalysisSettings(null);
+                            if (baselineRow !== 0) {
+                              setBaselineRow?.(0);
+                              setVariationFilter?.([]);
+                            }
+                            setDifferenceType("relative");
+                            trackSnapshot(
+                              "create",
+                              "ForceRerunQueriesButton",
+                              datasource?.type || null,
+                              res.snapshot,
+                            );
+                            mutateSnapshot();
+                            mutate();
+                          })
+                          .catch((e) => {
+                            console.error(e);
+                          });
+                      }
+                    : undefined
+                }
+                editMetrics={editMetrics}
+                notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+                notebookFilename={experiment.trackingKey}
+                reportArgs={reportArgs}
+                queries={
+                  latest && latest.status !== "error" && latest.queries
+                    ? latest.queries
+                    : snapshot?.queries
+                }
+                queryError={snapshot?.error}
+                supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                hasData={hasData}
+                metrics={useMemo(() => {
+                  const metricMap = new Map<
+                    string,
+                    ExperimentMetricInterface
+                  >();
+                  const allBaseMetrics = [...metrics, ...factMetrics];
+                  allBaseMetrics.forEach((metric) =>
+                    metricMap.set(metric.id, metric),
+                  );
+                  const factTableMap = new Map(
+                    factTables.map((table) => [table.id, table]),
+                  );
+
+                  // Expand slice metrics and add them to the map
+                  expandAllSliceMetricsInMap({
+                    metricMap,
+                    factTableMap,
+                    experiment,
+                    metricGroups,
+                  });
+
+                  return getAllExpandedMetricIdsFromExperiment({
+                    exp: experiment,
+                    expandedMetricMap: metricMap,
+                    includeActivationMetric: false,
+                    metricGroups,
+                  });
+                }, [
+                  experiment,
+                  metrics,
+                  factMetrics,
+                  factTables,
+                  metricGroups,
+                ])}
+                results={analysis?.results}
+                variations={variations}
+                trackingKey={experiment.trackingKey}
+                dimension={dimension}
+                project={experiment.project}
+              />
+            </div>
+          </div>
         </div>
       </div>
       {refreshError && (

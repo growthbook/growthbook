@@ -4,7 +4,7 @@
   color-scheme: light;
   --text-color-enterprise: #{colors.$dark-blue};
   --background-color: #{colors.$main-background};
-  --surface-background-color: #{colors.$white};
+  --surface-background-color: #{colors.$white}; //rgba(255, 255, 255, 0.85);
   --surface-background-color-alt: #{darken(colors.$white, 3%)};
   --background-primary-light: #f3eff7;
   --background-highlight: rgba(156, 117, 235, 0.06);
@@ -122,21 +122,17 @@
   --step-completed-background: #218358;
   --step-completed-color: #fbfefc;
   --step-color: #6550b9;
-
-  // radix color-scheme;
-  --color-text-high: #{colors.$radix-text-color-light};
-  --color-text-mid: #{opacify(colors.$radix-text-color-light, 0.15)};
-
-  --color-background: #faf8ff;
-  --color-panel-solid: #ffffff;
 }
 
 @mixin dark-theme {
   color-scheme: dark;
   --text-color-enterprise: #{colors.$white};
   --background-color: #{colors.$main-background-dark};
-  --surface-background-color: #{colors.$surface-background-dark};
-  --surface-background-color-alt: #{lighten(colors.$surface-background-dark, 4%)};
+  --surface-background-color: #{colors.$surface-background-dark}; //rgba(0, 0, 0, 0.25);
+  --surface-background-color-alt: #{lighten(
+      colors.$surface-background-dark,
+      4%
+    )};
   --table-row-hover-background-color: #{rgba(colors.$gray2, 0.15)};
   --table-row-highlight-background-color: #{lighten(
       colors.$surface-background-dark,
@@ -160,8 +156,8 @@
 
   --form-input-group-background: #{colors.$gray-800};
   --form-input-group-color: #{colors.$gray6};
-  --form-multivalue-background-color: #{colors.$highlight-purple-light};
-  --form-multivalue-text-color: #{colors.$black};
+  --form-multivalue-background-color: #{darken(colors.$highlight-purple, 30%)};
+  --form-multivalue-text-color: #{colors.$gray4};
   --form-switch-background: #{colors.$gray-800};
   --form-switch-background-active: #{colors.$highlight-purple};
 
@@ -198,9 +194,9 @@
 
   --custom-markdown-border: #{colors.$highlight-purple-light};
 
-  --border-color-100: #616161;
-  --border-color-200: #424242;
-  --border-color-300: #424242;
+  --border-color-100: #383838;
+  --border-color-200: #323232;
+  --border-color-300: #3b3b3b;
 
   --diff-removed-background: #{rgba(#721c24, 0.35)};
   --diff-removed-background-highlight: #721c24;
@@ -256,13 +252,6 @@
   --step-completed-background: #3dd68c;
   --step-completed-color: #0e1512;
   --step-color: #baa7ff;
-
-  // radix color-scheme;
-  --color-text-high: #ffffff;
-  --color-text-mid: #{opacify(#ffffff, 0.15)};
-
-  --color-background: #10172e;
-  --color-panel-solid: #1c2339;
 }
 
 .theme--light,

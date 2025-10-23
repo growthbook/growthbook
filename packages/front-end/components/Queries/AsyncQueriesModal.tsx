@@ -16,7 +16,7 @@ const AsyncQueriesModal: FC<{
   inline?: boolean;
 }> = ({ queries, close, error: _error, inline }) => {
   const { data, error: apiError } = useApi<{ queries: QueryInterface[] }>(
-    `/queries/${queries.join(",")}`
+    `/queries/${queries.join(",")}`,
   );
 
   const [showStats, setShowStats] = useState(false);
@@ -136,7 +136,7 @@ const AsyncQueriesModal: FC<{
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="async-queries"
       close={close}
       header="Queries"
       open={true}

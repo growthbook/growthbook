@@ -94,7 +94,7 @@ Use [2-character ISO country codes](https://en.wikipedia.org/wiki/ISO_3166-1_alp
 How to implement country code targeting:
 
 - Create an attribute and set the **Data Type** to `String`
-- Change the **String Format** to `ISO Country Code (2 digit)`
+- Change the **String Format** to `ISO Country Code (2 letter)`
 - Save the attribute
 
 Now, when setting targeting rules, you'll get a dropdown to directly select a country to target.
@@ -254,6 +254,15 @@ Manually define targeted users via text input or by uploading a CSV. For example
 ID Lists are limited to 1 MB. Using multiple, large ID Lists may impact performance as it increases the SDK payload. It's recommended to keep ID Lists as concise as possible.
 
 ID Lists accept the following types of attributes: `string`, `secureString`, or `number`. For targeting other types of attributes, use [Condition Groups](#condition-groups).
+
+:::note
+Empty lists would previously be ignored in the SDK payloads, causing targeting conditions referencing those
+lists to always evaluate to true. ID Lists created after the behavior was changed will properly use the empty
+list, so rules checking whether a value is in the list will always be false. Lists created before the
+change will preserve the old behavior so as not to break existing features.
+
+To make an ID list with the legacy behavior evaluate to false instead of true for conditions, you can add a single fake value such as "" or "\_" so that the list isn't empty
+:::
 
 :::note
 Enterprise users can use optimized ID lists to reduce payload size. Enable this feature by editing your SDK connection and toggling on **Pass ID Lists by reference**. If the the toggle isn't visible, your SDK is not compatible with this feature.

@@ -62,7 +62,7 @@ export function useConfigJson({
             userIdType: s.userIdType,
           } as Partial<SegmentInterface>,
         }),
-        {}
+        {},
       );
     }
 
@@ -92,6 +92,7 @@ export function useConfigJson({
           "maxPercentChange",
           "minPercentChange",
           "minSampleSize",
+          "targetMDE",
           "userIdTypes",
           "tags",
           "denominator",

@@ -4,12 +4,11 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { stringToBoolean } from "shared/util";
 
 export interface EnvironmentInitValue {
-  telemetry: "debug" | "enable" | "disable";
+  telemetry: "debug" | "enable" | "disable" | "enable-with-debug";
   cloud: boolean;
   isMultiOrg?: boolean;
   allowSelfOrgCreation: boolean;
   showMultiOrgSelfSelector: boolean;
-  dataWarehouseUrl?: string;
   appOrigin: string;
   apiHost: string;
   s3domain: string;
@@ -17,6 +16,7 @@ export interface EnvironmentInitValue {
   cdnHost: string;
   config: "file" | "db";
   defaultConversionWindowHours: number;
+  environment: string;
   build?: {
     sha: string;
     date: string;
@@ -26,8 +26,13 @@ export interface EnvironmentInitValue {
   usingSSO: boolean;
   storeSegmentsInMongo: boolean;
   allowCreateMetrics: boolean;
-  usingFileProxy: boolean;
+  allowCreateDimensions: boolean;
   superadminDefaultRole: string;
+  ingestorOverride: string;
+  stripePublishableKey: string;
+  experimentRefreshFrequency: number;
+  hasOpenAIKey?: boolean;
+  uploadMethod: "local" | "s3" | "google-cloud";
 }
 
 // Get env variables at runtime on the front-end while still using SSG
@@ -42,23 +47,28 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     CDN_HOST,
     IS_CLOUD,
     IS_MULTI_ORG,
-    DATAWAREHOUSE_URL,
+    INGESTOR_HOST,
     ALLOW_SELF_ORG_CREATION,
     SHOW_MULTI_ORG_SELF_SELECTOR,
     DISABLE_TELEMETRY,
     DEFAULT_CONVERSION_WINDOW_HOURS,
     NEXT_PUBLIC_SENTRY_DSN,
+    NODE_ENV,
     SSO_CONFIG,
     STORE_SEGMENTS_IN_MONGO,
     ALLOW_CREATE_METRICS,
-    USE_FILE_PROXY: USING_FILE_PROXY,
+    ALLOW_CREATE_DIMENSIONS,
     SUPERADMIN_DEFAULT_ROLE,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    EXPERIMENT_REFRESH_FREQUENCY,
+    OPENAI_API_KEY,
+    UPLOAD_METHOD,
   } = process.env;
 
   const rootPath = path.join(__dirname, "..", "..", "..", "..", "..", "..");
 
   const hasConfigFile = fs.existsSync(
-    path.join(rootPath, "config", "config.yml")
+    path.join(rootPath, "config", "config.yml"),
   );
 
   const build = {
@@ -101,29 +111,39 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     cdnHost: CDN_HOST || "",
     cloud: stringToBoolean(IS_CLOUD),
     isMultiOrg: stringToBoolean(IS_MULTI_ORG),
-    ...(DATAWAREHOUSE_URL ? { dataWarehouseUrl: DATAWAREHOUSE_URL } : {}),
     allowSelfOrgCreation: stringToBoolean(ALLOW_SELF_ORG_CREATION),
     showMultiOrgSelfSelector: stringToBoolean(
       SHOW_MULTI_ORG_SELF_SELECTOR,
-      true
+      true,
     ),
     config: hasConfigFile ? "file" : "db",
     allowCreateMetrics: !hasConfigFile || stringToBoolean(ALLOW_CREATE_METRICS),
+    allowCreateDimensions:
+      !hasConfigFile || stringToBoolean(ALLOW_CREATE_DIMENSIONS),
     build,
+    environment: NODE_ENV || "development",
     defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
       ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)
       : 72,
     telemetry:
       DISABLE_TELEMETRY === "debug"
         ? "debug"
-        : DISABLE_TELEMETRY
-        ? "disable"
-        : "enable",
+        : DISABLE_TELEMETRY === "enable-with-debug"
+          ? "enable-with-debug"
+          : DISABLE_TELEMETRY
+            ? "disable"
+            : "enable",
     sentryDSN: NEXT_PUBLIC_SENTRY_DSN || "",
     usingSSO: !!SSO_CONFIG, // No matter what SSO_CONFIG is set to we want it to count as using it.
     storeSegmentsInMongo: stringToBoolean(STORE_SEGMENTS_IN_MONGO),
-    usingFileProxy: stringToBoolean(USING_FILE_PROXY),
     superadminDefaultRole: SUPERADMIN_DEFAULT_ROLE || "readonly",
+    ingestorOverride: INGESTOR_HOST || "",
+    stripePublishableKey: NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+    experimentRefreshFrequency: EXPERIMENT_REFRESH_FREQUENCY
+      ? parseInt(EXPERIMENT_REFRESH_FREQUENCY)
+      : 6,
+    hasOpenAIKey: !!OPENAI_API_KEY || false,
+    uploadMethod: (UPLOAD_METHOD || "local") as "local" | "s3" | "google-cloud",
   };
 
   res.setHeader("Cache-Control", "max-age=3600").status(200).json(body);

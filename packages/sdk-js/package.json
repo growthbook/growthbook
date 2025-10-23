@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "1.2.1",
+  "version": "1.6.1",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.mjs",
@@ -17,10 +17,21 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/cjs/index.js"
       }
+    },
+    "./plugins": {
+      "import": {
+        "types": "./dist/plugins/index.d.ts",
+        "default": "./dist/esm/plugins/index.mjs"
+      },
+      "require": {
+        "types": "./dist/plugins/index.d.ts",
+        "default": "./dist/cjs/plugins/index.js"
+      }
     }
   },
   "files": [
     "dist",
+    "plugins",
     "src"
   ],
   "engines": {
@@ -43,7 +54,8 @@
     "clean": "rimraf node_modules",
     "type-safe-tests": "node scripts/type-safe-tests.js",
     "type-check": "tsc --pretty --noEmit",
-    "size": "gzip-size ./dist/bundles/index.min.js --include-original"
+    "size": "gzip-size ./dist/bundles/index.min.js --include-original",
+    "bump-version": "node scripts/bump-version.js"
   },
   "author": "Jeremy Dorn",
   "dependencies": {

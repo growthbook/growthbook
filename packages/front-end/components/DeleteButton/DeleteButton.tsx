@@ -9,6 +9,7 @@ import {
 import clsx from "clsx";
 import { PiTrashFill } from "react-icons/pi";
 import Modal from "@/components/Modal";
+import Button from "@/ui/Button";
 
 const DeleteButton: FC<{
   onClick: () => void | Promise<void>;
@@ -21,11 +22,13 @@ const DeleteButton: FC<{
   text?: string;
   title?: string;
   useIcon?: boolean;
+  useRadix?: boolean;
   deleteMessage?: ReactElement | null | string;
   additionalMessage?: ReactElement | null | string;
   getConfirmationContent?: () => Promise<string | ReactElement | null>;
   canDelete?: boolean;
   disabled?: boolean;
+  stopPropagation?: boolean;
 }> = ({
   onClick,
   className,
@@ -37,11 +40,13 @@ const DeleteButton: FC<{
   text = "",
   title = "",
   useIcon = true,
+  useRadix = false,
   deleteMessage = "Are you sure? This action cannot be undone.",
   additionalMessage = "",
   getConfirmationContent,
   canDelete = true,
   disabled = false,
+  stopPropagation = false,
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [dynamicContent, setDynamicContent] = useState<
@@ -67,6 +72,7 @@ const DeleteButton: FC<{
           submitColor="danger"
           submit={onClick}
           ctaEnabled={canDelete}
+          increasedElevation={true}
         >
           {dynamicContent ? (
             dynamicContent
@@ -85,24 +91,36 @@ const DeleteButton: FC<{
       ) : (
         ""
       )}
-      <a
-        className={clsx(
-          link
-            ? "text-danger"
-            : ["btn", outline ? "btn-outline-danger" : "btn-danger"],
-          className
-        )}
-        title={title}
-        href="#"
-        style={style}
-        onClick={(e) => {
-          e.preventDefault();
-          !disabled && setConfirming(true);
-        }}
-      >
-        {useIcon && <PiTrashFill className={iconClassName} />}
-        {text && ` ${text}`}
-      </a>
+      {useRadix ? (
+        <Button
+          onClick={() => !disabled && setConfirming(true)}
+          variant="ghost"
+          color="red"
+          title={title}
+          stopPropagation={stopPropagation}
+        >
+          {text}
+        </Button>
+      ) : (
+        <a
+          className={clsx(
+            link
+              ? "text-danger"
+              : ["btn", outline ? "btn-outline-danger" : "btn-danger"],
+            className,
+          )}
+          title={title}
+          href="#"
+          style={style}
+          onClick={(e) => {
+            e.preventDefault();
+            !disabled && setConfirming(true);
+          }}
+        >
+          {useIcon && <PiTrashFill className={iconClassName} />}
+          {text && ` ${text}`}
+        </a>
+      )}
     </>
   );
 };

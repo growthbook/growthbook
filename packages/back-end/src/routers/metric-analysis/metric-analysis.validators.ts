@@ -45,7 +45,7 @@ export const metricAnalysisHistogramValidator = z.array(
       end: z.number(),
       units: z.number(),
     })
-    .strict()
+    .strict(),
 );
 
 export const metricAnalysisResultValidator = z
@@ -64,7 +64,7 @@ export const metricAnalysisResultValidator = z
           stddev: z.number().optional(),
           numerator: z.number().optional(),
           denominator: z.number().optional(),
-        })
+        }),
       )
       .optional(),
     histogram: metricAnalysisHistogramValidator.optional(),

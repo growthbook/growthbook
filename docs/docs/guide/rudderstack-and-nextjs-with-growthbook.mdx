@@ -5,6 +5,8 @@ sidebar_label: Rudderstack + Next.js
 slug: rudderstack-and-nextjs-with-growthbook
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # A/B Testing with Rudderstack and Next.js
 
 This document is a guide on how to add GrowthBook feature flags and A/B testing to your existing Next.js application using Rudderstack for event tracking.
@@ -19,32 +21,26 @@ self-hosting quick start instructions here: [self hosting instructions](/self-ho
 
 From within your Rudderstack account, create a new JS source.
 
-<img
-  src="/images/guides/rudderstack-7-create-source.png"
-  alt="Add Rudderstack JS source"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Add Rudderstack JS source](/images/guides/rudderstack-7-create-source.png)
+</MaxWidthImage>
 
 Name the source whatever you like, in this example I'm using `GrowthBook JS`. When the source is created, connect it to
 your BigQuery data warehouse (or whatever destination you're using for GrowthBook experiment data). You can read more
 about how to connect to your data destination [here](/guide/rudderstack).
 
-<img
-  src="/images/guides/rudderstack-8-source-w-destination.png"
-  alt="Add BigQuery destination"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Add BigQuery destination](/images/guides/rudderstack-8-source-w-destination.png)
+</MaxWidthImage>
 
 Once you have it connected, copy the write key, as we'll need it for the next step.
 
 Under connections, you should now see the JS source connected to the BigQuery destination. You will also need the
 `Data plane URL` which appears near the top of the page.
 
-<img
-  src="/images/guides/rudderstack-9-connected-js.png"
-  alt="Add BigQuery destination"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Rudderstack BigQuery connection](/images/guides/rudderstack-9-connected-js.png)
+</MaxWidthImage>
 
 ## 3. Integrate Rudderstack into your Next.js application
 

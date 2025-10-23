@@ -41,7 +41,7 @@ type GetSegmentsResponse = {
  */
 export const getSegments = async (
   req: GetSegmentsRequest,
-  res: Response<GetSegmentsResponse, EventUserForResponseLocals>
+  res: Response<GetSegmentsResponse, EventUserForResponseLocals>,
 ) => {
   const context = getContextFromReq(req);
   const segments = await context.models.segments.getAll();
@@ -77,7 +77,7 @@ type GetSegmentUsageResponse = {
  */
 export const getSegmentUsage = async (
   req: GetSegmentUsageRequest,
-  res: Response<GetSegmentUsageResponse, EventUserForResponseLocals>
+  res: Response<GetSegmentUsageResponse, EventUserForResponseLocals>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
@@ -131,7 +131,7 @@ export const postSegment = async (
   res: Response<
     CreateSegmentResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const {
     datasource,
@@ -143,10 +143,11 @@ export const postSegment = async (
     factTableId,
     filters,
     type,
+    projects,
   } = req.body;
 
   const context = getContextFromReq(req);
-  if (!context.permissions.canCreateSegment()) {
+  if (!context.permissions.canCreateSegment({ projects })) {
     context.permissions.throwPermissionError();
   }
 
@@ -165,6 +166,7 @@ export const postSegment = async (
     name,
     description,
     type,
+    projects,
   };
 
   if (type === "SQL") {
@@ -208,13 +210,10 @@ export const putSegment = async (
   res: Response<
     PutSegmentResponse | ApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  if (!context.permissions.canUpdateSegment()) {
-    context.permissions.throwPermissionError();
-  }
   const { org } = context;
 
   const segment = await context.models.segments.getById(id);
@@ -236,7 +235,12 @@ export const putSegment = async (
     factTableId,
     filters,
     type,
+    projects,
   } = req.body;
+
+  if (!context.permissions.canUpdateSegment(segment, { projects })) {
+    context.permissions.throwPermissionError();
+  }
 
   const datasourceDoc = await getDataSourceById(context, datasource);
   if (!datasourceDoc) {
@@ -253,6 +257,7 @@ export const putSegment = async (
     type,
     factTableId,
     filters,
+    projects,
   });
 
   res.status(200).json({
@@ -278,20 +283,19 @@ type DeleteSegmentResponse = {
  */
 export const deleteSegment = async (
   req: DeleteSegmentRequest,
-  res: Response<DeleteSegmentResponse, EventUserForResponseLocals>
+  res: Response<DeleteSegmentResponse, EventUserForResponseLocals>,
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-
-  if (!context.permissions.canDeleteSegment()) {
-    context.permissions.throwPermissionError();
-  }
 
   const { org } = context;
   const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
+  }
+  if (!context.permissions.canDeleteSegment(segment)) {
+    context.permissions.throwPermissionError();
   }
 
   await context.models.segments.delete(segment);
@@ -307,7 +311,7 @@ export const deleteSegment = async (
       { organization: org.id, "estimateParams.segment": id },
       {
         $unset: { "estimateParams.segment": "" },
-      }
+      },
     );
   }
 

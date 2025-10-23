@@ -15,14 +15,13 @@ import {
   IdTokenResponse,
   UnauthenticatedResponse,
 } from "back-end/types/sso-connection";
-import * as Sentry from "@sentry/react";
+import * as Sentry from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
-import { LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
+import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
 
 export type UserOrganizations = { id: string; name: string }[];
 // eslint-disable-next-line
@@ -30,7 +29,7 @@ type ErrorHandler = (responseData: any) => void;
 export type ApiCallType<T> = (
   url: string,
   options?: RequestInit,
-  errorHandler?: ErrorHandler
+  errorHandler?: ErrorHandler,
 ) => Promise<T>;
 
 export interface AuthContextValue {
@@ -40,7 +39,7 @@ export interface AuthContextValue {
   apiCall: <T>(
     url: string | null,
     options?: RequestInit,
-    errorHandler?: ErrorHandler
+    errorHandler?: ErrorHandler,
   ) => Promise<T>;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
@@ -137,7 +136,7 @@ const isUnregisteredCloudUser = () => {
 
   try {
     const currentProject = window.localStorage.getItem(
-      LOCALSTORAGE_PROJECT_KEY
+      LOCALSTORAGE_PROJECT_KEY,
     );
     return currentProject === null;
   } catch (_) {
@@ -199,30 +198,32 @@ export async function redirectWithTimeout(url: string, timeout: number = 5000) {
   await new Promise((resolve) => setTimeout(resolve, timeout));
 }
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{
+  exitOnNoAuth?: boolean;
+  children: ReactNode;
+}> = ({ exitOnNoAuth = true, children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
-  const [
-    specialOrg,
-    setSpecialOrg,
-  ] = useState<Partial<OrganizationInterface> | null>(null);
+  const [specialOrg, setSpecialOrg] =
+    useState<Partial<OrganizationInterface> | null>(null);
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
   const router = useRouter();
   const initialOrgId = router.query.org ? router.query.org + "" : null;
 
-  const [, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [, setProject] = useProject();
 
   async function init() {
     const resp = await refreshToken();
     if ("token" in resp) {
       setInitError("");
       setToken(resp.token);
+      setLoading(false);
+    } else if (!exitOnNoAuth) {
+      setInitError("");
       setLoading(false);
     } else if ("redirectURI" in resp) {
       if (resp.confirm) {
@@ -243,7 +244,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             <p>
               You must sign in with your Enterprise SSO provider to continue.
             </p>
-          </Modal>
+          </Modal>,
         );
       } else {
         try {
@@ -251,7 +252,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             window.location.pathname + (window.location.search || "");
           window.sessionStorage.setItem(
             "postAuthRedirectPath",
-            redirectAddress
+            redirectAddress,
           );
         } catch (e) {
           // ignore
@@ -276,7 +277,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             }
             setAuthComponent(null);
           }}
-        />
+        />,
       );
     } else {
       console.log(resp);
@@ -333,14 +334,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       return responseData;
     },
-    [orgId]
+    [orgId],
   );
 
   const apiCall = useCallback(
     async (
       url: string | null,
       options: RequestInit = {},
-      errorHandler: ErrorHandler | null = null
+      errorHandler: ErrorHandler | null = null,
     ) => {
       if (typeof url !== "string") return;
 
@@ -364,7 +365,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
                 window.location.pathname + (window.location.search || "");
               window.sessionStorage.setItem(
                 "postAuthRedirectPath",
-                redirectAddress
+                redirectAddress,
               );
             } catch (e) {
               // ignore
@@ -374,7 +375,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
           }
           setSessionError(true);
           throw new Error(
-            "Your session has expired. Refresh the page to continue."
+            "Your session has expired. Refresh the page to continue.",
           );
         }
 
@@ -386,7 +387,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       return responseData;
     },
-    [token, _makeApiCall]
+    [token, _makeApiCall],
   );
 
   const wrappedSetOrganizations = useCallback(
@@ -423,7 +424,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         }
       }
     },
-    [initialOrgId, orgId, router.query.org, specialOrg?.id]
+    [initialOrgId, orgId, router.query.org, specialOrg?.id],
   );
 
   if (initError) {
@@ -520,7 +521,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 export function roleHasAccessToEnv(
   role: MemberRoleInfo,
   env: string,
-  org: Partial<OrganizationInterface>
+  org: Partial<OrganizationInterface>,
 ): "yes" | "no" | "N/A" {
   if (!roleSupportsEnvLimit(role.role, org)) return "N/A";
 

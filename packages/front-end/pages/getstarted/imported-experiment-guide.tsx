@@ -25,7 +25,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   const { setStep, clearStep } = useGetStarted();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
 
   // If they view the guide, clear the current step
@@ -46,14 +46,14 @@ const ImportedExperimentGuide = (): React.ReactElement => {
   // Ignore the demo datasource
   const hasExperiments = project
     ? experiments.some(
-        (e) => e.project !== demoProjectId && e.project === project
+        (e) => e.project !== demoProjectId && e.project === project,
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
   const hasFactTables = factTables.length > 0;
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
 
   return (
@@ -67,8 +67,8 @@ const ImportedExperimentGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started-experiment-guide"
+          commercialFeature={null}
         />
       )}
       <h1 className="mb-3">Analyze Imported Experiments</h1>
@@ -212,7 +212,7 @@ const ImportedExperimentGuide = (): React.ReactElement => {
               </div>
               <div className="col">
                 <Link
-                  href="/experiments"
+                  href="/experiments?analyzeExisting=true"
                   style={{
                     fontSize: "17px",
                     fontWeight: 600,

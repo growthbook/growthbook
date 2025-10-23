@@ -27,6 +27,7 @@ import {
   useSelectOptions,
 } from "@/components/Forms/SelectField";
 import Field, { FieldProps } from "@/components/Forms/Field";
+import { ColorOption } from "@/components/Tags/TagsInput";
 
 const SortableMultiValue = SortableElement(
   (props: MultiValueProps<SingleValue>) => {
@@ -38,27 +39,21 @@ const SortableMultiValue = SortableElement(
     const innerProps = { ...props.innerProps, onMouseDown };
     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ innerProps: { onMouseDown: MouseEventHandl... Remove this comment to see the full error message
     return <components.MultiValue {...props} innerProps={innerProps} />;
-  }
+  },
 );
 
 // eslint-disable-next-line
 const SortableMultiValueLabel = SortableHandle<any>(
   (props: MultiValueGenericProps) => {
     const label = <components.MultiValueLabel {...props} />;
-    if (props.data?.tooltip) {
-      return <div title={props.data.tooltip}>{label}</div>;
-    }
-    return label;
-  }
+    return <div title={props.data?.tooltip}>{label}</div>;
+  },
 );
 
 const OptionWithTitle = (props: OptionProps<SingleValue>) => {
   // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ children: ReactNode; innerRef: (instance: ... Remove this comment to see the full error message
   const option = <components.Option {...props} />;
-  if (props.data?.tooltip) {
-    return <div title={props.data.tooltip}>{option}</div>;
-  }
-  return option;
+  return <div title={props.data?.tooltip}>{option}</div>;
 };
 
 const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
@@ -66,7 +61,7 @@ const SortableSelect = SortableContainer(ReactSelect) as React.ComponentClass<
 >;
 
 const SortableCreatableSelect = SortableContainer(
-  CreatableSelect
+  CreatableSelect,
 ) as React.ComponentClass<Props<SingleValue, true> & SortableContainerProps>;
 
 const Input = (props: InputProps) => {
@@ -85,13 +80,13 @@ export type MultiSelectFieldProps = Omit<
   initialOption?: string;
   onChange: (value: string[]) => void;
   sort?: boolean;
-  customStyles?: StylesConfig;
+  customStyles?: StylesConfig<ColorOption, true>;
   customClassName?: string;
   closeMenuOnSelect?: boolean;
   creatable?: boolean;
   formatOptionLabel?: (
     value: SingleValue,
-    meta: FormatOptionLabelMeta<SingleValue>
+    meta: FormatOptionLabelMeta<SingleValue>,
   ) => ReactNode;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   isOptionDisabled?: (_: Option) => boolean;
@@ -130,11 +125,18 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       arrayMove(
         selected.map((v) => v.value),
         oldIndex,
-        newIndex
-      )
+        newIndex,
+      ),
     );
   };
-  const mergeStyles = customStyles ? { styles: customStyles } : {};
+  const mergeStyles = customStyles
+    ? {
+        styles: {
+          ...ReactSelectProps.styles,
+          ...customStyles,
+        },
+      }
+    : {};
   return (
     <Field
       {...fieldProps}
@@ -147,7 +149,20 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             classNamePrefix="gb-multi-select"
             helperClass="multi-select-container"
             axis="xy"
-            onSortEnd={onSortEnd}
+            onSortEnd={(s, e) => {
+              onSortEnd(s, e);
+              // The following is a hack to clean up elements that might be
+              // left in the dom after dragging. Hopefully we can remove this
+              // if react-select and react-sortable fixes it.
+              setTimeout(() => {
+                const nodes = document.querySelectorAll(
+                  "body > .multi-select-container",
+                );
+                nodes.forEach((n) => {
+                  n.remove();
+                });
+              }, 100);
+            }}
             distance={4}
             getHelperDimensions={({ node }) => node.getBoundingClientRect()}
             id={id}
@@ -160,8 +175,6 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
               onChange(selected?.map((s) => s.value) ?? []);
             }}
             components={{
-              // eslint-disable-next-line
-              // @ts-expect-error We're failing to provide a required index prop to SortableElement
               MultiValue: SortableMultiValue,
               MultiValueLabel: SortableMultiValueLabel,
               Option: OptionWithTitle,
@@ -173,25 +186,25 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
                     IndicatorSeparator: () => null,
                   }
                 : creatable
-                ? {
-                    MenuList: (props) => {
-                      return (
-                        <>
-                          <div
-                            className="px-2 py-1"
-                            style={{
-                              fontWeight: 500,
-                              fontSize: "85%",
-                            }}
-                          >
-                            <strong>Select an option or create one</strong>
-                          </div>
-                          <components.MenuList {...props} />
-                        </>
-                      );
-                    },
-                  }
-                : {}),
+                  ? {
+                      MenuList: (props) => {
+                        return (
+                          <>
+                            <div
+                              className="px-2 py-1"
+                              style={{
+                                fontWeight: 500,
+                                fontSize: "85%",
+                              }}
+                            >
+                              <strong>Select an option or create one</strong>
+                            </div>
+                            <components.MenuList {...props} />
+                          </>
+                        );
+                      },
+                    }
+                  : {}),
             }}
             {...(creatable && noMenu
               ? {

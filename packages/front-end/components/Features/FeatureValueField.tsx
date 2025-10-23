@@ -12,17 +12,17 @@ import { BsBoxArrowUpRight } from "react-icons/bs";
 import dJSON from "dirty-json";
 import clsx from "clsx";
 import Field from "@/components/Forms/Field";
-import Toggle from "@/components/Forms/Toggle";
 import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import Modal from "@/components/Modal";
 import { GBAddCircle } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import RadioGroup from "@/ui/RadioGroup";
 
 export interface Props {
-  valueType: FeatureValueType;
-  label: string;
+  valueType?: FeatureValueType;
+  label?: string | ReactNode;
   value: string;
   setValue: (v: string) => void;
   id: string;
@@ -31,6 +31,8 @@ export interface Props {
   placeholder?: string;
   feature?: FeatureInterface;
   renderJSONInline?: boolean;
+  disabled?: boolean;
+  useDropdown?: boolean;
 }
 
 export default function FeatureValueField({
@@ -38,11 +40,12 @@ export default function FeatureValueField({
   label,
   value,
   setValue,
-  id,
   helpText,
   placeholder,
   feature,
   renderJSONInline,
+  disabled = false,
+  useDropdown = false,
 }: Props) {
   const { hasCommercialFeature } = useUser();
   const hasJsonValidator = hasCommercialFeature("json-validation");
@@ -65,28 +68,51 @@ export default function FeatureValueField({
           renderInline={renderJSONInline}
           label={label}
           placeholder={placeholder}
+          disabled={disabled}
         />
         {helpText && <small className="text-muted">{helpText}</small>}
       </>
     );
   }
-
-  if (valueType === "boolean") {
+  if (valueType === "boolean" && useDropdown) {
     return (
-      <div className="form-group">
-        <label>{label}</label>
+      <SelectField
+        options={[
+          { label: "TRUE", value: "true" },
+          { label: "FALSE", value: "false" },
+        ]}
+        value={value}
+        onChange={(v) => {
+          setValue(v);
+        }}
+        label={label}
+        disabled={disabled}
+      />
+    );
+  }
+
+  if (valueType === "boolean" && !useDropdown) {
+    return (
+      <div className={clsx("form-group", { "mb-0": label === undefined })}>
+        {label !== undefined && <label>{label}</label>}
         <div>
-          <Toggle
-            id={id + "__toggle"}
-            value={value === "true"}
+          <RadioGroup
+            disabled={disabled}
+            options={[
+              {
+                label: "TRUE",
+                value: "true",
+              },
+              {
+                label: "FALSE",
+                value: "false",
+              },
+            ]}
+            value={value}
             setValue={(v) => {
-              setValue(v ? "true" : "false");
+              setValue(v);
             }}
-            type="featureValue"
           />
-          <span className="text-gray font-weight-bold pl-2">
-            {value === "true" ? "TRUE" : "FALSE"}
-          </span>
         </div>
         {helpText && <small className="text-muted">{helpText}</small>}
       </div>
@@ -101,6 +127,7 @@ export default function FeatureValueField({
         setValue={setValue}
         helpText={helpText}
         placeholder={placeholder}
+        disabled={disabled}
       />
     );
   }
@@ -120,11 +147,21 @@ export default function FeatureValueField({
             min: "any",
             max: "any",
           }
-        : {
-            textarea: true,
-            minRows: 1,
-          })}
+        : valueType === "string"
+          ? {
+              textarea: true,
+              minRows: 1,
+            }
+          : {})}
       helpText={helpText}
+      style={
+        valueType === undefined
+          ? { width: 80 }
+          : valueType === "number"
+            ? { width: 120 }
+            : undefined
+      }
+      disabled={disabled}
     />
   );
 }
@@ -135,12 +172,14 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
   setValue,
   label,
   showDescription,
+  disabled = false,
 }: {
   field: SchemaField;
   value: T;
   setValue: (value: T) => void;
   label?: ReactNode;
   showDescription?: boolean;
+  disabled?: boolean;
 }): ReactElement {
   const uuid = useId();
 
@@ -157,14 +196,15 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
         name={`${uuid}_required`}
         className="ml-1 mr-2"
         checked={isset}
+        disabled={disabled}
         onChange={(e) => {
           if (!isset && e.target.checked) {
             setValue(
               (field.type === "boolean"
                 ? false
                 : field.type === "string"
-                ? ""
-                : 0) as T
+                  ? ""
+                  : 0) as T,
             );
           } else if (!e.target.checked) {
             setValue(undefined as T);
@@ -207,7 +247,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
         containerClassName={containerClassName}
         labelClassName={labelClassName}
         label={label}
-        disabled={!field.required && !isset}
+        disabled={(!field.required && !isset) || disabled}
         helpText={helpText}
       />
     );
@@ -221,14 +261,22 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
             {label}
           </label>
           <div>
-            <Toggle
-              id={uuid}
-              value={value as boolean}
+            <RadioGroup
+              options={[
+                {
+                  label: "TRUE",
+                  value: "true",
+                },
+                {
+                  label: "FALSE",
+                  value: "false",
+                },
+              ]}
+              value={value ? "true" : "false"}
               setValue={(v) => {
-                setValue(v as T);
+                setValue((v === "true") as T);
               }}
-              type="featureValue"
-              disabled={!field.required && !isset}
+              disabled={(!field.required && !isset) || disabled}
             />
           </div>
           {helpText && (
@@ -238,14 +286,22 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
       ) : (
         <>
           <div>
-            <Toggle
-              id={uuid}
-              value={value as boolean}
+            <RadioGroup
+              options={[
+                {
+                  label: "TRUE",
+                  value: "true",
+                },
+                {
+                  label: "FALSE",
+                  value: "false",
+                },
+              ]}
+              value={value ? "true" : "false"}
               setValue={(v) => {
-                setValue(v as T);
+                setValue((v === "true") as T);
               }}
-              type="featureValue"
-              disabled={!field.required && !isset}
+              disabled={(!field.required && !isset) || disabled}
             />
           </div>
           {helpText && (
@@ -267,7 +323,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
           maxLength={field.max}
           required={field.required}
           style={{ minWidth: 120 }}
-          disabled={!field.required && !isset}
+          disabled={(!field.required && !isset) || disabled}
           helpText={helpText}
         />
       );
@@ -283,7 +339,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
             setValue(
               (e.target.value === ""
                 ? undefined
-                : parseFloat(e.target.value)) as T
+                : parseFloat(e.target.value)) as T,
             );
           }}
           type="number"
@@ -292,7 +348,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
           max={field.max}
           required={field.required}
           style={{ minWidth: 80 }}
-          disabled={!field.required && !isset}
+          disabled={(!field.required && !isset) || disabled}
           helpText={helpText}
         />
       );
@@ -306,13 +362,15 @@ function SimpleSchemaEditor({
   renderInline,
   label,
   placeholder,
+  disabled = false,
 }: {
   schema: SimpleSchema;
   value: string;
   setValue: (value: string) => void;
   renderInline?: boolean;
-  label?: string;
+  label?: string | ReactNode;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [tempValue, setTempValue] = useState(value);
@@ -323,6 +381,7 @@ function SimpleSchemaEditor({
       setValue={setValue}
       label={label}
       placeholder={placeholder}
+      disabled={disabled}
     />
   );
 
@@ -345,6 +404,7 @@ function SimpleSchemaEditor({
         setValue={(v) => setValue(JSON.stringify(v))}
         label={label}
         showDescription={true}
+        disabled={disabled}
       />
     );
   }
@@ -376,8 +436,8 @@ function SimpleSchemaEditor({
           if (field.type === "float" || field.type === "integer") {
             setValue(
               JSON.stringify(
-                v.map((v) => parseFloat(v)).filter((v) => !isNaN(v))
-              )
+                v.map((v) => parseFloat(v)).filter((v) => !isNaN(v)),
+              ),
             );
           } else {
             setValue(JSON.stringify(v));
@@ -386,6 +446,7 @@ function SimpleSchemaEditor({
         placeholder="Select options"
         creatable={!field.enum.length}
         label={label}
+        disabled={disabled}
       />
     );
   }
@@ -416,6 +477,7 @@ function SimpleSchemaEditor({
               fields={schema.fields}
               label={label}
               placeholder={placeholder}
+              disabled={disabled}
             />
           </Modal>
         ) : null}
@@ -427,17 +489,19 @@ function SimpleSchemaEditor({
             disabled
             label={label}
           />
-          <a
-            href="#"
-            className="text-purple"
-            onClick={(e) => {
-              e.preventDefault();
-              setTempValue(value);
-              setOpen(true);
-            }}
-          >
-            Edit Value <BsBoxArrowUpRight style={{ marginTop: -3 }} />
-          </a>
+          {!disabled && (
+            <a
+              href="#"
+              className="text-purple"
+              onClick={(e) => {
+                e.preventDefault();
+                setTempValue(value);
+                setOpen(true);
+              }}
+            >
+              Edit Value <BsBoxArrowUpRight style={{ marginTop: -3 }} />
+            </a>
+          )}
         </div>
       </>
     );
@@ -452,6 +516,7 @@ function SimpleSchemaEditor({
       fields={schema.fields}
       label={label}
       placeholder={placeholder}
+      disabled={disabled}
     />
   );
 }
@@ -463,13 +528,15 @@ function JSONTextEditor({
   setValue,
   helpText,
   placeholder,
+  disabled = false,
 }: {
-  label?: string;
+  label?: string | ReactNode;
   editAsForm?: () => void;
   value: string;
   setValue: (value: string) => void;
   helpText?: ReactNode;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   let formatted;
   try {
@@ -483,6 +550,7 @@ function JSONTextEditor({
     <Field
       labelClassName={editAsForm ? "d-flex w-100" : ""}
       placeholder={placeholder}
+      disabled={disabled}
       label={
         editAsForm ? (
           <>
@@ -542,17 +610,19 @@ function SimpleSchemaObjectArrayEditor({
   setValue,
   label,
   placeholder,
+  disabled = false,
 }: {
   type: "object" | "object[]";
   value: string;
   setValue: (value: string) => void;
   fields: SchemaField[];
-  label?: string;
+  label?: string | ReactNode;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   let valueParsed: unknown;
   try {
-    valueParsed = JSON.parse(value);
+    valueParsed = value === "" ? {} : JSON.parse(value);
   } catch (e) {
     // Ignore
   }
@@ -573,6 +643,7 @@ function SimpleSchemaObjectArrayEditor({
           : undefined
       }
       placeholder={placeholder}
+      disabled={disabled}
     />
   );
 
@@ -585,16 +656,18 @@ function SimpleSchemaObjectArrayEditor({
       <div className="form-group">
         <div className="d-flex">
           <label>{label}</label>
-          <a
-            href="#"
-            className="ml-auto"
-            onClick={(e) => {
-              e.preventDefault();
-              setRawJSONInput(true);
-            }}
-          >
-            Edit as JSON
-          </a>
+          {!disabled && (
+            <a
+              href="#"
+              className="ml-auto"
+              onClick={(e) => {
+                e.preventDefault();
+                setRawJSONInput(true);
+              }}
+            >
+              Edit as JSON
+            </a>
+          )}
         </div>
         <div className="appbox bg-light px-3 pt-3">
           {fields.map((field) => {
@@ -605,12 +678,13 @@ function SimpleSchemaObjectArrayEditor({
                 key={field.key}
                 field={field}
                 value={value}
+                disabled={disabled}
                 setValue={(v) => {
                   setValue(
                     JSON.stringify({
                       ...obj,
                       [field.key]: v,
-                    })
+                    }),
                   );
                 }}
                 showDescription={true}
@@ -730,13 +804,13 @@ function SimpleSchemaObjectArrayEditor({
                       field.default
                         ? JSON.parse(field.default)
                         : field.type === "boolean"
-                        ? false
-                        : field.type === "string"
-                        ? ""
-                        : 0,
-                    ])
+                          ? false
+                          : field.type === "string"
+                            ? ""
+                            : 0,
+                    ]),
                   ),
-                ])
+                ]),
               );
             }}
           >

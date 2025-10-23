@@ -1,0 +1,81 @@
+---
+title: Query Optimization
+description: Learn about different techniques and settings to optimize SQL queries in GrowthBook
+sidebar_label: Query Optimization
+slug: /app/query-optimization
+---
+
+# Query Optimization
+
+GrowthBook is designed to run efficient database queries out-of-the-box, but for large datasets or complex metrics, there are a few settings and techniques you can use to optimize your queries.
+
+## SQL Template Variables
+
+GrowthBook runs all SQL through a templating engine (Handlebars) to allow for dynamic SQL generation. This lets you apply advanced query optimization.
+
+The most common is adding a date filter. For example:
+
+```sql
+SELECT
+  timestamp,
+  user_id,
+  amount
+FROM purchases
+WHERE
+  timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'
+```
+
+Read more about [SQL Templates](/app/sql-templates) and the different variables that are available.
+
+## Fact Tables
+
+Fact Tables are a shared SQL definition that can be re-used across multiple metrics. For example, a "Purchases" fact table could be used for both a "Total Revenue" metric and a "Items per Order" metric.
+
+If you are still using legacy metrics (where each metric has its own separate SQL definition), you are missing out on important query optimizations and the newest features in GrowthBook.
+
+Read more about [Fact Tables](/app/metrics) and how to [convert legacy metrics to Fact Tables](/app/metrics/legacy#migrating-legacy-metrics-to-fact-tables).
+
+## Fact Table Query Optimization
+
+GrowthBook Enterprise customers can enable Fact Table Query Optimization for faster, more efficient queries.
+
+If multiple metrics from the same Fact Table are added to an experiment, they will be combined into a single SQL query. For data sourcees with usage-based billing, this can result in dramatic cost savings.
+
+There are some restrictions that limit when this optimization can be performed:
+
+- Ratio metrics where the numerator and denominator are part of different Fact Tables are always excluded from this optimization
+- If `Exclude In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
+- If you are using MySQL and a metric has percentile capping, it will be excluded from optimization
+
+In all other cases, this optimization is enabled by default for all Enterprise customers. It can be disabled under **Settings → General → Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
+
+## Data Pipeline Mode
+
+GrowthBook Enterprise customers can enable Data Pipeline Mode to reduce the amount of duplicate data your warehouse needs to scan.
+
+When enabled, GrowthBook will write some intermediate tables back to your warehouse with short retention and re-use those across all of the metric queries in an experiment.
+
+Currently, this is limited to BigQuery, Snowflake, and Databricks, but we are working on adding support for other data sources soon.
+
+Read more about [Data Pipeline Mode](/app/data-pipeline).
+
+## Materialized Views
+
+If your metric definitions are complex and involve multiple joins or subqueries, you may want to consider creating a materialized view in your warehouse.
+
+Setting up materialized views differs by warehouse, so consult the documentation for your specific warehouse for more information.
+
+You can also use a tool like [dbt](https://www.getdbt.com/) to create computed tables that are automatically refreshed on a schedule.
+
+## Pre-Aggregated Tables
+
+Pre-aggregated tables include a GROUP BY in the data pipeline to compress raw event-level data down to fewer rows. This is usually done when querying raw data directly is prohibitively expensive.
+
+GrowthBook supports pre-aggregated tables as long as they satisfy two requirements:
+
+- Must be grouped by both user and date
+- Pre-aggregated columns can only be basic sums or counts. No averages, percentiles, count distinct, or complex derived formulas that break statistical assumptions.
+
+Using pre-aggregated tables for experimentation comes with additional complexities and downsides, so we highly recommend sticking with event-level data whenever possible.
+
+Read more about this approach with some [examples and best practices](/app/metrics/examples#pre-aggregated-tables).

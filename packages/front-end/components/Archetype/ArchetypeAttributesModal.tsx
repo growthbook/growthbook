@@ -3,20 +3,20 @@ import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "back-end/types/archetype";
 import Field from "@/components/Forms/Field";
 import AttributeForm from "@/components/Archetype/AttributeForm";
-import Toggle from "@/components/Forms/Toggle";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import Checkbox from "@/ui/Checkbox";
 
 const ArchetypeAttributesModal: FC<{
   close: () => void;
   header: string;
   initialValues?: Partial<ArchetypeInterface>;
-}> = ({ close, header, initialValues }) => {
+  source?: string;
+}> = ({ close, header, initialValues, source }) => {
   const form = useForm<{
     name: string;
     description: string;
@@ -44,25 +44,26 @@ const ArchetypeAttributesModal: FC<{
       {
         projects: initialValues?.projects ? initialValues.projects : [project],
       },
-      {}
+      {},
     );
   const permissionRequired = (project: string) => {
     return initialValues?.id
       ? permissionsUtil.canUpdateArchetype(
           { projects: initialValues?.projects },
-          { projects: [project] }
+          { projects: [project] },
         )
       : permissionsUtil.canCreateArchetype({ projects: [project] });
   };
 
   const projectOptions = useProjectOptions(
     permissionRequired,
-    form.watch("projects") || []
+    form.watch("projects") || [],
   );
 
   return (
     <Modal
-      trackingEventModalType=""
+      trackingEventModalType="add-edit-archetype"
+      trackingEventModalSource={source}
       open={true}
       autoCloseOnSubmit={false}
       close={close}
@@ -118,24 +119,17 @@ const ArchetypeAttributesModal: FC<{
             </div>
           )}
           <div className="mb-3">
-            <label className="mr-3">
-              Make archetype public?{" "}
-              <Tooltip
-                body={
-                  "Allow other team members to see this archetypal user for testing"
-                }
-              />
-            </label>
-            <Toggle
+            <Checkbox
               id="public"
+              label="Make archetype public"
+              description="Allow other team members to see this archetypal user for testing"
               value={form.watch("isPublic")}
               setValue={(v) => form.setValue("isPublic", v)}
-              label="Public"
             />
           </div>
           <div>
             <AttributeForm
-              initialValues={
+              attributeValues={
                 form.watch("attributes")
                   ? JSON.parse(form.watch("attributes"))
                   : {}

@@ -3,7 +3,6 @@ import { FaArchive, FaExclamationTriangle } from "react-icons/fa";
 import router from "next/router";
 import { date } from "shared/dates";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
-import { GBPremiumBadge } from "@/components/Icons";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -13,19 +12,17 @@ import MetricGroupModal from "@/components/Metrics/MetricGroupModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useUser } from "@/services/UserContext";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
 
 const MetricGroupsList: FC = () => {
   const [openModal, setOpenModal] = useState(false);
   const [editModal, setEditModal] = useState<MetricGroupInterface | null>(null);
   const [archiveModal, setArchiveModal] = useState<MetricGroupInterface | null>(
-    null
+    null,
   );
-  const {
-    metricGroups,
-    mutateDefinitions,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metricGroups, mutateDefinitions, getDatasourceById } =
+    useDefinitions();
   const { hasCommercialFeature } = useUser();
   const hasGroupsFeature = hasCommercialFeature("metric-groups");
 
@@ -37,7 +34,7 @@ const MetricGroupsList: FC = () => {
 
   const updateArchiveState = async (
     metricGroup: MetricGroupInterface,
-    archived: boolean
+    archived: boolean,
   ) => {
     await apiCall<{ metricGroup: MetricGroupInterface }>(
       `/metric-group/${metricGroup.id}`,
@@ -46,27 +43,20 @@ const MetricGroupsList: FC = () => {
         body: JSON.stringify({
           archived: archived,
         }),
-      }
+      },
     );
   };
 
   if (!hasGroupsFeature) {
     return (
-      <div className="appbox p-5 text-center">
-        <h2>Streamline Metric Usage in Experiments</h2>
-        <p>
-          Create groups of metrics that can be ordered and added to experiments
-        </p>
-        <div className="alert alert-premium mt-3 p-3 p-4 text-center">
-          <GBPremiumBadge
-            className="text-premium"
-            shouldDisplay={true}
-            prependsText={true}
-          />
-          <span className="ml-2 text-premium font-weight-bold">
-            Metric groups are a premium part of our Enterprise plan
-          </span>
-        </div>
+      <div>
+        <PremiumEmptyState
+          title="Streamline Metric Usage in Experiments"
+          description="Create reusable groups of metrics that can be ordered and added to experiments"
+          commercialFeature="metric-groups"
+          learnMoreLink="https://docs.growthbook.io/app/metrics#metric-groups"
+          image="/images/empty-states/metric_groups.png"
+        />
       </div>
     );
   }
@@ -86,6 +76,14 @@ const MetricGroupsList: FC = () => {
         </p>
         <div className="mt-3">
           <Button onClick={() => setOpenModal(true)}>Add Metric Group</Button>
+        </div>
+
+        <div className="mt-4">
+          <img
+            src="/images/empty-states/metric_groups.png"
+            alt="Metric Groups"
+            style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+          />
         </div>
       </div>
     );

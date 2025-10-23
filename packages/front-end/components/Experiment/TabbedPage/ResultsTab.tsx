@@ -1,10 +1,10 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getScopedSettings } from "shared/settings";
 import React, { useMemo, useState } from "react";
-import { ReportInterface } from "back-end/types/report";
+import {
+  ExperimentSnapshotReportArgs,
+  ReportInterface,
+} from "back-end/types/report";
 import uniq from "lodash/uniq";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -21,15 +21,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import Button from "@/components/Button";
-import { GBAddCircle } from "@/components/Icons";
 import Results, { ResultsMetricFilters } from "@/components/Experiment/Results";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import ExperimentReportsList from "@/components/Experiment/ExperimentReportsList";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { trackReport } from "@/services/track";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
+import Button from "@/ui/Button";
+import track from "@/services/track";
+import { AnalysisBarSettings } from "@/components/Experiment/AnalysisSettingsBar";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -42,23 +42,24 @@ export interface Props {
   editPhases?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   editTargeting?: (() => void) | null;
-  linkedFeatures: LinkedFeatureInfo[];
+  envs: string[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
   isTabActive: boolean;
   safeToEdit: boolean;
-  baselineRow: number;
-  setBaselineRow: (b: number) => void;
-  differenceType: DifferenceType;
-  setDifferenceType: (d: DifferenceType) => void;
-  variationFilter: number[];
-  setVariationFilter: (v: number[]) => void;
   metricFilter: ResultsMetricFilters;
   setMetricFilter: (m: ResultsMetricFilters) => void;
+  analysisBarSettings: AnalysisBarSettings;
+  setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
+  sortBy: "metric-tags" | "significance" | "change" | null;
+  setSortBy: (s: "metric-tags" | "significance" | "change" | null) => void;
+  sortDirection: "asc" | "desc" | null;
+  setSortDirection: (d: "asc" | "desc" | null) => void;
 }
 
 export default function ResultsTab({
   experiment,
+  envs,
   mutate,
   editMetrics,
   editResult,
@@ -66,14 +67,14 @@ export default function ResultsTab({
   setTab,
   isTabActive,
   safeToEdit,
-  baselineRow,
-  setBaselineRow,
-  differenceType,
-  setDifferenceType,
-  variationFilter,
-  setVariationFilter,
+  analysisBarSettings,
+  setAnalysisBarSettings,
   metricFilter,
   setMetricFilter,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }: Props) {
   const {
     getDatasourceById,
@@ -87,14 +88,13 @@ export default function ResultsTab({
   const { apiCall } = useAuth();
 
   const [allowManualDatasource, setAllowManualDatasource] = useState(false);
+  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
 
   const router = useRouter();
 
   const { snapshot, analysis } = useSnapshot();
+
   const permissionsUtil = usePermissionsUtil();
-
-  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
-
   const { hasCommercialFeature, organization } = useUser();
   const project = getProjectById(experiment.project || "");
 
@@ -109,25 +109,24 @@ export default function ResultsTab({
   const statsEngine = scopedSettings.statsEngine.value;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
 
   const allExperimentMetricIds = getAllMetricIdsFromExperiment(
     experiment,
-    false
+    false,
   );
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
-    getExperimentMetricById(m)
+    getExperimentMetricById(m),
   );
   const denominatorMetricIds = uniq<string>(
     allExperimentMetrics
       .map((m) => m?.denominator)
-      .filter((d) => d && typeof d === "string") as string[]
+      .filter((d) => d && typeof d === "string") as string[],
   );
   const denominatorMetrics = denominatorMetricIds
     .map((m) => getMetricById(m as string))
     .filter(isDefined);
-
   const orgSettings = useOrgSettings();
 
   const {
@@ -177,6 +176,19 @@ export default function ResultsTab({
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
+  const datasourceSettings = experiment.datasource
+    ? getDatasourceById(experiment.datasource)?.settings
+    : undefined;
+  const userIdType = datasourceSettings?.queries?.exposure?.find(
+    (e) => e.id === experiment.exposureQueryId,
+  )?.userIdType;
+
+  const reportArgs: ExperimentSnapshotReportArgs = {
+    userIdType: userIdType as "user" | "anonymous" | undefined,
+    differenceType: analysisBarSettings.differenceType,
+    dimension: analysisBarSettings.dimension,
+  };
+
   return (
     <div className="mt-3">
       {isBandit && hasResults ? (
@@ -187,11 +199,12 @@ export default function ResultsTab({
         </Callout>
       ) : null}
 
-      <div className="bg-white border">
+      <div className="appbox">
         {analysisSettingsOpen && (
           <AnalysisForm
             cancel={() => setAnalysisSettingsOpen(false)}
             experiment={experiment}
+            envs={envs}
             mutate={mutate}
             phase={experiment.phases.length - 1}
             editDates={false}
@@ -203,13 +216,27 @@ export default function ResultsTab({
         <div className="mb-2" style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
+            envs={envs}
             mutate={mutate}
             statsEngine={statsEngine}
             editMetrics={editMetrics ?? undefined}
-            setVariationFilter={(v: number[]) => setVariationFilter(v)}
-            baselineRow={baselineRow}
-            setBaselineRow={(b: number) => setBaselineRow(b)}
-            setDifferenceType={setDifferenceType}
+            baselineRow={analysisBarSettings.baselineRow}
+            setVariationFilter={(v: number[]) =>
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                variationFilter: v,
+              })
+            }
+            setBaselineRow={(b: number) =>
+              setAnalysisBarSettings({ ...analysisBarSettings, baselineRow: b })
+            }
+            setDifferenceType={(d: DifferenceType) =>
+              setAnalysisBarSettings({
+                ...analysisBarSettings,
+                differenceType: d,
+              })
+            }
+            reportArgs={reportArgs}
           />
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
@@ -271,6 +298,7 @@ export default function ResultsTab({
               ) : (
                 <Results
                   experiment={experiment}
+                  envs={envs}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
                   editResult={editResult ?? undefined}
@@ -284,54 +312,55 @@ export default function ResultsTab({
                     regressionAdjustmentHasValidMetrics
                   }
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+                  analysisBarSettings={analysisBarSettings}
+                  setAnalysisBarSettings={setAnalysisBarSettings}
                   isTabActive={isTabActive}
-                  variationFilter={variationFilter}
-                  setVariationFilter={setVariationFilter}
-                  baselineRow={baselineRow}
-                  setBaselineRow={setBaselineRow}
-                  differenceType={differenceType}
-                  setDifferenceType={setDifferenceType}
                   metricFilter={metricFilter}
                   setMetricFilter={setMetricFilter}
                   setTab={setTab}
+                  sortBy={sortBy}
+                  setSortBy={setSortBy}
+                  sortDirection={sortDirection}
+                  setSortDirection={setSortDirection}
                 />
               )}
             </>
           )}
         </div>
       </div>
-      {snapshot && !isBandit && (
-        <div className="bg-white border mt-4">
+      {snapshot && (
+        <div className="appbox mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
-            <div className="col h3 ml-2 mb-0">Custom Reports</div>
+            <div className="col ml-2">
+              <div className="h3">Custom Reports</div>
+              <div>
+                Create and share a stand-alone ad-hoc analysis without affecting
+                this {isBandit ? "Bandit" : "Experiment"}.
+              </div>
+            </div>
             <div className="col-auto mr-2">
               {permissionsUtil.canCreateReport(experiment) ? (
                 <Button
-                  className="btn btn-outline-primary float-right"
-                  color="outline-info"
-                  stopPropagation={true}
                   onClick={async () => {
                     const res = await apiCall<{ report: ReportInterface }>(
                       `/experiments/report/${snapshot.id}`,
                       {
                         method: "POST",
-                      }
+                        body: reportArgs
+                          ? JSON.stringify(reportArgs)
+                          : undefined,
+                      },
                     );
                     if (!res.report) {
                       throw new Error("Failed to create report");
                     }
-                    trackReport(
-                      "create",
-                      "ResultsTab",
-                      getDatasourceById(res.report.args.datasource)?.type ||
-                        null,
-                      res.report
-                    );
+                    track("Experiment Report: Create", {
+                      source: "experiment results tab",
+                    });
                     await router.push(`/report/${res.report.id}`);
                   }}
                 >
-                  <GBAddCircle className="pr-1" />
-                  Custom Report
+                  New Custom Report
                 </Button>
               ) : null}
             </div>

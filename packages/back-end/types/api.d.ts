@@ -28,6 +28,10 @@ export type FeatureDefinitionWithProject = FeatureDefinition & {
   project?: string;
 };
 
+export type FeatureDefinitionWithProjects = FeatureDefinition & {
+  projects?: string[];
+};
+
 export type AutoExperimentWithProject = AutoExperiment & {
   project?: string;
 };

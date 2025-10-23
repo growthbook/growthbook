@@ -1,19 +1,28 @@
 import { FeatureInterface } from "back-end/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { useState, useMemo } from "react";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import {
   autoMerge,
   filterEnvironmentsByFeature,
+  getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
-import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  getAffectedRevisionEnvs,
+  useEnvironments,
+  useFeatureExperimentChecklists,
+} from "@/services/features";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Button from "@/components/Button";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import { PreLaunchChecklistFeatureExpRule } from "@/components/Experiment/PreLaunchChecklist";
 
 export interface Props {
   feature: FeatureInterface;
@@ -22,7 +31,7 @@ export interface Props {
   close: () => void;
   mutate: () => void;
   onPublish?: () => void;
-  onDiscard?: () => void;
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
 }
 
 export function ExpandableDiff({
@@ -73,7 +82,7 @@ export default function DraftModal({
   close,
   mutate,
   onPublish,
-  onDiscard,
+  experimentsMap,
 }: Props) {
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -83,7 +92,7 @@ export default function DraftModal({
 
   const revision = revisions.find((r) => r.version === version);
   const baseRevision = revisions.find(
-    (r) => r.version === revision?.baseVersion
+    (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
@@ -94,11 +103,22 @@ export default function DraftModal({
       baseRevision,
       revision,
       environments.map((e) => e.id),
-      {}
+      {},
     );
   }, [revision, baseRevision, liveRevision]);
 
   const [comment, setComment] = useState(revision?.comment || "");
+
+  const { experimentData } = useFeatureExperimentChecklists({
+    feature,
+    revision,
+    experimentsMap,
+  });
+
+  const [selectedExperiments, setSelectedExperiments] = useState(
+    new Set(experimentData.map((e) => e.experiment.id)),
+  );
+  const [experimentsStep, setExperimentsStep] = useState(false);
 
   const resultDiffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];
@@ -135,10 +155,22 @@ export default function DraftModal({
 
   const hasPermission = permissionsUtil.canPublishFeature(
     feature,
-    getAffectedRevisionEnvs(feature, revision, environments)
+    getAffectedRevisionEnvs(feature, revision, environments),
   );
 
   const hasChanges = mergeResultHasChanges(mergeResult);
+
+  let submitEnabled = !!mergeResult.success && hasChanges;
+  if (experimentsStep && experimentData.some((d) => d.failedRequired)) {
+    submitEnabled = false;
+  }
+
+  // If we're publishing experiments, next step is to review pre-launch checklists
+  const hasNextStep =
+    !!mergeResult.success &&
+    hasChanges &&
+    selectedExperiments.size > 0 &&
+    !experimentsStep;
 
   return (
     <Modal
@@ -148,6 +180,11 @@ export default function DraftModal({
       submit={
         hasPermission
           ? async () => {
+              if (hasNextStep) {
+                setExperimentsStep(true);
+                return;
+              }
+
               try {
                 await apiCall(
                   `/feature/${feature.id}/${revision.version}/publish`,
@@ -155,9 +192,10 @@ export default function DraftModal({
                     method: "POST",
                     body: JSON.stringify({
                       mergeResultSerialized: JSON.stringify(mergeResult),
+                      publishExperimentIds: Array.from(selectedExperiments),
                       comment,
                     }),
-                  }
+                  },
                 );
               } catch (e) {
                 await mutate();
@@ -165,83 +203,133 @@ export default function DraftModal({
               }
               await mutate();
               onPublish && onPublish();
+              close();
             }
           : undefined
       }
-      cta="Publish"
-      ctaEnabled={!!mergeResult.success && hasChanges}
+      cta={
+        hasNextStep ? (
+          <>
+            Next <FaAngleRight />
+          </>
+        ) : (
+          "Publish"
+        )
+      }
+      ctaEnabled={submitEnabled}
       close={close}
       closeCta="Cancel"
       size="max"
-      secondaryCTA={
-        permissionsUtil.canManageFeatureDrafts(feature) ? (
+      autoCloseOnSubmit={false}
+      backCTA={
+        experimentsStep ? (
           <Button
-            color="outline-danger"
-            onClick={async () => {
-              try {
-                await apiCall(
-                  `/feature/${feature.id}/${revision.version}/discard`,
-                  {
-                    method: "POST",
-                  }
-                );
-              } catch (e) {
-                await mutate();
-                throw e;
-              }
-              await mutate();
-              onDiscard && onDiscard();
-              close();
+            color="link"
+            onClick={() => {
+              setExperimentsStep(false);
             }}
           >
-            Discard
+            <FaArrowLeft /> Back
           </Button>
         ) : undefined
       }
     >
       {mergeResult.conflicts.length > 0 && (
-        <div className="alert alert-danger">
+        <Callout status="error">
           <strong>Conflicts Detected</strong>. Please fix conflicts before
           publishing this draft.
-        </div>
+        </Callout>
       )}
 
       {!hasChanges && !mergeResult.conflicts.length && (
-        <div className="alert alert-info">
+        <Callout status="info">
           There are no changes to publish. Either discard the draft or add
           changes first before publishing.
-        </div>
+        </Callout>
       )}
 
-      {mergeResult.success && hasChanges && (
-        <div>
-          <h3>Review Final Changes</h3>
-          <p>
-            The changes below will go live when this draft revision is
-            published. You will be able to revert later if needed.
-          </p>
-          <div className="list-group mb-4">
-            {resultDiffs.map((diff) => (
-              <ExpandableDiff {...diff} key={diff.title} />
-            ))}
+      {mergeResult.success &&
+        hasChanges &&
+        (experimentsStep ? (
+          <div>
+            <h3>Review &amp; Publish</h3>
+            <p>
+              Please review the <strong>Pre-Launch Checklists</strong> for the
+              experiments that will be published along with this draft.
+            </p>
+            {experimentData.map(({ experiment, checklist }) => {
+              if (!selectedExperiments.has(experiment.id)) return null;
+
+              return (
+                <div key={experiment.id} className="mb-3">
+                  <PreLaunchChecklistFeatureExpRule
+                    experiment={experiment}
+                    mutateExperiment={mutate}
+                    checklist={checklist}
+                    envs={getAffectedEnvsForExperiment({
+                      experiment,
+                      orgEnvironments: allEnvironments,
+                      linkedFeatures: [],
+                    })}
+                  />
+                </div>
+              );
+            })}
           </div>
-          {hasPermission ? (
-            <Field
-              label="Add a Comment (optional)"
-              textarea
-              placeholder="Summary of changes..."
-              value={comment}
-              onChange={(e) => {
-                setComment(e.target.value);
-              }}
-            />
-          ) : (
-            <div className="alert alert-info">
-              You do not have permission to publish this draft.
+        ) : (
+          <div>
+            <h3>Review &amp; Publish</h3>
+            <p>
+              The changes below will go live when this draft revision is
+              published. You will be able to revert later if needed.
+            </p>
+
+            {experimentData.length > 0 ? (
+              <div className="mb-3">
+                <h4>Start running experiments upon publishing:</h4>
+                {experimentData.map(({ experiment }) => (
+                  <div key={experiment.id}>
+                    <Checkbox
+                      value={selectedExperiments.has(experiment.id)}
+                      setValue={(e) => {
+                        const newValue = new Set(selectedExperiments);
+                        if (e === true) {
+                          newValue.add(experiment.id);
+                        } else {
+                          newValue.delete(experiment.id);
+                        }
+                        setSelectedExperiments(newValue);
+                      }}
+                      label={experiment.name}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <h4>Review Diff</h4>
+            <div className="list-group mb-4">
+              {resultDiffs.map((diff) => (
+                <ExpandableDiff {...diff} key={diff.title} />
+              ))}
             </div>
-          )}
-        </div>
-      )}
+            {hasPermission ? (
+              <Field
+                label="Add a Comment (optional)"
+                textarea
+                placeholder="Summary of changes..."
+                value={comment}
+                onChange={(e) => {
+                  setComment(e.target.value);
+                }}
+              />
+            ) : (
+              <Callout status="info">
+                You do not have permission to publish this draft.
+              </Callout>
+            )}
+          </div>
+        ))}
     </Modal>
   );
 }

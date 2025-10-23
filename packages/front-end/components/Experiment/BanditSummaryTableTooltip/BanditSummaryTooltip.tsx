@@ -15,6 +15,7 @@ import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { GBCuped } from "@/components/Icons";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 
 export const TOOLTIP_WIDTH = 350;
 export const TOOLTIP_HEIGHT = 300; // Used for over/under layout calculation. Actual height may vary.
@@ -52,6 +53,7 @@ interface Props
   data?: TooltipData;
   tooltipOpen: boolean;
   close: () => void;
+  ssrPolyfills?: SSRPolyfills;
 }
 export default function BanditSummaryTooltip({
   left,
@@ -59,6 +61,7 @@ export default function BanditSummaryTooltip({
   data,
   tooltipOpen,
   close,
+  ssrPolyfills,
   ...otherProps
 }: Props) {
   useEffect(() => {
@@ -80,9 +83,12 @@ export default function BanditSummaryTooltip({
     };
   }, [data, tooltipOpen, close]);
 
-  const metricDisplayCurrency = useCurrency();
-  const metricFormatterOptions = { currency: metricDisplayCurrency };
-  const { getFactTableById } = useDefinitions();
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
+  const metricFormatterOptions = { currency: displayCurrency };
 
   if (!data) {
     return null;
@@ -101,7 +107,7 @@ export default function BanditSummaryTooltip({
   const meanText = data.metric
     ? getExperimentMetricFormatter(data.metric, getFactTableById)(
         data.stats.cr ?? 0,
-        metricFormatterOptions
+        metricFormatterOptions,
       )
     : (data.stats.cr ?? 0) + "";
 
@@ -111,16 +117,16 @@ export default function BanditSummaryTooltip({
       {data.metric
         ? getExperimentMetricFormatter(data.metric, getFactTableById)(
             data.stats.ci?.[0] ?? 0,
-            metricFormatterOptions
+            metricFormatterOptions,
           )
-        : data.stats.ci?.[0] ?? 0}
+        : (data.stats.ci?.[0] ?? 0)}
       ,{" "}
       {data.metric
         ? getExperimentMetricFormatter(data.metric, getFactTableById)(
             data.stats.ci?.[1] ?? 0,
-            metricFormatterOptions
+            metricFormatterOptions,
           )
-        : data.stats.ci?.[1] ?? 0}
+        : (data.stats.ci?.[1] ?? 0)}
       ]
     </>
   );
@@ -128,10 +134,10 @@ export default function BanditSummaryTooltip({
     data.layoutX === "element-right"
       ? "3%"
       : data.layoutX === "element-left"
-      ? "97%"
-      : data.layoutX === "element-center"
-      ? "50%"
-      : "50%";
+        ? "97%"
+        : data.layoutX === "element-center"
+          ? "50%"
+          : "50%";
 
   return (
     <div
@@ -223,7 +229,7 @@ export default function BanditSummaryTooltip({
           <div
             className={clsx(
               "results-overview mt-2 px-3 pb-2 rounded position-relative",
-              data.status
+              data.status,
             )}
             style={{ paddingTop: 12 }}
           >
@@ -231,7 +237,7 @@ export default function BanditSummaryTooltip({
               <div
                 className={clsx(
                   "results-status position-absolute d-flex align-items-center",
-                  data.status
+                  data.status,
                 )}
               >
                 <Tooltip

@@ -6,35 +6,53 @@ import {
   FaRetweet,
 } from "react-icons/fa";
 import clsx from "clsx";
+import { Container, Text } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
+import RadioGroup from "@/ui/RadioGroup";
+import Link from "@/ui/Link";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Checkbox from "@/ui/Checkbox";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import LargeSavedGroupPerformanceWarning, {
   useLargeSavedGroupSupport,
 } from "./LargeSavedGroupSupportWarning";
 
 export const IdListItemInput: FC<{
   values: string[];
+  listAboveSizeLimit: boolean;
+  bypassSizeLimit: boolean;
+  projects: string[] | undefined;
   setValues: (newValues: string[]) => void;
+  setBypassSizeLimit: React.Dispatch<boolean>;
   openUpgradeModal?: () => void;
-}> = ({ values, setValues, openUpgradeModal }) => {
+}> = ({
+  values,
+  listAboveSizeLimit,
+  setValues,
+  openUpgradeModal,
+  projects,
+  bypassSizeLimit,
+  setBypassSizeLimit,
+}) => {
+  const { canBypassSavedGroupSizeLimit } = usePermissionsUtil();
+  const { savedGroupSizeLimit } = useOrgSettings();
+
   const [rawTextMode, setRawTextMode] = useState(false);
   const [rawText, setRawText] = useState(values.join(", ") || "");
   useEffect(() => {
     setRawText(values.join(","));
   }, [values]);
 
-  const [importMethod, setImportMethod] = useState<"file" | "values">("file");
+  const [importMethod, setImportMethod] = useState("file");
   const [numValuesToImport, setNumValuesToImport] = useState<number | null>(
-    null
+    null,
   );
   const [fileName, setFileName] = useState("");
   const [fileErrorMessage, setFileErrorMessage] = useState("");
 
-  const {
-    supportedConnections,
-    unsupportedConnections,
-    hasLargeSavedGroupFeature,
-  } = useLargeSavedGroupSupport();
+  const { unsupportedConnections, hasLargeSavedGroupFeature } =
+    useLargeSavedGroupSupport();
 
   const resetFile = () => {
     setValues([]);
@@ -45,116 +63,119 @@ export const IdListItemInput: FC<{
 
   return (
     <>
-      <label className="form-group font-weight-bold">
-        Choose how to enter items for this list:
-      </label>
-      <div className="row ml-0 mr-0 form-group">
-        <div className="form-check-inline mr-5">
-          <input
-            type="radio"
-            id="importCsv"
-            checked={importMethod === "file"}
-            readOnly={true}
-            className="mr-1"
-            onChange={() => {
-              setImportMethod("file");
-            }}
-          />
-          <label className="m-0 cursor-pointer" htmlFor="importCsv">
-            Import CSV
-          </label>
-        </div>
-        <div className="form-check-inline">
-          <input
-            type="radio"
-            id="enterValues"
-            checked={importMethod === "values"}
-            readOnly={true}
-            className="mr-1"
-            onChange={() => {
-              setImportMethod("values");
-            }}
-          />
-          <label className="m-0 cursor-pointer" htmlFor="enterValues">
-            Manually enter values
-          </label>
-        </div>
-      </div>
       <LargeSavedGroupPerformanceWarning
-        style="banner"
         openUpgradeModal={openUpgradeModal}
         hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-        supportedConnections={supportedConnections}
         unsupportedConnections={unsupportedConnections}
       />
+      <label className="form-group font-weight-bold">
+        Choose how to enter items for this group:
+      </label>
+      <Container mb="3">
+        <RadioGroup
+          options={[
+            { value: "values", label: "Manually enter values" },
+            {
+              value: "file",
+              label: "Import CSV",
+              description:
+                "File must contain one value per line or all values on one line with commas in-between",
+            },
+          ]}
+          value={importMethod}
+          setValue={setImportMethod}
+        />
+      </Container>
+      {listAboveSizeLimit && (
+        <Container mb="2">
+          <Checkbox
+            disabled={!canBypassSavedGroupSizeLimit(projects)}
+            disabledMessage="You don't have permission to bypass the size limit for this saved group"
+            description={`Bypass the size limit of ${savedGroupSizeLimit} items`}
+            value={bypassSizeLimit}
+            setValue={setBypassSizeLimit}
+          />
+        </Container>
+      )}
       {importMethod === "file" && (
         <>
-          <div
-            className="custom-file height:"
-            onClick={(e) => {
-              if (fileName) {
-                e.stopPropagation();
-                e.preventDefault();
-                resetFile();
-              }
-            }}
-          >
-            <input
-              type="file"
-              key={fileName}
-              required={false}
-              className="custom-file-input cursor-pointer"
-              id="savedGroupFileInput"
-              accept=".csv"
-              onChange={(e) => {
-                resetFile();
+          <Text weight="bold">Upload CSV</Text>
+          <Container mt="2">
+            <div
+              className="custom-file"
+              onClick={(e) => {
+                if (fileName) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  resetFile();
+                }
+              }}
+            >
+              <input
+                type="file"
+                key={fileName}
+                required={false}
+                className="custom-file-input cursor-pointer"
+                id="savedGroupFileInput"
+                accept=".csv"
+                onChange={(e) => {
+                  resetFile();
 
-                const file: File | undefined = e.target?.files?.[0];
-                if (!file) {
-                  return;
-                }
-                if (!file.name.endsWith(".csv")) {
-                  setFileErrorMessage("Only .csv file types are supported");
-                  return;
-                }
-                if (file.size > SAVED_GROUP_SIZE_LIMIT_BYTES) {
-                  setFileErrorMessage("File size must be less than 1 MB");
-                  return;
-                }
-
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                  try {
-                    const str = e.target?.result;
-                    if (typeof str !== "string") {
-                      setFileErrorMessage(
-                        "Failed to import file. Please try again"
-                      );
-                      return;
-                    }
-                    const newValues = str.replaceAll(/[\n\s]/g, "").split(",");
-                    setFileName(file.name);
-                    setValues(newValues);
-                    setNumValuesToImport(newValues.length);
-                  } catch (e) {
-                    console.error(e);
+                  const file: File | undefined = e.target?.files?.[0];
+                  if (!file) {
                     return;
                   }
-                };
-                reader.readAsText(file);
-              }}
-            />
-            <label
-              className={clsx([
-                "custom-file-label",
-                fileName ? "remove-file" : "",
-              ])}
-              htmlFor="savedGroupFileInput"
-              data-browse={fileName ? "Remove" : "Browse"}
-            >
-              {fileName || "Select file..."}
-            </label>
-          </div>
+                  if (!file.name.endsWith(".csv")) {
+                    setFileErrorMessage("Only .csv file types are supported");
+                    return;
+                  }
+                  if (file.size > SAVED_GROUP_SIZE_LIMIT_BYTES) {
+                    setFileErrorMessage("File size must be less than 1 MB");
+                    return;
+                  }
+
+                  const reader = new FileReader();
+                  reader.onload = function (e) {
+                    try {
+                      const str = e.target?.result;
+                      if (typeof str !== "string") {
+                        setFileErrorMessage(
+                          "Failed to import file. Please try again",
+                        );
+                        return;
+                      }
+                      const newValues = str
+                        // Convert newlines to commas, then replace duplicate delimiters
+                        .replaceAll(/\n/g, ",")
+                        .replaceAll(/,,/g, ",")
+                        // Remove trailing delimiters to prevent adding an empty value
+                        .replace(/,$/, "")
+                        // Remove Windows carriage return
+                        .replaceAll(/\r/g, "")
+                        .split(",");
+                      setFileName(file.name);
+                      setValues(newValues);
+                      setNumValuesToImport(newValues.length);
+                    } catch (e) {
+                      console.error(e);
+                      return;
+                    }
+                  };
+                  reader.readAsText(file);
+                }}
+              />
+              <label
+                className={clsx([
+                  "custom-file-label",
+                  fileName ? "remove-file" : "",
+                ])}
+                htmlFor="savedGroupFileInput"
+                data-browse={fileName ? "Remove" : "Browse"}
+              >
+                {fileName || "Select file..."}
+              </label>
+            </div>
+          </Container>
           {numValuesToImport ? (
             <>
               <FaCheckCircle className="text-success-green" />{" "}
@@ -177,7 +198,7 @@ export const IdListItemInput: FC<{
           {rawTextMode ? (
             <Field
               containerClassName="mb-0"
-              label="List Values to Include"
+              label="List values to include"
               labelClassName="font-weight-bold"
               required
               textarea
@@ -206,16 +227,14 @@ export const IdListItemInput: FC<{
             />
           )}
           <div className="row justify-content-end mr-0">
-            <a
-              role="button"
-              className="btn-link"
-              style={{ fontSize: "0.8em" }}
-              onClick={() => {
+            <Link
+              onClick={(e) => {
+                e.preventDefault();
                 setRawTextMode((prev) => !prev);
               }}
             >
-              <FaRetweet /> {rawTextMode ? "Token" : "Raw Text"} Mode
-            </a>
+              <FaRetweet /> Switch to {rawTextMode ? "Token" : "Raw Text"} Mode
+            </Link>
           </div>
         </>
       )}

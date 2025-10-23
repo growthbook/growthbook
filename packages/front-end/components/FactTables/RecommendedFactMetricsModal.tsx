@@ -1,4 +1,3 @@
-import { MdInfoOutline } from "react-icons/md";
 import {
   ColumnInterface,
   CreateFactMetricProps,
@@ -15,6 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import { getDefaultFactMetricProps } from "@/services/metrics";
+import { GBInfo } from "@/components/Icons";
 
 type RecommendedMetric = Pick<
   CreateFactMetricProps,
@@ -26,14 +26,14 @@ type RecommendedMetric = Pick<
 
 export function getRecommendedFactMetrics(
   factTable: FactTableInterface,
-  metrics: FactMetricInterface[]
+  metrics: FactMetricInterface[],
 ): RecommendedMetric[] {
   const recommendedMetrics: RecommendedMetric[] = [];
 
   function addMetric(
     type: "proportion" | "mean",
     column?: ColumnInterface,
-    value?: string
+    value?: string,
   ) {
     let description =
       type === "proportion"
@@ -65,8 +65,9 @@ export function getRecommendedFactMetrics(
   const columnsWithTopValues = factTable.columns.filter(
     (column) =>
       column.alwaysInlineFilter &&
-      canInlineFilterColumn(factTable, column) &&
-      column.topValues?.length
+      canInlineFilterColumn(factTable, column.column) &&
+      column.datatype === "string" &&
+      column.topValues?.length,
   );
 
   const filterMap: Record<string, string> = {};
@@ -80,7 +81,7 @@ export function getRecommendedFactMetrics(
       (m) =>
         m.metricType === "proportion" &&
         !m.numerator.filters?.length &&
-        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length
+        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length,
     )
   ) {
     addMetric("proportion");
@@ -93,7 +94,7 @@ export function getRecommendedFactMetrics(
         m.metricType === "mean" &&
         m.numerator.column === "$$count" &&
         !m.numerator.filters?.length &&
-        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length
+        !Object.values(m.numerator.inlineFilters || {}).filter(Boolean).length,
     )
   ) {
     addMetric("mean");
@@ -110,8 +111,8 @@ export function getRecommendedFactMetrics(
             m.numerator.filters?.some(
               (f) =>
                 filterMap[f]?.includes(column.column) &&
-                filterMap[f]?.includes(value)
-            )
+                filterMap[f]?.includes(value),
+            ),
         )
       ) {
         return;
@@ -305,7 +306,7 @@ export default function RecommendedFactMetricsModal({
               <td>
                 <Tooltip body={metric.description}>
                   {metric.metricType}&nbsp;
-                  <MdInfoOutline className="text-info" />
+                  <GBInfo />
                 </Tooltip>
               </td>
               <td>{getName(metric)}</td>

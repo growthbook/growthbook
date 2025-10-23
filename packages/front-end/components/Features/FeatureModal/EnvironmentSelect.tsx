@@ -1,16 +1,17 @@
 import { FC, useMemo } from "react";
 import { Environment } from "back-end/types/organization";
 import { FeatureEnvironment } from "back-end/types/feature";
-import { Container, Grid, Text } from "@radix-ui/themes";
+import { Box, Grid, Text } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Checkbox from "@/components/Radix/Checkbox";
+import Checkbox from "@/ui/Checkbox";
 
 const EnvironmentSelect: FC<{
-  environmentSettings: Record<string, FeatureEnvironment>;
+  environmentSettings: Record<string, Pick<FeatureEnvironment, "enabled">>;
   environments: Environment[];
   setValue: (env: Environment, enabled: boolean) => void;
-}> = ({ environmentSettings, environments, setValue }) => {
+  label?: string;
+}> = ({ environmentSettings, environments, setValue, label }) => {
   const permissionsUtil = usePermissionsUtil();
   const { project } = useDefinitions();
   const environmentsUserCanAccess = useMemo(() => {
@@ -20,32 +21,32 @@ const EnvironmentSelect: FC<{
   }, [environments, permissionsUtil, project]);
 
   const selectAllChecked = environmentsUserCanAccess.every(
-    (env) => environmentSettings[env.id]?.enabled
+    (env) => environmentSettings[env.id]?.enabled,
   );
   const selectAllIndeterminate = environmentsUserCanAccess.some(
-    (env) => environmentSettings[env.id]?.enabled
+    (env) => environmentSettings[env.id]?.enabled,
   );
 
   return (
     <div className="form-group">
-      <Container
-        p="5"
+      <Text as="label" weight="bold" mb="2">
+        {label || "Enabled Environments"}
+      </Text>
+      <Box
+        className="box"
+        p="4"
         style={{
-          background: "var(--color-background)",
           borderRadius: "var(--radius-2)",
         }}
       >
-        <Text as="label" weight="bold" mb="4">
-          Enabled Environments
-        </Text>
         <div>
           <Checkbox
             value={
               selectAllChecked
                 ? true
                 : selectAllIndeterminate
-                ? "indeterminate"
-                : false
+                  ? "indeterminate"
+                  : false
             }
             setValue={(v) =>
               environmentsUserCanAccess.forEach((env) => {
@@ -74,12 +75,12 @@ const EnvironmentSelect: FC<{
               label={env.id}
               key={env.id}
               weight="regular"
-              mb="4"
+              mb="1"
               mr="2"
             />
           ))}
         </Grid>
-      </Container>
+      </Box>
     </div>
   );
 };

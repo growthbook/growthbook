@@ -1,4 +1,3 @@
-import { MdInfoOutline } from "react-icons/md";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
@@ -11,6 +10,7 @@ import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { GBInfo } from "@/components/Icons";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -51,14 +51,14 @@ export default function TargetingInfo({
   const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
   const hasNamespace = phase?.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
-    ? phase.namespace.range[1] - phase.namespace.range[0]
+    ? phase.namespace!.range[1] - phase.namespace!.range[0]
     : 1;
   const namespaceRanges: [number, number] = hasNamespace
-    ? [phase.namespace.range[1] || 0, phase.namespace.range[0] || 0]
+    ? [phase.namespace!.range[1] || 0, phase.namespace!.range[0] || 0]
     : [0, 1];
   const namespaceName = hasNamespace
-    ? namespaces?.find((n) => n.name === phase.namespace.name)?.label ||
-      phase.namespace.name
+    ? namespaces?.find((n) => n.name === phase.namespace!.name)?.label ||
+      phase.namespace!.name
     : "";
 
   const hasSavedGroupsChanges =
@@ -97,8 +97,8 @@ export default function TargetingInfo({
     ? [changes.namespace.range[1] || 0, changes.namespace.range[0] || 0]
     : [0, 1];
   const changesNamespaceName = changesHasNamespace
-    ? namespaces?.find((n) => n.name === changes.namespace.name)?.label ||
-      changes.namespace.name
+    ? namespaces?.find((n) => n.name === changes.namespace!.name)?.label ||
+      changes.namespace!.name
     : "";
 
   return (
@@ -131,7 +131,7 @@ export default function TargetingInfo({
                       {experiment.fallbackAttribute ? "s" : ""}
                     </strong>{" "}
                     <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                      <MdInfoOutline className="text-info" />
+                      <GBInfo />
                     </Tooltip>
                   </div>
                   <div>
@@ -166,7 +166,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasSavedGroupsChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasSavedGroupsChanges,
                       })}
                     >
                       {hasSavedGroupsChanges && (
@@ -209,7 +210,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasConditionChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasConditionChanges,
                       })}
                     >
                       {hasConditionChanges && (
@@ -248,7 +250,8 @@ export default function TargetingInfo({
                   <div className="d-flex">
                     <div
                       className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50": hasPrerequisiteChanges,
+                        "text-danger font-weight-bold mw-50":
+                          hasPrerequisiteChanges,
                       })}
                     >
                       {hasPrerequisiteChanges && (
@@ -292,7 +295,7 @@ export default function TargetingInfo({
                 <div className="mb-1">
                   <strong>Namespace targeting</strong>{" "}
                   <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration → Namespaces">
-                    <MdInfoOutline className="text-info" />
+                    <GBInfo />
                   </Tooltip>
                 </div>
                 <div className="d-flex">
@@ -383,7 +386,7 @@ export default function TargetingInfo({
                             ,{" "}
                             {formatTrafficSplit(
                               phase.variationWeights,
-                              showDecimals ? 2 : 0
+                              showDecimals ? 2 : 0,
                             )}{" "}
                             split
                           </>
@@ -402,7 +405,7 @@ export default function TargetingInfo({
                               ,{" "}
                               {formatTrafficSplit(
                                 changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0
+                                showDecimals ? 2 : 0,
                               )}{" "}
                               split
                             </>
@@ -461,7 +464,8 @@ export default function TargetingInfo({
                       <div className="d-flex">
                         <div
                           className={clsx("d-flex", {
-                            "text-danger font-weight-bold": hasVariationWeightsChanges,
+                            "text-danger font-weight-bold":
+                              hasVariationWeightsChanges,
                           })}
                         >
                           {hasVariationWeightsChanges && (
@@ -472,7 +476,7 @@ export default function TargetingInfo({
                           <div>
                             {formatTrafficSplit(
                               phase.variationWeights,
-                              showDecimals ? 2 : 0
+                              showDecimals ? 2 : 0,
                             )}
                           </div>
                         </div>
@@ -484,7 +488,7 @@ export default function TargetingInfo({
                             <div>
                               {formatTrafficSplit(
                                 changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0
+                                showDecimals ? 2 : 0,
                               )}
                             </div>
                           </div>

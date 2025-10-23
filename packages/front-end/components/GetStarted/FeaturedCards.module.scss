@@ -28,15 +28,15 @@
 .featureFlagImage {
   height: 80px;
 
-  background-image: url("/images/get-started/feature-flag-light.svg");
+  background-image: url("/images/get-started/feature-flag-light-2.svg");
   :global(.dark) & {
-    background-image: url("/images/get-started/feature-flag-dark.svg");
+    background-image: url("/images/get-started/feature-flag-dark-2.svg");
   }
 
   .cardLink:hover & {
-    background-image: url("/images/get-started/feature-flag-light-hover.svg");
+    background-image: url("/images/get-started/feature-flag-light-hover-2.svg");
     :global(.dark) & {
-      background-image: url("/images/get-started/feature-flag-dark-hover.svg");
+      background-image: url("/images/get-started/feature-flag-dark-hover-2.svg");
     }
   }
 }

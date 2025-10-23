@@ -1,25 +1,51 @@
 import { z } from "zod";
+
+// If you change these types, also update the factTableColumnTypeValidator to match
+export const factTableColumnTypes = [
+  "number",
+  "string",
+  "date",
+  "boolean",
+  "json",
+  "other",
+  "",
+];
+// Duplicate of the above as we can't use `as const` without breaking imports in the frontend
 export const factTableColumnTypeValidator = z.enum([
   "number",
   "string",
   "date",
   "boolean",
+  "json",
   "other",
   "",
 ]);
 
-export const numberFormatValidator = z.enum(["", "currency", "time:seconds"]);
+export const numberFormatValidator = z.enum([
+  "",
+  "currency",
+  "time:seconds",
+  "memory:bytes",
+  "memory:kilobytes",
+]);
+
+export const jsonColumnFieldsValidator = z.record(
+  z.object({ datatype: factTableColumnTypeValidator }),
+);
 
 export const createColumnPropsValidator = z
   .object({
     column: z.string(),
-    name: z.string(),
-    description: z.string(),
-    numberFormat: numberFormatValidator,
+    name: z.string().optional(),
+    description: z.string().optional(),
+    numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator,
+    jsonFields: jsonColumnFieldsValidator.optional(),
     deleted: z.boolean().optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
+    isAutoSliceColumn: z.boolean().optional(),
+    autoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -29,9 +55,12 @@ export const updateColumnPropsValidator = z
     description: z.string().optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
+    jsonFields: jsonColumnFieldsValidator.optional(),
     alwaysInlineFilter: z.boolean().optional(),
     topValues: z.array(z.string()).optional(),
     deleted: z.boolean().optional(),
+    isAutoSliceColumn: z.boolean().optional(),
+    autoSlices: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -47,8 +76,8 @@ export const createFactTablePropsValidator = z
     userIdTypes: z.array(z.string()),
     sql: z.string(),
     eventName: z.string(),
-    columns: z.array(createColumnPropsValidator),
-    managedBy: z.enum(["", "api"]).optional(),
+    columns: z.array(createColumnPropsValidator).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
   })
   .strict();
 
@@ -63,16 +92,23 @@ export const updateFactTablePropsValidator = z
     sql: z.string().optional(),
     eventName: z.string().optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
   })
   .strict();
 
+export const columnAggregationValidator = z.enum([
+  "sum",
+  "max",
+  "count distinct",
+]);
+
 export const columnRefValidator = z
   .object({
     factTableId: z.string(),
     column: z.string(),
+    aggregation: columnAggregationValidator.optional(),
     inlineFilters: z.record(z.string().array()).optional(),
     filters: z.array(z.string()),
     aggregateFilter: z.string().optional(),
@@ -81,7 +117,12 @@ export const columnRefValidator = z
   .strict();
 
 export const cappingTypeValidator = z.enum(["absolute", "percentile", ""]);
-export const conversionWindowUnitValidator = z.enum(["weeks", "days", "hours"]);
+export const conversionWindowUnitValidator = z.enum([
+  "weeks",
+  "days",
+  "hours",
+  "minutes",
+]);
 export const windowTypeValidator = z.enum(["conversion", "lookback", ""]);
 
 export const cappingSettingsValidator = z
@@ -92,9 +133,19 @@ export const cappingSettingsValidator = z
   })
   .strict();
 
+export const legacyWindowSettingsValidator = z.object({
+  type: windowTypeValidator.optional(),
+  delayHours: z.coerce.number().optional(),
+  delayValue: z.coerce.number().optional(),
+  delayUnit: conversionWindowUnitValidator.optional(),
+  windowValue: z.number().optional(),
+  windowUnit: conversionWindowUnitValidator.optional(),
+});
+
 export const windowSettingsValidator = z.object({
   type: windowTypeValidator,
-  delayHours: z.coerce.number(),
+  delayValue: z.coerce.number(),
+  delayUnit: conversionWindowUnitValidator,
   windowValue: z.number(),
   windowUnit: conversionWindowUnitValidator,
 });
@@ -116,6 +167,7 @@ export const metricTypeValidator = z.enum([
   "ratio",
   "mean",
   "proportion",
+  "retention",
   "quantile",
 ]);
 
@@ -123,7 +175,7 @@ export const factMetricValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    managedBy: z.enum(["", "api"]).optional(),
+    managedBy: z.enum(["", "api", "admin"]).optional(),
     owner: z.string().default(""),
     datasource: z.string(),
     dateCreated: z.date(),
@@ -146,12 +198,17 @@ export const factMetricValidator = z
     maxPercentChange: z.number(),
     minPercentChange: z.number(),
     minSampleSize: z.number(),
+    targetMDE: z.number(),
+    displayAsPercentage: z.boolean().optional(),
+
     winRisk: z.number(),
     loseRisk: z.number(),
 
     regressionAdjustmentOverride: z.boolean(),
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),
+
+    metricAutoSlices: z.array(z.string()).optional(),
 
     quantileSettings: quantileSettingsValidator.nullable(),
   })

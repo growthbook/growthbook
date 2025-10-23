@@ -5,11 +5,18 @@ sidebar_label: Metric Examples and Use Cases
 slug: /app/metrics/examples
 ---
 
+import AddMetricButton from '@site/src/components/AddMetricButton'
+import HostSelector from '@site/src/components/HostSelector'
+
 # Metric Examples and Use Cases
 
 Fact Tables in GrowthBook are a powerful way to quickly build out a library of metrics.
 
 Below are some common types of tables in your data warehouse and how to map them to Fact Tables with example SQL and metric definitions.
+
+The **Add to GrowthBook** buttons will open GrowthBook and let you customize the metric before adding it to your account.
+
+<HostSelector/>
 
 ## Raw Events Table
 
@@ -22,7 +29,7 @@ Fact Tables in GrowthBook work really well with raw events. When defining your F
 3. Event Type - What action was performed (page view, start checkout, add friend, etc.)
 4. Context - Any helpful user or app context (geo-location, current url, account plan, etc.)
 
-When creating metrics, you will almost always want to filter on the Event Type. To make this easier, after creating your Fact Table, you can edit that column check the “Prompt all metrics” box. This helps GrowthBook better streamline the UI when creating metrics.
+When creating metrics, you will almost always want to filter on the Event Type. To make this easier, you can edit the column representing Event Type and check the “Prompt all metrics” box (after creating your Fact Table). This helps GrowthBook better streamline the UI when creating metrics.
 
 ![Event Type Filter](/images/metrics/inline-filter.png)
 
@@ -42,6 +49,7 @@ SELECT
   -- Event type
   event_name,
   -- Context
+  event_value, -- e.g. the page view path
   geo.country,
   device.category as device_category
 FROM
@@ -64,29 +72,94 @@ WHERE
 
 ### Example Metrics
 
-1. Percent of users who submit a form
-   1. Select `Proportion` as the metric type
-   2. Choose `form_submit` as the event type
-2. Percent of users who visit the checkout page
-   1. First, create a filter based on the URL. `page_path = '/checkout`
-   2. Then, create a metric and select `Proportion` as the metric type
-   3. Choose `page_view` as the event type
-   4. Add a “Row Filter” and select the one you created earlier
-3. Page Views per User
-   1. Select `Mean` as the metric type
-   2. Choose `page_view` as the event type
-   3. Select `Count of Rows` as the value
-4. Checkout completion rate
-   1. First, create two filters based on the URL: `page_path = '/checkout'` and `page_path = '/confirmation'`
-   2. Then, create a metric and select `Ratio` as the metric type
-   3. For the **numerator** (confirmation)
-      1. Choose `page_view` as the event type
-      2. Add a Row Filter for **Confirmation**
-      3. Select `Unique Users` as the value
-   4. For the **denominator** (checkout)
-      1. Choose `page_view` as the event_type
-      2. Add a Row Filter for **Checkout**
-      3. Select `Unique Users` as the value
+#### Percent of users who submit a form
+
+1. Select `Proportion` as the metric type
+2. Choose `form_submit` as the event type
+
+<AddMetricButton data={{
+  name: "Form Submissions",
+  description: "Percent of users who submit a form",
+  metricType:"proportion",
+  numerator: {
+    inlineFilters: {event_name:["form_submit"]}
+  }
+}}/>
+
+#### Percent of users who visit the checkout page
+
+1. Select `Proportion` as the metric type
+2. Choose `page_view` as the event type
+3. Add a “Row Filter” and select `page_path = '/checkout'`
+
+<AddMetricButton data={{
+  name: "Checkout Page Views",
+  description: "Percent of users who visit the checkout page",
+  metricType:"proportion",
+  numerator: {
+    inlineFilters: {event_name:["page_view"], page_path:["/checkout"]}
+  }
+}}/>
+
+#### Page Views per User
+
+1. Select `Mean` as the metric type
+2. Choose `page_view` as the event type
+3. Select `Count of Rows` as the value
+
+<AddMetricButton data={{
+  name: "Page Views per User",
+  description: "Average number of page views per user",
+  metricType:"mean",
+  numerator: {
+    column:"$$count",
+    inlineFilters: {event_name:["page_view"]}
+  }
+}}/>
+
+#### Unique Page Views per User
+
+1. Select `Mean` as the metric type
+2. Choose `page_view` as the event type
+3. Select `event_value` as the column
+4. Select `COUNT DISTINCT` as the aggregation
+
+<AddMetricButton data={{
+  name: "Unique Page Views per User",
+  description: "Average number of unique pages viewed by user",
+  metricType: "mean",
+  numerator: {
+    column: "event_value",
+    inlineFilters: {event_name:["page_view"]},
+    aggregation: "count distinct"
+  }
+}}/>
+
+#### Checkout completion rate
+
+1. Select `Ratio` as the metric type
+2. For the **numerator** (confirmation)
+   1. Choose `page_view` as the event type
+   2. Add a Row Filter for `page_path = '/confirmation'`
+   3. Select `Unique Users` as the value
+3. For the **denominator** (checkout)
+   1. Choose `page_view` as the event_type
+   2. Add a Row Filter for `page_path = '/checkout'`
+   3. Select `Unique Users` as the value
+
+<AddMetricButton data={{
+  name: "Checkout Completion Rate",
+  description: "Of users who start checkout, what percent complete it",
+  metricType:"ratio",
+  numerator: {
+    column: "$$distinctUsers",
+    inlineFilters: {event_name:["page_view"], page_path:["/confirmation"]}
+  },
+  denominator: {
+    column: "$$distinctUsers",
+    inlineFilters: {event_name:["page_view"], page_path:["/checkout"]}
+  }
+}}/>
 
 ## Modeled Tables
 
@@ -123,27 +196,114 @@ WHERE
 
 ### Example Metrics
 
-1. Users who Purchased
-   1. Select `Proportion` as the metric type and that’s it!
-2. Users who Purchased Multiple Times
-   1. Select `Proportion` as the metric type
-   2. Add a “User Filter” based on `Count of Rows`
-   3. Enter `>= 2` as the User Filter value
-3. Orders per User
-   1. Select `Mean` as the metric type
-   2. Select `Count of Rows` as the metric value
-4. Revenue per User
-   1. Select `Mean` as the metric type
-   2. Select `SUM(grand_total)` as the metric value
-5. Average Items per Order
-   1. Select `Ratio` as the metric type
-   2. For the numerator, select `SUM(num_items)`
-   3. For the denominator, select `Count of Rows`
-6. Percent of Orders with Free Shipping
-   1. First, create a filter with the SQL `shipping_type = 'free'`
-   2. Go to add a metric and select `Ratio` as the metric type
-   3. For the numerator, select the row filter you created
-   4. Select `Count of Rows` for both the numerator and denominator
+#### Users who Purchased
+
+1. Select `Proportion` as the metric type and that’s it!
+
+<AddMetricButton data={{
+  name: "Users who Purchased",
+  description: "Percent of users who made a purchase",
+  metricType:"proportion",
+  numerator: {}
+}}/>
+
+#### Users who Purchased Multiple Times
+
+1. Select `Proportion` as the metric type
+2. Add a “User Filter” based on `Count of Rows`
+3. Enter `>= 2` as the User Filter value
+
+<AddMetricButton data={{
+  name: "Users who Purchased Multiple Times",
+  description: "Percent of users who made more than one purchase",
+  metricType:"proportion",
+  numerator: {
+    aggregateFilterColumn: "$$count",
+    aggregateFilter: ">= 2"
+  }
+}}/>
+
+#### Orders per User
+
+1. Select `Mean` as the metric type
+2. Select `Count of Rows` as the metric value
+
+<AddMetricButton data={{
+  name: "Orders per User",
+  description: "Average number of orders per user",
+  metricType:"mean",
+  numerator: {
+    column:"$$count"
+  }
+}}/>
+
+#### Revenue per User
+
+1. Select `Mean` as the metric type
+2. Select `SUM(grand_total)` as the metric value
+
+<AddMetricButton data={{
+  name: "Revenue per User",
+  description: "Average revenue per user",
+  metricType:"mean",
+  numerator: {
+    column:"grand_total"
+  }
+}}/>
+
+#### Average Items per Order
+
+1. Select `Ratio` as the metric type
+2. For the numerator, select `SUM(num_items)`
+3. For the denominator, select `Count of Rows`
+
+<AddMetricButton data={{
+  name: "Average Items per Order",
+  description: "Average number of items per order",
+  metricType:"ratio",
+  numerator: {
+    column:"num_items"
+  },
+  denominator: {
+    column:"$$count"
+  }
+}}/>
+
+#### Users Without Orders
+
+1. Select `Proportion` as the metric type
+2. Add a “User Filter” for `Count of Rows = 0`
+3. Under Advanced Settings -> Display Settings, change the goal to `Decrease the Metric Value`
+
+<AddMetricButton data={{
+  name: "Users Without Orders",
+  description: "Percent of users who have not made a purchase",
+  metricType:"proportion",
+  numerator: {
+    aggregateFilterColumn: "$$count",
+    aggregateFilter: "= 0"
+  },
+  inverse: true
+}}/>
+
+#### Percent of Orders with Free Shipping
+
+1. Select `Ratio` as the metric type
+2. For the numerator, add a row filter for `shipping_type = 'free'`
+3. Select `Count of Rows` for both the numerator and denominator
+
+<AddMetricButton data={{
+  name: "Percent of Orders with Free Shipping",
+  description: "Percent of orders that have free shipping",
+  metricType:"ratio",
+  numerator: {
+    inlineFilters: {shipping_type:["free"]},
+    column:"$$count"
+  },
+  denominator: {
+    column:"$$count"
+  }
+}}/>
 
 ## Pre-Aggregated Tables
 
@@ -188,19 +348,71 @@ Of course, you can solve both of these problems by not pre-aggregating in the fi
 
 ### Example Metrics
 
-1. Percent of Users with High Engagement
-   1. Select `Proportion` as the metric type
-   2. Add a “User Filter” and select `SUM(interactions)` as the value to filter on
-   3. Add some threshold as the User Filter value. Something like `> 100`
-2. Interactions per User
-   1. Select `Mean` as the metric type
-   2. Select `SUM(interactions)` as the value
-3. P90 Likes per User
-   1. Select `Quantile` as the metric type
-   2. Check the "Group by user" box
-   3. Select `SUM(likes)` as the per-user value
-   4. Select `P90` as the quantile level
-4. Comment-to-Like Ratio
-   1. Select `Ratio` as the metric type
-   2. Select `SUM(comments)` as the numerator value
-   3. Select `SUM(likes)` as the denominator value
+#### Percent of Users with High Engagement
+
+1.  Select `Proportion` as the metric type
+2.  Add a “User Filter” and select `SUM(interactions)` as the value to filter on
+3.  Add some threshold as the User Filter value. Something like `> 100`
+
+<AddMetricButton data={{
+  name: "High Engagement Users",
+  description: "Percent of users with more than 100 interactions",
+  metricType:"proportion",
+  numerator: {
+    aggregateFilterColumn: "interactions",
+    aggregateFilter: "> 100"
+  }
+}}/>
+
+#### Interactions per User
+
+1.  Select `Mean` as the metric type
+2.  Select `SUM(interactions)` as the value
+
+<AddMetricButton data={{
+  name: "Interactions per User",
+  description: "Average number of interactions per user",
+  metricType:"mean",
+  numerator: {
+    column:"interactions"
+  }
+}}/>
+
+#### P90 Likes per User
+
+1.  Select `Quantile` as the metric type
+2.  Check the "Group by user" box
+3.  Select `SUM(likes)` as the per-user value
+4.  Select `P90` as the quantile level
+
+<AddMetricButton data={{
+  name: "P90 Likes per User",
+  description: "90th percentile of likes per user",
+  metricType:"quantile",
+  numerator: {
+    column:"likes"
+  },
+  quantileSettings: {
+    quantile: 0.9,
+    type: "unit",
+    ignoreZeros: false
+  }
+}}/>
+
+#### Comment-to-Like Ratio
+
+1.  Select `Ratio` as the metric type
+2.  Select `SUM(comments)` as the numerator value
+3.  Select `SUM(likes)` as the denominator value
+
+<AddMetricButton data={{
+  name: "Comment-to-Like Ratio",
+  description: "Ratio of comments to likes",
+  metricType:"ratio",
+  numerator: {
+    column:"comments"
+  },
+  denominator: {
+    column:"likes"
+  }
+}}/>

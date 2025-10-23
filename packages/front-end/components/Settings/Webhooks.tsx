@@ -13,7 +13,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const Webhooks: FC = () => {
   const { data, error, mutate } = useApi<{ webhooks: WebhookInterface[] }>(
-    "/legacy-sdk-webhooks"
+    "/legacy-sdk-webhooks",
   );
   const { getProjectById, projects } = useDefinitions();
   const { apiCall } = useAuth();

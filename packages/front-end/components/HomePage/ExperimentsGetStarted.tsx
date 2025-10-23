@@ -36,21 +36,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   const { organization } = useUser();
 
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization?.id || ""
+    organization?.id || "",
   );
 
   const hasDataSource = datasources.some(
-    (d) => !d.projects?.includes(demoProjectId)
+    (d) => !d.projects?.includes(demoProjectId),
   );
   const hasMetrics = metrics.some(
-    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId)
+    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId),
   );
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
-  const {
-    projectId: demoDataSourceProjectId,
-    demoExperimentId,
-  } = useDemoDataSourceProject();
+  const { projectId: demoDataSourceProjectId, demoExperimentId } =
+    useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
 
@@ -183,8 +181,8 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       !(hasDataSource
                         ? datasources.some((datasource) =>
                             permissionsUtil.canUpdateDataSourceSettings(
-                              datasource
-                            )
+                              datasource,
+                            ),
                           )
                         : permissionsUtil.canViewCreateDataSourceModal(project))
                     }
@@ -282,10 +280,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
             <div className="row mb-3">
               <div className="col">
-                <div
-                  className={`card gsbox mb-3`}
-                  style={{ overflow: "hidden" }}
-                >
+                <div className="appbox p-4" style={{ overflow: "hidden" }}>
                   <GetStartedStep
                     current={true}
                     finished={false}
@@ -311,7 +306,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                   />
                 </div>
                 <div
-                  className={`card gsbox mb-3`}
+                  className={`appbox p-4 mb-3`}
                   style={{ overflow: "hidden" }}
                 >
                   <GetStartedStep
@@ -342,7 +337,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     }}
                   />
                 </div>
-                <div className={`card gsbox`} style={{ overflow: "hidden" }}>
+                <div className={`appbox p-4`} style={{ overflow: "hidden" }}>
                   <GetStartedStep
                     current={true}
                     finished={false}

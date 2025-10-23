@@ -1,7 +1,8 @@
+import { isBinomialMetric, isFactMetric } from "../../experiments";
 import { Settings, SettingsContext, SettingsResolver } from "../types";
 
 const regressionAdjustmentResolver = (
-  field: "enabled" | "days"
+  field: "enabled" | "days",
 ): SettingsResolver<boolean | number> => {
   // todo: set `meta.scopeApplied`
   return (ctx: SettingsContext) => {
@@ -21,8 +22,8 @@ const regressionAdjustmentResolver = (
 
     // metric settings
     if (ctx.scopes?.metric?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!ctx.scopes.metric
-        .regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled =
+        !!ctx.scopes.metric.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         ctx.scopes.metric.regressionAdjustmentDays ?? regressionAdjustmentDays;
       if (!regressionAdjustmentEnabled) {
@@ -32,27 +33,34 @@ const regressionAdjustmentResolver = (
 
     // experiment-level metric overrides
     const metricOverride = ctx.scopes?.experiment?.metricOverrides?.find(
-      (mo) => mo.id === ctx.scopes?.metric?.id
+      (mo) => mo.id === ctx.scopes?.metric?.id,
     );
     if (metricOverride?.regressionAdjustmentOverride) {
-      regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      regressionAdjustmentEnabled =
+        !!metricOverride.regressionAdjustmentEnabled;
       regressionAdjustmentDays =
         metricOverride.regressionAdjustmentDays ?? regressionAdjustmentDays;
       reason = !regressionAdjustmentEnabled
         ? "disabled by metric override"
         : "experiment-level metric override applied";
     }
-
-    // denominator metric checks
+    //denominator metric checks
     if (regressionAdjustmentEnabled) {
-      if (ctx.scopes?.denominatorMetric?.type === "count") {
+      if (
+        ctx.scopes?.denominatorMetric &&
+        !isBinomialMetric(ctx.scopes?.denominatorMetric)
+      ) {
         regressionAdjustmentEnabled = false;
-        reason = "denominator is count";
+        reason = `denominator is ${ctx.scopes?.denominatorMetric.type}. CUPED available for ratio metrics only if based on fact tables.`;
       }
     }
 
     // metrics with custom aggregation
-    if (ctx.scopes?.metric?.aggregation) {
+    if (
+      ctx.scopes?.metric &&
+      !isFactMetric(ctx.scopes.metric) &&
+      ctx.scopes.metric.aggregation
+    ) {
       regressionAdjustmentEnabled = false;
       reason = "custom aggregation";
     }

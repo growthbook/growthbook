@@ -13,7 +13,6 @@ import { UserRef } from "./user";
 export {
   FeatureRule,
   FeatureInterface,
-  FeaturePrerequisite,
   FeatureEnvironment,
   FeatureValueType,
   ForceRule,
@@ -22,10 +21,15 @@ export {
   ScheduleRule,
   ExperimentRefRule,
   RolloutRule,
+  ExperimentRefVariation,
+  ComputedFeatureInterface,
+} from "back-end/src/validators/features";
+
+export {
   NamespaceValue,
   SavedGroupTargeting,
-  ExperimentRefVariation,
-} from "back-end/src/validators/features";
+  FeaturePrerequisite,
+} from "back-end/src/validators/shared";
 
 export type SchemaField = z.infer<typeof simpleSchemaFieldValidator>;
 export type SimpleSchema = z.infer<typeof simpleSchemaValidator>;
@@ -69,4 +73,15 @@ export interface FeatureTestResult {
   defaultValue: boolean | string | object;
   log?: [string, any][];
   featureDefinition?: FeatureDefinition;
+}
+export type FeatureUsageDataPoint = {
+  t: number;
+  v: Record<string, number>;
+};
+
+export interface FeatureUsageData {
+  total: number;
+  bySource: FeatureUsageDataPoint[];
+  byValue: FeatureUsageDataPoint[];
+  byRuleId: FeatureUsageDataPoint[];
 }

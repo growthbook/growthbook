@@ -2,6 +2,7 @@ import { FaPlusCircle } from "react-icons/fa";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Button from "@/ui/Button";
 import {
   ICON_PROPERTIES,
   LINKED_CHANGE_CONTAINER_PROPERTIES,
@@ -11,7 +12,7 @@ import {
 export interface Props {
   type: LinkedChange;
   canAddChanges: boolean;
-  children: JSX.Element;
+  children: JSX.Element | null;
   changeCount: number;
   experimentStatus: ExperimentStatus;
   onAddChange: () => void;
@@ -38,7 +39,7 @@ export default function LinkedChangesContainer({
 
   return (
     <div className="appbox px-4 py-3 mb-4">
-      <div className="d-flex mb-2 align-items-center">
+      <div className={`d-flex mb-${children ? "3" : "0"} align-items-center`}>
         <span
           className="mr-3"
           style={{
@@ -64,25 +65,31 @@ export default function LinkedChangesContainer({
             <div className="h4 mb-0 align-self-center">
               {header}{" "}
               {!!changeCount && (
-                <small className="text-muted">({changeCount})</small>
+                <span className="font-weight-normal">({changeCount})</span>
               )}
             </div>
             {canAddChanges ? (
               <div>
                 {hasFeature ? (
-                  <button
-                    className="btn p-0 btn-link link-purple align-self-center"
-                    onClick={() => onAddChange()}
-                  >
-                    <FaPlusCircle className="mr-1" />
+                  <Button variant="ghost" onClick={() => onAddChange()}>
+                    <FaPlusCircle
+                      className="mr-2"
+                      style={{ position: "relative", top: "-2px" }}
+                    />
                     {addButtonCopy}
-                  </button>
+                  </Button>
                 ) : (
-                  <PremiumTooltip commercialFeature={type}>
-                    <div className="btn btn-link disabled">
-                      <FaPlusCircle className="mr-1" />
+                  <PremiumTooltip
+                    commercialFeature={type}
+                    body="You can add this to your draft, but you will not be able to start the experiment until upgrading."
+                  >
+                    <Button variant="ghost" onClick={() => onAddChange()}>
+                      <FaPlusCircle
+                        className="mr-2"
+                        style={{ position: "relative", top: "-2px" }}
+                      />
                       {addButtonCopy}
-                    </div>
+                    </Button>
                   </PremiumTooltip>
                 )}
               </div>

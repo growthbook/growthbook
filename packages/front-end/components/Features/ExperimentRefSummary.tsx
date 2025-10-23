@@ -1,12 +1,14 @@
 import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { ReactElement } from "react";
+import React from "react";
 import { includeExperimentInPayload } from "shared/util";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { Box, Flex } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Callout from "@/ui/Callout";
 import ValueDisplay from "./ValueDisplay";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
 import ConditionDisplay from "./ConditionDisplay";
@@ -18,52 +20,27 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export function isExperimentRefRuleSkipped(
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
+  isDraft: boolean,
 ) {
-  if (experiment.status === "draft") return true;
+  if (experiment.status === "draft" && !experiment.archived) {
+    // Draft experiments are published alongside feature drafts,
+    // so don't need to mark this as skipped if we're viewing a feature draft
+    return !isDraft;
+  }
   return !includeExperimentInPayload(experiment);
-}
-
-function ExperimentSkipped({
-  color = "secondary",
-  experimentId,
-  message,
-  cta = "View results",
-}: {
-  color?: string;
-  experimentId?: string;
-  message: string | ReactElement;
-  cta?: string;
-}) {
-  return (
-    <div className="mb-2">
-      <div className={`alert alert-${color}`}>
-        <div className="d-flex align-items-center">
-          <div className="flex">{message}</div>
-          {experimentId && (
-            <div className="ml-auto">
-              <Link
-                href={`/experiment/${experimentId}`}
-                className="btn btn-outline-primary"
-              >
-                {cta}
-              </Link>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function ExperimentRefSummary({
   rule,
   experiment,
   feature,
+  isDraft,
 }: {
   feature: FeatureInterface;
   experiment?: ExperimentInterfaceStringDates;
   rule: ExperimentRefRule;
+  isDraft: boolean;
 }) {
   const { variations } = rule;
   const type = feature.valueType;
@@ -73,69 +50,54 @@ export default function ExperimentRefSummary({
   const isBandit = experiment?.type === "multi-armed-bandit";
 
   if (!experiment) {
-    return (
-      <ExperimentSkipped
-        message="The experiment could not be found"
-        color="danger"
-      />
-    );
+    return <Callout status="error">The experiment could not be found.</Callout>;
   }
 
   if (experiment.archived) {
     return (
-      <ExperimentSkipped
-        message="This experiment is archived. This rule will be skipped."
-        experimentId={experiment.id}
-        cta="View experiment"
-      />
+      <Callout status="info">
+        This {isBandit ? "Bandit" : "Experiment"} is archived and will be
+        skipped.{" "}
+        <Link href={`/experiment/${experiment.id}`}>
+          View {isBandit ? "Bandit" : "Experiment"}
+        </Link>
+      </Callout>
     );
   }
 
   const phase = experiment.phases[experiment.phases.length - 1];
   if (!phase) {
     return (
-      <ExperimentSkipped
-        message="This experiment is not running. This rule will be skipped."
-        experimentId={experiment.id}
-        cta="View experiment"
-      />
+      <Callout status="info">
+        This {isBandit ? "Bandit" : "Experiment"} is not running and rule will
+        be skipped.{" "}
+        <Link href={`/experiment/${experiment.id}`}>
+          View {isBandit ? "Bandit" : "Experiment"}
+        </Link>
+      </Callout>
     );
   }
 
   const releasedValue =
     experiment.status === "stopped" && !experiment.excludeFromPayload
       ? rule.variations.find(
-          (v) => v.variationId === experiment.releasedVariationId
+          (v) => v.variationId === experiment.releasedVariationId,
         )
       : null;
 
   if (experiment.status === "stopped" && !releasedValue) {
-    if (experiment.excludeFromPayload) {
-      return (
-        <ExperimentSkipped
-          message={
-            <>
-              This experiment is stopped and does not have a{" "}
-              <strong>Temporary Rollout</strong> enabled. This rule will be
-              skipped.
-            </>
-          }
-          experimentId={experiment.id}
-        />
-      );
-    }
-
     return (
-      <ExperimentSkipped
-        message="This experiment is stopped, but a winning variation was not selected. This rule will be skipped"
-        experimentId={experiment.id}
-      />
+      <Callout status="info">
+        This {isBandit ? "Bandit" : "Experiment"} is stopped and does not have a{" "}
+        <strong>Temporary Rollout</strong> enabled. This rule will be skipped.{" "}
+        <Link href={`/experiment/${experiment.id}#results`}>View Results</Link>
+      </Callout>
     );
   }
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
-    ? phase.namespace.range[1] - phase.namespace.range[0]
+    ? phase.namespace!.range[1] - phase.namespace!.range[0]
     : 1;
   const effectiveCoverage = namespaceRange * (phase.coverage ?? 1);
 
@@ -145,45 +107,45 @@ export default function ExperimentRefSummary({
     !!phase.prerequisites?.length;
 
   return (
-    <div>
-      {experiment.status === "draft" && (
-        <div className="alert alert-warning">
+    <Box>
+      {experiment.status === "draft" && !isDraft && (
+        <Callout status="warning" mb="3">
           This {isBandit ? "Bandit" : "Experiment"} is in a{" "}
           <strong>draft</strong> state and has not been started yet. This rule
           will be skipped.
-        </div>
+        </Callout>
       )}
       {experiment.status === "stopped" && (
-        <div className="alert alert-info">
+        <Callout status="info" mb="3">
           This {isBandit ? "Bandit" : "Experiment"} is stopped and a{" "}
           <strong>Temporary Rollout</strong> is enabled. All users in the{" "}
           {isBandit ? "Bandit" : "Experiment"} will receive the winning
           variation. If no longer needed, you can stop it from the{" "}
           {isBandit ? "Bandit" : "Experiment"} page.
-        </div>
+        </Callout>
       )}
       {hasCondition && (
-        <div className="row mb-3 align-items-top">
-          <div className="col-auto d-flex align-items-center">
+        <Flex align="start" mb="3" gap="3">
+          <Box>
             <strong>IF</strong>
-          </div>
-          <div className="col">
+          </Box>
+          <Box>
             <ConditionDisplay
               condition={phase.condition}
               savedGroups={phase.savedGroups}
               prerequisites={phase.prerequisites}
             />
-          </div>
-        </div>
+          </Box>
+        </Flex>
       )}
 
-      <div className="mb-3 row">
-        <div className="col-auto">
+      <Flex gap="3" mb="3">
+        <Box>
           <strong>SPLIT</strong>
-        </div>
-        <div className="col-auto">
+        </Box>
+        <Box>
           {" "}
-          users by{" "}
+          by{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {experiment.hashAttribute || "id"}
           </span>
@@ -193,26 +155,26 @@ export default function ExperimentRefSummary({
               <span>in the namespace </span>
               <Link href={`/namespaces`}>
                 <span className="mr-1 border px-2 py-1 bg-light rounded">
-                  {namespaces?.find((n) => n.name === phase.namespace.name)
+                  {namespaces?.find((n) => n.name === phase.namespace!.name)
                     ?.label || (
                     <span
                       className="italic text-danger"
                       title="this namespace is not found"
                     >
-                      <FaExclamationTriangle /> {phase.namespace.name}
+                      <FaExclamationTriangle /> {phase.namespace!.name}
                     </span>
                   )}
                 </span>
               </Link>
             </>
           )}
-        </div>
-      </div>
-      <div className="mb-3 row">
-        <div className="col-auto">
+        </Box>
+      </Flex>
+      <Flex gap="3" mb="3">
+        <Box>
           <strong>INCLUDE</strong>
-        </div>
-        <div className="col-auto">
+        </Box>
+        <Box>
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {percentFormatter.format(effectiveCoverage)}
           </span>{" "}
@@ -230,8 +192,8 @@ export default function ExperimentRefSummary({
               <span> exposure)</span>
             </>
           )}
-        </div>
-      </div>
+        </Box>
+      </Flex>
       {releasedValue ? (
         <ForceSummary feature={feature} value={releasedValue.value} />
       ) : (
@@ -296,7 +258,7 @@ export default function ExperimentRefSummary({
                           name: variation.name,
                           value:
                             variations.find(
-                              (v) => v.variationId === variation.id
+                              (v) => v.variationId === variation.id,
                             )?.value ?? "null",
                           weight: phase.variationWeights?.[j] || 0,
                         };
@@ -314,20 +276,20 @@ export default function ExperimentRefSummary({
               )}
             </tbody>
           </table>
-          <div className="row align-items-center">
-            <div className="col-auto">
+          <Flex align="center" gap="3" mb="3">
+            <Box>
               <strong>TRACK</strong>
-            </div>
-            <div className="col">
+            </Box>
+            <Box>
               {" "}
               the result using the key{" "}
               <span className="mr-1 border px-2 py-1 bg-light rounded">
                 {experiment.trackingKey}
               </span>{" "}
-            </div>
-          </div>
+            </Box>
+          </Flex>
         </>
       )}
-    </div>
+    </Box>
   );
 }

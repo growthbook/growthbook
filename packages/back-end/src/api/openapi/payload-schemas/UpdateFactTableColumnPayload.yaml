@@ -1,0 +1,62 @@
+type: object
+required:
+  - column
+properties:
+  column:
+    type: string
+    description: "The actual column name in the database/SQL query"
+  datatype:
+    type: string
+    enum:
+      - "number"
+      - "string" 
+      - "date"
+      - "boolean"
+      - "json"
+      - "other"
+      - ""
+  numberFormat:
+    type: string
+    enum:
+      - ""
+      - "currency"
+      - "time:seconds"
+      - "memory:bytes"
+      - "memory:kilobytes"
+  jsonFields:
+    type: object
+    description: "For JSON columns, defines the structure of nested fields"
+    additionalProperties:
+      type: object
+      properties:
+        datatype:
+          type: string
+          enum:
+            - "number"
+            - "string"
+            - "date"
+            - "boolean"
+            - "json"
+            - "other"
+            - ""
+  name:
+    type: string
+    description: "Display name for the column (can be different from the actual column name)"
+  description:
+    type: string
+  alwaysInlineFilter:
+    type: boolean
+    description: "Whether this column should always be included as an inline filter in queries"
+    default: false
+  deleted:
+    type: boolean
+    default: false
+  isAutoSliceColumn:
+    type: boolean
+    description: "Whether this column can be used for auto slice analysis. This is an enterprise feature."
+    default: false
+  autoSlices:
+    type: array
+    items:
+      type: string
+    description: "Specific values from this auto slice column to include in analysis. If empty, all top values will be used."

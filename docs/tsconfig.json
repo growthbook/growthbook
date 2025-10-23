@@ -4,10 +4,14 @@
   "compilerOptions": {
     "baseUrl": "."
   },
-  "exclude": ["./scripts/*.ts"],
+  "exclude": ["./scripts/*.ts", "build", ".docusaurus"],
   "ts-node": {
     "compilerOptions": {
       "module": "commonjs"
     }
+  },
+  "mdx": {
+    // Enable strict type checking in MDX files.
+    "checkMdx": true
   }
 }

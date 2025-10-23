@@ -41,7 +41,7 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
   const isSDKIntegrated =
     sdkConnections?.connections.some((c) => c.connected) || false;
   const demoProjectId = getDemoDatasourceProjectIdForOrganization(
-    organization.id || ""
+    organization.id || "",
   );
 
   // Ignore the demo datasource
@@ -60,8 +60,8 @@ const CreateFeatureFlagsGuide = (): React.ReactElement => {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="get-started"
+          commercialFeature={null}
         />
       )}
       <h1 className="mb-3">Create Feature Flags</h1>

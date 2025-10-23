@@ -24,10 +24,11 @@ import {
 } from "back-end/types/organization";
 import { ExperimentInterface } from "back-end/types/experiment";
 import { FeatureDefinitionWithProject } from "back-end/types/api";
+import { SafeRolloutInterface } from "../types/safe-rollout";
 
 const groupMap: GroupMap = new Map();
 const experimentMap = new Map();
-
+const safeRolloutMap = new Map();
 const baseFeature: FeatureInterface = {
   id: "feature",
   dateCreated: new Date(),
@@ -110,12 +111,12 @@ describe("getParsedCondition", () => {
 
     // Single empty saved group
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["empty"] }])
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["empty"] }]),
     ).toBeUndefined();
 
     // No saved groups
     expect(
-      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), [])
+      getParsedCondition(groupMap, JSON.stringify({ country: "US" }), []),
     ).toEqual({ country: "US" });
 
     // Saved group in condition
@@ -123,15 +124,15 @@ describe("getParsedCondition", () => {
       getParsedCondition(
         groupMap,
         JSON.stringify({ id: { $inGroup: "a" } }),
-        []
-      )
+        [],
+      ),
     ).toEqual({
       id: { $inGroup: "a" },
     });
 
     // Single saved group
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }])
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["a"] }]),
     ).toEqual({
       id_a: {
         $inGroup: "a",
@@ -140,7 +141,7 @@ describe("getParsedCondition", () => {
 
     // Legacy saved group still uses inGroup operator (to be scrubbed later)
     expect(
-      getParsedCondition(groupMap, "", [{ match: "any", ids: ["legacy"] }])
+      getParsedCondition(groupMap, "", [{ match: "any", ids: ["legacy"] }]),
     ).toEqual({
       id_a: {
         $inGroup: "legacy",
@@ -152,7 +153,7 @@ describe("getParsedCondition", () => {
       getParsedCondition(groupMap, "", [
         { match: "any", ids: ["b", "empty", "g"] },
         { match: "all", ids: ["g", "empty"] },
-      ])
+      ]),
     ).toEqual({
       id_b: { $inGroup: "b" },
     });
@@ -172,7 +173,7 @@ describe("getParsedCondition", () => {
           match: "none",
           ids: ["e", "f"],
         },
-      ])
+      ]),
     ).toEqual({
       $and: [
         // Attribute targeting
@@ -268,7 +269,7 @@ describe("getParsedCondition", () => {
           match: "none",
           ids: ["a", "b", "c", "d", "e", "f", "g"],
         },
-      ])
+      ]),
     ).toEqual({
       id: 1,
     });
@@ -287,9 +288,41 @@ describe("getParsedCondition", () => {
           match: "none",
           ids: ["a", "b", "c", "d", "e", "f", "g"],
         },
-      ])
+      ]),
     ).toEqual(undefined);
 
+    groupMap.clear();
+  });
+
+  it("includes empty list groups only when the flag is set", () => {
+    groupMap.clear();
+    groupMap.set("a", {
+      values: [],
+      type: "list",
+      attributeKey: "attr",
+      useEmptyListGroup: true,
+    });
+    groupMap.set("b", {
+      values: [],
+      type: "list",
+      attributeKey: "attr",
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "all", ids: ["a", "b"] }]),
+    ).toEqual({
+      attr: {
+        $inGroup: "a",
+      },
+    });
+
+    expect(
+      getParsedCondition(groupMap, "", [{ match: "none", ids: ["a", "b"] }]),
+    ).toEqual({
+      attr: {
+        $notInGroup: "a",
+      },
+    });
     groupMap.clear();
   });
 
@@ -326,7 +359,7 @@ describe("getParsedCondition", () => {
           match: "none",
           ids: ["a", "b"],
         },
-      ])
+      ]),
     ).toEqual({
       $and: [
         {
@@ -379,7 +412,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const rawCondition = JSON.stringify({ id: "1234" });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      JSON.stringify({ id: "1234" })
+      JSON.stringify({ id: "1234" }),
     );
   });
 
@@ -391,7 +424,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const rawCondition = JSON.stringify({ id: { $inGroup: groupId } });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"id":{"$in": ["123","345","678","910"]}}'
+      '{"id":{"$in": ["123","345","678","910"]}}',
     );
   });
 
@@ -403,7 +436,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const rawCondition = JSON.stringify({ id: { $notInGroup: groupId } });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"id":{"$nin": ["123","345","678","910"]}}'
+      '{"id":{"$nin": ["123","345","678","910"]}}',
     );
   });
 
@@ -415,7 +448,7 @@ describe("replaceSavedGroupsInCondition", () => {
     const rawCondition = JSON.stringify({ number: { $inGroup: groupId } });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$in": [1,2,3,4]}}'
+      '{"number":{"$in": [1,2,3,4]}}',
     );
   });
 
@@ -431,7 +464,7 @@ describe("replaceSavedGroupsInCondition", () => {
     });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$in": [1,2,3,4]},"id":"123","browser":"chrome"}'
+      '{"number":{"$in": [1,2,3,4]},"id":"123","browser":"chrome"}',
     );
   });
 
@@ -452,7 +485,7 @@ describe("replaceSavedGroupsInCondition", () => {
     });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"$and":[{"$or":[{"browser":"chrome"},{"deviceId":{"$in": [1,2,3,4]}}]},{"$not":[{"company":{"$nin": [1,2,3,4]}}]}]}'
+      '{"$and":[{"$or":[{"browser":"chrome"},{"deviceId":{"$in": [1,2,3,4]}}]},{"$not":[{"company":{"$nin": [1,2,3,4]}}]}]}',
     );
   });
 
@@ -467,7 +500,7 @@ describe("replaceSavedGroupsInCondition", () => {
     /* eslint-enable */
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"id":{"$in": ["123","345","678","910"]}}'
+      '{"id":{"$in": ["123","345","678","910"]}}',
     );
   });
 
@@ -484,7 +517,7 @@ describe("replaceSavedGroupsInCondition", () => {
     /* eslint-enable */
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"id":{"$nin": ["123","345","678","910"]}}'
+      '{"id":{"$nin": ["123","345","678","910"]}}',
     );
   });
 
@@ -498,7 +531,7 @@ describe("replaceSavedGroupsInCondition", () => {
     });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$in": []}}'
+      '{"number":{"$in": []}}',
     );
   });
 
@@ -512,7 +545,7 @@ describe("replaceSavedGroupsInCondition", () => {
     });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$eq":"$inGroup"}}'
+      '{"number":{"$eq":"$inGroup"}}',
     );
   });
 
@@ -526,7 +559,7 @@ describe("replaceSavedGroupsInCondition", () => {
     });
 
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
-      '{"number":{"$inGroup":false}}'
+      '{"number":{"$inGroup":false}}',
     );
   });
 });
@@ -566,8 +599,7 @@ describe("Hashing secureString types", () => {
     expect(condition).toEqual({
       ids: {
         $elemMatch: {
-          $eq:
-            "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
+          $eq: "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
         },
       },
       id: {
@@ -641,8 +673,7 @@ describe("Hashing secureString types", () => {
             },
             {
               $not: {
-                id:
-                  "29532748527922fa2c4b8b02388d1fe3dedc42c86ba021265cfc693c622c0ad3",
+                id: "29532748527922fa2c4b8b02388d1fe3dedc42c86ba021265cfc693c622c0ad3",
               },
             },
           ],
@@ -688,7 +719,7 @@ describe("Scheduled Rules", () => {
     const scheduleRules = undefined;
 
     expect(getCurrentEnabledState(scheduleRules || [], new Date())).toEqual(
-      true
+      true,
     );
   });
 
@@ -866,40 +897,40 @@ describe("Detecting Feature Changes", () => {
     ];
 
     expect(
-      getEnabledEnvironments(feature, ["dev", "production", "test"])
+      getEnabledEnvironments(feature, ["dev", "production", "test"]),
     ).toEqual(new Set(["dev", "production"]));
 
     expect(getEnabledEnvironments(feature, ["dev", "test"])).toEqual(
-      new Set(["dev"])
+      new Set(["dev"]),
     );
 
     expect(
       getEnabledEnvironments(
         feature,
         ["dev", "production", "test"],
-        (rule) => rule.type === "force" && rule.value === "true"
-      )
+        (rule) => rule.type === "force" && rule.value === "true",
+      ),
     ).toEqual(new Set(["dev"]));
 
     expect(
       getEnabledEnvironments(
         feature,
         ["dev", "production", "test"],
-        (rule) => rule.type === "force" && rule.value === "false"
-      )
+        (rule) => rule.type === "force" && rule.value === "false",
+      ),
     ).toEqual(new Set(["production"]));
 
     feature.environmentSettings.dev.enabled = false;
     expect(
-      getEnabledEnvironments(feature, ["dev", "production", "test"])
+      getEnabledEnvironments(feature, ["dev", "production", "test"]),
     ).toEqual(new Set(["production"]));
 
     expect(
       getEnabledEnvironments(
         feature,
         ["dev", "production", "test"],
-        (rule) => rule.type === "force" && rule.value === "true"
-      )
+        (rule) => rule.type === "force" && rule.value === "true",
+      ),
     ).toEqual(new Set([]));
   });
 
@@ -909,7 +940,7 @@ describe("Detecting Feature Changes", () => {
     const changedFeatures = [feature1, feature2];
 
     expect(
-      getAffectedSDKPayloadKeys(changedFeatures, ["dev", "production", "test"])
+      getAffectedSDKPayloadKeys(changedFeatures, ["dev", "production", "test"]),
     ).toEqual([
       {
         project: "",
@@ -929,7 +960,7 @@ describe("Detecting Feature Changes", () => {
     feature2.environmentSettings.production.enabled = false;
 
     expect(
-      getAffectedSDKPayloadKeys(changedFeatures, ["dev", "production", "test"])
+      getAffectedSDKPayloadKeys(changedFeatures, ["dev", "production", "test"]),
     ).toEqual([
       {
         project: "",
@@ -959,7 +990,7 @@ describe("Detecting Feature Changes", () => {
         "dev",
         "production",
         "test",
-      ])
+      ]),
     ).toEqual([]);
 
     updatedFeature.description = "New description";
@@ -972,7 +1003,7 @@ describe("Detecting Feature Changes", () => {
         "dev",
         "production",
         "test",
-      ])
+      ]),
     ).toEqual([]);
 
     expect(
@@ -982,8 +1013,8 @@ describe("Detecting Feature Changes", () => {
           ...updatedFeature,
           defaultValue: "false",
         },
-        ["dev", "production", "test"]
-      )
+        ["dev", "production", "test"],
+      ),
     ).toEqual([
       {
         project: "",
@@ -1001,8 +1032,8 @@ describe("Detecting Feature Changes", () => {
           ...updatedFeature,
           archived: true,
         },
-        ["dev", "production", "test"]
-      )
+        ["dev", "production", "test"],
+      ),
     ).toEqual([
       {
         project: "",
@@ -1020,8 +1051,8 @@ describe("Detecting Feature Changes", () => {
           ...updatedFeature,
           nextScheduledUpdate: new Date(),
         },
-        ["dev", "production", "test"]
-      )
+        ["dev", "production", "test"],
+      ),
     ).toEqual([
       {
         project: "",
@@ -1039,8 +1070,8 @@ describe("Detecting Feature Changes", () => {
           ...updatedFeature,
           project: "p2",
         },
-        ["dev", "production", "test"]
-      )
+        ["dev", "production", "test"],
+      ),
     ).toEqual([
       {
         project: "",
@@ -1066,7 +1097,7 @@ describe("Detecting Feature Changes", () => {
         "dev",
         "production",
         "test",
-      ])
+      ]),
     ).toEqual([
       {
         project: "",
@@ -1092,8 +1123,8 @@ describe("Changes are ignored when archived or disabled", () => {
         archived: true,
         project: "43280943fjdskalfja",
       },
-      ["dev", "production", "test"]
-    )
+      ["dev", "production", "test"],
+    ),
   ).toEqual([]);
 
   // Ignore environment changes if it's disabled before and after
@@ -1112,7 +1143,7 @@ describe("Changes are ignored when archived or disabled", () => {
       "dev",
       "production",
       "test",
-    ])
+    ]),
   ).toEqual([]);
 });
 
@@ -1213,8 +1244,37 @@ describe("SDK Payloads", () => {
       linkedFeatures: ["feature"],
       excludeFromPayload: false,
     };
+    const safeRollout: SafeRolloutInterface = {
+      id: "sr_123",
+      organization: "123",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      featureId: "feature",
+      environment: "production",
+      datasourceId: "ds_123",
+      exposureQueryId: "eq_123",
+      guardrailMetricIds: [],
+      maxDuration: {
+        amount: 7,
+        unit: "days",
+      },
+      autoRollback: true,
+      status: "running",
+      autoSnapshots: true,
+      startedAt: new Date(),
+      lastSnapshotAttempt: new Date(),
+      nextSnapshotAttempt: new Date(),
+      analysisSummary: undefined,
+      pastNotifications: [],
+      rampUpSchedule: {
+        enabled: true,
+        step: 1,
+        steps: [0.1, 0.25, 0.5],
+        rampUpCompleted: false,
+      },
+    };
     const experimentMap = new Map([["exp_123", exp]]);
-
+    const safeRolloutMap = new Map([["sr_123", safeRollout]]);
     // Includes the experiment
     expect(
       getFeatureDefinition({
@@ -1222,11 +1282,13 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual({
       defaultValue: true,
       rules: [
         {
+          id: "abc",
           key: "exp-key",
           coverage: 0.8,
           hashAttribute: "user_id",
@@ -1262,7 +1324,8 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual({
       defaultValue: true,
     });
@@ -1276,7 +1339,8 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual({
       defaultValue: true,
     });
@@ -1289,11 +1353,13 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual({
       defaultValue: true,
       rules: [
         {
+          id: "abc",
           coverage: 0.8,
           hashAttribute: "user_id",
           hashVersion: 2,
@@ -1315,9 +1381,143 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual({
       defaultValue: true,
+    });
+  });
+
+  it("Uses safe rollouts to build feature definitions", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "running",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the running safe rollout as an experiment with the right preset coverage
+    // and weights
+
+    expect(
+      getFeatureDefinition({
+        feature,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            {
+              key: "0",
+              name: "Control",
+            },
+            {
+              key: "1",
+              name: "Variation",
+            },
+          ],
+          name: "feature - Safe Rollout",
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+
+    const feature2 = cloneDeep(baseFeature);
+    feature2.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "rolled-back",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the rolled-back safe rollout as a force rule with the control value
+    expect(
+      getFeatureDefinition({
+        feature: feature2,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: false,
+        },
+      ],
+    });
+
+    const feature3 = cloneDeep(baseFeature);
+    feature3.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "released",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    // Includes the released safe rollout as a force rule with the variation value
+    expect(
+      getFeatureDefinition({
+        feature: feature3,
+        environment: "production",
+        groupMap: groupMap,
+        experimentMap: experimentMap,
+        safeRolloutMap: safeRolloutMap,
+      }),
+    ).toEqual({
+      defaultValue: true,
+      project: undefined,
+      rules: [
+        {
+          id: "abc",
+          force: true,
+        },
+      ],
     });
   });
 
@@ -1330,7 +1530,8 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual({
       defaultValue: true,
     });
@@ -1343,7 +1544,8 @@ describe("SDK Payloads", () => {
         environment: "production",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual(null);
 
     expect(
@@ -1352,7 +1554,8 @@ describe("SDK Payloads", () => {
         environment: "unknown",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual(null);
 
     feature.environmentSettings.dev.rules = [
@@ -1426,7 +1629,8 @@ describe("SDK Payloads", () => {
         environment: "dev",
         groupMap: groupMap,
         experimentMap: experimentMap,
-      })
+        safeRolloutMap: safeRolloutMap,
+      }),
     ).toEqual({
       defaultValue: true,
       rules: [
@@ -1435,11 +1639,13 @@ describe("SDK Payloads", () => {
             country: "US",
           },
           force: false,
+          id: "1",
         },
         {
           coverage: 0.8,
           force: false,
           hashAttribute: "id",
+          id: "2",
         },
         {
           coverage: 1,
@@ -1448,6 +1654,7 @@ describe("SDK Payloads", () => {
           meta: [{ key: "0" }, { key: "1" }],
           weights: [0.7, 0.3],
           key: "testing",
+          id: "3",
         },
       ],
     });
@@ -1500,6 +1707,7 @@ describe("SDK Payloads", () => {
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
+        holdouts: {},
       });
       expect(features).toEqual({
         featureName: {
@@ -1531,6 +1739,7 @@ describe("SDK Payloads", () => {
         organization: organization,
         attributes: [secureStringAttr],
         secureAttributeSalt: "salt",
+        holdouts: {},
       });
       expect(features).toEqual({
         featureName: {

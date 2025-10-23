@@ -7,10 +7,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { URLRedirectInterface } from "back-end/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
-import {
-  getAffectedEnvsForExperiment,
-  includeExperimentInPayload,
-} from "shared/util";
+import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -55,6 +52,7 @@ const BanditExperimentPage = (): ReactElement => {
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
     linkedFeatures: LinkedFeatureInfo[];
+    envs: string[];
     urlRedirects: URLRedirectInterface[];
   }>(`/experiment/${bid}`);
 
@@ -66,6 +64,11 @@ const BanditExperimentPage = (): ReactElement => {
     if (!data?.experiment) return;
     if (!data.experiment?.type || data.experiment.type === "standard") {
       router.replace(window.location.href.replace("bandit/", "experiment/"));
+    }
+    if (data?.experiment?.type === "holdout") {
+      let url = window.location.href.replace(/(.*)\/bandit\/.*/, "$1/holdout/");
+      url += data?.experiment?.holdoutId;
+      router.replace(url);
     }
   }, [data, router]);
 
@@ -88,9 +91,8 @@ const BanditExperimentPage = (): ReactElement => {
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEnvsForExperiment({ experiment });
-  if (envs.length > 0) {
-    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
+  if (data.envs.length > 0) {
+    if (!permissionsUtil.canRunExperiment(experiment, data.envs)) {
       canRunExperiment = false;
     }
   }
@@ -106,7 +108,6 @@ const BanditExperimentPage = (): ReactElement => {
     ? () => setDuplicateModalOpen(true)
     : null;
   const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
-  const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
@@ -120,11 +121,11 @@ const BanditExperimentPage = (): ReactElement => {
     experiment.status !== "running" ||
     !includeExperimentInPayload(
       experiment,
-      linkedFeatures.map((f) => f.feature)
+      linkedFeatures.map((f) => f.feature),
     );
 
   return (
-    <div>
+    <>
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
@@ -145,6 +146,7 @@ const BanditExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
+          onlySafeToEditVariationMetadata={false}
           mutate={mutate}
           source="bid"
         />
@@ -166,7 +168,7 @@ const BanditExperimentPage = (): ReactElement => {
                 dateStarted: new Date().toISOString(),
                 dateEnded: undefined,
                 variationWeights: p.variationWeights.map(
-                  () => 1 / (p.variationWeights.length || 2)
+                  () => 1 / (p.variationWeights.length || 2),
                 ),
                 banditEvents: undefined,
               };
@@ -270,30 +272,28 @@ const BanditExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <div className="container-fluid">
-        <SnapshotProvider experiment={experiment}>
-          <TabbedPage
-            experiment={experiment}
-            linkedFeatures={linkedFeatures}
-            mutate={mutate}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            editVariations={editVariations}
-            duplicate={duplicate}
-            editProject={editProject}
-            editTags={editTags}
-            newPhase={newPhase}
-            editPhases={editPhases}
-            editPhase={editPhase}
-            editTargeting={editTargeting}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-          />
-        </SnapshotProvider>
-      </div>
-    </div>
+      <SnapshotProvider experiment={experiment}>
+        <TabbedPage
+          experiment={experiment}
+          linkedFeatures={linkedFeatures}
+          mutate={mutate}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
+          editMetrics={editMetrics}
+          editResult={editResult}
+          editVariations={editVariations}
+          duplicate={duplicate}
+          editTags={editTags}
+          newPhase={newPhase}
+          editPhases={editPhases}
+          editPhase={editPhase}
+          envs={data.envs}
+          editTargeting={editTargeting}
+          checklistItemsRemaining={checklistItemsRemaining}
+          setChecklistItemsRemaining={setChecklistItemsRemaining}
+        />
+      </SnapshotProvider>
+    </>
   );
 };
 

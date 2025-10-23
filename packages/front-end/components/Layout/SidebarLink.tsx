@@ -7,6 +7,7 @@ import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
 import { GlobalPermission } from "back-end/types/organization";
 import { Permissions } from "shared/permissions";
+import { SegmentInterface } from "back-end/types/segment";
 import { AppFeatures } from "@/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
 import { PermissionFunctions, useUser } from "@/services/UserContext";
@@ -24,8 +25,10 @@ export type SidebarLinkProps = {
   sectionTitle?: string;
   className?: string;
   autoClose?: boolean;
+  navigateOnExpand?: boolean;
   filter?: (props: {
     permissionsUtils: Permissions;
+    segments: SegmentInterface[];
     permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
     superAdmin: boolean;
     isCloud: boolean;
@@ -39,7 +42,7 @@ export type SidebarLinkProps = {
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const { permissions, superAdmin } = useUser();
-  const { project } = useDefinitions();
+  const { project, segments } = useDefinitions();
   const router = useRouter();
 
   const path = router.route.substr(1);
@@ -66,6 +69,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     isMultiOrg: isMultiOrg(),
     gb: growthbook,
     project,
+    segments,
   };
 
   if (props.filter && !props.filter(filterProps)) {
@@ -73,7 +77,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   }
 
   const permittedSubLinks = (props.subLinks || []).filter(
-    (l) => !l.filter || l.filter(filterProps)
+    (l) => !l.filter || l.filter(filterProps),
   );
 
   if (props.subLinks && !permittedSubLinks.length) {
@@ -106,8 +110,18 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
           })}
           href={props.href}
           onClick={(e) => {
+            // Allow browser default behavior for modifier keys (cmd/ctrl/shift) or middle mouse button
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) {
+              return;
+            }
+
             e.preventDefault();
             if (props.subLinks) {
+              // If it's currently closed and it's set to navigate on expand
+              if (!open && !selected && props.navigateOnExpand && props.href) {
+                router.push(props.href);
+              }
+
               setOpen(!open);
               e.stopPropagation();
             } else {
@@ -158,7 +172,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                     [styles.selected]: sublinkSelected,
                     selected: sublinkSelected,
                     [styles.collapsed]: !open && !sublinkSelected,
-                  }
+                  },
                 )}
               >
                 <Link href={l.href} className="align-middle">

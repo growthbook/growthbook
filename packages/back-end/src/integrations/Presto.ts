@@ -1,9 +1,9 @@
 /// <reference types="../../typings/presto-client" />
 import { Client, IPrestoClientOptions } from "presto-client";
+import { FormatDialect } from "shared/src/types";
 import { QueryStatistics } from "back-end/types/query";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { PrestoConnectionParams } from "back-end/types/integrations/presto";
-import { FormatDialect } from "back-end/src/util/sql";
 import { QueryResponse } from "back-end/src/types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
@@ -14,9 +14,8 @@ export default class Presto extends SqlIntegration {
   params!: PrestoConnectionParams;
   requiresSchema = false;
   setParams(encryptedParams: string) {
-    this.params = decryptDataSourceParams<PrestoConnectionParams>(
-      encryptedParams
-    );
+    this.params =
+      decryptDataSourceParams<PrestoConnectionParams>(encryptedParams);
   }
   getFormatDialect(): FormatDialect {
     return "trino";
@@ -91,7 +90,13 @@ export default class Presto extends SqlIntegration {
           }
         },
         success: () => {
-          resolve({ rows: rows, statistics: statistics });
+          resolve({
+            rows,
+            columns: cols.map((col) => ({
+              name: col,
+            })),
+            statistics,
+          });
         },
       });
     });
@@ -100,7 +105,7 @@ export default class Presto extends SqlIntegration {
     col: string,
     unit: "hour" | "minute",
     sign: "+" | "-",
-    amount: number
+    amount: number,
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
   }
@@ -115,6 +120,18 @@ export default class Presto extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
+  }
+  hasCountDistinctHLL(): boolean {
+    return true;
+  }
+  hllAggregate(col: string): string {
+    return `APPROX_SET(${col})`;
+  }
+  hllReaggregate(col: string): string {
+    return `MERGE(${col})`;
+  }
+  hllCardinality(col: string): string {
+    return `CARDINALITY(${col})`;
   }
   getDefaultDatabase() {
     return this.params.catalog || "";

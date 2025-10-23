@@ -9,6 +9,7 @@ import {
   ExperimentMetricInterface,
   isExpectedDirection,
   isStatSig,
+  quantileMetricType,
   shouldHighlight,
 } from "shared/experiments";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
@@ -22,8 +23,11 @@ import { getEffectLabel } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
-import Toggle from "@/components/Forms/Toggle";
-import { getMetricResultGroup } from "@/components/Experiment/BreakDownResults";
+import Switch from "@/ui/Switch";
+import { getMetricResultGroup } from "@/hooks/useExperimentDimensionRows";
+import Tooltip from "@/ui/Tooltip";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Badge from "@/ui/Badge";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "./ExperimentDateGraph";
@@ -46,6 +50,7 @@ const DateResults: FC<{
   guardrailMetrics: string[];
   statsEngine?: StatsEngine;
   differenceType?: DifferenceType;
+  ssrPolyfills?: SSRPolyfills;
 }> = ({
   results,
   variations,
@@ -55,22 +60,28 @@ const DateResults: FC<{
   guardrailMetrics,
   statsEngine,
   differenceType,
+  ssrPolyfills,
 }) => {
-  const {
-    getExperimentMetricById,
-    getFactTableById,
-    metricGroups,
-    ready,
-  } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, metricGroups, ready } =
+    useDefinitions();
 
-  const pValueThreshold = usePValueThreshold();
-  const { ciUpper, ciLower } = useConfidenceLevels();
+  const _confidenceLevels = useConfidenceLevels();
+  const _pValueThreshold = usePValueThreshold();
+  const _displayCurrency = useCurrency();
 
-  const displayCurrency = useCurrency();
+  const { ciUpper, ciLower } =
+    ssrPolyfills?.useConfidenceLevels?.() || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold?.() || _pValueThreshold;
+  const displayCurrency = ssrPolyfills?.useCurrency?.() || _displayCurrency;
 
   const [cumulativeState, setCumulative] = useState(false);
   let cumulative = cumulativeState;
-  if (seriestype != "pre:date") {
+  // eventually we could store or back out the scaling factor
+  // to allow cumulative for scaled impact, but it is low
+  // value at the moment
+  const disabledCumulative = differenceType === "scaled";
+  if (seriestype != "pre:date" || disabledCumulative) {
     cumulative = false;
   }
   // Get data for users graph
@@ -101,27 +112,33 @@ const DateResults: FC<{
     });
   }, [results, cumulative, variations]);
 
-  const {
-    expandedGoals,
-    expandedSecondaries,
-    expandedGuardrails,
-  } = useMemo(() => {
-    const expandedGoals = expandMetricGroups(goalMetrics, metricGroups);
-    const expandedSecondaries = expandMetricGroups(
-      secondaryMetrics,
-      metricGroups
-    );
-    const expandedGuardrails = expandMetricGroups(
-      guardrailMetrics,
-      metricGroups
-    );
+  const { expandedGoals, expandedSecondaries, expandedGuardrails } =
+    useMemo(() => {
+      const expandedGoals = expandMetricGroups(
+        goalMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedSecondaries = expandMetricGroups(
+        secondaryMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
+      const expandedGuardrails = expandMetricGroups(
+        guardrailMetrics,
+        ssrPolyfills?.metricGroups || metricGroups,
+      );
 
-    return { expandedGoals, expandedSecondaries, expandedGuardrails };
-  }, [goalMetrics, metricGroups, secondaryMetrics, guardrailMetrics]);
+      return { expandedGoals, expandedSecondaries, expandedGuardrails };
+    }, [
+      goalMetrics,
+      metricGroups,
+      ssrPolyfills?.metricGroups,
+      secondaryMetrics,
+      guardrailMetrics,
+    ]);
 
   // Data for the metric graphs
   const metricSections = useMemo<Metric[]>(() => {
-    if (!ready) return [];
+    if (!ready && !ssrPolyfills) return [];
 
     const sortedResults = [...results];
     sortedResults.sort((a, b) => {
@@ -132,15 +149,19 @@ const DateResults: FC<{
     return (
       Array.from(
         new Set(
-          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails)
-        )
+          expandedGoals.concat(expandedSecondaries).concat(expandedGuardrails),
+        ),
       )
         .map((metricId) => {
-          const metric = getExperimentMetricById(metricId);
+          const metric =
+            ssrPolyfills?.getExperimentMetricById?.(metricId) ||
+            getExperimentMetricById(metricId);
+
           if (!metric) return;
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
           const totalValue: number[] = [];
+          const totalDenominator: number[] = [];
 
           const datapoints: ExperimentDateGraphDataPoint[] = sortedResults.map(
             (d) => {
@@ -154,9 +175,12 @@ const DateResults: FC<{
 
                   totalUsers[i] = totalUsers[i] || 0;
                   totalValue[i] = totalValue[i] || 0;
+                  totalDenominator[i] = totalDenominator[i] || 0;
 
                   totalUsers[i] += stats?.users || 0;
                   totalValue[i] += value || 0;
+                  totalDenominator[i] +=
+                    stats?.denominator || stats?.users || 0;
 
                   const v = value || 0;
                   let ci: [number, number] | undefined = undefined;
@@ -176,25 +200,29 @@ const DateResults: FC<{
                   }
                   // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
                   else if (i) {
-                    const crA = totalUsers[0]
-                      ? totalValue[0] / totalUsers[0]
+                    const crA = totalDenominator[0]
+                      ? totalValue[0] / totalDenominator[0]
                       : 0;
-                    const crB = totalUsers[i]
-                      ? totalValue[i] / totalUsers[i]
+                    const crB = totalDenominator[i]
+                      ? totalValue[i] / totalDenominator[i]
                       : 0;
-                    up = crA ? (crB - crA) / crA : 0;
+                    if (differenceType === "absolute") {
+                      up = crB - crA;
+                    } else {
+                      up = crA ? (crB - crA) / crA : 0;
+                    }
                   }
 
                   const v_formatted = getExperimentMetricFormatter(
                     metric,
-                    getFactTableById
+                    ssrPolyfills?.getFactTableById || getFactTableById,
                   )(
                     cumulative
-                      ? totalUsers[i]
-                        ? totalValue[i] / totalUsers[i]
+                      ? totalDenominator[i]
+                        ? totalValue[i] / totalDenominator[i]
                         : 0
                       : stats?.cr || 0,
-                    { currency: displayCurrency }
+                    { currency: displayCurrency },
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
@@ -217,7 +245,7 @@ const DateResults: FC<{
                     if (statsEngine === "frequentist" && statSig) {
                       const expectedDirection = isExpectedDirection(
                         stats,
-                        metric
+                        metric,
                       );
                       if (expectedDirection) {
                         className = "won";
@@ -247,7 +275,7 @@ const DateResults: FC<{
                   };
                 }),
               };
-            }
+            },
           );
 
           return {
@@ -255,7 +283,7 @@ const DateResults: FC<{
             resultGroup: getMetricResultGroup(
               metric.id,
               expandedGoals,
-              expandedSecondaries
+              expandedSecondaries,
             ),
             datapoints,
           };
@@ -276,8 +304,10 @@ const DateResults: FC<{
     expandedGoals,
     expandedSecondaries,
     pValueThreshold,
+    differenceType,
     statsEngine,
     variations,
+    ssrPolyfills,
   ]);
 
   const metricFormatterOptions: Intl.NumberFormatOptions = {
@@ -294,22 +324,27 @@ const DateResults: FC<{
             <strong>Graph Controls: </strong>
           </div>
           <div>
-            <Toggle
-              label="Cumulative"
-              id="cumulative"
-              value={cumulative}
-              setValue={setCumulative}
-            />
-            Cumulative
+            <Tooltip
+              content="Cumulative charts disabled for Scaled Impact difference type"
+              enabled={differenceType === "scaled"}
+            >
+              <Switch
+                id="cumulative"
+                label="Cumulative"
+                value={cumulative}
+                onChange={setCumulative}
+                disabled={differenceType === "scaled"}
+              />
+            </Tooltip>
           </div>
         </div>
       )}
       <div className="mb-5">
-        <h2>Users</h2>
+        <h2>Units</h2>
         <ExperimentDateGraph
           yaxis="users"
           variationNames={variations.map((v) => v.name)}
-          label="Users"
+          label="Units"
           datapoints={users}
           formatter={formatNumber}
           cumulative={cumulative}
@@ -318,16 +353,14 @@ const DateResults: FC<{
       {metricSections && (
         <>
           <h2>Metrics</h2>
-          <div className="mb-5">
+          <div className="mb-4">
             <small>
               The following results are cohort effects. In other words, units
               are first grouped by the first date they are exposed to the
               experiment (x-axis) and then the total uplift for all of those
-              users is computed (y-axis).
-              <br></br>
-              This is not the same as a standard time series, because the impact
-              on units first exposed on day X could include conversions on
-              future days.
+              users is computed (y-axis). This is not the same as a standard
+              time series, because the impact on units first exposed on day X
+              could include conversions on future days.
             </small>
           </div>
         </>
@@ -338,23 +371,33 @@ const DateResults: FC<{
           <h3>
             {metric.name}{" "}
             {resultGroup !== "goal" && (
-              <small className="badge badge-secondary">{resultGroup}</small>
+              <Badge color="gray" label={resultGroup} />
             )}
           </h3>
-          <ExperimentDateGraph
-            yaxis="effect"
-            datapoints={datapoints}
-            label={getEffectLabel(differenceType ?? "relative")}
-            formatter={
-              differenceType === "relative"
-                ? formatPercent
-                : getExperimentMetricFormatter(metric, getFactTableById, true)
-            }
-            formatterOptions={metricFormatterOptions}
-            variationNames={variations.map((v) => v.name)}
-            statsEngine={statsEngine}
-            hasStats={!cumulative}
-          />
+          {!quantileMetricType(metric) || !cumulative ? (
+            <ExperimentDateGraph
+              yaxis="effect"
+              datapoints={datapoints}
+              label={getEffectLabel(differenceType ?? "relative")}
+              formatter={
+                differenceType === "relative"
+                  ? formatPercent
+                  : getExperimentMetricFormatter(
+                      metric,
+                      getFactTableById,
+                      differenceType === "absolute"
+                        ? "percentagePoints"
+                        : "number",
+                    )
+              }
+              formatterOptions={metricFormatterOptions}
+              variationNames={variations.map((v) => v.name)}
+              statsEngine={statsEngine}
+              hasStats={!cumulative}
+            />
+          ) : (
+            <>No cumulative graph available for quantile metrics</>
+          )}
         </div>
       ))}
     </div>

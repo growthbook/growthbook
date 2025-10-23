@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { ago } from "shared/dates";
 import {
-  getMatchingRules,
+  experimentsReferencingSavedGroups,
+  featuresReferencingSavedGroups,
   isProjectListValidForProject,
   truncateString,
 } from "shared/util";
@@ -9,12 +10,14 @@ import Link from "next/link";
 import { SavedGroupInterface } from "shared/src/types";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { PiInfoFill } from "react-icons/pi";
+import { isEmpty } from "lodash";
+import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import { useSearch } from "@/services/search";
 import { getSavedGroupMessage } from "@/pages/saved-groups";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -25,6 +28,7 @@ import LargeSavedGroupPerformanceWarning, {
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useExperiments } from "@/hooks/useExperiments";
 import SavedGroupForm from "./SavedGroupForm";
 
 export interface Props {
@@ -33,10 +37,8 @@ export interface Props {
 }
 
 export default function IdLists({ groups, mutate }: Props) {
-  const [
-    savedGroupForm,
-    setSavedGroupForm,
-  ] = useState<null | Partial<SavedGroupInterface>>(null);
+  const [savedGroupForm, setSavedGroupForm] =
+    useState<null | Partial<SavedGroupInterface>>(null);
   const { project } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
@@ -53,45 +55,37 @@ export default function IdLists({ groups, mutate }: Props) {
 
   const filteredIdLists = project
     ? idLists.filter((list) =>
-        isProjectListValidForProject(list.projects, project)
+        isProjectListValidForProject(list.projects, project),
       )
     : idLists;
 
   const { features } = useFeaturesList(false);
+  const { experiments } = useExperiments();
 
   const environments = useEnvironments();
 
-  const {
-    hasLargeSavedGroupFeature,
-    supportedConnections,
-    unsupportedConnections,
-  } = useLargeSavedGroupSupport();
+  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+    useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
   // Get a list of feature ids for every saved group
-  // TODO: also get experiments
-  const savedGroupFeatureIds = useMemo(() => {
-    const map: Record<string, Set<string>> = {};
-
-    features.forEach((feature) => {
-      filteredIdLists.forEach((group) => {
-        const matches = getMatchingRules(
-          feature,
-          (rule) =>
-            rule.condition?.includes(group.id) ||
-            rule.savedGroups?.some((g) => g.ids.includes(group.id)) ||
-            false,
-          environments.map((e) => e.id)
-        );
-
-        if (matches.length > 0) {
-          map[group.id] = map[group.id] || new Set();
-          map[group.id].add(feature.id);
-        }
-      });
-    });
-    return map;
-  }, [filteredIdLists, environments, features]);
+  const referencingFeaturesByGroup = useMemo(
+    () =>
+      featuresReferencingSavedGroups({
+        savedGroups: filteredIdLists,
+        features,
+        environments,
+      }),
+    [filteredIdLists, environments, features],
+  );
+  const referencingExperimentsByGroup = useMemo(
+    () =>
+      experimentsReferencingSavedGroups({
+        savedGroups: filteredIdLists,
+        experiments,
+      }),
+    [filteredIdLists, experiments],
+  );
 
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
     items: filteredIdLists,
@@ -108,11 +102,11 @@ export default function IdLists({ groups, mutate }: Props) {
       {upgradeModal && (
         <UpgradeModal
           close={() => setUpgradeModal(false)}
-          reason=""
           source="large-saved-groups"
+          commercialFeature="large-saved-groups"
         />
       )}
-      <div className="mb-5 p-3 bg-white appbox border-top-0">
+      <Box mt="4" mb="5" p="4" className="appbox">
         {savedGroupForm && (
           <SavedGroupForm
             close={() => setSavedGroupForm(null)}
@@ -146,13 +140,13 @@ export default function IdLists({ groups, mutate }: Props) {
         </p>
 
         {unsupportedConnections.length > 0 ? (
-          <LargeSavedGroupPerformanceWarning
-            style="text"
-            hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
-            supportedConnections={supportedConnections}
-            unsupportedConnections={unsupportedConnections}
-            openUpgradeModal={() => setUpgradeModal(true)}
-          />
+          <Box mt="4">
+            <LargeSavedGroupPerformanceWarning
+              hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
+              unsupportedConnections={unsupportedConnections}
+              openUpgradeModal={() => setUpgradeModal(true)}
+            />
+          </Box>
         ) : (
           <p>
             <PiInfoFill /> Too many large lists will cause too large of a
@@ -212,13 +206,9 @@ export default function IdLists({ groups, mutate }: Props) {
                               <ProjectBadges
                                 resourceType="saved group"
                                 projectIds={s.projects}
-                                className="badge-ellipsis short align-middle"
                               />
                             ) : (
-                              <ProjectBadges
-                                resourceType="saved group"
-                                className="badge-ellipsis short align-middle"
-                              />
+                              <ProjectBadges resourceType="saved group" />
                             )}
                           </td>
                           <td>{s.owner}</td>
@@ -251,11 +241,12 @@ export default function IdLists({ groups, mutate }: Props) {
                                     mutate();
                                   }}
                                   getConfirmationContent={getSavedGroupMessage(
-                                    savedGroupFeatureIds[s.id]
+                                    referencingFeaturesByGroup[s.id],
+                                    referencingExperimentsByGroup[s.id],
                                   )}
                                   canDelete={
-                                    (savedGroupFeatureIds[s.id]?.size || 0) ===
-                                    0
+                                    isEmpty(referencingFeaturesByGroup[s.id]) &&
+                                    isEmpty(referencingExperimentsByGroup[s.id])
                                   }
                                 />
                               ) : null}
@@ -277,7 +268,7 @@ export default function IdLists({ groups, mutate }: Props) {
             </div>
           </>
         )}
-      </div>
+      </Box>
     </>
   );
 }

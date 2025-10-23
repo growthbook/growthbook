@@ -5,6 +5,8 @@ import {
   FaExclamationTriangle,
   FaQuestionCircle,
 } from "react-icons/fa";
+import clsx from "clsx";
+import { isBinomialMetric } from "shared/experiments";
 import {
   CreateMetricAnalysisProps,
   MetricAnalysisInterface,
@@ -14,13 +16,12 @@ import {
 } from "back-end/types/metric-analysis";
 import { FactMetricInterface } from "back-end/types/fact-table";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import useApi from "@/hooks/useApi";
-import Toggle from "@/components/Forms/Toggle";
+import Switch from "@/ui/Switch";
 import DateGraph from "@/components/Metrics/DateGraph";
 import HistogramGraph from "@/components/MetricAnalysis/HistogramGraph";
 import IdentifierChooser from "@/components/MetricAnalysis/IdentifierChooser";
@@ -42,7 +43,7 @@ import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton"
 import OutdatedBadge from "@/components/OutdatedBadge";
 import MetricAnalysisMoreMenu from "@/components/MetricAnalysis/MetricAnalysisMoreMenu";
 import track from "@/services/track";
-import Callout from "@/components/Radix/Callout";
+import Callout from "@/ui/Callout";
 import { getMetricAnalysisProps } from "@/components/MetricAnalysis/metric-analysis-props";
 import { useCurrency } from "@/hooks/useCurrency";
 
@@ -64,11 +65,11 @@ function MetricAnalysisOverview({
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   numeratorFormatter?: (
     value: number,
-    options?: Intl.NumberFormatOptions
+    options?: Intl.NumberFormatOptions,
   ) => string;
   denominatorFormatter?: (
     value: number,
-    options?: Intl.NumberFormatOptions
+    options?: Intl.NumberFormatOptions,
   ) => string;
 }) {
   const displayCurrency = useCurrency();
@@ -76,7 +77,7 @@ function MetricAnalysisOverview({
 
   let numeratorText = "Metric Total: ";
   let numeratorValue: string =
-    metricType === "proportion"
+    metricType === "proportion" || metricType === "retention"
       ? formatNumber(result.units * result.mean)
       : formatter(result.units * result.mean, formatterOptions);
   let denominatorText: string | JSX.Element = (
@@ -92,11 +93,11 @@ function MetricAnalysisOverview({
     denominatorText = "Denominator: ";
     numeratorValue = numeratorFormatter(
       result.numerator ?? 0,
-      formatterOptions
+      formatterOptions,
     );
     denominatorValue = denominatorFormatter(
       result.denominator ?? 0,
-      formatterOptions
+      formatterOptions,
     );
   }
 
@@ -130,7 +131,9 @@ function MetricAnalysisOverview({
             </div>
             {metricType === "ratio" ? null : (
               <>
-                {metricType === "proportion" ? "of" : "per"}{" "}
+                {metricType === "proportion" || metricType === "retention"
+                  ? "of"
+                  : "per"}{" "}
                 <code>{userIdType}</code>
               </>
             )}
@@ -149,19 +152,19 @@ function getLookbackSelected(lookbackDays: number): string {
 
 function settingsMatch(
   settings: MetricAnalysisSettings,
-  desiredSettings: CreateMetricAnalysisProps
+  desiredSettings: CreateMetricAnalysisProps,
 ) {
   // skip strict date checking
   const fieldsThatCanDiffer = ["startDate", "endDate"];
   return Object.entries(settings).every(
     ([key, value]) =>
-      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key)
+      desiredSettings[key] === value || fieldsThatCanDiffer.includes(key),
   );
 }
 
 function isOutdated(
   factMetric: FactMetricInterface,
-  analysis?: MetricAnalysisInterface | null
+  analysis?: MetricAnalysisInterface | null,
 ): { outdated: boolean; reasons: string[] } {
   if (analysis && factMetric.dateUpdated > analysis.dateCreated) {
     return {
@@ -177,7 +180,7 @@ function isOutdated(
 
 function getAnalysisSettingsForm(
   settings: MetricAnalysisSettings | undefined,
-  userIdTypes: string[] | undefined
+  userIdTypes: string[] | undefined,
 ) {
   return {
     userIdType: settings?.userIdType ?? userIdTypes?.[0] ?? "",
@@ -231,11 +234,11 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const storageKeySum = `metric_smoothBy_sum`;
   const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
     storageKeyAvg,
-    "day"
+    "day",
   );
   const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
     storageKeySum,
-    "day"
+    "day",
   );
 
   const [uniqueHoverDate, setUniqueHoverDate] = useState<number | null>(null);
@@ -260,29 +263,24 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
   const metricAnalysis = data?.metricAnalysis;
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   // get latest full object or add reset to default?
-  const {
-    reset,
-    watch,
-    getValues,
-    setValue,
-    register,
-  } = useForm<MetricAnalysisFormFields>({
-    defaultValues: getAnalysisSettingsForm(
-      metricAnalysis?.settings,
-      factTable?.userIdTypes
-    ),
-  });
+  const { reset, watch, getValues, setValue, register } =
+    useForm<MetricAnalysisFormFields>({
+      defaultValues: getAnalysisSettingsForm(
+        metricAnalysis?.settings,
+        factTable?.userIdTypes,
+      ),
+    });
   const populationValue: string | undefined = watch("populationType");
 
   // TODO better way to populate form/fields than the following
   const { queries, queryStatus } = useMemo(() => {
     reset(
-      getAnalysisSettingsForm(metricAnalysis?.settings, factTable?.userIdTypes)
+      getAnalysisSettingsForm(metricAnalysis?.settings, factTable?.userIdTypes),
     );
     const queries = metricAnalysis?.queries ?? [];
     const { status: queryStatus } = getQueryStatus(
       queries,
-      metricAnalysis?.error
+      metricAnalysis?.error,
     );
     return {
       queries,
@@ -294,7 +292,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
 
   const numeratorFormatter = getColumnRefFormatter(
     factMetric.numerator,
-    getFactTableById
+    getFactTableById,
   );
   const denominatorFormatter = factMetric.denominator
     ? getColumnRefFormatter(factMetric.denominator, getFactTableById)
@@ -388,7 +386,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                   setValue={(v) =>
                     setValue(
                       "populationType",
-                      v as MetricAnalysisPopulationType
+                      v as MetricAnalysisPopulationType,
                     )
                   }
                   setPopulationValue={(v) => setValue("populationId", v)}
@@ -423,7 +421,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         "partially-succeeded",
                       ].includes(queryStatus),
                     },
-                    " "
+                    " ",
                   )}
                   icon={
                     <span
@@ -521,6 +519,13 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
               />
             </div>
 
+            {factMetric.metricType === "retention" ? (
+              <Callout status="info" mt="2" mb="2">
+                {
+                  "Retention metrics analyzed here (outside the context of an experiment) have no clear baseline to use and will be treated as regular proportion metrics."
+                }
+              </Callout>
+            ) : null}
             {error || metricAnalysis?.error ? (
               <Callout status="error" mt="2" mb="2">
                 {`Analysis error: ${error || metricAnalysis?.error}`}
@@ -542,8 +547,8 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                           reset(
                             getAnalysisSettingsForm(
                               metricAnalysis?.settings,
-                              factTable?.userIdTypes
-                            )
+                              factTable?.userIdTypes,
+                            ),
                           );
                         }}
                       >
@@ -570,14 +575,14 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                         <div className="mb-4">
                           <div className="mt-3">
                             <h4 className="mb-1 mt-1">
-                              {factMetric.metricType === "proportion"
+                              {isBinomialMetric(factMetric)
                                 ? "Conversions"
                                 : "Metric Value"}{" "}
                               Over Time
                             </h4>
                           </div>
 
-                          {factMetric.metricType !== "proportion" && (
+                          {!isBinomialMetric(factMetric) && (
                             <>
                               <div className="row mt-4 mb-1">
                                 <div className="col">
@@ -637,25 +642,18 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                 </div>
                                 <div className="col">
                                   <div className="float-right mr-2">
-                                    <label
-                                      className="small my-0 mr-2 text-right align-middle"
-                                      htmlFor="toggle-group-by-avg"
-                                    >
-                                      Smoothing
-                                      <br />
-                                      (7 day trailing)
-                                    </label>
-                                    <Toggle
+                                    <Switch
                                       value={smoothByAvg === "week"}
-                                      setValue={() =>
+                                      onChange={() =>
                                         setSmoothByAvg(
                                           smoothByAvg === "week"
                                             ? "day"
-                                            : "week"
+                                            : "week",
                                         )
                                       }
                                       id="toggle-group-by-avg"
-                                      className="align-middle"
+                                      label="Smoothing"
+                                      description="7 day trailing"
                                     />
                                   </div>
                                 </div>
@@ -682,10 +680,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                           )}
 
                           {factMetric.metricType !== "ratio" &&
-                          !(
-                            northStarView &&
-                            factMetric.metricType !== "proportion"
-                          ) ? (
+                          !(northStarView && !isBinomialMetric(factMetric)) ? (
                             <>
                               <div className="row mt-4 mb-1">
                                 <div className="col">
@@ -694,8 +689,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                       <>
                                         <p>
                                           {`This figure shows the ${
-                                            factMetric.metricType !==
-                                            "proportion"
+                                            !isBinomialMetric(factMetric)
                                               ? `daily sum of values in the metric source`
                                               : `daily count of units (e.g. users) that fit
                                         the metric definition`
@@ -710,7 +704,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                         <p>
                                           {`When smoothing is turned on, we simply
                                       average ${
-                                        factMetric.metricType !== "proportion"
+                                        !isBinomialMetric(factMetric)
                                           ? "values"
                                           : "counts"
                                       } over the 7 trailing
@@ -721,7 +715,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                   >
                                     <strong className="ml-4 align-bottom">
                                       Daily{" "}
-                                      {factMetric.metricType !== "proportion"
+                                      {!isBinomialMetric(factMetric)
                                         ? "Sum"
                                         : "Count"}{" "}
                                       <FaQuestionCircle />
@@ -730,32 +724,25 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                                 </div>
                                 <div className="col">
                                   <div className="float-right mr-2">
-                                    <label
-                                      className="small my-0 mr-2 text-right align-middle"
-                                      htmlFor="toggle-group-by-sum"
-                                    >
-                                      Smoothing
-                                      <br />
-                                      (7 day trailing)
-                                    </label>
-                                    <Toggle
+                                    <Switch
                                       value={smoothBySum === "week"}
-                                      setValue={() =>
+                                      onChange={() =>
                                         setSmoothBySum(
                                           smoothBySum === "week"
                                             ? "day"
-                                            : "week"
+                                            : "week",
                                         )
                                       }
                                       id="toggle-group-by-sum"
-                                      className="align-middle"
+                                      label="Smoothing"
+                                      description="7 day trailing"
                                     />
                                   </div>
                                 </div>
                               </div>
                               <DateGraph
                                 type={
-                                  factMetric.metricType === "proportion"
+                                  isBinomialMetric(factMetric)
                                     ? "binomial"
                                     : "count"
                                 }
@@ -783,7 +770,7 @@ const MetricAnalysis: FC<MetricAnalysisProps> = ({
                       )}
                     {metricAnalysis?.result?.histogram &&
                       metricAnalysis.result.histogram.length > 0 &&
-                      factMetric.metricType !== "proportion" &&
+                      !isBinomialMetric(factMetric) &&
                       !northStarView && (
                         <div className="mt-5 mb-2">
                           <h4 className="align-bottom">

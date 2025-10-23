@@ -1,37 +1,45 @@
 import { FC } from "react";
+import Badge from "@/ui/Badge";
 
-type Results = "won" | "lost" | "dnf" | "inconclusive";
+export type Results = "won" | "lost" | "dnf" | "inconclusive";
 
-const getColorClass = (results: Results) => {
+const getColorAndVariant = (
+  results: Results,
+): [
+  React.ComponentProps<typeof Badge>["color"],
+  React.ComponentProps<typeof Badge>["variant"],
+] => {
   switch (results) {
     case "won":
-      return "badge-success";
+      return ["green", "solid"];
     case "lost":
-      return "badge-danger";
+      return ["red", "solid"];
     case "dnf":
-      return "badge-warning";
+      return ["amber", "soft"];
     case "inconclusive":
-      return "badge-secondary";
+      return ["gray", "solid"];
   }
 };
 
 const displayName = {
-  won: "won",
-  lost: "lost",
-  dnf: "did not finish",
-  inconclusive: "inconclusive",
+  won: "Won",
+  lost: "Lost",
+  dnf: "Didn't finish",
+  inconclusive: "Inconclusive",
 };
 
 const ResultsIndicator: FC<{
   results: Results;
 }> = ({ results }) => {
-  const color = getColorClass(results);
-  const className = `results-indicator ${color} px-3 font-weight-bold text-uppercase`;
+  const [color, variant] = getColorAndVariant(results);
 
   return (
-    <div className={className} style={{ fontSize: "85%" }}>
-      {displayName[results]}
-    </div>
+    <Badge
+      color={color}
+      variant={variant}
+      radius="full"
+      label={displayName[results]}
+    />
   );
 };
 

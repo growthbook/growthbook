@@ -1,20 +1,26 @@
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useState } from "react";
-import { FaChartLine, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { FaChartLine, FaExternalLinkAlt } from "react-icons/fa";
 import { FactTableInterface } from "back-end/types/fact-table";
-import { getAggregateFilters, quantileMetricType } from "shared/experiments";
+import {
+  getAggregateFilters,
+  isBinomialMetric,
+  isRatioMetric,
+  quantileMetricType,
+} from "shared/experiments";
 import {
   DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { IconButton, Text } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBBandit, GBCuped, GBEdit, GBExperiment } from "@/components/Icons";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -25,7 +31,11 @@ import RightRailSectionGroup from "@/components/Layout/RightRailSectionGroup";
 import RightRailSection from "@/components/Layout/RightRailSection";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import { getPercentileLabel } from "@/services/metrics";
+import {
+  formatNumber,
+  getExperimentMetricFormatter,
+  getPercentileLabel,
+} from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
@@ -35,11 +45,23 @@ import MetricPriorRightRailSectionGroup from "@/components/Metrics/MetricPriorRi
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import MetricAnalysis from "@/components/MetricAnalysis/MetricAnalysis";
 import MetricExperiments from "@/components/MetricExperiments/MetricExperiments";
-import Tab from "@/components/Tabs/Tab";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import DataList, { DataListItem } from "@/components/Radix/DataList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import DataList, { DataListItem } from "@/ui/DataList";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
+import FactTableAutoSliceSelector from "@/components/FactTables/FactTableAutoSliceSelector";
+import { useCurrency } from "@/hooks/useCurrency";
+import HistoryTable from "@/components/HistoryTable";
+import Modal from "@/components/Modal";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
+import OfficialResourceModal from "@/components/OfficialResourceModal";
+import { useUser } from "@/services/UserContext";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import { DocLink } from "@/components/DocLink";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -82,7 +104,7 @@ function MetricType({
   type,
   quantileType,
 }: {
-  type: "proportion" | "mean" | "ratio" | "quantile";
+  type: "proportion" | "retention" | "mean" | "ratio" | "quantile";
   quantileType?: "" | "unit" | "event";
 }) {
   if (type === "proportion") {
@@ -90,6 +112,14 @@ function MetricType({
       <div>
         <strong>Proportion Metric</strong> - Percent of experiment users who
         exist in a Fact Table
+      </div>
+    );
+  }
+  if (type === "retention") {
+    return (
+      <div>
+        <strong>Retention Metric</strong> - Percent of experiment users who
+        exist in a Fact Table a certain period after experiment exposure
       </div>
     );
   }
@@ -125,27 +155,39 @@ export default function FactMetricPage() {
   const router = useRouter();
   const { fmid } = router.query;
 
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState<
+    "closed" | "open" | "openWithAdvanced"
+  >("closed");
 
   const [editProjectsOpen, setEditProjectsOpen] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(false);
+  const [showConvertToOfficialModal, setShowConvertToOfficialModal] =
+    useState(false);
 
   const [tab, setTab] = useLocalStorage<string | null>(
     `metricTabbedPageTab__${fmid}`,
-    "analysis"
+    "analysis",
   );
   const { apiCall } = useAuth();
+
+  const { hasCommercialFeature } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
   const settings = useOrgSettings();
+
+  const displayCurrency = useCurrency();
 
   const {
     metricDefaults,
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
     getMaxPercentageChangeForMetric,
+    getTargetMDEForMetric,
   } = useOrganizationMetricDefaults();
 
   const {
@@ -158,6 +200,10 @@ export default function FactMetricPage() {
     getDatasourceById,
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
+
+  const isMetricSlicesFeatureEnabled =
+    growthbook?.isOn("metric-slices") || false;
+  const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
   if (!ready) return <LoadingOverlay />;
 
@@ -172,24 +218,20 @@ export default function FactMetricPage() {
     );
   }
 
-  const canEdit =
-    permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
-    !factMetric.managedBy;
-  const canDelete =
-    permissionsUtil.canDeleteFactMetric(factMetric) && !factMetric.managedBy;
+  let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
+  let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
 
-  let regressionAdjustmentAvailableForMetric = true;
-  let regressionAdjustmentAvailableForMetricReason = <></>;
-  if (factMetric.metricType === "ratio") {
-    regressionAdjustmentAvailableForMetric = false;
-    regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for ratio metrics.</>
-    );
+  if (
+    factMetric.managedBy &&
+    ["api", "config"].includes(factMetric.managedBy)
+  ) {
+    canEdit = false;
+    canDelete = false;
   }
 
   const factTable = getFactTableById(factMetric.numerator.factTableId);
   const denominatorFactTable = getFactTableById(
-    factMetric.denominator?.factTableId || ""
+    factMetric.denominator?.factTableId || "",
   );
 
   const datasource = factMetric.datasource
@@ -232,7 +274,7 @@ export default function FactMetricPage() {
           <em>None</em>
         ),
     },
-    ...(factMetric.metricType !== "proportion"
+    ...(!isBinomialMetric(factMetric)
       ? [
           {
             label: `Value`,
@@ -240,8 +282,8 @@ export default function FactMetricPage() {
               factMetric.numerator.column === "$$count"
                 ? "Count of Rows"
                 : factMetric.numerator.column === "$$distinctUsers"
-                ? "Unique Users"
-                : factMetric.numerator.column,
+                  ? "Unique Users"
+                  : factMetric.numerator.column,
           },
         ]
       : []),
@@ -251,17 +293,17 @@ export default function FactMetricPage() {
       ? [
           {
             label: "Per-User Aggregation",
-            value: "SUM",
+            value: (factMetric.numerator.aggregation || "SUM").toUpperCase(),
           },
         ]
       : userFilters.length > 0
-      ? [
-          {
-            label: "User Filter",
-            value: userFilters.join(" AND "),
-          },
-        ]
-      : []),
+        ? [
+            {
+              label: "User Filter",
+              value: userFilters.join(" AND "),
+            },
+          ]
+        : []),
     ...(factMetric.metricType === "quantile"
       ? [
           {
@@ -275,7 +317,7 @@ export default function FactMetricPage() {
           {
             label: "Quantile",
             value: getPercentileLabel(
-              factMetric.quantileSettings?.quantile ?? 0.5
+              factMetric.quantileSettings?.quantile ?? 0.5,
             ),
           },
         ]
@@ -320,14 +362,16 @@ export default function FactMetricPage() {
               factMetric.denominator.column === "$$count"
                 ? "Count of Rows"
                 : factMetric.denominator.column === "$$distinctUsers"
-                ? "Unique Users"
-                : factMetric.denominator.column,
+                  ? "Unique Users"
+                  : factMetric.denominator.column,
           },
           ...(!factMetric.denominator.column.startsWith("$$")
             ? [
                 {
                   label: "Per-User Aggregation",
-                  value: "SUM",
+                  value: (
+                    factMetric.denominator.aggregation || "SUM"
+                  ).toUpperCase(),
                 },
               ]
             : []),
@@ -336,10 +380,64 @@ export default function FactMetricPage() {
 
   return (
     <div className="pagecontents container-fluid">
-      {editOpen && (
+      {auditModal && (
+        <Modal
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+          closeCta="Close"
+        >
+          <HistoryTable type="metric" id={factMetric.id} />
+        </Modal>
+      )}
+      {showConvertToOfficialModal && (
+        <OfficialResourceModal
+          resourceType="Fact Metric"
+          source="fact-metric-page"
+          close={() => setShowConvertToOfficialModal(false)}
+          onSubmit={async () => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "PUT",
+              body: JSON.stringify({
+                managedBy: "admin",
+              }),
+            });
+            await mutateDefinitions();
+          }}
+        />
+      )}
+      {showDeleteModal && (
+        <Modal
+          trackingEventModalType=""
+          header={`Delete Metric`}
+          close={() => setShowDeleteModal(false)}
+          open={true}
+          cta="Delete"
+          submitColor="danger"
+          submit={async () => {
+            await apiCall(`/fact-metrics/${factMetric.id}`, {
+              method: "DELETE",
+            });
+            mutateDefinitions();
+            setShowDeleteModal(false);
+            router.push("/metrics");
+          }}
+          ctaEnabled={canDelete}
+          increasedElevation={true}
+        >
+          <p>
+            Are you sure you want to delete this metric? This action cannot be
+            undone.
+          </p>
+        </Modal>
+      )}
+      {editOpen !== "closed" && (
         <FactMetricModal
-          close={() => setEditOpen(false)}
+          close={() => setEditOpen("closed")}
           existing={factMetric}
+          showAdvancedSettings={editOpen === "openWithAdvanced"}
           source="fact-metric"
         />
       )}
@@ -374,6 +472,7 @@ export default function FactMetricPage() {
       )}
       {editOwnerModal && (
         <EditOwnerModal
+          resourceType="factMetric"
           cancel={() => setEditOwnerModal(false)}
           owner={factMetric.owner}
           save={async (owner) => {
@@ -415,41 +514,62 @@ export default function FactMetricPage() {
       <div className="row mb-3">
         <div className="col-auto">
           <h1 className="mb-0">
-            <MetricName id={factMetric.id} />
+            <MetricName id={factMetric.id} officialBadgePosition="right" />
           </h1>
         </div>
-        <div className="ml-auto">
-          <MoreMenu>
+        <div className="ml-auto mr-2">
+          <DropdownMenu
+            trigger={
+              <IconButton
+                variant="ghost"
+                color="gray"
+                radius="full"
+                size="3"
+                highContrast
+              >
+                <BsThreeDotsVertical size={18} />
+              </IconButton>
+            }
+            menuPlacement="end"
+            open={openDropdown}
+            onOpenChange={setOpenDropdown}
+          >
             {canEdit && (
-              <button
-                className="dropdown-item"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setEditOpen(true);
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setEditOpen("open");
                 }}
               >
                 Edit Metric
-              </button>
+              </DropdownMenuItem>
             )}
-            {canDelete && (
-              <DeleteButton
-                className="dropdown-item"
-                displayName="Metric"
-                useIcon={false}
-                text="Delete Metric"
-                onClick={async () => {
-                  await apiCall(`/fact-metrics/${factMetric.id}`, {
-                    method: "DELETE",
-                  });
-                  mutateDefinitions();
-                  router.push("/metrics");
+            {canEdit &&
+            !factMetric.managedBy &&
+            permissionsUtil.canCreateOfficialResources(factMetric) &&
+            hasCommercialFeature("manage-official-resources") ? (
+              <DropdownMenuItem
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setShowConvertToOfficialModal(true);
                 }}
-              />
-            )}
+              >
+                Convert to Official Metric
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              onClick={() => {
+                setOpenDropdown(false);
+                setAuditModal(true);
+              }}
+            >
+              Audit log
+            </DropdownMenuItem>
+            {canEdit || canDelete ? <DropdownMenuSeparator /> : null}
             {canEdit && (
-              <button
-                className="btn dropdown-item"
+              <DropdownMenuItem
                 onClick={async () => {
+                  setOpenDropdown(false);
                   await apiCall(`/fact-metrics/${factMetric.id}`, {
                     method: "PUT",
                     body: JSON.stringify({
@@ -460,9 +580,20 @@ export default function FactMetricPage() {
                 }}
               >
                 {factMetric.archived ? "Unarchive" : "Archive"}
-              </button>
+              </DropdownMenuItem>
             )}
-          </MoreMenu>
+            {canDelete && (
+              <DropdownMenuItem
+                color="red"
+                onClick={() => {
+                  setOpenDropdown(false);
+                  setShowDeleteModal(true);
+                }}
+              >
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenu>
         </div>
       </div>
       <div className="row mb-4">
@@ -528,9 +659,42 @@ export default function FactMetricPage() {
         <div className="col-12 col-md-8">
           <div className="appbox p-3 mb-5">
             <MarkdownInlineEdit
+              header={"Description"}
               canCreate={canEdit}
               canEdit={canEdit}
               value={factMetric.description}
+              aiSuggestFunction={async () => {
+                const res = await apiCall<{
+                  status: number;
+                  data: {
+                    description: string;
+                  };
+                }>(
+                  `/metrics/${factMetric.id}/gen-description`,
+                  {
+                    method: "GET",
+                  },
+                  (responseData) => {
+                    if (responseData.status === 429) {
+                      const retryAfter = parseInt(responseData.retryAfter);
+                      const hours = Math.floor(retryAfter / 3600);
+                      const minutes = Math.floor((retryAfter % 3600) / 60);
+                      throw new Error(
+                        `You have reached the AI request limit. Try again in ${hours} hours and ${minutes} minutes.`,
+                      );
+                    } else {
+                      throw new Error("Error getting AI suggestion");
+                    }
+                  },
+                );
+                if (res?.status !== 200) {
+                  throw new Error("Could not load AI suggestions");
+                }
+                return res.data.description;
+              }}
+              aiButtonText="Suggest Description"
+              aiSuggestionHeader="Suggested Description"
+              emptyHelperText="Add a description to keep your team informed about how to apply this metric."
               save={async (description) => {
                 await apiCall(`/fact-metrics/${factMetric.id}`, {
                   method: "PUT",
@@ -566,6 +730,53 @@ export default function FactMetricPage() {
                 <DataList data={denominatorData} header="Denominator" />
               </div>
             ) : null}
+
+            {isMetricSlicesFeatureEnabled && (
+              <div className="appbox p-3 mb-3">
+                <h4>
+                  Auto Slices
+                  <PaidFeatureBadge
+                    commercialFeature="metric-slices"
+                    premiumText="This is an Enterprise feature"
+                    variant="outline"
+                    ml="2"
+                  />
+                </h4>
+                <Text
+                  as="p"
+                  className="mb-2"
+                  style={{ color: "var(--color-text-mid)" }}
+                >
+                  Choose metric breakdowns to automatically analyze in your
+                  experiments.{" "}
+                  <DocLink docSection="autoSlices">
+                    Learn More <PiArrowSquareOut />
+                  </DocLink>
+                </Text>
+                <div className="mt-2">
+                  <FactTableAutoSliceSelector
+                    factMetric={factMetric}
+                    factTableId={factMetric.numerator.factTableId}
+                    canEdit={
+                      permissionsUtil.canUpdateFactMetric(factMetric, {}) &&
+                      !factMetric.managedBy &&
+                      hasMetricSlicesFeature
+                    }
+                    onUpdate={async (metricAutoSlices) => {
+                      await apiCall(`/fact-metrics/${factMetric.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          metricAutoSlices,
+                        }),
+                      });
+                      mutateDefinitions();
+                    }}
+                    compactButtons={false}
+                    containerWidth="auto"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mb-4">
@@ -580,9 +791,11 @@ export default function FactMetricPage() {
                     {factMetric.windowSettings.windowUnit}
                   </strong>{" "}
                   of first experiment exposure
-                  {factMetric.windowSettings.delayHours
-                    ? " plus the conversion delay"
-                    : ""}
+                  {factMetric.metricType === "retention"
+                    ? " plus the retention window"
+                    : factMetric.windowSettings.delayValue
+                      ? " plus the metric delay"
+                      : ""}
                   .
                 </>
               ) : factMetric.windowSettings.type === "lookback" ? (
@@ -599,9 +812,11 @@ export default function FactMetricPage() {
                 <>
                   <em className="font-weight-bold">Disabled</em> - Include all
                   metric data after first experiment exposure
-                  {factMetric.windowSettings.delayHours
-                    ? " plus the conversion delay"
-                    : ""}
+                  {factMetric.metricType === "retention"
+                    ? " plus the retention window"
+                    : factMetric.windowSettings.delayValue
+                      ? " plus the metric delay"
+                      : ""}
                   .
                 </>
               )}
@@ -612,23 +827,27 @@ export default function FactMetricPage() {
           <div className="appbox p-3">
             <RightRailSection
               title="Advanced Settings"
-              open={() => setEditOpen(true)}
+              open={() => setEditOpen("openWithAdvanced")}
               canOpen={canEdit}
             >
-              {factMetric.windowSettings.delayHours > 0 && (
+              {factMetric.windowSettings.delayValue ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">
                   <ul className="right-rail-subsection list-unstyled mb-4">
                     <li className="mt-3 mb-1">
-                      <span className="uppercase-title lg">Metric Delay</span>
+                      <span className="uppercase-title lg">
+                        {factMetric.metricType === "retention"
+                          ? "Retention Window"
+                          : "Metric Delay"}
+                      </span>
                     </li>
                     <li className="mb-2">
                       <span className="font-weight-bold">
-                        {factMetric.windowSettings.delayHours} hours
+                        {`${factMetric.windowSettings.delayValue} ${factMetric.windowSettings.delayUnit}`}
                       </span>
                     </li>
                   </ul>
                 </RightRailSectionGroup>
-              )}
+              ) : null}
 
               <RightRailSectionGroup type="custom" empty="" className="mt-3">
                 <ul className="right-rail-subsection list-unstyled mb-4">
@@ -644,7 +863,7 @@ export default function FactMetricPage() {
                         <li className="mb-2">
                           <span className="uppercase-title lg">
                             {capitalizeFirstLetter(
-                              factMetric.cappingSettings.type
+                              factMetric.cappingSettings.type,
                             )}
                             {" capping"}
                           </span>
@@ -671,12 +890,44 @@ export default function FactMetricPage() {
               <RightRailSectionGroup type="custom" empty="">
                 <ul className="right-rail-subsection list-unstyled mb-4">
                   <li className="mt-3 mb-1">
-                    <span className="uppercase-title lg">Thresholds</span>
+                    <span className="uppercase-title lg">
+                      Experiment Decision Framework
+                    </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Minimum sample size:</span>{" "}
+                    <span className="text-gray">Target MDE:</span>{" "}
                     <span className="font-weight-bold">
-                      {getMinSampleSizeForMetric(factMetric)}
+                      {getTargetMDEForMetric(factMetric) * 100}%
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">
+                      Display Thresholds
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">{`Minimum ${
+                      quantileMetricType(factMetric)
+                        ? `${quantileMetricType(factMetric)} count`
+                        : `${
+                            isRatioMetric(factMetric) ? "numerator" : "metric"
+                          } total`
+                    }:`}</span>{" "}
+                    <span className="font-weight-bold">
+                      {quantileMetricType(factMetric)
+                        ? formatNumber(getMinSampleSizeForMetric(factMetric))
+                        : getExperimentMetricFormatter(
+                            factMetric,
+                            getFactTableById,
+                            "number",
+                          )(getMinSampleSizeForMetric(factMetric), {
+                            currency: displayCurrency,
+                          })}
                     </span>
                   </li>
                   <li className="mb-2">
@@ -686,7 +937,7 @@ export default function FactMetricPage() {
                     </span>
                   </li>
                   <li className="mb-2">
-                    <span className="text-gray">Min percent change :</span>{" "}
+                    <span className="text-gray">Min percent change:</span>{" "}
                     <span className="font-weight-bold">
                       {getMinPercentageChangeForMetric(factMetric) * 100}%
                     </span>
@@ -733,14 +984,7 @@ export default function FactMetricPage() {
                       <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
                   </li>
-                  {!regressionAdjustmentAvailableForMetric ? (
-                    <li className="mb-2">
-                      <div className="text-muted small">
-                        <FaTimes className="text-danger" />{" "}
-                        {regressionAdjustmentAvailableForMetricReason}
-                      </div>
-                    </li>
-                  ) : factMetric?.regressionAdjustmentOverride ? (
+                  {factMetric?.regressionAdjustmentOverride ? (
                     <>
                       <li className="mb-2">
                         <span className="text-gray">
@@ -804,70 +1048,45 @@ export default function FactMetricPage() {
           </div>
         </div>
       </div>
-      <div className="row align-items-center">
-        <ControlledTabs
-          orientation="horizontal"
-          className="col"
-          buttonsClassName="mb-0 d-flex align-items-center"
-          buttonsWrapperClassName="border-bottom-0 large shiftdown-1"
-          defaultTab="analysis"
-          newStyle={false}
-          showActiveCount={false}
-          active={tab}
-          setActive={setTab}
-        >
-          <Tab
-            display={
-              <>
-                <FaChartLine className="mr-1" size={16} />
-                Metric Analysis
-              </>
-            }
-            id="analysis"
-            anchor="analysis"
-            padding={false}
-            lazy={true}
-          >
-            {datasource ? (
-              <MetricAnalysis
-                factMetric={factMetric}
-                datasource={datasource}
-                className="tabbed-content"
-              />
-            ) : null}
-          </Tab>
-          <Tab
-            display={
-              <>
-                <GBExperiment className="mr-1" />
-                Experiments
-              </>
-            }
-            id="experiments"
-            anchor="experiments"
-            padding={false}
-            lazy={true}
-          >
-            <MetricExperiments metric={factMetric} />
-          </Tab>
-          {growthbook.isOn("bandits") ? (
-            <Tab
-              display={
-                <>
-                  <GBBandit className="mr-1" />
-                  Bandits
-                </>
-              }
-              id="bandits"
-              anchor="bandits"
-              padding={false}
-              lazy={true}
-            >
-              <MetricExperiments metric={factMetric} bandits={true} />
-            </Tab>
+
+      <Tabs value={tab ?? undefined} onValueChange={setTab}>
+        <TabsList>
+          <TabsTrigger value="analysis">
+            <FaChartLine className="mr-1" size={16} />
+            Metric Analysis
+          </TabsTrigger>
+          <TabsTrigger value="experiments">
+            <GBExperiment className="mr-1" />
+            Experiments
+          </TabsTrigger>
+          {growthbook.isOn("bandits") && (
+            <TabsTrigger value="bandits">
+              <GBBandit className="mr-1" />
+              Bandits
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="analysis">
+          {datasource ? (
+            <MetricAnalysis
+              factMetric={factMetric}
+              datasource={datasource}
+              className="tabbed-content"
+            />
           ) : null}
-        </ControlledTabs>
-      </div>
+        </TabsContent>
+
+        <TabsContent value="experiments">
+          <MetricExperiments metric={factMetric} />
+        </TabsContent>
+
+        {growthbook.isOn("bandits") && (
+          <TabsContent value="bandits">
+            <MetricExperiments metric={factMetric} bandits={true} />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

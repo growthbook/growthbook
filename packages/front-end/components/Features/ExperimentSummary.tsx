@@ -1,6 +1,7 @@
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { Box, Flex } from "@radix-ui/themes";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -32,14 +33,14 @@ export default function ExperimentSummary({
   const effectiveCoverage = namespaceRange * (coverage ?? 1);
 
   return (
-    <div>
-      <div className="mb-3 row">
-        <div className="col-auto">
-          <strong>SPLIT</strong>
-        </div>
-        <div className="col-auto">
+    <Box>
+      <Flex mb="3" gap="3">
+        <Box>
+          <strong className="font-weight-semibold">SPLIT</strong>
+        </Box>
+        <Box>
           {" "}
-          users by{" "}
+          by{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {hashAttribute || ""}
           </span>
@@ -53,13 +54,13 @@ export default function ExperimentSummary({
               </span>
             </>
           )}
-        </div>
-      </div>
-      <div className="mb-3 row">
-        <div className="col-auto">
-          <strong>INCLUDE</strong>
-        </div>
-        <div className="col-auto">
+        </Box>
+      </Flex>
+      <Flex mb="3" gap="3">
+        <Box>
+          <strong className="font-weight-semibold">INCLUDE</strong>
+        </Box>
+        <Box>
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {percentFormatter.format(effectiveCoverage)}
           </span>{" "}
@@ -77,9 +78,9 @@ export default function ExperimentSummary({
               <span> exposure)</span>
             </>
           )}
-        </div>
-      </div>
-      <strong>SERVE</strong>
+        </Box>
+      </Flex>
+      <strong className="font-weight-semibold">SERVE</strong>
 
       <table className="table mt-1 mb-3 bg-light gbtable">
         <tbody>
@@ -137,18 +138,18 @@ export default function ExperimentSummary({
           </tr>
         </tbody>
       </table>
-      <div className="row align-items-center">
-        <div className="col-auto">
-          <strong>TRACK</strong>
-        </div>
-        <div className="col">
+      <Flex gap="3">
+        <Box>
+          <strong className="font-weight-semibold">TRACK</strong>
+        </Box>
+        <Box>
           {" "}
           the result using the key{" "}
           <span className="mr-1 border px-2 py-1 bg-light rounded">
             {trackingKey || feature.id}
           </span>{" "}
-        </div>
-        <div className="col-auto">
+        </Box>
+        <Box>
           {experiment ? (
             <Link
               href={`/experiment/${experiment.id}#results`}
@@ -157,8 +158,8 @@ export default function ExperimentSummary({
               View results
             </Link>
           ) : null}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Flex>
+    </Box>
   );
 }

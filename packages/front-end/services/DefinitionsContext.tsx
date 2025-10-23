@@ -11,6 +11,7 @@ import {
   ReactNode,
   useCallback,
   ReactElement,
+  useEffect,
 } from "react";
 import { TagInterface } from "back-end/types/tag";
 import {
@@ -20,10 +21,14 @@ import {
 import { ExperimentMetricInterface, isFactMetricId } from "shared/experiments";
 import { SavedGroupInterface } from "shared/src/types";
 import { MetricGroupInterface } from "back-end/types/metric-groups";
+import { CustomField } from "back-end/types/custom-fields";
+import { DecisionCriteriaInterface } from "back-end/types/experiment";
+import { WebhookSecretFrontEndInterface } from "back-end/src/validators/webhook-secrets";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { findClosestRadixColor } from "./tags";
+import { useUser } from "./UserContext";
 
 type Definitions = {
   metrics: MetricInterface[];
@@ -34,11 +39,14 @@ type Definitions = {
   projects: ProjectInterface[];
   savedGroups: SavedGroupInterface[];
   metricGroups: MetricGroupInterface[];
+  customFields: CustomField[];
   tags: TagInterface[];
   factTables: FactTableInterface[];
   _factTablesIncludingArchived: FactTableInterface[];
   factMetrics: FactMetricInterface[];
   _factMetricsIncludingArchived: FactMetricInterface[];
+  decisionCriteria: DecisionCriteriaInterface[];
+  webhookSecrets: WebhookSecretFrontEndInterface[];
 };
 
 type DefinitionContextValue = Definitions & {
@@ -59,6 +67,7 @@ type DefinitionContextValue = Definitions & {
   getFactMetricById: (id: string) => null | FactMetricInterface;
   getExperimentMetricById: (id: string) => null | ExperimentMetricInterface;
   getMetricGroupById: (id: string) => null | MetricGroupInterface;
+  getDecisionCriteriaById: (id: string) => null | DecisionCriteriaInterface;
 };
 
 const defaultValue: DefinitionContextValue = {
@@ -81,11 +90,14 @@ const defaultValue: DefinitionContextValue = {
   tags: [],
   savedGroups: [],
   metricGroups: [],
+  customFields: [],
   projects: [],
   factTables: [],
   _factTablesIncludingArchived: [],
   factMetrics: [],
   _factMetricsIncludingArchived: [],
+  decisionCriteria: [],
+  webhookSecrets: [],
   getMetricById: () => null,
   getDatasourceById: () => null,
   getDimensionById: () => null,
@@ -97,17 +109,17 @@ const defaultValue: DefinitionContextValue = {
   getFactMetricById: () => null,
   getExperimentMetricById: () => null,
   getMetricGroupById: () => null,
+  getDecisionCriteriaById: () => null,
 };
 
-export const DefinitionsContext = createContext<DefinitionContextValue>(
-  defaultValue
-);
+export const DefinitionsContext =
+  createContext<DefinitionContextValue>(defaultValue);
 
 interface IndexableItem {
   id: string;
 }
 function useGetById<T extends IndexableItem>(
-  items?: T[]
+  items?: T[],
 ): (id: string) => T | null {
   return useMemo(() => {
     if (!items) {
@@ -131,14 +143,45 @@ export function useDefinitions() {
 
 export const LOCALSTORAGE_PROJECT_KEY = "gb_current_project" as const;
 
+// Applies user's team(s) default project constraint once per browser session
+let teamConstraintApplied = false;
+function useTeamProjectConstraint() {
+  const { user, teams } = useUser();
+  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+
+  useEffect(() => {
+    if (!user?.teams || !teams || teamConstraintApplied) return;
+
+    const defaultProjects = new Set<string>();
+    (teams || []).forEach((team) => {
+      if (team?.defaultProject && user?.teams?.includes(team.id)) {
+        defaultProjects.add(team.defaultProject);
+      }
+    });
+
+    // Apply default project if applicable
+    teamConstraintApplied = true;
+    if (defaultProjects.size > 0 && !defaultProjects.has(project)) {
+      const firstAllowedProject = Array.from(defaultProjects)[0];
+      setProject(firstAllowedProject);
+    }
+  }, [user?.teams, teams, project, setProject]);
+
+  return [project, setProject] as const;
+}
+
+export const useProject = () => {
+  return useTeamProjectConstraint();
+};
+
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
-    "/organization/definitions"
+    "/organization/definitions",
   );
 
-  const [project, setProject] = useLocalStorage(LOCALSTORAGE_PROJECT_KEY, "");
+  const [project, setProject] = useProject();
 
   const activeMetrics = useMemo(() => {
     if (!data || !data.metrics) {
@@ -161,13 +204,20 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     return data.metricGroups;
   }, [data?.metricGroups]);
 
+  const decisionCriteria = useMemo(() => {
+    if (!data || !data.decisionCriteria) {
+      return [];
+    }
+    return data.decisionCriteria;
+  }, [data?.decisionCriteria]);
+
   const activeFactMetrics = useMemo(() => {
     if (!data || !data.factMetrics) {
       return [];
     }
     return data.factMetrics.filter((m) => {
       const numeratorFactTable = data.factTables.find(
-        (f) => f.id === m.denominator?.factTableId
+        (f) => f.id === m.denominator?.factTableId,
       );
       const denominatorFactTable = m.denominator?.factTableId
         ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
@@ -227,7 +277,9 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   const getTagById = useGetById(allTags);
   const getFactTableById = useGetById(data?.factTables);
   const getFactMetricById = useGetById(data?.factMetrics);
+
   const getMetricGroupById = useGetById(data?.metricGroups);
+  const getDecisionCriteriaById = useGetById(data?.decisionCriteria);
 
   const getExperimentMetricById = useCallback(
     (id: string) => {
@@ -236,16 +288,15 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       }
       return getMetricById(id);
     },
-    [getMetricById, getFactMetricById]
+    [getMetricById, getFactMetricById],
   );
 
   let value: DefinitionContextValue;
   if (error) {
-    value = { ...defaultValue, error: error?.message || "" };
+    value = { ...defaultValue, setProject, error: error?.message || "" };
   } else if (!data) {
     value = defaultValue;
   } else {
-    //console.log("data is", data);
     const filteredProject =
       data.projects && data.projects.map((p) => p.id).includes(project)
         ? project
@@ -260,12 +311,15 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       tags: allTags,
       savedGroups: data.savedGroups,
       metricGroups: metricGroups,
+      customFields: data.customFields,
       projects: data.projects,
       project: filteredProject,
       factTables: activeFactTables,
       _factTablesIncludingArchived: allFactTables,
       factMetrics: activeFactMetrics,
       _factMetricsIncludingArchived: allFactMetrics,
+      decisionCriteria: decisionCriteria,
+      webhookSecrets: data.webhookSecrets,
       setProject,
       getMetricById,
       getDatasourceById,
@@ -278,6 +332,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       getFactMetricById,
       getExperimentMetricById,
       getMetricGroupById,
+      getDecisionCriteriaById,
       refreshTags: async (tags) => {
         const existingTags = data.tags.map((t) => t.id);
         const newTags = tags.filter((t) => !existingTags.includes(t));
@@ -291,10 +346,10 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
                   id: t,
                   color: "blue",
                   description: "",
-                }))
+                })),
               ),
             },
-            false
+            false,
           );
         }
       },

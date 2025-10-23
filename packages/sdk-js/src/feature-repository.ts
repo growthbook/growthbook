@@ -7,7 +7,12 @@ import {
   Polyfills,
 } from "./types/growthbook";
 import { getPolyfills, promiseTimeout } from "./util";
-import type { GrowthBook } from ".";
+import type {
+  GrowthBook,
+  InitOptions,
+  InitSyncOptions,
+  GrowthBookClient,
+} from ".";
 
 type CacheEntry = {
   data: FeatureApiResponse;
@@ -45,7 +50,7 @@ export const helpers: Helpers = {
   fetchFeaturesCall: ({ host, clientKey, headers }) => {
     return (polyfills.fetch as typeof globalThis.fetch)(
       `${host}/api/features/${clientKey}`,
-      { headers }
+      { headers },
     );
   },
   fetchRemoteEvalCall: ({ host, clientKey, payload, headers }) => {
@@ -56,7 +61,7 @@ export const helpers: Helpers = {
     };
     return (polyfills.fetch as typeof globalThis.fetch)(
       `${host}/api/eval/${clientKey}`,
-      options
+      options,
     );
   },
   eventSourceCall: ({ host, clientKey, headers }) => {
@@ -79,7 +84,7 @@ export const helpers: Helpers = {
       } else if (document.visibilityState === "hidden") {
         idleTimeout = window.setTimeout(
           onHidden,
-          cacheSettings.idleStreamInterval
+          cacheSettings.idleStreamInterval,
         );
       }
     };
@@ -101,7 +106,10 @@ try {
 }
 
 // Global state
-const subscribedInstances: Map<string, Set<GrowthBook>> = new Map();
+const subscribedInstances: Map<
+  string,
+  Set<GrowthBook | GrowthBookClient>
+> = new Map();
 let cacheInitialized = false;
 const cache: Map<string, CacheEntry> = new Map();
 const activeFetches: Map<string, Promise<FetchResponse>> = new Map();
@@ -135,7 +143,7 @@ export async function refreshFeatures({
   allowStale,
   backgroundSync,
 }: {
-  instance: GrowthBook;
+  instance: GrowthBook | GrowthBookClient;
   timeout?: number;
   skipCache?: boolean;
   allowStale?: boolean;
@@ -154,13 +162,13 @@ export async function refreshFeatures({
 }
 
 // Subscribe a GrowthBook instance to feature changes
-export function subscribe(instance: GrowthBook): void {
+function subscribe(instance: GrowthBook | GrowthBookClient): void {
   const key = getKey(instance);
   const subs = subscribedInstances.get(key) || new Set();
   subs.add(instance);
   subscribedInstances.set(key, subs);
 }
-export function unsubscribe(instance: GrowthBook): void {
+export function unsubscribe(instance: GrowthBook | GrowthBookClient): void {
   subscribedInstances.forEach((s) => s.delete(instance));
 }
 
@@ -187,7 +195,7 @@ async function updatePersistentCache() {
     if (!polyfills.localStorage) return;
     await polyfills.localStorage.setItem(
       cacheSettings.cacheKey,
-      JSON.stringify(Array.from(cache.entries()))
+      JSON.stringify(Array.from(cache.entries())),
     );
   } catch (e) {
     // Ignore localStorage errors
@@ -201,7 +209,7 @@ async function fetchFeaturesWithCache({
   timeout,
   skipCache,
 }: {
-  instance: GrowthBook;
+  instance: GrowthBook | GrowthBookClient;
   allowStale?: boolean;
   timeout?: number;
   skipCache?: boolean;
@@ -211,7 +219,7 @@ async function fetchFeaturesWithCache({
   const now = new Date();
 
   const minStaleAt = new Date(
-    now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL
+    now.getTime() - cacheSettings.maxAge + cacheSettings.staleTTL,
   );
 
   await initializeCache();
@@ -247,14 +255,14 @@ async function fetchFeaturesWithCache({
   }
 }
 
-function getKey(instance: GrowthBook): string {
+function getKey(instance: GrowthBook | GrowthBookClient): string {
   const [apiHost, clientKey] = instance.getApiInfo();
   return `${apiHost}||${clientKey}`;
 }
 
-function getCacheKey(instance: GrowthBook): string {
+function getCacheKey(instance: GrowthBook | GrowthBookClient): string {
   const baseKey = getKey(instance);
-  if (!instance.isRemoteEval()) return baseKey;
+  if (!("isRemoteEval" in instance) || !instance.isRemoteEval()) return baseKey;
 
   const attributes = instance.getAttributes();
   const cacheKeyAttributes =
@@ -281,7 +289,7 @@ async function initializeCache(): Promise<void> {
   try {
     if (polyfills.localStorage) {
       const value = await polyfills.localStorage.getItem(
-        cacheSettings.cacheKey
+        cacheSettings.cacheKey,
       );
       if (!cacheSettings.disableCache && value) {
         const parsed: [string, CacheEntry][] = JSON.parse(value);
@@ -318,7 +326,7 @@ function cleanupCache() {
 
   const entriesToRemoveCount = Math.min(
     Math.max(0, cache.size - cacheSettings.maxEntries),
-    cache.size
+    cache.size,
   );
 
   for (let i = 0; i < entriesToRemoveCount; i++) {
@@ -330,7 +338,7 @@ function cleanupCache() {
 function onNewFeatureData(
   key: string,
   cacheKey: string,
-  data: FeatureApiResponse
+  data: FeatureApiResponse,
 ): void {
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
@@ -363,17 +371,19 @@ function onNewFeatureData(
 }
 
 async function refreshInstance(
-  instance: GrowthBook,
-  data: FeatureApiResponse | null
+  instance: GrowthBook | GrowthBookClient,
+  data: FeatureApiResponse | null,
 ): Promise<void> {
   await instance.setPayload(data || instance.getPayload());
 }
 
 // Fetch the features payload from helper function or from in-mem injected payload
-async function fetchFeatures(instance: GrowthBook): Promise<FetchResponse> {
+async function fetchFeatures(
+  instance: GrowthBook | GrowthBookClient,
+): Promise<FetchResponse> {
   const { apiHost, apiRequestHeaders } = instance.getApiHosts();
   const clientKey = instance.getClientKey();
-  const remoteEval = instance.isRemoteEval();
+  const remoteEval = "isRemoteEval" in instance && instance.isRemoteEval();
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
 
@@ -436,9 +446,9 @@ async function fetchFeatures(instance: GrowthBook): Promise<FetchResponse> {
 }
 
 // Start SSE streaming, listens to feature payload changes and triggers a refresh or re-fetch
-export function startAutoRefresh(
-  instance: GrowthBook,
-  forceSSE: boolean = false
+function startAutoRefresh(
+  instance: GrowthBook | GrowthBookClient,
+  forceSSE: boolean = false,
 ): void {
   const key = getKey(instance);
   const cacheKey = getCacheKey(instance);
@@ -500,10 +510,13 @@ function onSSEError(channel: ScopedChannel) {
     const delay =
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
-    setTimeout(() => {
-      if (["idle", "active"].includes(channel.state)) return;
-      enableChannel(channel);
-    }, Math.min(delay, 300000)); // 5 minutes max
+    setTimeout(
+      () => {
+        if (["idle", "active"].includes(channel.state)) return;
+        enableChannel(channel);
+      },
+      Math.min(delay, 300000),
+    ); // 5 minutes max
   }
 }
 
@@ -538,7 +551,7 @@ function destroyChannel(channel: ScopedChannel, key: string) {
   streams.delete(key);
 }
 
-function clearAutoRefresh() {
+export function clearAutoRefresh() {
   // Clear list of which keys are auto-updated
   supportsSSE.clear();
 
@@ -550,4 +563,19 @@ function clearAutoRefresh() {
 
   // Run the idle stream cleanup function
   helpers.stopIdleListener();
+}
+
+export function startStreaming(
+  instance: GrowthBook | GrowthBookClient,
+  options: InitOptions | InitSyncOptions,
+) {
+  if (options.streaming) {
+    if (!instance.getClientKey()) {
+      throw new Error("Must specify clientKey to enable streaming");
+    }
+    if (options.payload) {
+      startAutoRefresh(instance, true);
+    }
+    subscribe(instance);
+  }
 }

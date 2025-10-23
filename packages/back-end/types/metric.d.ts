@@ -1,5 +1,6 @@
 import {
   CappingType,
+  LegacyMetricWindowSettings,
   MetricCappingSettings,
   MetricPriorSettings,
   MetricWindowSettings,
@@ -35,7 +36,8 @@ export interface Condition {
   value: string;
 }
 
-export type ManagedBy = "" | "config" | "api";
+// admin is used for Official Metrics and can be managed by any admin, even in the UI
+export type ManagedBy = "" | "config" | "api" | "admin";
 
 export interface MetricInterface {
   id: string;
@@ -73,6 +75,7 @@ export interface MetricInterface {
   maxPercentChange?: number;
   minPercentChange?: number;
   minSampleSize?: number;
+  targetMDE?: number;
 
   regressionAdjustmentOverride?: boolean;
   regressionAdjustmentEnabled?: boolean;
@@ -98,7 +101,7 @@ export type LegacyMetricInterface = Omit<
 > & {
   // make new mandatory fields optional
   cappingSettings?: MetricCappingSettings;
-  windowSettings?: MetricWindowSettings;
+  windowSettings?: LegacyMetricWindowSettings;
   priorSettings?: MetricPriorSettings;
 
   // keep old fields around for migration
@@ -123,4 +126,6 @@ export type InsertMetricProps = Pick<
   | "dateCreated"
   | "dateUpdated"
   | "userIdTypes"
+  | "managedBy"
+  | "projects"
 >;

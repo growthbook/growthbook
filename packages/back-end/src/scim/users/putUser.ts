@@ -9,7 +9,7 @@ import { OrganizationInterface } from "back-end/types/organization";
 async function updateUserRole(
   org: OrganizationInterface,
   userId: string,
-  newRole: string
+  newRole: string,
 ) {
   const updatedOrgMembers = cloneDeep(org.members);
 
@@ -26,7 +26,7 @@ async function updateUserRole(
 
 export async function putUser(
   req: ScimUserPutRequest,
-  res: Response<ScimUser | ScimError>
+  res: Response<ScimUser | ScimError>,
 ) {
   const userId = req.params.id;
 
@@ -61,7 +61,7 @@ export async function putUser(
     });
   }
 
-  if (currentMemberName !== displayName) {
+  if (displayName && currentMemberName !== displayName) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "400",
@@ -69,7 +69,7 @@ export async function putUser(
     });
   }
 
-  if (currentMemberEmail !== userName) {
+  if (userName && currentMemberEmail !== userName) {
     return res.status(400).json({
       schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"],
       status: "400",

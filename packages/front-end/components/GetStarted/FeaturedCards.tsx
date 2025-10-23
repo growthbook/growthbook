@@ -9,18 +9,18 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import styles from "./FeaturedCards.module.scss";
 
-export function FeatureFlagFeatureCard() {
+export function FeatureFlagFeatureCard({ title = "Create Feature Flags" }) {
   return (
-    <CardLink href="/getstarted/feature-flag-guide">
+    <CardLink href="/features">
       <Flex>
         <Heading as="h2" size="4" weight="bold">
-          Create Feature Flags from scratch
+          {title}
         </Heading>
         <ActionArrow />
       </Flex>
 
       <Text color="gray" mb="8">
-        Explore a guided setup & sample feature flag
+        Explore a guided setup
       </Text>
 
       <Box mt="auto" mr="-9" className={styles.featureFlagImage} />
@@ -28,13 +28,13 @@ export function FeatureFlagFeatureCard() {
   );
 }
 
-export function ExperimentFeatureCard() {
+export function ExperimentFeatureCard({ title = "Run an Experiment" }) {
   return (
-    <CardLink href="/getstarted/experiment-guide">
+    <CardLink href="/experiments">
       <Flex direction="column" height="100%">
         <Flex>
           <Heading as="h2" size="4" weight="bold">
-            Run an Experiment
+            {title}
           </Heading>
           <ActionArrow />
         </Flex>
@@ -66,6 +66,7 @@ export function LaunchDarklyImportFeatureCard() {
           ? ""
           : "You do not have permission to complete this action"
       }
+      usePortal={true}
     >
       <CardLink
         href="/importing/launchdarkly"

@@ -53,7 +53,7 @@ export default function SortedTags({
   };
   const renderFlexContainer = (
     child: JSX.Element | JSX.Element[],
-    shouldUseFlex = useFlex
+    shouldUseFlex = useFlex,
   ) => {
     return shouldUseFlex ? (
       <div className="tags-container">{child}</div>
@@ -74,7 +74,7 @@ export default function SortedTags({
       <>
         {renderTags(truncatedTags)}
         {shouldRenderEllipsis && renderEllipsis()}
-      </>
+      </>,
     );
   };
 

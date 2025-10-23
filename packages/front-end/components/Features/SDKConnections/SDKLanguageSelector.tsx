@@ -1,7 +1,7 @@
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import { useState } from "react";
-import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import Tab from "@/components/Tabs/Tab";
+import { Box } from "@radix-ui/themes";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SDKLanguageLogo, {
   getLanguagesByFilter,
   LanguageFilter,
@@ -27,12 +27,12 @@ export function SDKLanguageOption({
 }) {
   return (
     <div
-      className={`hover-highlight cursor-pointer border rounded ${
+      className={`hover-highlight d-inline-flex align-items-center cursor-pointer border rounded ${
         selected ? "bg-light" : ""
       }`}
       style={{
         height: 50,
-        padding: 10,
+        padding: "0 10px",
         boxShadow: selected ? "0 0 0 1px var(--text-color-primary)" : "",
       }}
       onClick={(e) => {
@@ -104,13 +104,14 @@ export default function SDKLanguageSelector({
   const filterLanguages = (languages: SDKLanguage[]): SDKLanguage[] => {
     if (includeAll) return languages;
     return languages.filter(
-      (language) => !limitLanguages || limitLanguages.includes(language)
+      (language) => !limitLanguages || limitLanguages.includes(language),
     );
   };
 
   const frontEnd = filterLanguages(["javascript", "react", "nocode-other"]);
   const backEnd = filterLanguages([
     "nodejs",
+    "nextjs",
     "php",
     "ruby",
     "python",
@@ -138,25 +139,26 @@ export default function SDKLanguageSelector({
       languages = languages.filter((l) => l !== "other");
     }
     return (
-      <ControlledTabs
-        buttonsClassName="px-3"
-        buttonsWrapperClassName="mb-3"
-        active={languageFilter}
-        setActive={(v) => setLanguageFilter((v ?? "all") as LanguageFilter)}
+      <Tabs
+        value={languageFilter}
+        onValueChange={(v) => setLanguageFilter((v ?? "all") as LanguageFilter)}
       >
+        <Box mb="3">
+          <TabsList>
+            {Object.keys(tabs).map((tab) => (
+              <TabsTrigger key={tab} value={tab}>
+                <span
+                  className={tab === languageFilter ? "text-main" : undefined}
+                >
+                  {tabs[tab]}
+                </span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Box>
+
         {Object.keys(tabs).map((tab) => (
-          <Tab
-            key={tab}
-            id={tab}
-            display={
-              <span
-                className={tab === languageFilter ? "text-main" : undefined}
-              >
-                {tabs[tab]}
-              </span>
-            }
-            padding={false}
-          >
+          <TabsContent key={tab} value={tab}>
             <div
               className="d-flex flex-wrap pb-3"
               style={{ rowGap: "1em", columnGap: "0.6em" }}
@@ -170,9 +172,9 @@ export default function SDKLanguageSelector({
                 />
               ))}
             </div>
-          </Tab>
+          </TabsContent>
         ))}
-      </ControlledTabs>
+      </Tabs>
     );
   }
 
@@ -289,20 +291,21 @@ export default function SDKLanguageSelector({
             </div>
           </div>
         )}
-        {includeOther && (!limitLanguages || limitLanguages.includes("other")) && (
-          <div className="col-auto mb-1">
-            {renderLabels && (
-              <div className="small mb-2">
-                <strong>Other</strong>
-              </div>
-            )}
-            <SDKLanguageOption
-              language={"other"}
-              onClick={() => handleLanguageOptionClick("other")}
-              selected={selected.has("other")}
-            />
-          </div>
-        )}
+        {includeOther &&
+          (!limitLanguages || limitLanguages.includes("other")) && (
+            <div className="col-auto mb-1">
+              {renderLabels && (
+                <div className="small mb-2">
+                  <strong>Other</strong>
+                </div>
+              )}
+              <SDKLanguageOption
+                language={"other"}
+                onClick={() => handleLanguageOptionClick("other")}
+                selected={selected.has("other")}
+              />
+            </div>
+          )}
         {!includeAll && limitLanguages && !hideShowAllLanguages && (
           <div className="col-auto align-self-center" style={{ marginTop: 10 }}>
             <a

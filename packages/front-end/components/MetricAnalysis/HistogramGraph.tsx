@@ -1,9 +1,9 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
-import { Bar } from "@visx/shape";
+import { BarRounded } from "@visx/shape";
 import {
   TooltipWithBounds,
   useTooltip,
@@ -23,16 +23,20 @@ type TooltipData = { x: number; y: number; d: Datapoint };
 
 interface HistogramGraphProps {
   data: Datapoint[];
+  xAxisLabel?: string;
+  mean?: number;
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string;
   height?: number;
   margin?: [number, number, number, number];
+  highlightPositiveNegative?: boolean;
+  invertHighlightColors?: boolean;
 }
 
 function getTooltipDataFromDatapoint(
   datapoint: Datapoint,
   data: Datapoint[],
   innerWidth: number,
-  yScale: ScaleLinear<unknown, unknown, never>
+  yScale: ScaleLinear<unknown, unknown, never>,
 ) {
   const index = data.indexOf(datapoint);
   if (index === -1) {
@@ -46,7 +50,7 @@ function getTooltipDataFromDatapoint(
 function getTooltipContents(
   d: TooltipData,
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
-  formatterOptions?: Intl.NumberFormatOptions
+  formatterOptions?: Intl.NumberFormatOptions,
 ) {
   return (
     <>
@@ -69,9 +73,13 @@ function getTooltipContents(
 
 const HistogramGraph: FC<HistogramGraphProps> = ({
   data,
+  mean,
   formatter,
+  xAxisLabel,
   height = 220,
   margin = [15, 15, 30, 80],
+  highlightPositiveNegative = false,
+  invertHighlightColors = false,
 }: HistogramGraphProps) => {
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
@@ -83,34 +91,45 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
 
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
 
-  const width = (containerBounds?.width || 0) + marginRight + marginLeft;
+  const outerWidth = (containerBounds?.width || 0) + marginRight + marginLeft;
   const yMax = height - marginTop - marginBottom;
-  const xMax = containerBounds?.width || 0;
-  const binWidth = xMax / data.length;
-  const numTicks = useMemo(() => {
-    const maxXVal = data[data.length - 1];
-    const formattedMaxVal = formatter(maxXVal.end);
-    let n = Math.min(data.length + 1, 20);
-    if (formattedMaxVal.length >= 8) n /= 2;
-    if (width < 1200) n /= 2;
-    if (width < 728) n /= 2;
-    return n;
-  }, [data, width, formatter]);
+  const xMaxResponsive = containerBounds?.width || 0; // xMax for responsive calculations based on containerBounds
+
+  const binWidth = data.length > 0 ? xMaxResponsive / data.length : 0;
+
   const numYTicks = 5;
 
-  const xScale = useMemo(
-    () =>
-      scaleLinear({
-        domain: [0, data.length],
-        range: [0, xMax],
-      }),
-    [data, xMax]
-  );
+  const valueDomain = useMemo(() => {
+    if (!data || data.length === 0) return { min: 0, max: 0, defined: false };
+    const allBinStarts = data.map((d) => d.start);
+    const allBinEnds = data.map((d) => d.end);
+    const minVal = Math.min(...allBinStarts);
+    const maxVal = Math.max(...allBinEnds);
+    if (
+      typeof minVal !== "number" ||
+      typeof maxVal !== "number" ||
+      Number.isNaN(minVal) ||
+      Number.isNaN(maxVal)
+    ) {
+      return { min: 0, max: 0, defined: false };
+    }
+
+    // Calculate domain padding (about 1% of the domain range on each side)
+    const domainRange = maxVal - minVal;
+    const padding = domainRange * 0.01;
+
+    return {
+      min: minVal - padding,
+      max: maxVal + padding,
+      defined: true,
+    };
+  }, [data]);
 
   const yScale = useMemo(() => {
-    const maxVal = Math.max(...data.map((d) => d.units));
+    const units = data.map((d) => d.units);
+    const maxVal = units.length > 0 ? Math.max(...units) : 0;
     return scaleLinear({
-      domain: [0, maxVal * 1.05], // extra top padding
+      domain: [0, maxVal * 1.05 || 1], // extra top padding, default max 1 if maxVal is 0
       range: [yMax, 0],
     });
   }, [data, yMax]);
@@ -131,7 +150,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
 
   useEffect(
     () => {
-      if (hoverBin === null) {
+      if (hoverBin === null || !data || data.length === 0) {
         hideTooltip();
         return;
       }
@@ -140,12 +159,12 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
         hideTooltip();
         return;
       }
-      const innerWidth = width - marginLeft - marginRight;
+      const innerWidth = outerWidth - marginLeft - marginRight;
       const tooltipData = getTooltipDataFromDatapoint(
         datapoint,
         data,
         innerWidth,
-        yScale
+        yScale,
       );
       if (!tooltipData) {
         hideTooltip();
@@ -159,23 +178,84 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
       });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hoverBin, data, marginLeft, marginRight, width, showTooltip, hideTooltip]
+    [
+      hoverBin,
+      data,
+      marginLeft,
+      marginRight,
+      outerWidth,
+      showTooltip,
+      hideTooltip,
+      yScale,
+    ],
+  );
+
+  const getContentXScale = useCallback(
+    (currentXMax: number) => {
+      if (!valueDomain.defined) {
+        return scaleLinear({ domain: [0, 1], range: [0, currentXMax] }); // Fallback
+      }
+      return scaleLinear({
+        domain: [valueDomain.min, valueDomain.max],
+        range: [0, currentXMax],
+      });
+    },
+    [valueDomain],
+  );
+
+  const getGeneratedTickValues = useCallback(
+    (contentXScale: ScaleLinear<number, number, never>) => {
+      if (!valueDomain.defined) {
+        return [];
+      }
+      if (valueDomain.min === valueDomain.max) {
+        return [valueDomain.min];
+      }
+
+      const ticks = contentXScale.ticks(10); // Aim for ~10 ticks
+
+      // Ensure 0 is included if it's within the domain and not already present
+      if (valueDomain.min <= 0 && valueDomain.max >= 0 && !ticks.includes(0)) {
+        ticks.push(0);
+        ticks.sort((a, b) => a - b);
+      }
+
+      // Cap the number of ticks to avoid overcrowding, e.g., max 20.
+      // d3.ticks(10) usually gives less than 20, but adding 0 might increase it.
+      if (ticks.length > 20) {
+        // This is a simple way to reduce; more sophisticated methods exist if needed.
+        // For now, let's assume .ticks() and adding 0 won't lead to extreme excess.
+        // If it does, one might filter/resample `ticks` here.
+      }
+
+      return ticks;
+    },
+    [valueDomain],
   );
 
   return (
     <ParentSizeModern style={{ position: "relative" }}>
-      {({ width }) => {
-        const xMax = width - marginRight - marginLeft;
+      {({ width: parentWidth }) => {
+        // parentWidth is the width from ParentSizeModern
+        const currentXMax = parentWidth - marginRight - marginLeft; // This is the actual drawable xMax
+
+        const contentXScale = getContentXScale(currentXMax);
+
+        const generatedTickValues = getGeneratedTickValues(contentXScale);
 
         const handlePointerMove = (
-          event: React.PointerEvent<HTMLDivElement>
+          event: React.PointerEvent<HTMLDivElement>,
         ) => {
+          if (!data || data.length === 0) {
+            onHover(null);
+            return;
+          }
           // coordinates should be relative to the container in which Tooltip is rendered
           const containerX =
             ("clientX" in event ? event.clientX : 0) - containerBounds.left;
           const bin = Math.min(
-            Math.max(0, Math.floor((data.length * containerX) / xMax)),
-            data.length - 1
+            Math.max(0, Math.floor((data.length * containerX) / currentXMax)),
+            data.length - 1,
           );
           onHover(bin);
         };
@@ -193,7 +273,7 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                 zIndex: 1,
                 position: "absolute",
                 overflow: "hidden",
-                width: xMax,
+                width: currentXMax,
                 height: yMax,
                 marginLeft: marginLeft,
                 marginTop: marginTop,
@@ -219,45 +299,85 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                       getTooltipContents(
                         tooltipData,
                         formatter,
-                        formatterOptions
+                        formatterOptions,
                       )}
                   </TooltipWithBounds>
                 </>
               )}
             </div>
-            <svg width={width} height={height}>
+            <svg
+              width={parentWidth}
+              height={height + 20} // Add some extra height for the axis labels
+            >
               <Group top={marginTop} left={marginLeft}>
-                {binWidth
-                  ? data.map((d, i) => (
-                      <Bar
-                        key={`bar-${i}`}
-                        x={xScale(i)}
-                        y={yScale(d.units)}
-                        height={yMax - yScale(d.units)}
-                        width={binWidth - 1}
-                        fill={hoverBin === i ? "#aaaaff" : "#8884d8"}
-                        style={{ transition: "150ms all" }}
-                      />
-                    ))
+                {binWidth > 0 && data.length > 0
+                  ? data.map((d, i) => {
+                      const defaultBarColor = "#8884d8";
+                      const hoverBarColor = "#aaaaff";
+                      let fill = defaultBarColor;
+
+                      if (highlightPositiveNegative) {
+                        // d is from processedData, so it won't cross zero.
+                        // A bin is positive if its start is >= 0.
+                        // If start is < 0, then end must be 0 (or < 0 if original was fully negative).
+                        const isPositive = d.start >= 0;
+                        const positiveColor = invertHighlightColors
+                          ? "var(--red-11)"
+                          : "var(--jade-11)";
+                        const negativeColor = invertHighlightColors
+                          ? "var(--jade-11)"
+                          : "var(--red-11)";
+
+                        fill = isPositive ? positiveColor : negativeColor;
+                      }
+
+                      if (hoverBin === i) {
+                        fill = hoverBarColor;
+                      }
+
+                      // Use contentXScale for positioning the bars (with equal distribution)
+                      const barX = contentXScale(d.start);
+                      const barWidth =
+                        contentXScale(d.end) - contentXScale(d.start);
+                      const barY = yScale(d.units);
+                      const barHeight = yMax - barY;
+
+                      return (
+                        <BarRounded
+                          key={`bar-${i}-${d.start}-${d.end}`}
+                          x={barX}
+                          y={barY}
+                          height={barHeight >= 0 ? barHeight : 0} // Ensure non-negative height
+                          width={barWidth > 1 ? barWidth - 0.5 : barWidth} // Small gap if possible
+                          fill={fill}
+                          style={{ transition: "150ms all" }}
+                          radius={6}
+                          top={true}
+                          bottom={false}
+                        />
+                      );
+                    })
                   : null}
                 <AxisBottom
                   top={yMax}
-                  scale={xScale}
+                  scale={contentXScale}
                   stroke={"var(--text-color-table)"}
                   tickStroke={"var(--text-color-table)"}
-                  numTicks={numTicks}
+                  tickValues={generatedTickValues}
                   tickLabelProps={() => ({
                     fill: "var(--text-color-table)",
                     fontSize: 10,
                     textAnchor: "middle",
-                    dx: -10,
                   })}
-                  tickFormat={(v) => {
-                    const i = v as number;
-                    return i < data.length
-                      ? `${formatter(data[i]?.start, formatterOptions)}`
-                      : `${formatter(data[i - 1]?.end, formatterOptions)}`;
+                  label={xAxisLabel}
+                  labelClassName="h5"
+                  labelOffset={25}
+                  labelProps={{
+                    style: { fill: "var(--slate-11)" },
                   }}
+                  tickFormat={(value) =>
+                    formatter(value as number, formatterOptions)
+                  }
                 />
                 <AxisLeft
                   scale={yScale}
@@ -271,9 +391,31 @@ const HistogramGraph: FC<HistogramGraphProps> = ({
                     dx: -5,
                   })}
                   label="Count"
+                  labelProps={{
+                    style: { fill: "var(--slate-11)", translate: "0 15px" },
+                  }}
                   labelClassName="h5"
                   labelOffset={55}
                 />
+                <line
+                  x1={contentXScale(0)}
+                  y1={marginTop - 10}
+                  x2={contentXScale(0)}
+                  y2={height - marginBottom - marginTop}
+                  stroke="var(--color-text-low)"
+                  strokeWidth={2}
+                />
+                {mean !== undefined && (
+                  <line
+                    x1={contentXScale(mean)}
+                    y1={marginTop - 10}
+                    x2={contentXScale(mean)}
+                    y2={height - marginBottom - marginTop + 10}
+                    stroke="var(--blue-11)"
+                    strokeWidth={1}
+                    strokeDasharray="4, 4"
+                  />
+                )}
               </Group>
             </svg>
           </>

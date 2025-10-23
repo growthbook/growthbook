@@ -1,0 +1,51 @@
+org = 'growthbook'
+primary_region = 'sjc'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[deploy]
+  strategy = 'immediate'
+
+[env]
+  ALLOW_SELF_ORG_CREATION = true
+  DISABLE_TELEMETRY = 'debug'
+  IS_CLOUD = false
+  IS_MULTI_ORG = true
+
+[[services]]
+  protocol = 'tcp'
+  internal_port = 3000
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[services.ports]]
+    port = 80
+    handlers = ['http']
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ['tls', 'http']
+
+[[services]]
+  protocol = 'tcp'
+  internal_port = 3100
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[services.ports]]
+    port = 8080
+    handlers = ['http']
+    force_https = true
+
+  [[services.ports]]
+    port = 4433
+    handlers = ['tls', 'http']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

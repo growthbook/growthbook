@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import { orgHasPremiumFeature } from "enterprise";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { EventUserForResponseLocals } from "back-end/src/events/event-types";
@@ -18,7 +18,7 @@ export const getDataExportForEvents = async (
   res: Response<
     DataExportFileResponse | PrivateApiErrorResponse,
     EventUserForResponseLocals
-  >
+  >,
 ) => {
   const context = getContextFromReq(req);
   const { org } = context;

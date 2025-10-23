@@ -14,11 +14,16 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 export default function BanditUpdateStatus({
   experiment,
   mutate,
+  isPublic,
+  ssrSnapshot,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
+  mutate?: () => void;
+  isPublic?: boolean;
+  ssrSnapshot?: ExperimentSnapshotInterface;
 }) {
-  const { latest } = useSnapshot();
+  const { latest: _latest } = useSnapshot();
+  const latest = _latest ?? ssrSnapshot;
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const phase = experiment.phases?.[experiment.phases.length - 1];
@@ -39,7 +44,7 @@ export default function BanditUpdateStatus({
   }
 
   const start = getValidDate(
-    experiment?.banditStageDateStarted ?? phase?.dateStarted
+    experiment?.banditStageDateStarted ?? phase?.dateStarted,
   ).getTime();
   const burnInHoursMultiple = experiment.banditBurnInUnit === "days" ? 24 : 1;
   const burnInRunDate = getValidDate(
@@ -48,7 +53,7 @@ export default function BanditUpdateStatus({
         burnInHoursMultiple *
         60 *
         60 *
-        1000
+        1000,
   );
 
   const _error = !lastEvent?.banditResult
@@ -70,7 +75,7 @@ export default function BanditUpdateStatus({
             style={{ maxWidth: 130, fontSize: "0.8em" }}
           >
             <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
-              {error ? (
+              {error && !isPublic ? (
                 <FaExclamationTriangle
                   className="text-danger mr-1 mb-1"
                   size={14}
@@ -125,8 +130,9 @@ export default function BanditUpdateStatus({
                 </tr>
               ) : null}
               {experiment.status === "running" &&
+                !isPublic &&
                 ["explore", "exploit"].includes(
-                  experiment.banditStage ?? ""
+                  experiment.banditStage ?? "",
                 ) && (
                   <>
                     <tr>
@@ -148,15 +154,17 @@ export default function BanditUpdateStatus({
                   </>
                 )}
             </tbody>
-            <tbody>
-              <tr>
-                <td className="text-muted">Current schedule:</td>
-                <td>
-                  every {experiment.banditScheduleValue ?? ""}{" "}
-                  {experiment.banditScheduleUnit ?? ""}
-                </td>
-              </tr>
-            </tbody>
+            {!isPublic && (
+              <tbody>
+                <tr>
+                  <td className="text-muted">Current schedule:</td>
+                  <td>
+                    every {experiment.banditScheduleValue ?? ""}{" "}
+                    {experiment.banditScheduleUnit ?? ""}
+                  </td>
+                </tr>
+              </tbody>
+            )}
           </table>
 
           <div className="mx-2" style={{ fontSize: "12px" }}>
@@ -178,14 +186,16 @@ export default function BanditUpdateStatus({
               ) : (
                 "not running"
               )}
-              {experiment.status === "running" &&
+              {!isPublic &&
+                experiment.status === "running" &&
                 experiment.banditStage === "explore" && (
                   <> and is waiting until more data is collected</>
                 )}
               .
             </p>
 
-            {experiment.status === "running" &&
+            {!isPublic &&
+              experiment.status === "running" &&
               experiment.banditStage === "explore" && (
                 <p>
                   {" "}
@@ -196,7 +206,7 @@ export default function BanditUpdateStatus({
               )}
           </div>
 
-          {error ? (
+          {!isPublic && error ? (
             <div className="alert small alert-danger mx-2 px-1 pt-2 pb-1 row align-items-start">
               <div className="col">
                 <FaExclamationTriangle className="mr-1" />
@@ -207,7 +217,7 @@ export default function BanditUpdateStatus({
                   <ViewAsyncQueriesButton
                     queries={
                       (generatedSnapshot || latest)?.queries?.map(
-                        (q) => q.query
+                        (q) => q.query,
                       ) ?? []
                     }
                     error={(generatedSnapshot || latest)?.error}
@@ -222,7 +232,7 @@ export default function BanditUpdateStatus({
             </div>
           ) : null}
 
-          {experiment.status === "running" && (
+          {!isPublic && experiment.status === "running" && mutate && (
             <>
               <hr className="mx-2" />
               <RefreshBanditButton

@@ -1,0 +1,22 @@
+parameters:
+  - $ref: "../parameters.yaml#/id"
+summary: Get a single archetype
+tags:
+  - archetypes
+operationId: getArchetype
+x-codeSamples:
+  - lang: "cURL"
+    source: |
+      curl https://api.growthbook.io/api/v1/archetypes/sam_123abc \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - archetype
+          properties:
+            archetype:
+              $ref: "../schemas/Archetype.yaml"

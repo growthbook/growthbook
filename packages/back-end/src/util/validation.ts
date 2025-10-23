@@ -7,7 +7,7 @@ import { SafeParseError } from "zod";
  * @returns null | string
  */
 export const errorStringFromZodResult = (
-  safeParseResult: SafeParseError<unknown>
+  safeParseResult: SafeParseError<unknown>,
 ): string =>
   safeParseResult.error.issues
     .map((i) => "[" + i.path.join(".") + "] " + i.message)

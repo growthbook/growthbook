@@ -1,11 +1,20 @@
 export type {
-  Context,
+  Options as Context,
+  Options,
+  ClientOptions as MultiUserOptions,
+  ClientOptions,
+  TrackingCallbackWithUser,
+  TrackingDataWithUser,
+  FeatureUsageCallback,
+  FeatureUsageCallbackWithUser,
+  UserContext,
   Attributes,
   Polyfills,
   CacheSettings,
   FeatureApiResponse,
   LoadFeaturesOptions,
   RefreshFeaturesOptions,
+  DestroyOptions,
   FeatureDefinitions,
   FeatureDefinition,
   FeatureRule,
@@ -43,6 +52,11 @@ export type {
   InitSyncOptions,
   Helpers,
   GrowthBookPayload,
+  SavedGroupsValues,
+  EventLogger,
+  EventProperties,
+  Plugin,
+  LogUnion,
 } from "./types/growthbook";
 
 export type {
@@ -62,7 +76,14 @@ export {
 export { GrowthBook, prefetchPayload } from "./GrowthBook";
 
 export {
+  GrowthBookClient as GrowthBookMultiUser,
+  GrowthBookClient,
+  UserScopedGrowthBook,
+} from "./GrowthBookClient";
+
+export {
   StickyBucketService,
+  StickyBucketServiceSync,
   LocalStorageStickyBucketService,
   ExpressCookieStickyBucketService,
   BrowserCookieStickyBucketService,
@@ -77,3 +98,5 @@ export {
   getAutoExperimentChangeType,
   paddedVersionString,
 } from "./util";
+
+export { EVENT_EXPERIMENT_VIEWED, EVENT_FEATURE_EVALUATED } from "./core";

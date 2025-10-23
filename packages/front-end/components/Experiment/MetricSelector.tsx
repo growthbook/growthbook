@@ -1,11 +1,11 @@
 import { FC } from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { isMetricJoinable } from "shared/experiments";
+import { isBinomialMetric, isMetricJoinable } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField, { SelectFieldProps } from "@/components/Forms/SelectField";
 import MetricName from "@/components/Metrics/MetricName";
 
-type MetricOption = {
+export type MetricOption = {
   id: string;
   name: string;
   datasource: string;
@@ -14,6 +14,7 @@ type MetricOption = {
   factTables: string[];
   userIdTypes: string[];
   isBinomial: boolean;
+  isConversionWindowMetric: boolean;
 };
 
 const MetricSelector: FC<
@@ -25,6 +26,9 @@ const MetricSelector: FC<
     includeFacts?: boolean;
     availableIds?: string[];
     onlyBinomial?: boolean;
+    filterConversionWindowMetrics?: boolean;
+    sortMetrics?: (a: MetricOption, b: MetricOption) => number;
+    filterMetrics?: (m: MetricOption) => boolean;
     onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   }
 > = ({
@@ -36,15 +40,14 @@ const MetricSelector: FC<
   placeholder,
   availableIds,
   onlyBinomial,
+  filterConversionWindowMetrics,
+  sortMetrics,
+  filterMetrics,
   onPaste,
   ...selectProps
 }) => {
-  const {
-    metrics,
-    factMetrics,
-    factTables,
-    getDatasourceById,
-  } = useDefinitions();
+  const { metrics, factMetrics, factTables, getDatasourceById } =
+    useDefinitions();
 
   const options: MetricOption[] = [
     ...metrics.map((m) => ({
@@ -55,7 +58,8 @@ const MetricSelector: FC<
       projects: m.projects || [],
       factTables: [],
       userIdTypes: m.userIdTypes || [],
-      isBinomial: m.type === "binomial" && !m.denominator,
+      isBinomial: isBinomialMetric(m) && !m.denominator,
+      isConversionWindowMetric: m?.windowSettings?.type === "conversion",
     })),
     ...(includeFacts
       ? factMetrics.map((m) => ({
@@ -74,10 +78,16 @@ const MetricSelector: FC<
           userIdTypes:
             factTables.find((f) => f.id === m.numerator.factTableId)
               ?.userIdTypes || [],
-          isBinomial: m.metricType === "proportion",
+          isBinomial: isBinomialMetric(m),
+          isConversionWindowMetric: m?.windowSettings?.type === "conversion",
         }))
       : []),
-  ];
+  ].filter((m) => (filterMetrics ? filterMetrics(m) : true));
+
+  if (sortMetrics) {
+    options.sort(sortMetrics);
+    selectProps.sort = false;
+  }
 
   // get data to help filter metrics to those with joinable userIdTypes to
   // the experiment assignment table
@@ -85,7 +95,7 @@ const MetricSelector: FC<
     ? getDatasourceById(datasource)?.settings
     : undefined;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === exposureQueryId
+    (e) => e.id === exposureQueryId,
   )?.userIdType;
 
   const filteredOptions = options
@@ -94,8 +104,8 @@ const MetricSelector: FC<
     .filter((m) => !onlyBinomial || m.isBinomial)
     .filter((m) =>
       userIdType && m.userIdTypes.length
-        ? isMetricJoinable(m.userIdTypes, userIdType)
-        : true
+        ? isMetricJoinable(m.userIdTypes, userIdType, datasourceSettings)
+        : true,
     )
     .filter((m) => {
       if (projects && !project) {
@@ -105,6 +115,12 @@ const MetricSelector: FC<
         );
       }
       return isProjectListValidForProject(m.projects, project);
+    })
+    .filter((m) => {
+      if (filterConversionWindowMetrics) {
+        return !m.isConversionWindowMetric;
+      }
+      return true;
     });
 
   return (

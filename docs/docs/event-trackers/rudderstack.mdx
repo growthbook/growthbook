@@ -5,6 +5,8 @@ sidebar_label: RudderStack
 slug: /guide/rudderstack
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Configuring GrowthBook to work with RudderStack
 
 GrowthBook supports RudderStack as an event source for easily adding A/B testing to your application. This document is a
@@ -25,40 +27,31 @@ Once you have a RudderStack account, you need to create a BigQuery bucket for th
 
 With the bucket created, we can create a RudderStack warehouse destination.
 
-<img
-  src="/images/guides/rudderstack-1-addwarehouse.png"
-  alt="Add a data warehouse destination for RudderStack"
-  style={{ width: 500, margin: "0 auto 20px" }}
-/>
+<MaxWidthImage border>
+  ![Add a data warehouse destination for RudderStack](/images/guides/rudderstack-1-addwarehouse.png)
+</MaxWidthImage>
 
-<img
-  src="/images/guides/rudderstack-2-adddestination.png"
-  alt="Select BigQuery from the list"
-  style={{ width: 500, margin: "0 auto 20px" }}
-/>
+<MaxWidthImage border>
+  ![Select BigQuery from the list](/images/guides/rudderstack-2-adddestination.png)
+</MaxWidthImage>
 
-<img
-  src="/images/guides/rudderstack-3-addbucket.png"
-  alt="Add the BigQuery account information"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border>
+  ![Add the BigQuery account information](/images/guides/rudderstack-3-addbucket.png)
+</MaxWidthImage>
 
 The `Project` and `bucket name` needs to match the values you set up when creating the Google cloud project and bucket.
 
 Once you've created the destination, you should see it successfully connect
 
-<img
-  src="/images/guides/rudderstack-4-connection-completed.png"
-  alt="Successfully added the BigQuery account information"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![Successfully added the BigQuery account information](/images/guides/rudderstack-4-connection-completed.png)
+</MaxWidthImage>
 
 And it will show up as a connected destination on your RudderStack Connect dashboard.
 
-<img
-  src="/images/guides/rudderstack-4.5-bigQueryDestination.png"
-  alt="BigQuery connection in rudderstack"
-/>
+<MaxWidthImage>
+  ![BigQuery connection in rudderstack](/images/guides/rudderstack-4.5-bigQueryDestination.png)
+</MaxWidthImage>
 
 ## 2. Connect GrowthBook
 
@@ -69,19 +62,15 @@ is best practice to create another service account for GrowthBook to connect to 
 Navigate to Analysis → Data Sources from within GrowthBook and click on 'Add Data Source'
 Button. From the window that pops up, select RudderStack:
 
-<img
-  src="/images/new-data-sources-modal.png"
-  alt="Choose RudderStack data schema"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Choose RudderStack data schema](/images/new-data-sources-modal.png)
+</MaxWidthImage>
 
 After choosing RudderStack you'll be presented with a connection window to connect to BigQuery.
 
-<img
-  src="/images/guides/rudderstack-add-bigquery.png"
-  alt="Connect to your database"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Connect to your database](/images/guides/rudderstack-add-bigquery.png)
+</MaxWidthImage>
 
 When successfully connected, you'll be redirected to the data source page. You'll see all the connection
 options for BigQuery as well as the queries used. By choosing RudderStack as you added the data source, GrowthBook
@@ -96,15 +85,12 @@ This step depends on your needs as an organization. Keep in mind that metric que
 users who do an event, but will be joined to the experiment exposure information when determining the impact of
 experiment results.
 
-Metrics are added from the Analysis → Metrics menu.
+Metrics are added from the **Analysis** → **Metrics** menu.
 
-<img
-  src="/images/guides/metrics-addmetric.png"
-  alt="Choose RudderStack data schema"
-  style={{ width: 500, margin: "0 auto 20px" }}
-/>
+<MaxWidthImage maxWidth={700}>
+  ![Add a metric in GrowthBook](/images/guides/metrics-addmetric.png)
+</MaxWidthImage>
 
-<img
-  src="/images/guides/metrics-metricoverview.png"
-  alt="Choose RudderStack data schema"
-/>
+<MaxWidthImage border maxWidth={1000}>
+  ![Choose RudderStack data schema](/images/guides/metrics-metricoverview.png)
+</MaxWidthImage>

@@ -8,6 +8,7 @@ import {
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 
 interface Props
@@ -30,6 +31,7 @@ interface Props
   onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
   rowStatus?: string;
+  ssrPolyfills?: SSRPolyfills;
 }
 
 export default function PercentGraph({
@@ -51,11 +53,21 @@ export default function PercentGraph({
   onMouseLeave,
   onClick,
   rowStatus,
+  ssrPolyfills,
 }: Props) {
-  const { metricDefaults } = useOrganizationMetricDefaults();
+  const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
+  const _confidenceLevels = useConfidenceLevels();
+  const _pValueThreshold = usePValueThreshold();
+
+  const metricDefaults =
+    ssrPolyfills?.useOrganizationMetricDefaults()?.metricDefaults ||
+    _metricDefaults;
+  const { ciUpper, ciLower } =
+    ssrPolyfills?.useConfidenceLevels() || _confidenceLevels;
+  const pValueThreshold =
+    ssrPolyfills?.usePValueThreshold() || _pValueThreshold;
+
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const { ciUpper, ciLower } = useConfidenceLevels();
-  const pValueThreshold = usePValueThreshold();
 
   const barType = _barType ? _barType : stats.uplift?.dist ? "violin" : "pill";
 
@@ -77,7 +89,7 @@ export default function PercentGraph({
 
   return (
     <AlignedGraph
-      ci={showGraph ? stats?.ciAdjusted ?? stats.ci ?? [] : [0, 0]}
+      ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
       id={id}
       domain={domain}
       uplift={showGraph ? stats.uplift : undefined}

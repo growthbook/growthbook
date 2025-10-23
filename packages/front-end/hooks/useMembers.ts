@@ -15,5 +15,19 @@ export default function useMembers() {
     return memberUsernameOptions;
   }, [users]);
 
-  return { memberUsernameOptions };
+  const memberUserNameAndIdOptions = useMemo(() => {
+    const memberUsernameWithIdOptions: {
+      display: string;
+      value: string;
+    }[] = [];
+    users.forEach((user) => {
+      memberUsernameWithIdOptions.push({
+        display: user.name ? user.name : user.email,
+        value: user.id,
+      });
+    });
+    return memberUsernameWithIdOptions;
+  }, [users]);
+
+  return { memberUsernameOptions, memberUserNameAndIdOptions };
 }

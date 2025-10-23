@@ -5,9 +5,10 @@ import {
   SavedGroupTargeting,
 } from "back-end/types/feature";
 import React, { useEffect } from "react";
-import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import Collapsible from "react-collapsible";
+import { PiCaretRightFill } from "react-icons/pi";
 import Field from "@/components/Forms/Field";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
@@ -29,6 +30,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
@@ -40,7 +42,6 @@ export default function BanditRefNewFields({
   source,
   feature,
   project,
-  environment,
   environments,
   revisions,
   version,
@@ -66,8 +67,7 @@ export default function BanditRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
+  environments: string[];
   revisions?: FeatureRevisionInterface[];
   version?: number;
   prerequisiteValue: FeaturePrerequisite[];
@@ -91,14 +91,10 @@ export default function BanditRefNewFields({
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
-    "regression-adjustment"
+    "regression-adjustment",
   );
 
-  const {
-    datasources,
-    getDatasourceById,
-    getExperimentMetricById,
-  } = useDefinitions();
+  const { datasources, getDatasourceById } = useDefinitions();
 
   const datasource = form.watch("datasource")
     ? getDatasourceById(form.watch("datasource") ?? "")
@@ -106,7 +102,6 @@ export default function BanditRefNewFields({
 
   const exposureQueries = datasource?.settings?.queries?.exposure;
   const exposureQueryId = form.getValues("exposureQueryId");
-  console.log({ exposureQueryId });
 
   useEffect(() => {
     if (!exposureQueries?.find((q) => q.id === exposureQueryId)) {
@@ -121,7 +116,7 @@ export default function BanditRefNewFields({
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
     sdkConnectionsData?.connections,
-    project
+    project,
   );
 
   const settings = useOrgSettings();
@@ -159,7 +154,7 @@ export default function BanditRefNewFields({
         <>
           <div className="mb-4">
             <SelectField
-              label="Assign value based on attribute"
+              label="Assign Variation by Attribute"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -245,7 +240,7 @@ export default function BanditRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={environment ? [environment] : environments ?? []}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
@@ -267,31 +262,9 @@ export default function BanditRefNewFields({
               label="Data Source"
               labelClassName="font-weight-bold"
               value={form.watch("datasource") ?? ""}
-              onChange={(newDatasource) => {
-                form.setValue("datasource", newDatasource);
-
-                // If unsetting the datasource, leave all the other settings alone
-                // That way, it will be restored if the user switches back to the previous value
-                if (!newDatasource) {
-                  return;
-                }
-
-                const isValidMetric = (id: string) =>
-                  getExperimentMetricById(id)?.datasource === newDatasource;
-
-                // Filter the selected metrics to only valid ones
-                const goals = form.watch("goalMetrics") ?? [];
-                form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-                const secondaryMetrics = form.watch("secondaryMetrics") ?? [];
-                form.setValue(
-                  "secondaryMetrics",
-                  secondaryMetrics.filter(isValidMetric)
-                );
-
-                // const guardrails = form.watch("guardrailMetrics") ?? [];
-                // form.setValue("guardrailMetrics", guardrails.filter(isValidMetric));
-              }}
+              onChange={(newDatasource) =>
+                form.setValue("datasource", newDatasource)
+              }
               options={datasources.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
@@ -304,7 +277,7 @@ export default function BanditRefNewFields({
               className="portal-overflow-ellipsis"
             />
 
-            {exposureQueries ? (
+            {datasource?.properties?.exposureQueries && exposureQueries ? (
               <SelectField
                 label={
                   <>
@@ -324,7 +297,7 @@ export default function BanditRefNewFields({
                 })}
                 formatOptionLabel={({ label, value }) => {
                   const userIdType = exposureQueries?.find(
-                    (e) => e.id === value
+                    (e) => e.id === value,
                   )?.userIdType;
                   return (
                     <>
@@ -349,7 +322,7 @@ export default function BanditRefNewFields({
             exposureQueryId={exposureQueryId}
             project={project}
             forceSingleGoalMetric={true}
-            noPercentileGoalMetrics={true}
+            noQuantileGoalMetrics={true}
             goalMetrics={form.watch("goalMetrics") ?? []}
             secondaryMetrics={form.watch("secondaryMetrics") ?? []}
             guardrailMetrics={form.watch("guardrailMetrics") ?? []}
@@ -379,16 +352,32 @@ export default function BanditRefNewFields({
             collapseGuardrail={true}
           />
 
+          <CustomMetricSlicesSelector
+            goalMetrics={form.watch("goalMetrics") ?? []}
+            secondaryMetrics={form.watch("secondaryMetrics") ?? []}
+            guardrailMetrics={form.watch("guardrailMetrics") ?? []}
+            customMetricSlices={form.watch("customMetricSlices") ?? []}
+            setCustomMetricSlices={(slices) =>
+              form.setValue("customMetricSlices", slices)
+            }
+            pinnedMetricSlices={form.watch("pinnedMetricSlices") ?? []}
+            setPinnedMetricSlices={(slices) =>
+              form.setValue("pinnedMetricSlices", slices)
+            }
+          />
+
+          <hr className="mt-4" />
+
           <Collapsible
             trigger={
               <div className="link-purple font-weight-bold mt-4 mb-2">
-                <FaAngleRight className="chevron mr-1" />
+                <PiCaretRightFill className="chevron mr-1" />
                 Advanced Settings
               </div>
             }
             transitionTime={100}
           >
-            <div className="box pt-3 px-3 mt-1">
+            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
               <StatsEngineSelect
                 className="mb-4"
                 label={

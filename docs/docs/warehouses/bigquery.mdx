@@ -5,7 +5,7 @@ sidebar_label: BigQuery
 slug: /guide/bigquery
 ---
 
-# Configuring GrowthBook to work with BigQuery
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
 This document outlines the steps needed to add your BigQuery database to GrowthBook.
 
@@ -13,24 +13,19 @@ This document outlines the steps needed to add your BigQuery database to GrowthB
 
 Within your [Google Cloud console account](https://console.cloud.google.com/iam-admin/serviceaccounts), create a service account for GrowthBook to use
 
-<img
-  src="/images/guides/bigquery-1-addserviceaccount-for-gb-highlited.png"
-  alt="Create a new service account in BigQuery"
-/>
+<MaxWidthImage border maxWidth={1000}>
+  ![Create service account button in BigQuery](/images/guides/bigquery-1-addserviceaccount-for-gb-highlited.png)
+</MaxWidthImage>
 
-<img
-  src="/images/guides/bigquery-2-addserviceaccount-for-gb3.png"
-  alt="Create a new service account in BigQuery"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![Create a new service account in BigQuery](/images/guides/bigquery-2-addserviceaccount-for-gb3.png)
+</MaxWidthImage>
 
 Create a service account name and account ID. On the next page you need to add 3 specific roles:
 
-<img
-  src="/images/guides/bigquery-3-addserviceaccount-for-gb4-roles.png"
-  alt="Create a new service account in BigQuery"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![Grant roles for service account in BigQuery](/images/guides/bigquery-3-addserviceaccount-for-gb4-roles.png)
+</MaxWidthImage>
 
 On the Grant page, add the following three permissions roles for read-only access:
 
@@ -38,21 +33,18 @@ On the Grant page, add the following three permissions roles for read-only acces
 - BigQuery Metadata Viewer
 - BigQuery Job User
 
-<img
-  src="/images/guides/bigquery-4-addserviceaccount-for-gb5-roles.png"
-  alt="Create a new service account in BigQuery"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![Additional roles granted for service account](/images/guides/bigquery-4-addserviceaccount-for-gb5-roles.png)
+</MaxWidthImage>
 
 On the final page when creating a service account, you can skip the optional fields.
 
 You should see the new service account listed, without a `Key ID`. We need to add an access key to this account so the
 credentials can be added to GrowthBook. Click on actions, and select `Manage Keys`.
 
-<img
-  src="/images/guides/bigquery-5-getjson-key.png"
-  alt="Create a new service account in BigQuery"
-/>
+<MaxWidthImage border maxWidth={1000}>
+  ![New account listed](/images/guides/bigquery-5-getjson-key.png)
+</MaxWidthImage>
 
 There are two ways to provide credentials to GrowthBook:
 
@@ -61,17 +53,13 @@ There are two ways to provide credentials to GrowthBook:
 
 We're going to show how to do the JSON key file method. On the keys page, add a new key, and select JSON.
 
-<img
-  src="/images/guides/bigquery-6-getjson-key2.png"
-  alt="Get json key for service account"
-  style={{ width: 900, margin: "0 auto 15px" }}
-/>
+<MaxWidthImage border maxWidth={1000}>
+  ![Create new key from dashboard](/images/guides/bigquery-6-getjson-key2.png)
+</MaxWidthImage>
 
-<img
-  src="/images/guides/bigquery-6-getjson-key3.png"
-  alt="Get json key for service account"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Create private key for GrowthBook popup](/images/guides/bigquery-6-getjson-key3.png)
+</MaxWidthImage>
 
 This will cause the JSON key to be downloaded to your computer.
 
@@ -82,19 +70,15 @@ From the Metrics and Data → Data Source page, click on add new data source and
 Selecting an event tracker here will pre-populate the experiment exposure query which is need to determine which user saw which experiment
 variation. Depending on your needs, you may still need to adjust these queries to match your specific schema.
 
-<img
-  src="/images/guides/bigquery-7-add-datasource1.png"
-  alt="Add BigQuery to GrowthBook"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Add BigQuery to GrowthBook](/images/guides/bigquery-7-add-datasource1.png)
+</MaxWidthImage>
 
 Select BigQuery as the data source type.
 
-<img
-  src="/images/guides/bigquery-7-add-datasource2.png"
-  alt="Add BigQuery to GrowthBook"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={500}>
+  ![Selecting BigQuery as the data source type.](/images/guides/bigquery-7-add-datasource2.png)
+</MaxWidthImage>
 
 Add the names you'd like to use, and select the JSON key file that was downloaded earlier.
 
@@ -103,11 +87,9 @@ You can get the value for these fields from the [Google Cloud explorer](https://
 You will see the top level project id, and when expanded, find the dataset which has your experiment exposure
 table (which will be `experiment_viewed` if you use Segment or Rudderstack).
 
-<img
-  src="/images/guides/bigquery-8-getdefault-names.png"
-  alt="Get default project id and default dataset"
-  style={{ width: 300, margin: "0 auto 10px" }}
-/>
+<MaxWidthImage maxWidth={500} border>
+  ![Get default project id and default dataset](/images/guides/bigquery-8-getdefault-names.png)
+</MaxWidthImage>
 
 When you click save, GrowthBook will test the connection to make sure the credentials are correct. If the connection is successful, you should see a success message on the next page.
 
@@ -122,3 +104,7 @@ Enterprise customers can enable pipeline mode, which can reduce query costs if y
 Whenever we query your BigQuery database we add `{ integration: "growthbook" }` as a label to the query job to make it easy for you to monitor cost or filter GrowthBook query jobs by label for other use cases.
 
 Read more about how to [group by label value for a specific key here.](https://cloud.google.com/billing/docs/how-to/bq-examples#group_by_label_value_for_a_specific_key)
+
+## Troubleshooting
+
+For help debugging missing experiment data in your BigQuery instance, please see our [Google BigQuery (BQ) Troubleshooting Guide](/kb/google-analytics/google-big-query-bq-troubleshooting#initial-sync-delay-for-new-ga4-properties) and our our [Google Analytics (GA4) Troubleshooting Guide](/kb/google-analytics/google-analytics-ga4-troubleshooting)

@@ -13,6 +13,7 @@ import { TooltipHoverSettings } from "@/components/Experiment/ResultsTableToolti
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import AlignedGraph from "./AlignedGraph";
 
 export const WIN_THRESHOLD_PROBABILITY = 0.95;
@@ -24,6 +25,7 @@ export type BanditSummaryTableProps = {
   metric: ExperimentMetricInterface | null;
   phase: number;
   isTabActive: boolean;
+  ssrPolyfills?: SSRPolyfills;
 };
 
 const numberFormatter = Intl.NumberFormat();
@@ -33,10 +35,14 @@ export default function BanditSummaryTable({
   metric,
   phase,
   isTabActive,
+  ssrPolyfills,
 }: BanditSummaryTableProps) {
-  const { getFactTableById } = useDefinitions();
-  const metricDisplayCurrency = useCurrency();
-  const metricFormatterOptions = { currency: metricDisplayCurrency };
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
+  const metricFormatterOptions = { currency: displayCurrency };
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(800);
@@ -45,7 +51,7 @@ export default function BanditSummaryTable({
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current?.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
-      "#bandit-summary-results thead tr:first-child th:not(.graph-cell)"
+      "#bandit-summary-results thead tr:first-child th:not(.graph-cell)",
     );
     let totalCellWidth = 0;
     for (let i = 0; i < firstRowCells.length; i++) {
@@ -66,14 +72,13 @@ export default function BanditSummaryTable({
   });
 
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variations.map(() => true)
+    variations.map(() => true),
   );
   const [variationsSort, setVariationsSort] = useState<"default" | "ranked">(
-    "default"
+    "default",
   );
-  const [showVariationsFilter, setShowVariationsFilter] = useState<boolean>(
-    false
-  );
+  const [showVariationsFilter, setShowVariationsFilter] =
+    useState<boolean>(false);
 
   useEffect(() => {
     if (!isTabActive) {
@@ -84,7 +89,8 @@ export default function BanditSummaryTable({
   const validEvents: BanditEvent[] =
     phaseObj?.banditEvents?.filter(
       (event) =>
-        event.banditResult?.singleVariationResults && !event.banditResult?.error
+        event.banditResult?.singleVariationResults &&
+        !event.banditResult?.error,
     ) || [];
   const currentEvent = validEvents[validEvents.length - 1];
   const results = currentEvent?.banditResult?.singleVariationResults;
@@ -142,13 +148,13 @@ export default function BanditSummaryTable({
       ...cis
         .filter((_, i) => isFinite(probabilities?.[i]))
         .map((ci) => ci[0])
-        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) < -190))
+        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) < -190)),
     );
     let max = Math.max(
       ...cis
         .filter((_, i) => isFinite(probabilities?.[i]))
         .map((ci) => ci[1])
-        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) > 190))
+        .filter((ci, j) => !(crs?.[j] === 0 && (ci ?? 0) > 190)),
     );
     if (!isFinite(min) || !isFinite(max)) {
       min = -0.1;
@@ -222,6 +228,7 @@ export default function BanditSummaryTable({
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
+          ssrPolyfills={ssrPolyfills}
         />
       </CSSTransition>
 
@@ -263,9 +270,14 @@ export default function BanditSummaryTable({
                 <th
                   className="axis-col graph-cell"
                   style={{
-                    width: window.innerWidth < 900 ? graphCellWidth : undefined,
+                    width:
+                      (globalThis?.window?.innerWidth ?? 1000) < 900
+                        ? graphCellWidth
+                        : undefined,
                     minWidth:
-                      window.innerWidth >= 900 ? graphCellWidth : undefined,
+                      (globalThis?.window?.innerWidth ?? 1000) >= 900
+                        ? graphCellWidth
+                        : undefined,
                   }}
                 >
                   <div className="position-relative">
@@ -279,6 +291,7 @@ export default function BanditSummaryTable({
                       percent={false}
                       height={45}
                       metricForFormatting={metric}
+                      ssrPolyfills={ssrPolyfills}
                     />
                   </div>
                 </th>
@@ -306,7 +319,7 @@ export default function BanditSummaryTable({
                 const meanText = metric
                   ? getExperimentMetricFormatter(metric, getFactTableById)(
                       isFinite(stats.cr) ? stats.cr : 0,
-                      metricFormatterOptions
+                      metricFormatterOptions,
                     )
                   : (stats.cr ?? 0) + "";
                 const probability =
@@ -354,7 +367,7 @@ export default function BanditSummaryTable({
                     </td>
                     <td className="text-center px-0">
                       {numberFormatter.format(
-                        isFinite(stats.users) ? stats.users : 0
+                        isFinite(stats.users) ? stats.users : 0,
                       )}
                     </td>
                     <td
@@ -363,7 +376,7 @@ export default function BanditSummaryTable({
                         {
                           won,
                           hover: isHovered,
-                        }
+                        },
                       )}
                       onMouseMove={onPointerMove}
                       onMouseLeave={onPointerLeave}
@@ -428,6 +441,7 @@ export default function BanditSummaryTable({
                             offsetY: -8,
                           })
                         }
+                        ssrPolyfills={ssrPolyfills}
                       />
                     </td>
                   </tr>

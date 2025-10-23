@@ -2,8 +2,11 @@ import { Permissions, userHasPermission } from "shared/permissions";
 import { uniq } from "lodash";
 import type pino from "pino";
 import type { Request } from "express";
-import { CommercialFeature, orgHasPremiumFeature } from "enterprise";
 import { ExperimentMetricInterface } from "shared/experiments";
+import { CommercialFeature } from "shared/enterprise";
+import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
   OrganizationInterface,
@@ -31,32 +34,78 @@ import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { getDataSourcesByOrganization } from "back-end/src/models/DataSourceModel";
 import { SegmentModel } from "back-end/src/models/SegmentModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
+import { PopulationDataModel } from "back-end/src/models/PopulationDataModel";
+import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplateModel";
+import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
+import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
+import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
+import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
+import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
+import { HoldoutModel } from "back-end/src/models/HoldoutModel";
+import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
+import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
+import { FeatureInterface } from "back-end/types/feature";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
+import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
+import { AgreementModel } from "back-end/src/models/AgreementModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
   experiment: ExperimentInterface;
   datasource: DataSourceInterface;
   metric: ExperimentMetricInterface;
+  feature: FeatureInterface;
 };
 
 export class ReqContextClass {
   // Models
   public models!: {
+    agreements: AgreementModel;
+    aiPrompts: AiPromptModel;
+    customFields: CustomFieldModel;
     factMetrics: FactMetricModel;
+    featureRevisionLogs: FeatureRevisionLogModel;
     projects: ProjectModel;
     urlRedirects: UrlRedirectModel;
     metricAnalysis: MetricAnalysisModel;
+    populationData: PopulationDataModel;
+    savedQueries: SavedQueryDataModel;
     metricGroups: MetricGroupModel;
     segments: SegmentModel;
+    experimentTemplates: ExperimentTemplatesModel;
+    vectors: VectorsModel;
+    safeRollout: SafeRolloutModel;
+    safeRolloutSnapshots: SafeRolloutSnapshotModel;
+    decisionCriteria: DecisionCriteriaModel;
+    metricTimeSeries: MetricTimeSeriesModel;
+    webhookSecrets: WebhookSecretDataModel;
+    holdout: HoldoutModel;
+    dashboards: DashboardModel;
   };
   private initModels() {
     this.models = {
+      agreements: new AgreementModel(this),
+      aiPrompts: new AiPromptModel(this),
+      customFields: new CustomFieldModel(this),
       factMetrics: new FactMetricModel(this),
+      featureRevisionLogs: new FeatureRevisionLogModel(this),
       projects: new ProjectModel(this),
       urlRedirects: new UrlRedirectModel(this),
       metricAnalysis: new MetricAnalysisModel(this),
+      populationData: new PopulationDataModel(this),
+      savedQueries: new SavedQueryDataModel(this),
       metricGroups: new MetricGroupModel(this),
       segments: new SegmentModel(this),
+      experimentTemplates: new ExperimentTemplatesModel(this),
+      vectors: new VectorsModel(this),
+      safeRollout: new SafeRolloutModel(this),
+      safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
+      decisionCriteria: new DecisionCriteriaModel(this),
+      metricTimeSeries: new MetricTimeSeriesModel(this),
+      webhookSecrets: new WebhookSecretDataModel(this),
+      holdout: new HoldoutModel(this),
+      dashboards: new DashboardModel(this),
     };
   }
 
@@ -149,13 +198,13 @@ export class ReqContextClass {
   public hasPermission(
     permission: Permission,
     project?: string | (string | undefined)[] | undefined,
-    envs?: string[] | Set<string>
+    envs?: string[] | Set<string>,
   ) {
     return userHasPermission(
       this.userPermissions,
       permission,
       project,
-      envs ? [...envs] : undefined
+      envs ? [...envs] : undefined,
     );
   }
 
@@ -163,7 +212,7 @@ export class ReqContextClass {
   public requirePermission(
     permission: Permission,
     project?: string | (string | undefined)[] | undefined,
-    envs?: string[] | Set<string>
+    envs?: string[] | Set<string>,
   ) {
     if (!this.hasPermission(permission, project, envs)) {
       throw new Error("You do not have permission to complete that action.");
@@ -183,10 +232,12 @@ export class ReqContextClass {
           name: this.userName || "",
         }
       : this.apiKey
-      ? {
-          apiKey: this.apiKey,
-        }
-      : null;
+        ? {
+            apiKey: this.apiKey,
+          }
+        : ({
+            system: true,
+          } as const);
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }
@@ -203,27 +254,32 @@ export class ReqContextClass {
     experiment: new Map(),
     datasource: new Map(),
     metric: new Map(),
+    feature: new Map(),
   };
   public async populateForeignRefs({
     experiment,
     datasource,
     metric,
+    feature,
   }: ForeignRefsCacheKeys) {
     await this.addMissingForeignRefs("experiment", experiment, (ids) =>
-      getExperimentsByIds(this, ids)
+      getExperimentsByIds(this, ids),
     );
     // An org doesn't have that many data sources, so we just fetch them all
     await this.addMissingForeignRefs("datasource", datasource, () =>
-      getDataSourcesByOrganization(this)
+      getDataSourcesByOrganization(this),
     );
     await this.addMissingForeignRefs("metric", metric, (ids) =>
-      getExperimentMetricsByIds(this, ids)
+      getExperimentMetricsByIds(this, ids),
+    );
+    await this.addMissingForeignRefs("feature", feature, (ids) =>
+      getFeaturesByIds(this, ids),
     );
   }
   private async addMissingForeignRefs<K extends keyof ForeignRefsCache>(
     type: K,
     ids: string[] | undefined,
-    getter: (ids: string[]) => Promise<ForeignRefTypes[K][]>
+    getter: (ids: string[]) => Promise<ForeignRefTypes[K][]>,
   ) {
     if (!ids) return;
     const missing = ids.filter((id) => !this.foreignRefs[type].has(id));

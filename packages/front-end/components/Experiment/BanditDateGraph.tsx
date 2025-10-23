@@ -26,8 +26,9 @@ import { getVariationColor } from "@/services/features";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
-import Callout from "@/components/Radix/Callout";
-import HelperText from "@/components/Radix/HelperText";
+import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./ExperimentDateGraph.module.scss";
 
 export interface DataPointVariation {
@@ -57,6 +58,8 @@ export interface BanditDateGraphProps {
   label?: string;
   mode: "values" | "probabilities" | "weights";
   type: "line" | "area";
+  ssrPolyfills?: SSRPolyfills;
+  isPublic?: boolean;
 }
 
 const intPercentFormatter = new Intl.NumberFormat(undefined, {
@@ -90,7 +93,8 @@ const getTooltipContents = (
   metric: ExperimentMetricInterface | null,
   getFactTableById: any,
   metricFormatterOptions: any,
-  showVariations: boolean[]
+  showVariations: boolean[],
+  isPublic?: boolean,
 ) => {
   const { d } = data;
   return (
@@ -104,8 +108,8 @@ const getTooltipContents = (
                 {mode === "values"
                   ? "Variation Mean"
                   : mode === "probabilities"
-                  ? "Probability of Winning"
-                  : "Variation Weight"}
+                    ? "Probability of Winning"
+                    : "Variation Weight"}
               </td>
               {mode === "values" && <td>CI</td>}
               <td>Users</td>
@@ -119,7 +123,7 @@ const getTooltipContents = (
               const crFormatted = metric
                 ? getExperimentMetricFormatter(metric, getFactTableById)(
                     val,
-                    metricFormatterOptions
+                    metricFormatterOptions,
                   )
                 : val;
               return (
@@ -144,16 +148,16 @@ const getTooltipContents = (
                       {metric
                         ? getExperimentMetricFormatter(
                             metric,
-                            getFactTableById
+                            getFactTableById,
                           )(meta?.[i].rawCi?.[0] ?? 0, metricFormatterOptions)
-                        : meta?.[i].rawCi?.[0] ?? 0}
+                        : (meta?.[i].rawCi?.[0] ?? 0)}
                       ,{" "}
                       {metric
                         ? getExperimentMetricFormatter(
                             metric,
-                            getFactTableById
+                            getFactTableById,
                           )(meta?.[i].rawCi?.[1] ?? 0, metricFormatterOptions)
-                        : meta?.[i].rawCi?.[1] ?? 0}
+                        : (meta?.[i].rawCi?.[1] ?? 0)}
                       ]
                     </td>
                   )}
@@ -163,36 +167,38 @@ const getTooltipContents = (
             })}
           </tbody>
         </table>
-      ) : (
+      ) : !isPublic ? (
         <div className="my-2" style={{ minWidth: 300 }}>
           <em>Bandit update failed</em>
         </div>
+      ) : null}
+
+      {!isPublic && (
+        <div style={{ maxWidth: 330 }}>
+          {!!d.reweight && !!d.weightsWereUpdated && (
+            <HelperText status="info" my="2" size="md">
+              Variation weights were recalculated
+            </HelperText>
+          )}
+          {!!d.reweight && !d.weightsWereUpdated && (
+            <HelperText status="warning" my="2" size="md">
+              Variation weights were unable to update
+            </HelperText>
+          )}
+
+          {d.updateMessage && !d.error ? (
+            <Callout status="warning" my="2" size="sm">
+              {d.updateMessage}
+            </Callout>
+          ) : null}
+
+          {d.error ? (
+            <Callout status="error" my="2" size="sm">
+              {d.error}
+            </Callout>
+          ) : null}
+        </div>
       )}
-
-      <div style={{ maxWidth: 330 }}>
-        {!!d.reweight && !!d.weightsWereUpdated && (
-          <HelperText status="info" my="2" size="md">
-            Variation weights were recalculated
-          </HelperText>
-        )}
-        {!!d.reweight && !d.weightsWereUpdated && (
-          <HelperText status="warning" my="2" size="md">
-            Variation weights were unable to update
-          </HelperText>
-        )}
-
-        {d.updateMessage && !d.error ? (
-          <Callout status="warning" my="2" size="sm">
-            {d.updateMessage}
-          </Callout>
-        ) : null}
-
-        {d.error ? (
-          <Callout status="error" my="2" size="sm">
-            {d.error}
-          </Callout>
-        ) : null}
-      </div>
 
       <div className="text-sm-right mt-1 mr-1">
         {datetime(d.date as Date)}
@@ -211,7 +217,7 @@ const getTooltipData = (
   stackedData: any[],
   yScale: ScaleLinear<number, number, never>,
   xScale,
-  mode: "values" | "probabilities" | "weights"
+  mode: "values" | "probabilities" | "weights",
 ): TooltipData => {
   const xCoords = stackedData.map((d) => xScale(d.date));
 
@@ -234,7 +240,7 @@ const getTooltipData = (
   const x = xCoords[closestIndex];
   const y = d?.variations
     ? d.variations.map(
-        (variation) => yScale(getYVal(variation, mode) ?? 0) ?? 0
+        (variation) => yScale(getYVal(variation, mode) ?? 0) ?? 0,
       )
     : undefined;
   const reweight = d?.reweight;
@@ -246,7 +252,7 @@ const getTooltipData = (
 
 const getYVal = (
   variation?: DataPointVariation,
-  mode?: "values" | "probabilities" | "weights"
+  mode?: "values" | "probabilities" | "weights",
 ) => {
   if (!variation) return undefined;
   switch (mode) {
@@ -268,12 +274,17 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   label,
   mode,
   type,
+  ssrPolyfills,
+  isPublic,
 }) => {
   const formatter = formatNumber;
 
-  const metricDisplayCurrency = useCurrency();
-  const metricFormatterOptions = { currency: metricDisplayCurrency };
-  const { getFactTableById } = useDefinitions();
+  const _displayCurrency = useCurrency();
+  const { getFactTableById: _getFactTableById } = useDefinitions();
+
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
+  const displayCurrency = ssrPolyfills?.useCurrency() || _displayCurrency;
+  const metricFormatterOptions = { currency: displayCurrency };
 
   const variationNames = experiment.variations.map((v) => v.name);
   const { containerRef, containerBounds } = useTooltipInPortal({
@@ -288,7 +299,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
   });
   const filterVariations = form.watch("filterVariations");
   const [showVariations, setShowVariations] = useState<boolean[]>(
-    variationNames.map(() => true)
+    variationNames.map(() => true),
   );
 
   const {
@@ -314,18 +325,18 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       const weights = event.banditResult.updatedWeights;
 
       const users = variationNames.map(
-        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0
+        (_, i) => event.banditResult?.singleVariationResults?.[i]?.users ?? 0,
       );
 
       const crs = variationNames.map(
-        (_, i) => event.banditResult?.singleVariationResults?.[i]?.cr ?? 0
+        (_, i) => event.banditResult?.singleVariationResults?.[i]?.cr ?? 0,
       );
 
       const rawCis = event.banditResult?.singleVariationResults?.map(
-        (svr) => svr?.ci
+        (svr) => svr?.ci,
       );
       const cis = event.banditResult?.singleVariationResults?.map((svr, i) =>
-        svr?.ci?.map((cii) => ((users?.[i] ?? 0) > 0 ? cii : undefined))
+        svr?.ci?.map((cii) => ((users?.[i] ?? 0) > 0 ? cii : undefined)),
       );
 
       const dataPoint: any = {
@@ -461,7 +472,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
       setShowVariations(sv);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterVariations]
+    [filterVariations],
   );
 
   const yMax = height - margin[0] - margin[2];
@@ -481,12 +492,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           !(
                             d?.meta?.[i]?.cr === 0 &&
                             (d?.meta?.[i]?.ci?.[0] ?? 0) < -190
-                          )
+                          ),
                       )
                       .filter(() => !d?.error && !d.initial)
-                      .filter((_, i) => showVariations[i])
-                  )
-                )
+                      .filter((_, i) => showVariations[i]),
+                  ),
+                ),
               ) * 0.97,
               Math.max(
                 ...stackedData.map((d) =>
@@ -498,12 +509,12 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           !(
                             d?.meta?.[i]?.cr === 0 &&
                             (d?.meta?.[i]?.ci?.[1] ?? 0) > 190
-                          )
+                          ),
                       )
                       .filter(() => !d?.error && !d.initial)
-                      .filter((_, i) => showVariations[i])
-                  )
-                )
+                      .filter((_, i) => showVariations[i]),
+                  ),
+                ),
               ) * 1.03,
             ],
             range: [yMax, 0],
@@ -513,7 +524,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
             domain: [0, 1],
             range: [yMax, 0],
           }),
-    [variationNames, mode, stackedData, yMax, showVariations]
+    [variationNames, mode, stackedData, yMax, showVariations],
   );
 
   // Get x-axis domain
@@ -570,7 +581,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         const visibleTickIndexes = getVisibleTickIndexes(
           allXTicks,
           xScale,
-          width * 0.11
+          width * 0.11,
         );
 
         const handlePointer = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -583,7 +594,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
             stackedData,
             yScale,
             xScale,
-            mode
+            mode,
           );
           if (!data) {
             hideTooltip();
@@ -599,7 +610,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
         const startDate = stackedData[0].date;
         const exploitDate =
           stackedData.find(
-            (p) => p.meta?.type !== "today" && p?.reweight === true
+            (p) => p.meta?.type !== "today" && p?.reweight === true,
           )?.date ?? undefined;
         const lastDate = stackedData[stackedData.length - 1].date;
         const exploreMask =
@@ -657,7 +668,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   metric,
                   getFactTableById,
                   metricFormatterOptions,
-                  showVariations
+                  showVariations,
+                  isPublic,
                 )}
               </TooltipWithBounds>
             )}
@@ -779,7 +791,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                           className={styles.positionIndicator}
                           style={{
                             transform: `translate(${tooltipLeft}px, ${yScale(
-                              y
+                              y,
                             )}px)`,
                             background: getVariationColor(i, true),
                           }}
@@ -813,8 +825,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                   <rect
                     x={0}
                     y={0}
-                    width={width - margin[1] - margin[3]}
-                    height={height - margin[0] - margin[2]}
+                    width={Math.max(0, width - margin[1] - margin[3])}
+                    height={Math.max(0, height - margin[0] - margin[2])}
                   />
                 </clipPath>
                 {gradients}
@@ -847,8 +859,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                         mode === "values"
                           ? curveMonotoneX
                           : mode === "probabilities"
-                          ? curveLinear
-                          : curveStepAfter
+                            ? curveLinear
+                            : curveStepAfter
                       }
                       defined={(d) =>
                         d.data.meta.type === "today" ? mode === "weights" : true
@@ -908,8 +920,8 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                             mode === "values"
                               ? curveMonotoneX
                               : mode === "probabilities"
-                              ? curveMonotoneX
-                              : curveStepAfter
+                                ? curveMonotoneX
+                                : curveStepAfter
                           }
                           defined={(d) =>
                             (mode !== "values" || d?.meta?.[i]?.users !== 0) &&
@@ -971,7 +983,7 @@ const BanditDateGraph: FC<BanditDateGraphProps> = ({
                       ? metric
                         ? getExperimentMetricFormatter(
                             metric,
-                            getFactTableById
+                            getFactTableById,
                           )(v as number, metricFormatterOptions)
                         : formatter(v as number)
                       : intPercentFormatter.format(v as number)
@@ -999,7 +1011,7 @@ export default BanditDateGraph;
 export function getVisibleTickIndexes(
   ticks: number[],
   xScale: ScaleTime<number, number>,
-  minGap: number
+  minGap: number,
 ): number[] {
   const visibleIndexes: number[] = [];
   let lastXPosition = -Infinity;

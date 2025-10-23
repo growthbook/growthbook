@@ -2,11 +2,50 @@ import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import React, { ReactNode } from "react";
 import qs from "query-string";
 import { getEqualWeights } from "shared/experiments";
+import {
+  BrowserCookieStickyBucketService,
+  Context,
+  GrowthBook,
+} from "@growthbook/growthbook-react";
+import Cookies from "js-cookie";
+import { v4 as uuidv4 } from "uuid";
+import { AccountPlan } from "shared/enterprise";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
+
+const DEVICE_ID_COOKIE = "gb_device_id";
+const SESSION_ID_COOKIE = "gb_session_id";
+const pageIds: Record<string, string> = {};
 
 export const GB_SDK_ID =
   process.env.NODE_ENV === "production"
     ? "sdk-ueFMOgZ2daLa0M"
     : "sdk-UmQ03OkUDAu7Aox";
+
+export const gbContext: Context = {
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: GB_SDK_ID,
+  enableDevMode: true,
+  trackingCallback: (experiment, result) => {
+    track(
+      "Experiment Viewed",
+      {
+        experimentId: experiment.key,
+        variationId: result.key,
+      },
+      true,
+    );
+  },
+  stickyBucketService: new BrowserCookieStickyBucketService({
+    jsCookie: Cookies,
+  }),
+  attributes: {
+    session_id: getOrGenerateSessionId(),
+    device_id: getOrGenerateDeviceId(),
+    page_id: getOrGeneratePageId(),
+  },
+};
+export const growthbook = new GrowthBook<AppFeatures>(gbContext);
 
 export function trafficSplitPercentages(weights: number[]): number[] {
   const sum = weights.reduce((sum, n) => sum + n, 0);
@@ -23,19 +62,19 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
 // observed and expected weights
 export function getSRMNeededPrecisionP1(
   observed: number[],
-  expected: number[]
+  expected: number[],
 ): number {
   const observedpct = trafficSplitPercentages(observed);
   const expectedpct = trafficSplitPercentages(expected);
   const maxDiff = Math.max(
-    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0))
+    ...observedpct.map((o, i) => Math.abs(o - expectedpct[i] || 0)),
   );
   return (maxDiff ? -1 * Math.floor(Math.log10(maxDiff)) : 0) + 1;
 }
 
 export function phaseSummary(
   phase: ExperimentPhaseStringDates,
-  skipWeights: boolean = false
+  skipWeights: boolean = false,
 ): ReactNode {
   if (!phase) {
     return null;
@@ -61,7 +100,7 @@ export function phaseSummary(
 
 export function distributeWeights(
   weights: number[],
-  customSplit: boolean
+  customSplit: boolean,
 ): number[] {
   // Always just use equal weights if we're not customizing them
   if (!customSplit) return getEqualWeights(weights.length);
@@ -85,7 +124,7 @@ export function distributeWeights(
 
 export function percentToDecimalForNumber(
   val: number,
-  precision: number = 4
+  precision: number = 4,
 ): number {
   return parseFloat((val / 100).toFixed(precision));
 }
@@ -106,7 +145,7 @@ export function rebalance(
   weights: number[],
   i: number,
   newValue: number,
-  precision: number = 4
+  precision: number = 4,
 ): number[] {
   // Clamp new value
   if (newValue > 1) newValue = 1;
@@ -119,7 +158,7 @@ export function rebalance(
   // Current sum of weights
   const currentTotal = floatRound(
     weights.reduce((sum, w) => sum + w, 0),
-    precision
+    precision,
   );
   // The sum is too low, increment the next variation's weight
   if (currentTotal < 1) {
@@ -127,7 +166,7 @@ export function rebalance(
     const nextValue = floatRound(weights[nextIndex], precision);
     weights[(i + 1) % weights.length] = floatRound(
       nextValue + (1 - currentTotal),
-      precision
+      precision,
     );
   } else if (currentTotal > 1) {
     // The sum is too high, loop through the other variations and decrement weights
@@ -157,7 +196,7 @@ export function isNullUndefinedOrEmpty(x): boolean {
 
 export function appendQueryParamsToURL(
   url: string,
-  params: Record<string, string | number | undefined>
+  params: Record<string, string | number | undefined>,
 ): string {
   const [_root, hash] = url.split("#");
   const [root, query] = _root.split("?");
@@ -166,7 +205,7 @@ export function appendQueryParamsToURL(
     { ...parsed, ...params },
     {
       sort: false,
-    }
+    },
   );
   return `${root}?${queryParams}${hash ? `#${hash}` : ""}`;
 }
@@ -182,16 +221,63 @@ export function capitalizeWords(string): string {
     .join(" ");
 }
 
-export async function sha256(str): Promise<string> {
-  try {
-    const buffer = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(str)
-    );
-    const hashArray = Array.from(new Uint8Array(buffer));
-    return hashArray.map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  } catch (e) {
-    console.error(e);
+function getOrGenerateDeviceId() {
+  const deviceId = Cookies.get(DEVICE_ID_COOKIE) || uuidv4();
+  Cookies.set(DEVICE_ID_COOKIE, deviceId, {
+    expires: 365,
+    sameSite: "strict",
+  });
+  return deviceId;
+}
+
+export function getOrGeneratePageId() {
+  if (typeof window === "undefined") {
+    return "";
   }
-  return "";
+
+  // On initial load if the router hasn't initialized a state change yet then history.state will be null.
+  // Since this only happens on one pageload, using a hardcoded default key should still work as its own key
+  const pageIdKey = window.history.state?.key || "";
+  if (!(pageIdKey in pageIds)) {
+    pageIds[pageIdKey] = uuidv4();
+  }
+  return pageIds[pageIdKey];
+}
+
+function getOrGenerateSessionId() {
+  const sessionId = Cookies.get(SESSION_ID_COOKIE) || uuidv4();
+  const now = new Date();
+  Cookies.set(SESSION_ID_COOKIE, sessionId, {
+    expires: new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes() + 30,
+      now.getSeconds(),
+    ),
+    sameSite: "strict",
+  });
+  return sessionId;
+}
+
+// Used to describe account plan in text
+export function planNameFromAccountPlan(accountPlan?: AccountPlan) {
+  if (!accountPlan) {
+    return "Premium";
+  }
+
+  if (accountPlan === "pro_sso" || accountPlan === "pro") {
+    return "Pro";
+  }
+
+  if (accountPlan === "oss" || accountPlan === "starter") {
+    return "Starter";
+  }
+
+  if (accountPlan === "enterprise") {
+    return "Enterprise";
+  }
+
+  return capitalizeFirstLetter(accountPlan);
 }

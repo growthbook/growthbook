@@ -1,15 +1,18 @@
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
-import { FaQuestionCircle } from "react-icons/fa";
+import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import React from "react";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import Toggle from "@/components/Forms/Toggle";
 import {
   StickyBucketingToggleWarning,
   StickyBucketingTooltip,
 } from "@/components/Features/FallbackAttributeSelector";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { ConnectSettingsForm } from "@/pages/settings";
+import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import { GBInfo } from "@/components/Icons";
 
 export default function StickyBucketingSettings() {
   const { hasCommercialFeature } = useUser();
@@ -22,83 +25,90 @@ export default function StickyBucketingSettings() {
     <ConnectSettingsForm>
       {({ watch, setValue }) => (
         <>
-          <h4 className="mt-4 mb-2">Sticky Bucketing Settings</h4>
-          <div className="appbox py-2 px-3">
-            <div className="w-100 mt-2">
-              <div className="d-flex">
-                <label className="mr-2" htmlFor="toggle-useStickyBucketing">
-                  <PremiumTooltip
-                    commercialFeature={"sticky-bucketing"}
-                    body={<StickyBucketingTooltip />}
-                  >
-                    Enable Sticky Bucketing <FaQuestionCircle />
-                  </PremiumTooltip>
-                </label>
-                <Toggle
-                  id={"toggle-useStickyBucketing"}
-                  value={!!watch("useStickyBucketing")}
-                  setValue={(value) => {
-                    setValue(
-                      "useStickyBucketing",
-                      hasCommercialFeature("sticky-bucketing") ? value : false
-                    );
-                  }}
-                  disabled={
-                    !watch("useStickyBucketing") &&
-                    (!hasCommercialFeature("sticky-bucketing") ||
-                      !hasSDKWithStickyBucketing)
-                  }
-                />
-              </div>
-              {!watch("useStickyBucketing") && (
-                <div className="small">
-                  <StickyBucketingToggleWarning
-                    hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
-                  />
-                </div>
-              )}
-            </div>
+          <Heading mb="4" as="h3" size="3">
+            Sticky Bucketing Settings
+          </Heading>
 
-            {watch("useStickyBucketing") && (
-              <div className="w-100 mt-4">
-                <div className="d-flex">
-                  <label
-                    className="mr-2"
-                    htmlFor="toggle-useFallbackAttributes"
-                  >
-                    <Tooltip
-                      body={
-                        <>
-                          <div className="mb-2">
-                            If the user&apos;s assignment attribute is not
-                            available a fallback attribute may be used instead.
-                            Toggle this to allow selection of a fallback
-                            attribute when creating experiments.
-                          </div>
-                          <div>
-                            While using a fallback attribute can improve the
-                            consistency of the user experience, it can also lead
-                            to statistical biases if not implemented carefully.
-                            See the Sticky Bucketing docs for more information.
-                          </div>
-                        </>
-                      }
-                    >
-                      Enable fallback attributes in experiments{" "}
-                      <FaQuestionCircle />
-                    </Tooltip>
-                  </label>
-                  <Toggle
-                    id="toggle-useFallbackAttributes"
-                    value={!!watch("useFallbackAttributes")}
-                    setValue={(value) =>
-                      setValue("useFallbackAttributes", value)
+          <Flex align="start" gap="3">
+            <Checkbox
+              disabled={
+                !watch("useStickyBucketing") &&
+                (!hasCommercialFeature("sticky-bucketing") ||
+                  !hasSDKWithStickyBucketing)
+              }
+              value={watch("useStickyBucketing")}
+              setValue={(v) =>
+                setValue(
+                  "useStickyBucketing",
+                  hasCommercialFeature("sticky-bucketing") ? v : false,
+                )
+              }
+              id="toggle-useStickyBucketing"
+            />
+            <Box>
+              <label
+                htmlFor="toggle-useStickyBucketing"
+                className="font-weight-semibold"
+              >
+                <PremiumTooltip
+                  commercialFeature={"sticky-bucketing"}
+                  body={<StickyBucketingTooltip />}
+                >
+                  Enable Sticky Bucketing <GBInfo />
+                </PremiumTooltip>
+              </label>
+              <p>
+                Prevent users from flipping between variations. (Persists the
+                first variation each user is exposed to)
+              </p>
+            </Box>
+          </Flex>
+
+          {watch("useStickyBucketing") && (
+            <Flex align="start" gap="3" mt="3">
+              <Checkbox
+                value={watch("useFallbackAttributes")}
+                setValue={(v) => setValue("useFallbackAttributes", v)}
+                id="toggle-useFallbackAttributes"
+              />
+              <Box>
+                <label
+                  htmlFor="toggle-useFallbackAttributes"
+                  className="font-weight-semibold"
+                >
+                  <Tooltip
+                    body={
+                      <>
+                        <div className="mb-2">
+                          If the user&apos;s assignment attribute is not
+                          available a fallback attribute may be used instead.
+                          Toggle this to allow selection of a fallback attribute
+                          when creating experiments.
+                        </div>
+                        <div>
+                          While using a fallback attribute can improve the
+                          consistency of the user experience, it can also lead
+                          to statistical biases if not implemented carefully.
+                          See the Sticky Bucketing docs for more information.
+                        </div>
+                      </>
                     }
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+                  >
+                    Enable fallback attributes in experiments <GBInfo />
+                  </Tooltip>
+                </label>
+              </Box>
+            </Flex>
+          )}
+          <Callout status="info" mt="3" contentsAs="div">
+            <Text size="2">
+              <StickyBucketingToggleWarning
+                showIcon={false}
+                skipMargin={true}
+                hasSDKWithStickyBucketing={hasSDKWithStickyBucketing}
+              />
+            </Text>
+          </Callout>
         </>
       )}
     </ConnectSettingsForm>

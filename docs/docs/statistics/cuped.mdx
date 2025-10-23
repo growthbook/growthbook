@@ -5,6 +5,8 @@ sidebar_label: Regression Adjustment (CUPED)
 slug: cuped
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Regression Adjustment (CUPED)
 
 :::note
@@ -19,7 +21,7 @@ GrowthBook aims to unlock high-velocity, enterprise-scale experimentation. Regre
 
 CUPED decreases the variance of experiment uplift, increasing the accuracy of your experimental results and therefore the speed at which you can see the effects of an experiment. In the right conditions, CUPED can equate to getting 20% or more traffic during your experiment!
 
-- In 2016, Netflix reported that CUPED reduced variance by rougly ~40% for some key engagment metrics ([source](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)).
+- In 2016, Netflix reported that CUPED reduced variance by roughly ~40% for some key engagement metrics ([source](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)).
 - In 2022, Microsoft reported that, for one product team, CUPED was akin to adding 20% more traffic to analysis of a majority of metrics ([source](https://www.microsoft.com/en-us/research/group/experimentation-platform-exp/articles/deep-dive-into-variance-reduction/)).
 
 ### How does it work?
@@ -28,11 +30,9 @@ Regression adjustment (RA) in general uses data correlated with a metric to redu
 
 The more correlated the pre-experiment data is with your metric of interest, the more variance reduction you can achieve. For example, the following plot demonstrates the difference in the distribution of a metric before adjustment ("Normal") and after adjustment ("Adjusted"). In both panels, the green, adjusted metric is distributed less widely (e.g. it is more tightly spaced out around the mean). However, the adjusted distribution is even tighter in the right plot, showing that variance reduction will be greater the more correlated your pre-experiment data is with your post-experiment data.
 
-<img
-  src="/images/statistics/cuped-corr.png"
-  alt="Variance Reduction by Correlation"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600}>
+  ![Variance Reduction by Correlation](/images/statistics/cuped-corr.png)
+</MaxWidthImage>
 
 In simpler terms, if we know a particular user tends to buy a lot of products on your website before you launch an experiment, we can use that information to understand whether purchase behavior after an experiment is driven by that customer's innate tendency to buy a lot of products or whether it was due to the experiment.
 
@@ -47,12 +47,12 @@ For each metric you analyze, we use the metric itself from the pre-exposure peri
 We then use the standard CUPED estimator for each variation mean,
 
 $$
-\bar{Y}_{adjusted} = \bar{Y}_{post} - \theta * \bar{Y}_{pre}
+\bar{Y}_{adjusted} = \bar{Y} - \theta * \bar{X}
 $$
 
-where $\bar{Y}_{post}$ is the post-exposure metric average, $\bar{Y}_{pre}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y_{pre}, Y_{post}) / \text{Var}(Y_{pre})$.
+where $\bar{Y}$ is the post-exposure metric average, $\bar{X}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y, X) / \text{Var}(X)$. We describe CUPED for ratio metrics and how to estimate uncertainty [here](/statistics/cuped-technical).
 
-As discussed above, we could use any correlated data instead of $Y_{pre}$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
+As discussed above, we could use any correlated data instead of $X$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
 
 ### Regression Adjustment lookback window
 
@@ -71,7 +71,8 @@ Why use a shorter lookback window?
 
 CUPED works for all metrics except for:
 
-- Ratio metrics where the denominator is a count metric
+- Legacy ratio metrics, or non query-optimized ratio [Fact Metrics](/app/metrics#fact-tables)
+- Ratio metrics that are the goal metric for a [Bandit](/bandits/overview)
 - Quantile metrics
 - Metrics with custom user value aggregations
 - Metrics from a MixPanel data sources
@@ -82,21 +83,17 @@ CUPED works for all metrics except for:
 
 You can turn CUPED on for all analyses under Settings → General. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
 
-<img
-  src="/images/statistics/cuped-org.png"
-  alt="Organization-level CUPED Setting"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={800} border>
+  ![Organization-level CUPED Setting](/images/statistics/cuped-org.png)
+</MaxWidthImage>
 
 ### Metric-level settings
 
 You can also override these organization-level defaults at the Metric level. When creating or editing a Metric, go to the "Behavior" panel, click "Show advanced options" and scroll to the bottom. From there, you will see the following settings. These settings will allow you to disable CUPED for a metric, even if it is set at the organization or experiment level.
 
-<img
-  src="/images/statistics/cuped-metric.png"
-  alt="Metric-level CUPED Setting"
-  style={{ width: 700, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={700}>
+  ![Metric-level CUPED Setting](/images/statistics/cuped-metric.png)
+</MaxWidthImage>
 
 You might want to disable CUPED for a particular metric if that metric never collects values for a user before they enter an experiment. You might want to adjust metric-specific lookback windows for any of the reasons listed in the section above.
 
@@ -104,33 +101,21 @@ Finally, you could also, if you wanted, override these metric-level settings for
 
 ### Experiment settings and results
 
-By default, each experiment will use your organization-level defaults, unless they are overriden by a metric. However, you can always toggle CUPED on or off using the toggle added to the top of the results table. You may need to re-run your analysis if you change this setting.
+By default, each experiment will use your organization-level defaults, unless they are overridden by a metric. However, you can always toggle CUPED on or off using the toggle added to the top of the results table. You need to re-run your analysis if you change this setting.
+If the toggle is On, then CUPED will be applied for all metrics, excluding the cases described above (e.g., legacy ratio metrics) and exceptions like metric overrides.
 
-- If the toggle is Off, then CUPED will not be applied to any metrics.
-- If the toggle is On, then it will be applied for all metrics that:
-  - (a) it can be applied to
-  - (b) do not have a metric setting or metric override turning it off
+The following screenshot shows the results with CUPED on.
+However, you can see that there is an icon showing that CUPED is disabled for revenue_p50 (because it is a quantile metric).
+So even if CUPED is toggled on, we will always show you any metrics for which GrowthBook did not use CUPED using that small CUPED icon with a red x.
 
-The following screenshot shows the results with CUPED on. However, you can see that there is an icon showing that CUPED is disabled for Average Order Value (because it is a ratio metric). So even if CUPED is toggled on, we will always show you any metrics for which GrowthBook did not use CUPED using that small CUPED icon with a red x.
+<MaxWidthImage maxWidth={800}>
+  ![Experiment Results with CUPED toggle](/images/statistics/cuped-results-ratio.png)
+</MaxWidthImage>
 
-<img
-  src="/images/statistics/cuped-results.png"
-  alt="Experiment Results with CUPED toggle"
-  style={{ width: 800, margin: "0 auto" }}
-/>
+The screenshot below shows the same data with CUPED toggled off.
+Note that the interval widths for the CUPED-enabled metrics are now much bigger, while the interval width for revenue_p50 is the same.
+CUPED increases the accuracy of your estimates.
 
-Furthermore, if you mouse over the icon showing CUPED wasn't applied, you will get an explanation why.
-
-<img
-  src="/images/statistics/cuped-icon.png"
-  alt="Metric Icon showing CUPED Disabled Reason"
-  style={{ width: 300, margin: "0 auto" }}
-/>
-
-If you mouse over the metric name itself, you get the final CUPED status for each metric (on/off, number of lookback days).
-
-<img
-  src="/images/statistics/cuped-tooltip.png"
-  alt="Metric Tooltip with CUPED status"
-  style={{ width: 300, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={800}>
+  ![Experiment Results with CUPED toggle](/images/statistics/cuped-results-ratio-off.png)
+</MaxWidthImage>

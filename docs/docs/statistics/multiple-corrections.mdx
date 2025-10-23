@@ -5,6 +5,8 @@ sidebar_label: Multiple Testing Corrections
 slug: multiple-corrections
 ---
 
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
+
 # Multiple Testing Corrections
 
 :::note
@@ -29,9 +31,9 @@ In plain English, the FDR is proportion of your significant results that are fal
 
 The FWER is the probability of at least one test being a false positive. This tends to be much stricter as the number of tests grows.
 
-We can write both as follows, where $V$ is the number of tests that are statistically significant but are false positives and $R$ are the number of tests that are statistically signficant.
+We can write both as follows, where $V$ is the number of tests that are statistically significant but are false positives and $R$ are the number of tests that are statistically significant.
 
-$$\text{False Discovery Rate} = \text{FDR} = \text{E}[\frac{V}{V+R}]$$
+$$\text{False Discovery Rate} = \text{FDR} = \text{E}[\frac{V}{R}]$$
 
 $$\text{Family-wise Error Rate} = \text{FWER} = \text{Pr}(V \geq 1)$$
 
@@ -45,11 +47,9 @@ Which you choose depends on your tolerance for false positives, the number of te
 
 You can set this for your organization in the Organization → Settings page, as seen below:
 
-<img
-  src="/images/statistics/pvals-adjustment-org.png"
-  alt="Org-level Multiple Testing Correction Settings"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![Org-level Multiple Testing Correction Settings](/images/statistics/pvals-adjustment-org.png)
+</MaxWidthImage>
 
 Once you make a selection, adjustments will happen on-the-fly in experiment results and reports. For now, these adjusted p-values are only available in the UI or in downloadable CSVs and not exportable via the API.
 
@@ -89,14 +89,12 @@ We correct using all p-values for all **Goal** metrics; this excludes Secondary 
 
 On the _experiment results overall page_, we collect all tests across Goal metrics and variations to be part of a family, and correct within those values. The following image circles the p-values that we collect and adjust for on the overall results page for an experiment.
 
-<img
-  src="/images/statistics/pvals-adjusted.png"
-  alt="Demonstrating Correction in Results"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+<MaxWidthImage border maxWidth={500}>
+  ![Demonstrating Correction in Results](/images/statistics/pvals-adjusted.png)
+</MaxWidthImage>
 
 #### Within dimensional slices
 
-If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we collect correct within the family of tests across all dimension groups, Goal metrics, and variations.
+If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we define the family of tests as all tests across all dimension groups, Goal metrics, and variations. This means for a 2-armed test, with 4 goal metrics, and a dimension with 3 levels, we correct across a total of 24 tests.
 
 These dimension results are corrected independently from the overall results.

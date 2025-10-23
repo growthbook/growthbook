@@ -12,9 +12,9 @@ import { EventsTableRow } from "@/components/Events/EventsPage/EventsTableRow";
 import SelectField from "@/components/Forms/SelectField";
 import { notificationEventNames } from "@/components/EventWebHooks/utils";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
 import DatePicker from "@/components/DatePicker";
-import Link from "@/components/Radix/Link";
+import Link from "@/ui/Link";
 
 type EventsPageProps = {
   filterURLParams: string;
@@ -62,25 +62,24 @@ export const EventsPage: FC<EventsPageProps> = ({
   return (
     <div className="container py-4">
       <div className="row">
-        <div className="col-6">
+        <div className="col">
           <h1>Events</h1>
         </div>
 
-        <div className="col-6 text-right">
-          <PremiumTooltip commercialFeature="audit-logging">
-            {shouldShowExportButton
-              ? ""
-              : "Exporting events is available to Enterprise customers"}
-          </PremiumTooltip>
-
-          <Button
-            onClick={performDownload}
-            disabled={isDownloading || !shouldShowExportButton}
-            ml="3"
-            icon={<FaDownload />}
+        <div className="col-auto text-right align-items-end">
+          <PremiumTooltip
+            commercialFeature="audit-logging"
+            premiumText="Exporting events is available to Enterprise customers"
           >
-            Export All
-          </Button>
+            <Button
+              onClick={performDownload}
+              disabled={isDownloading || !shouldShowExportButton}
+              ml="3"
+              icon={<FaDownload />}
+            >
+              Export All
+            </Button>
+          </PremiumTooltip>
         </div>
       </div>
 
@@ -195,7 +194,7 @@ export const EventsPageContainer = () => {
     "/events/count?type=" +
       JSON.stringify(eventType) +
       (fromDate ? "&from=" + fromDate?.toISOString() : "") +
-      (toDate ? "&to=" + toDate?.toISOString() : "")
+      (toDate ? "&to=" + toDate?.toISOString() : ""),
   );
   const {
     isDownloading,
@@ -227,22 +226,22 @@ export const EventsPageContainer = () => {
           }}
         />
       </div>
-      <div>
+      <div className="d-inline-flex align-items-center">
+        <label className="mb-0 mr-2">From</label>
         <DatePicker
           date={fromDate}
           setDate={setFromDate}
           scheduleEndDate={toDate}
-          label="From"
           precision="date"
           containerClassName=""
         />
       </div>
-      <div>
+      <div className="d-inline-flex align-items-center">
+        <label className="mb-0 mr-2">To</label>
         <DatePicker
           date={toDate}
           setDate={setToDate}
           scheduleStartDate={fromDate}
-          label="To"
           precision="date"
           containerClassName=""
         />

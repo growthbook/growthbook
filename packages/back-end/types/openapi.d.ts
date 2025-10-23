@@ -22,6 +22,8 @@ export interface paths {
     get: operations["getFeature"];
     /** Partially update a feature */
     post: operations["updateFeature"];
+    /** Deletes a single feature */
+    delete: operations["deleteFeature"];
   };
   "/features/{id}/toggle": {
     /** Toggle a feature in one or more environments */
@@ -32,6 +34,20 @@ export interface paths {
         id: string;
       };
     };
+  };
+  "/features/{id}/revert": {
+    /** Revert a feature to a specific revision */
+    post: operations["revertFeature"];
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+  };
+  "/features/{id}/revisions": {
+    /** Get all revisions for a feature */
+    get: operations["getFeatureRevisions"];
   };
   "/feature-keys": {
     /** Get list of feature keys */
@@ -54,30 +70,30 @@ export interface paths {
   "/dimensions": {
     /** Get all dimensions */
     get: operations["listDimensions"];
+    /** Create a single dimension */
+    post: operations["postDimension"];
   };
   "/dimensions/{id}": {
     /** Get a single dimension */
     get: operations["getDimension"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single dimension */
+    post: operations["updateDimension"];
+    /** Deletes a single dimension */
+    delete: operations["deleteDimension"];
   };
   "/segments": {
     /** Get all segments */
     get: operations["listSegments"];
+    /** Create a single segment */
+    post: operations["postSegment"];
   };
   "/segments/{id}": {
     /** Get a single segment */
     get: operations["getSegment"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single segment */
+    post: operations["updateSegment"];
+    /** Deletes a single segment */
+    delete: operations["deleteSegment"];
   };
   "/sdk-connections": {
     /** Get all sdk connections */
@@ -92,6 +108,10 @@ export interface paths {
     put: operations["putSdkConnection"];
     /** Deletes a single SDK connection */
     delete: operations["deleteSdkConnection"];
+  };
+  "/sdk-connections/lookup/{key}": {
+    /** Find a single sdk connection by its key */
+    get: operations["lookupSdkConnectionByKey"];
   };
   "/data-sources": {
     /** Get all data sources */
@@ -112,6 +132,10 @@ export interface paths {
     get: operations["listExperiments"];
     /** Create a single experiment */
     post: operations["postExperiment"];
+  };
+  "/experiment-names": {
+    /** Get a list of experiments with names and ids */
+    get: operations["getExperimentNames"];
   };
   "/experiments/{id}": {
     /** Get a single experiment */
@@ -231,6 +255,20 @@ export interface paths {
     /** Deletes a single attribute */
     delete: operations["deleteAttribute"];
   };
+  "/archetypes": {
+    /** Get the organization's archetypes */
+    get: operations["listArchetypes"];
+    /** Create a single archetype */
+    post: operations["postArchetype"];
+  };
+  "/archetypes/${id}": {
+    /** Get a single archetype */
+    get: operations["getArchetype"];
+    /** Update a single archetype */
+    put: operations["putArchetype"];
+    /** Deletes a single archetype */
+    delete: operations["deleteArchetype"];
+  };
   "/members": {
     /** Get all organization members */
     get: operations["listMembers"];
@@ -297,13 +335,37 @@ export interface paths {
     /** Deletes a single fact metric */
     delete: operations["deleteFactMetric"];
   };
+  "/fact-metrics/{id}/analysis": {
+    /** Create a fact metric analysis */
+    post: operations["postFactMetricAnalysis"];
+    parameters: {
+        /** @description The fact metric id to analyze */
+      path: {
+        id: string;
+      };
+    };
+  };
   "/bulk-import/facts": {
     /** Bulk import fact tables, filters, and metrics */
     post: operations["postBulkImportFacts"];
   };
   "/code-refs": {
+    /** Get list of all code references for the current organization */
+    get: operations["listCodeRefs"];
     /** Submit list of code references */
     post: operations["postCodeRefs"];
+  };
+  "/code-refs/{id}": {
+    /** Get list of code references for a single feature id */
+    get: operations["getCodeRefs"];
+  };
+  "/queries/{id}": {
+    /** Get a single query */
+    get: operations["getQuery"];
+  };
+  "/settings": {
+    /** Get organization settings */
+    get: operations["getSettings"];
   };
 }
 
@@ -327,7 +389,13 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
+      description?: string;
       query: string;
+      /**
+       * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy?: "" | "api" | "config";
     };
     Metric: {
       id: string;
@@ -335,7 +403,7 @@ export interface components {
        * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api" | "config";
+      managedBy: "" | "api" | "config" | "admin";
       dateCreated: string;
       dateUpdated: string;
       owner: string;
@@ -372,11 +440,13 @@ export interface components {
         windowSettings: {
           /** @enum {string} */
           type: "none" | "conversion" | "lookback";
-          /** @description Wait this many hours after experiment exposure before counting conversions */
-          delayHours?: number;
+          /** @description Wait this long after experiment exposure before counting conversions */
+          delayValue?: number;
+          /** @enum {string} */
+          delayUnit?: "minutes" | "hours" | "days" | "weeks";
           windowValue?: number;
           /** @enum {string} */
-          windowUnit?: "hours" | "days" | "weeks";
+          windowUnit?: "minutes" | "hours" | "days" | "weeks";
         };
         /** @description Controls the bayesian prior for the metric. */
         priorSettings?: {
@@ -398,6 +468,7 @@ export interface components {
         minPercentChange: number;
         maxPercentChange: number;
         minSampleSize: number;
+        targetMDE: number;
       };
       sql?: {
         identifierTypes: (string)[];
@@ -448,6 +519,7 @@ export interface components {
       toggleOnList: boolean;
       defaultState: boolean;
       projects: (string)[];
+      parent?: string;
     };
     Attribute: {
       property: string;
@@ -467,13 +539,43 @@ export interface components {
       datasourceId: string;
       identifierType: string;
       name: string;
+      description?: string;
       query?: string;
       dateCreated: string;
       dateUpdated: string;
+      /**
+       * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+       * @enum {string}
+       */
+      managedBy?: "" | "api" | "config";
       /** @enum {unknown} */
       type?: "SQL" | "FACT";
       factTableId?: string;
       filters?: (string)[];
+      projects?: (string)[];
+    };
+    /**
+     * @description An array of schedule rules to turn on/off a feature rule at specific times. The array must contain exactly 2 elements (start rule and end rule). The first element is the start rule. 
+     * @example [
+     *   {
+     *     "enabled": true,
+     *     "timestamp": null
+     *   },
+     *   {
+     *     "enabled": false,
+     *     "timestamp": "2025-06-23T16:09:37.769Z"
+     *   }
+     * ]
+     */
+    ScheduleRule: {
+      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+      enabled: boolean;
+      /**
+       * Format: date-time 
+       * @description ISO timestamp when the rule should activate. 
+       * @example 2025-06-23T16:09:37.769Z
+       */
+      timestamp: string | null;
     };
     Feature: {
       id: string;
@@ -501,6 +603,33 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -514,6 +643,28 @@ export interface components {
                   matchType: "all" | "any" | "none";
                   savedGroups: (string)[];
                 })[];
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
               id: string;
               enabled: boolean;
               /** @enum {string} */
@@ -521,7 +672,7 @@ export interface components {
               value: string;
               coverage: number;
               hashAttribute: string;
-            }) | {
+            }) | ({
               description: string;
               condition: string;
               id: string;
@@ -540,24 +691,114 @@ export interface components {
                 range: (number)[];
               };
               coverage?: number;
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
               value?: ({
                   value: string;
                   weight: number;
                   name?: string;
                 })[];
-            } | {
+            }) | ({
               description: string;
               id: string;
               enabled: boolean;
               /** @enum {string} */
               type: "experiment-ref";
               condition?: string;
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
               variations: ({
                   value: string;
                   variationId: string;
                 })[];
               experimentId: string;
-            })[];
+            }) | ({
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              id: string;
+              trackingKey?: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "safe-rollout";
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              safeRolloutId?: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back" | "stopped";
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
+            }))[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
           draft?: {
@@ -570,6 +811,33 @@ export interface components {
                     /** @enum {string} */
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
                   })[];
                 id: string;
                 enabled: boolean;
@@ -584,6 +852,28 @@ export interface components {
                     matchType: "all" | "any" | "none";
                     savedGroups: (string)[];
                   })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
@@ -591,7 +881,7 @@ export interface components {
                 value: string;
                 coverage: number;
                 hashAttribute: string;
-              }) | {
+              }) | ({
                 description: string;
                 condition: string;
                 id: string;
@@ -610,33 +900,121 @@ export interface components {
                   range: (number)[];
                 };
                 coverage?: number;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
                 value?: ({
                     value: string;
                     weight: number;
                     name?: string;
                   })[];
-              } | {
+              }) | ({
                 description: string;
                 id: string;
                 enabled: boolean;
                 /** @enum {string} */
                 type: "experiment-ref";
                 condition?: string;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
                 variations: ({
                     value: string;
                     variationId: string;
                   })[];
                 experimentId: string;
-              })[];
+              }) | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+              }))[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
           };
         }) | undefined;
       };
-      prerequisites?: ({
-          parentId: string;
-          parentCondition: string;
-        })[];
+      /** @description Feature IDs. Each feature must evaluate to `true` */
+      prerequisites?: (string)[];
       revision: {
         version: number;
         comment: string;
@@ -644,7 +1022,678 @@ export interface components {
         date: string;
         publishedBy: string;
       };
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
     };
+    FeatureWithRevisions: ({
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      archived: boolean;
+      description: string;
+      owner: string;
+      project: string;
+      /** @enum {string} */
+      valueType: "boolean" | "string" | "number" | "json";
+      defaultValue: string;
+      tags: (string)[];
+      environments: {
+        [key: string]: ({
+          enabled: boolean;
+          defaultValue: string;
+          rules: (({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "force";
+              value: string;
+            }) | ({
+              description: string;
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "rollout";
+              value: string;
+              coverage: number;
+              hashAttribute: string;
+            }) | ({
+              description: string;
+              condition: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment";
+              trackingKey?: string;
+              hashAttribute?: string;
+              fallbackAttribute?: string;
+              disableStickyBucketing?: boolean;
+              bucketVersion?: number;
+              minBucketVersion?: number;
+              namespace?: {
+                enabled: boolean;
+                name: string;
+                range: (number)[];
+              };
+              coverage?: number;
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
+              value?: ({
+                  value: string;
+                  weight: number;
+                  name?: string;
+                })[];
+            }) | ({
+              description: string;
+              id: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "experiment-ref";
+              condition?: string;
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
+            }) | ({
+              condition: string;
+              savedGroupTargeting?: ({
+                  /** @enum {string} */
+                  matchType: "all" | "any" | "none";
+                  savedGroups: (string)[];
+                })[];
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
+              id: string;
+              trackingKey?: string;
+              enabled: boolean;
+              /** @enum {string} */
+              type: "safe-rollout";
+              controlValue: string;
+              variationValue: string;
+              seed?: string;
+              hashAttribute?: string;
+              safeRolloutId?: string;
+              /** @enum {string} */
+              status?: "running" | "released" | "rolled-back" | "stopped";
+              /**
+               * @example [
+               *   {
+               *     "enabled": true,
+               *     "timestamp": null
+               *   },
+               *   {
+               *     "enabled": false,
+               *     "timestamp": "2025-06-23T16:09:37.769Z"
+               *   }
+               * ]
+               */
+              scheduleRules?: ({
+                  /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                  enabled: boolean;
+                  /**
+                   * Format: date-time 
+                   * @description ISO timestamp when the rule should activate. 
+                   * @example 2025-06-23T16:09:37.769Z
+                   */
+                  timestamp: string | null;
+                })[];
+            }))[];
+          /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+          definition?: string;
+          draft?: {
+            enabled: boolean;
+            defaultValue: string;
+            rules: (({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | ({
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              }) | ({
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              }) | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+              }))[];
+            /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+            definition?: string;
+          };
+        }) | undefined;
+      };
+      /** @description Feature IDs. Each feature must evaluate to `true` */
+      prerequisites?: (string)[];
+      revision: {
+        version: number;
+        comment: string;
+        /** Format: date-time */
+        date: string;
+        publishedBy: string;
+      };
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
+    }) & ({
+      revisions?: ({
+          baseVersion: number;
+          version: number;
+          comment: string;
+          /** Format: date-time */
+          date: string;
+          status: string;
+          publishedBy?: string;
+          rules: {
+            [key: string]: ((({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "force";
+                value: string;
+              }) | ({
+                description: string;
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "rollout";
+                value: string;
+                coverage: number;
+                hashAttribute: string;
+              }) | ({
+                description: string;
+                condition: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment";
+                trackingKey?: string;
+                hashAttribute?: string;
+                fallbackAttribute?: string;
+                disableStickyBucketing?: boolean;
+                bucketVersion?: number;
+                minBucketVersion?: number;
+                namespace?: {
+                  enabled: boolean;
+                  name: string;
+                  range: (number)[];
+                };
+                coverage?: number;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                value?: ({
+                    value: string;
+                    weight: number;
+                    name?: string;
+                  })[];
+              }) | ({
+                description: string;
+                id: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "experiment-ref";
+                condition?: string;
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
+              }) | ({
+                condition: string;
+                savedGroupTargeting?: ({
+                    /** @enum {string} */
+                    matchType: "all" | "any" | "none";
+                    savedGroups: (string)[];
+                  })[];
+                prerequisites?: ({
+                    /** @description Feature ID */
+                    id: string;
+                    condition: string;
+                  })[];
+                id: string;
+                trackingKey?: string;
+                enabled: boolean;
+                /** @enum {string} */
+                type: "safe-rollout";
+                controlValue: string;
+                variationValue: string;
+                seed?: string;
+                hashAttribute?: string;
+                safeRolloutId?: string;
+                /** @enum {string} */
+                status?: "running" | "released" | "rolled-back" | "stopped";
+                /**
+                 * @example [
+                 *   {
+                 *     "enabled": true,
+                 *     "timestamp": null
+                 *   },
+                 *   {
+                 *     "enabled": false,
+                 *     "timestamp": "2025-06-23T16:09:37.769Z"
+                 *   }
+                 * ]
+                 */
+                scheduleRules?: ({
+                    /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                    enabled: boolean;
+                    /**
+                     * Format: date-time 
+                     * @description ISO timestamp when the rule should activate. 
+                     * @example 2025-06-23T16:09:37.769Z
+                     */
+                    timestamp: string | null;
+                  })[];
+              }))[]) | undefined;
+          };
+          definitions?: {
+            [key: string]: string | undefined;
+          };
+        })[];
+    });
     FeatureEnvironment: {
       enabled: boolean;
       defaultValue: string;
@@ -655,6 +1704,33 @@ export interface components {
               /** @enum {string} */
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
+            })[];
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
+          scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+              enabled: boolean;
+              /**
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
+               * @example 2025-06-23T16:09:37.769Z
+               */
+              timestamp: string | null;
             })[];
           id: string;
           enabled: boolean;
@@ -669,6 +1745,28 @@ export interface components {
               matchType: "all" | "any" | "none";
               savedGroups: (string)[];
             })[];
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
+          scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+              enabled: boolean;
+              /**
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
+               * @example 2025-06-23T16:09:37.769Z
+               */
+              timestamp: string | null;
+            })[];
           id: string;
           enabled: boolean;
           /** @enum {string} */
@@ -676,7 +1774,7 @@ export interface components {
           value: string;
           coverage: number;
           hashAttribute: string;
-        }) | {
+        }) | ({
           description: string;
           condition: string;
           id: string;
@@ -695,24 +1793,114 @@ export interface components {
             range: (number)[];
           };
           coverage?: number;
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
+          scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+              enabled: boolean;
+              /**
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
+               * @example 2025-06-23T16:09:37.769Z
+               */
+              timestamp: string | null;
+            })[];
           value?: ({
               value: string;
               weight: number;
               name?: string;
             })[];
-        } | {
+        }) | ({
           description: string;
           id: string;
           enabled: boolean;
           /** @enum {string} */
           type: "experiment-ref";
           condition?: string;
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
+          scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+              enabled: boolean;
+              /**
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
+               * @example 2025-06-23T16:09:37.769Z
+               */
+              timestamp: string | null;
+            })[];
           variations: ({
               value: string;
               variationId: string;
             })[];
           experimentId: string;
-        })[];
+        }) | ({
+          condition: string;
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+          prerequisites?: ({
+              /** @description Feature ID */
+              id: string;
+              condition: string;
+            })[];
+          id: string;
+          trackingKey?: string;
+          enabled: boolean;
+          /** @enum {string} */
+          type: "safe-rollout";
+          controlValue: string;
+          variationValue: string;
+          seed?: string;
+          hashAttribute?: string;
+          safeRolloutId?: string;
+          /** @enum {string} */
+          status?: "running" | "released" | "rolled-back" | "stopped";
+          /**
+           * @example [
+           *   {
+           *     "enabled": true,
+           *     "timestamp": null
+           *   },
+           *   {
+           *     "enabled": false,
+           *     "timestamp": "2025-06-23T16:09:37.769Z"
+           *   }
+           * ]
+           */
+          scheduleRules?: ({
+              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+              enabled: boolean;
+              /**
+               * Format: date-time 
+               * @description ISO timestamp when the rule should activate. 
+               * @example 2025-06-23T16:09:37.769Z
+               */
+              timestamp: string | null;
+            })[];
+        }))[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
       draft?: {
@@ -725,6 +1913,33 @@ export interface components {
                 /** @enum {string} */
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
               })[];
             id: string;
             enabled: boolean;
@@ -739,6 +1954,28 @@ export interface components {
                 matchType: "all" | "any" | "none";
                 savedGroups: (string)[];
               })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
             id: string;
             enabled: boolean;
             /** @enum {string} */
@@ -746,7 +1983,7 @@ export interface components {
             value: string;
             coverage: number;
             hashAttribute: string;
-          }) | {
+          }) | ({
             description: string;
             condition: string;
             id: string;
@@ -765,24 +2002,114 @@ export interface components {
               range: (number)[];
             };
             coverage?: number;
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
             value?: ({
                 value: string;
                 weight: number;
                 name?: string;
               })[];
-          } | {
+          }) | ({
             description: string;
             id: string;
             enabled: boolean;
             /** @enum {string} */
             type: "experiment-ref";
             condition?: string;
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
             variations: ({
                 value: string;
                 variationId: string;
               })[];
             experimentId: string;
-          })[];
+          }) | ({
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            id: string;
+            trackingKey?: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "safe-rollout";
+            controlValue: string;
+            variationValue: string;
+            seed?: string;
+            hashAttribute?: string;
+            safeRolloutId?: string;
+            /** @enum {string} */
+            status?: "running" | "released" | "rolled-back" | "stopped";
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+          }))[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
       };
@@ -794,6 +2121,33 @@ export interface components {
           /** @enum {string} */
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
         })[];
       id: string;
       enabled: boolean;
@@ -808,6 +2162,28 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
       id: string;
       enabled: boolean;
       /** @enum {string} */
@@ -815,7 +2191,7 @@ export interface components {
       value: string;
       coverage: number;
       hashAttribute: string;
-    }) | {
+    }) | ({
       description: string;
       condition: string;
       id: string;
@@ -834,24 +2210,114 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
       value?: ({
           value: string;
           weight: number;
           name?: string;
         })[];
-    } | {
+    }) | ({
       description: string;
       id: string;
       enabled: boolean;
       /** @enum {string} */
       type: "experiment-ref";
       condition?: string;
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
       variations: ({
           value: string;
           variationId: string;
         })[];
       experimentId: string;
-    };
+    }) | ({
+      condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      id: string;
+      trackingKey?: string;
+      enabled: boolean;
+      /** @enum {string} */
+      type: "safe-rollout";
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      safeRolloutId?: string;
+      /** @enum {string} */
+      status?: "running" | "released" | "rolled-back" | "stopped";
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
+    });
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
       rules?: ({
@@ -875,6 +2341,33 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
       id: string;
       enabled: boolean;
       /** @enum {string} */
@@ -889,6 +2382,28 @@ export interface components {
           matchType: "all" | "any" | "none";
           savedGroups: (string)[];
         })[];
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
       id: string;
       enabled: boolean;
       /** @enum {string} */
@@ -896,6 +2411,53 @@ export interface components {
       value: string;
       coverage: number;
       hashAttribute: string;
+    };
+    FeatureSafeRolloutRule: {
+      condition: string;
+      savedGroupTargeting?: ({
+          /** @enum {string} */
+          matchType: "all" | "any" | "none";
+          savedGroups: (string)[];
+        })[];
+      prerequisites?: ({
+          /** @description Feature ID */
+          id: string;
+          condition: string;
+        })[];
+      id: string;
+      trackingKey?: string;
+      enabled: boolean;
+      /** @enum {string} */
+      type: "safe-rollout";
+      controlValue: string;
+      variationValue: string;
+      seed?: string;
+      hashAttribute?: string;
+      safeRolloutId?: string;
+      /** @enum {string} */
+      status?: "running" | "released" | "rolled-back" | "stopped";
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
     };
     FeatureExperimentRule: {
       description: string;
@@ -916,6 +2478,28 @@ export interface components {
         range: (number)[];
       };
       coverage?: number;
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
       value?: ({
           value: string;
           weight: number;
@@ -929,11 +2513,251 @@ export interface components {
       /** @enum {string} */
       type: "experiment-ref";
       condition?: string;
+      /**
+       * @example [
+       *   {
+       *     "enabled": true,
+       *     "timestamp": null
+       *   },
+       *   {
+       *     "enabled": false,
+       *     "timestamp": "2025-06-23T16:09:37.769Z"
+       *   }
+       * ]
+       */
+      scheduleRules?: ({
+          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+          enabled: boolean;
+          /**
+           * Format: date-time 
+           * @description ISO timestamp when the rule should activate. 
+           * @example 2025-06-23T16:09:37.769Z
+           */
+          timestamp: string | null;
+        })[];
       variations: ({
           value: string;
           variationId: string;
         })[];
       experimentId: string;
+    };
+    FeatureRevision: {
+      baseVersion: number;
+      version: number;
+      comment: string;
+      /** Format: date-time */
+      date: string;
+      status: string;
+      publishedBy?: string;
+      rules: {
+        [key: string]: ((({
+            description: string;
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            id: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "force";
+            value: string;
+          }) | ({
+            description: string;
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            id: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "rollout";
+            value: string;
+            coverage: number;
+            hashAttribute: string;
+          }) | ({
+            description: string;
+            condition: string;
+            id: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "experiment";
+            trackingKey?: string;
+            hashAttribute?: string;
+            fallbackAttribute?: string;
+            disableStickyBucketing?: boolean;
+            bucketVersion?: number;
+            minBucketVersion?: number;
+            namespace?: {
+              enabled: boolean;
+              name: string;
+              range: (number)[];
+            };
+            coverage?: number;
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            value?: ({
+                value: string;
+                weight: number;
+                name?: string;
+              })[];
+          }) | ({
+            description: string;
+            id: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "experiment-ref";
+            condition?: string;
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+            variations: ({
+                value: string;
+                variationId: string;
+              })[];
+            experimentId: string;
+          }) | ({
+            condition: string;
+            savedGroupTargeting?: ({
+                /** @enum {string} */
+                matchType: "all" | "any" | "none";
+                savedGroups: (string)[];
+              })[];
+            prerequisites?: ({
+                /** @description Feature ID */
+                id: string;
+                condition: string;
+              })[];
+            id: string;
+            trackingKey?: string;
+            enabled: boolean;
+            /** @enum {string} */
+            type: "safe-rollout";
+            controlValue: string;
+            variationValue: string;
+            seed?: string;
+            hashAttribute?: string;
+            safeRolloutId?: string;
+            /** @enum {string} */
+            status?: "running" | "released" | "rolled-back" | "stopped";
+            /**
+             * @example [
+             *   {
+             *     "enabled": true,
+             *     "timestamp": null
+             *   },
+             *   {
+             *     "enabled": false,
+             *     "timestamp": "2025-06-23T16:09:37.769Z"
+             *   }
+             * ]
+             */
+            scheduleRules?: ({
+                /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                enabled: boolean;
+                /**
+                 * Format: date-time 
+                 * @description ISO timestamp when the rule should activate. 
+                 * @example 2025-06-23T16:09:37.769Z
+                 */
+                timestamp: string | null;
+              })[];
+          }))[]) | undefined;
+      };
+      definitions?: {
+        [key: string]: string | undefined;
+      };
     };
     SdkConnection: {
       id: string;
@@ -955,6 +2779,7 @@ export interface components {
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
       includeRedirectExperiments?: boolean;
+      includeRuleIds?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -966,11 +2791,14 @@ export interface components {
     };
     Experiment: {
       id: string;
+      trackingKey: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
       name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
       project: string;
       hypothesis: string;
       description: string;
@@ -1009,6 +2837,10 @@ export interface components {
             range: (unknown)[];
           };
           targetingCondition: string;
+          prerequisites?: ({
+              id: string;
+              condition: string;
+            })[];
           savedGroupTargeting?: ({
               /** @enum {string} */
               matchType: "all" | "any" | "none";
@@ -1031,6 +2863,8 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1083,6 +2917,30 @@ export interface components {
         releasedVariationId: string;
         excludeFromPayload: boolean;
       };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
+      banditScheduleValue?: number;
+      /** @enum {string} */
+      banditScheduleUnit?: "days" | "hours";
+      banditBurnInValue?: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "days" | "hours";
+      linkedFeatures?: (string)[];
+      hasVisualChangesets?: boolean;
+      hasURLRedirects?: boolean;
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
+      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+      pinnedMetricSlices?: (string)[];
+      /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
     };
     ExperimentSnapshot: {
       id: string;
@@ -1116,6 +2974,8 @@ export interface components {
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       regressionAdjustmentEnabled?: boolean;
+      sequentialTestingEnabled?: boolean;
+      sequentialTestingTuningParameter?: number;
       goals: ({
           metricId: string;
           overrides: {
@@ -1188,6 +3048,8 @@ export interface components {
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
         goals: ({
             metricId: string;
             overrides: {
@@ -1263,6 +3125,165 @@ export interface components {
             })[];
         })[];
     };
+    ExperimentWithEnhancedStatus: ({
+      id: string;
+      trackingKey: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      /** @enum {string} */
+      type: "standard" | "multi-armed-bandit";
+      project: string;
+      hypothesis: string;
+      description: string;
+      tags: (string)[];
+      owner: string;
+      archived: boolean;
+      status: string;
+      autoRefresh: boolean;
+      hashAttribute: string;
+      fallbackAttribute?: string;
+      /** @enum {number} */
+      hashVersion: 1 | 2;
+      disableStickyBucketing?: boolean;
+      bucketVersion?: number;
+      minBucketVersion?: number;
+      variations: ({
+          variationId: string;
+          key: string;
+          name: string;
+          description: string;
+          screenshots: (string)[];
+        })[];
+      phases: ({
+          name: string;
+          dateStarted: string;
+          dateEnded: string;
+          reasonForStopping: string;
+          seed: string;
+          coverage: number;
+          trafficSplit: ({
+              variationId: string;
+              weight: number;
+            })[];
+          namespace?: {
+            namespaceId: string;
+            range: (unknown)[];
+          };
+          targetingCondition: string;
+          prerequisites?: ({
+              id: string;
+              condition: string;
+            })[];
+          savedGroupTargeting?: ({
+              /** @enum {string} */
+              matchType: "all" | "any" | "none";
+              savedGroups: (string)[];
+            })[];
+        })[];
+      settings: {
+        datasourceId: string;
+        assignmentQueryId: string;
+        experimentId: string;
+        segmentId: string;
+        queryFilter: string;
+        /** @enum {unknown} */
+        inProgressConversions: "include" | "exclude";
+        /**
+         * @description Setting attribution model to `"experimentDuration"` is the same as selecting "Ignore Conversion Windows" for the Conversion Window Override. 
+         * @enum {unknown}
+         */
+        attributionModel: "firstExposure" | "experimentDuration";
+        /** @enum {unknown} */
+        statsEngine: "bayesian" | "frequentist";
+        regressionAdjustmentEnabled?: boolean;
+        sequentialTestingEnabled?: boolean;
+        sequentialTestingTuningParameter?: number;
+        goals: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        secondaryMetrics: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        guardrails: ({
+            metricId: string;
+            overrides: {
+              delayHours?: number;
+              windowHours?: number;
+              /** @enum {string} */
+              window?: "conversion" | "lookback" | "";
+              winRiskThreshold?: number;
+              loseRiskThreshold?: number;
+            };
+          })[];
+        activationMetric?: {
+          metricId: string;
+          overrides: {
+            delayHours?: number;
+            windowHours?: number;
+            /** @enum {string} */
+            window?: "conversion" | "lookback" | "";
+            winRiskThreshold?: number;
+            loseRiskThreshold?: number;
+          };
+        };
+      };
+      resultSummary?: {
+        status: string;
+        winner: string;
+        conclusions: string;
+        releasedVariationId: string;
+        excludeFromPayload: boolean;
+      };
+      /** @enum {string} */
+      shareLevel?: "public" | "organization";
+      publicUrl?: string;
+      banditScheduleValue?: number;
+      /** @enum {string} */
+      banditScheduleUnit?: "days" | "hours";
+      banditBurnInValue?: number;
+      /** @enum {string} */
+      banditBurnInUnit?: "days" | "hours";
+      linkedFeatures?: (string)[];
+      hasVisualChangesets?: boolean;
+      hasURLRedirects?: boolean;
+      customFields?: {
+        [key: string]: unknown | undefined;
+      };
+      /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+      pinnedMetricSlices?: (string)[];
+      /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+      customMetricSlices?: ({
+          slices: ({
+              column: string;
+              levels: (string)[];
+            })[];
+        })[];
+    }) & ({
+      enhancedStatus?: {
+        /** @enum {string} */
+        status: "Running" | "Stopped" | "Draft" | "Archived";
+        detailedStatus?: string;
+      };
+    });
     DataSource: {
       id: string;
       /** Format: date-time */
@@ -1383,15 +3404,93 @@ export interface components {
       datasource: string;
       userIdTypes: (string)[];
       sql: string;
+      /** @description The event name used in SQL template variables */
+      eventName?: string;
+      /** @description Array of column definitions for this fact table */
+      columns?: ({
+          /** @description The actual column name in the database/SQL query */
+          column: string;
+          /** @enum {string} */
+          datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+          /** @enum {string} */
+          numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+          /** @description For JSON columns, defines the structure of nested fields */
+          jsonFields?: {
+            [key: string]: ({
+              /** @enum {string} */
+              datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+            }) | undefined;
+          };
+          /** @description Display name for the column (can be different from the actual column name) */
+          name?: string;
+          description?: string;
+          /**
+           * @description Whether this column should always be included as an inline filter in queries 
+           * @default false
+           */
+          alwaysInlineFilter?: boolean;
+          /** @default false */
+          deleted: boolean;
+          /**
+           * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+           * @default false
+           */
+          isAutoSliceColumn?: boolean;
+          /** @description Specific slices to automatically analyze for this column. */
+          autoSlices?: (string)[];
+          /** Format: date-time */
+          dateCreated?: string;
+          /** Format: date-time */
+          dateUpdated?: string;
+        })[];
+      /** @description Error message if there was an issue parsing the SQL schema */
+      columnsError?: string | null;
+      archived?: boolean;
       /**
        * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api";
+      managedBy: "" | "api" | "admin";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+    };
+    FactTableColumn: {
+      /** @description The actual column name in the database/SQL query */
+      column: string;
+      /** @enum {string} */
+      datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+      /** @enum {string} */
+      numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+      /** @description For JSON columns, defines the structure of nested fields */
+      jsonFields?: {
+        [key: string]: ({
+          /** @enum {string} */
+          datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+        }) | undefined;
+      };
+      /** @description Display name for the column (can be different from the actual column name) */
+      name?: string;
+      description?: string;
+      /**
+       * @description Whether this column should always be included as an inline filter in queries 
+       * @default false
+       */
+      alwaysInlineFilter?: boolean;
+      /** @default false */
+      deleted: boolean;
+      /**
+       * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+       * @default false
+       */
+      isAutoSliceColumn?: boolean;
+      /** @description Specific slices to automatically analyze for this column. */
+      autoSlices?: (string)[];
+      /** Format: date-time */
+      dateCreated?: string;
+      /** Format: date-time */
+      dateUpdated?: string;
     };
     FactTableFilter: {
       id: string;
@@ -1417,18 +3516,32 @@ export interface components {
       tags: (string)[];
       datasource: string;
       /** @enum {string} */
-      metricType: "proportion" | "mean" | "quantile" | "ratio";
+      metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
       numerator: {
         factTableId: string;
         column: string;
+        /** @enum {string} */
+        aggregation?: "sum" | "max" | "count distinct";
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+        inlineFilters?: {
+          [key: string]: (string)[] | undefined;
+        };
+        /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+        aggregateFilterColumn?: string;
+        /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+        aggregateFilter?: string;
       };
       denominator?: {
         factTableId: string;
         column: string;
         /** @description Array of Fact Table Filter Ids */
         filters: (string)[];
+        /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+        inlineFilters?: {
+          [key: string]: (string)[] | undefined;
+        };
       };
       /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
       inverse: boolean;
@@ -1457,11 +3570,13 @@ export interface components {
       windowSettings: {
         /** @enum {string} */
         type: "none" | "conversion" | "lookback";
-        /** @description Wait this many hours after experiment exposure before counting conversions */
-        delayHours?: number;
+        /** @description Wait this long after experiment exposure before counting conversions. */
+        delayValue?: number;
+        /** @enum {string} */
+        delayUnit?: "minutes" | "hours" | "days" | "weeks";
         windowValue?: number;
         /** @enum {string} */
-        windowUnit?: "hours" | "days" | "weeks";
+        windowUnit?: "minutes" | "hours" | "days" | "weeks";
       };
       /** @description Controls the regression adjustment (CUPED) settings for the metric */
       regressionAdjustmentSettings: {
@@ -1474,18 +3589,31 @@ export interface components {
       };
       riskThresholdSuccess: number;
       riskThresholdDanger: number;
+      /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+      displayAsPercentage?: boolean;
       minPercentChange: number;
       maxPercentChange: number;
       minSampleSize: number;
+      targetMDE: number;
       /**
        * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
        * @enum {string}
        */
-      managedBy: "" | "api";
+      managedBy: "" | "api" | "admin";
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+      archived?: boolean;
+      /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+      metricAutoSlices?: (string)[];
+    };
+    MetricAnalysis: {
+      /** @description The ID of the created metric analysis */
+      id: string;
+      /** @description The status of the analysis (e.g., "running", "completed", "error") */
+      status: string;
+      settings?: any;
     };
     Member: {
       id: string;
@@ -1508,6 +3636,130 @@ export interface components {
       dateCreated?: string;
       /** Format: date-time */
       dateUpdated?: string;
+    };
+    Archetype: {
+      id: string;
+      dateCreated: string;
+      dateUpdated: string;
+      name: string;
+      description?: string;
+      owner: string;
+      isPublic: boolean;
+      /** @description The attributes to set when using this Archetype */
+      attributes: any;
+      projects?: (string)[];
+    };
+    Query: {
+      id: string;
+      organization: string;
+      datasource: string;
+      language: string;
+      query: string;
+      queryType: string;
+      createdAt: string;
+      startedAt: string;
+      /** @enum {string} */
+      status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+      externalId: string;
+      dependencies: (string)[];
+      runAtEnd: boolean;
+    };
+    Settings: {
+      confidenceLevel: number;
+      northStar: {
+        title?: string;
+        metricIds?: (string)[];
+      } | null;
+      metricDefaults: {
+        priorSettings?: {
+          override: boolean;
+          proper: boolean;
+          mean: number;
+          stddev: number;
+        };
+        minimumSampleSize?: number;
+        maxPercentageChange?: number;
+        minPercentageChange?: number;
+        targetMDE?: number;
+      };
+      pastExperimentsMinLength: number;
+      metricAnalysisDays: number;
+      updateSchedule: ({
+        /** @enum {string} */
+        type?: "cron" | "never" | "stale";
+        cron?: string | null;
+        hours?: number | null;
+      }) | null;
+      multipleExposureMinPercent: number;
+      defaultRole: {
+        role?: string;
+        limitAccessByEnvironment?: boolean;
+        environments?: (string)[];
+      };
+      statsEngine: string;
+      pValueThreshold: number;
+      regressionAdjustmentEnabled: boolean;
+      regressionAdjustmentDays: number;
+      sequentialTestingEnabled: boolean;
+      sequentialTestingTuningParameter: number;
+      /** @enum {string} */
+      attributionModel: "firstExposure" | "experimentDuration";
+      targetMDE: number;
+      delayHours: number;
+      windowType: string;
+      windowHours: number;
+      winRisk: number;
+      loseRisk: number;
+      secureAttributeSalt: string;
+      killswitchConfirmation: boolean;
+      requireReviews: ({
+          requireReviewOn?: boolean;
+          resetReviewOnChange?: boolean;
+          environments?: (string)[];
+          projects?: (string)[];
+        })[];
+      featureKeyExample: string;
+      featureRegexValidator: string;
+      banditScheduleValue: number;
+      /** @enum {string} */
+      banditScheduleUnit: "hours" | "days";
+      banditBurnInValue: number;
+      /** @enum {string} */
+      banditBurnInUnit: "hours" | "days";
+      experimentMinLengthDays: number;
+      experimentMaxLengthDays?: number | null;
+      preferredEnvironment?: string | null;
+      maxMetricSliceLevels?: number;
+    };
+    CodeRef: {
+      /** @description The organization name */
+      organization: string;
+      /**
+       * Format: date-time 
+       * @description When the code references were last updated
+       */
+      dateUpdated: string;
+      /** @description Feature identifier */
+      feature: string;
+      /** @description Repository name */
+      repo: string;
+      /** @description Branch name */
+      branch: string;
+      /**
+       * @description Source control platform 
+       * @enum {string}
+       */
+      platform?: "github" | "gitlab" | "bitbucket";
+      refs: ({
+          /** @description Path to the file containing the reference */
+          filePath: string;
+          /** @description Line number where the reference starts */
+          startingLineNumber: number;
+          /** @description The code lines containing the reference */
+          lines: string;
+          /** @description The feature flag key referenced */
+          flagKey: string;
+        })[];
     };
   };
   responses: {
@@ -1532,7 +3784,7 @@ export interface components {
     repo: string;
     /** @description Name of branch for git repo. */
     branch: string;
-    /** @description Name of versino control platform like GitHub or Gitlab. */
+    /** @description Name of version control platform like GitHub or Gitlab. */
     platform: "github" | "gitlab" | "bitbucket";
     /** @description Name of the user. */
     userName: string;
@@ -1540,6 +3792,8 @@ export interface components {
     userEmail: string;
     /** @description Name of the global role */
     globalRole: string;
+    /** @description Filter by a SDK connection's client key */
+    clientKey: string;
   };
   requestBodies: never;
   headers: never;
@@ -1556,10 +3810,12 @@ export interface operations {
         /** @description The number of items to return */
         /** @description How many items to skip (use in conjunction with limit for pagination) */
         /** @description Filter by project id */
+        /** @description Filter by a SDK connection's client key */
       query: {
         limit?: number;
         offset?: number;
         projectId?: string;
+        clientKey?: string;
       };
     };
     responses: {
@@ -1592,6 +3848,33 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -1605,6 +3888,28 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -1612,7 +3917,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -1631,24 +3936,114 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      }) | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                     draft?: {
@@ -1661,6 +4056,33 @@ export interface operations {
                               /** @enum {string} */
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              /** @description Feature ID */
+                              id: string;
+                              condition: string;
+                            })[];
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
+                          scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                              enabled: boolean;
+                              /**
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
+                               * @example 2025-06-23T16:09:37.769Z
+                               */
+                              timestamp: string | null;
                             })[];
                           id: string;
                           enabled: boolean;
@@ -1675,6 +4097,28 @@ export interface operations {
                               matchType: "all" | "any" | "none";
                               savedGroups: (string)[];
                             })[];
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
+                          scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                              enabled: boolean;
+                              /**
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
+                               * @example 2025-06-23T16:09:37.769Z
+                               */
+                              timestamp: string | null;
+                            })[];
                           id: string;
                           enabled: boolean;
                           /** @enum {string} */
@@ -1682,7 +4126,7 @@ export interface operations {
                           value: string;
                           coverage: number;
                           hashAttribute: string;
-                        }) | {
+                        }) | ({
                           description: string;
                           condition: string;
                           id: string;
@@ -1701,39 +4145,130 @@ export interface operations {
                             range: (number)[];
                           };
                           coverage?: number;
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
+                          scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                              enabled: boolean;
+                              /**
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
+                               * @example 2025-06-23T16:09:37.769Z
+                               */
+                              timestamp: string | null;
+                            })[];
                           value?: ({
                               value: string;
                               weight: number;
                               name?: string;
                             })[];
-                        } | {
+                        }) | ({
                           description: string;
                           id: string;
                           enabled: boolean;
                           /** @enum {string} */
                           type: "experiment-ref";
                           condition?: string;
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
+                          scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                              enabled: boolean;
+                              /**
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
+                               * @example 2025-06-23T16:09:37.769Z
+                               */
+                              timestamp: string | null;
+                            })[];
                           variations: ({
                               value: string;
                               variationId: string;
                             })[];
                           experimentId: string;
-                        })[];
+                        }) | ({
+                          condition: string;
+                          savedGroupTargeting?: ({
+                              /** @enum {string} */
+                              matchType: "all" | "any" | "none";
+                              savedGroups: (string)[];
+                            })[];
+                          prerequisites?: ({
+                              /** @description Feature ID */
+                              id: string;
+                              condition: string;
+                            })[];
+                          id: string;
+                          trackingKey?: string;
+                          enabled: boolean;
+                          /** @enum {string} */
+                          type: "safe-rollout";
+                          controlValue: string;
+                          variationValue: string;
+                          seed?: string;
+                          hashAttribute?: string;
+                          safeRolloutId?: string;
+                          /** @enum {string} */
+                          status?: "running" | "released" | "rolled-back" | "stopped";
+                          /**
+                           * @example [
+                           *   {
+                           *     "enabled": true,
+                           *     "timestamp": null
+                           *   },
+                           *   {
+                           *     "enabled": false,
+                           *     "timestamp": "2025-06-23T16:09:37.769Z"
+                           *   }
+                           * ]
+                           */
+                          scheduleRules?: ({
+                              /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                              enabled: boolean;
+                              /**
+                               * Format: date-time 
+                               * @description ISO timestamp when the rule should activate. 
+                               * @example 2025-06-23T16:09:37.769Z
+                               */
+                              timestamp: string | null;
+                            })[];
+                        }))[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
                     };
                   }) | undefined;
                 };
-                prerequisites?: ({
-                    parentId: string;
-                    parentCondition: string;
-                  })[];
+                /** @description Feature IDs. Each feature must evaluate to `true` */
+                prerequisites?: (string)[];
                 revision: {
                   version: number;
                   comment: string;
                   /** Format: date-time */
                   date: string;
                   publishedBy: string;
+                };
+                customFields?: {
+                  [key: string]: unknown | undefined;
                 };
               })[];
           }) & {
@@ -1784,6 +4319,28 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -1799,6 +4356,33 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -1808,7 +4392,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                }) | {
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -1816,12 +4400,44 @@ export interface operations {
                   /** @enum {string} */
                   type: "experiment-ref";
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
-                } | {
+                }) | ({
                   description?: string;
                   condition: string;
                   id?: string;
@@ -1841,6 +4457,28 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
                   values?: ({
                       value: string;
                       weight: number;
@@ -1855,7 +4493,7 @@ export interface operations {
                       weight: number;
                       name?: string;
                     })[];
-                })[];
+                }))[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
               /** @description Use to write draft changes without publishing them. */
@@ -1869,6 +4507,28 @@ export interface operations {
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
                       })[];
                     id?: string;
                     /** @description Enabled by default */
@@ -1885,6 +4545,33 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -1894,7 +4581,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -1902,12 +4589,44 @@ export interface operations {
                     /** @enum {string} */
                     type: "experiment-ref";
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
-                  } | {
+                  }) | ({
                     description?: string;
                     condition: string;
                     id?: string;
@@ -1927,6 +4646,28 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
                     values?: ({
                         value: string;
                         weight: number;
@@ -1941,12 +4682,14 @@ export interface operations {
                         weight: number;
                         name?: string;
                       })[];
-                  })[];
+                  }))[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
               };
             }) | undefined;
           };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -1982,6 +4725,33 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -1995,6 +4765,28 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2002,7 +4794,7 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    }) | {
+                    }) | ({
                       description: string;
                       condition: string;
                       id: string;
@@ -2021,24 +4813,114 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    } | {
+                    }) | ({
                       description: string;
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       variations: ({
                           value: string;
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    }) | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2051,6 +4933,33 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -2065,6 +4974,28 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2072,7 +5003,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -2091,39 +5022,130 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      }) | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
                 /** Format: date-time */
                 date: string;
                 publishedBy: string;
+              };
+              customFields?: {
+                [key: string]: unknown | undefined;
               };
             };
           };
@@ -2134,6 +5156,10 @@ export interface operations {
   getFeature: {
     /** Get a single feature */
     parameters: {
+        /** @description Also return feature revisions (all, draft, or published statuses) */
+      query: {
+        withRevisions?: "all" | "drafts" | "published" | "none";
+      };
         /** @description The id of the requested resource */
       path: {
         id: string;
@@ -2143,7 +5169,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            feature: {
+            feature: ({
               id: string;
               /** Format: date-time */
               dateCreated: string;
@@ -2169,6 +5195,33 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2182,6 +5235,28 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2189,7 +5264,7 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    }) | {
+                    }) | ({
                       description: string;
                       condition: string;
                       id: string;
@@ -2208,24 +5283,114 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    } | {
+                    }) | ({
                       description: string;
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       variations: ({
                           value: string;
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    }) | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2238,6 +5403,33 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -2252,6 +5444,28 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2259,7 +5473,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -2278,33 +5492,121 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      }) | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2312,7 +5614,229 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
-            };
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
+            }) & ({
+              revisions?: ({
+                  baseVersion: number;
+                  version: number;
+                  comment: string;
+                  /** Format: date-time */
+                  date: string;
+                  status: string;
+                  publishedBy?: string;
+                  rules: {
+                    [key: string]: ((({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      }) | ({
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment";
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: boolean;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      }) | ({
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                      }))[]) | undefined;
+                  };
+                  definitions?: {
+                    [key: string]: string | undefined;
+                  };
+                })[];
+            });
           };
         };
       };
@@ -2350,6 +5874,28 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -2365,6 +5911,33 @@ export interface operations {
                       matchType: "all" | "any" | "none";
                       savedGroups: (string)[];
                     })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
                   id?: string;
                   /** @description Enabled by default */
                   enabled?: boolean;
@@ -2374,7 +5947,7 @@ export interface operations {
                   /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
-                }) | {
+                }) | ({
                   description?: string;
                   id?: string;
                   /** @description Enabled by default */
@@ -2382,12 +5955,44 @@ export interface operations {
                   /** @enum {string} */
                   type: "experiment-ref";
                   condition?: string;
+                  savedGroupTargeting?: ({
+                      /** @enum {string} */
+                      matchType: "all" | "any" | "none";
+                      savedGroups: (string)[];
+                    })[];
+                  prerequisites?: ({
+                      /** @description Feature ID */
+                      id: string;
+                      condition: string;
+                    })[];
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
                   variations: ({
                       value: string;
                       variationId: string;
                     })[];
                   experimentId: string;
-                } | {
+                }) | ({
                   description?: string;
                   condition: string;
                   id?: string;
@@ -2407,6 +6012,28 @@ export interface operations {
                     range: (number)[];
                   };
                   coverage?: number;
+                  /**
+                   * @example [
+                   *   {
+                   *     "enabled": true,
+                   *     "timestamp": null
+                   *   },
+                   *   {
+                   *     "enabled": false,
+                   *     "timestamp": "2025-06-23T16:09:37.769Z"
+                   *   }
+                   * ]
+                   */
+                  scheduleRules?: ({
+                      /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                      enabled: boolean;
+                      /**
+                       * Format: date-time 
+                       * @description ISO timestamp when the rule should activate. 
+                       * @example 2025-06-23T16:09:37.769Z
+                       */
+                      timestamp: string | null;
+                    })[];
                   values?: ({
                       value: string;
                       weight: number;
@@ -2421,7 +6048,7 @@ export interface operations {
                       weight: number;
                       name?: string;
                     })[];
-                })[];
+                }))[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
               /** @description Use to write draft changes without publishing them. */
@@ -2435,6 +6062,28 @@ export interface operations {
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
                       })[];
                     id?: string;
                     /** @description Enabled by default */
@@ -2451,6 +6100,33 @@ export interface operations {
                         matchType: "all" | "any" | "none";
                         savedGroups: (string)[];
                       })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
                     id?: string;
                     /** @description Enabled by default */
                     enabled?: boolean;
@@ -2460,7 +6136,7 @@ export interface operations {
                     /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
-                  }) | {
+                  }) | ({
                     description?: string;
                     id?: string;
                     /** @description Enabled by default */
@@ -2468,12 +6144,44 @@ export interface operations {
                     /** @enum {string} */
                     type: "experiment-ref";
                     condition?: string;
+                    savedGroupTargeting?: ({
+                        /** @enum {string} */
+                        matchType: "all" | "any" | "none";
+                        savedGroups: (string)[];
+                      })[];
+                    prerequisites?: ({
+                        /** @description Feature ID */
+                        id: string;
+                        condition: string;
+                      })[];
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
                     variations: ({
                         value: string;
                         variationId: string;
                       })[];
                     experimentId: string;
-                  } | {
+                  }) | ({
                     description?: string;
                     condition: string;
                     id?: string;
@@ -2493,6 +6201,28 @@ export interface operations {
                       range: (number)[];
                     };
                     coverage?: number;
+                    /**
+                     * @example [
+                     *   {
+                     *     "enabled": true,
+                     *     "timestamp": null
+                     *   },
+                     *   {
+                     *     "enabled": false,
+                     *     "timestamp": "2025-06-23T16:09:37.769Z"
+                     *   }
+                     * ]
+                     */
+                    scheduleRules?: ({
+                        /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                        enabled: boolean;
+                        /**
+                         * Format: date-time 
+                         * @description ISO timestamp when the rule should activate. 
+                         * @example 2025-06-23T16:09:37.769Z
+                         */
+                        timestamp: string | null;
+                      })[];
                     values?: ({
                         value: string;
                         weight: number;
@@ -2507,12 +6237,14 @@ export interface operations {
                         weight: number;
                         name?: string;
                       })[];
-                  })[];
+                  }))[];
                 /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                 definition?: string;
               };
             }) | undefined;
           };
+          /** @description Feature IDs. Each feature must evaluate to `true` */
+          prerequisites?: (string)[];
           /** @description Use JSON schema to validate the payload of a JSON-type feature value (enterprise only). */
           jsonSchema?: string;
         };
@@ -2548,6 +6280,33 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2561,6 +6320,28 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2568,7 +6349,7 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    }) | {
+                    }) | ({
                       description: string;
                       condition: string;
                       id: string;
@@ -2587,24 +6368,114 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    } | {
+                    }) | ({
                       description: string;
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       variations: ({
                           value: string;
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    }) | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2617,6 +6488,33 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -2631,6 +6529,28 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2638,7 +6558,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -2657,33 +6577,121 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      }) | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2691,7 +6699,32 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
+          };
+        };
+      };
+    };
+  };
+  deleteFeature: {
+    /** Deletes a single feature */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted feature 
+             * @example feature-123
+             */
+            deletedId?: string;
           };
         };
       };
@@ -2739,6 +6772,33 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2752,6 +6812,28 @@ export interface operations {
                           matchType: "all" | "any" | "none";
                           savedGroups: (string)[];
                         })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
@@ -2759,7 +6841,7 @@ export interface operations {
                       value: string;
                       coverage: number;
                       hashAttribute: string;
-                    }) | {
+                    }) | ({
                       description: string;
                       condition: string;
                       id: string;
@@ -2778,24 +6860,114 @@ export interface operations {
                         range: (number)[];
                       };
                       coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       value?: ({
                           value: string;
                           weight: number;
                           name?: string;
                         })[];
-                    } | {
+                    }) | ({
                       description: string;
                       id: string;
                       enabled: boolean;
                       /** @enum {string} */
                       type: "experiment-ref";
                       condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
                       variations: ({
                           value: string;
                           variationId: string;
                         })[];
                       experimentId: string;
-                    })[];
+                    }) | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                    }))[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
                   draft?: {
@@ -2808,6 +6980,33 @@ export interface operations {
                             /** @enum {string} */
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
                           })[];
                         id: string;
                         enabled: boolean;
@@ -2822,6 +7021,28 @@ export interface operations {
                             matchType: "all" | "any" | "none";
                             savedGroups: (string)[];
                           })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
@@ -2829,7 +7050,7 @@ export interface operations {
                         value: string;
                         coverage: number;
                         hashAttribute: string;
-                      }) | {
+                      }) | ({
                         description: string;
                         condition: string;
                         id: string;
@@ -2848,33 +7069,121 @@ export interface operations {
                           range: (number)[];
                         };
                         coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         value?: ({
                             value: string;
                             weight: number;
                             name?: string;
                           })[];
-                      } | {
+                      }) | ({
                         description: string;
                         id: string;
                         enabled: boolean;
                         /** @enum {string} */
                         type: "experiment-ref";
                         condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
                         variations: ({
                             value: string;
                             variationId: string;
                           })[];
                         experimentId: string;
-                      })[];
+                      }) | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                      }))[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
                   };
                 }) | undefined;
               };
-              prerequisites?: ({
-                  parentId: string;
-                  parentCondition: string;
-                })[];
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
               revision: {
                 version: number;
                 comment: string;
@@ -2882,7 +7191,726 @@ export interface operations {
                 date: string;
                 publishedBy: string;
               };
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
             };
+          };
+        };
+      };
+    };
+  };
+  revertFeature: {
+    /** Revert a feature to a specific revision */
+    requestBody: {
+      content: {
+        "application/json": {
+          revision: number;
+          comment?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            feature: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              archived: boolean;
+              description: string;
+              owner: string;
+              project: string;
+              /** @enum {string} */
+              valueType: "boolean" | "string" | "number" | "json";
+              defaultValue: string;
+              tags: (string)[];
+              environments: {
+                [key: string]: ({
+                  enabled: boolean;
+                  defaultValue: string;
+                  rules: (({
+                      description: string;
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      id: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | ({
+                      description: string;
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      id: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                    }) | ({
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "experiment";
+                      trackingKey?: string;
+                      hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: boolean;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      namespace?: {
+                        enabled: boolean;
+                        name: string;
+                        range: (number)[];
+                      };
+                      coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      value?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                    }) | ({
+                      description: string;
+                      id: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                    }))[];
+                  /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                  definition?: string;
+                  draft?: {
+                    enabled: boolean;
+                    defaultValue: string;
+                    rules: (({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "force";
+                        value: string;
+                      }) | ({
+                        description: string;
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "rollout";
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      }) | ({
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment";
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        fallbackAttribute?: string;
+                        disableStickyBucketing?: boolean;
+                        bucketVersion?: number;
+                        minBucketVersion?: number;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      }) | ({
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "experiment-ref";
+                        condition?: string;
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
+                      }) | ({
+                        condition: string;
+                        savedGroupTargeting?: ({
+                            /** @enum {string} */
+                            matchType: "all" | "any" | "none";
+                            savedGroups: (string)[];
+                          })[];
+                        prerequisites?: ({
+                            /** @description Feature ID */
+                            id: string;
+                            condition: string;
+                          })[];
+                        id: string;
+                        trackingKey?: string;
+                        enabled: boolean;
+                        /** @enum {string} */
+                        type: "safe-rollout";
+                        controlValue: string;
+                        variationValue: string;
+                        seed?: string;
+                        hashAttribute?: string;
+                        safeRolloutId?: string;
+                        /** @enum {string} */
+                        status?: "running" | "released" | "rolled-back" | "stopped";
+                        /**
+                         * @example [
+                         *   {
+                         *     "enabled": true,
+                         *     "timestamp": null
+                         *   },
+                         *   {
+                         *     "enabled": false,
+                         *     "timestamp": "2025-06-23T16:09:37.769Z"
+                         *   }
+                         * ]
+                         */
+                        scheduleRules?: ({
+                            /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                            enabled: boolean;
+                            /**
+                             * Format: date-time 
+                             * @description ISO timestamp when the rule should activate. 
+                             * @example 2025-06-23T16:09:37.769Z
+                             */
+                            timestamp: string | null;
+                          })[];
+                      }))[];
+                    /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                    definition?: string;
+                  };
+                }) | undefined;
+              };
+              /** @description Feature IDs. Each feature must evaluate to `true` */
+              prerequisites?: (string)[];
+              revision: {
+                version: number;
+                comment: string;
+                /** Format: date-time */
+                date: string;
+                publishedBy: string;
+              };
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  getFeatureRevisions: {
+    /** Get all revisions for a feature */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            revisions: ({
+                baseVersion: number;
+                version: number;
+                comment: string;
+                /** Format: date-time */
+                date: string;
+                status: string;
+                publishedBy?: string;
+                rules: {
+                  [key: string]: ((({
+                      description: string;
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      id: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "force";
+                      value: string;
+                    }) | ({
+                      description: string;
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      id: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "rollout";
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                    }) | ({
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "experiment";
+                      trackingKey?: string;
+                      hashAttribute?: string;
+                      fallbackAttribute?: string;
+                      disableStickyBucketing?: boolean;
+                      bucketVersion?: number;
+                      minBucketVersion?: number;
+                      namespace?: {
+                        enabled: boolean;
+                        name: string;
+                        range: (number)[];
+                      };
+                      coverage?: number;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      value?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                    }) | ({
+                      description: string;
+                      id: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "experiment-ref";
+                      condition?: string;
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
+                    }) | ({
+                      condition: string;
+                      savedGroupTargeting?: ({
+                          /** @enum {string} */
+                          matchType: "all" | "any" | "none";
+                          savedGroups: (string)[];
+                        })[];
+                      prerequisites?: ({
+                          /** @description Feature ID */
+                          id: string;
+                          condition: string;
+                        })[];
+                      id: string;
+                      trackingKey?: string;
+                      enabled: boolean;
+                      /** @enum {string} */
+                      type: "safe-rollout";
+                      controlValue: string;
+                      variationValue: string;
+                      seed?: string;
+                      hashAttribute?: string;
+                      safeRolloutId?: string;
+                      /** @enum {string} */
+                      status?: "running" | "released" | "rolled-back" | "stopped";
+                      /**
+                       * @example [
+                       *   {
+                       *     "enabled": true,
+                       *     "timestamp": null
+                       *   },
+                       *   {
+                       *     "enabled": false,
+                       *     "timestamp": "2025-06-23T16:09:37.769Z"
+                       *   }
+                       * ]
+                       */
+                      scheduleRules?: ({
+                          /** @description Whether the rule should be enabled or disabled at the specified timestamp. */
+                          enabled: boolean;
+                          /**
+                           * Format: date-time 
+                           * @description ISO timestamp when the rule should activate. 
+                           * @example 2025-06-23T16:09:37.769Z
+                           */
+                          timestamp: string | null;
+                        })[];
+                    }))[]) | undefined;
+                };
+                definitions?: {
+                  [key: string]: string | undefined;
+                };
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
           };
         };
       };
@@ -3088,7 +8116,7 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": {
+          "application/json": ({
             dimensions: ({
                 id: string;
                 dateCreated: string;
@@ -3097,9 +8125,15 @@ export interface operations {
                 datasourceId: string;
                 identifierType: string;
                 name: string;
+                description?: string;
                 query: string;
+                /**
+                 * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api" | "config";
               })[];
-          } & {
+          }) & {
             limit: number;
             offset: number;
             count: number;
@@ -3111,8 +8145,31 @@ export interface operations {
       };
     };
   };
-  getDimension: {
-    /** Get a single dimension */
+  postDimension: {
+    /** Create a single dimension */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the dimension */
+          name: string;
+          /** @description Description of the dimension */
+          description?: string;
+          /** @description Owner of the dimension */
+          owner?: string;
+          /** @description ID of the datasource this dimension belongs to */
+          datasourceId: string;
+          /** @description Type of identifier (user, anonymous, etc.) */
+          identifierType: string;
+          /** @description SQL query or equivalent for the dimension */
+          query: string;
+          /**
+           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -3125,8 +8182,125 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
+              description?: string;
               query: string;
+              /**
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
             };
+          };
+        };
+      };
+    };
+  };
+  getDimension: {
+    /** Get a single dimension */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dimension: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              owner: string;
+              datasourceId: string;
+              identifierType: string;
+              name: string;
+              description?: string;
+              query: string;
+              /**
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
+            };
+          };
+        };
+      };
+    };
+  };
+  updateDimension: {
+    /** Update a single dimension */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the dimension */
+          name?: string;
+          /** @description Description of the dimension */
+          description?: string;
+          /** @description Owner of the dimension */
+          owner?: string;
+          /** @description ID of the datasource this dimension belongs to */
+          datasourceId?: string;
+          /** @description Type of identifier (user, anonymous, etc.) */
+          identifierType?: string;
+          /** @description SQL query or equivalent for the dimension */
+          query?: string;
+          /**
+           * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            dimension: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              owner: string;
+              datasourceId: string;
+              identifierType: string;
+              name: string;
+              description?: string;
+              query: string;
+              /**
+               * @description Where this dimension must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteDimension: {
+    /** Deletes a single dimension */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted dimension 
+             * @example dim_123abc
+             */
+            deletedId: string;
           };
         };
       };
@@ -3154,13 +8328,20 @@ export interface operations {
                 datasourceId: string;
                 identifierType: string;
                 name: string;
+                description?: string;
                 query?: string;
                 dateCreated: string;
                 dateUpdated: string;
+                /**
+                 * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+                 * @enum {string}
+                 */
+                managedBy?: "" | "api" | "config";
                 /** @enum {unknown} */
                 type?: "SQL" | "FACT";
                 factTableId?: string;
                 filters?: (string)[];
+                projects?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -3174,8 +8355,42 @@ export interface operations {
       };
     };
   };
-  getSegment: {
-    /** Get a single segment */
+  postSegment: {
+    /** Create a single segment */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the segment */
+          name: string;
+          /** @description Owner of the segment */
+          owner?: string;
+          /** @description Description of the segment */
+          description?: string;
+          /** @description ID of the datasource this segment belongs to */
+          datasourceId: string;
+          /** @description Type of identifier (user, anonymous, etc.) */
+          identifierType: string;
+          /** @description List of project IDs for projects that can access this segment */
+          projects?: (string)[];
+          /**
+           * @description Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+          /**
+           * @description GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters. 
+           * @enum {string}
+           */
+          type: "SQL" | "FACT";
+          /** @description SQL query that defines the Segment. This is required for SQL segments. */
+          query?: string;
+          /** @description ID of the fact table this segment belongs to. This is required for FACT segments. */
+          factTableId?: string;
+          /** @description Optional array of fact table filter ids that can further define the Fact Table based Segment. */
+          filters?: (string)[];
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -3186,14 +8401,153 @@ export interface operations {
               datasourceId: string;
               identifierType: string;
               name: string;
+              description?: string;
               query?: string;
               dateCreated: string;
               dateUpdated: string;
+              /**
+               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
               /** @enum {unknown} */
               type?: "SQL" | "FACT";
               factTableId?: string;
               filters?: (string)[];
+              projects?: (string)[];
             };
+          };
+        };
+      };
+    };
+  };
+  getSegment: {
+    /** Get a single segment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            segment: {
+              id: string;
+              owner: string;
+              datasourceId: string;
+              identifierType: string;
+              name: string;
+              description?: string;
+              query?: string;
+              dateCreated: string;
+              dateUpdated: string;
+              /**
+               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
+              /** @enum {unknown} */
+              type?: "SQL" | "FACT";
+              factTableId?: string;
+              filters?: (string)[];
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  updateSegment: {
+    /** Update a single segment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the segment */
+          name?: string;
+          /** @description Description of the segment */
+          description?: string;
+          /** @description Owner of the segment */
+          owner?: string;
+          /** @description ID of the datasource this segment belongs to */
+          datasourceId?: string;
+          /** @description Type of identifier (user, anonymous, etc.) */
+          identifierType?: string;
+          /** @description List of project IDs for projects that can access this segment */
+          projects?: (string)[];
+          /**
+           * @description Where this Segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @enum {string}
+           */
+          managedBy?: "" | "api";
+          /**
+           * @description GrowthBook supports two types of Segments, SQL and FACT. SQL segments are defined by a SQL query, and FACT segments are defined by a fact table and filters. 
+           * @enum {string}
+           */
+          type?: "SQL" | "FACT";
+          /** @description SQL query that defines the Segment. This is required for SQL segments. */
+          query?: string;
+          /** @description ID of the fact table this segment belongs to. This is required for FACT segments. */
+          factTableId?: string;
+          /** @description Optional array of fact table filter ids that can further define the Fact Table based Segment. */
+          filters?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            segment: {
+              id: string;
+              owner: string;
+              datasourceId: string;
+              identifierType: string;
+              name: string;
+              description?: string;
+              query?: string;
+              dateCreated: string;
+              dateUpdated: string;
+              /**
+               * @description Where this segment must be managed from. If not set (empty string), it can be managed from anywhere. 
+               * @enum {string}
+               */
+              managedBy?: "" | "api" | "config";
+              /** @enum {unknown} */
+              type?: "SQL" | "FACT";
+              factTableId?: string;
+              filters?: (string)[];
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteSegment: {
+    /** Deletes a single segment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted segment 
+             * @example seg_123abc
+             */
+            deletedId: string;
           };
         };
       };
@@ -3237,6 +8591,7 @@ export interface operations {
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
                 includeRedirectExperiments?: boolean;
+                includeRuleIds?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -3273,6 +8628,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3305,6 +8661,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3351,6 +8708,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3386,6 +8744,7 @@ export interface operations {
           includeDraftExperiments?: boolean;
           includeExperimentNames?: boolean;
           includeRedirectExperiments?: boolean;
+          includeRuleIds?: boolean;
           proxyEnabled?: boolean;
           proxyHost?: string;
           hashSecureAttributes?: boolean;
@@ -3418,6 +8777,7 @@ export interface operations {
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
               includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -3445,6 +8805,53 @@ export interface operations {
         content: {
           "application/json": {
             deletedId: string;
+          };
+        };
+      };
+    };
+  };
+  lookupSdkConnectionByKey: {
+    /** Find a single sdk connection by its key */
+    parameters: {
+        /** @description The key of the requested sdkConnection */
+      path: {
+        key: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            sdkConnection: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              organization: string;
+              languages: (string)[];
+              sdkVersion?: string;
+              environment: string;
+              /** @description Use 'projects' instead. This is only for backwards compatibility and contains the first project only. */
+              project: string;
+              projects?: (string)[];
+              encryptPayload: boolean;
+              encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
+              includeRedirectExperiments?: boolean;
+              includeRuleIds?: boolean;
+              key: string;
+              proxyEnabled: boolean;
+              proxyHost: string;
+              proxySigningKey: string;
+              sseEnabled?: boolean;
+              hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
+              savedGroupReferencesEnabled?: boolean;
+            };
           };
         };
       };
@@ -3581,11 +8988,14 @@ export interface operations {
           "application/json": ({
             experiments: ({
                 id: string;
+                trackingKey: string;
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
                 name: string;
+                /** @enum {string} */
+                type: "standard" | "multi-armed-bandit";
                 project: string;
                 hypothesis: string;
                 description: string;
@@ -3624,6 +9034,10 @@ export interface operations {
                       range: (unknown)[];
                     };
                     targetingCondition: string;
+                    prerequisites?: ({
+                        id: string;
+                        condition: string;
+                      })[];
                     savedGroupTargeting?: ({
                         /** @enum {string} */
                         matchType: "all" | "any" | "none";
@@ -3646,6 +9060,8 @@ export interface operations {
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   regressionAdjustmentEnabled?: boolean;
+                  sequentialTestingEnabled?: boolean;
+                  sequentialTestingTuningParameter?: number;
                   goals: ({
                       metricId: string;
                       overrides: {
@@ -3698,6 +9114,30 @@ export interface operations {
                   releasedVariationId: string;
                   excludeFromPayload: boolean;
                 };
+                /** @enum {string} */
+                shareLevel?: "public" | "organization";
+                publicUrl?: string;
+                banditScheduleValue?: number;
+                /** @enum {string} */
+                banditScheduleUnit?: "days" | "hours";
+                banditBurnInValue?: number;
+                /** @enum {string} */
+                banditBurnInUnit?: "days" | "hours";
+                linkedFeatures?: (string)[];
+                hasVisualChangesets?: boolean;
+                hasURLRedirects?: boolean;
+                customFields?: {
+                  [key: string]: unknown | undefined;
+                };
+                /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+                pinnedMetricSlices?: (string)[];
+                /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+                customMetricSlices?: ({
+                    slices: ({
+                        column: string;
+                        levels: (string)[];
+                      })[];
+                  })[];
               })[];
           }) & {
             limit: number;
@@ -3717,12 +9157,14 @@ export interface operations {
       content: {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
-          datasourceId: string;
+          datasourceId?: string;
           /** @description The ID property of one of the assignment query objects associated with the datasource */
           assignmentQueryId: string;
           trackingKey: string;
           /** @description Name of the experiment */
           name: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -3733,6 +9175,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -3788,6 +9236,11 @@ export interface operations {
                 enabled?: boolean;
               };
               targetingCondition?: string;
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               reason?: string;
               condition?: string;
               savedGroupTargeting?: ({
@@ -3799,6 +9252,26 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
+          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+          pinnedMetricSlices?: (string)[];
+          /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
         };
       };
     };
@@ -3808,11 +9281,14 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -3851,6 +9327,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -3873,6 +9353,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -3925,7 +9407,52 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
+          };
+        };
+      };
+    };
+  };
+  getExperimentNames: {
+    /** Get a list of experiments with names and ids */
+    parameters: {
+        /** @description Filter by project id */
+      query: {
+        projectId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiments: ({
+                id: string;
+                name: string;
+              })[];
           };
         };
       };
@@ -3943,13 +9470,16 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            experiment: {
+            experiment: ({
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -3988,6 +9518,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -4010,6 +9544,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4062,7 +9598,37 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
-            };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
+            }) & ({
+              enhancedStatus?: {
+                /** @enum {string} */
+                status: "Running" | "Stopped" | "Draft" | "Archived";
+                detailedStatus?: string;
+              };
+            });
           };
         };
       };
@@ -4079,10 +9645,14 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
+          /** @description Can only be set if existing experiment does not have a datasource */
+          datasourceId?: string;
           assignmentQueryId?: string;
           trackingKey?: string;
           /** @description Name of the experiment */
           name?: string;
+          /** @enum {string} */
+          type?: "standard" | "multi-armed-bandit";
           /** @description Project ID which the experiment belongs to */
           project?: string;
           /** @description Hypothesis of the experiment */
@@ -4093,6 +9663,12 @@ export interface operations {
           metrics?: (string)[];
           secondaryMetrics?: (string)[];
           guardrailMetrics?: (string)[];
+          /** @description Users must convert on this metric before being included */
+          activationMetric?: string;
+          /** @description Only users in this segment will be included */
+          segmentId?: string;
+          /** @description WHERE clause to add to the default experiment query */
+          queryFilter?: string;
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -4148,6 +9724,11 @@ export interface operations {
                 enabled?: boolean;
               };
               targetingCondition?: string;
+              prerequisites?: ({
+                  /** @description Feature ID */
+                  id: string;
+                  condition: string;
+                })[];
               reason?: string;
               condition?: string;
               savedGroupTargeting?: ({
@@ -4159,6 +9740,26 @@ export interface operations {
             })[];
           /** @description Controls whether regression adjustment (CUPED) is enabled for experiment analyses */
           regressionAdjustmentEnabled?: boolean;
+          /** @description Only applicable to frequentist analyses */
+          sequentialTestingEnabled?: boolean;
+          sequentialTestingTuningParameter?: number;
+          /** @enum {string} */
+          shareLevel?: "public" | "organization";
+          banditScheduleValue?: number;
+          /** @enum {string} */
+          banditScheduleUnit?: "days" | "hours";
+          banditBurnInValue?: number;
+          /** @enum {string} */
+          banditBurnInUnit?: "days" | "hours";
+          /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+          pinnedMetricSlices?: (string)[];
+          /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+          customMetricSlices?: ({
+              slices: ({
+                  column: string;
+                  levels: (string)[];
+                })[];
+            })[];
         };
       };
     };
@@ -4168,11 +9769,14 @@ export interface operations {
           "application/json": {
             experiment: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -4211,6 +9815,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -4233,6 +9841,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4285,6 +9895,30 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
           };
         };
@@ -4357,6 +9991,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -4520,7 +10156,7 @@ export interface operations {
                  * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api" | "config";
+                managedBy: "" | "api" | "config" | "admin";
                 dateCreated: string;
                 dateUpdated: string;
                 owner: string;
@@ -4557,11 +10193,13 @@ export interface operations {
                   windowSettings: {
                     /** @enum {string} */
                     type: "none" | "conversion" | "lookback";
-                    /** @description Wait this many hours after experiment exposure before counting conversions */
-                    delayHours?: number;
+                    /** @description Wait this long after experiment exposure before counting conversions */
+                    delayValue?: number;
+                    /** @enum {string} */
+                    delayUnit?: "minutes" | "hours" | "days" | "weeks";
                     windowValue?: number;
                     /** @enum {string} */
-                    windowUnit?: "hours" | "days" | "weeks";
+                    windowUnit?: "minutes" | "hours" | "days" | "weeks";
                   };
                   /** @description Controls the bayesian prior for the metric. */
                   priorSettings?: {
@@ -4583,6 +10221,7 @@ export interface operations {
                   minPercentChange: number;
                   maxPercentChange: number;
                   minSampleSize: number;
+                  targetMDE: number;
                 };
                 sql?: {
                   identifierTypes: (string)[];
@@ -4635,10 +10274,10 @@ export interface operations {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
           /**
-           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -4687,11 +10326,21 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
@@ -4723,6 +10372,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
           sql?: {
@@ -4772,7 +10423,7 @@ export interface operations {
                * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "config";
+              managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -4809,11 +10460,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -4835,6 +10488,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -4890,7 +10544,7 @@ export interface operations {
                * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api" | "config";
+              managedBy: "" | "api" | "config" | "admin";
               dateCreated: string;
               dateUpdated: string;
               owner: string;
@@ -4927,11 +10581,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. */
                 priorSettings?: {
@@ -4953,6 +10609,7 @@ export interface operations {
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
               };
               sql?: {
                 identifierTypes: (string)[];
@@ -5002,10 +10659,10 @@ export interface operations {
       content: {
         "application/json": {
           /**
-           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. 
+           * @description Where this metric must be managed from. If not set (empty string), it can be managed from anywhere. If set to "admin", it can be managed via the API or the UI, but only by admins, or those with the `ManageOfficialResources` policy. 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
           /** @description Name of the person who owns this metric */
           owner?: string;
           /** @description Name of the metric */
@@ -5054,11 +10711,21 @@ export interface operations {
             windowSettings?: {
               /** @enum {string} */
               type: "none" | "conversion" | "lookback";
-              /** @description Wait this many hours after experiment exposure before counting conversions */
+              /**
+               * @deprecated 
+               * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+               */
               delayHours?: number;
+              /** @description Wait this long after experiment exposure before counting conversions. */
+              delayValue?: number;
+              /**
+               * @description Default `hours`. 
+               * @enum {string}
+               */
+              delayUnit?: "minutes" | "hours" | "days" | "weeks";
               windowValue?: number;
               /** @enum {string} */
-              windowUnit?: "hours" | "days" | "weeks";
+              windowUnit?: "minutes" | "hours" | "days" | "weeks";
             };
             /**
              * @deprecated 
@@ -5090,6 +10757,8 @@ export interface operations {
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
             minSampleSize?: number;
+            /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+            targetMDE?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           sql?: {
@@ -5201,11 +10870,14 @@ export interface operations {
             };
             experiment?: {
               id: string;
+              trackingKey: string;
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
               name: string;
+              /** @enum {string} */
+              type: "standard" | "multi-armed-bandit";
               project: string;
               hypothesis: string;
               description: string;
@@ -5244,6 +10916,10 @@ export interface operations {
                     range: (unknown)[];
                   };
                   targetingCondition: string;
+                  prerequisites?: ({
+                      id: string;
+                      condition: string;
+                    })[];
                   savedGroupTargeting?: ({
                       /** @enum {string} */
                       matchType: "all" | "any" | "none";
@@ -5266,6 +10942,8 @@ export interface operations {
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 regressionAdjustmentEnabled?: boolean;
+                sequentialTestingEnabled?: boolean;
+                sequentialTestingTuningParameter?: number;
                 goals: ({
                     metricId: string;
                     overrides: {
@@ -5318,6 +10996,30 @@ export interface operations {
                 releasedVariationId: string;
                 excludeFromPayload: boolean;
               };
+              /** @enum {string} */
+              shareLevel?: "public" | "organization";
+              publicUrl?: string;
+              banditScheduleValue?: number;
+              /** @enum {string} */
+              banditScheduleUnit?: "days" | "hours";
+              banditBurnInValue?: number;
+              /** @enum {string} */
+              banditBurnInUnit?: "days" | "hours";
+              linkedFeatures?: (string)[];
+              hasVisualChangesets?: boolean;
+              hasURLRedirects?: boolean;
+              customFields?: {
+                [key: string]: unknown | undefined;
+              };
+              /** @description Array of pinned metric slices in format `{metricId}?dim:{sliceColumn}={sliceLevel}&location={goal|secondary|guardrail}` (URL-encoded) */
+              pinnedMetricSlices?: (string)[];
+              /** @description Custom slices that apply to ALL applicable metrics in the experiment */
+              customMetricSlices?: ({
+                  slices: ({
+                      column: string;
+                      levels: (string)[];
+                    })[];
+                })[];
             };
           };
         };
@@ -5858,6 +11560,154 @@ export interface operations {
       };
     };
   };
+  listArchetypes: {
+    /** Get the organization's archetypes */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetypes: ({
+                id: string;
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                description?: string;
+                owner: string;
+                isPublic: boolean;
+                /** @description The attributes to set when using this Archetype */
+                attributes: any;
+                projects?: (string)[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  postArchetype: {
+    /** Create a single archetype */
+    requestBody: {
+      content: {
+        "application/json": {
+          name: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  getArchetype: {
+    /** Get a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  putArchetype: {
+    /** Update a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          name?: string;
+          description?: string;
+          /** @description Whether to make this Archetype available to other team members */
+          isPublic?: boolean;
+          /** @description The attributes to set when using this Archetype */
+          attributes?: any;
+          projects?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            archetype: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              name: string;
+              description?: string;
+              owner: string;
+              isPublic: boolean;
+              /** @description The attributes to set when using this Archetype */
+              attributes: any;
+              projects?: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteArchetype: {
+    /** Deletes a single archetype */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listMembers: {
     /** Get all organization members */
     parameters: {
@@ -5948,6 +11798,7 @@ export interface operations {
                 project: string;
                 role: string;
                 environments: (string)[];
+                limitAccessByEnvironment?: boolean;
               })[];
           };
         };
@@ -5986,6 +11837,7 @@ export interface operations {
                 toggleOnList: boolean;
                 defaultState: boolean;
                 projects: (string)[];
+                parent?: string;
               })[];
           };
         };
@@ -6006,6 +11858,8 @@ export interface operations {
           /** @description Default state for new features */
           defaultState?: any;
           projects?: (string)[];
+          /** @description An environment that the new environment should inherit feature rules from. Requires an enterprise license */
+          parent?: string;
         };
       };
     };
@@ -6019,6 +11873,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6056,6 +11911,7 @@ export interface operations {
               toggleOnList: boolean;
               defaultState: boolean;
               projects: (string)[];
+              parent?: string;
             };
           };
         };
@@ -6108,11 +11964,53 @@ export interface operations {
                 datasource: string;
                 userIdTypes: (string)[];
                 sql: string;
+                /** @description The event name used in SQL template variables */
+                eventName?: string;
+                /** @description Array of column definitions for this fact table */
+                columns?: ({
+                    /** @description The actual column name in the database/SQL query */
+                    column: string;
+                    /** @enum {string} */
+                    datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    /** @enum {string} */
+                    numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                    /** @description For JSON columns, defines the structure of nested fields */
+                    jsonFields?: {
+                      [key: string]: ({
+                        /** @enum {string} */
+                        datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                      }) | undefined;
+                    };
+                    /** @description Display name for the column (can be different from the actual column name) */
+                    name?: string;
+                    description?: string;
+                    /**
+                     * @description Whether this column should always be included as an inline filter in queries 
+                     * @default false
+                     */
+                    alwaysInlineFilter?: boolean;
+                    /** @default false */
+                    deleted: boolean;
+                    /**
+                     * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+                     * @default false
+                     */
+                    isAutoSliceColumn?: boolean;
+                    /** @description Specific slices to automatically analyze for this column. */
+                    autoSlices?: (string)[];
+                    /** Format: date-time */
+                    dateCreated?: string;
+                    /** Format: date-time */
+                    dateUpdated?: string;
+                  })[];
+                /** @description Error message if there was an issue parsing the SQL schema */
+                columnsError?: string | null;
+                archived?: boolean;
                 /**
                  * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api";
+                managedBy: "" | "api" | "admin";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
@@ -6150,11 +12048,13 @@ export interface operations {
           userIdTypes: (string)[];
           /** @description The SQL query for this fact table */
           sql: string;
+          /** @description The event name used in SQL template variables */
+          eventName?: string;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
         };
       };
     };
@@ -6172,11 +12072,53 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
+              archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -6209,11 +12151,53 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
+              archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -6248,11 +12232,53 @@ export interface operations {
           userIdTypes?: (string)[];
           /** @description The SQL query for this fact table */
           sql?: string;
+          /** @description The event name used in SQL template variables */
+          eventName?: string;
+          /** @description Optional array of columns that you want to update. Only allows updating properties of existing columns. Cannot create new columns or delete existing ones. Columns cannot be added or deleted; column structure is determined by SQL parsing. Slice-related properties require an enterprise license. */
+          columns?: ({
+              /** @description The actual column name in the database/SQL query */
+              column: string;
+              /** @enum {string} */
+              datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+              /** @enum {string} */
+              numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+              /** @description For JSON columns, defines the structure of nested fields */
+              jsonFields?: {
+                [key: string]: ({
+                  /** @enum {string} */
+                  datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                }) | undefined;
+              };
+              /** @description Display name for the column (can be different from the actual column name) */
+              name?: string;
+              description?: string;
+              /**
+               * @description Whether this column should always be included as an inline filter in queries 
+               * @default false
+               */
+              alwaysInlineFilter?: boolean;
+              /** @default false */
+              deleted: boolean;
+              /**
+               * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+               * @default false
+               */
+              isAutoSliceColumn?: boolean;
+              /** @description Specific slices to automatically analyze for this column. */
+              autoSlices?: (string)[];
+              /** Format: date-time */
+              dateCreated?: string;
+              /** Format: date-time */
+              dateUpdated?: string;
+            })[];
+          /** @description Error message if there was an issue parsing the SQL schema */
+          columnsError?: string | null;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
+          archived?: boolean;
         };
       };
     };
@@ -6270,11 +12296,53 @@ export interface operations {
               datasource: string;
               userIdTypes: (string)[];
               sql: string;
+              /** @description The event name used in SQL template variables */
+              eventName?: string;
+              /** @description Array of column definitions for this fact table */
+              columns?: ({
+                  /** @description The actual column name in the database/SQL query */
+                  column: string;
+                  /** @enum {string} */
+                  datatype: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                  /** @enum {string} */
+                  numberFormat?: "" | "currency" | "time:seconds" | "memory:bytes" | "memory:kilobytes";
+                  /** @description For JSON columns, defines the structure of nested fields */
+                  jsonFields?: {
+                    [key: string]: ({
+                      /** @enum {string} */
+                      datatype?: "number" | "string" | "date" | "boolean" | "json" | "other" | "";
+                    }) | undefined;
+                  };
+                  /** @description Display name for the column (can be different from the actual column name) */
+                  name?: string;
+                  description?: string;
+                  /**
+                   * @description Whether this column should always be included as an inline filter in queries 
+                   * @default false
+                   */
+                  alwaysInlineFilter?: boolean;
+                  /** @default false */
+                  deleted: boolean;
+                  /**
+                   * @description Whether this column can be used for auto slice analysis. This is an enterprise feature. 
+                   * @default false
+                   */
+                  isAutoSliceColumn?: boolean;
+                  /** @description Specific slices to automatically analyze for this column. */
+                  autoSlices?: (string)[];
+                  /** Format: date-time */
+                  dateCreated?: string;
+                  /** Format: date-time */
+                  dateUpdated?: string;
+                })[];
+              /** @description Error message if there was an issue parsing the SQL schema */
+              columnsError?: string | null;
+              archived?: boolean;
               /**
                * @description Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
@@ -6543,18 +12611,32 @@ export interface operations {
                 tags: (string)[];
                 datasource: string;
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   column: string;
+                  /** @enum {string} */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
+                  /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                  aggregateFilterColumn?: string;
+                  /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                  aggregateFilter?: string;
                 };
                 denominator?: {
                   factTableId: string;
                   column: string;
                   /** @description Array of Fact Table Filter Ids */
                   filters: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse: boolean;
@@ -6583,11 +12665,13 @@ export interface operations {
                 windowSettings: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
-                  delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /** @enum {string} */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
                   /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the regression adjustment (CUPED) settings for the metric */
                 regressionAdjustmentSettings: {
@@ -6600,18 +12684,24 @@ export interface operations {
                 };
                 riskThresholdSuccess: number;
                 riskThresholdDanger: number;
+                /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+                displayAsPercentage?: boolean;
                 minPercentChange: number;
                 maxPercentChange: number;
                 minSampleSize: number;
+                targetMDE: number;
                 /**
                  * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                  * @enum {string}
                  */
-                managedBy: "" | "api";
+                managedBy: "" | "api" | "admin";
                 /** Format: date-time */
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
+                archived?: boolean;
+                /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+                metricAutoSlices?: (string)[];
               })[];
           }) & {
             limit: number;
@@ -6636,21 +12726,43 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType: "proportion" | "mean" | "quantile" | "ratio";
+          metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
+            /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+            aggregateFilterColumn?: string;
+            /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+            aggregateFilter?: string;
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
             /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
@@ -6679,11 +12791,24 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
-            windowUnit?: "hours" | "days" | "weeks";
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
           priorSettings?: {
@@ -6709,16 +12834,22 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
+          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
+          /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+          metricAutoSlices?: (string)[];
         };
       };
     };
@@ -6735,18 +12866,32 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -6775,11 +12920,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6792,18 +12939,24 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              archived?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -6831,18 +12984,32 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -6871,11 +13038,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -6888,18 +13057,24 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              archived?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -6923,21 +13098,43 @@ export interface operations {
           projects?: (string)[];
           tags?: (string)[];
           /** @enum {string} */
-          metricType?: "proportion" | "mean" | "quantile" | "ratio";
+          metricType?: "proportion" | "retention" | "mean" | "quantile" | "ratio";
           numerator?: {
             factTableId: string;
             /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
             column?: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
+            /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+            aggregateFilterColumn?: string;
+            /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+            aggregateFilter?: string;
           };
           /** @description Only when metricType is 'ratio' */
           denominator?: {
             factTableId: string;
-            /** @description Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
+            /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
             column: string;
+            /**
+             * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+             * @enum {string}
+             */
+            aggregation?: "sum" | "max" | "count distinct";
             /** @description Array of Fact Table Filter Ids */
             filters?: (string)[];
+            /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+            inlineFilters?: {
+              [key: string]: (string)[] | undefined;
+            };
           };
           /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
           inverse?: boolean;
@@ -6966,11 +13163,24 @@ export interface operations {
           windowSettings?: {
             /** @enum {string} */
             type: "none" | "conversion" | "lookback";
-            /** @description Wait this many hours after experiment exposure before counting conversions */
+            /**
+             * @deprecated 
+             * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+             */
             delayHours?: number;
+            /** @description Wait this long after experiment exposure before counting conversions. */
+            delayValue?: number;
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            delayUnit?: "minutes" | "hours" | "days" | "weeks";
             windowValue?: number;
-            /** @enum {string} */
-            windowUnit?: "hours" | "days" | "weeks";
+            /**
+             * @description Default `hours`. 
+             * @enum {string}
+             */
+            windowUnit?: "minutes" | "hours" | "days" | "weeks";
           };
           /** @description Controls the regression adjustment (CUPED) settings for the metric */
           regressionAdjustmentSettings?: {
@@ -6985,16 +13195,22 @@ export interface operations {
           riskThresholdSuccess?: number;
           /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
           riskThresholdDanger?: number;
+          /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+          displayAsPercentage?: boolean;
           /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
           minPercentChange?: number;
           /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
           maxPercentChange?: number;
           minSampleSize?: number;
+          targetMDE?: number;
           /**
            * @description Set this to "api" to disable editing in the GrowthBook UI 
            * @enum {string}
            */
-          managedBy?: "" | "api";
+          managedBy?: "" | "api" | "admin";
+          archived?: boolean;
+          /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+          metricAutoSlices?: (string)[];
         };
       };
     };
@@ -7011,18 +13227,32 @@ export interface operations {
               tags: (string)[];
               datasource: string;
               /** @enum {string} */
-              metricType: "proportion" | "mean" | "quantile" | "ratio";
+              metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
               numerator: {
                 factTableId: string;
                 column: string;
+                /** @enum {string} */
+                aggregation?: "sum" | "max" | "count distinct";
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
+                /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                aggregateFilterColumn?: string;
+                /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                aggregateFilter?: string;
               };
               denominator?: {
                 factTableId: string;
                 column: string;
                 /** @description Array of Fact Table Filter Ids */
                 filters: (string)[];
+                /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                inlineFilters?: {
+                  [key: string]: (string)[] | undefined;
+                };
               };
               /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
               inverse: boolean;
@@ -7051,11 +13281,13 @@ export interface operations {
               windowSettings: {
                 /** @enum {string} */
                 type: "none" | "conversion" | "lookback";
-                /** @description Wait this many hours after experiment exposure before counting conversions */
-                delayHours?: number;
+                /** @description Wait this long after experiment exposure before counting conversions. */
+                delayValue?: number;
+                /** @enum {string} */
+                delayUnit?: "minutes" | "hours" | "days" | "weeks";
                 windowValue?: number;
                 /** @enum {string} */
-                windowUnit?: "hours" | "days" | "weeks";
+                windowUnit?: "minutes" | "hours" | "days" | "weeks";
               };
               /** @description Controls the regression adjustment (CUPED) settings for the metric */
               regressionAdjustmentSettings: {
@@ -7068,18 +13300,24 @@ export interface operations {
               };
               riskThresholdSuccess: number;
               riskThresholdDanger: number;
+              /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+              displayAsPercentage?: boolean;
               minPercentChange: number;
               maxPercentChange: number;
               minSampleSize: number;
+              targetMDE: number;
               /**
                * @description Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere. 
                * @enum {string}
                */
-              managedBy: "" | "api";
+              managedBy: "" | "api" | "admin";
               /** Format: date-time */
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              archived?: boolean;
+              /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+              metricAutoSlices?: (string)[];
             };
           };
         };
@@ -7108,6 +13346,43 @@ export interface operations {
       };
     };
   };
+  postFactMetricAnalysis: {
+    /** Create a fact metric analysis */
+    requestBody?: {
+      content: {
+        "application/json": {
+          /** @description The identifier type to use for the analysis. If not provided, defaults to the first available identifier type in the fact table. */
+          userIdType?: string;
+          /** @description Number of days to look back for the analysis. Defaults to 30. */
+          lookbackDays?: number;
+          /**
+           * @description The type of population to analyze. Defaults to 'factTable', meaning the analysis will return the metric value for all units found in the fact table. 
+           * @enum {string}
+           */
+          populationType?: "factTable" | "segment";
+          /** @description The ID of the population (e.g., segment ID) when populationType is not 'factTable'. Defaults to null. */
+          populationId?: string | null;
+          /** @description Whether to use a cached query if one exists. Defaults to true. */
+          useCache?: boolean;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metricAnalysis: {
+              /** @description The ID of the created metric analysis */
+              id: string;
+              /** @description The status of the analysis (e.g., "running", "completed", "error") */
+              status: string;
+              settings?: any;
+            };
+          };
+        };
+      };
+    };
+  };
   postBulkImportFacts: {
     /** Bulk import fact tables, filters, and metrics */
     requestBody: {
@@ -7131,11 +13406,13 @@ export interface operations {
                 userIdTypes: (string)[];
                 /** @description The SQL query for this fact table */
                 sql: string;
+                /** @description The event name used in SQL template variables */
+                eventName?: string;
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
                  */
-                managedBy?: "" | "api";
+                managedBy?: "" | "api" | "admin";
               };
             })[];
           factTableFilters?: ({
@@ -7166,21 +13443,43 @@ export interface operations {
                 projects?: (string)[];
                 tags?: (string)[];
                 /** @enum {string} */
-                metricType: "proportion" | "mean" | "quantile" | "ratio";
+                metricType: "proportion" | "retention" | "mean" | "quantile" | "ratio";
                 numerator: {
                   factTableId: string;
                   /** @description Must be empty for proportion metrics. Otherwise, the column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column?: string;
+                  /**
+                   * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+                   * @enum {string}
+                   */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
+                  /** @description Column to use to filter users after aggregation. Either '$$count' of rows or the name of a numeric column that will be summed by user. Must specify `aggregateFilter` if using this. Only can be used with 'retention' and 'proportion' metrics. */
+                  aggregateFilterColumn?: string;
+                  /** @description Simple comparison operator and value to apply after aggregation (e.g. '= 10' or '>= 1'). Requires `aggregateFilterColumn`. */
+                  aggregateFilter?: string;
                 };
                 /** @description Only when metricType is 'ratio' */
                 denominator?: {
                   factTableId: string;
                   /** @description The column name or one of the special values: '$$distinctUsers' or '$$count' */
                   column: string;
+                  /**
+                   * @description User aggregation of selected column. Either sum or max for numeric columns; count distinct for string columns; ignored for special columns. Default: sum. If you specify a string column you must explicitly specify count distinct. Not used for proportion or event quantile metrics. 
+                   * @enum {string}
+                   */
+                  aggregation?: "sum" | "max" | "count distinct";
                   /** @description Array of Fact Table Filter Ids */
                   filters?: (string)[];
+                  /** @description Inline filters to apply to the fact table. Keys are column names, values are arrays of values to filter by. */
+                  inlineFilters?: {
+                    [key: string]: (string)[] | undefined;
+                  };
                 };
                 /** @description Set to true for things like Bounce Rate, where you want the metric to decrease */
                 inverse?: boolean;
@@ -7209,11 +13508,24 @@ export interface operations {
                 windowSettings?: {
                   /** @enum {string} */
                   type: "none" | "conversion" | "lookback";
-                  /** @description Wait this many hours after experiment exposure before counting conversions */
+                  /**
+                   * @deprecated 
+                   * @description Wait this many hours after experiment exposure before counting conversions. Ignored if delayValue is set.
+                   */
                   delayHours?: number;
+                  /** @description Wait this long after experiment exposure before counting conversions. */
+                  delayValue?: number;
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  delayUnit?: "minutes" | "hours" | "days" | "weeks";
                   windowValue?: number;
-                  /** @enum {string} */
-                  windowUnit?: "hours" | "days" | "weeks";
+                  /**
+                   * @description Default `hours`. 
+                   * @enum {string}
+                   */
+                  windowUnit?: "minutes" | "hours" | "days" | "weeks";
                 };
                 /** @description Controls the bayesian prior for the metric. If omitted, organization defaults will be used. */
                 priorSettings?: {
@@ -7239,16 +13551,22 @@ export interface operations {
                 riskThresholdSuccess?: number;
                 /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
                 riskThresholdDanger?: number;
+                /** @description If true and the metric is a ratio metric, variation means will be displayed as a percentage */
+                displayAsPercentage?: boolean;
                 /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
                 minPercentChange?: number;
                 /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
                 maxPercentChange?: number;
                 minSampleSize?: number;
+                /** @description The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments. */
+                targetMDE?: number;
                 /**
                  * @description Set this to "api" to disable editing in the GrowthBook UI 
                  * @enum {string}
                  */
-                managedBy?: "" | "api";
+                managedBy?: "" | "api" | "admin";
+                /** @description Array of slice column names that will be automatically included in metric analysis. This is an enterprise feature. */
+                metricAutoSlices?: (string)[];
               };
             })[];
         };
@@ -7270,8 +13588,73 @@ export interface operations {
       };
     };
   };
+  listCodeRefs: {
+    /** Get list of all code references for the current organization */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            codeRefs: ({
+                /** @description The organization name */
+                organization: string;
+                /**
+                 * Format: date-time 
+                 * @description When the code references were last updated
+                 */
+                dateUpdated: string;
+                /** @description Feature identifier */
+                feature: string;
+                /** @description Repository name */
+                repo: string;
+                /** @description Branch name */
+                branch: string;
+                /**
+                 * @description Source control platform 
+                 * @enum {string}
+                 */
+                platform?: "github" | "gitlab" | "bitbucket";
+                refs: ({
+                    /** @description Path to the file containing the reference */
+                    filePath: string;
+                    /** @description Line number where the reference starts */
+                    startingLineNumber: number;
+                    /** @description The code lines containing the reference */
+                    lines: string;
+                    /** @description The feature flag key referenced */
+                    flagKey: string;
+                  })[];
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
   postCodeRefs: {
     /** Submit list of code references */
+    parameters: {
+        /**
+         * @description Whether to delete code references that are no longer present in the submitted data 
+         * @default false
+         */
+      query: {
+        deleteMissing?: "true" | "false";
+      };
+    };
     requestBody: {
       content: {
         "application/json": {
@@ -7297,6 +13680,163 @@ export interface operations {
       };
     };
   };
+  getCodeRefs: {
+    /** Get list of code references for a single feature id */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            codeRefs: ({
+                /** @description The organization name */
+                organization: string;
+                /**
+                 * Format: date-time 
+                 * @description When the code references were last updated
+                 */
+                dateUpdated: string;
+                /** @description Feature identifier */
+                feature: string;
+                /** @description Repository name */
+                repo: string;
+                /** @description Branch name */
+                branch: string;
+                /**
+                 * @description Source control platform 
+                 * @enum {string}
+                 */
+                platform?: "github" | "gitlab" | "bitbucket";
+                refs: ({
+                    /** @description Path to the file containing the reference */
+                    filePath: string;
+                    /** @description Line number where the reference starts */
+                    startingLineNumber: number;
+                    /** @description The code lines containing the reference */
+                    lines: string;
+                    /** @description The feature flag key referenced */
+                    flagKey: string;
+                  })[];
+              })[];
+          };
+        };
+      };
+    };
+  };
+  getQuery: {
+    /** Get a single query */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            query: {
+              id: string;
+              organization: string;
+              datasource: string;
+              language: string;
+              query: string;
+              queryType: string;
+              createdAt: string;
+              startedAt: string;
+              /** @enum {string} */
+              status: "running" | "queued" | "failed" | "partially-succeeded" | "succeeded";
+              externalId: string;
+              dependencies: (string)[];
+              runAtEnd: boolean;
+            };
+          };
+        };
+      };
+    };
+  };
+  getSettings: {
+    /** Get organization settings */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            settings: {
+              confidenceLevel: number;
+              northStar: {
+                title?: string;
+                metricIds?: (string)[];
+              } | null;
+              metricDefaults: {
+                priorSettings?: {
+                  override: boolean;
+                  proper: boolean;
+                  mean: number;
+                  stddev: number;
+                };
+                minimumSampleSize?: number;
+                maxPercentageChange?: number;
+                minPercentageChange?: number;
+                targetMDE?: number;
+              };
+              pastExperimentsMinLength: number;
+              metricAnalysisDays: number;
+              updateSchedule: ({
+                /** @enum {string} */
+                type?: "cron" | "never" | "stale";
+                cron?: string | null;
+                hours?: number | null;
+              }) | null;
+              multipleExposureMinPercent: number;
+              defaultRole: {
+                role?: string;
+                limitAccessByEnvironment?: boolean;
+                environments?: (string)[];
+              };
+              statsEngine: string;
+              pValueThreshold: number;
+              regressionAdjustmentEnabled: boolean;
+              regressionAdjustmentDays: number;
+              sequentialTestingEnabled: boolean;
+              sequentialTestingTuningParameter: number;
+              /** @enum {string} */
+              attributionModel: "firstExposure" | "experimentDuration";
+              targetMDE: number;
+              delayHours: number;
+              windowType: string;
+              windowHours: number;
+              winRisk: number;
+              loseRisk: number;
+              secureAttributeSalt: string;
+              killswitchConfirmation: boolean;
+              requireReviews: ({
+                  requireReviewOn?: boolean;
+                  resetReviewOnChange?: boolean;
+                  environments?: (string)[];
+                  projects?: (string)[];
+                })[];
+              featureKeyExample: string;
+              featureRegexValidator: string;
+              banditScheduleValue: number;
+              /** @enum {string} */
+              banditScheduleUnit: "hours" | "days";
+              banditBurnInValue: number;
+              /** @enum {string} */
+              banditBurnInUnit: "hours" | "days";
+              experimentMinLengthDays: number;
+              experimentMaxLengthDays?: number | null;
+              preferredEnvironment?: string | null;
+              maxMetricSliceLevels?: number;
+            };
+          };
+        };
+      };
+    };
+  };
 }
 import { z } from "zod";
 import * as openApiValidators from "back-end/src/validators/openapi";
@@ -7309,36 +13849,50 @@ export type ApiProject = z.infer<typeof openApiValidators.apiProjectValidator>;
 export type ApiEnvironment = z.infer<typeof openApiValidators.apiEnvironmentValidator>;
 export type ApiAttribute = z.infer<typeof openApiValidators.apiAttributeValidator>;
 export type ApiSegment = z.infer<typeof openApiValidators.apiSegmentValidator>;
+export type ApiScheduleRule = z.infer<typeof openApiValidators.apiScheduleRuleValidator>;
 export type ApiFeature = z.infer<typeof openApiValidators.apiFeatureValidator>;
+export type ApiFeatureWithRevisions = z.infer<typeof openApiValidators.apiFeatureWithRevisionsValidator>;
 export type ApiFeatureEnvironment = z.infer<typeof openApiValidators.apiFeatureEnvironmentValidator>;
 export type ApiFeatureRule = z.infer<typeof openApiValidators.apiFeatureRuleValidator>;
 export type ApiFeatureDefinition = z.infer<typeof openApiValidators.apiFeatureDefinitionValidator>;
 export type ApiFeatureForceRule = z.infer<typeof openApiValidators.apiFeatureForceRuleValidator>;
 export type ApiFeatureRolloutRule = z.infer<typeof openApiValidators.apiFeatureRolloutRuleValidator>;
+export type ApiFeatureSafeRolloutRule = z.infer<typeof openApiValidators.apiFeatureSafeRolloutRuleValidator>;
 export type ApiFeatureExperimentRule = z.infer<typeof openApiValidators.apiFeatureExperimentRuleValidator>;
 export type ApiFeatureExperimentRefRule = z.infer<typeof openApiValidators.apiFeatureExperimentRefRuleValidator>;
+export type ApiFeatureRevision = z.infer<typeof openApiValidators.apiFeatureRevisionValidator>;
 export type ApiSdkConnection = z.infer<typeof openApiValidators.apiSdkConnectionValidator>;
 export type ApiExperiment = z.infer<typeof openApiValidators.apiExperimentValidator>;
 export type ApiExperimentSnapshot = z.infer<typeof openApiValidators.apiExperimentSnapshotValidator>;
 export type ApiExperimentMetric = z.infer<typeof openApiValidators.apiExperimentMetricValidator>;
 export type ApiExperimentAnalysisSettings = z.infer<typeof openApiValidators.apiExperimentAnalysisSettingsValidator>;
 export type ApiExperimentResults = z.infer<typeof openApiValidators.apiExperimentResultsValidator>;
+export type ApiExperimentWithEnhancedStatus = z.infer<typeof openApiValidators.apiExperimentWithEnhancedStatusValidator>;
 export type ApiDataSource = z.infer<typeof openApiValidators.apiDataSourceValidator>;
 export type ApiVisualChangeset = z.infer<typeof openApiValidators.apiVisualChangesetValidator>;
 export type ApiVisualChange = z.infer<typeof openApiValidators.apiVisualChangeValidator>;
 export type ApiSavedGroup = z.infer<typeof openApiValidators.apiSavedGroupValidator>;
 export type ApiOrganization = z.infer<typeof openApiValidators.apiOrganizationValidator>;
 export type ApiFactTable = z.infer<typeof openApiValidators.apiFactTableValidator>;
+export type ApiFactTableColumn = z.infer<typeof openApiValidators.apiFactTableColumnValidator>;
 export type ApiFactTableFilter = z.infer<typeof openApiValidators.apiFactTableFilterValidator>;
 export type ApiFactMetric = z.infer<typeof openApiValidators.apiFactMetricValidator>;
+export type ApiMetricAnalysis = z.infer<typeof openApiValidators.apiMetricAnalysisValidator>;
 export type ApiMember = z.infer<typeof openApiValidators.apiMemberValidator>;
+export type ApiArchetype = z.infer<typeof openApiValidators.apiArchetypeValidator>;
+export type ApiQuery = z.infer<typeof openApiValidators.apiQueryValidator>;
+export type ApiSettings = z.infer<typeof openApiValidators.apiSettingsValidator>;
+export type ApiCodeRef = z.infer<typeof openApiValidators.apiCodeRefValidator>;
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
 export type PostFeatureResponse = operations["postFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFeatureResponse = operations["updateFeature"]["responses"]["200"]["content"]["application/json"];
+export type DeleteFeatureResponse = operations["deleteFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
+export type RevertFeatureResponse = operations["revertFeature"]["responses"]["200"]["content"]["application/json"];
+export type GetFeatureRevisionsResponse = operations["getFeatureRevisions"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureKeysResponse = operations["getFeatureKeys"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
 export type PostProjectResponse = operations["postProject"]["responses"]["200"]["content"]["application/json"];
@@ -7346,18 +13900,26 @@ export type GetProjectResponse = operations["getProject"]["responses"]["200"]["c
 export type PutProjectResponse = operations["putProject"]["responses"]["200"]["content"]["application/json"];
 export type DeleteProjectResponse = operations["deleteProject"]["responses"]["200"]["content"]["application/json"];
 export type ListDimensionsResponse = operations["listDimensions"]["responses"]["200"]["content"]["application/json"];
+export type PostDimensionResponse = operations["postDimension"]["responses"]["200"]["content"]["application/json"];
 export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
+export type UpdateDimensionResponse = operations["updateDimension"]["responses"]["200"]["content"]["application/json"];
+export type DeleteDimensionResponse = operations["deleteDimension"]["responses"]["200"]["content"]["application/json"];
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
+export type PostSegmentResponse = operations["postSegment"]["responses"]["200"]["content"]["application/json"];
 export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
+export type UpdateSegmentResponse = operations["updateSegment"]["responses"]["200"]["content"]["application/json"];
+export type DeleteSegmentResponse = operations["deleteSegment"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
 export type PostSdkConnectionResponse = operations["postSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type PutSdkConnectionResponse = operations["putSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type DeleteSdkConnectionResponse = operations["deleteSdkConnection"]["responses"]["200"]["content"]["application/json"];
+export type LookupSdkConnectionByKeyResponse = operations["lookupSdkConnectionByKey"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentResponse = operations["postExperiment"]["responses"]["200"]["content"]["application/json"];
+export type GetExperimentNamesResponse = operations["getExperimentNames"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
 export type PostExperimentSnapshotResponse = operations["postExperimentSnapshot"]["responses"]["200"]["content"]["application/json"];
@@ -7385,6 +13947,11 @@ export type ListAttributesResponse = operations["listAttributes"]["responses"]["
 export type PostAttributeResponse = operations["postAttribute"]["responses"]["200"]["content"]["application/json"];
 export type PutAttributeResponse = operations["putAttribute"]["responses"]["200"]["content"]["application/json"];
 export type DeleteAttributeResponse = operations["deleteAttribute"]["responses"]["200"]["content"]["application/json"];
+export type ListArchetypesResponse = operations["listArchetypes"]["responses"]["200"]["content"]["application/json"];
+export type PostArchetypeResponse = operations["postArchetype"]["responses"]["200"]["content"]["application/json"];
+export type GetArchetypeResponse = operations["getArchetype"]["responses"]["200"]["content"]["application/json"];
+export type PutArchetypeResponse = operations["putArchetype"]["responses"]["200"]["content"]["application/json"];
+export type DeleteArchetypeResponse = operations["deleteArchetype"]["responses"]["200"]["content"]["application/json"];
 export type ListMembersResponse = operations["listMembers"]["responses"]["200"]["content"]["application/json"];
 export type DeleteMemberResponse = operations["deleteMember"]["responses"]["200"]["content"]["application/json"];
 export type UpdateMemberRoleResponse = operations["updateMemberRole"]["responses"]["200"]["content"]["application/json"];
@@ -7407,5 +13974,10 @@ export type PostFactMetricResponse = operations["postFactMetric"]["responses"]["
 export type GetFactMetricResponse = operations["getFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type UpdateFactMetricResponse = operations["updateFactMetric"]["responses"]["200"]["content"]["application/json"];
 export type DeleteFactMetricResponse = operations["deleteFactMetric"]["responses"]["200"]["content"]["application/json"];
+export type PostFactMetricAnalysisResponse = operations["postFactMetricAnalysis"]["responses"]["200"]["content"]["application/json"];
 export type PostBulkImportFactsResponse = operations["postBulkImportFacts"]["responses"]["200"]["content"]["application/json"];
+export type ListCodeRefsResponse = operations["listCodeRefs"]["responses"]["200"]["content"]["application/json"];
 export type PostCodeRefsResponse = operations["postCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type GetCodeRefsResponse = operations["getCodeRefs"]["responses"]["200"]["content"]["application/json"];
+export type GetQueryResponse = operations["getQuery"]["responses"]["200"]["content"]["application/json"];
+export type GetSettingsResponse = operations["getSettings"]["responses"]["200"]["content"]["application/json"];

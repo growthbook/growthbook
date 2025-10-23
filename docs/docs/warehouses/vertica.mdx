@@ -1,9 +1,11 @@
 ---
 title: Setting up Vertica as a data source
-description: This document outlines the steps needed to add your Postgres database to GrowthBook.
+description: This document outlines the steps needed to configure Vertica as a data source in GrowthBook.
 sidebar_label: Vertica
 slug: vertica
 ---
+
+import MaxWidthImage from "@site/src/components/MaxWidthImage";
 
 To connect GrowthBook to Vertica, GrowthBook must be able to connect to your Vertica instance and run queries on your behalf in your Vertica warehouse. This guide walks you through connecting GrowthBook to your Vertica instance.
 
@@ -28,11 +30,9 @@ Once you select "Vertica" you will enter the credentials to connect GrowthBook t
 
 We also require a "Database". This field helps us populate a schema browser that makes writing queries in GrowthBook easier.
 
-<img
-  src="/images/vertica.png"
-  alt="Vertica warehouse connection"
-  style={{ width: 600, margin: "0 auto" }}
-/>
+<MaxWidthImage maxWidth={600} border>
+  ![Vertica warehouse connection](/images/vertica.png)
+</MaxWidthImage>
 
 When you save your Datasource, we will immediately test the connection with a simple `"SELECT 1"` query to ensure the connection is working.
 

@@ -1,23 +1,30 @@
 import React from "react";
 import { isProjectListValidForProject } from "shared/util";
-import { Box, Tabs } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import MetricsList from "@/components/Metrics/MetricsList";
 import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import LinkButton from "@/components/Radix/LinkButton";
+import LinkButton from "@/ui/LinkButton";
 import { NewMetricModal } from "@/components/FactTables/NewMetricModal";
-import Button from "@/components/Radix/Button";
+import Button from "@/ui/Button";
+import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
+import CreateMetricFromTemplate from "@/components/FactTables/CreateMetricFromTemplate";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 const MetricsPage = (): React.ReactElement => {
-  const { metrics, factMetrics, datasources, project } = useDefinitions();
+  const { metrics, factMetrics, factTables, datasources, project } =
+    useDefinitions();
 
   const hasDatasource = datasources.some((d) =>
-    isProjectListValidForProject(d.projects, project)
+    isProjectListValidForProject(d.projects, project),
   );
   const hasMetrics =
     metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||
     factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
+
+  const hasFactTables = factTables.some((f) =>
+    isProjectListValidForProject(f.projects, project),
+  );
 
   const [showNewModal, setShowNewModal] = React.useState(false);
 
@@ -29,6 +36,7 @@ const MetricsPage = (): React.ReactElement => {
           source={"metrics-empty-state"}
         />
       )}
+      <CreateMetricFromTemplate />
       <h1 className="mb-4">Metrics</h1>
       {!hasMetrics ? (
         <div className="appbox p-5 text-center">
@@ -40,31 +48,32 @@ const MetricsPage = (): React.ReactElement => {
           <div className="mt-3">
             {!hasDatasource ? (
               <LinkButton href="/datasources">Connect Data Source</LinkButton>
+            ) : !hasFactTables ? (
+              <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
             ) : (
               <Button onClick={() => setShowNewModal(true)}>Add Metric</Button>
             )}
           </div>
         </div>
       ) : (
-        <Tabs.Root defaultValue="metrics">
-          <Tabs.List>
-            <Tabs.Trigger value="metrics">Individual Metrics</Tabs.Trigger>
-            <Tabs.Trigger value="metricgroups">
-              <PremiumTooltip commercialFeature="metric-groups">
-                Metric Groups
-              </PremiumTooltip>
-            </Tabs.Trigger>
-          </Tabs.List>
+        <Tabs defaultValue="metrics" persistInURL={true}>
+          <TabsList>
+            <TabsTrigger value="metrics">Individual Metrics</TabsTrigger>
+            <TabsTrigger value="metricgroups">
+              Metric Groups{" "}
+              <PaidFeatureBadge commercialFeature="metric-groups" mx="2" />
+            </TabsTrigger>
+          </TabsList>
           <Box pt="4">
-            <Tabs.Content value="metrics">
+            <TabsContent value="metrics">
               <MetricsList />
-            </Tabs.Content>
+            </TabsContent>
 
-            <Tabs.Content value="metricgroups">
+            <TabsContent value="metricgroups">
               <MetricGroupsList />
-            </Tabs.Content>
+            </TabsContent>
           </Box>
-        </Tabs.Root>
+        </Tabs>
       )}
     </div>
   );

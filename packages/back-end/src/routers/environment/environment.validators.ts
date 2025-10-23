@@ -2,7 +2,8 @@ import z from "zod";
 
 export const updateEnvOrderValidator = z
   .object({
-    environments: z.array(z.string()),
+    envId: z.string(),
+    newIndex: z.number(),
   })
   .strict();
 
@@ -25,6 +26,7 @@ export const environment = z
     toggleOnList: z.boolean().optional(),
     defaultState: z.boolean().optional(),
     projects: z.array(z.string()).optional(),
+    parent: z.string().optional(),
   })
   .strict();
 
