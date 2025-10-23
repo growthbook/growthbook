@@ -273,14 +273,18 @@ function DashboardEditor({
     { projects: projects || [] },
     {},
   );
-  let canDelete =
+  const canDelete =
     permissionsUtil.canDeleteGeneralDashboards({
       projects: projects || [],
     }) &&
     (isOwner || isAdmin);
-  if (editLevel === "private" && dashboardOwnerId !== userId) {
+  const canDuplicate = permissionsUtil.canCreateGeneralDashboards({
+    projects: projects || [],
+  });
+  const canManageSharingAndEditLevels = canEdit && (isOwner || isAdmin);
+
+  if (editLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
-    canDelete = false;
   }
   const ownerName = getUserDisplay(dashboardOwnerId, false) || "";
 
@@ -430,9 +434,13 @@ function DashboardEditor({
               body: JSON.stringify({
                 title: data.title,
                 editLevel: data.editLevel,
+                shareLevel: data.shareLevel,
                 enableAutoUpdates: data.enableAutoUpdates,
+                experimentId: "",
+                updateSchedule: data.updateSchedule,
+                projects: data.projects,
                 blocks: data.blocks || [],
-                userId: data.userId,
+                // userId: userId || "",
               }),
             });
             if (res.status === 200) {
@@ -508,9 +516,9 @@ function DashboardEditor({
             disabled={!!editSidebarDirty}
             isEditing={isEditing}
           />
-          {isGeneralDashboard && setIsEditing && !isEditing && canEdit ? (
+          {isGeneralDashboard && setIsEditing && !isEditing ? (
             <>
-              {userId === dashboardOwnerId && (
+              {canManageSharingAndEditLevels && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -539,12 +547,14 @@ function DashboardEditor({
                     <Text weight="regular">Edit Dashboard Settings</Text>
                   </Button>
                 )}
-                <Button
-                  className="dropdown-item"
-                  onClick={() => setDuplicateDashboard(true)}
-                >
-                  <Text weight="regular">Duplicate</Text>
-                </Button>
+                {canDuplicate && (
+                  <Button
+                    className="dropdown-item"
+                    onClick={() => setDuplicateDashboard(true)}
+                  >
+                    <Text weight="regular">Duplicate</Text>
+                  </Button>
+                )}
                 <DropdownMenuSeparator />
                 <DashboardViewQueriesButton
                   className="dropdown-item text-capitalize"

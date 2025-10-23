@@ -154,7 +154,7 @@ export default function DashboardModal({
           placeholder="Dashboard name"
           {...form.register("title")}
         />
-        {mode !== "create" ? (
+        {mode === "edit" ? (
           <SelectOwner
             disabled={!canManageSharingAndEditLevels}
             resourceType="dashboard"

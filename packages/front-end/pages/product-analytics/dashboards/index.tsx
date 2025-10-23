@@ -318,7 +318,7 @@ export default function DashboardsPage() {
                           let canDelete =
                             permissionsUtil.canDeleteGeneralDashboards(d) &&
                             (isOwner || isAdmin);
-                          let canDuplicate =
+                          const canDuplicate =
                             permissionsUtil.canCreateGeneralDashboards(d);
                           const canManageSharingAndEditLevels =
                             canEdit && (isOwner || isAdmin);
@@ -331,7 +331,6 @@ export default function DashboardsPage() {
                           ) {
                             canEdit = false;
                             canDelete = false;
-                            canDuplicate = false;
                           }
 
                           return (
