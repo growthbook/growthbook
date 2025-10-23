@@ -414,6 +414,9 @@ export default function DashboardsPage() {
                                         Duplicate
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
+                                        disabled={
+                                          !canEdit || d.userId !== userId
+                                        }
                                         onClick={() => {
                                           setSelectedDashboard(d);
                                           setShareModalOpen(true);

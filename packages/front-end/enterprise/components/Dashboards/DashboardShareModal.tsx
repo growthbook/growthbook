@@ -24,7 +24,7 @@ interface DashboardShareModalProps {
   onSubmit: (data: {
     shareLevel: DashboardShareLevel;
     editLevel: DashboardEditLevel;
-  }) => void;
+  }) => Promise<void>;
   /** Initial values for the form */
   initialValues?: {
     shareLevel: DashboardShareLevel;
@@ -97,34 +97,38 @@ export default function DashboardShareModal({
         }
 
         // Call onSubmit and handle the result
-        try {
-          onSubmit({
-            shareLevel: newShareLevel,
-            editLevel: newEditLevel,
-          });
+        const handleSubmit = async () => {
+          try {
+            await onSubmit({
+              shareLevel: newShareLevel,
+              editLevel: newEditLevel,
+            });
 
-          // Set success state after a short delay
-          setTimeout(() => {
+            // Set success state after a short delay
+            setTimeout(() => {
+              if (shareLevelChanged) {
+                setSaveShareLevelStatus("success");
+                setTimeout(() => setSaveShareLevelStatus(null), 3000);
+              }
+              if (editLevelChanged) {
+                setSaveEditLevelStatus("success");
+                setTimeout(() => setSaveEditLevelStatus(null), 3000);
+              }
+            }, 100);
+          } catch (error) {
+            // Set fail state
             if (shareLevelChanged) {
-              setSaveShareLevelStatus("success");
+              setSaveShareLevelStatus("fail");
               setTimeout(() => setSaveShareLevelStatus(null), 3000);
             }
             if (editLevelChanged) {
-              setSaveEditLevelStatus("success");
+              setSaveEditLevelStatus("fail");
               setTimeout(() => setSaveEditLevelStatus(null), 3000);
             }
-          }, 100);
-        } catch (error) {
-          // Set fail state
-          if (shareLevelChanged) {
-            setSaveShareLevelStatus("fail");
-            setTimeout(() => setSaveShareLevelStatus(null), 3000);
           }
-          if (editLevelChanged) {
-            setSaveEditLevelStatus("fail");
-            setTimeout(() => setSaveEditLevelStatus(null), 3000);
-          }
-        }
+        };
+
+        handleSubmit();
       }
     }
   }, [shareLevel, editLevel, initialValues, isOpen, onSubmit]);

@@ -140,19 +140,20 @@ function DashboardsTab({
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature } = useUser();
 
-  const hasDashboardFeature = hasCommercialFeature("dashboards");
-  const canCreate = permissionsUtil.canCreateReport(experiment);
-  const canUpdateDashboard = experiment
-    ? permissionsUtil.canViewReportModal(experiment.project)
-    : true;
+  const canCreate =
+    permissionsUtil.canCreateReport(experiment) &&
+    hasCommercialFeature("dashboards");
+  let canEdit =
+    permissionsUtil.canViewReportModal(experiment.project) &&
+    hasCommercialFeature("dashboards");
   const canUpdateExperiment = permissionsUtil.canViewExperimentModal(
     experiment.project,
   );
   const isOwner = userId === dashboard?.userId || !dashboard?.userId;
-  const isAdmin = permissionsUtil.canSuperDeleteReport();
-  const canManage = isOwner || isAdmin;
-  const canEdit =
-    canManage || (dashboard.editLevel === "published" && canUpdateDashboard);
+
+  if (dashboard?.editLevel === "private" && !isOwner) {
+    canEdit = false;
+  }
 
   useEffect(() => {
     if (dashboard) {
@@ -320,7 +321,7 @@ function DashboardsTab({
                   <Button
                     size="sm"
                     onClick={() => {
-                      if (hasDashboardFeature) {
+                      if (canCreate) {
                         setShowCreateModal(true);
                       } else {
                         setShowUpgradeModal(true);
@@ -346,7 +347,7 @@ function DashboardsTab({
                           value={dashboardId}
                           setValue={(value) => {
                             if (value === "__create__") {
-                              if (hasDashboardFeature) {
+                              if (canCreate) {
                                 setShowCreateModal(true);
                               } else {
                                 setShowUpgradeModal(true);
@@ -406,7 +407,7 @@ function DashboardsTab({
                         innerClassName="px-2 py-1"
                       >
                         <MoreMenu>
-                          {canEdit && hasDashboardFeature && (
+                          {canEdit && (
                             <>
                               <EditButton
                                 useIcon={false}
@@ -415,16 +416,14 @@ function DashboardsTab({
                                   setIsEditing(true);
                                 }}
                               />
-                              {canManage && (
-                                <Button
-                                  className="dropdown-item"
-                                  onClick={() => setShowEditModal(true)}
-                                >
-                                  <Text weight="regular">
-                                    Edit Dashboard Settings
-                                  </Text>
-                                </Button>
-                              )}
+                              <Button
+                                className="dropdown-item"
+                                onClick={() => setShowEditModal(true)}
+                              >
+                                <Text weight="regular">
+                                  Edit Dashboard Settings
+                                </Text>
+                              </Button>
                               {mutateExperiment && canUpdateExperiment && (
                                 <Tooltip
                                   body={
@@ -468,7 +467,7 @@ function DashboardsTab({
                               </Container>
                             </>
                           )}
-                          {canManage && hasDashboardFeature && (
+                          {canEdit && (
                             <Tooltip
                               body={autoUpdateDisabledMessage}
                               shouldDisplay={updateSchedule?.type === "never"}
@@ -520,11 +519,7 @@ function DashboardsTab({
                           {canCreate && (
                             <Button
                               className="dropdown-item"
-                              onClick={() =>
-                                hasDashboardFeature
-                                  ? setShowDuplicateModal(true)
-                                  : setShowUpgradeModal(true)
-                              }
+                              onClick={() => setShowDuplicateModal(true)}
                             >
                               <Flex align="center" gap="2">
                                 <Text weight="regular">Duplicate</Text>
@@ -532,7 +527,7 @@ function DashboardsTab({
                               </Flex>
                             </Button>
                           )}
-                          {canManage && hasDashboardFeature && (
+                          {canEdit && (
                             <>
                               <DeleteButton
                                 displayName="Dashboard"

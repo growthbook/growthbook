@@ -501,13 +501,15 @@ function DashboardEditor({
           />
           {isGeneralDashboard && setIsEditing && !isEditing && canEdit ? (
             <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShareModalOpen(true)}
-              >
-                Share...
-              </Button>
+              {userId === dashboardOwnerId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShareModalOpen(true)}
+                >
+                  Share...
+                </Button>
+              )}
               <Button
                 variant="solid"
                 size="sm"

@@ -145,8 +145,22 @@ export class DashboardModel extends BaseClass {
       if (!this.context.hasPremiumFeature("dashboards")) {
         throw new Error("Your plan does not support updating dashboards.");
       }
+
+      const isOwner = existing.userId === this.context.userId;
+
+      if (!isOwner) {
+        if (
+          "title" in updates ||
+          "editLevel" in updates ||
+          "enableAutoUpdates" in updates
+        ) {
+          return false;
+        }
+      }
+
       const { experiment } = this.getForeignRefs(existing);
       if (!experiment) throw new Error("Experiment not found.");
+
       return this.context.permissions.canUpdateReport(experiment);
     } else {
       if (existing.editLevel === "private" || updates.editLevel === "private") {

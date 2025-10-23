@@ -312,22 +312,21 @@ export default function DashboardModal({
             />
           </>
         ) : mode === "edit" ? (
-          // Editing a dashboard: hide view and edit access for general dashboards, show view access for experiment dashboards
+          // Editing a dashboard: hide view and edit access for general dashboards, show edit access for experiment dashboards
           <>
             {!isGeneralDashboard && (
               <SelectField
-                label="View access"
-                disabled={
-                  !hasCommercialFeature("share-product-analytics-dashboards")
-                }
+                label="Edit access"
                 options={[
-                  { label: "Organization members", value: "published" },
+                  {
+                    label: "Any organization members with editing permission",
+                    value: "published",
+                  },
                   { label: "Only me", value: "private" },
-                  // { label: "Anyone with the link", value: "public" }, //TODO: Need to build this logic
                 ]}
-                value={form.watch("shareLevel")}
+                value={form.watch("editLevel")}
                 onChange={(value) =>
-                  form.setValue("shareLevel", value as DashboardShareLevel)
+                  form.setValue("editLevel", value as DashboardEditLevel)
                 }
               />
             )}
