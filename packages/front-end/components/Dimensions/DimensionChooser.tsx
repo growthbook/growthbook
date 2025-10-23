@@ -204,7 +204,7 @@ export default function DimensionChooser({
   }
 
   return (
-    <div>
+    <div id="dimension-picker">
       {newUi && <div className="uppercase-title text-muted">Dimension</div>}
       <Flex direction="row" gap="1" align="center">
         <SelectField

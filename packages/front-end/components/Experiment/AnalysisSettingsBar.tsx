@@ -3,7 +3,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { DifferenceType, StatsEngine } from "back-end/types/stats";
 import { FaExclamationCircle } from "react-icons/fa";
@@ -35,6 +35,7 @@ import VariationChooser from "@/components/Experiment/VariationChooser";
 import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useWalkthrough } from "@/hooks/useWalkthrough";
 import AnalysisForm from "./AnalysisForm";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
@@ -95,6 +96,27 @@ export default function AnalysisSettingsBar({
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
     : null;
+
+  const { startWalkthrough } = useWalkthrough([
+    {
+      element: "#dimension-picker",
+      popover: {
+        title: "This is the first step",
+        description: "This is the dimension picker",
+      },
+    },
+    {
+      element: "#metric-fact__1beqnd6fmh23jv3h-value",
+      popover: {
+        title: "Metric value",
+        description: "This is a metric value",
+      },
+    },
+  ]);
+
+  useEffect(() => {
+    startWalkthrough();
+  }, [startWalkthrough]);
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(

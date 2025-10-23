@@ -105,6 +105,7 @@ export default function MetricValueColumn({
       condition={asTd}
       wrapper={
         <td
+          id={`metric-${metric.id}-value`}
           className={className}
           style={style}
           rowSpan={rowSpan}
