@@ -20,7 +20,15 @@ const ScreenshotCarousel: FC<{
   variation: Variation;
   maxChildHeight?: number;
   onClick?: (i: number) => void;
-}> = ({ variation, maxChildHeight, onClick }) => {
+  isPublic?: boolean;
+  experimentUid?: string;
+}> = ({
+  variation,
+  maxChildHeight,
+  onClick,
+  isPublic = false,
+  experimentUid,
+}) => {
   const [allowClick, setAllowClick] = useState(true);
   const hasErrorRef = useRef(false);
 
@@ -79,6 +87,8 @@ const ScreenshotCarousel: FC<{
             objectFit: "contain",
           }}
           onErrorMsg={handleError}
+          isPublic={isPublic}
+          experimentUid={experimentUid}
         />
       ))}
     </Carousel>
@@ -93,6 +103,8 @@ interface Props {
   allowImages?: boolean;
   mutate?: () => void;
   noMargin?: boolean;
+  isPublic?: boolean;
+  experimentUid?: string;
 }
 
 function NoImageBox({
@@ -134,6 +146,8 @@ export function VariationBox({
   mutate,
   percent,
   minWidth,
+  isPublic = false,
+  experimentUid,
 }: {
   i: number;
   v: Variation;
@@ -147,6 +161,8 @@ export function VariationBox({
   mutate?: () => void;
   percent?: number;
   minWidth?: string | number;
+  isPublic?: boolean;
+  experimentUid?: string;
 }) {
   const { blockFileUploads } = useOrgSettings();
 
@@ -193,6 +209,8 @@ export function VariationBox({
                     if (!openCarousel) return;
                     openCarousel(v.id, j);
                   }}
+                  isPublic={isPublic}
+                  experimentUid={experimentUid}
                 />
               ) : (
                 <>
@@ -261,6 +279,8 @@ const VariationsTable: FC<Props> = ({
   allowImages = true,
   noMargin = false,
   mutate,
+  isPublic = false,
+  experimentUid,
 }) => {
   const { apiCall } = useAuth();
   const { variations } = experiment;
@@ -312,6 +332,8 @@ const VariationsTable: FC<Props> = ({
               }}
               mutate={mutate}
               percent={percentages?.[i]}
+              isPublic={isPublic}
+              experimentUid={experimentUid}
             />
           ),
         )}
