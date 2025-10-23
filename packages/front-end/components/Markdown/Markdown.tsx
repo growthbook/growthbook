@@ -1,4 +1,4 @@
-import { DetailedHTMLProps, FC, HTMLAttributes } from "react";
+import { DetailedHTMLProps, FC, HTMLAttributes, useMemo } from "react";
 import clsx from "clsx";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -29,6 +29,26 @@ const Markdown: FC<MarkdownProps> = ({
 
   const text = typeof children === "string" ? children : "";
 
+  const components = useMemo(
+    () => ({
+      // open external links in new tab
+      a: ({ ...props }) => (
+        <a href={props.href} target="_blank" rel="noreferrer">
+          {props.children}
+        </a>
+      ),
+      img: ({ ...props }) => (
+        <AuthorizedImage
+          imageCache={imageCache}
+          isPublic={isPublic}
+          experimentUid={experimentUid}
+          {...props}
+        />
+      ),
+    }),
+    [isPublic, experimentUid],
+  );
+
   return (
     <div {...props} className={clsx(className, styles.markdown)}>
       <ReactMarkdown
@@ -56,22 +76,7 @@ const Markdown: FC<MarkdownProps> = ({
           }
           return "";
         }}
-        components={{
-          // open external links in new tab
-          a: ({ ...props }) => (
-            <a href={props.href} target="_blank" rel="noreferrer">
-              {props.children}
-            </a>
-          ),
-          img: ({ ...props }) => (
-            <AuthorizedImage
-              imageCache={imageCache}
-              isPublic={isPublic}
-              experimentUid={experimentUid}
-              {...props}
-            />
-          ),
-        }}
+        components={components}
       >
         {text}
       </ReactMarkdown>
