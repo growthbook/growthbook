@@ -33,8 +33,8 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
-import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 import { getAdditionalQueryMetadataForExperiment } from "back-end/src/services/experiments";
+import { createDashboardBody, updateDashboardBody } from "./dashboards.router";
 interface SingleDashboardResponse {
   status: number;
   dashboard: DashboardInterface;
@@ -221,7 +221,8 @@ export async function refreshDashboardData(
       metricMap: await getMetricMap(context),
       queryParentId: mainSnapshot.id,
       factTableMap: await getFactTableMap(context),
-      experimentQueryMetadata: getAdditionalQueryMetadataForExperiment(experiment),
+      experimentQueryMetadata:
+        getAdditionalQueryMetadataForExperiment(experiment),
     });
   } else {
     await deleteSnapshotById(context.org.id, mainSnapshot.id);

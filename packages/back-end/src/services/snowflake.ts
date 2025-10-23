@@ -1,7 +1,10 @@
 import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
-import { ExternalIdCallback, QueryResponse } from "back-end/src/types/Integration";
+import {
+  ExternalIdCallback,
+  QueryResponse,
+} from "back-end/src/types/Integration";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 import { QueryMetadata } from "back-end/types/query";
 
@@ -26,22 +29,23 @@ function getProxySettings(): ProxyOptions {
   };
 }
 
-
 function getSnowflakeQueryTagString(queryMetadata?: QueryMetadata) {
   const metadata = {
     application: "growthbook",
-    ...queryMetadata
-  }
+    ...queryMetadata,
+  };
 
   // 2000 is the max length of a query tag
   let json = JSON.stringify(metadata);
 
   if (json.length > 2000) {
     // delete any key that has tags and try again
-    const tagKeys = Object.keys(metadata).filter(key => key.includes("tags"));
+    const tagKeys = Object.keys(metadata).filter((key) => key.includes("tags"));
     if (tagKeys.length > 0) {
       json = JSON.stringify({
-        ...Object.fromEntries(Object.entries(metadata).filter(([key]) => !tagKeys.includes(key))),
+        ...Object.fromEntries(
+          Object.entries(metadata).filter(([key]) => !tagKeys.includes(key)),
+        ),
       });
     }
   }
@@ -141,7 +145,6 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
       },
     });
   });
-  
 
   // Annoyingly, Snowflake turns all column names into all caps
   // Need to lowercase them here so they match other data sources

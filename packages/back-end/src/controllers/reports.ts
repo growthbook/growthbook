@@ -575,7 +575,9 @@ export async function putReport(
         metricMap,
         factTableMap,
         metricGroups,
-        experimentQueryMetadata: experiment ? getAdditionalQueryMetadataForExperiment(experiment) : null,
+        experimentQueryMetadata: experiment
+          ? getAdditionalQueryMetadataForExperiment(experiment)
+          : null,
       });
     }
 
@@ -670,4 +672,3 @@ export async function postNotebook(
     notebook,
   });
 }
-

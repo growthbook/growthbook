@@ -163,6 +163,7 @@ import {
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
+import { ExperimentQueryMetadata } from "back-end/types/query";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -185,7 +186,6 @@ import {
   getPValueCorrectionForOrg,
   getPValueThresholdForOrg,
 } from "./organizations";
-import { ExperimentQueryMetadata } from "back-end/types/query";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -1290,7 +1290,8 @@ export async function createSnapshot({
       metricMap,
       queryParentId: snapshot.id,
       factTableMap,
-      experimentQueryMetadata: getAdditionalQueryMetadataForExperiment(experiment),
+      experimentQueryMetadata:
+        getAdditionalQueryMetadataForExperiment(experiment),
     });
   }
 
