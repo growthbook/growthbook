@@ -326,7 +326,8 @@ export default function DashboardsPage() {
                           // If the dashboard is private, and the currentUser isn't the owner, they don't have edit/delete rights, regardless of their permissions
                           if (
                             d.editLevel === "private" &&
-                            (!isOwner || !isAdmin)
+                            !isOwner &&
+                            !isAdmin
                           ) {
                             canEdit = false;
                             canDelete = false;

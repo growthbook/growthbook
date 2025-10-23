@@ -158,7 +158,7 @@ function DashboardsTab({
       projects: experiment.project ? [experiment.project] : [],
     }) &&
     (isOwner || isAdmin);
-  if (dashboard?.editLevel === "private" && (!isOwner || !isAdmin)) {
+  if (dashboard?.editLevel === "private" && !isOwner && !isAdmin) {
     canEdit = false;
   }
 
