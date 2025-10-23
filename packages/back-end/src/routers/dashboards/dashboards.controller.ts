@@ -13,7 +13,10 @@ import {
 } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { DashboardInterface } from "back-end/src/enterprise/validators/dashboard";
-import { createDashboardBlock } from "back-end/src/enterprise/models/DashboardBlockModel";
+import {
+  createDashboardBlock,
+  migrate,
+} from "back-end/src/enterprise/models/DashboardBlockModel";
 import {
   DashboardBlockInterface,
   SqlExplorerBlockInterface,
@@ -121,6 +124,8 @@ export async function updateDashboard(
   if (!experiment) throw new Error("Cannot find connected experiment");
 
   if (updates.blocks) {
+    const migratedBlocks = updates.blocks.map((block) => migrate(block));
+
     // Duplicate permissions checks to prevent persisting the child blocks if the user doesn't have permission
     const isOwner = context.userId === dashboard.userId || !dashboard.userId;
     const isAdmin = context.permissions.canSuperDeleteReport();
@@ -142,7 +147,7 @@ export async function updateDashboard(
     }
 
     const createdBlocks = await Promise.all(
-      updates.blocks.map((blockData) =>
+      migratedBlocks.map((blockData) =>
         isPersistedDashboardBlock(blockData)
           ? blockData
           : createDashboardBlock(context.org.id, blockData),

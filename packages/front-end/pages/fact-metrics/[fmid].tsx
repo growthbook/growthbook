@@ -201,7 +201,6 @@ export default function FactMetricPage() {
   } = useDefinitions();
   const growthbook = useGrowthBook<AppFeatures>();
 
-  // Feature flag and commercial feature checks for slice analysis
   const isMetricSlicesFeatureEnabled =
     growthbook?.isOn("metric-slices") || false;
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
