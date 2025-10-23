@@ -64,7 +64,7 @@ GrowthBook needs to connect to your [SQL Data Warehouse](/warehouses) in order t
 
 ![Data warehouses supported by GrowthBook](/images/GrowthBook-supported-DB-766.png)
 
-Once connected to a data source, you need to define [Fact Tables and Metrics](/app/metrics). Fact Tables are SQL queries that select raw data from your warehouse.  Metrics are built on top of these Fact Tables and define what you want to measure in your experiments. For example, you might have an **Orders** fact table that selects one row per order, and then metrics for **Average Order Value**, **Total Revenue**, and **Number of Orders**.
+Once connected to a data source, you need to define [Fact Tables and Metrics](/app/metrics). Fact Tables are SQL queries that select raw data from your warehouse. Metrics are built on top of these Fact Tables and define what you want to measure in your experiments. For example, you might have an **Orders** fact table that selects one row per order, and then metrics for **Average Order Value**, **Total Revenue**, and **Number of Orders**.
 
 GrowthBook supports many types of metrics:
 
@@ -73,7 +73,7 @@ GrowthBook supports many types of metrics:
 - **Ratio** - A ratio of two values (e.g. `pages per session`, `revenue per order`).
 - **Quantile** - The value at a specific percentile (e.g. `P99 Latency`).
 - **Retention** - The percentage of experiment units who return after a delay (e.g. `day 7 retention`).
-- **Funnel** - The percentage of experiment units who complete a series of steps (e.g. `signup funnel conversion`). *coming soon*
+- **Funnel** - The percentage of experiment units who complete a series of steps (e.g. `signup funnel conversion`). _coming soon_
 
 Once you create a library of metrics, you can reuse them across multiple experiments.
 
@@ -119,32 +119,27 @@ This is best for companies that already have a robust process for running experi
 
 ## Next Steps
 
-<div className="row is-multiline">
-    <div className="col col--4">
+<div className="button-card-grid">
       <ButtonCard
         to={'/quick-start'}
         title="Quick Start Guide"
         description="Learn how to get started with GrowthBook"
-        style={{ height: '100%' }}
+        icon={<svg viewBox="0 0 256 256" fill="currentColor"><path d="M184,112a8,8,0,0,1-8,8H112a8,8,0,0,1,0-16h64A8,8,0,0,1,184,112Zm-8,24H112a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Zm48-88V208a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32H208A16,16,0,0,1,224,48ZM48,208H72V48H48Zm160,0V48H88V208H208Z"></path></svg>}
         color="default"
-      ></ButtonCard>
+      />
+   
+      <ButtonCard
+          to={'/self-host'}
+          title="Self-Host"
+          description="Learn about running GrowthBook on your own infrastructure"
+          icon={<svg viewBox="0 0 256 256" fill="currentColor"><path d="M208,136H48a16,16,0,0,0-16,16v48a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V152A16,16,0,0,0,208,136Zm0,64H48V152H208v48Zm0-160H48A16,16,0,0,0,32,56v48a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V56A16,16,0,0,0,208,40Zm0,64H48V56H208v48ZM192,80a12,12,0,1,1-12-12A12,12,0,0,1,192,80Zm0,96a12,12,0,1,1-12-12A12,12,0,0,1,192,176Z"></path></svg>}
+      />
+   
+      <ButtonCard
+          to={'/lib'}
+          title="SDK Docs"
+          description="Learn about the GrowthBook SDKs"
+          icon={<svg viewBox="0 0 256 256" fill="currentColor"><path d="M223.68,66.15,135.68,18h0a15.88,15.88,0,0,0-15.36,0l-88,48.17a16,16,0,0,0-8.32,14v95.64a16,16,0,0,0,8.32,14l88,48.17a15.88,15.88,0,0,0,15.36,0l88-48.17a16,16,0,0,0,8.32-14V80.18A16,16,0,0,0,223.68,66.15ZM128,32h0l80.34,44L128,120,47.66,76ZM40,90l80,43.78v85.79L40,175.82Zm96,129.57V133.82L216,90v85.78Z"></path></svg>}
+          color="default"
+      />
     </div>
-    <div className="col col--4">
-        <ButtonCard
-            to={'/self-host'}
-            title="Self-Host"
-            description="Learn about running GrowthBook on your own infrastructure"
-            style={{ height: '100%' }}
-        ></ButtonCard>
-    </div>
-    <div className="col col--4">
-        <ButtonCard
-            to={'/lib'}
-            title="SDK Docs"
-            description="Learn about the GrowthBook SDKs"
-            style={{ height: '100%' }}
-            color="default"
-        ></ButtonCard>
-    </div>
-
-</div>
