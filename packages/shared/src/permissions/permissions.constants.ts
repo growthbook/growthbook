@@ -413,7 +413,7 @@ export const POLICY_METADATA_MAP: Record<
   GeneralDashboardsFullAccess: {
     displayName: "General Dashboards Full Access",
     description:
-      "Create, edit, and delete general dashboards used for building Product Analytics dashboards.",
+      "Create, edit, and delete Product Analytics dashboards.",
   },
 };
 
