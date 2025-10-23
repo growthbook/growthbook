@@ -66,8 +66,7 @@ export async function updateExperimentDashboards({
     },
   );
 
-  // Can group and dedupe across dashboards because they won't be modified directly here, instead
-  // the snapshot model will update the blocks' snapshotId field after completion
+  // Grouping and deduping the blocks across all dashboards to run the minimum number of snapshots necessary
   const allBlocks = associatedDashboards.flatMap((dash) => dash.blocks);
   // Note: blocks for other experiments won't be updated during this flow.
   // Expected behavior is that dashboards tied to experiments don't include references to other experiments
@@ -210,7 +209,6 @@ export async function updateDashboardMetricAnalyses(
 
   let blockModified = false;
   for (const metricAnalysis of metricAnalyses) {
-    // TODO: safety checks before refreshing
     const metric = await context.models.factMetrics.getById(
       metricAnalysis.metric,
     );

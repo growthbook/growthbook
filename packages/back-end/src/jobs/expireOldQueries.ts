@@ -100,9 +100,10 @@ const expireOldQueries = async () => {
     });
   }
 
-  const metricAnalyses = await MetricAnalysisModel.findByQueryIds([
-    ...queryIds,
-  ]);
+  const metricAnalyses = await MetricAnalysisModel.findByQueryIds(
+    [...orgIds],
+    [...queryIds],
+  );
   for (const metricAnalysis of metricAnalyses) {
     logger.info("Updating status of metricAnalysis " + metricAnalysis.id);
     const context = await getContextForAgendaJobByOrgId(

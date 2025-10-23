@@ -144,9 +144,11 @@ export class MetricAnalysisModel extends BaseClass {
     return metricAnalyses[0] ? metricAnalyses[0] : null;
   }
 
-  public static async findByQueryIds(queryIds: string[]) {
+  public static async findByQueryIds(orgIds: string[], queryIds: string[]) {
     const metricAnalyses = await getCollection(COLLECTION_NAME)
       .find({
+        // Query ids are globally unique, this filter is just for index performance
+        organization: { $in: orgIds },
         queries: {
           $elemMatch: { query: { $in: queryIds }, status: "running" },
         },

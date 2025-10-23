@@ -125,12 +125,12 @@ export class DashboardModel extends BaseClass {
     }
   }
 
-  protected canRead(_doc: DashboardInterface): boolean {
-    if (!this.context.permissions.canReadMultiProjectResource(_doc.projects)) {
+  protected canRead(doc: DashboardInterface): boolean {
+    if (!this.context.permissions.canReadMultiProjectResource(doc.projects)) {
       return false;
     }
 
-    if (_doc.shareLevel === "private" && _doc.userId !== this.context.userId) {
+    if (doc.shareLevel === "private" && doc.userId !== this.context.userId) {
       return false;
     }
 
