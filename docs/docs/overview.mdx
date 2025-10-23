@@ -64,7 +64,7 @@ GrowthBook needs to connect to your [SQL Data Warehouse](/warehouses) in order t
 
 ![Data warehouses supported by GrowthBook](/images/GrowthBook-supported-DB-766.png)
 
-Once connected to a data source, you need to define [Fact Tables and Metrics](/app/metrics). Fact Tables are SQL queries that select raw data from your warehouse. Metrics are built on top of these Fact Tables and define what you want to measure in your experiments. For example, you might have an **Orders** fact table that selects one row per order, and then metrics for **Average Order Value**, **Total Revenue**, and **Number of Orders**.
+Once connected to a data source, you need to define [Fact Tables and Metrics](/app/metrics). Fact Tables are SQL queries that select raw data from your warehouse.  Metrics are built on top of these Fact Tables and define what you want to measure in your experiments. For example, you might have an **Orders** fact table that selects one row per order, and then metrics for **Average Order Value**, **Total Revenue**, and **Number of Orders**.
 
 GrowthBook supports many types of metrics:
 
@@ -73,7 +73,7 @@ GrowthBook supports many types of metrics:
 - **Ratio** - A ratio of two values (e.g. `pages per session`, `revenue per order`).
 - **Quantile** - The value at a specific percentile (e.g. `P99 Latency`).
 - **Retention** - The percentage of experiment units who return after a delay (e.g. `day 7 retention`).
-- **Funnel** - The percentage of experiment units who complete a series of steps (e.g. `signup funnel conversion`). _coming soon_
+- **Funnel** - The percentage of experiment units who complete a series of steps (e.g. `signup funnel conversion`). *coming soon*
 
 Once you create a library of metrics, you can reuse them across multiple experiments.
 
