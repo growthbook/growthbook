@@ -163,6 +163,7 @@ import {
 import { SafeRolloutInterface } from "back-end/src/validators/safe-rollout";
 import { SafeRolloutSnapshotAnalysis } from "back-end/src/validators/safe-rollout-snapshot";
 import { executeAndSaveQuery } from "back-end/src/routers/saved-queries/saved-queries.controller";
+import { ExperimentQueryMetadata } from "back-end/types/query";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -1146,6 +1147,16 @@ export function updateExperimentBanditSettings({
   return changes;
 }
 
+export function getAdditionalQueryMetadataForExperiment(
+  experiment: ExperimentInterface,
+): ExperimentQueryMetadata {
+  return {
+    experimentOwner: experiment.owner || undefined,
+    experimentProject: experiment.project || undefined,
+    experimentTags: experiment.tags.length > 0 ? experiment.tags : undefined,
+  };
+}
+
 export async function createSnapshot({
   experiment,
   context,
@@ -1279,6 +1290,8 @@ export async function createSnapshot({
       metricMap,
       queryParentId: snapshot.id,
       factTableMap,
+      experimentQueryMetadata:
+        getAdditionalQueryMetadataForExperiment(experiment),
     });
   }
 

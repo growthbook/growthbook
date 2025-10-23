@@ -21,7 +21,12 @@ import {
   SnapshotType,
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { Queries, QueryPointer, QueryStatus } from "back-end/types/query";
+import {
+  ExperimentQueryMetadata,
+  Queries,
+  QueryPointer,
+  QueryStatus,
+} from "back-end/types/query";
 import { SegmentInterface } from "back-end/types/segment";
 import {
   findSnapshotById,
@@ -74,6 +79,7 @@ export type ExperimentResultsQueryParams = {
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   queryParentId: string;
+  experimentQueryMetadata: ExperimentQueryMetadata | null;
 };
 
 export const TRAFFIC_QUERY_NAME = "traffic";
@@ -444,6 +450,11 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+    if (params.experimentQueryMetadata) {
+      this.integration.setAdditionalQueryMetadata?.(
+        params.experimentQueryMetadata,
+      );
+    }
     if (
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {

@@ -3,7 +3,12 @@ import { FormatDialect } from "shared/src/types";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
 import { runSnowflakeQuery } from "back-end/src/services/snowflake";
-import { QueryResponse, DataType } from "back-end/src/types/Integration";
+import {
+  QueryResponse,
+  DataType,
+  ExternalIdCallback,
+} from "back-end/src/types/Integration";
+import { QueryMetadata } from "back-end/types/query";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Snowflake extends SqlIntegration {
@@ -30,8 +35,12 @@ export default class Snowflake extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password", "privateKey", "privateKeyPassword"];
   }
-  runQuery(sql: string): Promise<QueryResponse> {
-    return runSnowflakeQuery(this.params, sql);
+  runQuery(
+    sql: string,
+    setExternalId?: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
+  ): Promise<QueryResponse> {
+    return runSnowflakeQuery(this.params, sql, setExternalId, queryMetadata);
   }
   formatDate(col: string): string {
     return `TO_VARCHAR(${col}, 'YYYY-MM-DD')`;

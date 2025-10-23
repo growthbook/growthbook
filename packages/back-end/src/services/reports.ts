@@ -59,6 +59,7 @@ import {
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
+  getAdditionalQueryMetadataForExperiment,
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
@@ -578,6 +579,9 @@ export async function createReportSnapshot({
     metricMap,
     queryParentId: snapshot.id,
     factTableMap,
+    experimentQueryMetadata: experiment
+      ? getAdditionalQueryMetadataForExperiment(experiment)
+      : null,
   });
 
   return snapshot;
