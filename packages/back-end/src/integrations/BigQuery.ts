@@ -30,7 +30,7 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
-  requiresEscapingPath = true;
+  escapePathCharacter = "`";
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);
