@@ -45,6 +45,7 @@ import HelperText from "@/ui/HelperText";
 import { AppFeatures } from "@/types/app-features";
 import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
 import Frame from "@/ui/Frame";
+import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -176,6 +177,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       preferredEnvironment: settings.preferredEnvironment || "",
       maxMetricSliceLevels:
         settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      savedGroupSizeLimit: undefined,
     },
   });
   const { apiCall } = useAuth();
@@ -226,6 +228,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
     maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
+    savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
   };
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -410,6 +413,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             <TabsTrigger value="experiment">Experiment Settings</TabsTrigger>
             <TabsTrigger value="feature">Feature Settings</TabsTrigger>
             <TabsTrigger value="metrics">Metrics &amp; Data</TabsTrigger>
+            <TabsTrigger value="sdk">SDK Configuration</TabsTrigger>
             <TabsTrigger value="import">Import &amp; Export</TabsTrigger>
             <TabsTrigger value="custom">
               <PremiumTooltip commercialFeature="custom-markdown">
@@ -480,6 +484,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsContent>
             <TabsContent value="ai">
               <AISettings promptForm={promptForm} />
+            </TabsContent>
+            <TabsContent value="sdk">
+              <>
+                <SavedGroupSettings />
+              </>
             </TabsContent>
           </Box>
         </Tabs>
