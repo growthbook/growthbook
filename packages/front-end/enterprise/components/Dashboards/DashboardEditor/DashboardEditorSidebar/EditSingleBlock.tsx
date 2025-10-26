@@ -1223,8 +1223,8 @@ export default function EditSingleBlock({
                             }
                           />
                           {savedQuery?.dataVizConfig?.map((config, index) => {
-                            if (!config.title) return null;
-                            const title = config.title;
+                            const title =
+                              config.title || `Visualization ${index + 1}`;
                             const configId = config.id || title; // Fallback to title for backward compatibility
                             return (
                               <Checkbox
