@@ -684,8 +684,12 @@ export default function EditSingleBlock({
             )}
             {blockHasFieldOfType(block, "factMetricId", isString) && (
               <SelectField
-                label="Metric"
-                labelClassName="font-weight-bold"
+                label={
+                  <Text as="label" size="3" weight="medium">
+                    Metric
+                  </Text>
+                }
+                labelClassName="mb-0"
                 value={block.factMetricId}
                 containerClassName="mb-0"
                 onChange={(value) => {

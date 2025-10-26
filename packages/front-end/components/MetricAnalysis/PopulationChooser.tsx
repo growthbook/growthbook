@@ -1,4 +1,5 @@
 import React from "react";
+import { Text } from "@radix-ui/themes";
 import { FaQuestionCircle } from "react-icons/fa";
 import { MetricAnalysisPopulationType } from "back-end/types/metric-analysis";
 import SelectField from "@/components/Forms/SelectField";
@@ -68,8 +69,14 @@ export default function PopulationChooser({
         </div>
       )}
       <SelectField
-        label={newStyle ? "Population" : undefined}
-        labelClassName="font-weight-bold"
+        label={
+          newStyle ? (
+            <Text as="label" size="3" weight="medium">
+              Population
+            </Text>
+          ) : undefined
+        }
+        labelClassName={newStyle ? "mb-0" : undefined}
         containerClassName={newStyle ? "mb-0" : "select-dropdown-underline"}
         options={[
           {

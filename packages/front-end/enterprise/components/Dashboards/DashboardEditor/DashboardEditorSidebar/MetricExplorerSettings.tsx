@@ -3,6 +3,7 @@ import {
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
 import React from "react";
+import { Flex } from "@radix-ui/themes";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import PopulationChooser from "@/components/MetricAnalysis/PopulationChooser";
@@ -20,7 +21,7 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
 
   // TODO: reset invalid values when metric changes
   return (
-    <>
+    <Flex direction="column" gap="3" mb="3">
       {metric && factTable && (
         <Select
           label="Unit"
@@ -134,6 +135,6 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
           <SelectItem value="histogram">Histogram</SelectItem>
         )}
       </Select>
-    </>
+    </Flex>
   );
 }
