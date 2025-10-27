@@ -2,7 +2,6 @@ import { createPrivateKey } from "crypto";
 import { createConnection } from "snowflake-sdk";
 import { SnowflakeConnectionParams } from "back-end/types/integrations/snowflake";
 import { QueryResponse } from "back-end/src/types/Integration";
-import { logger } from "back-end/src/util/logger";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 
 type ProxyOptions = {
@@ -45,10 +44,12 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
 
       authenticationDetails = {
         authenticator: "SNOWFLAKE_JWT",
-        privateKey: privateKeyObject.export({
-          format: "pem",
-          type: "pkcs8",
-        }),
+        privateKey: privateKeyObject
+          .export({
+            format: "pem",
+            type: "pkcs8",
+          })
+          .toString(),
       };
     } catch (e) {
       throw new Error("Invalid private key or private key password");
@@ -71,7 +72,9 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
     ...getProxySettings(),
     application: "GrowthBook_GrowthBook",
     accessUrl: conn.accessUrl ? conn.accessUrl : undefined,
+    queryTag: `{"application": "growthbook"}`,
   });
+
   // promise with timeout to prevent hanging, esp. for test query
   const connectionTimeout = sql === TEST_QUERY_SQL ? 30000 : 600000;
   await new Promise((resolve, reject) => {
@@ -87,26 +90,6 @@ export async function runSnowflakeQuery<T extends Record<string, any>>(
       }
     });
   });
-
-  // currently the Node.js driver does not support adding session parameters in the connection string.
-  // see https://github.com/snowflakedb/snowflake-connector-nodejs/issues/61 in case they fix it one day.
-  // Tagging this session query with the GB tag. This is used to identify queries that are run by GrowthBook
-  try {
-    await new Promise<void>((resolve, reject) => {
-      connection.execute({
-        sqlText: "ALTER SESSION SET QUERY_TAG = 'growthbook'",
-        complete: (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        },
-      });
-    });
-  } catch (e) {
-    logger.warn(e, "Snowflake query tag failed");
-  }
 
   const res = await new Promise<T[]>((resolve, reject) => {
     connection.execute({

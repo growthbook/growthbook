@@ -34,7 +34,7 @@ export default function PublicExperimentOverview({
 
       <div className="box px-4 py-3 mb-4">
         <h4>Description</h4>
-        <Markdown>
+        <Markdown isPublic={true} experimentUid={experiment.uid}>
           {experiment?.description || "_no description_"}
         </Markdown>
       </div>
@@ -53,6 +53,8 @@ export default function PublicExperimentOverview({
         <VariationsTable
           experiment={experiment}
           canEditExperiment={false}
+          isPublic={true}
+          experimentUid={experiment.uid}
         />
       </div>
 
