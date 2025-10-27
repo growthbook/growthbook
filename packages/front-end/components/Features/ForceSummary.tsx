@@ -20,7 +20,7 @@ export default function ForceSummary({
           <ValueDisplay
             value={value}
             type={feature.valueType}
-            showFullscreenButton={feature.valueType === "json"}
+            showFullscreenButton={true}
           />
         </Box>
       </Flex>
