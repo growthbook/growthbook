@@ -9,13 +9,15 @@
 [data-theme="light"] {
   --stepper-step-number-bg: var(--violet-3);
   --stepper-step-number-color: var(--violet-11);
-  --stepper-step-number-border: var(--violet-3);
+  --stepper-step-number-border: var(--violet-a3);
+  --stepper-opacity: 1;
 }
 
 [data-theme="dark"] {
   --stepper-step-number-bg: var(--violet-11);
   --stepper-step-number-color: var(--violet-1);
-  --stepper-step-number-border: var(--violet-11);
+  --stepper-step-number-border: var(--violet-a11);
+  --stepper-opacity: 0.5;
 }
 
 .stepper {
@@ -35,6 +37,7 @@
     height: calc(
       100% - var(--stepper-number-size)
     ); // Extend to connect with next step
+    opacity: var(--stepper-opacity);
     background: var(--stepper-step-number-border);
     z-index: 1;
   }
