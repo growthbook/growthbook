@@ -82,6 +82,7 @@ export default function EnvironmentToggle({
           await submit(feature, environment, on);
         }
       }}
+      size="3"
     />
   );
 
