@@ -130,6 +130,12 @@ export default function DashboardModal({
     );
   }
 
+  const hasGeneralDashboardSharing = hasCommercialFeature(
+    "share-product-analytics-dashboards",
+  );
+  const generalDashboardEditPrivateOnly =
+    !hasGeneralDashboardSharing || form.watch("shareLevel") === "private";
+
   return (
     <Modal
       open={true}
@@ -283,12 +289,10 @@ export default function DashboardModal({
               <>
                 <SelectField
                   label="View access"
-                  disabled={
-                    !hasCommercialFeature("share-product-analytics-dashboards")
-                  }
+                  disabled={!hasGeneralDashboardSharing}
                   helpText={
-                    !hasCommercialFeature("share-product-analytics-dashboards")
-                      ? "Only available with an Enterprise plan"
+                    !hasGeneralDashboardSharing
+                      ? "Your organization's plan does not support sharing dashboards"
                       : undefined
                   }
                   options={[
@@ -305,14 +309,9 @@ export default function DashboardModal({
             )}
             <SelectField
               label="Edit access"
-              disabled={
-                isGeneralDashboard &&
-                (!hasCommercialFeature("share-product-analytics-dashboards") ||
-                  form.watch("shareLevel") === "private")
-              }
+              disabled={isGeneralDashboard && generalDashboardEditPrivateOnly}
               helpText={
-                isGeneralDashboard &&
-                !hasCommercialFeature("share-product-analytics-dashboards")
+                isGeneralDashboard && !hasGeneralDashboardSharing
                   ? "Your organization's plan does not support sharing dashboards"
                   : undefined
               }
@@ -356,9 +355,7 @@ export default function DashboardModal({
             {isGeneralDashboard && (
               <SelectField
                 label="View access"
-                disabled={
-                  !hasCommercialFeature("share-product-analytics-dashboards")
-                }
+                disabled={hasGeneralDashboardSharing}
                 options={[
                   { label: "Organization members", value: "published" },
                   { label: "Only me", value: "private" },
@@ -372,10 +369,7 @@ export default function DashboardModal({
             )}
             <SelectField
               label="Edit access"
-              disabled={
-                !hasCommercialFeature("share-product-analytics-dashboards") ||
-                form.watch("shareLevel") === "private"
-              }
+              disabled={isGeneralDashboard && generalDashboardEditPrivateOnly}
               options={[
                 {
                   label: "Any organization members with editing permission",
