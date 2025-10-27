@@ -227,7 +227,11 @@ export default function ExperimentRefSummary({
                       {j}.
                     </td>
                     <td>
-                      <ValueDisplay value={value} type={type} />
+                      <ValueDisplay
+                        value={value}
+                        type={type}
+                        showFullscreenButton={true}
+                      />
                       <ValidateValue value={value} feature={feature} />
                     </td>
                     <td>{variation.name}</td>

@@ -16,8 +16,12 @@ export default function ForceSummary({
         <Box>
           <strong className="font-weight-semibold">SERVE</strong>
         </Box>
-        <Box>
-          <ValueDisplay value={value} type={feature.valueType} />
+        <Box width="100%">
+          <ValueDisplay
+            value={value}
+            type={feature.valueType}
+            showFullscreenButton={feature.valueType === "json"}
+          />
         </Box>
       </Flex>
       <ValidateValue value={value} feature={feature} />
