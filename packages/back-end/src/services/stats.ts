@@ -574,23 +574,23 @@ function parseStatsEngineResult({
           const ci: [number, number] | undefined = v.response.ci
             ? [v.response.ci[0] ?? -Infinity, v.response.ci[1] ?? Infinity]
             : undefined;
-          const ciCupedUnadjusted: [number, number] | undefined =
-            v.responseCupedUnadjusted.ci
-              ? [
-                  v.responseCupedUnadjusted.ci[0] ?? -Infinity,
-                  v.responseCupedUnadjusted.ci[1] ?? Infinity,
-                ]
-              : undefined;
-          const expectedCupedUnadjusted = v.responseCupedUnadjusted.expected;
-          const upliftCupedUnadjusted = v.responseCupedUnadjusted.uplift;
-          const errorMessageCupedUnadjusted = v.responseCupedUnadjusted.errorMessage;
+          const ciCupedUnadjusted: [number, number] | undefined = v
+            .responseCupedUnadjusted.ci
+            ? [
+                v.responseCupedUnadjusted.ci[0] ?? -Infinity,
+                v.responseCupedUnadjusted.ci[1] ?? Infinity,
+              ]
+            : undefined;
+          const cupedUnadjustedResult = {
+            ci: ciCupedUnadjusted,
+            expected: v.responseCupedUnadjusted.expected,
+            uplift: v.responseCupedUnadjusted.uplift,
+            errorMessage: v.responseCupedUnadjusted.errorMessage,
+          };
           const parsedVariation = {
             ...v.response,
             ci,
-            expectedCupedUnadjusted,
-            upliftCupedUnadjusted,
-            errorMessageCupedUnadjusted,
-            ciCupedUnadjusted,
+            cupedUnadjustedResult: cupedUnadjustedResult,
           };
           data.metrics[metric] = {
             ...parsedVariation,
