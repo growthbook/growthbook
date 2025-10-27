@@ -223,12 +223,18 @@ class EffectMoments:
                     m_statistic=self.stat_a.m_statistic_post,
                     d_statistic=self.stat_a.d_statistic_post,
                     m_d_sum_of_products=self.stat_a.m_post_d_post_sum_of_products,
+                    m_statistic_uncapped=self.stat_a.m_statistic_post_uncapped,
+                    d_statistic_uncapped=self.stat_a.d_statistic_post_uncapped,
+                    m_d_sum_of_products_uncapped=self.stat_a.m_post_d_post_sum_of_products_uncapped,
                 )
                 self.stat_b = RatioStatistic(
                     n=self.stat_b.n,
                     m_statistic=self.stat_b.m_statistic_post,
                     d_statistic=self.stat_b.d_statistic_post,
                     m_d_sum_of_products=self.stat_b.m_post_d_post_sum_of_products,
+                    m_statistic_uncapped=self.stat_b.m_statistic_post_uncapped,
+                    d_statistic_uncapped=self.stat_b.d_statistic_post_uncapped,
+                    m_d_sum_of_products_uncapped=self.stat_b.m_post_d_post_sum_of_products_uncapped,
                 )
             else:
                 self.stat_a.theta = theta

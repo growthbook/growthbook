@@ -563,7 +563,6 @@ export async function createReportSnapshot({
   });
 
   const integration = getSourceIntegrationObject(context, datasource, true);
-
   const queryRunner = new ExperimentResultsQueryRunner(
     context,
     snapshot,
@@ -578,7 +577,6 @@ export async function createReportSnapshot({
     queryParentId: snapshot.id,
     factTableMap,
   });
-
   return snapshot;
 }
 

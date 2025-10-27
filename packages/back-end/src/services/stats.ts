@@ -114,6 +114,7 @@ export interface MetricSettingsForStatsEngine {
   prior_stddev?: number;
   target_mde: number;
   business_metric_type: BusinessMetricTypeForStatsEngine[];
+  capped?: boolean;
 }
 
 export interface QueryResultsForStatsEngine {
@@ -404,6 +405,7 @@ export function getMetricSettingsForStatsEngine(
       metric.id,
       settings,
     ),
+    capped: metric.cappingSettings.type !== "",
   };
 }
 

@@ -43,6 +43,8 @@ class Statistic(ABC):
 class SampleMeanStatistic(Statistic):
     sum: float
     sum_squares: float
+    sum_uncapped: Optional[float]
+    sum_squares_uncapped: Optional[float]
 
     @property
     def variance(self):
@@ -59,10 +61,22 @@ class SampleMeanStatistic(Statistic):
     def __add__(self, other):
         if not isinstance(other, SampleMeanStatistic):
             raise TypeError("Can add only another SampleMeanStatistic instance")
+        sum_uncapped = (
+            self.sum_uncapped + other.sum_uncapped
+            if self.sum_uncapped and other.sum_uncapped
+            else None
+        )
+        sum_squares_uncapped = (
+            self.sum_squares_uncapped + other.sum_squares_uncapped
+            if self.sum_squares_uncapped and other.sum_squares_uncapped
+            else None
+        )
         return SampleMeanStatistic(
             n=self.n + other.n,
             sum=self.sum + other.sum,
             sum_squares=self.sum_squares + other.sum_squares,
+            sum_uncapped=sum_uncapped,
+            sum_squares_uncapped=sum_squares_uncapped,
         )
 
 
@@ -91,6 +105,8 @@ class ProportionStatistic(Statistic):
             n=self.n + other.n,
             sum=self.sum + other.sum,
             sum_squares=self.sum_squares + other.sum_squares,
+            sum_uncapped=None,
+            sum_squares_uncapped=None,
         )
 
 
@@ -98,7 +114,10 @@ class ProportionStatistic(Statistic):
 class RatioStatistic(Statistic):
     m_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     d_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    m_statistic_uncapped: Optional[Union[SampleMeanStatistic, ProportionStatistic]]
+    d_statistic_uncapped: Optional[Union[SampleMeanStatistic, ProportionStatistic]]
     m_d_sum_of_products: float
+    m_d_sum_of_products_uncapped: Optional[float]
 
     @property
     def mean(self):
@@ -138,7 +157,10 @@ class RatioStatistic(Statistic):
 class RegressionAdjustedStatistic(Statistic):
     post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
     pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    post_statistic_uncapped: Optional[Union[SampleMeanStatistic, ProportionStatistic]]
+    pre_statistic_uncapped: Optional[Union[SampleMeanStatistic, ProportionStatistic]]
     post_pre_sum_of_products: float
+    post_pre_sum_of_products_uncapped: Optional[float]
     theta: Optional[float]
 
     def __post_init__(self) -> None:
@@ -148,12 +170,32 @@ class RegressionAdjustedStatistic(Statistic):
     def __add__(self, other):
         if not isinstance(other, RegressionAdjustedStatistic):
             raise TypeError("Can add only another RegressionAdjustedStatistic instance")
+        post_statistic_uncapped = (
+            self.post_statistic_uncapped + other.post_statistic_uncapped
+            if self.post_statistic_uncapped and other.post_statistic_uncapped
+            else None
+        )
+        pre_statistic_uncapped = (
+            self.pre_statistic_uncapped + other.pre_statistic_uncapped
+            if self.pre_statistic_uncapped and other.pre_statistic_uncapped
+            else None
+        )
+        post_pre_sum_of_products_uncapped = (
+            self.post_pre_sum_of_products_uncapped
+            + other.post_pre_sum_of_products_uncapped
+            if self.post_pre_sum_of_products_uncapped
+            and other.post_pre_sum_of_products_uncapped
+            else None
+        )
         return RegressionAdjustedStatistic(
             n=self.n + other.n,
             post_statistic=self.post_statistic + other.post_statistic,
             pre_statistic=self.pre_statistic + other.pre_statistic,
+            post_statistic_uncapped=post_statistic_uncapped,
+            pre_statistic_uncapped=pre_statistic_uncapped,
             post_pre_sum_of_products=self.post_pre_sum_of_products
             + other.post_pre_sum_of_products,
+            post_pre_sum_of_products_uncapped=post_pre_sum_of_products_uncapped,
             theta=None,
         )
 
@@ -235,6 +277,9 @@ def compute_theta(
         post_pre_sum_of_products=a.post_pre_sum_of_products
         + b.post_pre_sum_of_products,
         theta=0,
+        post_statistic_uncapped=None,
+        pre_statistic_uncapped=None,
+        post_pre_sum_of_products_uncapped=None,
     )
     return joint.covariance / joint.pre_statistic.variance
 
@@ -247,8 +292,22 @@ def create_joint_statistic(
     if isinstance(a, ProportionStatistic) and isinstance(b, ProportionStatistic):
         return ProportionStatistic(n=n, sum=a.sum + b.sum)
     elif isinstance(a, SampleMeanStatistic) and isinstance(b, SampleMeanStatistic):
+        sum_uncapped = (
+            a.sum_uncapped + b.sum_uncapped
+            if a.sum_uncapped and b.sum_uncapped
+            else None
+        )
+        sum_squares_uncapped = (
+            a.sum_squares_uncapped + b.sum_squares_uncapped
+            if a.sum_squares_uncapped and b.sum_squares_uncapped
+            else None
+        )
         return SampleMeanStatistic(
-            n=n, sum=a.sum + b.sum, sum_squares=a.sum_squares + b.sum_squares
+            n=n,
+            sum=a.sum + b.sum,
+            sum_squares=a.sum_squares + b.sum_squares,
+            sum_uncapped=sum_uncapped,
+            sum_squares_uncapped=sum_squares_uncapped,
         )
     raise ValueError(
         "Statistic types for a metric must not be different types across variations."
@@ -261,12 +320,22 @@ class RegressionAdjustedRatioStatistic(Statistic):
     d_statistic_post: Union[SampleMeanStatistic, ProportionStatistic]
     m_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
     d_statistic_pre: Union[SampleMeanStatistic, ProportionStatistic]
+    m_statistic_post_uncapped: Optional[Union[SampleMeanStatistic, ProportionStatistic]]
+    d_statistic_post_uncapped: Optional[Union[SampleMeanStatistic, ProportionStatistic]]
+    m_statistic_pre_uncapped: Optional[Union[SampleMeanStatistic, ProportionStatistic]]
+    d_statistic_pre_uncapped: Optional[Union[SampleMeanStatistic, ProportionStatistic]]
     m_post_m_pre_sum_of_products: float
     d_post_d_pre_sum_of_products: float
     m_pre_d_pre_sum_of_products: float
     m_post_d_post_sum_of_products: float
     m_post_d_pre_sum_of_products: float
     m_pre_d_post_sum_of_products: float
+    m_post_m_pre_sum_of_products_uncapped: Optional[float]
+    d_post_d_pre_sum_of_products_uncapped: Optional[float]
+    m_pre_d_pre_sum_of_products_uncapped: Optional[float]
+    m_post_d_post_sum_of_products_uncapped: Optional[float]
+    m_post_d_pre_sum_of_products_uncapped: Optional[float]
+    m_pre_d_post_sum_of_products_uncapped: Optional[float]
     theta: Optional[float]
 
     def __post_init__(self) -> None:
@@ -284,6 +353,68 @@ class RegressionAdjustedRatioStatistic(Statistic):
             raise TypeError(
                 "Can add only another RegressionAdjustedRatioStatistic instance"
             )
+        m_statistic_post_uncapped = (
+            self.m_statistic_post_uncapped + other.m_statistic_post_uncapped
+            if self.m_statistic_post_uncapped and other.m_statistic_post_uncapped
+            else None
+        )
+        d_statistic_post_uncapped = (
+            self.d_statistic_post_uncapped + other.d_statistic_post_uncapped
+            if self.d_statistic_post_uncapped and other.d_statistic_post_uncapped
+            else None
+        )
+        m_statistic_pre_uncapped = (
+            self.m_statistic_pre_uncapped + other.m_statistic_pre_uncapped
+            if self.m_statistic_pre_uncapped and other.m_statistic_pre_uncapped
+            else None
+        )
+        d_statistic_pre_uncapped = (
+            self.d_statistic_pre_uncapped + other.d_statistic_pre_uncapped
+            if self.d_statistic_pre_uncapped and other.d_statistic_pre_uncapped
+            else None
+        )
+        m_post_m_pre_sum_of_products_uncapped = (
+            self.m_post_m_pre_sum_of_products_uncapped
+            + other.m_post_m_pre_sum_of_products_uncapped
+            if self.m_post_m_pre_sum_of_products_uncapped
+            and other.m_post_m_pre_sum_of_products_uncapped
+            else None
+        )
+        d_post_d_pre_sum_of_products_uncapped = (
+            self.d_post_d_pre_sum_of_products_uncapped
+            + other.d_post_d_pre_sum_of_products_uncapped
+            if self.d_post_d_pre_sum_of_products_uncapped
+            and other.d_post_d_pre_sum_of_products_uncapped
+            else None
+        )
+        m_pre_d_pre_sum_of_products_uncapped = (
+            self.m_pre_d_pre_sum_of_products_uncapped
+            + other.m_pre_d_pre_sum_of_products_uncapped
+            if self.m_pre_d_pre_sum_of_products_uncapped
+            and other.m_pre_d_pre_sum_of_products_uncapped
+            else None
+        )
+        m_post_d_post_sum_of_products_uncapped = (
+            self.m_post_d_post_sum_of_products_uncapped
+            + other.m_post_d_post_sum_of_products_uncapped
+            if self.m_post_d_post_sum_of_products_uncapped
+            and other.m_post_d_post_sum_of_products_uncapped
+            else None
+        )
+        m_post_d_pre_sum_of_products_uncapped = (
+            self.m_post_d_pre_sum_of_products_uncapped
+            + other.m_post_d_pre_sum_of_products_uncapped
+            if self.m_post_d_pre_sum_of_products_uncapped
+            and other.m_post_d_pre_sum_of_products_uncapped
+            else None
+        )
+        m_pre_d_post_sum_of_products_uncapped = (
+            self.m_pre_d_post_sum_of_products_uncapped
+            + other.m_pre_d_post_sum_of_products_uncapped
+            if self.m_pre_d_post_sum_of_products_uncapped
+            and other.m_pre_d_post_sum_of_products_uncapped
+            else None
+        )
         return RegressionAdjustedRatioStatistic(
             n=self.n + other.n,
             m_statistic_post=self.m_statistic_post + other.m_statistic_post,
@@ -303,6 +434,16 @@ class RegressionAdjustedRatioStatistic(Statistic):
             m_pre_d_post_sum_of_products=self.m_pre_d_post_sum_of_products
             + other.m_pre_d_post_sum_of_products,
             theta=None,
+            m_statistic_post_uncapped=m_statistic_post_uncapped,
+            d_statistic_post_uncapped=d_statistic_post_uncapped,
+            m_statistic_pre_uncapped=m_statistic_pre_uncapped,
+            d_statistic_pre_uncapped=d_statistic_pre_uncapped,
+            m_post_m_pre_sum_of_products_uncapped=m_post_m_pre_sum_of_products_uncapped,
+            d_post_d_pre_sum_of_products_uncapped=d_post_d_pre_sum_of_products_uncapped,
+            m_pre_d_pre_sum_of_products_uncapped=m_pre_d_pre_sum_of_products_uncapped,
+            m_post_d_post_sum_of_products_uncapped=m_post_d_post_sum_of_products_uncapped,
+            m_post_d_pre_sum_of_products_uncapped=m_post_d_pre_sum_of_products_uncapped,
+            m_pre_d_post_sum_of_products_uncapped=m_pre_d_post_sum_of_products_uncapped,
         )
 
     @property

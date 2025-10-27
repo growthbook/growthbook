@@ -1248,8 +1248,21 @@ export default abstract class SqlIntegration
       "main_pre_denominator_post_sum_product",
       "main_pre_denominator_pre_sum_product",
       "denominator_post_denominator_pre_sum_product",
+      "main_sum_uncapped",
+      "main_sum_squares_uncapped",
+      "denominator_sum_uncapped",
+      "denominator_sum_squares_uncapped",
+      "main_denominator_sum_product_uncapped",
+      "covariate_sum_uncapped",
+      "covariate_sum_squares_uncapped",
+      "denominator_pre_sum_uncapped",
+      "denominator_pre_sum_squares_uncapped",
+      "main_covariate_sum_product_uncapped",
+      "main_post_denominator_pre_sum_product_uncapped",
+      "main_pre_denominator_post_sum_product_uncapped",
+      "main_pre_denominator_pre_sum_product_uncapped",
+      "denominator_post_denominator_pre_sum_product_uncapped",
     ];
-
     return {
       rows: rows.map((row) => {
         let metricData: {
@@ -1377,6 +1390,9 @@ export default abstract class SqlIntegration
           ...(row.main_post_denominator_pre_sum_product !== undefined && {
             main_post_denominator_pre_sum_product:
               parseFloat(row.main_post_denominator_pre_sum_product) || 0,
+          }),
+          ...(row.main_sum_uncapped !== undefined && {
+            main_sum_uncapped: parseFloat(row.main_sum_uncapped) || 0,
           }),
         };
       }),

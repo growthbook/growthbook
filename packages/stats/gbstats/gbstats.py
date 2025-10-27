@@ -3,7 +3,7 @@ import dataclasses
 import re
 import traceback
 import copy
-from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Hashable, List, Optional, Set, Tuple, Union, Literal
 
 import pandas as pd
 import numpy as np
@@ -102,6 +102,20 @@ SUM_COLS = [
     "main_pre_denominator_post_sum_product",
     "main_pre_denominator_pre_sum_product",
     "denominator_post_denominator_pre_sum_product",
+    "main_sum_uncapped",
+    "main_sum_squares_uncapped",
+    "denominator_sum_uncapped",
+    "denominator_sum_squares_uncapped",
+    "main_denominator_sum_product_uncapped",
+    "covariate_sum_uncapped",
+    "covariate_sum_squares_uncapped",
+    "main_covariate_sum_product_uncapped",
+    "denominator_pre_sum_uncapped",
+    "denominator_pre_sum_squares_uncapped",
+    "main_post_denominator_pre_sum_product_uncapped",
+    "main_pre_denominator_post_sum_product_uncapped",
+    "main_pre_denominator_pre_sum_product_uncapped",
+    "denominator_post_denominator_pre_sum_product_uncapped",
 ]
 
 NON_SUMMABLE_COLS = [
@@ -672,6 +686,7 @@ def format_variation_result(row: Dict[Hashable, Any], v: int) -> VariationRespon
 def variation_statistic_from_metric_row(
     row: pd.Series, prefix: str, metric: MetricSettingsForStatsEngine
 ) -> TestStatistic:
+    n = row[f"{prefix}_count"]
     if metric.statistic_type == "quantile_event":
         if metric.quantile_value is None:
             raise ValueError("quantile_value must be set for quantile_event metric")
@@ -702,16 +717,20 @@ def variation_statistic_from_metric_row(
         )
     elif metric.statistic_type == "ratio_ra":
         m_statistic_post = base_statistic_from_metric_row(
-            row, prefix, "main", metric.main_metric_type
+            row, prefix, "main", "default_only", metric.main_metric_type
         )
         d_statistic_post = base_statistic_from_metric_row(
-            row, prefix, "denominator", metric.denominator_metric_type
+            row, prefix, "denominator", "default_only", metric.denominator_metric_type
         )
         m_statistic_pre = base_statistic_from_metric_row(
-            row, prefix, "covariate", metric.main_metric_type
+            row, prefix, "covariate", "default_only", metric.main_metric_type
         )
         d_statistic_pre = base_statistic_from_metric_row(
-            row, prefix, "denominator_pre", metric.denominator_metric_type
+            row,
+            prefix,
+            "denominator_pre",
+            "default_only",
+            metric.denominator_metric_type,
         )
         m_post_m_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
         d_post_d_pre_sum_of_products = row[
@@ -727,8 +746,58 @@ def variation_statistic_from_metric_row(
         m_pre_d_post_sum_of_products = row[
             f"{prefix}_main_pre_denominator_post_sum_product"
         ]
+        if metric.capped:
+            m_statistic_post_uncapped = base_statistic_from_metric_row(
+                row, prefix, "main", "uncapped_only", metric.main_metric_type
+            )
+            d_statistic_post_uncapped = base_statistic_from_metric_row(
+                row,
+                prefix,
+                "denominator",
+                "uncapped_only",
+                metric.denominator_metric_type,
+            )
+            m_statistic_pre_uncapped = base_statistic_from_metric_row(
+                row, prefix, "covariate", "uncapped_only", metric.main_metric_type
+            )
+            d_statistic_pre_uncapped = base_statistic_from_metric_row(
+                row,
+                prefix,
+                "denominator_pre",
+                "uncapped_only",
+                metric.denominator_metric_type,
+            )
+            m_post_m_pre_sum_of_products_uncapped = row[
+                f"{prefix}_main_covariate_sum_product_uncapped"
+            ]
+            d_post_d_pre_sum_of_products_uncapped = row[
+                f"{prefix}_denominator_post_denominator_pre_sum_product_uncapped"
+            ]
+            m_pre_d_pre_sum_of_products_uncapped = row[
+                f"{prefix}_main_pre_denominator_pre_sum_product_uncapped"
+            ]
+            m_post_d_post_sum_of_products_uncapped = row[
+                f"{prefix}_main_denominator_sum_product_uncapped"
+            ]
+            m_post_d_pre_sum_of_products_uncapped = row[
+                f"{prefix}_main_post_denominator_pre_sum_product_uncapped"
+            ]
+            m_pre_d_post_sum_of_products_uncapped = row[
+                f"{prefix}_main_pre_denominator_post_sum_product_uncapped"
+            ]
+        else:
+            m_statistic_post_uncapped = None
+            d_statistic_post_uncapped = None
+            m_statistic_pre_uncapped = None
+            d_statistic_pre_uncapped = None
+            m_post_m_pre_sum_of_products_uncapped = None
+            d_post_d_pre_sum_of_products_uncapped = None
+            m_pre_d_pre_sum_of_products_uncapped = None
+            m_post_d_post_sum_of_products_uncapped = None
+            m_post_d_pre_sum_of_products_uncapped = None
+            m_pre_d_post_sum_of_products_uncapped = None
         return RegressionAdjustedRatioStatistic(
-            n=row[f"{prefix}_users"],
+            n=n,
             m_statistic_post=m_statistic_post,
             d_statistic_post=d_statistic_post,
             m_statistic_pre=m_statistic_pre,
@@ -739,32 +808,100 @@ def variation_statistic_from_metric_row(
             m_post_d_post_sum_of_products=m_post_d_post_sum_of_products,
             m_post_d_pre_sum_of_products=m_post_d_pre_sum_of_products,
             m_pre_d_post_sum_of_products=m_pre_d_post_sum_of_products,
+            m_statistic_post_uncapped=m_statistic_post_uncapped,
+            d_statistic_post_uncapped=d_statistic_post_uncapped,
+            m_statistic_pre_uncapped=m_statistic_pre_uncapped,
+            d_statistic_pre_uncapped=d_statistic_pre_uncapped,
+            m_post_m_pre_sum_of_products_uncapped=m_post_m_pre_sum_of_products_uncapped,
+            d_post_d_pre_sum_of_products_uncapped=d_post_d_pre_sum_of_products_uncapped,
+            m_pre_d_pre_sum_of_products_uncapped=m_pre_d_pre_sum_of_products_uncapped,
+            m_post_d_post_sum_of_products_uncapped=m_post_d_post_sum_of_products_uncapped,
+            m_post_d_pre_sum_of_products_uncapped=m_post_d_pre_sum_of_products_uncapped,
+            m_pre_d_post_sum_of_products_uncapped=m_pre_d_post_sum_of_products_uncapped,
             theta=None,
         )
     elif metric.statistic_type == "ratio":
+        m_statistic = base_statistic_from_metric_row(
+            row, prefix, "main", "default_only", metric.main_metric_type
+        )
+        d_statistic = base_statistic_from_metric_row(
+            row, prefix, "denominator", "default_only", metric.denominator_metric_type
+        )
+        m_d_sum_of_products = row[f"{prefix}_main_denominator_sum_product"]
+        if metric.capped:
+            m_statistic_uncapped = base_statistic_from_metric_row(
+                row, prefix, "main", "uncapped_only", metric.main_metric_type
+            )
+            d_statistic_uncapped = base_statistic_from_metric_row(
+                row,
+                prefix,
+                "denominator",
+                "uncapped_only",
+                metric.denominator_metric_type,
+            )
+            m_d_sum_of_products_uncapped = row[
+                f"{prefix}_main_denominator_sum_product_uncapped"
+            ]
+        else:
+            m_statistic_uncapped = None
+            d_statistic_uncapped = None
+            m_d_sum_of_products_uncapped = None
         return RatioStatistic(
-            m_statistic=base_statistic_from_metric_row(
-                row, prefix, "main", metric.main_metric_type
-            ),
-            d_statistic=base_statistic_from_metric_row(
-                row, prefix, "denominator", metric.denominator_metric_type
-            ),
-            m_d_sum_of_products=row[f"{prefix}_main_denominator_sum_product"],
-            n=row[f"{prefix}_users"],
+            m_statistic=m_statistic,
+            d_statistic=d_statistic,
+            m_d_sum_of_products=m_d_sum_of_products,
+            m_statistic_uncapped=m_statistic_uncapped,
+            d_statistic_uncapped=d_statistic_uncapped,
+            m_d_sum_of_products_uncapped=m_d_sum_of_products_uncapped,
+            n=n,
         )
     elif metric.statistic_type == "mean":
+        capping_type = "both" if metric.capped else "default_only"
         return base_statistic_from_metric_row(
-            row, prefix, "main", metric.main_metric_type
+            row,
+            prefix,
+            "main",
+            capping_type=capping_type,
+            metric_type=metric.main_metric_type,
         )
     elif metric.statistic_type == "mean_ra":
         post_statistic = base_statistic_from_metric_row(
-            row, prefix, "main", metric.main_metric_type
+            row,
+            prefix,
+            "main",
+            capping_type="default_only",
+            metric_type=metric.main_metric_type,
         )
         pre_statistic = base_statistic_from_metric_row(
-            row, prefix, "covariate", metric.covariate_metric_type
+            row,
+            prefix,
+            "covariate",
+            capping_type="default_only",
+            metric_type=metric.covariate_metric_type,
         )
         post_pre_sum_of_products = row[f"{prefix}_main_covariate_sum_product"]
-        n = row[f"{prefix}_users"]
+        if metric.capped:
+            post_statistic_uncapped = base_statistic_from_metric_row(
+                row,
+                prefix,
+                "main",
+                capping_type="uncapped_only",
+                metric_type=metric.main_metric_type,
+            )
+            pre_statistic_uncapped = base_statistic_from_metric_row(
+                row,
+                prefix,
+                "covariate",
+                capping_type="uncapped_only",
+                metric_type=metric.covariate_metric_type,
+            )
+            post_pre_sum_of_products_uncapped = row[
+                f"{prefix}_main_covariate_sum_product_uncapped"
+            ]
+        else:
+            post_statistic_uncapped = None
+            pre_statistic_uncapped = None
+            post_pre_sum_of_products_uncapped = None
         # Theta will be overriden with correct value later for A/B tests, needs to be passed in for bandits
         theta = None
         if metric.keep_theta:
@@ -773,6 +910,9 @@ def variation_statistic_from_metric_row(
             post_statistic=post_statistic,
             pre_statistic=pre_statistic,
             post_pre_sum_of_products=post_pre_sum_of_products,
+            post_statistic_uncapped=post_statistic_uncapped,
+            pre_statistic_uncapped=pre_statistic_uncapped,
+            post_pre_sum_of_products_uncapped=post_pre_sum_of_products_uncapped,
             n=n,
             theta=theta,
         )
@@ -780,20 +920,64 @@ def variation_statistic_from_metric_row(
         raise ValueError(f"Unexpected statistic_type: {metric.statistic_type}")
 
 
+CappingType = Literal["default_only", "uncapped_only", "both"]
+
+
 def base_statistic_from_metric_row(
-    row: pd.Series, prefix: str, component: str, metric_type: Optional[MetricType]
+    row: pd.Series,
+    prefix: str,
+    component: str,
+    capping_type: CappingType,
+    metric_type: Optional[MetricType] = None,
 ) -> Union[ProportionStatistic, SampleMeanStatistic]:
     if metric_type:
+        n = row[f"{prefix}_count"]
         if metric_type == "binomial":
-            return ProportionStatistic(
-                sum=row[f"{prefix}_{component}_sum"], n=row[f"{prefix}_count"]
-            )
+            return ProportionStatistic(sum=row[f"{prefix}_{component}_sum"], n=n)
         elif metric_type == "count":
-            return SampleMeanStatistic(
-                sum=row[f"{prefix}_{component}_sum"],
-                sum_squares=row[f"{prefix}_{component}_sum_squares"],
-                n=row[f"{prefix}_count"],
+            sum_default = row[f"{prefix}_{component}_sum"]
+            sum_squares_default = row[f"{prefix}_{component}_sum_squares"]
+            sum_uncapped = (
+                row[f"{prefix}_{component}_sum_uncapped"]
+                if f"{prefix}_{component}_sum_uncapped" in row.index
+                else None
             )
+            sum_squares_uncapped = (
+                row[f"{prefix}_{component}_sum_squares_uncapped"]
+                if f"{prefix}_{component}_sum_squares_uncapped" in row.index
+                else None
+            )
+
+            if capping_type == "default_only":
+                return SampleMeanStatistic(
+                    sum=sum_default,
+                    sum_squares=sum_squares_default,
+                    n=n,
+                    sum_uncapped=None,
+                    sum_squares_uncapped=None,
+                )
+            elif (
+                capping_type == "uncapped_only"
+                and sum_uncapped
+                and sum_squares_uncapped
+            ):
+                return SampleMeanStatistic(
+                    sum=sum_uncapped,
+                    sum_squares=sum_squares_uncapped,
+                    n=n,
+                    sum_uncapped=None,
+                    sum_squares_uncapped=None,
+                )
+            elif capping_type == "both" and sum_uncapped and sum_squares_uncapped:
+                return SampleMeanStatistic(
+                    sum=sum_default,
+                    sum_squares=sum_squares_default,
+                    n=n,
+                    sum_uncapped=sum_uncapped,
+                    sum_squares_uncapped=sum_squares_uncapped,
+                )
+            else:
+                raise ValueError(f"Missing capping data for {prefix}_{component}.")
         else:
             raise ValueError(f"Unexpected metric_type: {metric_type}")
     else:
@@ -924,10 +1108,17 @@ def create_bandit_statistics(
         # recast proportion metrics in case they slipped through
         # for bandits we weight by period; iid data over periods no longer holds
         if isinstance(stat, ProportionStatistic):
-            stat = SampleMeanStatistic(n=stat.n, sum=stat.sum, sum_squares=stat.sum)
+            stat = SampleMeanStatistic(
+                n=stat.n,
+                sum=stat.sum,
+                sum_squares=stat.sum,
+                sum_uncapped=None,
+                sum_squares_uncapped=None,
+            )
         if isinstance(stat, QuantileStatistic):
             raise ValueError("QuantileStatistic not supported for bandits")
         stats.append(stat)
+    raise ValueError(f"stats: {stats}")
 
     return stats
 
