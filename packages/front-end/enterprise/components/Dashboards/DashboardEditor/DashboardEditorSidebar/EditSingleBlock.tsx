@@ -522,6 +522,8 @@ export default function EditSingleBlock({
     });
   };
 
+  console.log("block", block);
+
   return (
     <>
       {showSqlExplorerModal && (
@@ -534,45 +536,50 @@ export default function EditSingleBlock({
           id={savedQuery?.id}
           dashboardId={dashboardId}
           onSave={async (savedQueryId: string | undefined) => {
-            if (savedQueryId && block && block.type === "sql-explorer") {
-              // When the user creates a new query, update the block with the new query ID
-              setBlock({
-                ...block,
-                savedQueryId,
-                blockConfig: [BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE],
-              });
-              // Switch to "existing" mode since we now have a saved query
-              setSqlExplorerType("existing");
-            }
+            if (!block || block.type !== "sql-explorer" || !savedQueryId)
+              return;
 
-            // Refresh dashboard data to show updated visualizations
+            const isNewQuery = !blockHasFieldOfType(
+              block,
+              "savedQueryId",
+              isString,
+            );
+
+            // Update block with saved query ID
+            setBlock({
+              ...block,
+              savedQueryId,
+            });
+            setSqlExplorerType("existing");
+
+            // Refresh dashboard data to get latest saved query info
             await updateAllSnapshots();
 
-            // If this is an update to an existing saved query, update blockConfig to include new visualizations
-            if (
-              savedQueryId &&
-              block &&
-              block.type === "sql-explorer" &&
-              block.savedQueryId === savedQueryId
-            ) {
-              // Get the updated saved query data
-              const updatedSavedQuery = savedQueriesMap.get(savedQueryId);
-              if (updatedSavedQuery?.dataVizConfig) {
-                // Create new blockConfig with all visualization IDs
-                const visualizationIds = updatedSavedQuery.dataVizConfig
-                  .map((viz) => viz.id)
-                  .filter((id): id is string => Boolean(id));
+            // Update blockConfig based on saved query visualizations
+            const updatedSavedQuery = savedQueriesMap.get(savedQueryId);
+            if (updatedSavedQuery?.dataVizConfig) {
+              const visualizationIds = updatedSavedQuery.dataVizConfig
+                .map((viz) => viz.id)
+                .filter((id): id is string => Boolean(id));
 
-                const newBlockConfig = [
+              let newBlockConfig: string[];
+
+              if (isNewQuery) {
+                // New query: enable results table and all visualizations
+                newBlockConfig = [
                   BLOCK_CONFIG_ITEM_TYPES.RESULTS_TABLE,
                   ...visualizationIds,
                 ];
-
-                setBlock({
-                  ...block,
-                  blockConfig: newBlockConfig,
-                });
+              } else {
+                // Existing query: preserve existing config and add new visualizations
+                const existingConfig = block.blockConfig || [];
+                newBlockConfig = [...existingConfig];
               }
+
+              setBlock({
+                ...block,
+                blockConfig: newBlockConfig,
+              });
             }
 
             mutateQuery();
