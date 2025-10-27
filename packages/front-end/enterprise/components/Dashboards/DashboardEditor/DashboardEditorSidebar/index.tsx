@@ -21,7 +21,7 @@ import {
   DASHBOARD_WORKSPACE_NAV_HEIGHT,
 } from "@/enterprise/components/Dashboards/DashboardWorkspace";
 import Button from "@/ui/Button";
-import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO } from "..";
+import { BLOCK_SUBGROUPS, BLOCK_TYPE_INFO, isBlockTypeAllowed } from "..";
 import EditSingleBlock from "./EditSingleBlock";
 
 // Block types that are allowed in general dashboards (non-experiment specific)
@@ -30,18 +30,6 @@ const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "sql-explorer",
   "metric-explorer",
 ];
-
-// Helper function to check if a block type is allowed for the given dashboard type
-const isBlockTypeAllowed = (
-  blockType: DashboardBlockType,
-  isGeneralDashboard: boolean,
-): boolean => {
-  if (isGeneralDashboard) {
-    return GENERAL_DASHBOARD_BLOCK_TYPES.includes(blockType);
-  } else {
-    return true; // All block types are allowed for experiment dashboards
-  }
-};
 
 function moveBlocks<T>(
   blocks: Array<T>,
