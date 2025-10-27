@@ -16,58 +16,14 @@ type Props = {
 };
 
 export default function ButtonCard({
-  className,
   children,
   icon,
   title,
   description,
   to,
-  aLink = false,
-  layout = "vertical",
-  align = "left",
-  color = "default",
 }: Props) {
-  if (aLink) {
-    return (
-      <a
-        href={to}
-        className={[
-          "button-card",
-          `button-card--${layout}`,
-          `button-card--${align}`,
-          `button-card--${color}`,
-          className,
-        ].join(" ")}
-      >
-        {children ? (
-          <div className="button-card__inner">{children}</div>
-        ) : (
-          <div className="button-card__inner">
-            <header>
-              {icon && typeof icon == "string" ? (
-                <img alt="icon" src={icon} width={24} />
-              ) : (
-                icon
-              )}
-              <h3>{title}</h3>
-            </header>
-            <p>{description}</p>
-          </div>
-        )}
-      </a>
-    );
-  }
   return (
-    <Link
-      to={to}
-      className={[
-        "button-card",
-        `button-card--${layout}`,
-        `button-card--${align}`,
-        `button-card--${color}`,
-        className,
-      ].join(" ")}
-    >
+    <Link to={to} className="button-card">
       {children ? (
         <div className="button-card__inner">{children}</div>
       ) : (
@@ -80,7 +36,15 @@ export default function ButtonCard({
             )}
             <h3>{title}</h3>
           </header>
-          <p>{description}</p>
+          <p
+            className={
+              icon
+                ? "button-card__description-with-icon"
+                : "button-card__description-without-icon"
+            }
+          >
+            {description}
+          </p>
         </div>
       )}
     </Link>

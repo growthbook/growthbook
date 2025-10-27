@@ -46,8 +46,10 @@ npx sanity@latest init
 
 Choose the default options when prompted. This creates Sanity Studio inside your Next.js project (accessible at `/studio`) and sets up the necessary config files.
 
-:::note
+:::info Free Sanity account required
+
 You’ll need a free Sanity account to complete this guide, if you do not yet have one, you will be prompted to create one after running this command.
+
 :::
 
 ## Add the Sanity Personalization Plugin
@@ -238,7 +240,7 @@ export const CAMERA_PRODUCT_QUERY = defineQuery(`
 
 This query fetches the experiment content and serves the appropriate variation to the user.
 
-:::tip
+:::tip Type generation
 Run `npx sanity@latest schema extract && npx sanity@latest typegen generate` in your project to generate types for your queries/schema automatically.
 :::
 
@@ -264,7 +266,7 @@ In this section, we'll create an SDK connection, feature flag, and experiment in
 GROWTHBOOK_CLIENT_KEY=<YOUR_CLIENT_KEY>
 ```
 
-:::tip
+:::tip Update env variables
 
 Remember to update environment variables with your hosting provider when you deploy your app.
 
@@ -320,7 +322,7 @@ Your experiment is now live! Before creating the content variations with Sanity,
 
 In Sanity Studio, we'll open the `Camera Product` document for the Sony A7 IV. While our control uses matter-of-fact language, the variation will be more exciting.
 
-:::tip
+:::note API key required
 The first time you open document an experiment field, you'll be prompted to enter the API key you created in the previous step.
 :::
 
@@ -757,8 +759,8 @@ Visit the app in your browser to see which variation is being served. Even when 
 
 Check your console to see debug info.
 
-:::tip
-Clear or override the GB_UUID_COOKIE to see different variations.
+:::tip Clear or override the GB_UUID_COOKIE to see different variations
+
 :::
 
 ## Next Steps

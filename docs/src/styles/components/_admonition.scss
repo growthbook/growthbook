@@ -3,28 +3,42 @@
 // Based on the callout design pattern
 .theme-admonition {
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: none;
+  padding: 1rem;
 
   [class^="admonitionHeading"] {
-    font-size: 0.8rem;
-    line-height: 1;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-block-end: 0.25rem;
+    line-height: 20px;
   }
 
   [class^="admonitionIcon"] {
-    width: 1em;
-    height: 1em;
-    translate: 0 -0.05em;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+
     svg {
       fill: currentColor;
-      width: 1em;
-      height: 1em;
+      width: 1rem;
+      height: 1rem;
     }
   }
 
   a {
     color: inherit;
     text-decoration-color: currentColor;
+  }
+
+  p {
+    margin-inline-start: 24px;
+    line-height: 1.5 !important;
+    font-size: 0.875rem !important;
   }
 }
 

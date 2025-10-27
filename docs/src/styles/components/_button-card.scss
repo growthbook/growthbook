@@ -82,25 +82,32 @@
   // }
 
   .button-card__inner {
+    .button-card__content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
     header {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      margin-bottom: 0.3rem;
+      margin-block-end: 0.25rem;
+    }
 
-      svg {
-        width: 1.15em;
-        height: 1.15em;
-        flex-shrink: 0;
-        color: var(--color-text-high);
-      }
+    svg {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+      color: var(--color-text-high);
+    }
 
-      h3 {
-        font-size: 1rem;
-        font-weight: 600;
-        margin-block-end: 0;
-        color: var(--color-text-high);
-      }
+    h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-block-end: 0;
+      color: var(--color-text-high);
+      line-height: 20px;
     }
 
     img {
@@ -111,6 +118,12 @@
       color: var(--color-text-mid);
       font-size: 0.875rem;
       margin-bottom: 0;
+      max-width: 65ch;
+      line-height: 1.5;
+      text-wrap: pretty;
+    }
+    .button-card__description-with-icon {
+      margin-left: 24px;
     }
   }
 }
