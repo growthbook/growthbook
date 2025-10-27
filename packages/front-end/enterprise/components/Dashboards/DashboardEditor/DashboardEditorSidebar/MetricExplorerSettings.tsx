@@ -2,7 +2,7 @@ import {
   DashboardBlockInterfaceOrData,
   MetricExplorerBlockInterface,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Flex, TextField } from "@radix-ui/themes";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -35,6 +35,22 @@ export default function MetricExplorerSettings({ block, setBlock }: Props) {
       ? block.analysisSettings.lookbackDays.toString()
       : "";
   });
+
+  useEffect(() => {
+    // If there is only one userId type for a Fact Table and no userId type is selected, auto-select for the user
+    if (
+      factTable?.userIdTypes?.length === 1 &&
+      block.analysisSettings.userIdType === ""
+    ) {
+      setBlock({
+        ...block,
+        analysisSettings: {
+          ...block.analysisSettings,
+          userIdType: factTable.userIdTypes[0],
+        },
+      });
+    }
+  }, [block, factTable?.userIdTypes, setBlock]);
 
   // TODO: reset invalid values when metric changes
   return (
