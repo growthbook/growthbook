@@ -306,12 +306,14 @@ export default function DashboardModal({
             <SelectField
               label="Edit access"
               disabled={
-                !hasCommercialFeature("share-product-analytics-dashboards") ||
-                form.watch("shareLevel") === "private"
+                isGeneralDashboard &&
+                (!hasCommercialFeature("share-product-analytics-dashboards") ||
+                  form.watch("shareLevel") === "private")
               }
               helpText={
+                isGeneralDashboard &&
                 !hasCommercialFeature("share-product-analytics-dashboards")
-                  ? "Only available with an Enterprise plan"
+                  ? "Your organization's plan does not support sharing dashboards"
                   : undefined
               }
               options={[

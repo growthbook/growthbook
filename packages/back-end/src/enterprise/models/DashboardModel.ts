@@ -20,8 +20,13 @@ import {
 } from "./DashboardBlockModel";
 
 export type DashboardDocument = mongoose.Document & DashboardInterface;
-type LegacyDashboardDocument = Omit<DashboardDocument, "blocks"> & {
+type LegacyDashboardDocument = Omit<
+  DashboardDocument,
+  "blocks" | "editLevel" | "shareLevel"
+> & {
   blocks: LegacyDashboardBlockInterface[];
+  editLevel: "organization" | "private";
+  shareLevel?: DashboardInterface["shareLevel"];
 };
 
 const COLLECTION_NAME = "dashboards";
@@ -225,6 +230,9 @@ export class DashboardModel extends BaseClass {
     return toInterface({
       ...orig,
       blocks: orig.blocks.map(migrateBlock),
+      editLevel:
+        orig.editLevel === "organization" ? "published" : orig.editLevel,
+      shareLevel: orig.shareLevel ?? "private",
     });
   }
 
