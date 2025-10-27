@@ -1013,7 +1013,7 @@ function getStickyBucketVariation({
 
   // users with any blocked bucket version (0 to minExperimentBucketVersion) are excluded from the test
   if (expMinBucketVersion > 0) {
-    for (let i = 0; i <= expMinBucketVersion; i++) {
+    for (let i = 0; i < expMinBucketVersion; i++) {
       const blockedKey = getStickyBucketExperimentKey(expKey, i);
       if (assignments[blockedKey] !== undefined) {
         return {
