@@ -10,6 +10,7 @@ import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { isProjectListValidForProject } from "shared/util";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSearch } from "@/services/search";
@@ -64,8 +65,16 @@ export default function DashboardsPage() {
     DashboardBlockInterfaceOrData<DashboardBlockInterface>[]
   >([]);
   const { dashboards, loading, error, mutateDashboards } = useDashboards(false);
+
+  // Filter dashboards by project
+  const filteredDashboards = project
+    ? dashboards.filter((dashboard) =>
+        isProjectListValidForProject(dashboard.projects, project),
+      )
+    : dashboards;
+
   const { items, searchInputProps, isFiltered, SortableTH } = useSearch({
-    items: dashboards,
+    items: filteredDashboards,
     localStorageKey: "dashboards",
     defaultSortField: "dateCreated",
     defaultSortDir: -1,
@@ -82,7 +91,7 @@ export default function DashboardsPage() {
       projects: [project],
     }) && hasCommercialFeature("product-analytics-dashboards");
 
-  const dashboard = dashboards.find((d) => d.id === dashboardId);
+  const dashboard = filteredDashboards.find((d) => d.id === dashboardId);
 
   useEffect(() => {
     if (dashboard) {
@@ -264,13 +273,13 @@ export default function DashboardsPage() {
       <div className="p-3 container-fluid pagecontents">
         <Flex justify="between" align="center">
           <h1>Product Analytics Dashboards</h1>
-          {dashboards.length ? (
+          {filteredDashboards.length ? (
             <Button onClick={createDashboardWithDefaults} disabled={!canCreate}>
               Create Dashboard
             </Button>
           ) : null}
         </Flex>
-        {!dashboards.length ? (
+        {!filteredDashboards.length ? (
           <div className="mt-4">
             {!hasCommercialFeature("product-analytics-dashboards") ? (
               <PremiumEmptyState
