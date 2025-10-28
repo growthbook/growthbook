@@ -9,6 +9,7 @@ import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import { FaArrowRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDashboards } from "@/hooks/useDashboards";
 import { useSearch } from "@/services/search";
@@ -44,6 +45,8 @@ export default function DashboardsPage() {
   const { getUserDisplay, hasCommercialFeature, userId } = useUser();
   const { project } = useDefinitions();
   const { apiCall } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -133,7 +136,36 @@ export default function DashboardsPage() {
     [apiCall, mutateDashboards],
   );
 
-  if (loading) return <LoadingOverlay />;
+  const createDashboardWithDefaults = useCallback(async () => {
+    const defaultProjects = project ? [project] : [];
+
+    const res = await apiCall<{
+      status: number;
+      dashboard: DashboardInterface;
+    }>("/dashboards", {
+      method: "POST",
+      body: JSON.stringify({
+        title: "Untitled Dashboard",
+        editLevel: "private",
+        shareLevel: "private",
+        enableAutoUpdates: false,
+        experimentId: "",
+        projects: defaultProjects,
+        blocks: [],
+      }),
+    });
+
+    if (res.status === 200) {
+      mutateDashboards();
+      setDashboardId(res.dashboard.id);
+      setBlocks(res.dashboard.blocks);
+      setIsEditing(true);
+    } else {
+      console.error(res);
+    }
+  }, [apiCall, mutateDashboards, project]);
+
+  if (loading || saving) return <LoadingOverlay />;
 
   return (
     <>
@@ -143,7 +175,10 @@ export default function DashboardsPage() {
           dashboard={dashboard}
           submitDashboard={submitDashboard}
           mutate={mutateDashboards}
-          close={() => setIsEditing(false)}
+          close={() => {
+            setSaving(true);
+            router.push(`/product-analytics/dashboards/${dashboard.id}`);
+          }}
           isTabActive={true}
         />
       )}
@@ -230,10 +265,7 @@ export default function DashboardsPage() {
         <Flex justify="between" align="center">
           <h1>Product Analytics Dashboards</h1>
           {dashboards.length ? (
-            <Button
-              onClick={() => setShowCreateModal(true)}
-              disabled={!canCreate}
-            >
+            <Button onClick={createDashboardWithDefaults} disabled={!canCreate}>
               Create Dashboard
             </Button>
           ) : null}
@@ -251,7 +283,7 @@ export default function DashboardsPage() {
                 title="Explore & Share Custom Analyses"
                 description="Create curated dashboards to visualize key metrics and track performance."
                 leftButton={
-                  <Button onClick={() => setShowCreateModal(true)}>
+                  <Button onClick={createDashboardWithDefaults}>
                     Create Dashboard
                   </Button>
                 }
