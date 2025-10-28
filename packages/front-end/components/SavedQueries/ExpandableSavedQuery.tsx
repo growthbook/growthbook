@@ -1,9 +1,8 @@
 import { FC } from "react";
 import { FaExclamationTriangle, FaCheck } from "react-icons/fa";
-import { isFactMetricId } from "shared/experiments";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
 import { formatDuration } from "date-fns";
-import { useDefinitions } from "@/services/DefinitionsContext";
+import { datetime } from "shared/dates";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Callout from "@/ui/Callout";
 
@@ -19,8 +18,6 @@ const ExpandableSavedQuery: FC<{
       title = comments[2];
     }
   }
-
-  const { getFactMetricById } = useDefinitions();
 
   return (
     <div className="mb-4">
@@ -66,23 +63,6 @@ const ExpandableSavedQuery: FC<{
                   <tr key={i}>
                     <th>{i}</th>
                     {Object.keys(savedQuery.results.results[0]).map((k) => {
-                      const val = row[k];
-                      if (typeof val === "string" && isFactMetricId(val)) {
-                        const factMetric = getFactMetricById(val);
-                        if (factMetric) {
-                          return (
-                            <td key={k}>
-                              <span
-                                className="badge badge-secondary"
-                                title={val}
-                              >
-                                {factMetric?.name || val}
-                              </span>
-                            </td>
-                          );
-                        }
-                      }
-
                       return (
                         <td key={k}>
                           {JSON.stringify(row[k]) ?? (
@@ -102,9 +82,13 @@ const ExpandableSavedQuery: FC<{
           No rows returned
         </Callout>
       )}
-      {savedQuery.results.duration && (
-        <div>
-          <div className="row">
+      <div>
+        <div className="row">
+          <div className="col-auto mb-2">
+            <em>Last ran at</em>:{" "}
+            <strong>{datetime(savedQuery.dateLastRan)}</strong>
+          </div>
+          {savedQuery.results.duration && (
             <div className="col-auto mb-2">
               <em>Total time</em>:{" "}
               <strong>
@@ -113,9 +97,9 @@ const ExpandableSavedQuery: FC<{
                 })}
               </strong>
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
