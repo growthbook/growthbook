@@ -222,13 +222,13 @@ export const deleteProject = async (
   }
 
   // Clean up fact metrics
-  // TODO: we should delete fact metrics when deleting a fact table
   if (deleteFactTables) {
     try {
       await deleteAllFactTablesForAProject({
         projectId: id,
         context,
       });
+      await context.models.factMetrics.deleteAllFactMetricsForAProject(id);
     } catch (e) {
       return res.json({
         status: 403,
@@ -237,6 +237,7 @@ export const deleteProject = async (
     }
   } else {
     await removeProjectFromFactTables(id, context);
+    await context.models.factMetrics.removeProjectFromFactMetrics(id);
   }
 
   // Clean up features

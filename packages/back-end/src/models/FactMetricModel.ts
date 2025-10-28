@@ -285,6 +285,30 @@ export class FactMetricModel extends BaseClass {
     }
   }
 
+  public async deleteAllFactMetricsForAProject(projectId: string) {
+    const factMetrics = await this._find({
+      projects: [projectId],
+    });
+    await Promise.all(
+      factMetrics.map((factMetric) => this.deleteById(factMetric.id)),
+    );
+  }
+
+  public async removeProjectFromFactMetrics(projectId: string) {
+    // Find all fact metrics for the project
+    const factMetrics = await this._find({
+      projects: [projectId],
+    });
+    // Update each fact metric to remove the project
+    await Promise.all(
+      factMetrics.map((factMetric) =>
+        this.updateById(factMetric.id, {
+          projects: factMetric.projects.filter((p) => p !== projectId),
+        }),
+      ),
+    );
+  }
+
   public toApiInterface(factMetric: FactMetricInterface): ApiFactMetric {
     const {
       quantileSettings,
