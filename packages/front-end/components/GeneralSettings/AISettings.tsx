@@ -7,7 +7,7 @@ import Frame from "@/ui/Frame";
 import Field from "@/components/Forms/Field";
 import Checkbox from "@/ui/Checkbox";
 import SelectField from "@/components/Forms/SelectField";
-import { isCloud, hasOpenAIKey } from "@/services/env";
+import { isCloud, hasOpenAIKey, hasOllamaServer } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import Button from "@/ui/Button";
 import { useAISettings } from "@/hooks/useOrgSettings";
@@ -65,13 +65,13 @@ function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
 }
 
 const openAIModels = [
-  { value: "gpt-4o-mini", label: "gpt-4o-mini" },
-  { value: "gpt-4o", label: "gpt-4o" },
-  { value: "gpt-4", label: "gpt-4" },
-  { value: "gpt-4-turbo", label: "gpt-4-turbo" },
-  { value: "gpt-4-vision-preview", label: "gpt-4-vision-preview" },
-  { value: "gpt-3.5-turbo", label: "gpt-3.5-turbo" },
-  { value: "gpt-3.5-turbo-16k", label: "gpt-3.5-turbo-16k" },
+  { value: "gpt-4o-mini", label: "GPT-4o mini" },
+  { value: "gpt-4o", label: "GPT-4o" },
+  { value: "gpt-4", label: "GPT-4" },
+  { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
+  { value: "gpt-4-vision-preview", label: "GPT-4 vision-preview" },
+  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
+  { value: "gpt-3.5-turbo-16k", label: "GPT-3.5 Turbo-16k" },
 ];
 
 export default function AISettings({
@@ -183,44 +183,112 @@ export default function AISettings({
                 <>
                   <Box mb="6" width="100%">
                     <Text as="label" size="3" className="font-weight-semibold">
-                      Open AI Key
-                    </Text>
-                    {hasOpenAIKey() ? (
-                      <Box>
-                        Your openAI API key is correctly set in your environment
-                        variable <code>OPENAI_API_KEY</code>.
-                      </Box>
-                    ) : (
-                      <Box>
-                        <Callout status="warning">
-                          You must set your OpenAI API key to use AI features.
-                          Please define it in your environment variables as{" "}
-                          <code>OPENAI_API_KEY</code>. See more in our{" "}
-                          <a href="https://docs.growthbook.io/self-host/env">
-                            self-hosting docs
-                          </a>
-                          .
-                        </Callout>
-                      </Box>
-                    )}
-                  </Box>
-                  <Box mb="6" width="100%">
-                    <Text
-                      as="label"
-                      htmlFor="openaiModel"
-                      size="3"
-                      className="font-weight-semibold"
-                    >
-                      OpenAI model
+                      AI Provider
                     </Text>
                     <SelectField
-                      id="openaiModel"
-                      helpText="Default is 4o-mini."
-                      value={form.watch("openAIDefaultModel")}
-                      onChange={(v) => form.setValue("openAIDefaultModel", v)}
-                      options={openAIModels}
+                      id="aiProvider"
+                      value={form.watch("aiProvider")}
+                      onChange={(v) => form.setValue("aiProvider", v)}
+                      options={[
+                        { value: "openai", label: "OpenAI" },
+                        { value: "ollama", label: "Ollama" },
+                      ]}
                     />
                   </Box>
+                  {form.watch("aiProvider") === "openai" && (
+                    <>
+                      <Box mb="6" width="100%">
+                        <Text
+                          as="label"
+                          size="3"
+                          className="font-weight-semibold"
+                        >
+                          Open AI Key
+                        </Text>
+                        {hasOpenAIKey() ? (
+                          <Box>
+                            Your OpenAI API key is correctly set in your
+                            environment variable <code>OPENAI_API_KEY</code>.
+                          </Box>
+                        ) : (
+                          <Box>
+                            <Callout status="warning">
+                              You must set your OpenAI API key to use AI
+                              features. Please define it in your environment
+                              variables as <code>OPENAI_API_KEY</code>. See more
+                              in our{" "}
+                              <a href="https://docs.growthbook.io/self-host/env">
+                                self-hosting docs
+                              </a>
+                              .
+                            </Callout>
+                          </Box>
+                        )}
+                      </Box>
+                      <Box mb="6" width="100%">
+                        <Text
+                          as="label"
+                          htmlFor="openaiModel"
+                          size="3"
+                          className="font-weight-semibold"
+                        >
+                          OpenAI model
+                        </Text>
+                        <SelectField
+                          id="openaiModel"
+                          helpText="Default is 4o-mini."
+                          value={form.watch("openAIDefaultModel")}
+                          onChange={(v) =>
+                            form.setValue("openAIDefaultModel", v)
+                          }
+                          options={openAIModels}
+                        />
+                      </Box>
+                    </>
+                  )}
+                  {form.watch("aiProvider") === "ollama" && (
+                    <>
+                      <Box mb="6" width="100%">
+                        <Text
+                          as="label"
+                          size="3"
+                          className="font-weight-semibold"
+                        >
+                          Ollama settings
+                        </Text>
+                        {hasOllamaServer() ? (
+                          <Box>
+                            Your Ollama server url is correctly set in your
+                            environment variable <code>OLLAMA_BASE_URL</code>.
+                          </Box>
+                        ) : (
+                          <Box>
+                            <Callout status="warning">
+                              You must set your Ollama server url to use AI
+                              features. Please define it in your environment
+                              variables as <code>OLLAMA_BASE_URL</code>.
+                            </Callout>
+                          </Box>
+                        )}
+                      </Box>
+                      <Box mb="6" width="100%">
+                        <Text
+                          as="label"
+                          htmlFor="ollamaModel"
+                          size="3"
+                          className="font-weight-semibold"
+                        >
+                          Ollama model
+                        </Text>
+                        <Field
+                          id="ollamaModel"
+                          helpText="Specify the model you are using"
+                          {...form.register("ollamaDefaultModel")}
+                          placeholder="gemma3:latest"
+                        />
+                      </Box>
+                    </>
+                  )}
                 </>
               )}
             </Flex>
