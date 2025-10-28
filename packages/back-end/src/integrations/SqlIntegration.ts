@@ -6902,40 +6902,21 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
 
     const baseIdType = exposureQuery.userIdType;
+    const sortedMetrics = params.metrics.sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
 
-    const sortedMetrics = params.metrics
-      .sort((a, b) => a.id.localeCompare(b.id))
-      .map((m) => ({
-        metric: m,
-        numeratorMetadata: this.getAggregationMetadata({ metric: m }),
-        ...(isRatioMetric(m)
-          ? {
-              denominatorMetadata: this.getAggregationMetadata({
-                metric: m,
-                useDenominator: true,
-              }),
-            }
-          : {}),
-      }));
+    const columnDefinitions =
+      this.getMetricSourceCovariateTableColumnDefinitions(
+        baseIdType,
+        sortedMetrics,
+      );
 
-    // TODO(incremental-refresh)
-    // Compute data types and columns elsewhere and store in metadata to govern this query
-    // and for validating queries match going forward
     return format(
       `
     CREATE TABLE ${params.metricSourceCovariateTableFullName}
     (
-      ${baseIdType} ${this.getDataType("string")}
-      ${sortedMetrics
-        .map(
-          (
-            m,
-          ) => `, ${m.metric.id}_value ${this.getDataType(m.numeratorMetadata.finalDataType)}
-        ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getDataType(m.denominatorMetadata.finalDataType)}` : ""}
-        `,
-        )
-        .join("\n")}
-      , update_timestamp ${this.getDataType("timestamp")}
+      ${columnDefinitions.join("\n, ")}
     )
     ${this.createTablePartitions(["update_timestamp"])}
     `,
@@ -6997,9 +6978,15 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       experimentId: params.settings.experimentId,
     });
 
+    const columnNames = this.getMetricSourceCovariateTableColumns(
+      baseIdType,
+      sortedMetrics,
+    );
+
     return format(
       `
     INSERT INTO ${params.metricSourceCovariateTableFullName}
+    (${columnNames.join(", \n")})
     SELECT * FROM (
       WITH 
         ${idJoinSQL}
@@ -7100,21 +7087,14 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
 
     const baseIdType = exposureQuery.userIdType;
+    const sortedMetrics = params.metrics.sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
 
-    const sortedMetrics = params.metrics
-      .sort((a, b) => a.id.localeCompare(b.id))
-      .map((m) => ({
-        metric: m,
-        numeratorMetadata: this.getAggregationMetadata({ metric: m }),
-        ...(isRatioMetric(m)
-          ? {
-              denominatorMetadata: this.getAggregationMetadata({
-                metric: m,
-                useDenominator: true,
-              }),
-            }
-          : {}),
-      }));
+    const columnDefinitions = this.getMetricSourceTableColumnDefinitions(
+      baseIdType,
+      sortedMetrics,
+    );
 
     // TODO(incremental-refresh)
     // Compute data types and columns elsewhere and store in metadata to govern this query
@@ -7123,19 +7103,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       `
     CREATE TABLE ${params.metricSourceTableFullName}
     (
-      ${baseIdType} ${this.getDataType("string")}
-      ${sortedMetrics
-        .map(
-          (
-            m,
-          ) => `, ${m.metric.id}_value ${this.getDataType(m.numeratorMetadata.intermediateDataType)}
-        ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getDataType(m.denominatorMetadata.intermediateDataType)}` : ""}
-        `,
-        )
-        .join("\n")}
-      , refresh_timestamp ${this.getDataType("timestamp")}
-      , max_timestamp ${this.getDataType("timestamp")}
-      , metric_date ${this.getDataType("date")}
+      ${columnDefinitions.join("\n, ")}
     )
     ${this.createTablePartitions(["max_timestamp", "metric_date"])}
     `,
@@ -7145,6 +7113,114 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
 
   getCurrentTimestamp(): string {
     return `CURRENT_TIMESTAMP`;
+  }
+
+  protected getMetricSourceTableSchema(
+    baseIdType: string,
+    metrics: FactMetricInterface[],
+  ): Map<string, string> {
+    const schema = new Map<string, string>();
+
+    schema.set(baseIdType, this.getDataType("string"));
+
+    metrics.forEach((metric) => {
+      const numeratorMetadata = this.getAggregationMetadata({ metric });
+      schema.set(
+        `${metric.id}_value`,
+        this.getDataType(numeratorMetadata.intermediateDataType),
+      );
+
+      if (isRatioMetric(metric)) {
+        const denominatorMetadata = this.getAggregationMetadata({
+          metric,
+          useDenominator: true,
+        });
+        schema.set(
+          `${metric.id}_denominator_value`,
+          this.getDataType(denominatorMetadata.intermediateDataType),
+        );
+      }
+    });
+
+    schema.set("refresh_timestamp", this.getDataType("timestamp"));
+    schema.set("max_timestamp", this.getDataType("timestamp"));
+    schema.set("metric_date", this.getDataType("date"));
+
+    return schema;
+  }
+
+  protected getMetricSourceTableColumnDefinitions(
+    baseIdType: string,
+    metrics: FactMetricInterface[],
+  ): string[] {
+    const schema = this.getMetricSourceTableSchema(baseIdType, metrics);
+    return Array.from(schema.entries()).map(
+      ([columnName, dataType]) => `${columnName} ${dataType}`,
+    );
+  }
+
+  protected getMetricSourceTableColumns(
+    baseIdType: string,
+    metrics: FactMetricInterface[],
+  ): string[] {
+    const schema = this.getMetricSourceTableSchema(baseIdType, metrics);
+    return Array.from(schema.keys());
+  }
+
+  protected getMetricSourceCovariateTableSchema(
+    baseIdType: string,
+    metrics: FactMetricInterface[],
+  ): Map<string, string> {
+    const schema = new Map<string, string>();
+
+    schema.set(baseIdType, this.getDataType("string"));
+
+    metrics.forEach((metric) => {
+      const numeratorMetadata = this.getAggregationMetadata({ metric });
+      schema.set(
+        `${metric.id}_value`,
+        this.getDataType(numeratorMetadata.finalDataType),
+      );
+
+      if (isRatioMetric(metric)) {
+        const denominatorMetadata = this.getAggregationMetadata({
+          metric,
+          useDenominator: true,
+        });
+        schema.set(
+          `${metric.id}_denominator_value`,
+          this.getDataType(denominatorMetadata.finalDataType),
+        );
+      }
+    });
+
+    schema.set("update_timestamp", this.getDataType("timestamp"));
+
+    return schema;
+  }
+
+  protected getMetricSourceCovariateTableColumnDefinitions(
+    baseIdType: string,
+    metrics: FactMetricInterface[],
+  ): string[] {
+    const schema = this.getMetricSourceCovariateTableSchema(
+      baseIdType,
+      metrics,
+    );
+    return Array.from(schema.entries()).map(
+      ([columnName, dataType]) => `${columnName} ${dataType}`,
+    );
+  }
+
+  protected getMetricSourceCovariateTableColumns(
+    baseIdType: string,
+    metrics: FactMetricInterface[],
+  ): string[] {
+    const schema = this.getMetricSourceCovariateTableSchema(
+      baseIdType,
+      metrics,
+    );
+    return Array.from(schema.keys());
   }
 
   getInsertMetricSourceDataQuery(
@@ -7195,9 +7271,16 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const factTableWithMetricData = factTablesWithMetricData[0];
     const metricData = factTableWithMetricData.metricData;
 
+    // Get consistent column names using the helper
+    const columnNames = this.getMetricSourceTableColumns(
+      baseIdType,
+      sortedMetrics,
+    );
+
     return format(
       `
     INSERT INTO ${params.metricSourceTableFullName}
+    (${columnNames.join(", \n")})
     SELECT * FROM (
       WITH 
         ${idJoinSQL}

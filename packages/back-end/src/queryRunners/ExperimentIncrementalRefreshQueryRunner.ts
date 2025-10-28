@@ -235,6 +235,11 @@ export const startExperimentIncrementalRefreshQueries = async (
       params.queryParentId,
     );
 
+  // When adding new metrics to a fact table, we will need to scan the whole table.
+  // So to simplify things we re-create the whole metric source.
+  // When removing metrics this is not needed, we just don't insert updated data.
+  const factTablesWithNewMetrics = new Set<string>();
+
   // If not forcing a full refresh and we have a previous run, ensure the
   // current configuration matches what the incremental pipeline was built with.
   if (!params.fullRefresh && incrementalRefreshModel) {
@@ -268,25 +273,31 @@ export const startExperimentIncrementalRefreshQueries = async (
         selectedFactMetrics.map((m) => m.id),
       );
 
-      // Error if a selected metric is not present in incremental refresh sources
+      // New metrics that we don't have incremental data for
+      const addedMetrics = new Set<FactMetricInterface>();
       for (const m of selectedFactMetrics) {
         if (!storedMetricIds.has(m.id)) {
-          const metricName = m.name ?? m.id;
-          throw new Error(
-            `The metric "${metricName}" was added. Please run a Full Refresh.`,
-          );
+          addedMetrics.add(m);
         }
       }
 
-      // Error if incremental refresh has a metric that is no longer in settings
+      const removedMetricIds = new Set<string>();
       for (const storedId of storedMetricIds) {
         if (!selectedFactMetricIds.has(storedId)) {
-          const metricName = metricMap.get(storedId)?.name ?? storedId;
-          throw new Error(
-            `The metric "${metricName}" has been removed. Please run a Full Refresh.`,
-          );
+          removedMetricIds.add(storedId);
         }
       }
+
+      // TODO(adriel): Do we need to check numerator/denominator here?
+      // TODO(adriel): Also, do we even have non fact-metrics here?
+      addedMetrics.forEach((m) => {
+        if (isFactMetric(m)) {
+          const factTableId = m.numerator?.factTableId;
+          if (factTableId) {
+            factTablesWithNewMetrics.add(factTableId);
+          }
+        }
+      });
 
       selectedMetrics
         .filter((m) => isFactMetric(m))
@@ -458,6 +469,20 @@ export const startExperimentIncrementalRefreshQueries = async (
 
   // Metric Queries
   let existingSources = incrementalRefreshModel?.metricSources;
+
+  // Filter out metric source groups that belong to Fact Tables with new metrics
+  // This forces a full refresh for those Fact Tables
+  if (factTablesWithNewMetrics.size > 0) {
+    existingSources = existingSources?.filter((source) => {
+      // Exclude sources where any metric belongs to a Fact Table with new metrics
+      return !source.metrics.some((m) => {
+        const metric = metricMap.get(m.id);
+        if (!metric || !isFactMetric(metric)) return false;
+        const factTableId = metric.numerator?.factTableId;
+        return factTableId && factTablesWithNewMetrics.has(factTableId);
+      });
+    });
+  }
 
   // Full refresh, pretend no existing sources
   // Will recreate sources with new random id for metric sources

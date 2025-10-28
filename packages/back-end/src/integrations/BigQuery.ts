@@ -4,7 +4,6 @@ import {
   bigQueryCreateTableOptions,
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
-import { isRatioMetric } from "shared/experiments";
 import { FormatDialect } from "shared/src/types";
 import { format } from "shared/sql";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -354,46 +353,25 @@ export default class BigQuery extends SqlIntegration {
     );
 
     const baseIdType = exposureQuery.userIdType;
+    const sortedMetrics = params.metrics.sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
 
-    const sortedMetrics = params.metrics
-      .sort((a, b) => a.id.localeCompare(b.id))
-      .map((m) => ({
-        metric: m,
-        numeratorMetadata: this.getAggregationMetadata({ metric: m }),
-        ...(isRatioMetric(m)
-          ? {
-              denominatorMetadata: this.getAggregationMetadata({
-                metric: m,
-                useDenominator: true,
-              }),
-            }
-          : {}),
-      }));
+    // Get column definitions using the helper to ensure consistency
+    const columnDefinitions = this.getMetricSourceTableColumnDefinitions(
+      baseIdType,
+      sortedMetrics,
+    );
 
-    // TODO(incremental-refresh)
-    // Compute data types and columns elsewhere and store in metadata to govern this query
-    // and for validating queries match going forward
     // TODO(adriel): The only difference to SQLIntegration is where options go
     return format(
       `
     CREATE TABLE ${params.metricSourceTableFullName}
     (
-      ${baseIdType} ${this.getDataType("string")}
-      ${sortedMetrics
-        .map(
-          (
-            m,
-          ) => `, ${m.metric.id}_value ${this.getDataType(m.numeratorMetadata.intermediateDataType)}
-          ${m.denominatorMetadata ? `, ${m.metric.id}_denominator_value ${this.getDataType(m.denominatorMetadata.intermediateDataType)}` : ""}
-          `,
-        )
-        .join("\n")}
-        , refresh_timestamp ${this.getDataType("timestamp")}
-        , max_timestamp ${this.getDataType("timestamp")}
-        , metric_date ${this.getDataType("date")}
-        )
-        ${this.createTablePartitions(["max_timestamp", "metric_date"])}
-        ${this.createUnitsTableOptions()}
+      ${columnDefinitions.join(", \n")}
+    )
+    ${this.createTablePartitions(["max_timestamp", "metric_date"])}
+    ${this.createUnitsTableOptions()}
     `,
       this.getFormatDialect(),
     );
