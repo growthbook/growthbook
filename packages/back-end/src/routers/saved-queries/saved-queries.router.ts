@@ -10,6 +10,8 @@ router.get("/", savedQueriesController.getSavedQueries);
 
 router.get("/:id", savedQueriesController.getSavedQuery);
 
+router.get("/lookup-ids/:ids", savedQueriesController.getSavedQueriesByIds);
+
 router.post("/", savedQueriesController.postSavedQuery);
 
 router.post("/:id/refresh", savedQueriesController.refreshSavedQuery);
