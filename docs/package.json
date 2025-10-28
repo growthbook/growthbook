@@ -19,13 +19,13 @@
     "gen-sdk-resources": "npx -y tsx ./scripts/gen-sdk-resources.ts"
   },
   "dependencies": {
-    "@docusaurus/core": "3.7.0",
-    "@docusaurus/faster": "^3.7.0",
-    "@docusaurus/plugin-client-redirects": "3.7.0",
-    "@docusaurus/preset-classic": "3.7.0",
-    "@docusaurus/remark-plugin-npm2yarn": "3.7.0",
-    "@docusaurus/theme-live-codeblock": "3.7.0",
-    "@docusaurus/tsconfig": "^3.4.0",
+    "@docusaurus/core": "^3.9.1",
+    "@docusaurus/faster": "^3.9.1",
+    "@docusaurus/plugin-client-redirects": "^3.9.1",
+    "@docusaurus/preset-classic": "^3.9.1",
+    "@docusaurus/remark-plugin-npm2yarn": "^3.9.1",
+    "@docusaurus/theme-live-codeblock": "^3.9.1",
+    "@docusaurus/tsconfig": "^3.9.1",
     "@mdx-js/react": "^3.0.0",
     "clsx": "^2.0.0",
     "docusaurus-plugin-sass": "^0.2.2",
@@ -41,8 +41,8 @@
     "sass-loader": "16.0.5"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "^3.4.0",
-    "@docusaurus/types": "^3.4.0",
+    "@docusaurus/module-type-aliases": "^3.9.1",
+    "@docusaurus/types": "^3.9.1",
     "@ephys/zod-to-ts": "^2.3.2",
     "@types/node": "^22.15.19",
     "@types/react": "^19.1.4",

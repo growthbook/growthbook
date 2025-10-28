@@ -86,8 +86,8 @@ export default function RolloutSummary({
         <Box>
           <Text weight="medium">SERVE</Text>
         </Box>
-        <Box>
-          <ValueDisplay value={value} type={type} />
+        <Box flexGrow="1">
+          <ValueDisplay value={value} type={type} showFullscreenButton={true} />
         </Box>
       </Flex>
       <ValidateValue value={value} feature={feature} />

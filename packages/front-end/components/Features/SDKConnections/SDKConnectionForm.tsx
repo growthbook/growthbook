@@ -1114,7 +1114,7 @@ export default function SDKConnectionForm({
                           }
                         >
                           <label
-                            className="ml-2 mb-0 cursor-pointer"
+                            className="mb-0 cursor-pointer"
                             htmlFor="sdk-connection-include-draft-experiments-toggle"
                           >
                             Include draft experiments <FaInfoCircle />

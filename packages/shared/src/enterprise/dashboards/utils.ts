@@ -26,6 +26,8 @@ export const metricSelectors = [
   "custom",
 ] as const;
 
+export const pinSources = ["experiment", "custom", "none"] as const;
+
 export interface BlockSnapshotSettings {
   dimensionId?: string;
 }
@@ -176,6 +178,8 @@ export const CREATE_BLOCK_TYPE: {
     differenceType: "relative",
     baselineRow: 0,
     columnsFilter: [],
+    pinSource: "experiment",
+    pinnedMetricSlices: [],
     ...(initialValues || {}),
   }),
   "experiment-dimension": ({ initialValues, experiment }) => ({
@@ -201,6 +205,8 @@ export const CREATE_BLOCK_TYPE: {
     metricSelector: "experiment-goal",
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
+    pinSource: "experiment",
+    pinnedMetricSlices: [],
     ...(initialValues || {}),
   }),
   "experiment-traffic": ({ initialValues, experiment }) => ({

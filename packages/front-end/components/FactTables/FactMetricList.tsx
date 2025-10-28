@@ -5,7 +5,7 @@ import {
 import React, { useState } from "react";
 import Link from "next/link";
 import { date } from "shared/dates";
-import { Switch, Text } from "@radix-ui/themes";
+import { Text } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useSearch } from "@/services/search";
@@ -17,6 +17,7 @@ import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
+import Switch from "@/ui/Switch";
 import RecommendedFactMetricsModal, {
   getRecommendedFactMetrics,
 } from "@/components/FactTables/RecommendedFactMetricsModal";
@@ -182,10 +183,13 @@ export default function FactMetricList({
           </div>
         )}
         {hasArchivedMetrics && (
-          <div className="col-auto text-muted">
-            <Switch checked={showArchived} onCheckedChange={setShowArchived} />
-            Show archived
-          </div>
+          <Switch
+            value={showArchived}
+            onChange={setShowArchived}
+            id="show-archived"
+            label="Show archived"
+            ml="2"
+          />
         )}
         <div className="col-auto ml-auto">
           <Tooltip
@@ -249,31 +253,51 @@ export default function FactMetricList({
                         className="d-flex flex-wrap"
                         style={{ gap: "0.25rem" }}
                       >
-                        {metric.metricAutoSlices?.map((slice, i) => {
+                        {metric.metricAutoSlices?.filter((slice) => {
                           const column = factTable.columns?.find(
-                            (col) => col.column === slice,
+                            (c) => c.column === slice,
                           );
-                          const levels = column?.autoSlices;
-                          if (!levels?.length) return null;
-
-                          return (
-                            <span key={slice} style={{ whiteSpace: "nowrap" }}>
-                              <Tooltip body={levels.join(", ")}>
-                                <Text weight="medium" size="1">
-                                  {column?.name || slice}
-                                </Text>
-                              </Tooltip>
-                              {i < metric.metricAutoSlices!.length - 1 && ", "}
-                            </span>
-                          );
-                        })}
-                        {(!metric.metricAutoSlices?.length ||
-                          metric.metricAutoSlices.every((slice) => {
+                          return column && !column.deleted;
+                        }).length ? (
+                          metric.metricAutoSlices?.map((slice, i) => {
                             const column = factTable.columns?.find(
                               (col) => col.column === slice,
                             );
-                            return !column?.autoSlices?.length;
-                          })) && (
+                            if (!column || column.deleted) return null;
+
+                            const levels =
+                              column?.datatype === "boolean"
+                                ? ["true", "false"]
+                                : column?.autoSlices;
+                            const hasNoLevels =
+                              !levels?.length && column?.datatype !== "boolean";
+
+                            return (
+                              <span
+                                key={slice}
+                                style={{ whiteSpace: "nowrap" }}
+                              >
+                                <Tooltip
+                                  body={
+                                    hasNoLevels
+                                      ? "No slice levels configured"
+                                      : levels?.join(", ") || "No levels"
+                                  }
+                                >
+                                  <Text
+                                    weight="medium"
+                                    size="1"
+                                    color={hasNoLevels ? "red" : undefined}
+                                  >
+                                    {column?.name || slice}
+                                  </Text>
+                                </Tooltip>
+                                {i < metric.metricAutoSlices!.length - 1 &&
+                                  ", "}
+                              </span>
+                            );
+                          })
+                        ) : (
                           <Text
                             as="span"
                             style={{

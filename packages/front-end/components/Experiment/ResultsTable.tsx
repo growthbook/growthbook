@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import {
+import React, {
   CSSProperties,
   ReactElement,
   ReactNode,
@@ -11,7 +11,7 @@ import {
 } from "react";
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import { FaSortUp, FaSortDown, FaSort } from "react-icons/fa";
 import {
   ExperimentReportVariation,
   ExperimentReportVariationWithIndex,
@@ -27,7 +27,6 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { FaExclamationTriangle } from "react-icons/fa";
 import { Flex } from "@radix-ui/themes";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { useAuth } from "@/services/auth";
@@ -57,7 +56,7 @@ import { ResultsMetricFilters } from "@/components/Experiment/Results";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useResultsTableTooltip } from "@/components/Experiment/ResultsTableTooltip/useResultsTableTooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { AppFeatures } from "@/types/app-features";
+import HelperText from "@/ui/HelperText";
 import AlignedGraph from "./AlignedGraph";
 import ExperimentMetricTimeSeriesGraphWrapper from "./ExperimentMetricTimeSeriesGraphWrapper";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -90,7 +89,7 @@ export type ResultsTableProps = {
     maxRows,
     location,
   }: {
-    label: string;
+    label: string | ReactElement;
     metric: ExperimentMetricInterface;
     row: ExperimentTableRow;
     maxRows?: number;
@@ -114,6 +113,12 @@ export type ResultsTableProps = {
   disableTimeSeriesButton?: boolean;
   isHoldout?: boolean;
   columnsFilter?: Array<(typeof RESULTS_TABLE_COLUMNS)[number]>;
+  sortBy?: "metric-tags" | "significance" | "change" | "custom" | null;
+  setSortBy?: (
+    s: "metric-tags" | "significance" | "change" | "custom" | null,
+  ) => void;
+  sortDirection?: "asc" | "desc" | null;
+  setSortDirection?: (d: "asc" | "desc" | null) => void;
 };
 
 const ROW_HEIGHT = 46;
@@ -173,11 +178,95 @@ export default function ResultsTable({
   disableTimeSeriesButton,
   columnsFilter,
   isHoldout,
+  sortBy,
+  setSortBy,
+  sortDirection,
+  setSortDirection,
 }: ResultsTableProps) {
-  // fix any potential filter conflicts
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
+
+  const SortButton = ({ column }: { column: "significance" | "change" }) => {
+    if (!setSortBy || !setSortDirection) return null;
+
+    const isActive = sortBy === column;
+
+    const handleClick = () => {
+      if (!isActive) {
+        // Not currently sorting by this column, set to default direction
+        setSortBy(column);
+        if (column === "change") {
+          // Change: desc, asc, null
+          setSortDirection("desc");
+        } else if (column === "significance") {
+          // Significance: frequentist (desc, asc, null), bayesian (asc, desc, null)
+          setSortDirection(statsEngine === "frequentist" ? "desc" : "asc");
+        }
+      } else {
+        // Currently sorting by this column, cycle through directions
+        if (column === "change") {
+          // Change: desc -> asc -> null
+          if (sortDirection === "desc") {
+            setSortDirection("asc");
+          } else if (sortDirection === "asc") {
+            setSortBy(null);
+          }
+        } else if (column === "significance") {
+          // Significance: frequentist (desc -> asc -> null), bayesian (asc -> desc -> null)
+          if (statsEngine === "frequentist") {
+            if (sortDirection === "desc") {
+              setSortDirection("asc");
+            } else if (sortDirection === "asc") {
+              setSortBy(null);
+            }
+          } else {
+            if (sortDirection === "asc") {
+              setSortDirection("desc");
+            } else if (sortDirection === "desc") {
+              setSortBy(null);
+            }
+          }
+        }
+      }
+    };
+
+    const getTooltipText = () => {
+      if (isActive) {
+        return `Sorted by ${column} ${sortDirection === "desc" ? "(desc)" : "(asc)"}`;
+      }
+      return `Sort by ${column}`;
+    };
+
+    const getIcon = () => {
+      if (!isActive) return <FaSort size={16} />;
+      return sortDirection === "desc" ? (
+        <FaSortDown size={16} />
+      ) : (
+        <FaSortUp size={16} />
+      );
+    };
+
+    return (
+      <Tooltip
+        usePortal={true}
+        innerClassName={"text-left"}
+        body={getTooltipText()}
+      >
+        <a
+          role="button"
+          onClick={handleClick}
+          style={{
+            marginLeft: "2px",
+            color: isActive ? "var(--blue-10)" : "var(--gray-a8)",
+            userSelect: "none",
+          }}
+        >
+          {getIcon()}
+        </a>
+      </Tooltip>
+    );
+  };
   const columnsToDisplay = columnsFilter?.length
     ? columnsFilter
     : RESULTS_TABLE_COLUMNS;
@@ -207,14 +296,12 @@ export default function ResultsTable({
   const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
 
-  const gb = useGrowthBook<AppFeatures>();
   const { isAuthenticated } = useAuth();
   let showTimeSeriesButton =
     isAuthenticated &&
     baselineRow === 0 &&
     tableRowAxis === "metric" &&
-    !disableTimeSeriesButton &&
-    gb.isOn("experiment-results-timeseries");
+    !disableTimeSeriesButton;
 
   // Disable time series button for stopped experiments before we added this feature (& therefore data)
   if (status === "stopped" && endDate <= "2025-04-03") {
@@ -591,13 +678,21 @@ export default function ResultsTable({
                       >
                         {statsEngine === "bayesian" ? (
                           <div
-                            style={{
-                              lineHeight: "15px",
-                              marginBottom: 2,
-                            }}
+                            className="d-flex align-items-end"
+                            style={{ width: 44 }}
                           >
-                            <span className="nowrap">Chance</span>{" "}
-                            <span className="nowrap">to Win</span>
+                            <div
+                              style={{
+                                lineHeight: "15px",
+                                marginBottom: 2,
+                              }}
+                            >
+                              <span className="nowrap">Chance</span>{" "}
+                              <span className="nowrap">to Win</span>
+                            </div>
+                            <div style={{ top: -2, position: "relative" }}>
+                              <SortButton column="significance" />
+                            </div>
                           </div>
                         ) : sequentialTestingEnabled ||
                           appliedPValueCorrection ? (
@@ -618,9 +713,13 @@ export default function ResultsTable({
                           >
                             {appliedPValueCorrection ? "Adj. " : ""}P-value{" "}
                             <RxInfoCircled />
+                            <SortButton column="significance" />
                           </Tooltip>
                         ) : (
-                          <>P-value</>
+                          <>
+                            P-value
+                            <SortButton column="significance" />
+                          </>
                         )}
                       </th>
                     )}
@@ -657,9 +756,12 @@ export default function ResultsTable({
                     {columnsToDisplay.includes("Lift") && (
                       <th
                         style={{ width: 150 * tableCellScale }}
-                        className={clsx("axis-col label text-right", {
-                          noStickyHeader,
-                        })}
+                        className={clsx(
+                          "axis-col label text-right text-nowrap",
+                          {
+                            noStickyHeader,
+                          },
+                        )}
                       >
                         <div style={{ lineHeight: "15px", marginBottom: 2 }}>
                           <Tooltip
@@ -680,6 +782,7 @@ export default function ResultsTable({
                           >
                             {changeTitle} <RxInfoCircled />
                           </Tooltip>
+                          <SortButton column="change" />
                         </div>
                       </th>
                     )}
@@ -725,7 +828,7 @@ export default function ResultsTable({
               );
 
               return (
-                <>
+                <React.Fragment key={rowId}>
                   {/* Skip rendering data if this row is hidden by dimension level filter */}
                   {!row.isHiddenByFilter && (
                     <>
@@ -782,9 +885,22 @@ export default function ResultsTable({
                           if (!rowResults) {
                             return null;
                           }
-                          if (rowResults === "query error") {
-                            if (!alreadyShownQueryError) {
-                              alreadyShownQueryError = true;
+                          if (
+                            rowResults === "query error" ||
+                            rowResults === RowError.QUANTILE_AGGREGATION_ERROR
+                          ) {
+                            const isQueryError = rowResults === "query error";
+                            const alreadyShownError = isQueryError
+                              ? alreadyShownQueryError
+                              : alreadyShownQuantileError;
+
+                            if (!alreadyShownError) {
+                              if (isQueryError) {
+                                alreadyShownQueryError = true;
+                              } else {
+                                alreadyShownQuantileError = true;
+                              }
+
                               return drawEmptyRow({
                                 key: j,
                                 className: clsx(
@@ -794,9 +910,13 @@ export default function ResultsTable({
                                       !row.isSliceRow &&
                                       i < rows.length - 1 &&
                                       rows[i + 1].isSliceRow &&
-                                      rows[i + 1].sliceLevels?.[0]?.column !==
-                                        (rows[i]?.sliceLevels?.[0]?.column ||
-                                          null),
+                                      JSON.stringify(
+                                        rows[i + 1].sliceLevels,
+                                      ) !==
+                                        JSON.stringify(
+                                          rows[i]?.sliceLevels || [],
+                                        ) &&
+                                      j === orderedVariations.length - 1,
                                   },
                                 ),
                                 labelColSpan: includedLabelColumns.length,
@@ -808,7 +928,7 @@ export default function ResultsTable({
                                 label: (
                                   <>
                                     {compactResults ? (
-                                      <div className="mb-1 position-relative">
+                                      <div className="position-relative">
                                         {renderLabelColumn({
                                           label: row.label,
                                           metric: row.metric,
@@ -817,10 +937,11 @@ export default function ResultsTable({
                                         })}
                                       </div>
                                     ) : null}
-                                    <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-                                      <FaExclamationTriangle className="mr-1" />
-                                      Query error
-                                    </div>
+                                    <HelperText status="error" size="sm" mx="2">
+                                      {isQueryError
+                                        ? "Query error"
+                                        : "Quantile metrics not available for pre-computed dimensions. Use a custom report instead."}
+                                    </HelperText>
                                   </>
                                 ),
                                 graphCellWidth: columnsToDisplay.includes(
@@ -829,52 +950,7 @@ export default function ResultsTable({
                                   ? graphCellWidth
                                   : 0,
                                 rowHeight: compactResults
-                                  ? ROW_HEIGHT + 20
-                                  : ROW_HEIGHT,
-                                id,
-                                domain,
-                                ssrPolyfills,
-                              });
-                            } else {
-                              return null;
-                            }
-                          }
-                          if (
-                            rowResults === RowError.QUANTILE_AGGREGATION_ERROR
-                          ) {
-                            if (!alreadyShownQuantileError) {
-                              alreadyShownQuantileError = true;
-                              return drawEmptyRow({
-                                key: j,
-                                className: clsx(
-                                  "results-variation-row align-items-center error-row",
-                                  {
-                                    "last-before-slice-header":
-                                      !row.isSliceRow &&
-                                      i < rows.length - 1 &&
-                                      rows[i + 1].isSliceRow &&
-                                      rows[i + 1].sliceLevels?.[0]?.column !==
-                                        (rows[i]?.sliceLevels?.[0]?.column ||
-                                          null),
-                                  },
-                                ),
-                                labelColSpan: includedLabelColumns.length,
-                                renderLabel: includedLabelColumns.length > 0,
-                                renderGraph:
-                                  columnsToDisplay.includes("CI Graph"),
-                                renderLastColumn:
-                                  columnsToDisplay.includes("Lift"),
-                                label: (
-                                  <div className="alert alert-danger px-2 py-1">
-                                    <FaExclamationTriangle className="mr-1" />
-                                    Quantile metrics not available for
-                                    pre-computed dimensions. Use a custom report
-                                    instead.
-                                  </div>
-                                ),
-                                graphCellWidth,
-                                rowHeight: compactResults
-                                  ? ROW_HEIGHT + 20
+                                  ? ROW_HEIGHT + 10
                                   : ROW_HEIGHT,
                                 id,
                                 domain,
@@ -1216,11 +1292,7 @@ export default function ResultsTable({
                                       rows.length > 1
                                     }
                                     firstDateToRender={getValidDate(startDate)}
-                                    isSliceRow={row.isSliceRow}
-                                    sliceLevels={row.sliceLevels?.map((dl) => ({
-                                      dimension: dl.column,
-                                      levels: dl.levels,
-                                    }))}
+                                    sliceId={row.sliceId}
                                   />
                                 </div>
                               </div>
@@ -1230,7 +1302,7 @@ export default function ResultsTable({
                       </tbody>
                     </>
                   )}
-                </>
+                </React.Fragment>
               );
             })}
           </table>

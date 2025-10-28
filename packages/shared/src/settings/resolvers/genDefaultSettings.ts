@@ -8,6 +8,7 @@ import {
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_METRIC_WINDOW_HOURS,
   DEFAULT_P_VALUE_THRESHOLD,
+  DEFAULT_P_VALUE_CORRECTION,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_ENABLED,
@@ -16,6 +17,9 @@ import {
   DEFAULT_TARGET_MDE,
   DEFAULT_WIN_RISK_THRESHOLD,
   DEFAULT_LOSE_RISK_THRESHOLD,
+  DEFAULT_SRM_THRESHOLD,
+  DEFAULT_USE_STICKY_BUCKETING,
+  DEFAULT_MAX_METRIC_SLICE_LEVELS,
 } from "../../constants";
 import { Settings } from "../types";
 
@@ -71,6 +75,7 @@ export default function genDefaultSettings(): Settings {
     northStar: DEFAULT_NORTH_STAR,
     pastExperimentsMinLength: DEFAULT_PAST_EXPERIMENT_MIN_LENGTH,
     pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
+    pValueCorrection: DEFAULT_P_VALUE_CORRECTION,
     regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
     sequentialTestingEnabled: DEFAULT_SEQUENTIAL_TESTING_ENABLED,
@@ -85,6 +90,7 @@ export default function genDefaultSettings(): Settings {
     delayHours: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     loseRisk: DEFAULT_LOSE_RISK_THRESHOLD,
     winRisk: DEFAULT_WIN_RISK_THRESHOLD,
+    srmThreshold: DEFAULT_SRM_THRESHOLD,
     secureAttributeSalt: DEFAULT_SECURE_ATTRIBUTE_SALT,
     killswitchConfirmation: DEFAULT_KILLSWITCH_CONFIRMATION,
     requireReviews: DEFAULT_REQUIRE_REVIEW,
@@ -96,6 +102,8 @@ export default function genDefaultSettings(): Settings {
     banditBurnInUnit: DEFAULT_BANDIT_BURN_IN_UNIT,
     experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
     experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+    maxMetricSliceLevels: DEFAULT_MAX_METRIC_SLICE_LEVELS,
+    useStickyBucketing: DEFAULT_USE_STICKY_BUCKETING,
     targetMDE: DEFAULT_TARGET_MDE,
   };
 }

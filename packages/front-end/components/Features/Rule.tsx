@@ -50,7 +50,7 @@ interface SortableProps {
     environment: string;
     i: number;
     defaultType?: string;
-    duplicate?: boolean;
+    mode: "create" | "edit" | "duplicate";
   }) => void;
   setCopyRuleModal: (args: {
     environment: string;
@@ -232,9 +232,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   color="gray"
                 />
               </Box>
-              <Box flexGrow="1" flexShrink="5" overflowX="auto">
-                <Flex align="center" mb="3" flexGrow="1">
-                  <Box flexGrow="1">
+              <Box flexGrow="1" pr="2">
+                <Flex align="center" justify="between" mb="3" flexGrow="1">
+                  <Flex
+                    flexGrow="1"
+                    gap="3"
+                    justify="between"
+                    mr="3"
+                    align="center"
+                  >
                     <Heading as="h4" size="3" weight="medium" mb="0">
                       {linkedExperiment ? (
                         <Flex gap="3" align="center">
@@ -277,8 +283,109 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         title
                       )}
                     </Heading>
-                  </Box>
-                  {info.pill}
+                    {info.pill}
+                  </Flex>
+                  {canEdit && (
+                    <Flex>
+                      <MoreMenu useRadix={true} size={14}>
+                        <a
+                          href="#"
+                          className="dropdown-item"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setRuleModal({ environment, i, mode: "edit" });
+                          }}
+                        >
+                          Edit
+                        </a>
+                        <Button
+                          color=""
+                          className="dropdown-item"
+                          onClick={async () => {
+                            track(
+                              rule.enabled
+                                ? "Disable Feature Rule"
+                                : "Enable Feature Rule",
+                              {
+                                ruleIndex: i,
+                                environment,
+                                type: rule.type,
+                              },
+                            );
+                            const res = await apiCall<{ version: number }>(
+                              `/feature/${feature.id}/${version}/rule`,
+                              {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  environment,
+                                  rule: {
+                                    ...rule,
+                                    enabled: !rule.enabled,
+                                  },
+                                  i,
+                                }),
+                              },
+                            );
+                            await mutate();
+                            res.version && setVersion(res.version);
+                          }}
+                        >
+                          {rule.enabled ? "Disable" : "Enable"}
+                        </Button>
+                        {environments.length > 1 && (
+                          <Button
+                            color=""
+                            className="dropdown-item"
+                            onClick={() => {
+                              setCopyRuleModal({ environment, rules: [rule] });
+                            }}
+                          >
+                            Copy rule to environment(s)
+                          </Button>
+                        )}
+                        {rule.type !== "experiment-ref" && (
+                          <Button
+                            color=""
+                            className="dropdown-item"
+                            onClick={() => {
+                              setRuleModal({
+                                environment,
+                                i,
+                                mode: "duplicate",
+                              });
+                            }}
+                          >
+                            Duplicate rule
+                          </Button>
+                        )}
+                        <DeleteButton
+                          className="dropdown-item"
+                          displayName="Rule"
+                          useIcon={false}
+                          text="Delete"
+                          onClick={async () => {
+                            track("Delete Feature Rule", {
+                              ruleIndex: i,
+                              environment,
+                              type: rule.type,
+                            });
+                            const res = await apiCall<{ version: number }>(
+                              `/feature/${feature.id}/${version}/rule`,
+                              {
+                                method: "DELETE",
+                                body: JSON.stringify({
+                                  environment,
+                                  i,
+                                }),
+                              },
+                            );
+                            await mutate();
+                            res.version && setVersion(res.version);
+                          }}
+                        />
+                      </MoreMenu>
+                    </Flex>
+                  )}
                 </Flex>
                 <Box>{info.callout}</Box>
                 <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
@@ -381,103 +488,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   )}
                 </Box>
               </Box>
-              <Flex>
-                {canEdit && (
-                  <MoreMenu useRadix={true} size={14}>
-                    <a
-                      href="#"
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setRuleModal({ environment, i });
-                      }}
-                    >
-                      Edit
-                    </a>
-                    <Button
-                      color=""
-                      className="dropdown-item"
-                      onClick={async () => {
-                        track(
-                          rule.enabled
-                            ? "Disable Feature Rule"
-                            : "Enable Feature Rule",
-                          {
-                            ruleIndex: i,
-                            environment,
-                            type: rule.type,
-                          },
-                        );
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/${version}/rule`,
-                          {
-                            method: "PUT",
-                            body: JSON.stringify({
-                              environment,
-                              rule: {
-                                ...rule,
-                                enabled: !rule.enabled,
-                              },
-                              i,
-                            }),
-                          },
-                        );
-                        await mutate();
-                        res.version && setVersion(res.version);
-                      }}
-                    >
-                      {rule.enabled ? "Disable" : "Enable"}
-                    </Button>
-                    {environments.length > 1 && (
-                      <Button
-                        color=""
-                        className="dropdown-item"
-                        onClick={() => {
-                          setCopyRuleModal({ environment, rules: [rule] });
-                        }}
-                      >
-                        Copy rule to environment(s)
-                      </Button>
-                    )}
-                    {rule.type !== "experiment-ref" && (
-                      <Button
-                        color=""
-                        className="dropdown-item"
-                        onClick={() => {
-                          setRuleModal({ environment, i, duplicate: true });
-                        }}
-                      >
-                        Duplicate rule
-                      </Button>
-                    )}
-                    <DeleteButton
-                      className="dropdown-item"
-                      displayName="Rule"
-                      useIcon={false}
-                      text="Delete"
-                      onClick={async () => {
-                        track("Delete Feature Rule", {
-                          ruleIndex: i,
-                          environment,
-                          type: rule.type,
-                        });
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/${version}/rule`,
-                          {
-                            method: "DELETE",
-                            body: JSON.stringify({
-                              environment,
-                              i,
-                            }),
-                          },
-                        );
-                        await mutate();
-                        res.version && setVersion(res.version);
-                      }}
-                    />
-                  </MoreMenu>
-                )}
-              </Flex>
             </Flex>
           </Card>
         </Box>

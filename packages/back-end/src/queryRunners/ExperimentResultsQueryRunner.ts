@@ -4,6 +4,7 @@ import {
   ExperimentMetricInterface,
   getAllMetricIdsFromExperiment,
   isFactMetric,
+  isLegacyMetric,
   isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
@@ -85,7 +86,14 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
-      return "";
+      // TODO: smarter logic to make fewer groupings work
+      const tableIds = [
+        metric.numerator.factTableId,
+        metric.denominator?.factTableId,
+      ].sort((a, b) => a?.localeCompare(b ?? "") ?? 0);
+      return tableIds.length >= 2
+        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)`
+        : metric.id;
     }
   }
 
@@ -100,8 +108,10 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
 }
 
 export interface GroupedMetrics {
-  groups: FactMetricInterface[][];
-  singles: ExperimentMetricInterface[];
+  // Fact metrics grouped together or alone
+  factMetricGroups: FactMetricInterface[][];
+  // Legacy metrics always as singletons
+  legacyMetricSingles: MetricInterface[];
 }
 
 export function getFactMetricGroups(
@@ -110,32 +120,37 @@ export function getFactMetricGroups(
   integration: SourceIntegrationInterface,
   organization: OrganizationInterface,
 ): GroupedMetrics {
-  const defaultReturn: GroupedMetrics = {
-    groups: [],
-    singles: metrics,
-  };
+  const legacyMetrics: MetricInterface[] = metrics.filter((m) =>
+    isLegacyMetric(m),
+  );
+  const factMetrics: FactMetricInterface[] = metrics.filter(isFactMetric);
 
-  // Metrics might have different conversion windows which makes the query super complicated
-  if (settings.skipPartialData) {
-    return defaultReturn;
-  }
+  const defaultReturn: GroupedMetrics = {
+    // by default, put all fact metrics in their own group
+    factMetricGroups: factMetrics.map((m) => [m]),
+    legacyMetricSingles: legacyMetrics,
+  };
 
   // Combining metrics in a single query is an Enterprise-only feature
   if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
     return defaultReturn;
   }
 
+  // Metrics might have different conversion windows which makes the query complicated
+  // TODO(sql): join together metrics with the same date windows for some added efficiency
+  if (settings.skipPartialData) {
+    return defaultReturn;
+  }
+
   // Org-level setting (in case the multi-metric query introduces bugs)
+  // TODO(sql): deprecate this setting and hide it for orgs that have not set it
   if (organization.settings?.disableMultiMetricQueries) {
     return defaultReturn;
   }
 
-  // Group metrics by fact table id
+  // Group fact metrics into efficient groups (primarily if they share a fact table)
   const groups: Record<string, FactMetricInterface[]> = {};
-  metrics.forEach((m) => {
-    // Only fact metrics
-    if (!isFactMetric(m)) return;
-
+  factMetrics.forEach((m) => {
     // Skip grouping metrics with percentile caps or quantile metrics if there's not an efficient implementation
     if (
       (m.cappingSettings.type === "percentile" || quantileMetricType(m)) &&
@@ -158,17 +173,16 @@ export function getFactMetricGroups(
     groupArrays.push(...chunks);
   });
 
-  // Add any metrics that aren't in groupArrays to the singles array
-  const singles: ExperimentMetricInterface[] = [];
-  metrics.forEach((m) => {
-    if (!isFactMetric(m) || !groupArrays.some((group) => group.includes(m))) {
-      singles.push(m);
+  // Add unused fact metrics as singles to the group array
+  factMetrics.forEach((m) => {
+    if (!groupArrays.some((group) => group.includes(m))) {
+      groupArrays.push([m]);
     }
   });
 
   return {
-    groups: groupArrays,
-    singles,
+    factMetricGroups: groupArrays,
+    legacyMetricSingles: legacyMetrics,
   };
 }
 
@@ -284,16 +298,16 @@ export const startExperimentResultQueries = async (
     queries.push(unitQuery);
   }
 
-  const { groups, singles } = getFactMetricGroups(
+  const { factMetricGroups, legacyMetricSingles } = getFactMetricGroups(
     selectedMetrics,
     params.snapshotSettings,
     integration,
     org,
   );
 
-  for (const m of singles) {
+  for (const m of legacyMetricSingles) {
     const denominatorMetrics: MetricInterface[] = [];
-    if (!isFactMetric(m) && m.denominator) {
+    if (m.denominator) {
       denominatorMetrics.push(
         ...expandDenominatorMetrics(
           m.denominator,
@@ -332,7 +346,7 @@ export const startExperimentResultQueries = async (
     );
   }
 
-  for (const [i, m] of groups.entries()) {
+  for (const [i, m] of factMetricGroups.entries()) {
     // Only run overall quantile analysis for standard snapshots
     // regardless of how many dimensions are requested
     const runOverallQuantileAnalysis =

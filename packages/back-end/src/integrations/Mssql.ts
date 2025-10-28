@@ -74,6 +74,10 @@ export default class Mssql extends SqlIntegration {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? this.ensureFloat(raw) : raw;
   }
+  evalBoolean(col: string, value: boolean): string {
+    // MS SQL does not support `IS TRUE` / `IS FALSE`
+    return `${col} = ${value ? "1" : "0"}`;
+  }
   getDefaultDatabase() {
     return this.params.database;
   }

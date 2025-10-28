@@ -9,7 +9,6 @@ import SelectField from "@/components/Forms/SelectField";
 import {
   getDefaultVariationValue,
   getFeatureDefaultValue,
-  getRules,
 } from "@/services/features";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
@@ -18,13 +17,11 @@ import Callout from "@/ui/Callout";
 
 export default function BanditRefFields({
   feature,
-  environment,
-  i,
+  existingRule,
   changeRuleType,
 }: {
   feature: FeatureInterface;
-  environment: string;
-  i: number;
+  existingRule: boolean;
   changeRuleType: (v: string) => void;
 }) {
   const form = useFormContext();
@@ -32,8 +29,6 @@ export default function BanditRefFields({
   const { experiments, experimentsMap } = useExperiments();
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
-
-  const rules = getRules(feature, environment);
 
   const experimentOptions = experiments
     .filter(
@@ -58,8 +53,8 @@ export default function BanditRefFields({
             label="Bandit"
             initialOption="Choose One..."
             options={experimentOptions}
-            readOnly={!!rules[i]}
-            disabled={!!rules[i]}
+            readOnly={existingRule}
+            disabled={existingRule}
             required
             sort={false}
             value={experimentId || ""}
@@ -101,7 +96,7 @@ export default function BanditRefFields({
               return label;
             }}
           />
-        ) : !rules[i] ? (
+        ) : !existingRule ? (
           <div className="alert alert-warning">
             <div className="d-flex align-items-center">
               {experiments.length > 0
@@ -126,7 +121,7 @@ export default function BanditRefFields({
           </div>
         )}
 
-        {selectedExperiment && rules[i] && (
+        {selectedExperiment && existingRule && (
           <div className="appbox px-3 pt-3">
             <Callout status="info" mb="5">
               <Link href={`/bandit/${selectedExperiment.id}#overview`}>

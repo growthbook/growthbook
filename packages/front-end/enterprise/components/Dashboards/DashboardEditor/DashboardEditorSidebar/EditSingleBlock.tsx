@@ -1,22 +1,24 @@
-import { Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton, Separator, Text } from "@radix-ui/themes";
 import {
   DashboardBlockInterfaceOrData,
   DashboardBlockInterface,
   DashboardBlockType,
 } from "back-end/src/enterprise/validators/dashboard-block";
-import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import {
   blockHasFieldOfType,
   isDifferenceType,
   isMetricSelector,
   metricSelectors,
+  pinSources,
 } from "shared/enterprise";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { isDefined, isNumber, isString, isStringArray } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { PiPencilSimpleFill, PiPlus } from "react-icons/pi";
+import { PiPencilSimpleFill, PiPlus, PiPushPinFill } from "react-icons/pi";
 import { expandMetricGroups } from "shared/experiments";
 import Button from "@/ui/Button";
+import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
@@ -28,14 +30,18 @@ import { RESULTS_TABLE_COLUMNS } from "@/components/Experiment/ResultsTable";
 import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
-import Checkbox from "@/ui/Checkbox";
 import Avatar from "@/ui/Avatar";
 import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
-import {
-  DashboardSnapshotContext,
-  useDashboardSnapshot,
-} from "../../DashboardSnapshotProvider";
 import { BLOCK_TYPE_INFO } from "..";
+import {
+  useDashboardSnapshot,
+  DashboardSnapshotContext,
+} from "../../DashboardSnapshotProvider";
+import {
+  ExperimentMetricBlockContext,
+  ExperimentTimeSeriesBlockContext,
+} from "./types";
+import { useBlockContext } from "./useBlockContext";
 
 type RequiredField = {
   field: string;
@@ -114,16 +120,18 @@ export default function EditSingleBlock({
     [metricGroups],
   );
 
+  const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
+  const [selectedMetricIdForPinning, setSelectedMetricIdForPinning] =
+    useState<string>("");
+
   const { analysis } = useDashboardSnapshot(block, setBlock);
   const { defaultSnapshot, dimensionless } = useContext(
     DashboardSnapshotContext,
   );
 
-  const dimensionValueOptions = analysis?.results
-    ? analysis.results.map(({ name }) => ({ value: name, label: name }))
-    : [];
-
-  const [showSqlExplorerModal, setShowSqlExplorerModal] = useState(false);
+  // Get block context from workspace level
+  const blockId = blockHasFieldOfType(block, "id", isString) ? block.id : null;
+  const blockContext = useBlockContext(blockId);
 
   const metricOptions = useMemo(() => {
     const getMetrics = (metricOrGroupIds: string[]) => {
@@ -188,6 +196,170 @@ export default function EditSingleBlock({
     ];
   }, [experiment, getExperimentMetricById, metricGroups, metricGroupMap]);
 
+  // Filtered metric options based on the block's metricSelector
+  const filteredMetricOptions = useMemo(() => {
+    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) {
+      return metricOptions;
+    }
+
+    const selector = block.metricSelector;
+
+    // For custom selector, show all metrics that are in the block's metricIds
+    if (selector === "custom") {
+      const customMetricIds = expandMetricGroups(
+        block.metricIds ?? [],
+        metricGroups,
+      );
+      return metricOptions
+        .map((group) => ({
+          ...group,
+          options: group.options.filter((option) =>
+            customMetricIds.includes(option.value),
+          ),
+        }))
+        .filter((group) => group.options.length > 0);
+    }
+
+    // For specific selectors, filter to only show metrics from that category
+    if (selector === "experiment-goal") {
+      return metricOptions.filter((group) => group.label === "Goal Metrics");
+    }
+    if (selector === "experiment-secondary") {
+      return metricOptions.filter(
+        (group) => group.label === "Secondary Metrics",
+      );
+    }
+    if (selector === "experiment-guardrail") {
+      return metricOptions.filter(
+        (group) => group.label === "Guardrail Metrics",
+      );
+    }
+
+    return metricOptions;
+  }, [metricOptions, block, metricGroups]);
+
+  // Reset selectedMetricIdForPinning if it's no longer allowed by the current metricSelector
+  useEffect(() => {
+    if (!selectedMetricIdForPinning) return;
+    if (!blockHasFieldOfType(block, "metricSelector", isMetricSelector)) return;
+
+    const selector = block.metricSelector;
+    let isAllowed = false;
+
+    // Check if the selected metric is allowed by the current selector
+    if (selector === "custom") {
+      isAllowed = expandMetricGroups(
+        block.metricIds ?? [],
+        metricGroups,
+      ).includes(selectedMetricIdForPinning);
+    } else if (selector === "experiment-goal") {
+      isAllowed = expandMetricGroups(
+        experiment.goalMetrics,
+        metricGroups,
+      ).includes(selectedMetricIdForPinning);
+    } else if (selector === "experiment-secondary") {
+      isAllowed = expandMetricGroups(
+        experiment.secondaryMetrics,
+        metricGroups,
+      ).includes(selectedMetricIdForPinning);
+    } else if (selector === "experiment-guardrail") {
+      isAllowed = expandMetricGroups(
+        experiment.guardrailMetrics,
+        metricGroups,
+      ).includes(selectedMetricIdForPinning);
+    }
+
+    if (!isAllowed) {
+      setSelectedMetricIdForPinning("");
+    }
+  }, [block, selectedMetricIdForPinning, experiment, metricGroups]);
+
+  const getSliceOptions = (metricId: string) => {
+    if (!metricId) return [];
+
+    // If we have context with sliceData, use it
+    if (
+      blockContext &&
+      "sliceData" in blockContext &&
+      Array.isArray(blockContext.sliceData)
+    ) {
+      // Filter slice data for the selected metric
+      const metricSliceData = (
+        blockContext as
+          | ExperimentMetricBlockContext
+          | ExperimentTimeSeriesBlockContext
+      ).sliceData.filter((slice) => {
+        // Extract metric ID from the pinned key (format: metricId?slice_querystring&location=location)
+        const sliceMetricId = slice.value.split("?")[0];
+        return sliceMetricId === metricId;
+      });
+      return metricSliceData;
+    }
+
+    return [];
+  };
+
+  const isSlicePinned = (pinKey: string) => {
+    if (!block) return false;
+
+    // If we have context with isSlicePinned function, use it
+    if (
+      blockContext &&
+      "isSlicePinned" in blockContext &&
+      typeof blockContext.isSlicePinned === "function"
+    ) {
+      return blockContext.isSlicePinned(pinKey) || false;
+    }
+
+    return false;
+  };
+
+  const toggleSlicePin = (pinKey: string, checked: boolean) => {
+    if (
+      !block ||
+      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
+    )
+      return;
+
+    const newPinnedSlices = checked
+      ? [...block.pinnedMetricSlices, pinKey]
+      : block.pinnedMetricSlices.filter((id) => id !== pinKey);
+
+    setBlock({
+      ...block,
+      pinnedMetricSlices: newPinnedSlices,
+    } as typeof block);
+  };
+
+  const getSelectAllState = () => {
+    if (
+      !block ||
+      !blockHasFieldOfType(block, "pinnedMetricSlices", isStringArray)
+    )
+      return false;
+
+    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
+    const pinnedCount = sliceOptions.filter((slice) =>
+      block.pinnedMetricSlices.includes(slice.value),
+    ).length;
+
+    if (pinnedCount === 0) return false;
+    if (pinnedCount === sliceOptions.length) return true;
+    return "indeterminate";
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (!block) return;
+
+    const sliceOptions = getSliceOptions(selectedMetricIdForPinning);
+    const pinKeys = sliceOptions.map((slice) => slice.value);
+
+    setBlock({
+      ...block,
+      pinnedMetricSlices: checked ? pinKeys : [],
+    } as typeof block);
+  };
+
   const dimensionOptions = useMemo(() => {
     const datasource = getDatasourceById(experiment.datasource);
     return getDimensionOptions({
@@ -214,6 +386,10 @@ export default function EditSingleBlock({
     defaultSnapshot,
     dimensionless,
   ]);
+
+  const dimensionValueOptions = analysis?.results
+    ? analysis.results.map(({ name }) => ({ value: name, label: name }))
+    : [];
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -577,6 +753,168 @@ export default function EditSingleBlock({
                 }}
               />
             )}
+            {blockHasFieldOfType(block, "pinSource", isString) ? (
+              <SelectField
+                label="Pin slice rows"
+                containerClassName="mb-2"
+                value={block.pinSource || "experiment"}
+                onChange={(value) =>
+                  setBlock({
+                    ...block,
+                    pinSource: value as (typeof pinSources)[number],
+                    // Reset pinnedMetricSlices when switching to experiment or none
+                    pinnedMetricSlices:
+                      value === "custom" ? block.pinnedMetricSlices || [] : [],
+                  } as DashboardBlockInterface & { pinSource: string })
+                }
+                options={pinSources.map((source) => ({
+                  value: source,
+                  label:
+                    source === "experiment"
+                      ? "Use Experiment"
+                      : source === "custom"
+                        ? "Custom"
+                        : "None",
+                }))}
+                sort={false}
+              />
+            ) : null}
+            {blockHasFieldOfType(block, "pinSource", isString) &&
+              block.pinSource === "custom" && (
+                <div className="border rounded mb-2">
+                  <div className="px-3 pt-2 pb-1 border-bottom">
+                    <PiPushPinFill className="mr-1" style={{ marginTop: -2 }} />
+                    <Text weight="medium">Custom Pin Selection</Text>
+
+                    <SelectField
+                      label="Select Metric"
+                      containerClassName="mt-3"
+                      value={selectedMetricIdForPinning || ""}
+                      onChange={(value) => setSelectedMetricIdForPinning(value)}
+                      options={filteredMetricOptions}
+                      sort={false}
+                      formatOptionLabel={({ label, value }) => (
+                        <Flex align="center" justify="between" gap="3">
+                          <Box
+                            flexGrow="1"
+                            overflow="hidden"
+                            style={{ textOverflow: "ellipsis" }}
+                          >
+                            <Text>{label}</Text>
+                          </Box>
+                          <Box flexShrink="0">
+                            <Text size="1" color="gray">
+                              {
+                                getSliceOptions(value)
+                                  .map((slice) => isSlicePinned(slice.value))
+                                  .filter(Boolean).length
+                              }{" "}
+                              of {getSliceOptions(value).length} pinned
+                            </Text>
+                          </Box>
+                        </Flex>
+                      )}
+                    />
+                  </div>
+                  {selectedMetricIdForPinning ? (
+                    <div
+                      className="p-3"
+                      style={{ maxHeight: 200, overflowY: "auto" }}
+                    >
+                      {getSliceOptions(selectedMetricIdForPinning).length >
+                      0 ? (
+                        <>
+                          <Checkbox
+                            label="Select All"
+                            value={getSelectAllState()}
+                            setValue={handleSelectAll}
+                            size="sm"
+                            mb="4"
+                          />
+                          <Flex direction="column" gap="0.5">
+                            {getSliceOptions(selectedMetricIdForPinning).map(
+                              (slice) => {
+                                // Generate label from column + level pairs
+                                const labelParts = slice.sliceLevels.map(
+                                  (sl) => {
+                                    if (sl.datatype === "boolean") {
+                                      const value =
+                                        sl.levels.length === 0
+                                          ? "null"
+                                          : sl.levels[0] === "true"
+                                            ? "true"
+                                            : "false";
+                                      return (
+                                        <span key={sl.column}>
+                                          {sl.column}:{" "}
+                                          <span
+                                            style={{
+                                              fontVariant: "small-caps",
+                                              fontWeight: 600,
+                                              fontSize: "16px",
+                                            }}
+                                          >
+                                            {value}
+                                          </span>
+                                        </span>
+                                      );
+                                    } else {
+                                      const value =
+                                        sl.levels.length === 0
+                                          ? "other"
+                                          : sl.levels[0];
+                                      return `${sl.column}: ${value}`;
+                                    }
+                                  },
+                                );
+
+                                const label =
+                                  labelParts.length === 1
+                                    ? labelParts[0]
+                                    : labelParts.reduce((acc, curr, index) => {
+                                        if (index === 0) return acc;
+                                        return (
+                                          <span key={index}>
+                                            {acc} + {curr}
+                                          </span>
+                                        );
+                                      });
+
+                                return (
+                                  <Checkbox
+                                    key={slice.value}
+                                    label={label}
+                                    value={isSlicePinned(slice.value)}
+                                    setValue={(checked) =>
+                                      toggleSlicePin(slice.value, checked)
+                                    }
+                                    size="sm"
+                                    weight="regular"
+                                  />
+                                );
+                              },
+                            )}
+                          </Flex>
+                        </>
+                      ) : (
+                        <Text
+                          weight="regular"
+                          color="gray"
+                          as="p"
+                          mx="4"
+                          my="2"
+                        >
+                          No slices available for this metric
+                        </Text>
+                      )}
+                    </div>
+                  ) : (
+                    <Text weight="regular" color="gray" as="p" mx="4" my="2">
+                      No metric selected
+                    </Text>
+                  )}
+                </div>
+              )}
             {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
               <MultiSelectField
                 label="Dimension Values"

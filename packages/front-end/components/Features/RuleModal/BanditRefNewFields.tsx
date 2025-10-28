@@ -42,7 +42,6 @@ export default function BanditRefNewFields({
   source,
   feature,
   project,
-  environment,
   environments,
   revisions,
   version,
@@ -68,8 +67,7 @@ export default function BanditRefNewFields({
   source: "rule" | "experiment";
   feature?: FeatureInterface;
   project?: string;
-  environment?: string;
-  environments?: string[];
+  environments: string[];
   revisions?: FeatureRevisionInterface[];
   version?: number;
   prerequisiteValue: FeaturePrerequisite[];
@@ -242,7 +240,7 @@ export default function BanditRefNewFields({
             feature={feature}
             revisions={revisions}
             version={version}
-            environments={environment ? [environment] : (environments ?? [])}
+            environments={environments ?? []}
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
