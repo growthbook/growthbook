@@ -21,10 +21,10 @@ export default function DashboardViewQueriesButton({
   buttonProps = {},
   hideQueryCount = false,
 }: Props) {
-  const { allQueries, snapshotError, refreshStatus } = useContext(
-    DashboardSnapshotContext,
-  );
-  const count = (allQueries ?? []).length;
+  const { allQueries, savedQueriesMap, snapshotError, refreshStatus } =
+    useContext(DashboardSnapshotContext);
+  const savedQueryIds = [...savedQueriesMap.keys()];
+  const count = (allQueries ?? []).length + savedQueryIds.length;
   return (
     <ViewAsyncQueriesButton
       ctaComponent={(onClick) => (
@@ -58,6 +58,7 @@ export default function DashboardViewQueriesButton({
       )}
       error={snapshotError}
       queries={allQueries.map((q) => q.query) ?? []}
+      savedQueries={savedQueryIds}
       icon={null}
       status={refreshStatus}
       hideQueryCount

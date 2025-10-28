@@ -39,7 +39,7 @@ GrowthBook evaluates user permissions based on whether an action is taking place
 
 For organizations without a Pro or Enterprise account, user permissions are evaluated solely based on their global role.
 
-:::note
+:::note Default role for self-registered users
 
 If your organization has enabled the setting to allow verified users to automatically join your organization, they will receive the `Collaborator` role by default when they join. However, you can change your organizations' default role at the bottom of the Team page.
 
@@ -67,11 +67,7 @@ Organizations using GrowthBook have a number of different ways of defining a use
 
 Regardless of the plan, all organizations can assign a global role when inviting a user which defines their permissions across all projects. If you have a Pro or Enterprise account, you can also assign project-level roles for each user.
 
-:::note
-
 For example, you can assign a user the global role of `Collaborator`, allowing them to view features and experiments, add comments, and contribute ideas. You can then assign them an `Experimenter` role for a specific project, which allows them to create and run experiments, but only for that project.
-
-:::
 
 And, for our Enterprise organizations, we offer the ability to create `Teams`, which are groups of users, all of which inherit the roles and permissions of the Team they're on.
 
@@ -113,7 +109,7 @@ If, however, you only want to hide a certain project from a user, you can assign
 
 If you need to apply these rules to many users as once, you can create a Team with the permissions needed, and then add users to that team. But, keep in mind, the user's permissions will be a combination of their user permissions, and the permissions of any team they are on, so after adding the user to a team, you may want to reduce their user-level permissions to ensure their previous user-level permissions don't override the permissions inherited by the team(s) they are on.
 
-:::note
+:::note Organization-level resources are not project-specific
 
 Within GrowthBook, not all resources are project-specific. For example, `Dimensions`, `Namespaces`, and `Presentations` all live at the organization level. This means that all users, regardless of role, will be able to view these resources.
 

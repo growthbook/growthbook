@@ -65,6 +65,33 @@ export async function getSavedQueries(req: AuthRequest, res: Response) {
   });
 }
 
+export async function getSavedQueriesByIds(
+  req: AuthRequest<null, { ids: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+
+  if (!orgHasPremiumFeature(context.org, "saveSqlExplorerQueries")) {
+    return res.status(200).json({
+      status: 200,
+      savedQueries: [],
+    });
+  }
+
+  const { ids } = req.params;
+  const savedQueryIds = ids.split(",");
+
+  const docs = await context.models.savedQueries.getByIds(savedQueryIds);
+
+  // Lookup table so we can return queries in the same order we received them
+  const map = new Map(docs.map((d) => [d.id, d]));
+
+  res.status(200).json({
+    status: 200,
+    savedQueries: savedQueryIds.map((id) => map.get(id) || null),
+  });
+}
+
 export async function getSavedQuery(
   req: AuthRequest<null, { id: string }>,
   res: Response,

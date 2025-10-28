@@ -226,7 +226,7 @@ const getUUID=()=>{const a=(a,b)=>{var c=new Date;c.setTime(c.getTime()+86400000
 
 ### What is the difference between a Dimension and a Segment?
 
-:::info
+:::info Dimensions recommended over Segments
 
 We recommend using Dimensions instead of Segments for new implementations. While Segments remain fully supported, we plan to deprecate them in a future release.
 
@@ -279,7 +279,7 @@ Users can only run read SELECT queries in GrowthBook. For security reasons, all 
 
 Write operations such as INSERT, UPDATE, DELETE, etc, are not permitted from any user-entered SQL.
 
-:::note
+:::note Pipeline Mode writes to your data warehouse
 
 Some GrowthBook features, such as [Pipeline Mode](/app/data-pipeline), may write temporary tables to your data warehouse to improve query performance. However, these write operations are managed by GrowthBook itself.
 
