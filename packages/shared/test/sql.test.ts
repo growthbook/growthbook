@@ -250,6 +250,10 @@ describe("isReadOnlySQL", () => {
     const sql = `-- /*\nDROP TABLE users\n-- */ SELECT 1`;
     expect(isReadOnlySQL(sql)).toBe(false);
   });
+  it("cannot be tricked by nested comments and an IN clause", () => {
+    const sql = `-- /*\nDELETE FROM users WHERE id NOT IN (--*/\nSELECT 1)`;
+    expect(isReadOnlySQL(sql)).toBe(false);
+  });
 });
 describe("isMultiStatementSQL", () => {
   it("should return true for multiple statements", () => {

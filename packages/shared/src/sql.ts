@@ -70,11 +70,41 @@ export function ensureLimit(sql: string, limit: number): string {
 }
 
 export function isReadOnlySQL(sql: string) {
-  const normalized = stripSQLComments(sql).toLowerCase();
+  // Strip comments
+  // This will be fooled by comments within strings, but
+  // Since we are only matching the first keyword, it is fine
+  let withoutComments = "";
+  let state: "lineComment" | "blockComment" | null = null;
+  const n = sql.length;
+  for (let i = 0; i < n; i++) {
+    const char = sql[i];
+    const nextChar = i + 1 < n ? sql[i + 1] : null;
+    if (state === "lineComment") {
+      if (char === "\n" || char === "\r") {
+        state = null; // End of line comment
+      }
+    } else if (state === "blockComment") {
+      if (char === "*" && nextChar === "/") {
+        state = null; // End of block comment
+        i++; // Skip the '/'
+      }
+    } else {
+      // Not in any special state
+      if (char === "-" && nextChar === "-") {
+        state = "lineComment";
+        i++; // Skip the second '-'
+      } else if (char === "/" && nextChar === "*") {
+        state = "blockComment";
+        i++; // Skip the '*'
+      } else {
+        withoutComments += char;
+      }
+    }
+  }
 
   // Check the first keyword (e.g. "select", "with", etc.)
-  const match = normalized.match(
-    /^\s*(with|select|explain|show|describe|desc)\b/,
+  const match = withoutComments.match(
+    /^\s*(with|select|explain|show|describe|desc)\b/i,
   );
   if (!match) return false;
 
