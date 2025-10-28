@@ -42,7 +42,7 @@ const ViewAsyncQueriesButton: FC<{
     <>
       {ctaComponent ? (
         ctaComponent(() => {
-          if (!queries.length) return;
+          if (totalQueries === 0) return;
           setOpen(!open);
         })
       ) : (
