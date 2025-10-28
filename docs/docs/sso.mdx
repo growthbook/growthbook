@@ -9,9 +9,7 @@ import MaxWidthImage from '@site/src/components/MaxWidthImage';
 
 # Enterprise SSO
 
-:::note
-
-SSO is available as part of our Enterprise plan.
+:::info SSO is available as part of our Enterprise plan
 
 :::
 
@@ -50,7 +48,7 @@ For SSO, make sure the following callback URL is whitelisted:
 
 For the best SSO user experience, enable offline access and refresh tokens in your Identity Provider.
 
-:::info Note
+:::info Configuring SSO
 
 With all the SSO providers listed below, replace the all caps values with values from the provider, JSON encode the object, and set to the `SSO_CONFIG` environment variable for GrowthBook.
 
@@ -177,8 +175,10 @@ With all the SSO providers listed below, replace the all caps values with values
 }
 ```
 
-:::note
+:::note Enabling offline access and OIDC compliance
+
 When setting up Auth0, please ensure that you've enabled offline access, and check the `OIDC Compliant` checkbox.
+
 :::
 
 ### Azure AD
@@ -201,7 +201,7 @@ When setting up Auth0, please ensure that you've enabled offline access, and che
 }
 ```
 
-:::note
+:::note Registering an Application in Azure
 
 In Azure, register an Application, instead of Enterprise, as we use OpenID Connect, not SAML.
 
