@@ -481,12 +481,6 @@ const sidebars = {
       label: "Insights",
     },
     {
-      type: "doc",
-      id: "product-analytics",
-      label: "Product Analytics",
-      className: "pill-new",
-    },
-    {
       type: "category",
       label: "SDKs",
       collapsed: false,

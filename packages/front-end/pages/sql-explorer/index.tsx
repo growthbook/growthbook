@@ -1,23 +1,34 @@
 import React, { useState } from "react";
+import { isProjectListValidForProject } from "shared/util";
 import { SavedQuery } from "back-end/src/validators/saved-queries";
-import { useRouter } from "next/router";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
+import LinkButton from "@/ui/LinkButton";
+import Button from "@/ui/Button";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SqlExplorerModal from "@/components/SchemaBrowser/SqlExplorerModal";
 import SavedQueriesList from "@/components/SavedQueries/SavedQueriesList";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumCallout from "@/ui/PremiumCallout";
-import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
 
 export default function SqlExplorer() {
+  const { datasources, project } = useDefinitions();
   const [showModal, setShowModal] = useState(false);
-  const router = useRouter();
 
   const { data, error, mutate } = useApi<{
     status: number;
     savedQueries: SavedQuery[];
   }>("/saved-queries");
+
+  const hasDatasource = datasources.some((d) =>
+    isProjectListValidForProject(d.projects, project),
+  );
+
+  const permissionsUtil = usePermissionsUtil();
+
+  const canCreateSavedQueries = permissionsUtil.canCreateSqlExplorerQueries({
+    projects: [project],
+  });
 
   const savedQueries = data?.savedQueries || [];
   const hasSavedQueries = savedQueries.length > 0;
@@ -36,15 +47,13 @@ export default function SqlExplorer() {
     return <LoadingOverlay />;
   }
 
-  if (!hasSavedQueries) {
-    router.replace("/404");
-    return;
-  }
-
   return (
     <div className="container pagecontents">
-      <div className="d-flex justify-content-between align-items-center">
+      <div className="d-flex justify-content-between align-items-center mb-4">
         <h1>SQL Explorer</h1>
+        {hasDatasource && canCreateSavedQueries && (
+          <Button onClick={() => setShowModal(true)}>New SQL Query</Button>
+        )}
       </div>
 
       <div className="mb-2">
@@ -58,28 +67,45 @@ export default function SqlExplorer() {
           </span>
         </PremiumCallout>
       </div>
-      <div className="mb-2">
-        <Callout status="info">
-          <span>
-            SQL Explorer is now part of <b>Product Analytics</b>. Add SQL
-            queries and visualizations as blocks within Dashboards.{" "}
-            <div className="d-inline-block">
-              <Link
-                underline="always"
-                style={{ display: "flex", alignItems: "center", gap: 3 }}
-                href="/product-analytics/dashboards"
-              >
-                Take me there
-                <PiArrowSquareOut />
-              </Link>
-            </div>
-          </span>
-        </Callout>
-      </div>
 
-      <div>
-        <SavedQueriesList savedQueries={savedQueries} mutate={mutate} />
-      </div>
+      {!hasSavedQueries ? (
+        <>
+          <div className="appbox p-5 text-center">
+            <h2>Explore Your Data</h2>
+            <p>
+              Write SQL, view results, create visualizations, and share with
+              your team.
+            </p>
+            <div className="mt-3">
+              {!hasDatasource ? (
+                <LinkButton href="/datasources">Connect Data Source</LinkButton>
+              ) : canCreateSavedQueries ? (
+                <Button onClick={() => setShowModal(true)}>
+                  Start Exploring
+                </Button>
+              ) : null}
+            </div>
+
+            <div className="mt-5">
+              <img
+                src="/images/empty-states/sql-explorer.png"
+                alt={"SQL Explorer"}
+                style={{ width: "100%", maxWidth: "900px", height: "auto" }}
+              />
+            </div>
+          </div>
+        </>
+      ) : (
+        <div>
+          <div className="mb-3">
+            <p className="text-muted">
+              Write SQL, view results, create visualizations, and share with
+              your team.
+            </p>
+          </div>
+          <SavedQueriesList savedQueries={savedQueries} mutate={mutate} />
+        </div>
+      )}
 
       {showModal && (
         <SqlExplorerModal
