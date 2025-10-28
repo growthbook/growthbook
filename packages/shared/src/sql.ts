@@ -193,11 +193,3 @@ export function isMultiStatementSQL(sql: string) {
 
   return false;
 }
-
-export function stripSQLComments(sql: string): string {
-  return sql
-    .trim()
-    .replace(/\/\*[\s\S]*?\*\//g, "") // remove block comments
-    .replace(/--.*$/gm, "") // remove line comments
-    .replace(/\s*;\s*$/, ""); // trim trailing semicolon
-}
