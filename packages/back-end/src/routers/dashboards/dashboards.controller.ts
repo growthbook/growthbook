@@ -222,6 +222,7 @@ export async function refreshDashboardData(
       factTableMap: await getFactTableMap(context),
       // TODO(adriel): Is this correct?
       fullRefresh: false,
+      incrementalRefreshStartTime: new Date(),
     });
   } else {
     await deleteSnapshotById(context.org.id, mainSnapshot.id);

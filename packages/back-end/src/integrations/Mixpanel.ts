@@ -85,6 +85,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
       this.decryptionError = true;
     }
   }
+  getCurrentTimestamp(): string {
+    throw new Error("Method not implemented.");
+  }
   getMetricAnalysisQuery(_: MetricAnalysisParams): string {
     throw new Error("Method not implemented.");
   }
