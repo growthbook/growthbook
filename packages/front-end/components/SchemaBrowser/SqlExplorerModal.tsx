@@ -69,7 +69,7 @@ export interface Props {
   header?: string;
   lockDatasource?: boolean; // Prevents changing data source. Useful if an org opens this from a data source id page, or when editing an experiment query that requires a certain data source
   trackingEventModalSource?: string;
-  onSave?: (savedQueryId: string | undefined) => void;
+  onSave?: (savedQueryId: string | undefined, name: string | undefined) => void;
 }
 
 export default function SqlExplorerModal({
@@ -373,7 +373,7 @@ export default function SqlExplorerModal({
         );
         mutate();
         // Call the onSave callback if it exists
-        onSave?.(res?.id);
+        onSave?.(res?.id, currentName);
         close();
       } catch (error) {
         setLoading(false);
@@ -409,7 +409,7 @@ export default function SqlExplorerModal({
       mutate();
       // Call the onSave callback after successful save
       if (onSave) {
-        onSave(id);
+        onSave(id, currentName);
       }
       close();
     } catch (error) {

@@ -535,7 +535,10 @@ export default function EditSingleBlock({
           initial={savedQuery}
           id={savedQuery?.id}
           dashboardId={dashboardId}
-          onSave={async (savedQueryId: string | undefined) => {
+          onSave={async (
+            savedQueryId: string | undefined,
+            name: string | undefined,
+          ) => {
             if (!block || block.type !== "sql-explorer" || !savedQueryId)
               return;
 
@@ -549,6 +552,7 @@ export default function EditSingleBlock({
             setBlock({
               ...block,
               savedQueryId,
+              title: name || "SQL Query",
             });
             setSqlExplorerType("existing");
 
