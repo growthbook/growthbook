@@ -355,7 +355,7 @@ export default function DashboardModal({
             {isGeneralDashboard && (
               <SelectField
                 label="View access"
-                disabled={hasGeneralDashboardSharing}
+                disabled={!hasGeneralDashboardSharing}
                 options={[
                   { label: "Organization members", value: "published" },
                   { label: "Only me", value: "private" },
