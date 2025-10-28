@@ -7,6 +7,7 @@ import {
 } from "back-end/src/types/Integration";
 import { TEST_QUERY_SQL } from "back-end/src/integrations/SqlIntegration";
 import { QueryMetadata } from "back-end/types/query";
+import { logger } from "back-end/src/util/logger";
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -52,6 +53,7 @@ function getSnowflakeQueryTagString(queryMetadata?: QueryMetadata) {
 
   // if still too long, just send the application key
   if (json.length > 2000) {
+    logger.warn("Snowflake query tag is too long, truncating", { json });
     json = JSON.stringify({
       application: "growthbook",
     });
