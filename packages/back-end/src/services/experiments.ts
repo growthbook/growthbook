@@ -1265,6 +1265,11 @@ export async function createSnapshot({
         experiment.id,
       ))
   ) {
+    const fullRefresh =
+      !useCache ||
+      (await context.models.incrementalRefresh.getByExperimentId(
+        experiment.id,
+      )) === undefined;
     const incrementalRefreshStartTime = new Date();
     const queryRunner = new ExperimentIncrementalRefreshQueryRunner(
       context,
@@ -1280,7 +1285,7 @@ export async function createSnapshot({
       // experiment ID used for table name
       queryParentId: experiment.id,
       factTableMap,
-      fullRefresh: !useCache, // TODO have different upstream setting govern whether to refresh entire pipeline
+      fullRefresh,
       snapshotType: type,
     });
     return queryRunner;
