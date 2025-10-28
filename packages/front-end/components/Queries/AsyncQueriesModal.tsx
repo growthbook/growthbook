@@ -20,6 +20,9 @@ const AsyncQueriesModal: FC<{
 }> = ({ queries, savedQueries, close, error: _error, inline }) => {
   const { data, error: apiError } = useApi<{ queries: QueryInterface[] }>(
     `/queries/${queries.join(",")}`,
+    {
+      shouldRun: () => queries.length > 0,
+    },
   );
   const shouldFetchSavedQueries = () => savedQueries.length > 0;
   const { data: savedQueryData, error: savedQueryError } = useApi<{
@@ -145,6 +148,19 @@ const AsyncQueriesModal: FC<{
               />
             )),
           )}
+      {/* Product analytics dashboards might not contain any "data", but they may contain saved queries. */}
+      {!data && savedQueryData && savedQueryData.savedQueries.length > 0 && (
+        <div className="p-3">
+          {savedQueryData.savedQueries.map((savedQuery, i) => (
+            <ExpandableSavedQuery
+              savedQuery={savedQuery}
+              i={i}
+              total={savedQueryData.savedQueries.length}
+              key={i}
+            />
+          ))}
+        </div>
+      )}
     </>
   );
 
@@ -173,7 +189,7 @@ const AsyncQueriesModal: FC<{
       size="max"
       closeCta="Close"
     >
-      {((!data && !apiError) ||
+      {((!data && !apiError && queries.length > 0) ||
         (shouldFetchSavedQueries() && !savedQueryData && !savedQueryError)) && (
         <LoadingOverlay />
       )}

@@ -29,7 +29,7 @@ export default function DashboardViewQueriesButton({
     <ViewAsyncQueriesButton
       ctaComponent={(onClick) => (
         <Button
-          disabled={allQueries.length === 0}
+          disabled={count === 0}
           onClick={onClick}
           className={className}
           style={{
