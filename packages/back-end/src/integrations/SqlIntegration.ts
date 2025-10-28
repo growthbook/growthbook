@@ -6536,7 +6536,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         f.metrics.some((fm) => fm.metric.id === m.metric.id),
       );
 
-      // cross metric statistics
       const percentileData: FactMetricPercentileData[] = [];
       factTableMetricData
         .filter((m) => m.isPercentileCapped)
@@ -6564,6 +6563,7 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
         "event",
       );
 
+      // Settings computed over all metrics attached to this fact table
       const maxHoursToConvert = Math.max(
         ...factTableMetricData.map((m) => m.maxHoursToConvert),
       );
@@ -6578,8 +6578,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
       );
 
       // Get date range for new metric data that is needed
-      // TODO(incremental-refresh): change for multi-source query
-      // to get last timestamp per source
       const lastMaxTimestamp = params.lastMaxTimestamp;
       const bindingLastMaxTimestamp =
         !!lastMaxTimestamp && lastMaxTimestamp > metricStart;
@@ -6893,8 +6891,6 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     );
   }
 
-  // TODO(adriel): This includes options that will expire the table by default.
-  // We need to find a better way to handle it
   getCreateMetricSourceCovariateTableQuery(
     params: CreateMetricSourceCovariateTableQueryParams,
   ): string {
@@ -6957,7 +6953,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
     const sortedMetrics = cloneDeep(params.metrics)
       .map((m) => ({
         ...m,
-        // turn off capping for covariate value creation
+        // turn off capping for covariate value creation as capping will be applied
+        // in the statistics query
         cappingSettings: { type: "" as const, value: 0 },
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
@@ -7306,7 +7303,8 @@ ${this.selectStarLimit("__topValues ORDER BY count DESC", limit)}
   }
 
   // TODO(incremental-refresh): only need to run one per group, while the rest of the metrics pipeline
-  // needs to run once per fact table
+  // needs to run once per fact table, once we allow metrics that cross
+  // fact tables to be added
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,
   ): string {
