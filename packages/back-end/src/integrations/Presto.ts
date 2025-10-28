@@ -161,7 +161,6 @@ export default class Presto extends SqlIntegration {
         variation ${this.getDataType("string")},
         first_exposure_timestamp ${this.getDataType("timestamp")}
       )
-      ${this.createUnitsTablePartitions(["first_exposure_timestamp"])}
       ${this.createUnitsTableOptions()}
     `,
       this.getFormatDialect(),
